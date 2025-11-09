@@ -91,6 +91,32 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 0
             );
 
+            // CPython 3.12: Objects/unicodeobject.c:10607-10614 - unicode_capitalize_impl
+            // Return a capitalized version of the string.
+            // More specifically, make the first character have upper case and the rest lower case.
+            strType.TypeDict["capitalize"] = new PyMethodDescriptor(
+                "capitalize", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"capitalize() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'capitalize' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    // Empty string remains empty
+                    if (str.Value.Length == 0)
+                        return str;
+
+                    // CPython 3.12: Objects/unicodeobject.c:9575-9596 - do_capitalize
+                    // First character to title case (upper for most chars), rest to lower case
+                    var textInfo = CultureInfo.InvariantCulture.TextInfo;
+                    return new PyString(
+                        char.ToUpperInvariant(str.Value[0]) +
+                        (str.Value.Length > 1 ? str.Value.Substring(1).ToLowerInvariant() : "")
+                    );
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
             // CPython 3.12: str.title() - titlecase the string
             strType.TypeDict["title"] = new PyMethodDescriptor(
                 "title", strType,

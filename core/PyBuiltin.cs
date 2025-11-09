@@ -1847,17 +1847,54 @@ namespace SharpPy
             if (args.Length > 1)
                 throw PyTypeError.Create($"dir expected at most 1 arguments ({args.Length} given)");
 
+            // CPython 3.12: Python/bltinmodule.c:844-851 - builtin_dir
+            // CPython 3.12: Objects/object.c:1754-1781 - _dir_object
+            // CPython 3.12: Objects/object.c:1788-1791 - PyObject_Dir
+
             if (args.Length == 0)
             {
                 // dir() with no arguments - return local variables
-                // For now, return empty list
+                // For now, return empty list (TODO: implement _dir_locals)
                 return new PyList();
             }
 
             var obj = args[0];
-            var attributes = new List<PyObject>();
+            var attributes = new HashSet<string>(); // Use HashSet to avoid duplicates
 
-            // Get object's __dict__ if available
+            // Step 1: Try to call __dir__() method if available
+            try
+            {
+                var dirMethod = obj.GetAttribute("__dir__");
+                if (dirMethod != null)
+                {
+                    // Call __dir__() and return sorted result
+                    var result = dirMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyList list)
+                    {
+                        // Sort and return
+                        var sortedItems = new List<PyObject>(list.Items);
+                        sortedItems.Sort((a, b) => a.ToString().CompareTo(b.ToString()));
+                        return new PyList(sortedItems);
+                    }
+                }
+            }
+            catch
+            {
+                // __dir__() not available or failed, continue with default behavior
+            }
+
+            // Step 2: Default behavior - collect attributes from type's TypeDict
+            var pyType = obj.GetPyType();
+            if (pyType != null && pyType.TypeDict != null)
+            {
+                // Add all attributes from the type's TypeDict
+                foreach (var key in pyType.TypeDict.Keys)
+                {
+                    attributes.Add(key);
+                }
+            }
+
+            // Step 3: Get object's __dict__ if available (instance attributes)
             try
             {
                 var dict = obj.GetAttribute("__dict__");
@@ -1865,53 +1902,33 @@ namespace SharpPy
                 {
                     foreach (var key in pyDict.Keys().Items)
                     {
-                        attributes.Add(key);
+                        if (key is PyString keyStr)
+                        {
+                            attributes.Add(keyStr.Value);
+                        }
                     }
                 }
             }
             catch
             {
-                // No __dict__, continue with other attributes
+                // No __dict__, that's fine
             }
 
-            // Add common attributes based on object type
-            if (obj is PyString)
+            // Step 4: Add standard object attributes
+            attributes.Add("__class__");
+            attributes.Add("__doc__");
+            attributes.Add("__module__");
+
+            // Step 5: Convert to sorted list and return
+            var sortedAttributes = new List<PyObject>();
+            var sortedNames = new List<string>(attributes);
+            sortedNames.Sort();
+            foreach (var name in sortedNames)
             {
-                attributes.AddRange(new[] { 
-                    new PyString("capitalize"), new PyString("center"), new PyString("count"),
-                    new PyString("endswith"), new PyString("find"), new PyString("format"),
-                    new PyString("join"), new PyString("lower"), new PyString("replace"),
-                    new PyString("split"), new PyString("startswith"), new PyString("strip"),
-                    new PyString("upper")
-                });
-            }
-            else if (obj is PyList)
-            {
-                attributes.AddRange(new[] {
-                    new PyString("append"), new PyString("count"), new PyString("extend"),
-                    new PyString("index"), new PyString("insert"), new PyString("pop"),
-                    new PyString("remove"), new PyString("reverse"), new PyString("sort")
-                });
-            }
-            else if (obj is PyDict)
-            {
-                attributes.AddRange(new[] {
-                    new PyString("clear"), new PyString("copy"), new PyString("get"),
-                    new PyString("items"), new PyString("keys"), new PyString("pop"),
-                    new PyString("update"), new PyString("values")
-                });
+                sortedAttributes.Add(new PyString(name));
             }
 
-            // Add standard object attributes
-            attributes.AddRange(new[] {
-                new PyString("__class__"), new PyString("__doc__"), 
-                new PyString("__module__"), new PyString("__dict__")
-            });
-
-            // Sort alphabetically (like CPython)
-            attributes.Sort((a, b) => a.ToString().CompareTo(b.ToString()));
-
-            return new PyList(attributes);
+            return new PyList(sortedAttributes);
         }
 
         /// <summary>
