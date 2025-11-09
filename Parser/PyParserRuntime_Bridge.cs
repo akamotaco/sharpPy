@@ -2157,9 +2157,10 @@ namespace SharpPy.Generated
                     ConvertComprehensionList(dictComp.Generators)
                 ),
 
-                GeneratedGeneratorExp genExp => new GeneratorExpression(
+                GeneratedGeneratorExp genExp => CreateGeneratorExpressionWithLog(
                     ConvertAnyExpression(genExp.Elt),
-                    ConvertComprehensionList(genExp.Generators)
+                    ConvertComprehensionList(genExp.Generators),
+                    "ConvertAnyExpression"
                 ),
 
                 // Lambda expressions
@@ -2633,7 +2634,22 @@ namespace SharpPy.Generated
             var generators = ConvertComprehensionGenerators(expr.generators);
 
             // Create proper generator expression AST node
-            return new GeneratorExpression(element, generators);
+            return CreateGeneratorExpressionWithLog(element, generators, "ConvertGeneratorExpression");
+        }
+
+        /// <summary>
+        /// Create GeneratorExpression with debug logging to track object creation
+        /// </summary>
+        private static GeneratorExpression CreateGeneratorExpressionWithLog(
+            Expression element,
+            List<Comprehension> generators,
+            string callerLocation)
+        {
+            var genExpr = new GeneratorExpression(element, generators);
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[BRIDGE] Created GeneratorExpression: HashCode={genExpr.GetHashCode()}, RuntimeHashCode={System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(genExpr)}, Location={callerLocation}");
+#endif
+            return genExpr;
         }
 
         /// <summary>

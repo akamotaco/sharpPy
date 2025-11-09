@@ -367,6 +367,20 @@ namespace SharpPy
                     AnalyzeExpression(exprStmt.Expression);
                     break;
 
+                // CPython 3.12: symtable.c:1924-1932 - symtable_visit_assert
+                case AssertStatement assertStmt:
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  AnalyzeStatement: AssertStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // Analyze test expression
+                    AnalyzeExpression(assertStmt.Test);
+                    // Analyze optional message expression
+                    if (assertStmt.Msg != null)
+                    {
+                        AnalyzeExpression(assertStmt.Msg);
+                    }
+                    break;
+
                 case TryStatement tryStmt:
 #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: TryStatement in scope '{_currentTable?.GetName()}'");
@@ -1253,6 +1267,9 @@ namespace SharpPy
         /// </summary>
         private void AnalyzeExpression(Expression expr)
         {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"      AnalyzeExpression: type={expr.GetType().Name} in scope '{_currentTable?.GetName()}'");
+#endif
             switch (expr)
             {
                 case NameExpression name:
@@ -1564,7 +1581,7 @@ namespace SharpPy
             // Corresponds to PyDict_SetItem(st->st_blocks, ste->ste_id, ste)
             _astNodeToSymbolTable.Add(expr, compTable);
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"[SYMTABLE] Registered AST node: type={expr.GetType().Name}, HashCode={expr.GetHashCode()}, SymbolTable={scopeName}");
+            Console.WriteLine($"[SYMTABLE] Registered AST node: type={expr.GetType().Name}, HashCode={expr.GetHashCode()}, RuntimeHashCode={System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(expr)}, SymbolTable={scopeName}");
 #endif
 
             var savedTable = _currentTable;

@@ -11887,7 +11887,7 @@ namespace SharpPy
             if (_symbolTableBuilder != null)
             {
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"[COMPILER] PySymtable_Lookup: AST node type={genExp.GetType().Name}, HashCode={genExp.GetHashCode()}");
+                Console.WriteLine($"[COMPILER] PySymtable_Lookup: AST node type={genExp.GetType().Name}, HashCode={genExp.GetHashCode()}, RuntimeHashCode={System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(genExp)}");
 #endif
                 genSymbolTable = _symbolTableBuilder.LookupSymbolTable(genExp);
 #if DEBUG_COMPILER_LOG
