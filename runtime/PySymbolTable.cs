@@ -1267,9 +1267,6 @@ namespace SharpPy
         /// </summary>
         private void AnalyzeExpression(Expression expr)
         {
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"      AnalyzeExpression: type={expr.GetType().Name} in scope '{_currentTable?.GetName()}'");
-#endif
             switch (expr)
             {
                 case NameExpression name:
