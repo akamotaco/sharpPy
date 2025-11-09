@@ -72,10 +72,11 @@ namespace SharpPy
         private readonly List<SymbolTable> _children;
         private SymbolTable? _parent;
 
-        // CPython 3.12: symtable.h - ste_generator, ste_coroutine flags
+        // CPython 3.12: symtable.h - ste_generator, ste_coroutine, ste_comprehension flags
         // Set during symbol table analysis when yield/yield from/await are encountered
         public bool IsGenerator { get; set; }
         public bool IsCoroutine { get; set; }
+        public bool IsComprehension { get; set; }  // CPython 3.12: ste_comprehension flag
 
         public SymbolTable(string name, SymbolTableType type, SymbolTable? parent = null)
         {
@@ -86,6 +87,7 @@ namespace SharpPy
             _children = new List<SymbolTable>();
             IsGenerator = false;
             IsCoroutine = false;
+            IsComprehension = false;
         }
 
         public string GetName() => _name;
@@ -121,7 +123,9 @@ namespace SharpPy
             }
             symbol.Flags |= flags;
 
-            // If it's assigned locally, mark as local scope (unless already classified as Cell or Global)
+            // CPython 3.12: symtable.c:569 - analyze_name() sets scope to LOCAL for DEF_BOUND
+            // Note: In CPython, LOCAL means "locally bound" not "function local"
+            // The distinction between module-level and function-level is made during code generation
             if ((flags & SymbolFlags.Assigned) != 0 && symbol.Scope != SymbolScope.Cell && !symbol.IsGlobal())
             {
                 symbol.Scope = SymbolScope.Local;
@@ -224,6 +228,10 @@ namespace SharpPy
         private ConditionalWeakTable<Expression, SymbolTable> _astNodeToSymbolTable
             = new ConditionalWeakTable<Expression, SymbolTable>();
 
+        // CPython 3.12: st->st_stack - scope stack for nested scope tracking
+        // Used for symtable_extend_namedexpr_scope (symtable.c:1906)
+        private Stack<SymbolTable> _scopeStack = new Stack<SymbolTable>();
+
         public SymbolTable BuildSymbolTable(List<Statement> statements, string name = "<module>")
         {
 #if DEBUG_COMPILER_LOG
@@ -236,9 +244,13 @@ namespace SharpPy
             _cellProcessingInProgress.Clear();
             _recursionDepth = 0;
             _astNodeToSymbolTable.Clear();  // CPython 3.12: Clear st_blocks
+            _scopeStack.Clear();  // CPython 3.12: Clear scope stack
 
             _rootTable = new SymbolTable(name, SymbolTableType.Module);
             _currentTable = _rootTable;
+
+            // CPython 3.12: Push module onto scope stack
+            _scopeStack.Push(_rootTable);
 
             // Basic analysis - just track function and class definitions for now
             foreach (var statement in statements)
@@ -581,6 +593,9 @@ namespace SharpPy
             var savedTable = _currentTable;
             _currentTable = functionTable;
 
+            // CPython 3.12: Push onto scope stack (symtable.c:331)
+            _scopeStack.Push(_currentTable);
+
             // Add parameters to function scope - extract parameter names only
             foreach (var param in func.Parameters)
             {
@@ -618,6 +633,9 @@ namespace SharpPy
 
             // After analyzing body, resolve free variables
             ResolveFreeVariables(_currentTable);
+
+            // CPython 3.12: Pop from scope stack (symtable.c:353)
+            _scopeStack.Pop();
 
             _currentTable = savedTable;
         }
@@ -765,6 +783,86 @@ namespace SharpPy
                 parent = parent.GetParent();
             }
             return null;
+        }
+
+        /// <summary>
+        /// CPython 3.12: symtable.c:1906-1997 - symtable_extend_namedexpr_scope
+        /// Find the correct enclosing scope for a walrus variable in a comprehension.
+        /// Iterates through the scope stack in reverse order, skips comprehension scopes,
+        /// and adds the variable to the first Function or Module scope found.
+        /// </summary>
+        private void ExtendNamedExprScope(string varName)
+        {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"      ExtendNamedExprScope: Finding scope for walrus variable '{varName}'");
+            Console.WriteLine($"      Current scope: {_currentTable?.GetName()}, IsComprehension: {_currentTable?.IsComprehension}");
+            Console.WriteLine($"      Scope stack size: {_scopeStack.Count}");
+#endif
+
+            // CPython 3.12: Iterate over the stack from top (current) to bottom (module)
+            // ToArray() returns: [Comprehension (top/current), Function, Module (bottom)]
+            // We iterate from index 0 (current) upwards to find the enclosing scope
+            var scopeArray = _scopeStack.ToArray();
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"      Scope stack contents (top to bottom):");
+            for (int j = 0; j < scopeArray.Length; j++)
+            {
+                Console.WriteLine($"        [{j}]: {scopeArray[j].GetName()}, Type: {scopeArray[j].Type}, IsComprehension: {scopeArray[j].IsComprehension}");
+            }
+#endif
+
+            // Iterate from current scope (index 0) upwards through parent scopes
+            for (int i = 0; i < scopeArray.Length; i++)
+            {
+                var ste = scopeArray[i];
+
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"      Checking scope[{i}]: {ste.GetName()}, Type: {ste.Type}, IsComprehension: {ste.IsComprehension}");
+#endif
+
+                // CPython 3.12: If we find a comprehension scope, skip it
+                if (ste.IsComprehension)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"      ↳ Skipping comprehension scope");
+#endif
+                    continue;
+                }
+
+                // CPython 3.12: If we find a FunctionBlock entry, add as LOCAL (ASSIGNED)
+                if (ste.Type == SymbolTableType.Function)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"      ↳ Adding '{varName}' to function scope '{ste.GetName()}' as ASSIGNED (will use STORE_FAST)");
+#endif
+                    ste.DefineSymbol(varName, SymbolFlags.Assigned);
+                    return;
+                }
+
+                // CPython 3.12: If we find a ModuleBlock entry, add as GLOBAL (ASSIGNED)
+                if (ste.Type == SymbolTableType.Module)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"      ↳ Adding '{varName}' to module scope '{ste.GetName()}' as ASSIGNED (will use STORE_GLOBAL)");
+#endif
+                    ste.DefineSymbol(varName, SymbolFlags.Assigned);
+                    return;
+                }
+
+                // CPython 3.12: Class scopes are also skipped for walrus variables
+                if (ste.Type == SymbolTableType.Class)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"      ↳ Skipping class scope");
+#endif
+                    continue;
+                }
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"      ⚠️ WARNING: No suitable scope found for walrus variable '{varName}'");
+#endif
         }
 
         /// <summary>
@@ -1208,6 +1306,35 @@ namespace SharpPy
                     _currentTable?.DefineSymbol(walrus.Target, flags);
                     break;
 
+                case NamedExpression named:
+                    // CPython 3.12: symtable.c:2001-2020 - symtable_handle_namedexpr
+                    // Analyze the value expression first
+                    AnalyzeExpression(named.Value);
+
+                    // Add the target variable to the correct scope
+                    if (named.Target is NameExpression nameTarget)
+                    {
+                        // If we're inside a comprehension, use extend scope logic
+                        // Otherwise, add to current scope directly
+                        if (_currentTable?.IsComprehension == true)
+                        {
+                            // CPython 3.12: symtable.c:2015 - symtable_extend_namedexpr_scope
+                            ExtendNamedExprScope(nameTarget.Name);
+                        }
+                        else
+                        {
+                            // Direct assignment in function/module scope
+                            _currentTable?.DefineSymbol(nameTarget.Name, SymbolFlags.Assigned);
+                        }
+
+                        // CPython 3.12: symtable.c:2019 - VISIT(st, expr, e->v.NamedExpr.target)
+                        // Also visit the target as a USE in current scope (important for generator expressions!)
+                        // This marks the variable as USED in the comprehension scope, making it a FREE variable
+                        // which then causes the parent function to mark it as a CELL variable
+                        AnalyzeExpression(named.Target);
+                    }
+                    break;
+
                 case ConditionalExpression conditional:
                     // Analyze test, body, and orelse expressions
                     AnalyzeExpression(conditional.Test);
@@ -1289,6 +1416,9 @@ namespace SharpPy
             var savedTable = _currentTable;
             _currentTable = lambdaTable;
 
+            // CPython 3.12: Push onto scope stack (symtable.c:331)
+            _scopeStack.Push(_currentTable);
+
             // Add lambda parameters to scope
             foreach (var param in lambda.Args)
             {
@@ -1311,6 +1441,9 @@ namespace SharpPy
             // After analyzing body, resolve free variables
             ResolveFreeVariables(_currentTable);
 
+            // CPython 3.12: Pop from scope stack (symtable.c:353)
+            _scopeStack.Pop();
+
             _currentTable = savedTable;
         }
 
@@ -1326,6 +1459,9 @@ namespace SharpPy
 
             var savedTable = _currentTable;
             _currentTable = functionTable;
+
+            // CPython 3.12: Push onto scope stack (symtable.c:331)
+            _scopeStack.Push(_currentTable);
 
             foreach (var param in func.Parameters)
             {
@@ -1344,6 +1480,12 @@ namespace SharpPy
             {
                 AnalyzeStatement(stmt);
             }
+
+            // After analyzing body, resolve free variables
+            ResolveFreeVariables(_currentTable);
+
+            // CPython 3.12: Pop from scope stack (symtable.c:353)
+            _scopeStack.Pop();
 
             _currentTable = savedTable;
         }
@@ -1372,6 +1514,12 @@ namespace SharpPy
 
             var savedTable = _currentTable;
             _currentTable = compTable;
+
+            // CPython 3.12: Mark as comprehension (symtable.c:2555)
+            _currentTable.IsComprehension = true;
+
+            // CPython 3.12: Push onto scope stack (symtable.c:331)
+            _scopeStack.Push(_currentTable);
 
             // CPython 3.12: Mark as generator if needed (line 2593)
             if (isGenerator)
@@ -1410,6 +1558,9 @@ namespace SharpPy
 
             // CPython 3.12: Resolve free variables before exiting scope
             ResolveFreeVariables(_currentTable);
+
+            // CPython 3.12: Pop from scope stack (symtable.c:353)
+            _scopeStack.Pop();
 
             _currentTable = savedTable;
         }
@@ -1461,6 +1612,9 @@ namespace SharpPy
 
             var savedTable = _currentTable;
             _currentTable = classTable;
+
+            // CPython 3.12: Push onto scope stack (symtable.c:331)
+            _scopeStack.Push(_currentTable);
 
             // Analyze class body
             foreach (var stmt in cls.Body)

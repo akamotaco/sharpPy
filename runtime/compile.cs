@@ -3005,7 +3005,79 @@ namespace SharpPy
                     // Store to target variable (should be NameExpression)
                     if (named.Target is NameExpression nameTarget)
                     {
-                        EmitStoreVariable(nameTarget.Name);
+                        // CPython 3.12: Walrus variables use the current symbol table to determine scope
+                        // In inline comprehensions (PEP 709): STORE_FAST/STORE_GLOBAL
+                        // In generator expressions: STORE_DEREF if FREE variable
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"      🔍 NamedExpression: {nameTarget.Name}");
+                        Console.WriteLine($"      Symbol table: {_currentSymbolTable?.GetName()}, Type: {_currentSymbolTable?.Type}, Has symbol: {_currentSymbolTable?.GetSymbols().ContainsKey(nameTarget.Name)}");
+#endif
+                        // Check symbol scope in the CURRENT symbol table (not root _symbolTable!)
+                        if (_currentSymbolTable != null && _currentSymbolTable.GetSymbols().TryGetValue(nameTarget.Name, out var symbol))
+                        {
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"      Symbol scope: {symbol.Scope}, Table type: {_currentSymbolTable.Type}");
+#endif
+                            // Emit store instruction based on symbol scope AND symbol table type
+                            switch (symbol.Scope)
+                            {
+                                case SymbolScope.Local:
+                                    // CPython: LOCAL scope uses STORE_FAST if in function-like scope, STORE_NAME if in module
+                                    if (_currentSymbolTable.Type == SymbolTableType.Function)
+                                    {
+                                        var localIndex = GetOrAddVarName(nameTarget.Name);
+                                        EmitInstruction(ByteCodeOp.STORE_FAST, localIndex);
+#if DEBUG_COMPILER_LOG
+                                        Console.WriteLine($"      → Emitted STORE_FAST for {nameTarget.Name} (Function scope + LOCAL)");
+#endif
+                                    }
+                                    else
+                                    {
+                                        // Module scope: use STORE_NAME
+                                        var nameIndex = AddName(nameTarget.Name);
+                                        EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+#if DEBUG_COMPILER_LOG
+                                        Console.WriteLine($"      → Emitted STORE_NAME for {nameTarget.Name} (Module scope + LOCAL)");
+#endif
+                                    }
+                                    break;
+                                case SymbolScope.Global:
+                                    var globalIndex = AddName(nameTarget.Name);
+                                    EmitInstruction(ByteCodeOp.STORE_GLOBAL, globalIndex);
+#if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"      → Emitted STORE_GLOBAL for {nameTarget.Name}");
+#endif
+                                    break;
+                                case SymbolScope.Free:
+                                    // CPython 3.12: Free variables in generator expressions use STORE_DEREF
+                                    EmitStoreDeref(nameTarget.Name);
+#if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"      → Emitted STORE_DEREF for {nameTarget.Name} (FREE variable in genexpr)");
+#endif
+                                    break;
+                                case SymbolScope.Cell:
+                                    // CPython 3.12: Cell variables use STORE_DEREF
+                                    EmitStoreDeref(nameTarget.Name);
+#if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"      → Emitted STORE_DEREF for {nameTarget.Name} (CELL variable)");
+#endif
+                                    break;
+                                default:
+                                    EmitStoreVariable(nameTarget.Name);
+#if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"      → Fallback to EmitStoreVariable for {nameTarget.Name}");
+#endif
+                                    break;
+                            }
+                        }
+                        else
+                        {
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"      ⚠️ Symbol {nameTarget.Name} not found in current symbol table, using fallback");
+#endif
+                            // Fallback
+                            EmitStoreVariable(nameTarget.Name);
+                        }
                     }
                     else
                     {
@@ -6570,6 +6642,34 @@ namespace SharpPy
                         }
                     }
                     return false;
+
+                case JoinedStrExpression joinedStr:
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    🔍 Checking JoinedStrExpression with {joinedStr.Values.Count} values");
+                    #endif
+                    foreach (var value in joinedStr.Values)
+                    {
+                        if (ContainsSuperCallsInExpression(value))
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"    ✅ Found super() in JoinedStrExpression.Value");
+                            #endif
+                            return true;
+                        }
+                    }
+                    return false;
+
+                case FormattedValueExpression formattedValue:
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    🔍 Checking FormattedValueExpression");
+                    #endif
+                    bool hasSuper = ContainsSuperCallsInExpression(formattedValue.Value);
+                    if (formattedValue.FormatSpec != null)
+                        hasSuper |= ContainsSuperCallsInExpression(formattedValue.FormatSpec);
+                    #if DEBUG_LOG
+                    if (hasSuper) Console.WriteLine($"    ✅ Found super() in FormattedValueExpression");
+                    #endif
+                    return hasSuper;
 
                 case ConstantExpression:
                     return false;
@@ -10731,14 +10831,72 @@ namespace SharpPy
             #endif
             
             // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리 - 튜플 언패킹 지원
-            // CPython의 ste_symbols와 동일하게, 모든 nested comprehension 변수 수집
-            var comprehensionVars = new List<string>();
-            CollectAllComprehensionVars(listComp, comprehensionVars);
-            
+            // CPython의 ste_symbols와 동일하게, loop 변수와 walrus 변수를 분리 수집
+            var comprehensionVars = new List<string>(); // Loop variables (for x in ...)
+            var walrusVars = new List<string>(); // Walrus variables (y := ...)
+
+            // Loop 변수 수집 (generator targets)
+            foreach (var gen in listComp.Generators)
+            {
+                CollectComprehensionVars(gen.Target, comprehensionVars);
+            }
+
+            // Walrus 변수 수집 (filter 조건 및 element 표현식에서)
+            CollectAllComprehensionVars(listComp, walrusVars);
+
+            // Walrus 변수에서 loop 변수 제거 (loop 변수는 Local, walrus만 Global)
+            for (int i = walrusVars.Count - 1; i >= 0; i--)
+            {
+                if (comprehensionVars.Contains(walrusVars[i]))
+                {
+                    walrusVars.RemoveAt(i);
+                }
+            }
+
+            // 전체 변수 = loop 변수 + walrus 변수 (LOAD_FAST_AND_CLEAR/STORE_FAST에 사용)
+            var allVars = new List<string>(comprehensionVars);
+            allVars.AddRange(walrusVars);
+
             #if DEBUG_LOG
-            Console.WriteLine($"🔧 List comprehension vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            Console.WriteLine($"🔧 List comprehension loop vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            Console.WriteLine($"🔧 List comprehension walrus vars: {string.Join(", ", walrusVars)} (count: {walrusVars.Count})");
+            Console.WriteLine($"🔧 List comprehension all vars: {string.Join(", ", allVars)} (count: {allVars.Count})");
             #endif
-            
+
+            // CPython 3.12 PEP 709: push_inlined_comprehension_state pattern
+            // 모듈 레벨에서만 Walrus 변수를 Global scope로 변경
+            // 함수 내부에서는 이미 Local (FAST) scope이므로 override 하지 않음
+            var savedSymbolScopes = new Dictionary<string, SymbolScope>();
+            var activeSymbolTable = _currentSymbolTable ?? _symbolTable;
+            if (activeSymbolTable != null && activeSymbolTable.GetType() == SymbolTableType.Module)
+            {
+                foreach (var varName in walrusVars) // walrus 변수만!
+                {
+                    if (activeSymbolTable.GetSymbols().TryGetValue(varName, out var symbol))
+                    {
+                        // 원래 scope 저장
+                        savedSymbolScopes[varName] = symbol.Scope;
+                        // 임시로 Global로 변경 (walrus 변수는 comprehension 내부에서 GLOBAL처럼 동작)
+                        symbol.Scope = SymbolScope.Global;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  📌 PEP 709: Override scope for '{varName}': {savedSymbolScopes[varName]} → Global");
+                        #endif
+                    }
+                    else
+                    {
+                        // Symbol table에 없는 변수는 새로 등록 (walrus 변수)
+                        var newSymbol = new Symbol(varName);
+                        newSymbol.Scope = SymbolScope.Global;
+                        newSymbol.Flags = SymbolFlags.Assigned;
+                        activeSymbolTable.GetSymbols()[varName] = newSymbol;
+                        savedSymbolScopes[varName] = SymbolScope.Unknown; // 나중에 삭제하기 위해 표시
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  📌 PEP 709: Add walrus variable '{varName}' as Global");
+                        #endif
+                    }
+                }
+            }
+
             // 1. First compile the iterator source (CPython 3.12 pattern)
             var firstGenerator = listComp.Generators[0];
 
@@ -10791,20 +10949,20 @@ namespace SharpPy
             // 첫 번째 generator가 단일 요소인 경우: GET_ITER 생성 안함
 
             // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)
-            foreach (var varName in comprehensionVars)
+            foreach (var varName in allVars)
             {
                 EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
 
             // 3. 첫 번째 SWAP: 스택 재배치 (CPython 3.12 정확한 순서)
-            if (comprehensionVars.Count > 0)
+            if (allVars.Count > 0)
             {
                 // CPython 3.12: SWAP 값 계산
                 // 일반적인 경우: 변수 개수 + 1 (iterator 포함)
                 // 첫 번째 generator 최적화된 경우: 변수 개수만 (iterator 없음)
-                int swapArg = firstGeneratorOptimized ? comprehensionVars.Count : comprehensionVars.Count + 1;
+                int swapArg = firstGeneratorOptimized ? allVars.Count : allVars.Count + 1;
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 CPython 3.12 첫 번째 SWAP: vars={comprehensionVars.Count}, firstOptimized={firstGeneratorOptimized}, swapArg={swapArg}");
+                Console.WriteLine($"🔧 CPython 3.12 첫 번째 SWAP: vars={allVars.Count}, firstOptimized={firstGeneratorOptimized}, swapArg={swapArg}");
                 #endif
                 EmitInstruction(ByteCodeOp.SWAP, swapArg); // 스택 재배치
             }
@@ -10839,22 +10997,50 @@ namespace SharpPy
 
             // CPython 3.12 PEP 709: 정상 종료 시 컴프리헨션 변수 복원
             // CPython 패턴: 한 번의 SWAP으로 모든 변수를 재배치한 후 순차적으로 저장
-            if (comprehensionVars.Count > 0)
+            if (allVars.Count > 0)
             {
-                // SWAP으로 스택 재배치: comprehensionVars.Count + 1
-                EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
+                // SWAP으로 스택 재배치: allVars.Count + 1
+                EmitInstruction(ByteCodeOp.SWAP, allVars.Count + 1);
                 #if DEBUG_LOG
-                Console.WriteLine($"🔄 CPython 3.12 스택 재배치: SWAP {comprehensionVars.Count + 1}");
+                Console.WriteLine($"🔄 CPython 3.12 스택 재배치: SWAP {allVars.Count + 1}");
                 #endif
 
                 // 역순으로 변수 저장 (CPython 3.12 패턴: 마지막 변수부터)
-                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+                for (int i = allVars.Count - 1; i >= 0; i--)
                 {
-                    var varName = comprehensionVars[i];
+                    var varName = allVars[i];
                     EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
                     #if DEBUG_LOG
                     Console.WriteLine($"🔄 변수 복원: {varName} (STORE_FAST {GetOrAddVarName(varName)})");
                     #endif
+                }
+            }
+
+            // CPython 3.12 PEP 709: pop_inlined_comprehension_state pattern
+            // Walrus 변수의 scope를 원래대로 복원
+            if (activeSymbolTable != null && savedSymbolScopes.Count > 0)
+            {
+                foreach (var kvp in savedSymbolScopes)
+                {
+                    var varName = kvp.Key;
+                    var originalScope = kvp.Value;
+
+                    if (originalScope == SymbolScope.Unknown)
+                    {
+                        // 새로 추가한 walrus 변수는 symbol table에서 제거
+                        activeSymbolTable.GetSymbols().Remove(varName);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  📌 PEP 709: Remove walrus variable '{varName}' from symbol table");
+                        #endif
+                    }
+                    else if (activeSymbolTable.GetSymbols().TryGetValue(varName, out var symbol))
+                    {
+                        // 원래 scope로 복원
+                        symbol.Scope = originalScope;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  📌 PEP 709: Restore scope for '{varName}': Global → {originalScope}");
+                        #endif
+                    }
                 }
             }
 
@@ -11187,13 +11373,69 @@ namespace SharpPy
             Console.WriteLine($"🔍 Dict comprehension 중첩 깊이 증가: {_comprehensionNestingDepth}");
             #endif
 
-            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리
-            var comprehensionVars = new List<string>();
-            CollectAllComprehensionVars(dictComp, comprehensionVars);
+            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리 - List comprehension과 동일
+            var comprehensionVars = new List<string>(); // Loop variables (for x in ...)
+            var walrusVars = new List<string>(); // Walrus variables (y := ...)
+
+            // Loop 변수 수집 (generator targets)
+            foreach (var gen in dictComp.Generators)
+            {
+                CollectComprehensionVars(gen.Target, comprehensionVars);
+            }
+
+            // Walrus 변수 수집 (filter 조건 및 key/value 표현식에서)
+            foreach (var gen in dictComp.Generators)
+            {
+                foreach (var ifExpr in gen.Ifs)
+                {
+                    CollectAllComprehensionVars(ifExpr, walrusVars);
+                }
+            }
+            CollectAllComprehensionVars(dictComp.Key, walrusVars);
+            CollectAllComprehensionVars(dictComp.Value, walrusVars);
+
+            // Walrus 변수에서 loop 변수 제거 (loop 변수는 Local, walrus만 Global)
+            for (int i = walrusVars.Count - 1; i >= 0; i--)
+            {
+                if (comprehensionVars.Contains(walrusVars[i]))
+                {
+                    walrusVars.RemoveAt(i);
+                }
+            }
+
+            // 전체 변수 = loop 변수 + walrus 변수 (LOAD_FAST_AND_CLEAR/STORE_FAST에 사용)
+            var allVars = new List<string>(comprehensionVars);
+            allVars.AddRange(walrusVars);
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔧 Dict comprehension vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            Console.WriteLine($"🔧 Dict comprehension loop vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            Console.WriteLine($"🔧 Dict comprehension walrus vars: {string.Join(", ", walrusVars)} (count: {walrusVars.Count})");
+            Console.WriteLine($"🔧 Dict comprehension all vars: {string.Join(", ", allVars)} (count: {allVars.Count})");
             #endif
+
+            // Walrus 변수의 scope를 임시로 Global로 변경 (CPython 3.12 push pattern)
+            // 모듈 레벨에서만 적용, 함수 내부에서는 이미 Local scope
+            var savedSymbolScopes = new Dictionary<string, SymbolScope>();
+            var activeSymbolTable = _currentSymbolTable ?? _symbolTable;
+            if (activeSymbolTable != null && activeSymbolTable.GetType() == SymbolTableType.Module)
+            {
+                foreach (var varName in walrusVars) // walrus 변수만!
+                {
+                    if (activeSymbolTable.GetSymbols().TryGetValue(varName, out var symbol))
+                    {
+                        savedSymbolScopes[varName] = symbol.Scope;
+                        symbol.Scope = SymbolScope.Global;
+                    }
+                    else
+                    {
+                        var newSymbol = new Symbol(varName);
+                        newSymbol.Scope = SymbolScope.Global;
+                        newSymbol.Flags = SymbolFlags.Assigned;
+                        activeSymbolTable.GetSymbols()[varName] = newSymbol;
+                        savedSymbolScopes[varName] = SymbolScope.Unknown;
+                    }
+                }
+            }
 
             // 1. First compile the iterator source (CPython 3.12 pattern)
             var firstGenerator = dictComp.Generators[0];
@@ -11240,16 +11482,16 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.GET_ITER);
             }
 
-            // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화
-            foreach (var varName in comprehensionVars)
+            // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)
+            foreach (var varName in allVars)  // allVars = loop vars + walrus vars
             {
                 EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
 
             // 3. 첫 번째 SWAP: 스택 재배치
-            if (comprehensionVars.Count > 0)
+            if (allVars.Count > 0)
             {
-                int swapArg = firstGeneratorOptimized ? comprehensionVars.Count : comprehensionVars.Count + 1;
+                int swapArg = firstGeneratorOptimized ? allVars.Count : allVars.Count + 1;
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
             }
 
@@ -11274,19 +11516,38 @@ namespace SharpPy
                 iterOnStack: true
             );
 
-            // 7. 변수 복원
-            if (comprehensionVars.Count > 0)
+            // 7. 변수 복원 (CPython 3.12 패턴)
+            if (allVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
+                EmitInstruction(ByteCodeOp.SWAP, allVars.Count + 1);
 
-                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+                for (int i = allVars.Count - 1; i >= 0; i--)
                 {
-                    var varName = comprehensionVars[i];
+                    var varName = allVars[i];
                     EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
                 }
             }
 
-            // 8. 컨텍스트 종료 (CFG가 exception table 자동 관리)
+            // 8. Walrus 변수의 scope를 원래대로 복원 (CPython 3.12 pop pattern)
+            if (_symbolTable != null && savedSymbolScopes.Count > 0)
+            {
+                foreach (var kvp in savedSymbolScopes)
+                {
+                    var varName = kvp.Key;
+                    var originalScope = kvp.Value;
+
+                    if (originalScope == SymbolScope.Unknown)
+                    {
+                        _symbolTable.GetSymbols().Remove(varName);
+                    }
+                    else if (_symbolTable.GetSymbols().TryGetValue(varName, out var symbol))
+                    {
+                        symbol.Scope = originalScope;
+                    }
+                }
+            }
+
+            // 9. 컨텍스트 종료 (CFG가 exception table 자동 관리)
             _isInComprehension = savedIsInComprehension;
             _comprehensionNestingDepth--;
 
@@ -11431,31 +11692,88 @@ namespace SharpPy
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
-            // CPython 3.12: CFG tracks exception table automatically
+            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리
+            var comprehensionVars = new List<string>(); // Loop variables (for x in ...)
+            var walrusVars = new List<string>(); // Walrus variables (y := ...)
 
-            // CPython 3.12: Set comprehension 스택 준비 (LIST comprehension과 동일한 패턴)
+            // Loop 변수 수집 (generator targets)
+            foreach (var gen in setComp.Generators)
+            {
+                CollectComprehensionVars(gen.Target, comprehensionVars);
+            }
+
+            // Walrus 변수 수집 (filter 조건 및 element 표현식에서)
+            foreach (var gen in setComp.Generators)
+            {
+                foreach (var ifExpr in gen.Ifs)
+                {
+                    CollectAllComprehensionVars(ifExpr, walrusVars);
+                }
+            }
+            CollectAllComprehensionVars(setComp.Element, walrusVars);
+
+            // Walrus 변수에서 loop 변수 제거 (loop 변수는 Local, walrus만 Global)
+            for (int i = walrusVars.Count - 1; i >= 0; i--)
+            {
+                if (comprehensionVars.Contains(walrusVars[i]))
+                {
+                    walrusVars.RemoveAt(i);
+                }
+            }
+
+            // 전체 변수 = loop 변수 + walrus 변수
+            var allVars = new List<string>(comprehensionVars);
+            allVars.AddRange(walrusVars);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Set comprehension loop vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            Console.WriteLine($"🔧 Set comprehension walrus vars: {string.Join(", ", walrusVars)} (count: {walrusVars.Count})");
+            Console.WriteLine($"🔧 Set comprehension all vars: {string.Join(", ", allVars)} (count: {allVars.Count})");
+            #endif
+
+            // Walrus 변수의 scope를 임시로 Global로 변경 (CPython 3.12 push pattern)
+            // 모듈 레벨에서만 적용, 함수 내부에서는 이미 Local scope
+            var savedSymbolScopes = new Dictionary<string, SymbolScope>();
+            var activeSymbolTable = _currentSymbolTable ?? _symbolTable;
+            if (activeSymbolTable != null && activeSymbolTable.GetType() == SymbolTableType.Module)
+            {
+                foreach (var varName in walrusVars) // walrus 변수만!
+                {
+                    if (activeSymbolTable.GetSymbols().TryGetValue(varName, out var symbol))
+                    {
+                        savedSymbolScopes[varName] = symbol.Scope;
+                        symbol.Scope = SymbolScope.Global;
+                    }
+                    else
+                    {
+                        var newSymbol = new Symbol(varName);
+                        newSymbol.Scope = SymbolScope.Global;
+                        newSymbol.Flags = SymbolFlags.Assigned;
+                        activeSymbolTable.GetSymbols()[varName] = newSymbol;
+                        savedSymbolScopes[varName] = SymbolScope.Unknown;
+                    }
+                }
+            }
+
+            // CPython 3.12: Set comprehension 스택 준비
             var firstGenerator = setComp.Generators[0];
-            var comprehensionVars = new List<string>();
 
             // 먼저 첫 번째 generator의 iterable 로드
             CompileExpression(firstGenerator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
 
-            // CPython의 ste_symbols와 동일하게, 모든 nested comprehension 변수 수집
-            CollectAllComprehensionVars(setComp, comprehensionVars);
-
-            // CPython 3.12: LOAD_FAST_AND_CLEAR
-            foreach (var varName in comprehensionVars)
+            // CPython 3.12: LOAD_FAST_AND_CLEAR (allVars 사용)
+            foreach (var varName in allVars)  // allVars = loop vars + walrus vars
             {
                 EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
 
             // CPython 3.12: 첫 번째 SWAP
-            if (comprehensionVars.Count > 0)
+            if (allVars.Count > 0)
             {
-                int swapArg = comprehensionVars.Count + 1;
+                int swapArg = allVars.Count + 1;
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 CPython 3.12 첫 번째 SWAP: vars={comprehensionVars.Count}, swapArg={swapArg}");
+                Console.WriteLine($"🔧 CPython 3.12 첫 번째 SWAP: vars={allVars.Count}, swapArg={swapArg}");
                 #endif
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
             }
@@ -11467,7 +11785,7 @@ namespace SharpPy
             #endif
 
             // CPython 3.12: 두 번째 SWAP
-            if (comprehensionVars.Count > 0)
+            if (allVars.Count > 0)
             {
                 EmitInstruction(ByteCodeOp.SWAP, 2);
                 #if DEBUG_LOG
@@ -11490,13 +11808,32 @@ namespace SharpPy
                 iterOnStack: true // 최외곽 iterator는 이미 스택에 있음
             );
 
-            // CPython 3.12: 스택 복원 (LIST comprehension과 동일)
-            if (comprehensionVars.Count > 0)
+            // CPython 3.12: 스택 복원
+            if (allVars.Count > 0)
             {
-                EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
-                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
+                EmitInstruction(ByteCodeOp.SWAP, allVars.Count + 1);
+                for (int i = allVars.Count - 1; i >= 0; i--)
                 {
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(comprehensionVars[i]));
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(allVars[i]));
+                }
+            }
+
+            // Walrus 변수의 scope를 원래대로 복원 (CPython 3.12 pop pattern)
+            if (activeSymbolTable != null && savedSymbolScopes.Count > 0)
+            {
+                foreach (var kvp in savedSymbolScopes)
+                {
+                    var varName = kvp.Key;
+                    var originalScope = kvp.Value;
+
+                    if (originalScope == SymbolScope.Unknown)
+                    {
+                        activeSymbolTable.GetSymbols().Remove(varName);
+                    }
+                    else if (activeSymbolTable.GetSymbols().TryGetValue(varName, out var symbol))
+                    {
+                        symbol.Scope = originalScope;
+                    }
                 }
             }
 
@@ -11702,40 +12039,9 @@ namespace SharpPy
 
             if (isComprehension)
             {
-                // Comprehension 변수들을 미리 수집
-                if (isListComprehension)
-                {
-                    var listComp = (ListComprehension)assignTarget.Value;
-                    foreach (var generator in listComp.Generators)
-                    {
-                        if (generator.Target is NameExpression name)
-                        {
-                            comprehensionVars.Add(name.Name);
-                        }
-                    }
-                }
-                else if (isDictComprehension)
-                {
-                    var dictComp = (DictComprehension)assignTarget.Value;
-                    foreach (var generator in dictComp.Generators)
-                    {
-                        if (generator.Target is NameExpression name)
-                        {
-                            comprehensionVars.Add(name.Name);
-                        }
-                    }
-                }
-                else if (isSetComprehension)
-                {
-                    var setComp = (SetComprehension)assignTarget.Value;
-                    foreach (var generator in setComp.Generators)
-                    {
-                        if (generator.Target is NameExpression name)
-                        {
-                            comprehensionVars.Add(name.Name);
-                        }
-                    }
-                }
+                // CPython 3.12: Comprehension 변수들을 재귀적으로 수집 (walrus operator 포함)
+                // CollectAllComprehensionVars를 사용하여 filter 조건의 walrus도 수집
+                CollectAllComprehensionVars(assignTarget.Value, comprehensionVars);
             }
 
             // Compile the value first
@@ -11954,14 +12260,27 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// Emit STORE_DEREF for cell variables (PEP 695)
+        /// Emit STORE_DEREF for cell/free variables
+        /// CPython 3.12: STORE_DEREF uses localsplus offset for both cell and free variables
         /// </summary>
         private void EmitStoreDeref(string varName)
         {
-            var index = _cellVars.IndexOf(varName);
-            if (index == -1)
-                throw new Exception($"Variable '{varName}' not found in cell variables");
-            EmitInstruction(ByteCodeOp.STORE_DEREF, index);
+            // CPython 3.12: Check free variables first (like EmitLoadDeref)
+            var freeIndex = _freeVars.IndexOf(varName);
+            if (freeIndex != -1)
+            {
+                // Free variable: emit freevars index (will be remapped to localsplus offset later)
+                // freevars start at offset ncellvars in the combined cellvars+freevars space
+                int combinedIndex = _cellVars.Count + freeIndex;
+                EmitInstruction(ByteCodeOp.STORE_DEREF, combinedIndex);
+                return;
+            }
+
+            // Cell variable
+            var cellIndex = _cellVars.IndexOf(varName);
+            if (cellIndex == -1)
+                throw new Exception($"Variable '{varName}' not found in cell or free variables");
+            EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
         }
         
         /// <summary>
@@ -12302,41 +12621,87 @@ namespace SharpPy
             switch (expr)
             {
                 case ListComprehension listComp:
-                    foreach (var gen in listComp.Generators)
-                    {
-                        CollectComprehensionVars(gen.Target, comprehensionVars);
-                    }
-                    // 재귀적으로 element 표현식의 nested comprehension도 수집
-                    CollectAllComprehensionVars(listComp.Element, comprehensionVars);
+                    // Nested comprehension: 별도의 scope이므로 재귀 중단
+                    // 이 comprehension 내부의 변수는 parent scope와 무관
                     break;
 
                 case SetComprehension setComp:
-                    foreach (var gen in setComp.Generators)
-                    {
-                        CollectComprehensionVars(gen.Target, comprehensionVars);
-                    }
-                    CollectAllComprehensionVars(setComp.Element, comprehensionVars);
+                    // Nested comprehension: 별도의 scope이므로 재귀 중단
                     break;
 
                 case DictComprehension dictComp:
-                    foreach (var gen in dictComp.Generators)
-                    {
-                        CollectComprehensionVars(gen.Target, comprehensionVars);
-                    }
-                    CollectAllComprehensionVars(dictComp.Key, comprehensionVars);
-                    CollectAllComprehensionVars(dictComp.Value, comprehensionVars);
+                    // Nested comprehension: 별도의 scope이므로 재귀 중단
                     break;
 
                 case GeneratorExpression genExpr:
-                    foreach (var gen in genExpr.Generators)
+                    // Nested generator: 별도의 scope이므로 재귀 중단
+                    break;
+
+                case NamedExpression namedExpr:
+                    // CPython 3.12: walrus operator (:=)로 할당된 변수 수집
+                    if (namedExpr.Target is NameExpression targetName)
                     {
-                        CollectComprehensionVars(gen.Target, comprehensionVars);
+                        if (!comprehensionVars.Contains(targetName.Name))
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"  📌 CollectAllComprehensionVars: Found walrus variable '{targetName.Name}'");
+                            #endif
+                            comprehensionVars.Add(targetName.Name);
+                        }
                     }
-                    CollectAllComprehensionVars(genExpr.Element, comprehensionVars);
+                    // value 표현식에 nested comprehension이 있을 수 있으므로 재귀
+                    CollectAllComprehensionVars(namedExpr.Value, comprehensionVars);
+                    break;
+
+                // CPython 3.12: 다른 표현식 타입도 재귀적으로 탐색 (walrus가 중첩될 수 있음)
+                case CompareExpression compExpr:
+                    // CPython 3.12: Comparison expressions (>, <, ==, etc.) contain operands that may have walrus
+                    CollectAllComprehensionVars(compExpr.Left, comprehensionVars);
+                    foreach (var comp in compExpr.Comparators)
+                    {
+                        CollectAllComprehensionVars(comp, comprehensionVars);
+                    }
+                    break;
+
+                case BinaryOpExpression binExpr:
+                    CollectAllComprehensionVars(binExpr.Left, comprehensionVars);
+                    CollectAllComprehensionVars(binExpr.Right, comprehensionVars);
+                    break;
+
+                case UnaryOpExpression unaryExpr:
+                    CollectAllComprehensionVars(unaryExpr.Operand, comprehensionVars);
+                    break;
+
+                case CallExpression callExpr:
+                    CollectAllComprehensionVars(callExpr.Function, comprehensionVars);
+                    foreach (var arg in callExpr.Arguments)
+                    {
+                        CollectAllComprehensionVars(arg, comprehensionVars);
+                    }
+                    break;
+
+                case ConditionalExpression condExpr:
+                    CollectAllComprehensionVars(condExpr.Test, comprehensionVars);
+                    CollectAllComprehensionVars(condExpr.Body, comprehensionVars);
+                    CollectAllComprehensionVars(condExpr.OrElse, comprehensionVars);
+                    break;
+
+                case TupleExpression tupleExpr:
+                    foreach (var elem in tupleExpr.Elements)
+                    {
+                        CollectAllComprehensionVars(elem, comprehensionVars);
+                    }
+                    break;
+
+                case ListExpression listExpr:
+                    foreach (var elem in listExpr.Elements)
+                    {
+                        CollectAllComprehensionVars(elem, comprehensionVars);
+                    }
                     break;
 
                 default:
-                    // 다른 표현식 타입은 무시 (comprehension 아님)
+                    // 다른 표현식 타입은 무시 (ConstantExpression, NameExpression 등)
                     break;
             }
         }
