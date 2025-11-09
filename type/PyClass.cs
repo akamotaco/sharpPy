@@ -341,14 +341,17 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"   ✅ found '{name}' in ClassDict: {value?.GetType().Name}");
                         #endif
-                        // Descriptor 처리 (CPython 3.12: Objects/typeobject.c:4830)
-                        // For class attribute access, only __get__ is checked (not data vs non-data)
+                        // Descriptor 처리 (CPython 3.12: Objects/typeobject.c:4835)
+                        // CPython: res = meta_get(meta_attribute, (PyObject *)type, (PyObject *)metatype);
+                        // When accessing type.__mro__, 'this' is the type metaclass (instance parameter)
                         if (PyClassInstance.IsDescriptor(value))
                         {
                             #if DEBUG_LOG
-                            Console.WriteLine($"   🔧 calling descriptor.__get__(null, {Name}) for '{name}'");
+                            Console.WriteLine($"   🔧 calling descriptor.__get__(this={Name}, owner={Name}) for '{name}'");
                             #endif
-                            var result = PyClassInstance.CallDescriptorGet(value, null, this);
+                            // CRITICAL: Pass 'this' as instance, not null
+                            // CPython passes the type object itself as the instance parameter
+                            var result = PyClassInstance.CallDescriptorGet(value, this, this);
                             #if DEBUG_LOG
                             Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                             #endif

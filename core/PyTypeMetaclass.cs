@@ -1284,6 +1284,14 @@ namespace SharpPy
 
         public PyObject Get(PyObject instance, PyType owner)
         {
+#if DEBUG_LOG
+            Console.WriteLine($"🔍 PyMroDescriptor.Get() called:");
+            Console.WriteLine($"  instance = {instance} (type: {instance?.GetType().Name})");
+            Console.WriteLine($"  owner = {owner} (type: {owner?.GetType().Name})");
+            Console.WriteLine($"  instance is PyClass? {instance is PyClass}");
+            Console.WriteLine($"  instance is PyType? {instance is PyType}");
+            Console.WriteLine($"  instance is PyTypeMetaclass? {instance is PyTypeMetaclass}");
+#endif
             // CPython 3.12: When accessing type.__mro__ (instance=NULL, owner=type),
             // return type's MRO, not the descriptor itself
             if (instance == null || instance == PyNone.Instance)

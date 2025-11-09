@@ -4672,12 +4672,13 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 RERAISE: Reraising exception: {exceptionToReraise}");
                         #endif
-                        throw new PythonException(exceptionToReraise);
+                        // CPython 3.12: RERAISE preserves existing traceback, don't add new frames
+                        throw new PythonException(exceptionToReraise, fromReraise: true);
                     }
 
                     // Fallback: use LastException if no exception on stack
                     if (frame.LastException != null)
-                        throw new PythonException(frame.LastException);
+                        throw new PythonException(frame.LastException, fromReraise: true);
                     break;
 
                 // F-String Support (PEP 701)
@@ -7196,12 +7197,37 @@ namespace SharpPy
         /// </summary>
         private void PyTraceBack_Here(PyFrame frame, PythonException pyEx)
         {
+            // CPython 3.12: RERAISE preserves existing traceback without adding new frames
+            if (pyEx.FromReraise)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"🔍 PyTraceBack_Here: Skipping traceback addition for RERAISE");
+#endif
+                return;
+            }
+
             // 1. Get existing traceback from exception (may be null)
             var existingTraceback = pyEx.PyException.__traceback__;
 
             // 2. Calculate lasti - CPython uses "next_instr-1" (ceval.c:941)
             // InstructionPointer points to NEXT instruction after exception, so subtract 1
             var lasti = Math.Max(0, frame.InstructionPointer - 1);
+
+            // CPython 3.12: Check if this frame is already in the traceback chain
+            // This prevents duplicate entries when exception propagates through same frame multiple times
+            // (e.g., in with statement cleanup code)
+            var tb = existingTraceback;
+            while (tb != null)
+            {
+                if (tb.Frame == frame)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"🔍 PyTraceBack_Here: Skipping duplicate - traceback already contains '{frame.Code.Name}' (existing lasti={tb.LastI}, current lasti={lasti})");
+#endif
+                    return;
+                }
+                tb = tb.Next;
+            }
 
             // 3. Get line number and column offset - try multiple strategies
             int lineNo = 0;

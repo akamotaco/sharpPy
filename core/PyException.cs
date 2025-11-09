@@ -596,19 +596,22 @@ namespace SharpPy
     public class PythonException : System.Exception
     {
         public PyBaseException PyException { get; }
-        
+
         // CPython-style error location information
         public string? FileName { get; set; }
         public int LineNumber { get; set; } = -1;
         public int ColumnOffset { get; set; } = -1;
         public List<string>? SourceLines { get; set; } // Source code lines for context display
 
+        // CPython 3.12: Track if exception is from RERAISE to preserve traceback
+        public bool FromReraise { get; set; } = false;
+
         public PythonException(PyBaseException pyException)
             : base(pyException.ToStr().Value)
         {
             PyException = pyException;
         }
-        
+
         public PythonException(PyBaseException pyException, string? fileName, int lineNumber, int columnOffset = -1)
             : base(pyException.ToStr().Value)
         {
@@ -616,6 +619,14 @@ namespace SharpPy
             FileName = fileName;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
+        }
+
+        // CPython 3.12: Constructor for RERAISE - preserves existing traceback
+        public PythonException(PyBaseException pyException, bool fromReraise)
+            : base(pyException.ToStr().Value)
+        {
+            PyException = pyException;
+            FromReraise = fromReraise;
         }
 
         public override string ToString()
