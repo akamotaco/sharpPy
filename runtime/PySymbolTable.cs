@@ -381,6 +381,36 @@ namespace SharpPy
                     }
                     break;
 
+                // CPython 3.12: symtable.c:1934-1949 - symtable_visit_raise
+                case RaiseStatement raiseStmt:
+                    // Analyze exception expression
+                    if (raiseStmt.Exc != null)
+                    {
+                        AnalyzeExpression(raiseStmt.Exc);
+                    }
+                    // Analyze cause expression
+                    if (raiseStmt.Cause != null)
+                    {
+                        AnalyzeExpression(raiseStmt.Cause);
+                    }
+                    break;
+
+                // CPython 3.12: symtable.c:2036-2044 - symtable_visit_delete
+                case DeleteStatement deleteStmt:
+                    // Analyze all delete targets
+                    foreach (var target in deleteStmt.Targets)
+                    {
+                        AnalyzeExpression(target);
+                    }
+                    break;
+
+                // CPython 3.12: No analysis needed for these statements
+                case BreakStatement:
+                case ContinueStatement:
+                case PassStatement:
+                    // No expressions to analyze
+                    break;
+
                 case TryStatement tryStmt:
 #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: TryStatement in scope '{_currentTable?.GetName()}'");
