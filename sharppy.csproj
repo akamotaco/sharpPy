@@ -19,9 +19,9 @@
 
   </PropertyGroup>
 
-  <!-- Debug 모드: LEGB + Compiler 디버그 로그 활성화 -->
+  <!-- Debug 모드: 디버그 로그 활성화 (LR 분석용) -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DefineConstants>DEBUG;TRACE;DEBUG_LOG;DEBUG_COMPILER_LOG</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;DEBUG_COMPILER_LOG;DEBUG_LOG</DefineConstants>
   </PropertyGroup>
 
   <!-- Release 모드: 디버그 로그 비활성화 -->
@@ -41,6 +41,7 @@
   - DEBUG_COMPILER_LOG: 컴파일러 로그 (바이트코드 생성)
   - DEBUG_VM_LOG: VM 로그 (바이트코드 실행)
   - DEBUG_GENERATOR_LOG: Generator 로그 (제너레이터 실행)
+  - DEBUG_MODULE_LOG : 모듈 로그
   -->
 
   <!-- Exclude build tools Program.cs and obj folders to avoid duplicate attributes -->

@@ -476,29 +476,41 @@ namespace SharpPy
             // we must NOT call the __new__ from the namespace being created,
             // because that would cause infinite recursion (ABCMeta.__new__ calling super().__new__ → CreateNewClass → ABCMeta.__new__ → ...)
             bool creatingMetaclass = false;
+            #if DEBUG_MODULE_LOG
             Console.WriteLine($"🔍 CreateNewClass: {nameStr.Value}, winner={winner?.GetPyType()?.Name ?? "null"}, bases={string.Join(", ", baseTypes.Select(b => b.GetPyType()?.Name ?? b.ToString()))}");
+            #endif
 
             foreach (var baseType in baseTypes)
             {
+                #if DEBUG_MODULE_LOG
                 Console.WriteLine($"  🔍 Checking base: {baseType.GetPyType()?.Name ?? baseType.ToString()}, Instance={baseType == Instance}, isMetaclass={baseType is PyTypeMetaclass}");
+                #endif
 
                 if (baseType == Instance || baseType is PyTypeMetaclass)
                 {
                     creatingMetaclass = true;
+                    #if DEBUG_MODULE_LOG
                     Console.WriteLine($"  ✅ Detected metaclass creation (base is type or PyTypeMetaclass)");
+                    #endif
                     break;
                 }
                 // Check if baseType is a subclass of type by checking its MRO
                 if (baseType is PyClass baseClass)
                 {
+                    #if DEBUG_MODULE_LOG
                     Console.WriteLine($"  🔍 Checking MRO for {baseClass.Name}...");
+                    #endif
                     foreach (var mroType in baseClass.MRO)
                     {
+                        #if DEBUG_MODULE_LOG
                         Console.WriteLine($"    - MRO entry: {mroType.GetPyType()?.Name ?? mroType.ToString()}");
+                        #endif
                         if (mroType == Instance || mroType is PyTypeMetaclass)
                         {
                             creatingMetaclass = true;
+                            #if DEBUG_MODULE_LOG
                             Console.WriteLine($"    ✅ Found type in MRO - this is a metaclass");
+                            #endif
                             break;
                         }
                     }
@@ -508,11 +520,15 @@ namespace SharpPy
 
             if (creatingMetaclass)
             {
+                #if DEBUG_MODULE_LOG
                 Console.WriteLine($"🔧 Creating metaclass '{nameStr.Value}' (subclass of type) - skipping custom __new__ check to prevent recursion");
+                #endif
             }
             else
             {
+                #if DEBUG_MODULE_LOG
                 Console.WriteLine($"📦 Creating regular class '{nameStr.Value}'");
+                #endif
             }
 
             // CPython: Check if the winner metaclass (or metatype if winner==metatype) has custom __new__
@@ -521,29 +537,39 @@ namespace SharpPy
             bool shouldCallCustomNew = false;
             PyObject customNewMethod = null;
 
+            #if DEBUG_MODULE_LOG
             Console.WriteLine($"🔍 Should check for custom __new__? skipCheck={skipMetaclassCheck}, creatingMetaclass={creatingMetaclass}, winner={winner?.GetPyType()?.Name ?? "null"}");
+            #endif
 
             if (!skipMetaclassCheck && !creatingMetaclass && winner != null && winner != Instance)
             {
                 // Try to get __new__ from the winner metaclass
+                #if DEBUG_MODULE_LOG
                 Console.WriteLine($"  ✅ Checking for custom __new__ on {winner.GetPyType()?.Name ?? winner.ToString()}");
+                #endif
                 try
                 {
                     var newMethod = winner.GetAttribute("__new__");
                     if (newMethod != null && newMethod.IsCallable())
                     {
                         bool isTypeNew = IsTypeNew(newMethod);
+                        #if DEBUG_MODULE_LOG
                         Console.WriteLine($"    Found __new__ method, isTypeNew={isTypeNew}, method={newMethod.GetType().Name}");
+                        #endif
 
                         if (!isTypeNew)
                         {
                             shouldCallCustomNew = true;
                             customNewMethod = newMethod;  // Store the method to reuse it
+                            #if DEBUG_MODULE_LOG
                             Console.WriteLine($"    ⚠️  Will call custom __new__");
+                            #endif
                         }
                         else
                         {
+                            #if DEBUG_MODULE_LOG
                             Console.WriteLine($"    ✅ Using default type.__new__");
+                            #endif
                         }
                     }
                 }
@@ -557,7 +583,9 @@ namespace SharpPy
             }
             else
             {
+                #if DEBUG_MODULE_LOG
                 Console.WriteLine($"  ⛔ Skipping custom __new__ check");
+                #endif
             }
 
             if (shouldCallCustomNew && customNewMethod != null)
