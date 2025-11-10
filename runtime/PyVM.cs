@@ -4856,87 +4856,65 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.UNPACK_EX:
-                    // CPython 3.12: Extended unpacking with star expressions (*args)
+                    // CPython 3.12: Python/ceval.c lines 1105-1112 (bytecodes.c)
+                    // CPython 3.12: Python/ceval.c lines 1950-2040 (unpack_iterable function)
                     // Argument encodes: lower 8 bits = count before star, upper 8 bits = count after star
                     var countBefore = instruction.Argument & 0xFF;
                     var countAfter = (instruction.Argument >> 8) & 0xFF;
 
                     var unpackExSequence = frame.ValueStack.Pop();
 
+                    PyObject[] itemsToUnpack;
                     if (unpackExSequence is PyList unpackExList)
                     {
-                        var items = unpackExList.Items;
-                        if (items.Length < countBefore + countAfter)
-                        {
-                            throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {items.Length})");
-                        }
-
-                        // CPython UNPACK_EX pushes elements so that STORE instructions (which pop from top) get them in pattern order
-                        // For [1, 2, 3, 4] with pattern [first, *middle, last] (UNPACK_EX 257):
-                        // STOREs execute: STORE first, STORE middle, STORE last
-                        // STOREs pop from top, so we must push in REVERSE order: last, middle, first
-                        // This way: pop→last, pop→middle, pop→first
-
-                        // Extract star elements (middle part) as list
-                        var starCount = items.Length - countBefore - countAfter;
-                        var starItems = new PyObject[starCount];
-                        for (int i = 0; i < starCount; i++)
-                        {
-                            starItems[i] = items[countBefore + i];
-                        }
-
-                        // Push in REVERSE order so STORE pops in correct order
-                        // Push after elements (last to first)
-                        for (int i = countAfter - 1; i >= 0; i--)
-                        {
-                            frame.ValueStack.Push(items[items.Length - countAfter + i]);
-                        }
-
-                        // Push star element
-                        frame.ValueStack.Push(new PyList(starItems));
-
-                        // Push before elements (last to first)
-                        for (int i = countBefore - 1; i >= 0; i--)
-                        {
-                            frame.ValueStack.Push(items[i]);
-                        }
+                        itemsToUnpack = unpackExList.Items;
                     }
                     else if (unpackExSequence is PyTuple unpackExTuple)
                     {
-                        var items = unpackExTuple.Items;
-                        if (items.Length < countBefore + countAfter)
-                        {
-                            throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {items.Length})");
-                        }
-
-                        // CPython UNPACK_EX pushes in order: [before_elements..., star_list, after_elements...]
-                        // For [1, 2, 3, 4, 5] with pattern [first, *middle, last]:
-                        // Should push: first(1), middle([2,3,4]), last(5) on stack in order
-
-                        // Extract before elements (in forward order)
-                        for (int i = 0; i < countBefore; i++)
-                        {
-                            frame.ValueStack.Push(items[i]);
-                        }
-
-                        // Extract star elements (middle part) as list
-                        var starCount = items.Length - countBefore - countAfter;
-                        var starItems = new PyObject[starCount];
-                        for (int i = 0; i < starCount; i++)
-                        {
-                            starItems[i] = items[countBefore + i];
-                        }
-                        frame.ValueStack.Push(new PyList(starItems));
-
-                        // Extract after elements (in forward order)
-                        for (int i = 0; i < countAfter; i++)
-                        {
-                            frame.ValueStack.Push(items[items.Length - countAfter + i]);
-                        }
+                        itemsToUnpack = unpackExTuple.Items;
                     }
                     else
                     {
                         throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
+                    }
+
+                    if (itemsToUnpack.Length < countBefore + countAfter)
+                    {
+                        throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {itemsToUnpack.Length})");
+                    }
+
+                    // CPython: unpack_iterable uses *--sp which pushes in REVERSE order
+                    // Python/ceval.c lines 1973-1982: for (; i < argcnt; i++) { *--sp = w; }
+                    // Python/ceval.c lines 2002-2004: *--sp = l;
+                    // Python/ceval.c lines 2013-2015: for (j = argcntafter; j > 0; j--) { *--sp = PyList_GET_ITEM(l, ll - j); }
+
+                    // Get current stack position for insertion
+                    var stackList = frame.ValueStack.GetInternalList();
+                    int insertPosition = stackList.Count;
+
+                    // Push before elements (lines 1973-1982)
+                    for (int i = 0; i < countBefore; i++)
+                    {
+                        // *--sp = items[i] → insert at current position (reverse order)
+                        stackList.Insert(insertPosition, itemsToUnpack[i]);
+                    }
+
+                    // Extract and push star element (lines 2002-2004)
+                    var starCount = itemsToUnpack.Length - countBefore - countAfter;
+                    var starItems = new PyObject[starCount];
+                    for (int i = 0; i < starCount; i++)
+                    {
+                        starItems[i] = itemsToUnpack[countBefore + i];
+                    }
+                    // *--sp = l
+                    stackList.Insert(insertPosition, new PyList(starItems));
+
+                    // Push after elements (lines 2013-2015)
+                    // for (j = argcntafter; j > 0; j--) { *--sp = PyList_GET_ITEM(l, ll - j); }
+                    for (int j = countAfter; j > 0; j--)
+                    {
+                        // *--sp = items[length - j]
+                        stackList.Insert(insertPosition, itemsToUnpack[itemsToUnpack.Length - j]);
                     }
                     break;
 

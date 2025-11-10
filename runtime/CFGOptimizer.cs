@@ -29,6 +29,7 @@ namespace SharpPy
             // NOTE: CPython 3.12 does NOT perform peephole optimizations at CFG level
             // Peephole optimizations (constant folding, etc.) are done at AST level in ast_opt.c
 
+            OptimizePatternMatchingSwaps(); // Remove redundant SWAPs from pattern matching (TEMPORARY FIX)
             RemoveUnreachableBlocks();       // Mark and remove unreachable blocks
             EliminateEmptyBlocks();          // Remove blocks with no instructions
             RemoveRedundantJumps();          // Remove jumps to next block (fallthrough)
@@ -37,6 +38,54 @@ namespace SharpPy
             // - inline_small_exit_blocks() - not implemented yet
             // - remove_redundant_nops_and_pairs() - removed in CPython 3.11+
             // - mark_reachable() + delete unreachable - covered by RemoveUnreachableBlocks()
+        }
+
+        /// <summary>
+        /// TEMPORARY FIX: Remove all consecutive SWAPs that follow UNPACK_EX in pattern matching
+        /// CPython reference: Python/flowgraph.c lines 1217-1311 (swaptimize function)
+        /// TODO: Implement full CPython swaptimize algorithm
+        /// </summary>
+        private void OptimizePatternMatchingSwaps()
+        {
+            foreach (var block in _cfg.AllBlocks)
+            {
+                for (int i = 0; i < block.Instructions.Count; i++)
+                {
+                    var curr = block.Instructions[i];
+
+                    // Pattern: UNPACK_EX followed by consecutive SWAPs/NOPs
+                    // In pattern matching, UNPACK_EX already places values in correct order
+                    // CPython: Python/ceval.c lines 1950-2040 (unpack_iterable)
+                    if (curr.OpCode == ByteCodeOp.UNPACK_EX)
+                    {
+                        // Remove all consecutive SWAPs and NOPs after UNPACK_EX
+                        int j = i + 1;
+                        while (j < block.Instructions.Count)
+                        {
+                            var inst = block.Instructions[j];
+                            if (inst.OpCode == ByteCodeOp.SWAP || inst.OpCode == ByteCodeOp.NOP)
+                            {
+                                // Convert to NOP
+                                block.Instructions[j] = new ByteCodeInstruction(
+                                    ByteCodeOp.NOP,
+                                    0,
+                                    inst.LineNumber,
+                                    inst.ColumnOffset,
+                                    inst.FileName,
+                                    inst.TargetBlock,
+                                    inst.ExceptBlock
+                                );
+                                j++;
+                            }
+                            else
+                            {
+                                // Stop at first non-SWAP/non-NOP instruction
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>

@@ -18,6 +18,15 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Get internal list for direct manipulation (for UNPACK_EX)
+        /// CPython uses *--sp pointer manipulation, we use List.Insert
+        /// </summary>
+        public List<PyObject> GetInternalList()
+        {
+            return _items;
+        }
+
+        /// <summary>
         /// 스택 최상단에 값 추가 (TOS)
         /// </summary>
         public void Push(PyObject obj)
