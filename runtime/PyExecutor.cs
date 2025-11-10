@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 // Performance: Eliminated LINQ - no LINQ usage found
 using SharpPy.Interop;
-using SharpPy.Utils;
+using SharpPy.Tools;
 
 namespace SharpPy
 {

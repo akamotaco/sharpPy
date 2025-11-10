@@ -1,6 +1,6 @@
 using System;
 
-namespace SharpPy.Utils
+namespace SharpPy.Tools
 {
     /// <summary>
     /// String utility functions for common operations

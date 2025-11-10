@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using SharpPy;
 using SharpPy.Generated;
 
-namespace SharpPy.Verification
+namespace SharpPy.Tools
 {
     /// <summary>
     /// Python 3.12 문법 지원 검증 클래스

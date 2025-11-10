@@ -38,7 +38,7 @@ namespace SharpPy.Tools
             try
             {
                 Console.WriteLine("\n🔍 5. Python 3.12 문법 검증:");
-                var syntaxTest = new SharpPy.Verification.Python312SyntaxVerification();
+                var syntaxTest = new SharpPy.Tools.Python312SyntaxVerification();
                 syntaxTest.VerifyAllSyntax();
             }
             catch
