@@ -1502,6 +1502,54 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // CPython 3.12: Objects/setobject.c:2087-2094 (set_intersection_update)
+            // set.intersection_update(other) - Update set, keeping only elements in both
+            TypeDict["intersection_update"] = new PyMethodDescriptor(
+                "intersection_update",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"intersection_update() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'intersection_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.IntersectionUpdate(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // CPython 3.12: Objects/setobject.c:2096-2103 (set_difference_update)
+            // set.difference_update(other) - Remove elements found in other
+            TypeDict["difference_update"] = new PyMethodDescriptor(
+                "difference_update",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"difference_update() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.DifferenceUpdate(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // CPython 3.12: Objects/setobject.c:2135-2142 (set_symmetric_difference_update)
+            // set.symmetric_difference_update(other) - Update with symmetric difference
+            TypeDict["symmetric_difference_update"] = new PyMethodDescriptor(
+                "symmetric_difference_update",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"symmetric_difference_update() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'symmetric_difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.SymmetricDifferenceUpdate(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
         }
 
         /// <summary>

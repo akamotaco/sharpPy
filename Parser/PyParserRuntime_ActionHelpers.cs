@@ -323,17 +323,15 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo token)
         {
-            // CPython: Calls _PyPegen_parse_string to decode quotes and escapes
-            string decoded = DecodeStringLiteral(token.Value);
-
             // Check if it's a bytes literal by looking at the prefix
             bool isBytes = token.Value.Length > 0 &&
                           (token.Value[0] == 'b' || token.Value[0] == 'B');
 
             if (isBytes)
             {
-                // Convert string to bytes
-                var bytes = System.Text.Encoding.UTF8.GetBytes(decoded);
+                // CPython: bytes literals need special handling - escape sequences produce raw bytes
+                // CPython reference: Parser/string_parser.c:650-850 (_PyPegen_decode_bytes_with_escapes)
+                byte[] bytes = DecodeBytesLiteral(token.Value);
                 return new GeneratedConstant
                 {
                     Value = new GeneratedPyConstantBytes(bytes)
@@ -341,6 +339,8 @@ namespace SharpPy.Generated
             }
             else
             {
+                // CPython: Calls _PyPegen_parse_string to decode quotes and escapes
+                string decoded = DecodeStringLiteral(token.Value);
                 return new GeneratedConstant
                 {
                     Value = new GeneratedPyConstantString(decoded)
@@ -915,6 +915,227 @@ namespace SharpPy.Generated
                 default:
                     return expr;
             }
+        }
+
+        /// <summary>
+        /// Decode bytes literal with escape sequences directly to byte array
+        /// CPython reference: Parser/string_parser.c:650-850 (_PyPegen_decode_bytes_with_escapes)
+        /// </summary>
+        private static byte[] DecodeBytesLiteral(string s)
+        {
+            bool rawmode = false;
+            int startIdx = 0;
+
+            // Skip prefix (b, B, br, Br, BR, bR, rb, rB, Rb, RB)
+            while (startIdx < s.Length)
+            {
+                char c = s[startIdx];
+                if (c == 'b' || c == 'B')
+                {
+                    startIdx++;
+                }
+                else if (c == 'r' || c == 'R')
+                {
+                    rawmode = true;
+                    startIdx++;
+                }
+                else if (c == 'f' || c == 'F')
+                {
+                    startIdx++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (startIdx >= s.Length) return new byte[0];
+
+            // Determine quote character
+            char quote = s[startIdx];
+            if (quote != '\'' && quote != '\"')
+            {
+                return new byte[0];
+            }
+
+            startIdx++;
+            int endIdx = s.Length;
+
+            // Find trailing quote
+            if (endIdx > 0 && s[endIdx - 1] == quote)
+            {
+                endIdx--;
+            }
+            else
+            {
+                return new byte[0];
+            }
+
+            // Handle triple quotes
+            if (endIdx - startIdx >= 4 &&
+                startIdx + 1 < s.Length && s[startIdx] == quote && s[startIdx + 1] == quote)
+            {
+                startIdx += 2;
+                if (endIdx >= 2 && s[endIdx - 1] == quote && s[endIdx - 2] == quote)
+                {
+                    endIdx -= 2;
+                }
+            }
+
+            if (endIdx < startIdx)
+            {
+                return new byte[0];
+            }
+
+            string literal = s.Substring(startIdx, endIdx - startIdx);
+
+            // Process escape sequences to byte array
+            if (rawmode)
+            {
+                // Raw mode: no escape processing, ASCII encoding only
+                return System.Text.Encoding.ASCII.GetBytes(literal);
+            }
+            else
+            {
+                // Process escape sequences and build byte array
+                return ProcessBytesEscapeSequences(literal);
+            }
+        }
+
+        /// <summary>
+        /// Process escape sequences in bytes literals directly to byte array
+        /// CPython reference: Parser/string_parser.c:650-850
+        /// Key difference from string escapes: \xff produces byte 0xFF, not UTF-8 encoded char
+        /// </summary>
+        private static byte[] ProcessBytesEscapeSequences(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return new byte[0];
+
+            var result = new System.Collections.Generic.List<byte>();
+            int i = 0;
+
+            while (i < input.Length)
+            {
+                if (input[i] == '\\' && i + 1 < input.Length)
+                {
+                    char next = input[i + 1];
+
+                    switch (next)
+                    {
+                        // Basic escape sequences
+                        case '\\':
+                            result.Add((byte)'\\');
+                            i += 2;
+                            break;
+                        case '\'':
+                            result.Add((byte)'\'');
+                            i += 2;
+                            break;
+                        case '\"':
+                            result.Add((byte)'\"');
+                            i += 2;
+                            break;
+                        case 'a':
+                            result.Add(0x07);  // Bell
+                            i += 2;
+                            break;
+                        case 'b':
+                            result.Add(0x08);  // Backspace
+                            i += 2;
+                            break;
+                        case 'f':
+                            result.Add(0x0C);  // Form feed
+                            i += 2;
+                            break;
+                        case 'n':
+                            result.Add(0x0A);  // Newline
+                            i += 2;
+                            break;
+                        case 'r':
+                            result.Add(0x0D);  // Carriage return
+                            i += 2;
+                            break;
+                        case 't':
+                            result.Add(0x09);  // Tab
+                            i += 2;
+                            break;
+                        case 'v':
+                            result.Add(0x0B);  // Vertical tab
+                            i += 2;
+                            break;
+
+                        // Hex escape: \xHH (exactly 2 hex digits) - CRITICAL for bytes
+                        case 'x':
+                            if (i + 3 < input.Length)
+                            {
+                                string hexStr = input.Substring(i + 2, 2);
+                                if (IsHexDigits(hexStr, 2))
+                                {
+                                    int value = Convert.ToInt32(hexStr, 16);
+                                    result.Add((byte)value);  // Direct byte, not UTF-8 encoded
+                                    i += 4;
+                                    break;
+                                }
+                            }
+                            // Invalid hex escape: keep backslash
+                            result.Add((byte)'\\');
+                            i++;
+                            break;
+
+                        // Octal escape: \0-\377 (up to 3 octal digits)
+                        case '0': case '1': case '2': case '3':
+                        case '4': case '5': case '6': case '7':
+                            {
+                                int octalValue = 0;
+                                int octalDigits = 0;
+                                int j = i + 1;
+
+                                while (j < input.Length && octalDigits < 3 &&
+                                       input[j] >= '0' && input[j] <= '7')
+                                {
+                                    octalValue = octalValue * 8 + (input[j] - '0');
+                                    octalDigits++;
+                                    j++;
+
+                                    if (octalValue > 255)
+                                    {
+                                        octalValue /= 8;
+                                        octalDigits--;
+                                        j--;
+                                        break;
+                                    }
+                                }
+
+                                if (octalDigits > 0)
+                                {
+                                    result.Add((byte)octalValue);
+                                    i = j;
+                                }
+                                else
+                                {
+                                    result.Add((byte)'\\');
+                                    i++;
+                                }
+                            }
+                            break;
+
+                        // Invalid escape: keep backslash
+                        default:
+                            result.Add((byte)'\\');
+                            i++;
+                            break;
+                    }
+                }
+                else
+                {
+                    // Regular character: only ASCII allowed in bytes literals
+                    byte b = (byte)input[i];
+                    result.Add(b);
+                    i++;
+                }
+            }
+
+            return result.ToArray();
         }
 
         // Helper: Process escape sequences in string literals
