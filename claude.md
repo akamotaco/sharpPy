@@ -3,7 +3,8 @@
 ## **심층 테스트 코드**
 - test_ultimate_complex_features.py
 - test_python312_advanced_features.py
-- test_python312_missing_features
+- test_python312_missing_features.py
+- test_comprehensive_python312.py
 
 ## 🔧 **개발 환경**
 - **OS** : windows
@@ -77,6 +78,7 @@ dotnet run -c Release test.py
 ```
 
 ## 🎯 **개발/테스트 원칙**
+- **CPython 연관 코드 주석** : CPython 과 연관있는 주석은 CPython 의 파일이름과 함께 lines 번호를 주석으로 작성하라.
 - **구현 정책** : 간단하고 쉬운 방법보다는 올바른 방법으로 해결하라
 - **바이트코드 레벨 호환성**: CPython 3.12와 동일한 바이트코드
 - **실용적 디버깅**: `python -m dis`로 즉시 정답 확인

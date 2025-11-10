@@ -8,6 +8,207 @@ namespace SharpPy
     /// </summary>
     public class PyDict : PyObject
     {
+        static PyDict()
+        {
+            InitializeDictDescriptors();
+        }
+
+        /// <summary>
+        /// Initialize dict type descriptors (CPython 3.12 compatible)
+        /// CPython reference: Objects/dictobject.c:3600-3700 - mapp_methods
+        /// </summary>
+        public static void InitializeDictDescriptors()
+        {
+            var dictType = PyType.DictType;
+
+            // CPython 3.12: Objects/dictobject.c:3627-3630 - dict_get
+            // D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None.
+            dictType.TypeDict["get"] = new PyMethodDescriptor(
+                "get", dictType,
+                (self, args, kwargs) => {
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'get' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"get expected at most 2 arguments, got {args.Length}");
+
+                    var key = args[0];
+                    var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
+                    return dict.Get(key, defaultValue);
+                },
+                minArgs: 1, maxArgs: 2
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3672-3675 - dict_keys
+            // D.keys() -> a set-like object providing a view on D's keys
+            dictType.TypeDict["keys"] = new PyMethodDescriptor(
+                "keys", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'keys' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    return dict.Keys();
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3677-3680 - dict_values
+            // D.values() -> an object providing a view on D's values
+            dictType.TypeDict["values"] = new PyMethodDescriptor(
+                "values", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'values' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    return dict.Values();
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3682-3685 - dict_items
+            // D.items() -> a set-like object providing a view on D's items
+            dictType.TypeDict["items"] = new PyMethodDescriptor(
+                "items", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'items' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    return dict.Items();
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3632-3635 - dict_setdefault
+            // D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d if k not in D
+            dictType.TypeDict["setdefault"] = new PyMethodDescriptor(
+                "setdefault", dictType,
+                (self, args, kwargs) => {
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'setdefault' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"setdefault expected at most 2 arguments, got {args.Length}");
+
+                    var key = args[0];
+                    var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
+                    return dict.SetDefault(key, defaultValue);
+                },
+                minArgs: 1, maxArgs: 2
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3637-3640 - dict_pop
+            // D.pop(k[,d]) -> v, remove specified key and return the corresponding value.
+            // If key is not found, d is returned if given, otherwise KeyError is raised
+            dictType.TypeDict["pop"] = new PyMethodDescriptor(
+                "pop", dictType,
+                (self, args, kwargs) => {
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'pop' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"pop expected at most 2 arguments, got {args.Length}");
+
+                    var key = args[0];
+                    var defaultValue = args.Length == 2 ? args[1] : null;
+                    return dict.Pop(key, defaultValue);
+                },
+                minArgs: 1, maxArgs: 2
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3642-3645 - dict_popitem
+            // D.popitem() -> (k, v), remove and return some (key, value) pair as a
+            // 2-tuple; but raise KeyError if D is empty.
+            dictType.TypeDict["popitem"] = new PyMethodDescriptor(
+                "popitem", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'popitem' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    return dict.PopItem();
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3687-3690 - dict_clear
+            // D.clear() -> None.  Remove all items from D.
+            dictType.TypeDict["clear"] = new PyMethodDescriptor(
+                "clear", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'clear' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    return dict.Clear();
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3647-3650 - dict_update
+            // D.update([E, ]**F) -> None.  Update D from dict/iterable E and F.
+            // If E is present and has a .keys() method, then does:  for k in E: D[k] = E[k]
+            // If E is present and lacks a .keys() method, then does:  for k, v in E: D[k] = v
+            // In either case, this is followed by: for k in F:  D[k] = F[k]
+            dictType.TypeDict["update"] = new PyMethodDescriptor(
+                "update", dictType,
+                (self, args, kwargs) => {
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'update' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length > 1)
+                        throw PyTypeError.Create($"update expected at most 1 arguments, got {args.Length}");
+
+                    if (args.Length == 1)
+                    {
+                        return dict.Update(args[0]);
+                    }
+
+                    // TODO: Handle **kwargs update when kwargs support is added
+                    return PyNone.Instance;
+                },
+                minArgs: 0, maxArgs: 1
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3652-3655 - dict_copy
+            // D.copy() -> a shallow copy of D
+            dictType.TypeDict["copy"] = new PyMethodDescriptor(
+                "copy", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create($"descriptor 'copy' requires a 'dict' object but received a '{self.GetTypeName()}'");
+
+                    return dict.Copy();
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/dictobject.c:3657-3660 - dict_fromkeys
+            // dict.fromkeys(S[,v]) -> New dict with keys from S and values equal to v.
+            // v defaults to None.
+            dictType.TypeDict["fromkeys"] = new PyMethodDescriptor(
+                "fromkeys", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"fromkeys expected at most 2 arguments, got {args.Length}");
+
+                    var keys = args[0];
+                    var value = args.Length == 2 ? args[1] : PyNone.Instance;
+                    return PyDict.FromKeys(keys, value);
+                },
+                minArgs: 1, maxArgs: 2
+            );
+        }
+
         #region Core Properties
 
         // PyObject를 키로 사용하기 위한 사용자 정의 비교기

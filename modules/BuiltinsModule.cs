@@ -32,6 +32,18 @@ namespace SharpPy.Modules
             // Initialize str type descriptors (join, split, etc.)
             PyString.InitializeStringDescriptors();
 
+            // Initialize dict type descriptors (get, keys, values, items, etc.)
+            PyDict.InitializeDictDescriptors();
+
+            // Initialize tuple type descriptors (count, index)
+            PyTuple.InitializeTupleDescriptors();
+
+            // Initialize int type descriptors (bit_length, bit_count, to_bytes, from_bytes, as_integer_ratio)
+            PyInt.InitializeIntDescriptors();
+
+            // Initialize float type descriptors (is_integer, as_integer_ratio, hex, fromhex, conjugate, real, imag)
+            PyFloat.InitializeFloatDescriptors();
+
             module.ModuleDict["bool"] = PyType.BoolType;
             module.ModuleDict["list"] = PyType.ListType;
             module.ModuleDict["tuple"] = PyType.TupleType;

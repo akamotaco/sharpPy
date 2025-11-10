@@ -8,6 +8,274 @@ namespace SharpPy
     /// </summary>
     public class PyFloat : PyObject
     {
+        static PyFloat()
+        {
+            InitializeFloatDescriptors();
+        }
+
+        /// <summary>
+        /// Initialize float type descriptors (CPython 3.12 compatible)
+        /// CPython reference: Objects/floatobject.c:1800-1900 - float_methods
+        /// </summary>
+        public static void InitializeFloatDescriptors()
+        {
+            var floatType = PyType.FloatType;
+
+            // CPython 3.12: Objects/floatobject.c:1420-1430 - float_is_integer
+            // Return True if the float is an integer.
+            floatType.TypeDict["is_integer"] = new PyMethodDescriptor(
+                "is_integer", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"is_integer() takes no arguments ({args.Length} given)");
+                    if (self is not PyFloat floatObj)
+                        throw PyTypeError.Create($"descriptor 'is_integer' requires a 'float' object but received a '{self.GetTypeName()}'");
+
+                    double value = floatObj.Value;
+                    if (double.IsInfinity(value) || double.IsNaN(value))
+                        return PyBool.False;
+
+                    return PyBool.FromBool(value == Math.Floor(value));
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/floatobject.c:1432-1470 - float_as_integer_ratio
+            // Return a pair of integers, whose ratio is exactly equal to the original float.
+            floatType.TypeDict["as_integer_ratio"] = new PyMethodDescriptor(
+                "as_integer_ratio", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"as_integer_ratio() takes no arguments ({args.Length} given)");
+                    if (self is not PyFloat floatObj)
+                        throw PyTypeError.Create($"descriptor 'as_integer_ratio' requires a 'float' object but received a '{self.GetTypeName()}'");
+
+                    double value = floatObj.Value;
+
+                    if (double.IsInfinity(value))
+                        throw PyOverflowError.Create("cannot convert Infinity to integer ratio");
+                    if (double.IsNaN(value))
+                        throw PyValueError.Create("cannot convert NaN to integer ratio");
+
+                    // For exact integer values
+                    if (value == Math.Floor(value))
+                        return TupleCache.CreatePair(new PyInt((long)value), new PyInt(1));
+
+                    // Convert to fraction (simplified algorithm)
+                    long sign = value < 0 ? -1 : 1;
+                    value = Math.Abs(value);
+
+                    long numerator = (long)(value * 1e15);  // Use high precision
+                    long denominator = 1000000000000000;  // 10^15
+
+                    // Simple GCD to reduce fraction
+                    long gcd = GCD(Math.Abs(numerator), denominator);
+                    numerator = (numerator / gcd) * sign;
+                    denominator = denominator / gcd;
+
+                    return TupleCache.CreatePair(new PyInt(numerator), new PyInt(denominator));
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/floatobject.c:1545-1600 - float_hex
+            // Return a hexadecimal representation of a floating-point number.
+            floatType.TypeDict["hex"] = new PyMethodDescriptor(
+                "hex", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"hex() takes no arguments ({args.Length} given)");
+                    if (self is not PyFloat floatObj)
+                        throw PyTypeError.Create($"descriptor 'hex' requires a 'float' object but received a '{self.GetTypeName()}'");
+
+                    // C# doesn't have a direct equivalent to Python's float.hex()
+                    // Simplified implementation using BitConverter
+                    long bits = BitConverter.DoubleToInt64Bits(floatObj.Value);
+                    return new PyString($"0x{bits:x}");
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/floatobject.c:1311-1540 - float_fromhex (classmethod)
+            // Create a floating-point number from a hexadecimal string.
+            // Format: [sign] ['0x'] integer ['.' fraction] ['p' exponent]
+            // Example: '0x1.921fb54442d18p+1' = pi
+            var fromhexMethod = new PyMethodDescriptor(
+                "fromhex", floatType,
+                (self, args, kwargs) => {
+                    // self is the class (PyType) when called as classmethod
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"fromhex() takes exactly one argument ({args.Length} given)");
+
+                    if (args[0] is not PyString hexStr)
+                        throw PyTypeError.Create($"fromhex() argument must be a string, not '{args[0].GetTypeName()}'");
+
+                    string s = hexStr.Value.Trim();
+                    int i = 0;
+
+                    // Handle inf/nan
+                    if (s.Length >= 3)
+                    {
+                        string lower = s.ToLowerInvariant();
+                        if (lower.StartsWith("inf") || lower.StartsWith("+inf"))
+                            return new PyFloat(double.PositiveInfinity);
+                        if (lower.StartsWith("-inf"))
+                            return new PyFloat(double.NegativeInfinity);
+                        if (lower.StartsWith("nan") || lower.StartsWith("+nan") || lower.StartsWith("-nan"))
+                            return new PyFloat(double.NaN);
+                    }
+
+                    // Optional sign
+                    bool negate = false;
+                    if (i < s.Length && s[i] == '-')
+                    {
+                        negate = true;
+                        i++;
+                    }
+                    else if (i < s.Length && s[i] == '+')
+                    {
+                        i++;
+                    }
+
+                    // Optional 0x prefix
+                    if (i + 1 < s.Length && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X'))
+                    {
+                        i += 2;
+                    }
+
+                    // Parse coefficient: <integer> [. <fraction>]
+                    int coeffStart = i;
+                    while (i < s.Length && IsHexDigit(s[i]))
+                        i++;
+
+                    int fractionStart = i;
+                    int fractionDigits = 0;
+                    if (i < s.Length && s[i] == '.')
+                    {
+                        i++;
+                        fractionStart = i;
+                        while (i < s.Length && IsHexDigit(s[i]))
+                        {
+                            fractionDigits++;
+                            i++;
+                        }
+                    }
+
+                    int coeffEnd = i;
+                    if (coeffEnd == coeffStart)
+                        throw PyValueError.Create($"invalid hexadecimal floating-point string: '{hexStr.Value}'");
+
+                    // Parse exponent: [p <exponent>]
+                    long exp = 0;
+                    if (i < s.Length && (s[i] == 'p' || s[i] == 'P'))
+                    {
+                        i++;
+                        bool expNeg = false;
+                        if (i < s.Length && s[i] == '-')
+                        {
+                            expNeg = true;
+                            i++;
+                        }
+                        else if (i < s.Length && s[i] == '+')
+                        {
+                            i++;
+                        }
+
+                        int expStart = i;
+                        while (i < s.Length && char.IsDigit(s[i]))
+                            i++;
+
+                        if (i == expStart)
+                            throw PyValueError.Create($"invalid hexadecimal floating-point string: '{hexStr.Value}'");
+
+                        exp = long.Parse(s.Substring(expStart, i - expStart));
+                        if (expNeg)
+                            exp = -exp;
+                    }
+
+                    // Build the value: mantissa * 2^exponent
+                    double x = 0.0;
+
+                    // Parse hex digits from coefficient
+                    for (int j = coeffStart; j < fractionStart - 1; j++)
+                    {
+                        if (s[j] != '.')
+                            x = 16.0 * x + HexValue(s[j]);
+                    }
+                    for (int j = fractionStart; j < coeffEnd; j++)
+                    {
+                        x = 16.0 * x + HexValue(s[j]);
+                    }
+
+                    // Adjust exponent for fractional part (each hex digit = 4 bits)
+                    exp -= 4 * fractionDigits;
+
+                    // Apply exponent using ldexp (x * 2^exp)
+                    if (exp != 0)
+                    {
+                        x = Math.ScaleB(x, (int)exp);  // ScaleB(x, n) = x * 2^n
+                    }
+
+                    if (negate)
+                        x = -x;
+
+                    return new PyFloat(x);
+                },
+                minArgs: 1, maxArgs: 1
+            );
+            // Wrap in classmethod descriptor
+            floatType.TypeDict["fromhex"] = new PyClassMethodDescriptor("fromhex", floatType, fromhexMethod);
+
+            // CPython 3.12: Objects/floatobject.c:1700-1710 - float_conjugate
+            // Return self, the complex conjugate of any float.
+            floatType.TypeDict["conjugate"] = new PyMethodDescriptor(
+                "conjugate", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"conjugate() takes no arguments ({args.Length} given)");
+                    if (self is not PyFloat floatObj)
+                        throw PyTypeError.Create($"descriptor 'conjugate' requires a 'float' object but received a '{self.GetTypeName()}'");
+
+                    return floatObj;  // For real numbers, conjugate is the number itself
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/floatobject.c - float.real property
+            // Return the real part of the float (which is the float itself).
+            floatType.TypeDict["real"] = new PyGetSetDescriptor(
+                "real", floatType,
+                getter: self => {
+                    if (self is not PyFloat)
+                        throw PyTypeError.Create($"descriptor 'real' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    return self;  // For float, real is itself
+                }
+            );
+
+            // CPython 3.12: Objects/floatobject.c - float.imag property
+            // Return the imaginary part of the float (which is 0.0).
+            floatType.TypeDict["imag"] = new PyGetSetDescriptor(
+                "imag", floatType,
+                getter: self => {
+                    if (self is not PyFloat)
+                        throw PyTypeError.Create($"descriptor 'imag' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    return new PyFloat(0.0);  // For float, imaginary part is 0
+                }
+            );
+        }
+
+        // Helper method for GCD calculation
+        private static long GCD(long a, long b)
+        {
+            while (b != 0)
+            {
+                long temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
         #region Core Properties
 
         public double Value { get; }
@@ -463,6 +731,24 @@ namespace SharpPy
         {
             // Float literals evaluate to themselves (CPython style)
             return this;
+        }
+
+        #endregion
+
+        #region Helper Methods for fromhex
+
+        // CPython 3.12: Objects/floatobject.c - hex_from_char helper
+        private static bool IsHexDigit(char c)
+        {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        }
+
+        private static int HexValue(char c)
+        {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return 0;
         }
 
         #endregion

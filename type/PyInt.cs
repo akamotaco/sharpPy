@@ -10,6 +10,288 @@ namespace SharpPy
     /// </summary>
     public class PyInt : PyObject
     {
+        static PyInt()
+        {
+            InitializeIntDescriptors();
+        }
+
+        /// <summary>
+        /// Initialize int type descriptors (CPython 3.12 compatible)
+        /// CPython reference: Objects/longobject.c:5800-5900 - long_methods
+        /// </summary>
+        public static void InitializeIntDescriptors()
+        {
+            var intType = PyType.IntType;
+
+            // CPython 3.12: Objects/longobject.c:5642-5658 - int_bit_length
+            // Number of bits necessary to represent self in binary.
+            // >>> bin(37)
+            // '0b100101'
+            // >>> (37).bit_length()
+            // 6
+            intType.TypeDict["bit_length"] = new PyMethodDescriptor(
+                "bit_length", intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"bit_length() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt intObj)
+                        throw PyTypeError.Create($"descriptor 'bit_length' requires a 'int' object but received a '{self.GetTypeName()}'");
+
+                    long value = intObj.Value;
+                    if (value < 0)
+                        value = -value - 1; // Two's complement for negative numbers
+
+                    int bitLength = 0;
+                    while (value > 0)
+                    {
+                        bitLength++;
+                        value >>= 1;
+                    }
+                    return new PyInt(bitLength);
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/longobject.c:5660-5676 - int_bit_count
+            // Number of ones in the binary representation of the absolute value of self.
+            // Also known as the population count.
+            // >>> bin(13)
+            // '0b1101'
+            // >>> (13).bit_count()
+            // 3
+            intType.TypeDict["bit_count"] = new PyMethodDescriptor(
+                "bit_count", intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"bit_count() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt intObj)
+                        throw PyTypeError.Create($"descriptor 'bit_count' requires a 'int' object but received a '{self.GetTypeName()}'");
+
+                    long value = intObj.Value;
+                    if (value < 0)
+                        value = -value;
+
+                    int count = 0;
+                    while (value > 0)
+                    {
+                        count += (int)(value & 1);
+                        value >>= 1;
+                    }
+                    return new PyInt(count);
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/longobject.c:5678-5750 - int_to_bytes
+            // Return an array of bytes representing an integer.
+            intType.TypeDict["to_bytes"] = new PyMethodDescriptor(
+                "to_bytes", intType,
+                (self, args, kwargs) => {
+                    if (self is not PyInt intObj)
+                        throw PyTypeError.Create($"descriptor 'to_bytes' requires a 'int' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"to_bytes expected 1 to 2 arguments, got {args.Length}");
+
+                    // Get length argument
+                    if (args[0] is not PyInt lengthInt)
+                        throw PyTypeError.Create($"'length' must be an int, not '{args[0].GetTypeName()}'");
+                    int length = (int)lengthInt.Value;
+
+                    // Get byteorder argument (default 'big')
+                    string byteorder = "big";
+                    if (args.Length >= 2)
+                    {
+                        if (args[1] is not PyString byteorderStr)
+                            throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
+                        byteorder = byteorderStr.Value;
+                    }
+
+                    if (byteorder != "big" && byteorder != "little")
+                        throw PyValueError.Create($"byteorder must be either 'little' or 'big'");
+
+                    long value = intObj.Value;
+                    bool isNegative = value < 0;
+                    if (isNegative)
+                        value = -value;
+
+                    byte[] bytes = new byte[length];
+                    for (int i = 0; i < length; i++)
+                    {
+                        int index = byteorder == "big" ? length - 1 - i : i;
+                        bytes[index] = (byte)(value & 0xFF);
+                        value >>= 8;
+                    }
+
+                    // For negative numbers, convert to two's complement
+                    if (isNegative)
+                    {
+                        for (int i = 0; i < length; i++)
+                            bytes[i] = (byte)~bytes[i];
+
+                        // Add 1 for two's complement
+                        int carry = 1;
+                        for (int i = (byteorder == "big" ? length - 1 : 0);
+                             byteorder == "big" ? i >= 0 : i < length;
+                             i += (byteorder == "big" ? -1 : 1))
+                        {
+                            int sum = bytes[i] + carry;
+                            bytes[i] = (byte)(sum & 0xFF);
+                            carry = sum >> 8;
+                            if (carry == 0) break;
+                        }
+                    }
+
+                    return new PyBytes(bytes);
+                },
+                minArgs: 1, maxArgs: 2
+            );
+
+            // CPython 3.12: Objects/longobject.c:5752-5820 - int_from_bytes (classmethod)
+            // Return the integer represented by the given array of bytes.
+            var fromBytesMethod = new PyMethodDescriptor(
+                "from_bytes", intType,
+                (self, args, kwargs) => {
+                    // self is the class (PyType) when called as classmethod
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"from_bytes() takes from 1 to 2 positional arguments but {args.Length} were given");
+
+                    // Get bytes argument
+                    if (args[0] is not PyBytes bytesObj)
+                        throw PyTypeError.Create($"'bytes' must be a bytes object, not '{args[0].GetTypeName()}'");
+
+                    // Get byteorder argument (default 'big')
+                    string byteorder = "big";
+                    if (args.Length >= 2)
+                    {
+                        if (args[1] is not PyString byteorderStr)
+                            throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
+                        byteorder = byteorderStr.Value;
+                    }
+
+                    if (byteorder != "big" && byteorder != "little")
+                        throw PyValueError.Create($"byteorder must be either 'little' or 'big'");
+
+                    byte[] bytes = bytesObj.Value;
+                    long result = 0;
+                    bool isNegative = bytes.Length > 0 && (bytes[byteorder == "big" ? 0 : bytes.Length - 1] & 0x80) != 0;
+
+                    if (isNegative)
+                    {
+                        // Two's complement for negative numbers
+                        byte[] complemented = new byte[bytes.Length];
+                        Array.Copy(bytes, complemented, bytes.Length);
+
+                        // Subtract 1
+                        int borrow = 1;
+                        for (int i = (byteorder == "big" ? bytes.Length - 1 : 0);
+                             byteorder == "big" ? i >= 0 : i < bytes.Length;
+                             i += (byteorder == "big" ? -1 : 1))
+                        {
+                            int diff = complemented[i] - borrow;
+                            complemented[i] = (byte)(diff & 0xFF);
+                            borrow = diff < 0 ? 1 : 0;
+                            if (borrow == 0) break;
+                        }
+
+                        // Invert bits
+                        for (int i = 0; i < bytes.Length; i++)
+                            complemented[i] = (byte)~complemented[i];
+
+                        bytes = complemented;
+                    }
+
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        int index = byteorder == "big" ? i : bytes.Length - 1 - i;
+                        result = (result << 8) | bytes[index];
+                    }
+
+                    return new PyInt(isNegative ? -result : result);
+                },
+                minArgs: 1, maxArgs: 2
+            );
+            // Wrap in classmethod descriptor
+            intType.TypeDict["from_bytes"] = new PyClassMethodDescriptor("from_bytes", intType, fromBytesMethod);
+
+            // CPython 3.12: Objects/longobject.c:5526-5540 - int_as_integer_ratio
+            // Return integer ratio.
+            // Return a pair of integers, whose ratio is exactly equal to the original int
+            // and with a positive denominator.
+            intType.TypeDict["as_integer_ratio"] = new PyMethodDescriptor(
+                "as_integer_ratio", intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"as_integer_ratio() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt intObj)
+                        throw PyTypeError.Create($"descriptor 'as_integer_ratio' requires a 'int' object but received a '{self.GetTypeName()}'");
+
+                    // For integers, the ratio is simply (self, 1)
+                    return TupleCache.CreatePair(intObj, new PyInt(1));
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/longobject.c - int.conjugate method
+            // Return self, the complex conjugate of any int.
+            intType.TypeDict["conjugate"] = new PyMethodDescriptor(
+                "conjugate", intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"conjugate() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt intObj)
+                        throw PyTypeError.Create($"descriptor 'conjugate' requires a 'int' object but received a '{self.GetTypeName()}'");
+
+                    return intObj;  // For integers, conjugate is the number itself
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/longobject.c - int.real property
+            // Return the real part of the int (which is the int itself).
+            intType.TypeDict["real"] = new PyGetSetDescriptor(
+                "real", intType,
+                getter: self => {
+                    if (self is not PyInt)
+                        throw PyTypeError.Create($"descriptor 'real' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    return self;  // For int, real is itself
+                }
+            );
+
+            // CPython 3.12: Objects/longobject.c - int.imag property
+            // Return the imaginary part of the int (which is 0).
+            intType.TypeDict["imag"] = new PyGetSetDescriptor(
+                "imag", intType,
+                getter: self => {
+                    if (self is not PyInt)
+                        throw PyTypeError.Create($"descriptor 'imag' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    return new PyInt(0);  // For int, imaginary part is 0
+                }
+            );
+
+            // CPython 3.12: Objects/longobject.c - int.numerator property
+            // The numerator of a rational number in lowest terms (returns self).
+            intType.TypeDict["numerator"] = new PyGetSetDescriptor(
+                "numerator", intType,
+                getter: self => {
+                    if (self is not PyInt)
+                        throw PyTypeError.Create($"descriptor 'numerator' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    return self;  // For int, numerator is itself
+                }
+            );
+
+            // CPython 3.12: Objects/longobject.c - int.denominator property
+            // The denominator of a rational number in lowest terms (always 1 for integers).
+            intType.TypeDict["denominator"] = new PyGetSetDescriptor(
+                "denominator", intType,
+                getter: self => {
+                    if (self is not PyInt)
+                        throw PyTypeError.Create($"descriptor 'denominator' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    return new PyInt(1);  // For int, denominator is always 1
+                }
+            );
+        }
+
         #region Core Properties
 
         public Py_int_t Value { get; }

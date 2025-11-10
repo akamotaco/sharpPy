@@ -7,6 +7,73 @@ namespace SharpPy
     /// </summary>
     public class PyTuple : PyObject
     {
+        static PyTuple()
+        {
+            InitializeTupleDescriptors();
+        }
+
+        /// <summary>
+        /// Initialize tuple type descriptors (CPython 3.12 compatible)
+        /// CPython reference: Objects/tupleobject.c:550-600 - tuple_methods
+        /// </summary>
+        public static void InitializeTupleDescriptors()
+        {
+            var tupleType = PyType.TupleType;
+
+            // CPython 3.12: Objects/tupleobject.c:488-502 - tuple_index
+            // T.index(value, [start, [stop]]) -> integer -- return first index of value.
+            // Raises ValueError if the value is not present.
+            tupleType.TypeDict["index"] = new PyMethodDescriptor(
+                "index", tupleType,
+                (self, args, kwargs) => {
+                    if (self is not PyTuple tuple)
+                        throw PyTypeError.Create($"descriptor 'index' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 3)
+                        throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
+
+                    var value = args[0];
+                    int start = 0;
+                    int? stop = null;
+
+                    if (args.Length >= 2)
+                    {
+                        if (args[1] is PyInt startInt)
+                            start = (int)startInt.Value;
+                        else
+                            throw PyTypeError.Create($"slice indices must be integers or None, not '{args[1].GetTypeName()}'");
+                    }
+
+                    if (args.Length >= 3)
+                    {
+                        if (args[2] is PyInt stopInt)
+                            stop = (int)stopInt.Value;
+                        else if (args[2] != PyNone.Instance)
+                            throw PyTypeError.Create($"slice indices must be integers or None, not '{args[2].GetTypeName()}'");
+                    }
+
+                    return tuple.Index(value, start, stop);
+                },
+                minArgs: 1, maxArgs: 3
+            );
+
+            // CPython 3.12: Objects/tupleobject.c:550-560 - tuple_count
+            // T.count(value) -> integer -- return number of occurrences of value
+            tupleType.TypeDict["count"] = new PyMethodDescriptor(
+                "count", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"count expected exactly 1 arguments, got {args.Length}");
+                    if (self is not PyTuple tuple)
+                        throw PyTypeError.Create($"descriptor 'count' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+
+                    var value = args[0];
+                    return tuple.Count(value);
+                },
+                minArgs: 1, maxArgs: 1
+            );
+        }
+
         #region Core Properties
 
         public PyObject[] Items { get; }

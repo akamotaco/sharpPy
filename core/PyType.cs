@@ -198,6 +198,7 @@ namespace SharpPy
         public static readonly PyType PropertyType = new PyType("property", new[] { ObjectType });
         public static readonly PyType StaticMethodType = new PyType("staticmethod", new[] { ObjectType });
         public static readonly PyType ClassMethodType = new PyType("classmethod", new[] { ObjectType });
+        public static readonly PyType ClassMethodDescriptorType = new PyType("classmethod_descriptor", new[] { ObjectType });
         
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });
