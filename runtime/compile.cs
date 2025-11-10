@@ -552,9 +552,8 @@ namespace SharpPy
         private string? _currentFileName = null;  // Current source file name
         private List<string>? _sourceLines = null; // Source code lines for error reporting
 
-        // CFG vs Legacy usage tracking
+        // CFG usage tracking
         private int _cfgPathCount = 0;
-        private int _legacyPathCount = 0;
         private Dictionary<int, int> _lineNumberTable = new Dictionary<int, int>(); // instruction offset → line number mapping
         
         // Phase 2: 클로저 지원
@@ -1313,14 +1312,7 @@ namespace SharpPy
                 // Print compilation statistics
                 Console.WriteLine($"");
                 Console.WriteLine($"📊 [COMPILATION SUMMARY]");
-                Console.WriteLine($"   CFG Path:     {_cfgPathCount} constructs");
-                Console.WriteLine($"   Legacy Path:  {_legacyPathCount} constructs");
-                int total = _cfgPathCount + _legacyPathCount;
-                if (total > 0)
-                {
-                    double cfgPercent = (_cfgPathCount * 100.0) / total;
-                    Console.WriteLine($"   CFG Coverage: {cfgPercent:F1}% ({_cfgPathCount}/{total})");
-                }
+                Console.WriteLine($"   CFG constructs: {_cfgPathCount}");
                 Console.WriteLine($"");
 #endif
             }
@@ -1853,210 +1845,6 @@ namespace SharpPy
             return PyNone.Instance;
         }
         
-        /// <summary>
-        /// DEPRECATED: Use CompilerFunctionBody instead (CPython 3.12 pattern)
-        /// Legacy method kept for compatibility with PEP 695 generic functions and generator expressions
-        /// </summary>
-        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<PyObject> kwDefaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1, int posonlyArgCount = 0, int kwonlyArgCount = 0)
-        {
-            // Clear all compilation state for new compilation
-            // CPython 3.12: _instructions removed - using InstructionSequence only
-            _constants.Clear();
-            _names.Clear();
-            _varNames.Clear();
-            _exceptionTable.Clear(); // Reset Exception Table
-            _lineNumberTable.Clear(); // Reset line number table
-            _isInFunction = true; // We are now compiling inside a function
-            _currentFunctionName = name; // Track function name for module level detection
-
-            // Calculate correct argCount for CPython 3.12 compatibility early
-            int finalArgCount = (argCount >= 0) ? argCount : paramNames.Count;
-            
-            // 함수 매개변수를 _varNames에 추가 (LOAD_FAST/STORE_FAST용)
-            foreach (var param in paramNames)
-            {
-                // **kwargs 매개변수는 변수명에서 ** 제거 (예: **kwargs -> kwargs)
-                string localVarName = param;
-                if (param.StartsWith("**"))
-                {
-                    localVarName = param.Substring(2);
-                }
-                else if (param.StartsWith("*"))
-                {
-                    localVarName = param.Substring(1);
-                }
-                
-                _varNames.Add(localVarName);
-            }
-            
-            // **핵심 수정**: 함수 본문에서 지역 변수들도 수집해서 _varNames에 추가
-            // CPython 3.12: paramNames may contain "*args" and "**kwargs" but we need clean names
-            var localVarNames = new List<string>();
-            foreach (var param in paramNames)
-            {
-                string cleanName = param;
-                if (param.StartsWith("**"))
-                    cleanName = param.Substring(2);
-                else if (param.StartsWith("*"))
-                    cleanName = param.Substring(1);
-                localVarNames.Add(cleanName);
-            }
-            CollectLocalVariables(statements, localVarNames);
-            
-            // 매개변수가 아닌 지역 변수들을 _varNames에 추가
-            // CPython 3.12: Cell variables should NOT be in varNames!
-            foreach (var localVar in localVarNames)
-            {
-                if (!_varNames.Contains(localVar) && !cellVars.Contains(localVar))
-                {
-                    _varNames.Add(localVar);
-                }
-            }
-            
-#if DEBUG_LOG
-            Console.WriteLine($"\n🔧 컴파일 (클로저+기본값): {name}");
-#endif
-#if DEBUG_LOG
-            Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
-#endif
-            #if DEBUG_LOG
-            Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
-            #endif
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-    #if DEBUG_LOG
-            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
-#endif
-            }
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-    #if DEBUG_LOG
-            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
-#endif
-            }
-            
-            // CPython 3.12: COPY_FREE_VARS for functions with free variables (MUST be first instruction)
-            if (freeVars.Count > 0)
-            {
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Emitting COPY_FREE_VARS for {freeVars.Count} free variables");
-                    #endif
-                }
-                EmitCopyFreeVars(freeVars.Count);
-            }
-
-            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (CPython 3.12 호환)
-            // CPython 3.12: MAKE_CELL argument is the localsplus index!
-            // - For parameters that are cells: use varnames index (parameter position)
-            // - For non-parameter cells: use nlocals + cellvars index
-            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
-            {
-                var cellVar = cellVars[cellIndex];
-                // Check if this cell variable is a parameter
-                var paramIndex = _varNames.IndexOf(cellVar);
-                int localsPlusOffset;
-                if (paramIndex != -1)
-                {
-                    // It's a parameter - use its varnames index
-                    localsPlusOffset = paramIndex;
-                }
-                else
-                {
-                    // It's a non-parameter cell variable: nlocals + cell index
-                    localsPlusOffset = _varNames.Count + cellIndex;
-                }
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"  → Making cell for variable: {cellVar} (localsplus offset {localsPlusOffset}, cellvars index {cellIndex})");
-#endif
-                }
-                EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
-            }
-
-            // CPython 3.12: RESUME instruction after MAKE_CELL and before function body
-            // Set line number to 0 for RESUME (matching CPython 3.12 behavior)
-            _currentLineNumber = 0;
-            EmitInstruction(ByteCodeOp.RESUME, 0);
-
-            foreach (var statement in statements)
-            {
-                CompileStatement(statement);
-            }
-
-            // CPython 3.12: 마지막 statement가 return이 아닐 때만 implicit None return 추가
-            bool endsWithReturn = false;
-            if (statements.Count > 0)
-            {
-                var lastStmt = statements[statements.Count - 1];
-                endsWithReturn = EndsWithReturn(lastStmt);
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 EndsWithReturn check for {name}: lastStmt type = {lastStmt.GetType().Name}, endsWithReturn = {endsWithReturn}");
-#endif
-            }
-
-            if (!endsWithReturn)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"  → Adding implicit None return for {name}");
-#endif
-                // CPython 3.12: 함수는 RETURN_CONST로 None 반환 (return문이 없을 경우)
-                var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-                EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
-            }
-#if DEBUG_LOG
-            else
-            {
-                Console.WriteLine($"  → Skipping implicit None return for {name} (already ends with return)");
-            }
-#endif
-
-            // CPython 3.12: Generator detection now handled in CompileFunction with CFG pipeline
-            // This legacy path is deprecated
-
-            var finalInstructions = GetFinalInstructions(flags);
-            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
-                                            finalArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, defaults, kwDefaults, flags, _currentFileName, _sourceLines);
-
-            // Add Exception Table entries (CPython 3.12 compatible)
-            if (_exceptionTable.Count > 0)
-            {
-                codeObject.ExceptionTable.AddRange(_exceptionTable);
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"📋 Exception Table: {_exceptionTable.Count}개 엔트리 추가됨 (라벨 해석 완료)");
-#endif
-                }
-            }
-            else
-            {
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"📋 Exception Table: 비어있음 (CPython 3.12 compatible)");
-#endif
-                }
-            }
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-    #if DEBUG_LOG
-            // CPython 3.12: Instruction count now tracked in CFG pipeline
-#endif
-            }
-            }
-            
-            // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
-            GeneratePendingExceptionHandlers();
-
-            _isInFunction = false; // Reset function context
-            _currentFunctionName = null; // Reset function name
-            return codeObject;
-        }
 
         /// <summary>
         /// CPython 3.12: compiler_function_body
@@ -6459,7 +6247,7 @@ namespace SharpPy
                 EmitLoadConst(PyNone.Instance);
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
-                // CPython 3.12: Get final instructions (supports both CFG and LEGACY paths)
+                // CPython 3.12: Get final instructions
                 // Class body has no generator flags
                 var finalInstructions = GetFinalInstructions(0);
 
@@ -7028,9 +6816,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// LEGACY: Offset-based if-elif-else compilation
-        /// </summary>
-        /// <summary>
         /// CPython 3.12 호환 while True: compilation
         /// 특징: 조건 체크 없이 바로 루프 바디 시작, NOP 삽입
         /// </summary>
@@ -7204,9 +6989,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// LEGACY: Offset-based while True compilation
-        /// </summary>
-        /// <summary>
         /// CPython 3.12 완전 호환 while loop compilation
         /// 특징: 조건을 두 번 체크 (초기 + 루프 끝)
         /// </summary>
@@ -7316,9 +7098,6 @@ namespace SharpPy
             #endif
         }
 
-        /// <summary>
-        /// LEGACY: Offset-based while compilation
-        /// </summary>
         /// <summary>
         /// Check if an expression is a constant True value
         /// </summary>
@@ -7558,9 +7337,6 @@ namespace SharpPy
 #endif
         }
 
-        /// <summary>
-        /// LEGACY: Offset-based for loop compilation
-        /// </summary>
         /// <summary>
         /// Compile for loop with tuple unpacking (e.g., for key, value in items:)
         /// </summary>
@@ -9145,284 +8921,7 @@ namespace SharpPy
             }
         }
         
-        
-        /// <summary>
-        /// CPython 3.12: Compile pattern matching using proper opcodes
-        /// Corresponds to CPython's compiler_pattern(struct compiler *c, pattern_ty p, pattern_context *pc)
-        /// Returns true if pattern was compiled successfully, false otherwise
-        /// </summary>
-        private bool CompilePatternMatch(Expression pattern, PatternContext pc)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 CompilePatternMatch: {pattern?.GetType().Name} - {pattern}");
-            #endif
 
-            // Extract fail label from pattern context
-            var failLabel = pc.GetFailLabel();
-
-            switch (pattern)
-            {
-                case ConstantExpression constExpr:
-                    // CPython 3.12: Direct constant comparison without COPY
-                    // Stack: [subject] -> [subject, constant] -> [comparison_result]
-                    CompileExpression(constExpr);
-                    EmitComparison(CompareOp.EQ);
-                    // Stack: [comparison_result]
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    // Stack: [] (comparison result consumed by jump)
-                    return true;
-                
-                case NameExpression nameExpr when nameExpr.Name == "_":
-                    // Wildcard pattern - always matches, no binding
-                    return true;
-                    
-                case NameExpression nameExpr:
-                    // Variable binding pattern - always matches, binds subject to variable
-                    // Stack: [subject] -> [] (subject consumed by store)
-                    EmitStoreName(nameExpr.Name);
-                    return true;
-                    
-                case AsPattern asPattern:
-                    // CPython 3.12: As pattern (pattern as name)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 AsPattern: {asPattern.Pattern} as {asPattern.Name}");
-                    #endif
-                    
-                    // Stack: [subject] -> [subject] (preserve for variable binding)
-                    EmitInstruction(ByteCodeOp.COPY, 1); // Copy subject for variable binding
-                    
-                    // Compile the inner pattern, which will consume one copy of subject
-                    if (!CompilePatternMatch(asPattern.Pattern, pc))
-                    {
-                        return false;
-                    }
-                    
-                    // Stack: [subject] - bind the subject to the 'as' variable
-                    EmitStoreName(asPattern.Name);
-                    
-                    return true;
-                
-                case BinOpExpression binaryOp when binaryOp.OpNode is BitOr:
-                    // Handle BinOpExpression with OR operator as OrPattern
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 BinOpExpression OR converted to OrPattern: {binaryOp.Left} | {binaryOp.Right}");
-                    #endif
-                    var binaryPatterns = new List<Expression> { binaryOp.Left, binaryOp.Right };
-                    return CompileOrPatternLogic(binaryPatterns, pc);
-                    
-                case OrPattern orPattern:
-                    // CPython 3.12: Or patterns (PEP 634)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 OrPattern detected with {orPattern.Patterns.Count} patterns");
-                    #endif
-                    return CompileOrPatternLogic(orPattern.Patterns, pc);
-                    
-                    // For simple constant or patterns like: case 1 | 2 | 3:
-                    // Generate: subject == 1 or subject == 2 or subject == 3
-                    var constantPatterns = new List<ConstantExpression>();
-                    
-                    // Check if all patterns are constants using more flexible approach
-                    bool allConstants = true;
-                    foreach (var subPattern in orPattern.Patterns)
-                    {
-                        // Try multiple ways to identify constant patterns
-                        if (subPattern is ConstantExpression constPattern)
-                        {
-                            constantPatterns.Add(constPattern);
-                        }
-                        else if (subPattern.GetType().Name.Contains("Constant"))
-                        {
-                            // Type name contains "Constant" - try cast
-                            try 
-                            {
-                                var castPattern = (ConstantExpression)subPattern;
-                                constantPatterns.Add(castPattern);
-                            }
-                            catch
-                            {
-                                allConstants = false;
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            allConstants = false;
-                            break;
-                        }
-                    }
-                    
-                    if (allConstants && constantPatterns.Count > 0)
-                    {
-                        // CPython 3.12: Use multiple comparisons with OR short-circuiting
-                        // Stack: subject
-                        var successLabel = _instructionSequence.NewLabel();
-
-                        for (int i = 0; i < constantPatterns.Count; i++)
-                        {
-                            var isLast = (i == constantPatterns.Count - 1);
-
-                            // Duplicate subject for comparison (except for last one)
-                            if (!isLast)
-                            {
-                                EmitInstruction(ByteCodeOp.COPY, 1);
-                            }
-
-                            // Compare with constant
-                            CompileExpression(constantPatterns[i]);
-                            EmitComparison(CompareOp.EQ);
-
-                            // If match, jump to success
-                            if (!isLast)
-                            {
-                                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                            }
-                            else
-                            {
-                                // Last comparison - if false, jump to fail
-                                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                            }
-                        }
-
-                        _instructionSequence.UseLabel(successLabel);
-                        // Pop subject since pattern matched
-                        EmitInstruction(ByteCodeOp.POP_TOP);
-                        return true;
-                    }
-                    else
-                    {
-                        // Fallback: Handle any number of constant patterns using type inspection
-                        var fallbackConstants = new List<ConstantExpression>();
-                        bool allFallbackConstants = true;
-                        
-                        foreach (var fallbackPattern in orPattern.Patterns)
-                        {
-                            if (fallbackPattern.GetType().Name.Contains("Constant"))
-                            {
-                                try
-                                {
-                                    var constPattern = (ConstantExpression)fallbackPattern;
-                                    fallbackConstants.Add(constPattern);
-                                }
-                                catch
-                                {
-                                    allFallbackConstants = false;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                allFallbackConstants = false;
-                                break;
-                            }
-                        }
-                        
-                        if (allFallbackConstants && fallbackConstants.Count > 0)
-                        {
-                            // CPython 3.12: Generate comparisons for all patterns
-                            var successLabel = _instructionSequence.NewLabel();
-
-                            for (int i = 0; i < fallbackConstants.Count; i++)
-                            {
-                                var isLast = (i == fallbackConstants.Count - 1);
-
-                                // Duplicate subject for comparison (except for last one)
-                                if (!isLast)
-                                {
-                                    EmitInstruction(ByteCodeOp.COPY, 1);
-                                }
-
-                                // Compare with constant
-                                CompileExpression(fallbackConstants[i]);
-                                EmitComparison(CompareOp.EQ);
-
-                                // If match, jump to success
-                                if (!isLast)
-                                {
-                                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                                }
-                                else
-                                {
-                                    // Last comparison - if false, jump to fail
-                                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                                }
-                            }
-
-                            _instructionSequence.UseLabel(successLabel);
-                            // Pop subject since pattern matched
-                            EmitInstruction(ByteCodeOp.POP_TOP);
-                            return true;
-                        }
-                        
-                        // Complex or patterns not yet supported
-                        return false;
-                    }
-                    
-                case SequencePattern sequencePattern:
-                    // CPython 3.12: Sequence pattern matching [1, 2, *rest]
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 SequencePattern: {sequencePattern.Patterns.Count} patterns");
-                    #endif
-                    return CompileSequencePattern(sequencePattern, pc);
-                    
-                case MappingPattern mappingPattern:
-                    // CPython 3.12: Dictionary pattern matching {"key": value}
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 MappingPattern: {mappingPattern.Patterns.Count} patterns");
-                    #endif
-                    return CompileMappingPattern(mappingPattern, pc);
-                    
-                case CallExpression callExpr:
-                    // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 CallExpression (class pattern): {callExpr}");
-                    #endif
-                    return CompileClassPattern(callExpr, pc);
-                    
-                default:
-                    // Unsupported pattern type for now - fallback to old system
-                    return false;
-            }
-        }
-        
-        /// <summary>
-        /// CPython 3.12: Compile pattern matching for Guard patterns - preserves subject on stack
-        /// This is similar to CompilePatternMatch but designed for Guard context where subject must remain
-        /// </summary>
-        private bool CompilePatternMatchForGuard(Expression pattern, PatternContext pc)
-        {
-            // Console.WriteLine($"🔍 CompilePatternMatchForGuard: {pattern?.GetType().Name} - {pattern}");
-
-            // Extract fail label from pattern context
-            var failLabel = pc.GetFailLabel();
-
-            switch (pattern)
-            {
-                case ConstantExpression constExpr:
-                    // Guard constant pattern: subject is already copied, so consume the copy for comparison
-                    CompileExpression(constExpr);
-                    EmitComparison(CompareOp.EQ);
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    return true;
-                
-                case NameExpression nameExpr when nameExpr.Name == "_":
-                    // Wildcard pattern - always matches, no binding needed
-                    // But we need to consume the copied subject
-                    EmitInstruction(ByteCodeOp.POP_TOP);  // consume the copy
-                    return true;
-                    
-                case NameExpression nameExpr:
-                    // Guard variable pattern: bind the copied subject to variable
-                    // Stack: [original_subject, subject_copy] -> [original_subject]
-                    EmitStoreName(nameExpr.Name);
-                    return true;
-                    
-                default:
-                    // For other patterns, fall back to regular pattern matching
-                    // This might not work perfectly but provides basic functionality
-                    return CompilePatternMatch(pattern, pc);
-            }
-        }
-        
         /// <summary>
         /// Compile sequence pattern matching like [1, 2, *rest]
         /// </summary>
@@ -9507,7 +9006,7 @@ namespace SharpPy
                     else
                     {
                         // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatch(p, pc))
+                        if (!CompilePatternMatchCFG(p, pc))
                         {
                             return false; // Nested pattern compilation failed
                         }
@@ -9539,7 +9038,7 @@ namespace SharpPy
                     else
                     {
                         // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatch(p, pc))
+                        if (!CompilePatternMatchCFG(p, pc))
                         {
                             return false; // Nested pattern compilation failed
                         }
@@ -9570,7 +9069,7 @@ namespace SharpPy
                     else
                     {
                         // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatch(p, pc))
+                        if (!CompilePatternMatchCFG(p, pc))
                         {
                             return false; // Nested pattern compilation failed
                         }
@@ -9581,167 +9080,6 @@ namespace SharpPy
             return true;
         }
 
-        private bool CompileOrPatternLogic(List<Expression> patterns, PatternContext pc)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 CompileOrPatternLogic: {patterns.Count} patterns");
-            #endif
-            for (int i = 0; i < patterns.Count; i++)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"  Pattern {i}: {patterns[i]}");
-                #endif
-            }
-
-            // Extract fail label from pattern context
-            var failLabel = pc.GetFailLabel();
-
-            if (patterns.Count == 1)
-            {
-                // Single pattern - just delegate
-                return CompilePatternMatch(patterns[0], pc);
-            }
-            
-            // Flatten nested OR patterns to handle ((1 | 2) | 3) properly
-            var flattenedPatterns = new List<Expression>();
-            FlattenOrPatterns(patterns, flattenedPatterns);
-            
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 Flattened to {flattenedPatterns.Count} patterns:");
-            #endif
-            for (int i = 0; i < flattenedPatterns.Count; i++)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"  Flattened Pattern {i}: {flattenedPatterns[i]}");
-                #endif
-            }
-            
-            // CPython 3.12: OR pattern with proper jump logic
-            // Stack: [subject] - preserve throughout
-
-            // Create success label that all patterns jump to when they match
-            var successLabel = _instructionSequence.NewLabel();
-
-            // Create labels for each pattern attempt
-            var nextPatternLabels = new List<SharpPy.Label>();
-            for (int i = 0; i < flattenedPatterns.Count - 1; i++)
-            {
-                nextPatternLabels.Add(_instructionSequence.NewLabel());
-            }
-            
-            for (int i = 0; i < flattenedPatterns.Count; i++)
-            {
-                if (i > 0)
-                {
-                    // Place the label for this pattern attempt
-                    _instructionSequence.UseLabel(nextPatternLabels[i - 1]);
-                }
-                
-                var pattern = flattenedPatterns[i];
-                var isLastPattern = (i == flattenedPatterns.Count - 1);
-                var nextLabel = isLastPattern ? failLabel : nextPatternLabels[i];
-                
-                if (pattern is ConstantExpression constExpr)
-                {
-                    // Duplicate subject for comparison
-#if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"  [OR Pattern i={i}] Emitting COPY 1 for alternative '{constExpr.Value}'");
-#endif
-                    EmitInstruction(ByteCodeOp.COPY, 1); // [subject, subject]
-#if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"  [OR Pattern i={i}] Compiling constant expression '{constExpr.Value}'");
-#endif
-                    CompileExpression(constExpr); // [subject, subject, constant]
-#if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"  [OR Pattern i={i}] Emitting COMPARE_OP");
-#endif
-                    EmitComparison(CompareOp.EQ);  // [subject, comparison_result]
-                    
-                    if (isLastPattern)
-                    {
-                        // Last pattern - if false, fail the entire OR
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                        // If true, OR pattern succeeds - jump to success
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                    else
-                    {
-                        // Not last pattern - if false, try next pattern
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                        // If true, OR pattern succeeds - jump to success
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                }
-                else
-                {
-                    // For non-constant patterns, delegate to individual pattern matching
-                    // Create a new context with the next label as the fail label
-                    var patternContext = pc.Clone();
-                    patternContext.FailPop.Clear();
-                    patternContext.FailPop[0] = nextLabel;  // Legacy: use key 0
-
-                    if (!CompilePatternMatch(pattern, patternContext))
-                    {
-                        // Pattern compilation failed
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                        return false;
-                    }
-                    else
-                    {
-                        // Pattern matched - jump to success
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                }
-            }
-
-            // Place the success label - all patterns that succeed jump here
-            _instructionSequence.UseLabel(successLabel);
-
-            // CPython 3.12: Python/compile.c lines 7150-7183
-            // After successful OR pattern match, pop the copy of the subject
-            // (each alternative did COPY 1 at line 7070)
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
-
-            return true;
-        }
-        
-        private void FlattenOrPatterns(List<Expression> patterns, List<Expression> result)
-        {
-            foreach (var pattern in patterns)
-            {
-                if (pattern is BinOpExpression binaryExpr && binaryExpr.OpNode is BitOr)
-                {
-                    // Recursively flatten nested OR patterns
-                    var nestedPatterns = new List<Expression> { binaryExpr.Left, binaryExpr.Right };
-                    FlattenOrPatterns(nestedPatterns, result);
-                }
-                else
-                {
-                    result.Add(pattern);
-                }
-            }
-        }
-        
-        private bool ShouldCleanupSubjectAfterMatch(Expression pattern)
-        {
-            // Patterns that unpack values (sequence, mapping) should not cleanup subject
-            // as the unpacked values remain on stack for variable binding
-            switch (pattern)
-            {
-                case SequencePattern _:
-                case MappingPattern _:
-                    return false; // These patterns leave unpacked values on stack
-                    
-                case BinOpExpression binaryExpr when binaryExpr.OpNode is BitOr:
-                    return true; // OR patterns should cleanup subject
-                    
-                case ConstantExpression _:
-                case NameExpression _:
-                default:
-                    return true; // Simple patterns should cleanup subject
-            }
-        }
-        
         /// <summary>
         /// CPython 3.12: Compile dictionary pattern matching {"key": value}
         /// </summary>
@@ -9825,10 +9163,10 @@ namespace SharpPy
                     // Create a new context with the sub-fail label
                     var subPatternContext = pc.Clone();
                     subPatternContext.FailPop.Clear();
-                    subPatternContext.FailPop[0] = subFailLabel;  // Legacy: use key 0
+                    subPatternContext.FailPop[0] = subFailLabel;
 
                     // Compile the nested pattern recursively
-                    if (!CompilePatternMatch(valuePattern, subPatternContext))
+                    if (!CompilePatternMatchCFG(valuePattern, subPatternContext))
                     {
                         // If nested pattern compilation fails, cleanup and fail
                         _instructionSequence.UseLabel(subFailLabel);
@@ -10665,8 +10003,8 @@ namespace SharpPy
 
         /*
         /// <summary>
-        /// LEGACY: Loop context management for break/continue
-        /// REPLACED BY: Unified FBlock system (FBlockInfo with FOR_LOOP/WHILE_LOOP types)
+        /// Loop context management for break/continue
+        /// Uses unified FBlock system (FBlockInfo with FOR_LOOP/WHILE_LOOP types)
         /// </summary>
         private class LoopContext
         {
@@ -10733,7 +10071,6 @@ namespace SharpPy
             /// </summary>
             public Dictionary<int, SharpPy.Label> FailPop { get; set; } = new Dictionary<int, SharpPy.Label>();
 
-            // Legacy support (will be removed later)
             public bool AllowIrrefutable { get; set; } = true;
 
             public PatternContext Clone()
@@ -10749,7 +10086,6 @@ namespace SharpPy
 
             public SharpPy.Label GetFailLabel()
             {
-                // Legacy: assumes fail_pop[0] exists
                 if (FailPop.ContainsKey(0))
                     return FailPop[0];
                 throw new InvalidOperationException("Pattern context has no failure label");
