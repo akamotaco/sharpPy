@@ -689,5 +689,32 @@ namespace SharpPy
 
             return ListCache.Create(newItems);
         }
+
+        // CPython 3.12: list.__mul__ and list.__rmul__ - Repeat list n times
+        // CPython: Objects/listobject.c:567-589 (list_repeat)
+        // Note: __rmul__ is handled by VM's reverse operation dispatch (TryReverseBinaryOp)
+        public override PyObject Multiply(PyObject other)
+        {
+            if (other is not PyInt pyInt)
+                return PyNotImplemented.Instance;
+
+            int n = (int)pyInt.Value;
+            if (n <= 0)
+            {
+                // Empty list for 0 or negative multiplier
+                return ListCache.Create(new PyObject[0]);
+            }
+
+            // Create new list with repeated elements
+            int itemCount = _items.Count;
+            var newItems = new PyObject[itemCount * n];
+
+            for (int i = 0; i < n; i++)
+            {
+                _items.CopyTo(newItems, i * itemCount);
+            }
+
+            return ListCache.Create(newItems);
+        }
     }
 }

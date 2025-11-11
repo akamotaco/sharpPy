@@ -5814,7 +5814,9 @@ namespace SharpPy
                 // Use PyObject's built-in binary operation methods (CPython compatible)
                 try
                 {
-                    return binaryOp switch
+                    // CPython 3.12: Try left.__op__(right) first
+                    // CPython: Objects/abstract.c:947-1054 (binary_op1)
+                    PyObject result = binaryOp switch
                     {
                         BinaryOpType.ADD => left.Add(right),
                         BinaryOpType.SUBTRACT => left.Subtract(right),
@@ -5831,11 +5833,28 @@ namespace SharpPy
                         BinaryOpType.MATRIX_MULTIPLY => throw PyNotImplementedError.Create("Matrix multiplication not yet implemented"),
                         _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
                     };
+
+                    // CPython 3.12: If left.__op__ returns NotImplemented, try right.__rop__(left)
+                    // CPython: Objects/abstract.c:964-984 (binary_op1)
+                    if (result == PyNotImplemented.Instance)
+                    {
+                        result = TryReverseBinaryOp(right, left, binaryOp);
+                    }
+
+                    // If still NotImplemented, raise TypeError
+                    if (result == PyNotImplemented.Instance)
+                    {
+                        var opSymbol = GetBinaryOpSymbol(binaryOp);
+                        throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+                    }
+
+                    return result;
                 }
                 catch (Exception ex) when (!(ex is PythonException))
                 {
                     // Convert C# exceptions to Python exceptions
-                    throw PyTypeError.Create($"unsupported operand type(s) for {binaryOp}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+                    var opSymbol = GetBinaryOpSymbol(binaryOp);
+                    throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
                 }
             }
             catch (Exception ex)
@@ -5846,6 +5865,61 @@ namespace SharpPy
 #endif
                 throw; // Re-throw for upper-level handling
             }
+        }
+
+        /// <summary>
+        /// Try reverse binary operation: right.__rop__(left)
+        /// CPython 3.12: Objects/abstract.c:964-984 (binary_op1)
+        /// </summary>
+        private PyObject TryReverseBinaryOp(PyObject right, PyObject left, BinaryOpType binaryOp)
+        {
+            try
+            {
+                return binaryOp switch
+                {
+                    BinaryOpType.ADD => right.Add(left),
+                    BinaryOpType.SUBTRACT => right.Subtract(left),
+                    BinaryOpType.MULTIPLY => right.Multiply(left),
+                    BinaryOpType.TRUE_DIVIDE => right.Divide(left),
+                    BinaryOpType.FLOOR_DIVIDE => right.FloorDivide(left),
+                    BinaryOpType.MODULO => right.Modulo(left),
+                    BinaryOpType.POWER => right.Power(left),
+                    BinaryOpType.LSHIFT => right.LeftShift(left),
+                    BinaryOpType.RSHIFT => right.RightShift(left),
+                    BinaryOpType.AND => right.BitwiseAnd(left),
+                    BinaryOpType.OR => right.BitwiseOr(left),
+                    BinaryOpType.XOR => right.BitwiseXor(left),
+                    _ => PyNotImplemented.Instance
+                };
+            }
+            catch
+            {
+                return PyNotImplemented.Instance;
+            }
+        }
+
+        /// <summary>
+        /// Get operator symbol for error messages
+        /// </summary>
+        private string GetBinaryOpSymbol(BinaryOpType binaryOp)
+        {
+            return binaryOp switch
+            {
+                BinaryOpType.ADD => "+",
+                BinaryOpType.SUBTRACT => "-",
+                BinaryOpType.MULTIPLY => "*",
+                BinaryOpType.TRUE_DIVIDE => "/",
+                BinaryOpType.FLOOR_DIVIDE => "//",
+                BinaryOpType.MODULO => "%",
+                BinaryOpType.POWER => "**",
+                BinaryOpType.LSHIFT => "<<",
+                BinaryOpType.RSHIFT => ">>",
+                BinaryOpType.AND => "&",
+                BinaryOpType.OR => "|",
+                BinaryOpType.XOR => "^",
+                BinaryOpType.MATRIX_MULTIPLY => "@",
+                _ => binaryOp.ToString()
+            };
         }
 
         // Legacy method for backward compatibility

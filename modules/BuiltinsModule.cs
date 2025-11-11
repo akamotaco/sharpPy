@@ -63,6 +63,10 @@ namespace SharpPy.Modules
             module.ModuleDict["NotImplemented"] = PyNotImplemented.Instance;
             module.ModuleDict["Ellipsis"] = PyEllipsis.Instance;
 
+            // CPython 3.12: exit and quit objects (Lib/_sitebuiltins.py:21-42)
+            module.ModuleDict["exit"] = new PyQuitter("exit");
+            module.ModuleDict["quit"] = new PyQuitter("quit");
+
             // Exception types (most important for enum module)
             module.ModuleDict["BaseException"] = PyType.BaseExceptionType;
             module.ModuleDict["Exception"] = PyType.ExceptionType;

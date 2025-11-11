@@ -196,6 +196,12 @@ namespace SharpPy
                 
                 return result;
             }
+            catch (PythonException pe) when (pe.PyException is PySystemExit)
+            {
+                // CPython 3.12: SystemExit is a BaseException - don't print traceback for clean exit
+                // Reference: Python/pythonrun.c:1758-1759
+                throw;
+            }
             catch (Exception e)
             {
                 // Always print traceback in both debug and release modes

@@ -51,11 +51,6 @@ namespace SharpPy.Core
                         continue;
                     }
 
-                    if (IsExitCommand(input))
-                    {
-                        break;
-                    }
-
                     if (IsHelpCommand(input))
                     {
                         ShowHelp();
@@ -71,6 +66,14 @@ namespace SharpPy.Core
                 {
                     // Already handled by OnCancelKeyPress, just continue to next prompt
                     continue;
+                }
+                // CPython 3.12: Catch SystemExit from exit()/quit() calls
+                // Reference: Lib/_sitebuiltins.py:38-42
+                // CPython: SystemExit is a BaseException, handled separately from Exception
+                catch (PythonException pe) when (pe.PyException is PySystemExit)
+                {
+                    // exit() or quit() was called - terminate REPL cleanly without traceback
+                    break;
                 }
                 catch (Exception ex)
                 {
@@ -169,12 +172,6 @@ namespace SharpPy.Core
             }
 
             return input ?? "";
-        }
-
-        private bool IsExitCommand(string input)
-        {
-            string trimmed = input.Trim().TrimEnd('(', ')');
-            return trimmed == "exit" || trimmed == "quit";
         }
 
         private bool IsHelpCommand(string input)
@@ -335,6 +332,12 @@ namespace SharpPy.Core
 
                 // CPython 3.12: In single mode, non-None expression results are auto-printed
                 // This is handled by the interactive flag in the compiler
+            }
+            catch (PythonException pe) when (pe.PyException is PySystemExit)
+            {
+                // CPython 3.12: SystemExit is a BaseException - re-throw to main loop
+                // Reference: Lib/_sitebuiltins.py:38-42
+                throw;
             }
             catch (Exception ex)
             {

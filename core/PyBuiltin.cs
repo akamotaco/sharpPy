@@ -4121,4 +4121,38 @@ namespace SharpPy
 
         public override string ToString() => $"<super: {Type.Name}, {Object}>";
     }
+
+    /// <summary>
+    /// CPython 3.12: _sitebuiltins.Quitter - exit/quit objects for REPL
+    /// CPython: Lib/_sitebuiltins.py:21-42
+    /// </summary>
+    public class PyQuitter : PyObject
+    {
+        private readonly string _name;
+        private readonly string _message;
+
+        public PyQuitter(string name)
+        {
+            _name = name;
+            // CPython: Lib/_sitebuiltins.py:24
+            _message = $"Use {name}() or Ctrl-Z plus Return to exit";
+        }
+
+        // CPython: Lib/_sitebuiltins.py:30-36
+        public override PyString ToRepr()
+        {
+            return new PyString(_message);
+        }
+
+        // CPython: Lib/_sitebuiltins.py:38-42
+        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        {
+            // When called as exit() or quit(), raise SystemExit
+            // CPython 3.12: SystemExit is a BaseException, not Exception
+            // This allows REPL to catch it separately from normal exceptions
+            throw PySystemExit.Create(0);
+        }
+
+        public override string ToString() => _message;
+    }
 }
