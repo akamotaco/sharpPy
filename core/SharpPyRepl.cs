@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Threading;
 
 namespace SharpPy.Core
 {
@@ -12,6 +13,8 @@ namespace SharpPy.Core
         private bool _isRunning;
         private StringBuilder _multiLineBuffer;
         private bool _inMultiLineMode;
+        private bool _keyboardInterruptOccurred;
+        private readonly ManualResetEventSlim _interruptEvent;
 
         public SharpPyRepl()
         {
@@ -19,6 +22,8 @@ namespace SharpPy.Core
             _multiLineBuffer = new StringBuilder();
             _isRunning = false;
             _inMultiLineMode = false;
+            _keyboardInterruptOccurred = false;
+            _interruptEvent = new ManualResetEventSlim(false);
         }
 
         public void Start()
@@ -59,6 +64,14 @@ namespace SharpPy.Core
 
                     ProcessInput(input);
                 }
+                // CPython 3.12: Catch OperationCanceledException from Console.ReadLine() during Ctrl+C
+                // This exception is thrown by .NET when CancelKeyPress event is triggered
+                // Reference: Python/pythonrun.c:1758-1759, Modules/main.c:670-693
+                catch (OperationCanceledException)
+                {
+                    // Already handled by OnCancelKeyPress, just continue to next prompt
+                    continue;
+                }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"❌ 오류: {ex.Message}");
@@ -76,11 +89,18 @@ namespace SharpPy.Core
         /// Handle Ctrl+C (SIGINT) and raise KeyboardInterrupt
         /// CPython 3.12: Python/pythonrun.c:1758-1759 (run_eval_code_obj)
         /// CPython 3.12: Modules/main.c:670-693 (pymain_run_python)
+        /// CPython 3.12: Parser/myreadline.c:147-167 (Ctrl+C handling in ReadConsoleW)
         /// </summary>
         private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
         {
             // CPython 3.12: Prevent process termination, handle as KeyboardInterrupt
             e.Cancel = true;
+
+            // Set flag to distinguish Ctrl+C from EOF
+            _keyboardInterruptOccurred = true;
+
+            // Signal the event so GetUserInput can wake up
+            _interruptEvent.Set();
 
             // Print newline for clean prompt
             Console.WriteLine();
@@ -114,16 +134,41 @@ namespace SharpPy.Core
                 Console.Write(">>> ");
             }
 
+            // Reset event before reading
+            _interruptEvent.Reset();
+
+            // CPython 3.12: Parser/myreadline.c:147-167
+            // Read input from console
             string? input = Console.ReadLine();
-            
-            // CPython 3.12: EOF (Ctrl+D or pipe end) should exit REPL
-            if (input == null)
+
+            // CPython 3.12: Parser/myreadline.c:157
+            // Wait for interrupt event with timeout (like CPython's 100ms wait)
+            // This handles the race condition where CancelKeyPress fires after ReadLine returns
+            if (string.IsNullOrEmpty(input))
             {
-                _isRunning = false;
-                return "";
+                _interruptEvent.Wait(100);
             }
-            
-            return input;
+
+            // CPython 3.12: Parser/myreadline.c:150-167
+            // On Windows, ReadConsoleW returns empty when Ctrl+C occurs
+            // Distinguish between Ctrl+C (interrupt) and real EOF
+            if (input == null || (string.IsNullOrEmpty(input) && _keyboardInterruptOccurred))
+            {
+                if (_keyboardInterruptOccurred)
+                {
+                    // Ctrl+C - don't exit, just reset flag and return empty
+                    _keyboardInterruptOccurred = false;
+                    return "";
+                }
+                else if (input == null)
+                {
+                    // Real EOF (Ctrl+D or pipe end) - exit REPL
+                    _isRunning = false;
+                    return "";
+                }
+            }
+
+            return input ?? "";
         }
 
         private bool IsExitCommand(string input)

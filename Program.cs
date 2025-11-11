@@ -28,6 +28,7 @@ namespace SharpPy
                 bool showTokenize = false;
                 bool showAst = false;
                 bool showBytecode = false;
+                bool compileOnly = false;
 
                 // 각 모드로 위임
                 if (parsedArgs.ContainsKey("--dis"))
@@ -43,6 +44,10 @@ namespace SharpPy
                 {
                     // new TokenDebugger().OutputTokens(pythonFile);
                     showTokenize = true;
+                }
+                if (parsedArgs.ContainsKey("--compile"))
+                {
+                    compileOnly = true;
                 }
 
                 // else if (parsedArgs.ContainsKey("--compare-parsers"))
@@ -69,7 +74,7 @@ namespace SharpPy
                 }
                 else if (!string.IsNullOrEmpty(pythonFile))
                 {
-                    new FileExecutor().ExecuteFile(pythonFile, showTokenize, showAst, showBytecode);
+                    new FileExecutor().ExecuteFile(pythonFile, showTokenize, showAst, showBytecode, compileOnly);
                 }
                 else
                 {
