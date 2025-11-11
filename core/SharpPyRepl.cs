@@ -26,12 +26,16 @@ namespace SharpPy.Core
             PrintWelcomeMessage();
             _isRunning = true;
 
+            // CPython 3.12: Register Ctrl+C handler for KeyboardInterrupt
+            // Reference: Python/pythonrun.c:1758-1759
+            Console.CancelKeyPress += OnCancelKeyPress;
+
             while (_isRunning)
             {
                 try
                 {
                     string input = GetUserInput();
-                    
+
                     if (string.IsNullOrEmpty(input))
                     {
                         if (_inMultiLineMode)
@@ -62,7 +66,31 @@ namespace SharpPy.Core
                 }
             }
 
+            // Unregister handler
+            Console.CancelKeyPress -= OnCancelKeyPress;
+
             Console.WriteLine("👋 SharpPy를 사용해주셔서 감사합니다!");
+        }
+
+        /// <summary>
+        /// Handle Ctrl+C (SIGINT) and raise KeyboardInterrupt
+        /// CPython 3.12: Python/pythonrun.c:1758-1759 (run_eval_code_obj)
+        /// CPython 3.12: Modules/main.c:670-693 (pymain_run_python)
+        /// </summary>
+        private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+        {
+            // CPython 3.12: Prevent process termination, handle as KeyboardInterrupt
+            e.Cancel = true;
+
+            // Print newline for clean prompt
+            Console.WriteLine();
+
+            // Reset multi-line mode
+            ResetMultiLineMode();
+
+            // CPython 3.12: In interactive mode, Ctrl+C just interrupts current line
+            // Reference: Python/pythonrun.c:1758-1759
+            Console.WriteLine("KeyboardInterrupt");
         }
 
         private void PrintWelcomeMessage()
@@ -255,18 +283,20 @@ namespace SharpPy.Core
         {
             try
             {
-                // Disable verbose output for REPL mode
-                var result = _interpreter.ExecuteQuiet(code);
-                
-                // For single expressions, print the result
-                if (isSingleLine && result != null && !IsAssignmentOrStatement(code))
-                {
-                    Console.WriteLine(FormatResult(result));
-                }
+                // CPython 3.12: REPL uses Py_single_input mode
+                // Reference: Python/pythonrun.c:266 - uses Py_single_input for REPL
+                // Reference: Include/compile.h:8 - #define Py_single_input 256
+                var result = _interpreter.ExecuteSingle(code);
+
+                // CPython 3.12: In single mode, non-None expression results are auto-printed
+                // This is handled by the interactive flag in the compiler
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ 실행 오류: {ex.Message}");
+#if DEBUG
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+#endif
             }
         }
 

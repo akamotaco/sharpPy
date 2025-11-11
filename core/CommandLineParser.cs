@@ -47,6 +47,10 @@ namespace SharpPy.Core
                         options["--ast"] = "true";
                         break;
 
+                    case "--compile":
+                        options["--compile"] = "true";
+                        break;
+
                     case "--compare-parsers":
                         options["--compare-parsers"] = "true";
                         break;

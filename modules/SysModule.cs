@@ -75,6 +75,11 @@ namespace SharpPy.Modules
             module.ModuleDict["_getframe"] = new PySysFunction("_getframe");
             module.ModuleDict["exception"] = new PySysFunction("exception");
 
+            // CPython 3.12: sys.displayhook - REPL expression output hook
+            // Reference: Python/sysmodule.c:460-520 (sys_displayhook)
+            module.ModuleDict["displayhook"] = new PySysFunction("displayhook");
+            module.ModuleDict["__displayhook__"] = new PySysFunction("displayhook"); // Original hook
+
             return module;
         }
 
@@ -208,6 +213,7 @@ namespace SharpPy.Modules
                 "exc_info" => CallExcInfo(args),
                 "_getframe" => CallGetFrame(args),
                 "exception" => CallException(args),
+                "displayhook" => CallDisplayHook(args),
                 _ => throw PyAttributeError.Create($"sys module has no function '{Name}'")
             };
         }
@@ -385,6 +391,45 @@ namespace SharpPy.Modules
             }
 
             return exception;
+        }
+
+        /// <summary>
+        /// CPython 3.12: sys.displayhook(value)
+        /// Hook called by REPL to display expression results
+        /// Reference: Python/sysmodule.c:460-520 (sys_displayhook)
+        /// </summary>
+        private PyObject CallDisplayHook(PyObject[] args)
+        {
+            if (args.Length != 1)
+            {
+                throw PyTypeError.Create($"displayhook() takes exactly one argument ({args.Length} given)");
+            }
+
+            var value = args[0];
+
+            // CPython: if (o == Py_None) { Py_RETURN_NONE; }
+            // Python/sysmodule.c:467-469
+            if (value == PyNone.Instance || value is PyNone)
+            {
+                // Don't print None values
+                return PyNone.Instance;
+            }
+
+            // CPython: Set builtins._ to the value
+            // Python/sysmodule.c:470-471
+            // TODO: Implement builtins._ = value
+            // For now, we skip this as builtins module needs enhancement
+
+            // CPython: Get sys.stdout
+            // Python/sysmodule.c:472-478
+            // For now, we use Console.WriteLine directly
+
+            // CPython: Print repr(value) to stdout
+            // Python/sysmodule.c:479-499
+            var reprValue = value.ToRepr().Value;
+            Console.WriteLine(reprValue);
+
+            return PyNone.Instance;
         }
     }
 

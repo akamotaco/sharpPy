@@ -6209,11 +6209,50 @@ namespace SharpPy
                 case (int)IntrinsicFunction.INTRINSIC_1_INVALID:
                     throw new InvalidOperationException("Invalid intrinsic function 0");
                 case (int)IntrinsicFunction.INTRINSIC_PRINT:
-                    // CPython 3.12: Used in 'single' mode to print expression results
-                    // Equivalent to: print(repr(arg))
-                    var reprValue = arg.ToRepr().Value;
-                    Console.WriteLine(reprValue);
-                    return PyNone.Instance;
+                    // CPython 3.12: Call sys.displayhook(value)
+                    // Reference: Python/intrinsics.c:25-35 (print_expr)
+                    //   PyObject *hook = _PySys_GetRequiredAttr(&_Py_ID(displayhook));
+                    //   PyObject *res = PyObject_CallOneArg(hook, value);
+
+                    try
+                    {
+                        // Get sys.displayhook
+                        if (!PyImportSystem.SysModules.TryGetValue("sys", out var sysModule))
+                        {
+                            throw new InvalidOperationException("sys module not found");
+                        }
+
+                        var displayhook = sysModule.GetAttribute("displayhook");
+                        if (displayhook == null)
+                        {
+                            throw new InvalidOperationException("sys.displayhook not found");
+                        }
+
+                        // Call displayhook(arg)
+                        if (displayhook is PyBuiltinFunction func)
+                        {
+                            return func.Call(new[] { arg });
+                        }
+                        else if (displayhook is PyFunction pyFunc)
+                        {
+                            // User-defined displayhook
+                            return pyFunc.Call(new[] { arg }, null);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("sys.displayhook is not callable");
+                        }
+                    }
+                    catch
+                    {
+                        // Fallback: direct print if sys.displayhook fails
+                        if (arg != PyNone.Instance && !(arg is PyNone))
+                        {
+                            var reprValue = arg.ToRepr().Value;
+                            Console.WriteLine(reprValue);
+                        }
+                        return PyNone.Instance;
+                    }
                 case (int)IntrinsicFunction.INTRINSIC_IMPORT_STAR:
                     // CPython 3.12: Python/intrinsics.c:127-146 (import_star)
                     // Import all names from a module (from module import *)

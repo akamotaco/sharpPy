@@ -18,7 +18,11 @@ namespace SharpPy.Core
         /// Python 파일을 실행
         /// </summary>
         /// <param name="pythonFile">실행할 Python 파일 경로</param>
-        public void ExecuteFile(string pythonFile, bool showTokenize, bool showAst, bool showBytecode)
+        /// <param name="showTokenize">토큰화 결과 출력 여부</param>
+        /// <param name="showAst">AST 출력 여부</param>
+        /// <param name="showBytecode">바이트코드 출력 여부</param>
+        /// <param name="compileOnly">컴파일만 수행 (실행 안 함)</param>
+        public void ExecuteFile(string pythonFile, bool showTokenize, bool showAst, bool showBytecode, bool compileOnly = false)
         {
             if (string.IsNullOrEmpty(pythonFile))
             {
@@ -31,9 +35,9 @@ namespace SharpPy.Core
 #if DEBUG_LOG
             Console.WriteLine("🐍 SharpPy - Python Interpreter in C#");
             Console.WriteLine("=====================================\n");
-            Console.WriteLine($"📄 Python 파일 실행: {pythonFile}");
+            Console.WriteLine($"📄 Python 파일 {(compileOnly ? "컴파일" : "실행")}: {pythonFile}");
 #endif
-            
+
             try
             {
                 // 파일 존재 여부 먼저 확인
@@ -46,7 +50,17 @@ namespace SharpPy.Core
 
                 string code = IOHelper.ReadAllText(pythonFile);
                 var interpreter = new IntegratedPythonInterpreter();
-                interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
+
+                if (compileOnly)
+                {
+                    // CPython 3.12: python -m py_compile file.py behavior
+                    // Compile to bytecode but don't execute
+                    interpreter.CompileOnly(code, pythonFile, showTokenize, showAst, showBytecode);
+                }
+                else
+                {
+                    interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
+                }
             }
             catch (FileNotFoundException)
             {

@@ -1141,21 +1141,31 @@ namespace SharpPy
             return null;
         }
 
-        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null, bool isInteractive = false)
+        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null, CompileMode mode = CompileMode.File)
         {
             // Clear all compilation state for new compilation
-            // CPython 3.12: _instructions removed - using InstructionSequence only
+            // CPython 3.12: Each compilation starts with fresh state (compile.c:compiler_init)
             _constants.Clear();
             _names.Clear();
             _varNames.Clear();
             _exceptionTable.Clear(); // Reset Exception Table
             _lineNumberTable.Clear(); // Reset line number table
+            _cellVars.Clear(); // Reset cell variables
+            _freeVars.Clear(); // Reset free variables
+            _pendingExceptionHandlers.Clear(); // Reset pending exception handlers
+            _exceptionHandlerStack.Clear(); // Reset exception handler stack
+
+            // CPython 3.12: Reset InstructionSequence for new compilation (compile.c:compiler_init)
+            // Reference: Python/compile.c:856-860 (compiler_init clears instruction lists)
+            _instructionSequence = new InstructionSequence();
 
             // Set current file name for source location tracking
             _currentFileName = fileName;
 
             // CPython 3.12: Set interactive mode flag
-            _isInteractive = isInteractive;
+            // Python/pythonrun.c:266 - REPL uses Py_single_input
+            // Include/compile.h:8 - Py_single_input = 256
+            _isInteractive = (mode == CompileMode.Single);
 
             // CPython 3.12: Build symbol table first
             var symbolTableBuilder = new SymbolTableBuilder();

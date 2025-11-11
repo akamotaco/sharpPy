@@ -1,3 +1,4 @@
+import time
 # Advanced Python Features Example
 from abc import ABC, abstractmethod
 
@@ -38,6 +39,7 @@ def get_message(name):
 
 # Main execution
 if __name__ == "__main__":
+    s = time.time()
     dog = Dog()
     cat = Cat()
 
@@ -48,3 +50,6 @@ if __name__ == "__main__":
     describe(cat)
 
     print(get_message("world"))
+
+    e = time.time()
+    print(f"Execution time: {e - s} seconds")

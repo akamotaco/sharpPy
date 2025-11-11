@@ -3,6 +3,25 @@ using SharpPy.Tools;
 
 namespace SharpPy
 {
+    /// <summary>
+    /// CPython 3.12 compilation modes
+    /// Reference: Include/compile.h:8-11
+    /// </summary>
+    public enum CompileMode
+    {
+        // Include/compile.h:9
+        // #define Py_file_input 257
+        File = 257,      // exec mode: multiple statements (file execution)
+
+        // Include/compile.h:10
+        // #define Py_eval_input 258
+        Eval = 258,      // eval mode: single expression (returns value)
+
+        // Include/compile.h:8
+        // #define Py_single_input 256
+        Single = 256     // single mode: single statement/expression (REPL, prints expr result)
+    }
+
     #region Interpreter Integration (기존 시스템과 통합)
 
     // 통합 Python 인터프리터 (기존 시스템 활용)
@@ -44,10 +63,19 @@ namespace SharpPy
         // 전체 실행 파이프라인 (기존 시스템과 완전 통합)
         public PyObject Execute(string sourceCode)
         {
-            return Execute(sourceCode, null, false, false, false);
+            return Execute(sourceCode, null, false, false, false, CompileMode.File);
         }
-        
-        public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode)
+
+        /// <summary>
+        /// Execute Python code in single mode (REPL)
+        /// CPython 3.12: Python/pythonrun.c:266 uses Py_single_input for REPL
+        /// </summary>
+        public PyObject ExecuteSingle(string sourceCode)
+        {
+            return Execute(sourceCode, "<stdin>", false, false, false, CompileMode.Single);
+        }
+
+        public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File)
         {
             // Store filename and source lines for Python-like error reporting
             _currentFileName = fileName;
@@ -118,10 +146,12 @@ namespace SharpPy
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 30));
-                Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드");
+                Console.WriteLine($"2️⃣ 컴파일: AST → 바이트코드 (mode: {mode})");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName);
+                // CPython 3.12: Python/bltinmodule.c:776-781
+                // "exec" → Py_file_input, "eval" → Py_eval_input, "single" → Py_single_input
+                var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName, mode);
 
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
@@ -174,7 +204,135 @@ namespace SharpPy
                 throw;
             }
         }
-        
+
+        /// <summary>
+        /// Compile Python source code to bytecode without executing it
+        /// CPython 3.12: Similar to `python -m py_compile file.py`
+        /// </summary>
+        /// <param name="sourceCode">Python source code</param>
+        /// <param name="fileName">File name for error reporting</param>
+        /// <param name="showTokenize">Show tokenization output</param>
+        /// <param name="showAst">Show AST output</param>
+        /// <param name="showBytecode">Show bytecode disassembly</param>
+        /// <returns>Compiled code object (not executed)</returns>
+        public PyCodeObject CompileOnly(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode)
+        {
+            // Store filename and source lines for Python-like error reporting
+            _currentFileName = fileName;
+            _sourceLines = sourceCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+#if DEBUG_LOG
+            Console.WriteLine("🐍 Python 컴파일 전용 모드 (실행 안 함)");
+            Console.WriteLine(new string('=', 60));
+            Console.WriteLine($"소스:\n{sourceCode}");
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                Console.WriteLine($"파일: {fileName}");
+            }
+            Console.WriteLine(new string('=', 60));
+#endif
+
+            try
+            {
+                // 1단계: 파싱 (소스 → AST)
+#if DEBUG_LOG
+                Console.WriteLine("\n" + new string('=',30));
+                Console.WriteLine("1️⃣ 파싱: 소스 → AST");
+                Console.WriteLine(new string('=', 30));
+#endif
+                var tokens = PyParserRuntime.LexerSource(sourceCode, generateExtraTokens: showTokenize);
+
+                if(showTokenize)
+                {
+                    Console.WriteLine("[===== tokenize log ====]");
+                    for (int i = 0; i < tokens.Count; ++i)
+                    {
+                        var t = tokens[i];
+                        Console.WriteLine($"{i}:(lines: {t.Line}-{t.EndLine}/ cols: {t.Column}-{t.EndColumn})\t{t.Value}\t[{t.Type}]");
+                    }
+                    Console.WriteLine("[===== tokenize end ====]");
+                    return null;
+                }
+
+                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
+
+                if(showAst)
+                {
+                    Console.WriteLine("[===== ast log ====]");
+                    var dumper = new ASTDumper();
+
+                    Console.WriteLine("Module(");
+                    Console.WriteLine("  body=[");
+                    for (int i = 0; i < statements.Count; ++i)
+                    {
+                        var formattedStmt = dumper.FormatNode(statements[i], 4);
+                        Console.Write(formattedStmt);
+                        if (i < statements.Count - 1)
+                            Console.WriteLine(",");
+                        else
+                            Console.WriteLine();
+                    }
+                    Console.WriteLine("  ],");
+                    Console.WriteLine("  type_ignores=[])");
+
+                    Console.WriteLine("[===== ast end ====]");
+                    return null;
+                }
+
+                // 2단계: 컴파일 (AST → 바이트코드)
+#if DEBUG_LOG
+                Console.WriteLine("\n" + new string('=', 30));
+                Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드 (실행 안 함)");
+                Console.WriteLine(new string('=', 30));
+#endif
+                var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName);
+
+#if DEBUG_LOG
+                Console.WriteLine($"🔍 컴파일 완료: {codeObject.Instructions.Count} instructions");
+#endif
+
+                // 3단계: 바이트코드 출력 (요청 시)
+                if (SharpPyConfig.ShowBytecode || showBytecode)
+                {
+                    Console.WriteLine("[===== bytecode log ====]");
+                    codeObject.Disassemble();
+                    Console.WriteLine("[===== bytecode end ====]");
+                }
+
+#if DEBUG_LOG
+                Console.WriteLine("\n" + new string('=', 60));
+                Console.WriteLine("✅ 컴파일 완료 (실행하지 않음)");
+                Console.WriteLine(new string('=', 60));
+#endif
+
+                // CPython 3.12: Write .pyc file to __pycache__
+                // Reference: Lib/py_compile.py:79-173
+                // Reference: Lib/importlib/_bootstrap_external.py:768-775
+                if (!string.IsNullOrEmpty(fileName) && fileName != "<string>")
+                {
+                    try
+                    {
+                        var pycPath = PycFileWriter.GetPycPath(fileName);
+                        PycFileWriter.WritePycFile(pycPath, codeObject, fileName);
+                        Console.WriteLine($"Compiled: {fileName} -> {pycPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to write .pyc file: {ex.Message}");
+                    }
+                }
+
+                return codeObject;
+            }
+            catch (Exception e)
+            {
+                // Always print traceback in both debug and release modes
+                PrintPythonStyleTraceback(e);
+                // Re-throw to let Program.cs handle exit code
+                throw;
+            }
+        }
+
         /// <summary>
         /// Print Python-style traceback with filename, line numbers, and source code
         /// CPython 3.12 compatible: Prints full call stack with traceback chain

@@ -1360,8 +1360,9 @@ namespace SharpPy
 
                     var compiler = new PythonCompiler();
                     // CPython: code object name is "<module>" for single mode
-                    // isInteractive=true enables INTRINSIC_PRINT for expression statements
-                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename, isInteractive: true);
+                    // CPython 3.12: Python/bltinmodule.c:780 - mode "single" for interactive
+                    // Include/compile.h:8 - Py_single_input = 256
+                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename, CompileMode.Single);
                 }
             }
             catch (Exception ex)
