@@ -691,24 +691,38 @@ namespace SharpPy
                     if (args.Length >= 2 && args[1] is PyInt maxInt)
                         maxsplit = (int)maxInt.Value;
 
+                    // CPython: rsplit splits from the right but returns results in left-to-right order
                     string[] parts;
                     if (sep == null)
                     {
-                        // Split on whitespace
+                        // Split on whitespace - rsplit from right means keeping leftmost parts together when limited
                         parts = str.Value.Split((char[])null, System.StringSplitOptions.RemoveEmptyEntries);
                         if (maxsplit >= 0 && parts.Length > maxsplit + 1)
                         {
+                            // Keep the leftmost parts together
+                            int keepCount = parts.Length - maxsplit;
                             var limited = new string[maxsplit + 1];
-                            Array.Copy(parts, parts.Length - maxsplit - 1, limited, 0, maxsplit + 1);
+                            limited[0] = string.Join(" ", parts, 0, keepCount);
+                            Array.Copy(parts, keepCount, limited, 1, maxsplit);
                             parts = limited;
                         }
-                        Array.Reverse(parts);
                     }
                     else
                     {
-                        int count = maxsplit < 0 ? int.MaxValue : maxsplit + 1;
-                        parts = str.Value.Split(new[] { sep }, count, System.StringSplitOptions.None);
-                        Array.Reverse(parts);
+                        // Split with separator from right
+                        var allParts = str.Value.Split(new[] { sep }, System.StringSplitOptions.None);
+                        if (maxsplit >= 0 && allParts.Length > maxsplit + 1)
+                        {
+                            // Keep the leftmost parts together
+                            int keepCount = allParts.Length - maxsplit;
+                            parts = new string[maxsplit + 1];
+                            parts[0] = string.Join(sep, allParts, 0, keepCount);
+                            Array.Copy(allParts, keepCount, parts, 1, maxsplit);
+                        }
+                        else
+                        {
+                            parts = allParts;
+                        }
                     }
 
                     var items = new PyObject[parts.Length];
@@ -1707,37 +1721,37 @@ namespace SharpPy
         #region String Operations
 
         /// <summary>
-        /// 문자열 연결 (+ 연산자)
+        /// CPython 3.12: str.__add__ - String concatenation
+        /// CPython: Objects/unicodeobject.c:unicode_concatenate (lines ~11800-11850)
         /// </summary>
         public override PyObject Add(PyObject other)
         {
-            return other switch
-            {
-                PyString otherStr => new PyString(Value + otherStr.Value),
-                _ => throw PyTypeError.Create($"can only concatenate str (not \"{other.GetTypeName()}\") to str")
-            };
+            if (other is not PyString otherStr)
+                return PyNotImplemented.Instance;
+
+            return new PyString(Value + otherStr.Value);
         }
 
         /// <summary>
-        /// 문자열 반복 (* 연산자)
+        /// CPython 3.12: str.__mul__ and str.__rmul__ - String repetition
+        /// CPython: Objects/unicodeobject.c:unicode_repeat (lines ~10500-10570)
+        /// Note: __rmul__ is handled by VM's reverse operation dispatch (TryReverseBinaryOp)
         /// </summary>
         public override PyObject Multiply(PyObject other)
         {
-            if (other is PyInt count)
+            if (other is not PyInt count)
+                return PyNotImplemented.Instance;
+
+            if (count.Value <= 0)
+                return new PyString("");
+
+            // Performance: Eliminated LINQ (Enumerable.Repeat) - manual string repetition
+            var sb = new StringBuilder(Value.Length * (int)count.Value);
+            for (int i = 0; i < count.Value; i++)
             {
-                if (count.Value <= 0)
-                    return new PyString("");
-
-                // Performance: Eliminated LINQ (Enumerable.Repeat) - manual string repetition
-                var sb = new StringBuilder(Value.Length * (int)count.Value);
-                for (int i = 0; i < count.Value; i++)
-                {
-                    sb.Append(Value);
-                }
-                return new PyString(sb.ToString());
+                sb.Append(Value);
             }
-
-            throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
+            return new PyString(sb.ToString());
         }
 
         /// <summary>
@@ -1801,10 +1815,11 @@ namespace SharpPy
                                 replacement = value is PyInt pyInt ? pyInt.Value.ToString() : value.ToStr().Value;
                                 break;
                             case 'f': // Float
+                                // CPython: Objects/unicodeobject.c:PyUnicode_FromFormat - %f uses 6 decimal places by default
                                 if (value is PyFloat pyFloat)
-                                    replacement = pyFloat.Value.ToString(CultureInfo.InvariantCulture);
+                                    replacement = pyFloat.Value.ToString("F6", CultureInfo.InvariantCulture);
                                 else if (value is PyInt pyIntForFloat)
-                                    replacement = ((double)pyIntForFloat.Value).ToString(CultureInfo.InvariantCulture);
+                                    replacement = ((double)pyIntForFloat.Value).ToString("F6", CultureInfo.InvariantCulture);
                                 else
                                     replacement = value.ToStr().Value;
                                 break;

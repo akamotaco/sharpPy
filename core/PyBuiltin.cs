@@ -1767,6 +1767,11 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// CPython 3.12: builtin_divmod() - divmod(a, b)
+        /// CPython: Python/bltinmodule.c:builtin_divmod (lines 922-932)
+        /// Returns tuple (a // b, a % b)
+        /// </summary>
         private static PyObject CallDivmod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
@@ -1775,24 +1780,9 @@ namespace SharpPy
             var a = args[0];
             var b = args[1];
 
-            if (a is PyInt ai && b is PyInt bi)
-            {
-                var quotient = ai.Value / bi.Value;
-                var remainder = ai.Value % bi.Value;
-                return new PyTuple(new PyInt(quotient), new PyInt(remainder));
-            }
-            else if (a is PyFloat af || b is PyFloat bf)
-            {
-                var aVal = a is PyFloat ? ((PyFloat)a).Value : ((PyInt)a).Value;
-                var bVal = b is PyFloat ? ((PyFloat)b).Value : ((PyInt)b).Value;
-                var quotient = Math.Floor(aVal / bVal);
-                var remainder = aVal - quotient * bVal;
-                return new PyTuple(new PyFloat(quotient), new PyFloat(remainder));
-            }
-            else
-            {
-                throw PyTypeError.Create("unsupported operand types for divmod()");
-            }
+            // CPython: Python/bltinmodule.c:929 - Call PyNumber_Divmod
+            // Delegate to PyObject.DivMod which implements Python floor division semantics
+            return a.DivMod(b);
         }
 
         private static PyObject CallOrd(PyObject[] args, PyDict kwargs = null)

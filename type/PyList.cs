@@ -716,5 +716,57 @@ namespace SharpPy
 
             return ListCache.Create(newItems);
         }
+
+        /// <summary>
+        /// CPython 3.12: list rich comparison - Lexicographic comparison
+        /// CPython: Objects/listobject.c:list_richcompare (lines 2710-2772)
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            // CPython: Objects/listobject.c:2715-2716 - Type check
+            if (other is not PyList otherList)
+                return PyNotImplemented.Instance;
+
+            // CPython: Objects/listobject.c:2721-2728 - Shortcut: if lengths differ and op is EQ/NE
+            if (op == CompareOp.EQ || op == CompareOp.NE)
+            {
+                if (_items.Count != otherList._items.Count)
+                    return PyBool.FromBool(op == CompareOp.NE);
+
+                // CPython: Objects/listobject.c:2730-2747 - Search for first index where items differ
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    var eq = _items[i].RichCompare(otherList._items[i], CompareOp.EQ);
+                    if (eq is PyBool e && !e.Value)
+                        return PyBool.FromBool(op == CompareOp.NE);
+                }
+
+                return PyBool.FromBool(op == CompareOp.EQ);
+            }
+
+            // CPython: Objects/listobject.c:2730-2770 - Search for first index where items differ
+            int minLen = Math.Min(_items.Count, otherList._items.Count);
+            for (int i = 0; i < minLen; i++)
+            {
+                // First check if items are equal
+                var eq = _items[i].RichCompare(otherList._items[i], CompareOp.EQ);
+                if (eq is PyBool e && !e.Value)
+                {
+                    // Items differ - compare using the actual operator
+                    return _items[i].RichCompare(otherList._items[i], op);
+                }
+                // Items are equal, continue to next pair
+            }
+
+            // CPython: Objects/listobject.c:2749-2752 - No more items to compare, compare sizes
+            return op switch
+            {
+                CompareOp.LT => PyBool.FromBool(_items.Count < otherList._items.Count),
+                CompareOp.LE => PyBool.FromBool(_items.Count <= otherList._items.Count),
+                CompareOp.GT => PyBool.FromBool(_items.Count > otherList._items.Count),
+                CompareOp.GE => PyBool.FromBool(_items.Count >= otherList._items.Count),
+                _ => PyNotImplemented.Instance
+            };
+        }
     }
 }

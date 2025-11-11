@@ -457,6 +457,54 @@ namespace SharpPy
             return new PyFloat(Value / otherValue);
         }
 
+        /// <summary>
+        /// CPython 3.12: _float_div_mod - Helper for floor division and modulo
+        /// CPython: Objects/floatobject.c:_float_div_mod (lines 673-709)
+        /// Implements Python floor division semantics for floats
+        /// </summary>
+        private static void FloatDivMod(double vx, double wx, out double floordiv, out double mod)
+        {
+            // CPython: Objects/floatobject.c:676
+            mod = vx % wx;  // fmod in C
+
+            // CPython: Objects/floatobject.c:682-683
+            double div = (vx - mod) / wx;
+
+            if (mod != 0.0)
+            {
+                // CPython: Objects/floatobject.c:685-689
+                // ensure the remainder has the same sign as the denominator
+                if ((wx < 0) != (mod < 0))
+                {
+                    mod += wx;
+                    div -= 1.0;
+                }
+            }
+            else
+            {
+                // CPython: Objects/floatobject.c:691-695
+                // the remainder is zero, ensure it has the same sign as the denominator
+                mod = Math.CopySign(0.0, wx);
+            }
+
+            // CPython: Objects/floatobject.c:697-705
+            // snap quotient to nearest integral value
+            if (div != 0.0)
+            {
+                floordiv = Math.Floor(div);
+                if (div - floordiv > 0.5)
+                {
+                    floordiv += 1.0;
+                }
+            }
+            else
+            {
+                // CPython: Objects/floatobject.c:707
+                // div is zero - get the same sign as the true quotient
+                floordiv = Math.CopySign(0.0, vx / wx);
+            }
+        }
+
         public override PyObject FloorDivide(PyObject other)
         {
             var otherValue = other switch
@@ -470,7 +518,9 @@ namespace SharpPy
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("float floor division by zero");
 
-            return new PyFloat(Math.Floor(Value / otherValue));
+            // CPython: Objects/floatobject.c:float_floor_div (lines 726-738)
+            FloatDivMod(Value, otherValue, out double floordiv, out _);
+            return new PyFloat(floordiv);
         }
 
         public override PyObject Modulo(PyObject other)
@@ -486,7 +536,40 @@ namespace SharpPy
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("float modulo");
 
-            return new PyFloat(Value % otherValue);
+            // CPython: Objects/floatobject.c:float_rem (lines 740-752)
+            FloatDivMod(Value, otherValue, out _, out double mod);
+            return new PyFloat(mod);
+        }
+
+        /// <summary>
+        /// CPython 3.12: float.__divmod__ - divmod() operation for floats
+        /// CPython: Objects/floatobject.c:float_divmod (lines 711-723)
+        /// Returns tuple of (quotient, remainder) equivalent to (a // b, a % b)
+        /// </summary>
+        public override PyObject DivMod(PyObject other)
+        {
+            double otherValue;
+            switch (other)
+            {
+                case PyFloat otherFloat:
+                    otherValue = otherFloat.Value;
+                    break;
+                case PyInt otherInt:
+                    otherValue = (double)otherInt.Value;
+                    break;
+                case PyBool otherBool:
+                    otherValue = otherBool.Value ? 1.0 : 0.0;
+                    break;
+                default:
+                    return PyNotImplemented.Instance;
+            }
+
+            if (otherValue == 0.0)
+                throw PyZeroDivisionError.Create("float divmod()");
+
+            // CPython: Objects/floatobject.c:721-722
+            FloatDivMod(Value, otherValue, out double floordiv, out double mod);
+            return new PyTuple(new PyFloat(floordiv), new PyFloat(mod));
         }
 
         public override PyObject Power(PyObject other)

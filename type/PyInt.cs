@@ -434,7 +434,19 @@ namespace SharpPy
             {
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyInt(Value / otherInt.Value);
+
+                // CPython: Objects/longobject.c:long_div - Python floor division
+                // Python floor division: result is floor(a/b), not truncate(a/b)
+                var quotient = Value / otherInt.Value;
+                var remainder = Value % otherInt.Value;
+
+                // Adjust for floor division: if signs differ and there's a remainder, subtract 1
+                if (remainder != 0 && ((Value < 0) != (otherInt.Value < 0)))
+                {
+                    quotient -= 1;
+                }
+
+                return new PyInt(quotient);
             }
             if (other is PyFloat otherFloat)
             {
@@ -457,13 +469,31 @@ namespace SharpPy
             {
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyInt(Value % otherInt.Value);
+
+                // CPython: Objects/longobject.c:long_rem - Python modulo
+                // Python modulo: result has same sign as divisor
+                var remainder = Value % otherInt.Value;
+
+                // Adjust for Python modulo: if signs differ and remainder != 0, add divisor
+                if (remainder != 0 && ((Value < 0) != (otherInt.Value < 0)))
+                {
+                    remainder += otherInt.Value;
+                }
+
+                return new PyInt(remainder);
             }
             if (other is PyFloat otherFloat)
             {
                 if (otherFloat.Value == 0.0)
                     throw PyZeroDivisionError.Create("float modulo");
-                return new PyFloat(Value % otherFloat.Value);
+
+                var remainder = Value % otherFloat.Value;
+                if (remainder != 0 && ((Value < 0) != (otherFloat.Value < 0)))
+                {
+                    remainder += otherFloat.Value;
+                }
+
+                return new PyFloat(remainder);
             }
             if (other is PyBool otherBool)
             {
@@ -472,6 +502,27 @@ namespace SharpPy
                 return new PyInt(0);
             }
             throw PyTypeError.Create($"unsupported operand type(s) for %: 'int' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// CPython 3.12: int.__divmod__ - divmod() operation
+        /// CPython: Objects/longobject.c:long_divmod (lines 4509-4526)
+        /// Returns tuple of (quotient, remainder) equivalent to (a // b, a % b)
+        /// </summary>
+        public override PyObject DivMod(PyObject other)
+        {
+            if (other is not PyInt otherInt)
+                return PyNotImplemented.Instance;
+
+            if (otherInt.Value == 0)
+                throw PyZeroDivisionError.Create("integer division or modulo by zero");
+
+            // CPython: Objects/longobject.c:4515-4516 - Call l_divmod which returns quotient and remainder
+            // Use existing FloorDivide and Modulo to ensure consistency
+            var quotient = FloorDivide(other);
+            var remainder = Modulo(other);
+
+            return new PyTuple(quotient, remainder);
         }
 
         public override PyObject Power(PyObject other)

@@ -825,6 +825,16 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// divmod() 연산 (__divmod__)
+        /// CPython: Objects/longobject.c:long_divmod (lines 4509-4526)
+        /// Returns tuple of (quotient, remainder)
+        /// </summary>
+        public virtual PyObject DivMod(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for divmod(): '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
+        /// <summary>
         /// 거듭제곱 연산 (__pow__)
         /// </summary>
         public virtual PyObject Power(PyObject other)

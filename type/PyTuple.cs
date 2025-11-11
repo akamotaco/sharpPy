@@ -297,48 +297,49 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Override base GetItem for Python subscript access
+        /// CPython 3.12: tuple.__getitem__ - Indexing and slicing
+        /// CPython: Objects/tupleobject.c:tuplesubscript (lines ~230-280)
         /// </summary>
         public override PyObject GetItem(PyObject key)
         {
-            return key switch
+            if (key is PyInt index)
+                return GetItem((int)index.Value);
+
+            if (key is PySlice slice)
             {
-                PyInt index => GetItem((int)index.Value),
-                PySlice slice => throw PyNotImplementedError.Create("tuple slicing not yet implemented"),
-                _ => throw PyTypeError.Create($"tuple indices must be integers or slices, not {key.GetTypeName()}")
-            };
+                var (start, stop, step) = slice.Indices(Items.Length);
+                return GetSlice(start, stop, step);
+            }
+
+            throw PyTypeError.Create($"tuple indices must be integers or slices, not {key.GetTypeName()}");
         }
 
         /// <summary>
-        /// 슬라이싱 tuple[start:end:step]
+        /// CPython 3.12: tuple slicing with normalized indices from PySlice.Indices()
+        /// CPython: Objects/tupleobject.c:tuplesubscript (lines ~230-280)
+        /// Note: start, stop, step are already normalized by PySlice.Indices()
         /// </summary>
-        public PyTuple GetSlice(int? start = null, int? end = null, int step = 1)
+        public PyTuple GetSlice(int start, int stop, int step)
         {
             if (step == 0)
                 throw PyValueError.Create("slice step cannot be zero");
-
-            var len = Items.Length;
-            var actualStart = start ?? (step > 0 ? 0 : len - 1);
-            var actualEnd = end ?? (step > 0 ? len : -1);
-
-            // 음수 인덱스 정규화
-            if (actualStart < 0) actualStart += len;
-            if (actualEnd < 0) actualEnd += len;
 
             var result = new System.Collections.Generic.List<PyObject>();
 
             if (step > 0)
             {
-                for (int i = Math.Max(0, actualStart); i < Math.Min(len, actualEnd); i += step)
+                for (int i = start; i < stop; i += step)
                 {
-                    result.Add(Items[i]);
+                    if (i >= 0 && i < Items.Length)
+                        result.Add(Items[i]);
                 }
             }
             else
             {
-                for (int i = Math.Min(len - 1, actualStart); i > Math.Max(-1, actualEnd); i += step)
+                for (int i = start; i > stop; i += step)
                 {
-                    result.Add(Items[i]);
+                    if (i >= 0 && i < Items.Length)
+                        result.Add(Items[i]);
                 }
             }
 
