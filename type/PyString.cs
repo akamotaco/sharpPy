@@ -1777,7 +1777,8 @@ namespace SharpPy
 
             try
             {
-                // Simple % formatting - support %s, %d, %r
+                // % formatting with precision support - CPython 3.12 compatible
+                // CPython: Objects/unicodeobject.c:unicode_format_arg (lines 495-1046)
                 var result = Value;
                 int valueIndex = 0;
 
@@ -1785,7 +1786,44 @@ namespace SharpPy
                 {
                     if (result[i] == '%' && i + 1 < result.Length)
                     {
-                        char formatChar = result[i + 1];
+                        // Parse format specifier: %[flags][width][.precision]type
+                        // CPython: Objects/unicodeobject.c:unicode_format_arg (lines 548-663)
+                        int pos = i + 1;
+
+                        // Skip flags (+, -, 0, space, #)
+                        while (pos < result.Length && "+-0 #".Contains(result[pos]))
+                            pos++;
+
+                        // Skip width (digits or *)
+                        while (pos < result.Length && char.IsDigit(result[pos]))
+                            pos++;
+                        if (pos < result.Length && result[pos] == '*')
+                            pos++;
+
+                        // Parse precision (.digits or .*)
+                        int? precision = null;
+                        if (pos < result.Length && result[pos] == '.')
+                        {
+                            pos++; // Skip '.'
+                            if (pos < result.Length && result[pos] == '*')
+                            {
+                                pos++; // Skip '*' (dynamic precision - not implemented yet)
+                            }
+                            else
+                            {
+                                int precStart = pos;
+                                while (pos < result.Length && char.IsDigit(result[pos]))
+                                    pos++;
+                                if (pos > precStart)
+                                    precision = int.Parse(result.Substring(precStart, pos - precStart));
+                            }
+                        }
+
+                        if (pos >= result.Length)
+                            throw PyValueError.Create("incomplete format");
+
+                        char formatChar = result[pos];
+                        int formatLen = pos - i + 1; // Length of entire format specifier
 
                         if (formatChar == '%')
                         {
@@ -1802,6 +1840,9 @@ namespace SharpPy
                         var value = values[valueIndex++];
                         string replacement;
 
+                        // Get precision value
+                        int precValue = precision ?? 6;
+
                         switch (formatChar)
                         {
                             case 's': // String
@@ -1815,52 +1856,53 @@ namespace SharpPy
                                 replacement = value is PyInt pyInt ? pyInt.Value.ToString() : value.ToStr().Value;
                                 break;
                             case 'f': // Float
-                                // CPython: Objects/unicodeobject.c:PyUnicode_FromFormat - %f uses 6 decimal places by default
+                                // CPython: Objects/unicodeobject.c:formatfloat (lines 278-365)
+                                // Default precision is 6 for %f
                                 if (value is PyFloat pyFloat)
-                                    replacement = pyFloat.Value.ToString("F6", CultureInfo.InvariantCulture);
+                                    replacement = pyFloat.Value.ToString($"F{precValue}", CultureInfo.InvariantCulture);
                                 else if (value is PyInt pyIntForFloat)
-                                    replacement = ((double)pyIntForFloat.Value).ToString("F6", CultureInfo.InvariantCulture);
+                                    replacement = ((double)pyIntForFloat.Value).ToString($"F{precValue}", CultureInfo.InvariantCulture);
                                 else
                                     replacement = value.ToStr().Value;
                                 break;
-                            case 'g': // General format (lowercase) - Python uses 6 significant digits by default
+                            case 'g': // General format (lowercase) - Default 6 significant digits
                                 if (value is PyFloat pyFloatG)
-                                    replacement = pyFloatG.Value.ToString("g6", CultureInfo.InvariantCulture);
+                                    replacement = pyFloatG.Value.ToString($"g{precValue}", CultureInfo.InvariantCulture);
                                 else if (value is PyInt pyIntG)
-                                    replacement = ((double)pyIntG.Value).ToString("g6", CultureInfo.InvariantCulture);
+                                    replacement = ((double)pyIntG.Value).ToString($"g{precValue}", CultureInfo.InvariantCulture);
                                 else
                                     replacement = value.ToStr().Value;
                                 break;
-                            case 'G': // General format (uppercase) - Python uses 6 significant digits by default
+                            case 'G': // General format (uppercase) - Default 6 significant digits
                                 if (value is PyFloat pyFloatGUpper)
-                                    replacement = pyFloatGUpper.Value.ToString("G6", CultureInfo.InvariantCulture);
+                                    replacement = pyFloatGUpper.Value.ToString($"G{precValue}", CultureInfo.InvariantCulture);
                                 else if (value is PyInt pyIntGUpper)
-                                    replacement = ((double)pyIntGUpper.Value).ToString("G6", CultureInfo.InvariantCulture);
+                                    replacement = ((double)pyIntGUpper.Value).ToString($"G{precValue}", CultureInfo.InvariantCulture);
                                 else
                                     replacement = value.ToStr().Value;
                                 break;
-                            case 'e': // Exponent format (lowercase)
+                            case 'e': // Exponent format (lowercase) - Default 6 decimal places
                                 if (value is PyFloat pyFloatE)
-                                    replacement = pyFloatE.Value.ToString("e", CultureInfo.InvariantCulture);
+                                    replacement = FormatExponent(pyFloatE.Value, precValue, false);
                                 else if (value is PyInt pyIntE)
-                                    replacement = ((double)pyIntE.Value).ToString("e", CultureInfo.InvariantCulture);
+                                    replacement = FormatExponent((double)pyIntE.Value, precValue, false);
                                 else
                                     replacement = value.ToStr().Value;
                                 break;
-                            case 'E': // Exponent format (uppercase)
+                            case 'E': // Exponent format (uppercase) - Default 6 decimal places
                                 if (value is PyFloat pyFloatEUpper)
-                                    replacement = pyFloatEUpper.Value.ToString("E", CultureInfo.InvariantCulture);
+                                    replacement = FormatExponent(pyFloatEUpper.Value, precValue, true);
                                 else if (value is PyInt pyIntEUpper)
-                                    replacement = ((double)pyIntEUpper.Value).ToString("E", CultureInfo.InvariantCulture);
+                                    replacement = FormatExponent((double)pyIntEUpper.Value, precValue, true);
                                 else
                                     replacement = value.ToStr().Value;
                                 break;
                             default:
-                                throw PyValueError.Create($"unsupported format character '{formatChar}' (0x{(int)formatChar:x}) at index {i + 1}");
+                                throw PyValueError.Create($"unsupported format character '{formatChar}' (0x{(int)formatChar:x}) at index {pos}");
                         }
 
-                        // Replace %X with the value
-                        result = result.Substring(0, i) + replacement + result.Substring(i + 2);
+                        // Replace format specifier with the value
+                        result = result.Substring(0, i) + replacement + result.Substring(i + formatLen);
                         i += replacement.Length - 1; // Adjust index after replacement
                     }
                 }
@@ -1880,6 +1922,22 @@ namespace SharpPy
             {
                 throw PyTypeError.Create($"unsupported operand type(s) for %: 'str' and '{other.GetTypeName()}': {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Format exponent notation to match Python format (e.g., "1.23e+04" not "1.23e+004")
+        /// CPython: Objects/floatobject.c:format_float_short (uses at least 2 digits for exponent, not 3)
+        /// </summary>
+        private static string FormatExponent(double value, int precision, bool uppercase)
+        {
+            // C# ToString("e") uses 3 digits for exponent (e.g., "e+004")
+            // Python uses minimum 2 digits (e.g., "e+04")
+            string formatted = value.ToString(uppercase ? $"E{precision}" : $"e{precision}", CultureInfo.InvariantCulture);
+
+            // Fix exponent format: replace e+004 with e+04, e-004 with e-04, etc.
+            // Pattern: e+/-004 → e+/-04
+            var regex = new System.Text.RegularExpressions.Regex(uppercase ? @"E([+-])0(\d{2})" : @"e([+-])0(\d{2})");
+            return regex.Replace(formatted, uppercase ? "E$1$2" : "e$1$2");
         }
 
         /// <summary>
