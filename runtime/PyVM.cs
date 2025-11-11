@@ -944,6 +944,50 @@ namespace SharpPy
             return classNamespace;
         }
 
+        /// <summary>
+        /// Create NameError with suggestion
+        /// CPython 3.12: Python/suggestions.c:217-290
+        /// </summary>
+        private static Exception CreateNameErrorWithSuggestion(string name, PyFrame frame)
+        {
+            var locals = new Dictionary<string, PyObject>();
+            var globals = new Dictionary<string, PyObject>();
+            var builtins = new Dictionary<string, PyObject>();
+
+            // Collect locals from current scope
+            if (frame.ScopeChain.CurrentScope != null)
+            {
+                foreach (var kvp in frame.ScopeChain.CurrentScope.Variables)
+                {
+                    locals[kvp.Key] = kvp.Value;
+                }
+            }
+
+            // Collect globals
+            if (frame.ScopeChain.GlobalScope != null)
+            {
+                foreach (var kvp in frame.ScopeChain.GlobalScope.Variables)
+                {
+                    globals[kvp.Key] = kvp.Value;
+                }
+            }
+
+            // Collect builtins
+            var builtinNames = frame.ScopeChain.BuiltinModule.GetAllBuiltinNames();
+            foreach (var builtinName in builtinNames)
+            {
+                var builtin = frame.ScopeChain.BuiltinModule.GetBuiltin(builtinName);
+                if (builtin != null)
+                {
+                    builtins[builtinName] = builtin;
+                }
+            }
+
+            string? suggestion = ErrorSuggestions.GetSuggestionForNameError(name, locals, globals, builtins);
+            string errorMessage = ErrorSuggestions.FormatNameErrorWithSuggestion(name, suggestion);
+            return PyNameError.Create(errorMessage);
+        }
+
         public PyObject ExecuteFrame(PyFrame frame)
         {
             _frameStack.Push(frame);
@@ -1478,9 +1522,8 @@ namespace SharpPy
                         // 전역 스코프에서 삭제됨
                         break;
                     }
-                    // 변수가 없으면 NameError
-                    throw PyNameError.Create($"name '{deleteName}' is not defined");
-                    break;
+                    // 변수가 없으면 NameError with suggestion
+                    throw CreateNameErrorWithSuggestion(deleteName, frame);
 
                 case ByteCodeOp.LOAD_GLOBAL:
                     // CPython 3.12: oparg encoding: (nameIndex << 1) | pushNull
@@ -1554,7 +1597,7 @@ namespace SharpPy
                             Console.WriteLine($"[LOAD_GLOBAL] ❌ Failed to find '{globalName}'!");
                             #endif
                         }
-                        throw PyNameError.Create($"name '{globalName}' is not defined");
+                        throw CreateNameErrorWithSuggestion(globalName, frame);
                     }
 
                     if (isEnumRelated)
@@ -1585,7 +1628,7 @@ namespace SharpPy
                     }
 
                     if (builtinValue == null)
-                        throw PyNameError.Create($"name '{globalBuiltinName}' is not defined");
+                        throw CreateNameErrorWithSuggestion(globalBuiltinName, frame);
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL_BUILTIN({globalBuiltinName}): loaded {builtinValue?.GetType().Name ?? "null"} value = {builtinValue}");
@@ -1597,7 +1640,7 @@ namespace SharpPy
                     // CPython 3.12: Load AssertionError class for assert statements
                     var assertionError = frame.ScopeChain.BuiltinModule.GetBuiltin("AssertionError");
                     if (assertionError == null)
-                        throw PyNameError.Create("name 'AssertionError' is not defined");
+                        throw CreateNameErrorWithSuggestion("AssertionError", frame);
                     frame.ValueStack.Push(assertionError);
                     break;
 
@@ -1639,7 +1682,7 @@ namespace SharpPy
                     else
                     {
                         // CPython behavior: NameError if variable doesn't exist
-                        throw PyNameError.Create($"name '{deleteGlobalName}' is not defined");
+                        throw CreateNameErrorWithSuggestion(deleteGlobalName, frame);
                     }
                     break;
 

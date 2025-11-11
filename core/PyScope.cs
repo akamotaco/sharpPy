@@ -72,6 +72,11 @@ namespace SharpPy
             return ModuleDict.TryGetValue(name, out PyObject value) ? value : null;
         }
 
+        public IEnumerable<string> GetAllBuiltinNames()
+        {
+            return ModuleDict.Keys;
+        }
+
         public override string ToString() => "<module 'builtins' (built-in)>";
     }
 
@@ -590,7 +595,46 @@ namespace SharpPy
             if (verbose) Console.WriteLine($"  ❌ B에서 못 찾음");
 #endif
 
-            throw PyNameError.Create($"name '{name}' is not defined");
+            // CPython 3.12: Generate error suggestion (Python/suggestions.c:217-290)
+            // Collect locals, globals, and builtins for suggestion algorithm
+            var locals = new Dictionary<string, PyObject>();
+            var globals = new Dictionary<string, PyObject>();
+            var builtins = new Dictionary<string, PyObject>();
+
+            // Collect locals from current scope
+            if (CurrentScope != null)
+            {
+                foreach (var kvp in CurrentScope.Variables)
+                {
+                    locals[kvp.Key] = kvp.Value;
+                }
+            }
+
+            // Collect globals
+            if (GlobalScope != null)
+            {
+                foreach (var kvp in GlobalScope.Variables)
+                {
+                    globals[kvp.Key] = kvp.Value;
+                }
+            }
+
+            // Collect builtins
+            var builtinNames = _builtinModule.GetAllBuiltinNames();
+            foreach (var builtinName in builtinNames)
+            {
+                var builtin = _builtinModule.GetBuiltin(builtinName);
+                if (builtin != null)
+                {
+                    builtins[builtinName] = builtin;
+                }
+            }
+
+            // Get suggestion
+            string? suggestion = ErrorSuggestions.GetSuggestionForNameError(name, locals, globals, builtins);
+            string errorMessage = ErrorSuggestions.FormatNameErrorWithSuggestion(name, suggestion);
+
+            throw PyNameError.Create(errorMessage);
         }
 
         public void AssignVariable(string name, PyObject value, HashSet<string> globalVars = null)
