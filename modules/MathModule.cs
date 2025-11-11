@@ -398,31 +398,52 @@ namespace SharpPy.Modules
             return new PyFloat(Math.Abs(x));
         }
 
+        // CPython 3.12: Modules/mathmodule.c:math_ceil (lines 2299-2310)
+        // Delegates to __ceil__ special method
         private PyObject CallCeil(PyObject[] args)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"ceil() takes exactly one argument ({args.Length} given)");
 
-            var x = GetFloatValue(args[0]);
-            return new PyInt((int)Math.Ceiling(x));
+            // CPython: math.ceil delegates to __ceil__
+            if (args[0] is PyFloat f)
+                return f.Ceil();
+            else if (args[0] is PyInt i)
+                return i; // Integer returns itself
+            else
+                throw PyTypeError.Create($"must be real number, not {args[0].GetTypeName()}");
         }
 
+        // CPython 3.12: Modules/mathmodule.c:math_floor (lines 2282-2293)
+        // Delegates to __floor__ special method
         private PyObject CallFloor(PyObject[] args)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"floor() takes exactly one argument ({args.Length} given)");
 
-            var x = GetFloatValue(args[0]);
-            return new PyInt((int)Math.Floor(x));
+            // CPython: math.floor delegates to __floor__
+            if (args[0] is PyFloat f)
+                return f.Floor();
+            else if (args[0] is PyInt i)
+                return i; // Integer returns itself
+            else
+                throw PyTypeError.Create($"must be real number, not {args[0].GetTypeName()}");
         }
 
+        // CPython 3.12: Modules/mathmodule.c:math_trunc (lines 2265-2276)
+        // Delegates to __trunc__ special method
         private PyObject CallTrunc(PyObject[] args)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"trunc() takes exactly one argument ({args.Length} given)");
 
-            var x = GetFloatValue(args[0]);
-            return new PyInt((int)Math.Truncate(x));
+            // CPython: math.trunc delegates to __trunc__
+            if (args[0] is PyFloat f)
+                return f.Trunc();
+            else if (args[0] is PyInt i)
+                return i; // Integer returns itself
+            else
+                throw PyTypeError.Create($"must be real number, not {args[0].GetTypeName()}");
         }
 
         private PyObject CallRound(PyObject[] args)

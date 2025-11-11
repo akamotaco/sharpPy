@@ -324,7 +324,24 @@ namespace SharpPy
         OR = 9,                   // |  (비트 OR) - was 7
         XOR = 10,                 // ^  (비트 XOR) - was 12
         AND = 11,                 // &  (비트 AND) - was 1
-        MATRIX_MULTIPLY = 12      // @  (행렬 곱셈) - was 4
+        MATRIX_MULTIPLY = 12,     // @  (행렬 곱셈) - was 4
+
+        // CPython 3.12: In-place operations (NB_INPLACE_*)
+        // Python/bytecodes.c: BINARY_OP opcode with arg >= 13 means in-place
+        // Note: CPython uses non-sequential values for in-place ops!
+        INPLACE_ADD = 13,              // +=  (인플레이스 덧셈)
+        INPLACE_AND = 14,              // &=  (인플레이스 비트 AND)
+        INPLACE_FLOOR_DIVIDE = 15,     // //= (인플레이스 바닥 나눗셈)
+        INPLACE_LSHIFT = 16,           // <<= (인플레이스 좌시프트)
+        INPLACE_MATRIX_MULTIPLY = 17,  // @=  (인플레이스 행렬 곱셈)
+        INPLACE_MULTIPLY = 18,         // *=  (인플레이스 곱셈)
+        INPLACE_MODULO = 19,           // %=  (인플레이스 모듈로)
+        INPLACE_OR = 20,               // |=  (인플레이스 비트 OR)
+        INPLACE_POWER = 21,            // **= (인플레이스 거듭제곱)
+        INPLACE_RSHIFT = 22,           // >>= (인플레이스 우시프트)
+        INPLACE_SUBTRACT = 23,         // -=  (인플레이스 뺄셈)
+        INPLACE_TRUE_DIVIDE = 24,      // /=  (인플레이스 나눗셈)
+        INPLACE_XOR = 25               // ^=  (인플레이스 비트 XOR)
     }
 
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction

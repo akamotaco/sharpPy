@@ -583,6 +583,128 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// CPython 3.12: pow(base, exp, mod) - 3-argument modular exponentiation
+        /// CPython: Objects/longobject.c:long_pow (lines 4395-4644)
+        /// Efficiently computes (base ** exp) % mod using binary exponentiation
+        /// </summary>
+        public PyObject PowerMod(PyObject expObj, PyObject modObj)
+        {
+            // CPython: Objects/longobject.c:4409-4420 - Type checking
+            if (expObj is not PyInt expInt || modObj is not PyInt modInt)
+                throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
+
+            long baseVal = Value;
+            long exp = expInt.Value;
+            long mod = modInt.Value;
+
+            // CPython: Objects/longobject.c:4445-4447 - Zero modulus check
+            if (mod == 0)
+                throw PyValueError.Create("pow() 3rd argument cannot be 0");
+
+            // CPython: Objects/longobject.c:4509-4519 - Negative exponent requires modular inverse
+            if (exp < 0)
+            {
+                // Compute modular inverse using extended Euclidean algorithm
+                // CPython implements this in Objects/longobject.c:l_invmod
+                long inverse = ModularInverse(baseVal, mod);
+                if (inverse == -1)
+                    throw PyValueError.Create($"base is not invertible for the given modulus");
+
+                baseVal = inverse;
+                exp = -exp;
+            }
+
+            // CPython: Objects/longobject.c:4550-4600 - Binary exponentiation algorithm
+            // Use efficient modular exponentiation: (base^exp) % mod
+            long result = ModularPow(baseVal, exp, mod);
+
+            // CPython: Python uses positive modulo (result always has same sign as modulus)
+            if (result < 0 && mod > 0)
+                result += mod;
+            else if (result > 0 && mod < 0)
+                result += mod;
+
+            return new PyInt((int)result);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Modular exponentiation using binary method
+        /// CPython: Objects/longobject.c:l_mod (inlined in long_pow)
+        /// Computes (base^exp) % mod efficiently
+        /// </summary>
+        private long ModularPow(long baseVal, long exp, long mod)
+        {
+            if (mod == 1)
+                return 0;
+
+            // Normalize base to [0, mod)
+            baseVal = baseVal % mod;
+            if (baseVal < 0)
+                baseVal += mod;
+
+            long result = 1;
+
+            // Binary exponentiation: O(log exp) instead of O(exp)
+            while (exp > 0)
+            {
+                if ((exp & 1) == 1)
+                {
+                    result = (result * baseVal) % mod;
+                }
+                baseVal = (baseVal * baseVal) % mod;
+                exp >>= 1;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Extended Euclidean algorithm for modular inverse
+        /// CPython: Objects/longobject.c:l_invmod (lines 4344-4393)
+        /// Computes x such that (a * x) % m = 1, or returns -1 if not invertible
+        /// </summary>
+        private long ModularInverse(long a, long m)
+        {
+            // Normalize to positive values
+            long origM = m;
+            m = Math.Abs(m);
+            a = a % m;
+            if (a < 0)
+                a += m;
+
+            // Extended Euclidean algorithm
+            long m0 = m;
+            long x0 = 0, x1 = 1;
+
+            if (m == 1)
+                return -1; // Not invertible
+
+            while (a > 1)
+            {
+                if (m == 0)
+                    return -1; // Not invertible (gcd(a, m) != 1)
+
+                long q = a / m;
+                long t = m;
+
+                m = a % m;
+                a = t;
+                t = x0;
+
+                x0 = x1 - q * x0;
+                x1 = t;
+            }
+
+            if (a != 1)
+                return -1; // Not invertible (gcd != 1)
+
+            if (x1 < 0)
+                x1 += m0;
+
+            return x1;
+        }
+
         #endregion
 
         #region Bitwise Operations

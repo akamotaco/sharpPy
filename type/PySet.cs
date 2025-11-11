@@ -463,6 +463,30 @@ namespace SharpPy
             return PyBool.FromBool(!_items.Overlaps(otherItems));
         }
 
+        /// <summary>
+        /// CPython 3.12: set rich comparison (set_richcompare)
+        /// CPython: Objects/setobject.c:set_richcompare (lines 1918-1964)
+        /// Implements comparison operators based on subset/superset relationships
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            // CPython: Objects/setobject.c:1923-1925 - Type check
+            if (other is not PySet && other is not PyFrozenSet)
+                return PyNotImplemented.Instance;
+
+            // CPython: Objects/setobject.c:1927-1964 - Dispatch to appropriate operation
+            return op switch
+            {
+                CompareOp.EQ => PyEquals(other),           // set == other
+                CompareOp.NE => PyNotEquals(other),        // set != other
+                CompareOp.LT => IsProperSubset(other),     // set < other (proper subset)
+                CompareOp.LE => IsSubset(other),           // set <= other (subset)
+                CompareOp.GT => IsProperSuperset(other),   // set > other (proper superset)
+                CompareOp.GE => IsSuperset(other),         // set >= other (superset)
+                _ => PyNotImplemented.Instance
+            };
+        }
+
         #endregion
 
         #region Set Mutating Operations
@@ -694,6 +718,33 @@ namespace SharpPy
         public PyBool IsSubset(PyObject other) => new PySet(_items).IsSubset(other);
         public PyBool IsSuperset(PyObject other) => new PySet(_items).IsSuperset(other);
         public PyBool IsDisjoint(PyObject other) => new PySet(_items).IsDisjoint(other);
+
+        public PyBool IsProperSubset(PyObject other) => new PySet(_items).IsProperSubset(other);
+        public PyBool IsProperSuperset(PyObject other) => new PySet(_items).IsProperSuperset(other);
+
+        /// <summary>
+        /// CPython 3.12: frozenset rich comparison (frozenset_richcompare)
+        /// CPython: Objects/setobject.c:set_richcompare (lines 1918-1964)
+        /// Implements comparison operators based on subset/superset relationships
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            // CPython: Objects/setobject.c:1923-1925 - Type check
+            if (other is not PySet && other is not PyFrozenSet)
+                return PyNotImplemented.Instance;
+
+            // CPython: Objects/setobject.c:1927-1964 - Dispatch to appropriate operation
+            return op switch
+            {
+                CompareOp.EQ => PyEquals(other),           // frozenset == other
+                CompareOp.NE => PyNotEquals(other),        // frozenset != other
+                CompareOp.LT => IsProperSubset(other),     // frozenset < other (proper subset)
+                CompareOp.LE => IsSubset(other),           // frozenset <= other (subset)
+                CompareOp.GT => IsProperSuperset(other),   // frozenset > other (proper superset)
+                CompareOp.GE => IsSuperset(other),         // frozenset >= other (superset)
+                _ => PyNotImplemented.Instance
+            };
+        }
 
         #endregion
 

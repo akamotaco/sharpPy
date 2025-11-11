@@ -718,6 +718,97 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: list.__iadd__ - In-place concatenation (+=)
+        /// CPython: Objects/listobject.c:list_inplace_concat (lines 856-970)
+        /// Modifies the list in-place by extending it with items from other
+        /// </summary>
+        public virtual PyObject InplaceAdd(PyObject other)
+        {
+            // CPython: Objects/listobject.c:870-872 - Special cases: lists and tuples use fast path
+            // Special cases:
+            //   1) lists and tuples which can use PySequence_Fast ops
+            //   2) extending self to self requires making a copy first
+            if (other is PyList otherList)
+            {
+                // CPython: Objects/listobject.c:875-909 - Fast path for lists
+                _items.AddRange(otherList._items);
+            }
+            else if (other is PyTuple otherTuple)
+            {
+                // CPython: Objects/listobject.c:870-872 - Fast path for tuples
+                // PyTuple_CheckExact(iterable) -> use PySequence_Fast
+                for (int i = 0; i < otherTuple.Length(); i++)
+                {
+                    _items.Add(otherTuple.GetItem(i));
+                }
+            }
+            else
+            {
+                // CPython: Objects/listobject.c:911-970 - General iterable path
+                // it = PyObject_GetIter(iterable)
+                var iterator = other.GetIterator();
+                try
+                {
+                    // CPython: Objects/listobject.c:939-960 - Run iterator to exhaustion
+                    while (true)
+                    {
+                        var item = iterator.Next();
+                        _items.Add(item);
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    // CPython: Objects/listobject.c:944-948 - Handle StopIteration
+                    // End of iteration
+                }
+            }
+
+            // CPython: Objects/listobject.c:967 - Return None (but for iadd, CPython returns self via BINARY_OP)
+            // Return self (same object)
+            return this;
+        }
+
+        /// <summary>
+        /// CPython 3.12: list.__imul__ - In-place repetition (*=)
+        /// CPython: Objects/listobject.c:list_inplace_repeat (lines 601-619)
+        /// Modifies the list in-place by repeating its elements
+        /// </summary>
+        public virtual PyObject InplaceMultiply(PyObject other)
+        {
+            if (other is not PyInt pyInt)
+                return PyNotImplemented.Instance;
+
+            int n = (int)pyInt.Value;
+
+            // CPython: Objects/listobject.c:608-612 - Handle n <= 0
+            if (n <= 0)
+            {
+                _items.Clear();
+                return this;
+            }
+
+            // CPython: Objects/listobject.c:614-617 - Repeat elements n times
+            if (n == 1)
+            {
+                // No change needed
+                return this;
+            }
+
+            // Create a copy of original items
+            var originalItems = _items.ToArray();
+            int itemCount = originalItems.Length;
+
+            // Extend list to hold n copies
+            for (int i = 1; i < n; i++)
+            {
+                _items.AddRange(originalItems);
+            }
+
+            // CPython: Return self (same object)
+            return this;
+        }
+
+        /// <summary>
         /// CPython 3.12: list rich comparison - Lexicographic comparison
         /// CPython: Objects/listobject.c:list_richcompare (lines 2710-2772)
         /// </summary>

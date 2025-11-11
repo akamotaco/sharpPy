@@ -1723,29 +1723,42 @@ namespace SharpPy
 
         // === 수학 함수들 ===
 
+        // CPython 3.12: Python/bltinmodule.c:builtin_round (lines 2876-2920)
+        // Delegates to __round__ special method
         private static PyObject CallRound(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"round expected 1 or 2 arguments ({args.Length} given)");
 
             var number = args[0];
-            var ndigits = args.Length > 1 ? ((PyInt)args[1]).Value : 0;
+            PyObject ndigits = args.Length > 1 ? args[1] : null;
 
+            // CPython: builtin_round delegates to __round__ method
             if (number is PyFloat f)
             {
-                var rounded = Math.Round(f.Value, (int)ndigits);
-                return ndigits == 0 ? new PyInt((int)rounded) : new PyFloat(rounded);
+                return f.Round(ndigits);
             }
             else if (number is PyInt i)
             {
-                return i; // 정수는 그대로
+                // CPython: Integer returns itself when ndigits is None
+                if (ndigits == null || ndigits is PyNone)
+                    return i;
+
+                // With ndigits, round to that many decimal places (no-op for ints, but validates ndigits)
+                if (ndigits is not PyInt)
+                    throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+
+                return i; // For integers, rounding to any ndigits is identity
             }
             else
             {
-                throw PyTypeError.Create("a float is required");
+                throw PyTypeError.Create($"type '{number.GetTypeName()}' doesn't define __round__ method");
             }
         }
 
+        // CPython 3.12: Python/bltinmodule.c:builtin_pow (lines 2633-2671)
+        // Two-argument form: pow(x, y) computes x ** y
+        // Three-argument form: pow(x, y, z) computes (x ** y) % z efficiently
         private static PyObject CallPow(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2 || args.Length > 3)
@@ -1757,12 +1770,20 @@ namespace SharpPy
 
             if (mod != null)
             {
-                // pow(x, y, z) = (x**y) % z
-                var result = base_.Power(exp);
-                return result.Modulo(mod);
+                // CPython: Python/bltinmodule.c:2656-2668 - Three-argument modular exponentiation
+                // Only integers are supported for 3-argument pow()
+                if (base_ is PyInt baseInt)
+                {
+                    return baseInt.PowerMod(exp, mod);
+                }
+                else
+                {
+                    throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
+                }
             }
             else
             {
+                // CPython: Python/bltinmodule.c:2653 - Two-argument power
                 return base_.Power(exp);
             }
         }

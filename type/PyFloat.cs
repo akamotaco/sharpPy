@@ -572,6 +572,62 @@ namespace SharpPy
             return new PyTuple(new PyFloat(floordiv), new PyFloat(mod));
         }
 
+        /// <summary>
+        /// CPython 3.12: float.__round__ - round() 함수가 호출하는 메서드
+        /// CPython: Objects/floatobject.c:float_round (lines 1311-1359)
+        /// Returns int if ndigits is None, otherwise float
+        /// </summary>
+        public PyObject Round(PyObject ndigits = null)
+        {
+            // CPython: Objects/floatobject.c:1317-1320 - ndigits가 None이면 정수 반환
+            if (ndigits == null || ndigits is PyNone)
+            {
+                // Banker's rounding (round half to even) - CPython 기본 동작
+                return new PyInt((long)Math.Round(Value, MidpointRounding.ToEven));
+            }
+
+            // CPython: Objects/floatobject.c:1322-1359 - ndigits가 주어지면 float 반환
+            if (ndigits is not PyInt ndigitsInt)
+                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+
+            int digits = (int)ndigitsInt.Value;
+            double rounded = Math.Round(Value, digits, MidpointRounding.ToEven);
+            return new PyFloat(rounded);
+        }
+
+        /// <summary>
+        /// CPython 3.12: float.__trunc__ - math.trunc()가 호출하는 메서드
+        /// CPython: Objects/floatobject.c:float_trunc (lines 1269-1280)
+        /// Truncates towards zero, returns int
+        /// </summary>
+        public PyObject Trunc()
+        {
+            // CPython: Objects/floatobject.c:1277 - Return int(self)
+            return new PyInt((long)Math.Truncate(Value));
+        }
+
+        /// <summary>
+        /// CPython 3.12: float.__floor__ - math.floor()가 호출하는 메서드
+        /// CPython: Objects/floatobject.c:float_floor (lines 1282-1293)
+        /// Returns the floor as int
+        /// </summary>
+        public PyObject Floor()
+        {
+            // CPython: Objects/floatobject.c:1290 - Returns floor as int
+            return new PyInt((long)Math.Floor(Value));
+        }
+
+        /// <summary>
+        /// CPython 3.12: float.__ceil__ - math.ceil()가 호출하는 메서드
+        /// CPython: Objects/floatobject.c:float_ceil (lines 1295-1306)
+        /// Returns the ceiling as int
+        /// </summary>
+        public PyObject Ceil()
+        {
+            // CPython: Objects/floatobject.c:1303 - Returns ceiling as int
+            return new PyInt((long)Math.Ceiling(Value));
+        }
+
         public override PyObject Power(PyObject other)
         {
 

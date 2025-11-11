@@ -5831,6 +5831,24 @@ namespace SharpPy
                         BinaryOpType.OR => left.BitwiseOr(right),
                         BinaryOpType.XOR => left.BitwiseXor(right),
                         BinaryOpType.MATRIX_MULTIPLY => throw PyNotImplementedError.Create("Matrix multiplication not yet implemented"),
+
+                        // CPython 3.12: In-place operations
+                        // CPython: Objects/abstract.c:binary_iop1 (lines 1162-1193)
+                        // Try in-place method first, fallback to regular operation
+                        BinaryOpType.INPLACE_ADD => TryInplaceOp(left, right, "InplaceAdd", () => left.Add(right)),
+                        BinaryOpType.INPLACE_SUBTRACT => TryInplaceOp(left, right, "InplaceSubtract", () => left.Subtract(right)),
+                        BinaryOpType.INPLACE_MULTIPLY => TryInplaceOp(left, right, "InplaceMultiply", () => left.Multiply(right)),
+                        BinaryOpType.INPLACE_TRUE_DIVIDE => TryInplaceOp(left, right, "InplaceDivide", () => left.Divide(right)),
+                        BinaryOpType.INPLACE_FLOOR_DIVIDE => TryInplaceOp(left, right, "InplaceFloorDivide", () => left.FloorDivide(right)),
+                        BinaryOpType.INPLACE_MODULO => TryInplaceOp(left, right, "InplaceModulo", () => left.Modulo(right)),
+                        BinaryOpType.INPLACE_POWER => TryInplaceOp(left, right, "InplacePower", () => left.Power(right)),
+                        BinaryOpType.INPLACE_LSHIFT => TryInplaceOp(left, right, "InplaceLeftShift", () => left.LeftShift(right)),
+                        BinaryOpType.INPLACE_RSHIFT => TryInplaceOp(left, right, "InplaceRightShift", () => left.RightShift(right)),
+                        BinaryOpType.INPLACE_AND => TryInplaceOp(left, right, "InplaceBitwiseAnd", () => left.BitwiseAnd(right)),
+                        BinaryOpType.INPLACE_OR => TryInplaceOp(left, right, "InplaceBitwiseOr", () => left.BitwiseOr(right)),
+                        BinaryOpType.INPLACE_XOR => TryInplaceOp(left, right, "InplaceBitwiseXor", () => left.BitwiseXor(right)),
+                        BinaryOpType.INPLACE_MATRIX_MULTIPLY => throw PyNotImplementedError.Create("In-place matrix multiplication not yet implemented"),
+
                         _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
                     };
 
@@ -5865,6 +5883,49 @@ namespace SharpPy
 #endif
                 throw; // Re-throw for upper-level handling
             }
+        }
+
+        /// <summary>
+        /// Try in-place operation first, fallback to regular operation
+        /// CPython 3.12: Objects/abstract.c:binary_iop1 (lines 1162-1193)
+        ///
+        /// In-place operations modify the object in place and return self for mutable types (list, dict, set).
+        /// For immutable types (int, str, tuple), they fall back to regular operations and return a new object.
+        /// </summary>
+        /// <summary>
+        /// Try in-place operation first, fallback to regular operation
+        /// CPython 3.12: Objects/abstract.c:binary_iop1 (lines 1162-1193)
+        ///
+        /// In-place operations modify the object in place and return self for mutable types (list, dict, set).
+        /// For immutable types (int, str, tuple), they fall back to regular operations and return a new object.
+        /// </summary>
+        private PyObject TryInplaceOp(PyObject left, PyObject right, string inplaceMethodName, Func<PyObject> regularOpFallback)
+        {
+            // CPython: Objects/abstract.c:1166-1173 - Try in-place method first
+            var method = left.GetType().GetMethod(inplaceMethodName);
+            if (method != null)
+            {
+                try
+                {
+                    var result = method.Invoke(left, new object[] { right }) as PyObject;
+
+                    // CPython: Objects/abstract.c:1171 - If not NotImplemented, use result
+                    if (result != null && result != PyNotImplemented.Instance)
+                    {
+                        return result;
+                    }
+                }
+                catch (System.Reflection.TargetInvocationException ex)
+                {
+                    // Re-throw the inner exception (Python exception from the method)
+                    if (ex.InnerException != null)
+                        throw ex.InnerException;
+                    throw;
+                }
+            }
+
+            // CPython: Objects/abstract.c:1179 - Fall back to regular operation
+            return regularOpFallback();
         }
 
         /// <summary>

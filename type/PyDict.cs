@@ -742,6 +742,72 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Dict merge operator (|) - Python 3.9+
+        /// CPython 3.12: Objects/dictobject.c:dict_or (lines 3144-3169)
+        /// Creates new dict merging self and other (rightmost values win for duplicate keys)
+        /// </summary>
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            // CPython: Objects/dictobject.c:3149-3152 - Type check
+            if (other is not PyDict otherDict)
+            {
+                return PyNotImplemented.Instance;
+            }
+
+            // CPython: Objects/dictobject.c:3154-3159 - Create new dict and merge
+            // result = PyDict_Copy(self)
+            var result = new PyDict();
+
+            // Copy self's items (maintain insertion order)
+            foreach (var key in _keys)
+            {
+                result._dict[key] = _dict[key];
+                result._keys.Add(key);
+            }
+
+            // CPython: Objects/dictobject.c:3164-3168 - Merge other's items (rightmost wins)
+            // PyDict_Merge(result, other, 1)
+            foreach (var key in otherDict._keys)
+            {
+                if (!result._dict.ContainsKey(key))
+                {
+                    result._keys.Add(key);
+                }
+                result._dict[key] = otherDict._dict[key];
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Dict in-place merge operator (|=) - Python 3.9+
+        /// CPython 3.12: Objects/dictobject.c:dict_ior (lines 3172-3194)
+        /// Merges other into self in-place and returns self
+        /// </summary>
+        public virtual PyObject InplaceBitwiseOr(PyObject other)
+        {
+            // CPython: Objects/dictobject.c:3177-3180 - Type check
+            if (other is not PyDict otherDict)
+            {
+                return PyNotImplemented.Instance;
+            }
+
+            // CPython: Objects/dictobject.c:3182-3189 - Merge in place
+            // PyDict_Merge(self, other, 1) - 1 means override existing keys
+            foreach (var key in otherDict._keys)
+            {
+                if (!_dict.ContainsKey(key))
+                {
+                    _keys.Add(key);
+                }
+                _dict[key] = otherDict._dict[key];
+            }
+
+            // CPython: Objects/dictobject.c:3191 - Return self
+            return this;
+        }
+
+        /// <summary>
         /// Iterator support for dictionary iteration (for key in dict) - CPython compatible
         /// Returns keys only, same as CPython behavior
         /// </summary>

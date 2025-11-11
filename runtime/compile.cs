@@ -5145,6 +5145,7 @@ namespace SharpPy
         {
             // CPython 3.12: target += value (supports Name, Attribute, Subscript)
             // Pattern: LOAD_target, LOAD_value, BINARY_OP, STORE_target
+            // CPython: Python/compile.c:compiler_augassign (lines 5527-5577)
 
             // Load current value from target
             if (augAssign.TargetExpr is NameExpression nameExpr)
@@ -5153,8 +5154,10 @@ namespace SharpPy
                 EmitLoadName(nameExpr.Name);
                 CompileExpression(augAssign.Value);
 
-                // CPython 3.12: BinaryOperator type directly maps to BinaryOpType
-                var binaryOpType = augAssign.Op.GetOpType();
+                // CPython 3.12: Convert regular BinaryOpType to INPLACE version
+                // CPython: Python/compile.c:5543 - compiler_addop(c, inplace_binop(s->v.AugAssign.op))
+                // CPython: Python/compile.c:1235-1258 - inplace_binop() function
+                var binaryOpType = ConvertToInplaceBinaryOp(augAssign.Op.GetOpType());
 
                 EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
                 EmitStoreName(nameExpr.Name);
@@ -5168,8 +5171,8 @@ namespace SharpPy
                 EmitLoadAttr(attrExpr.Attr);          // Load attribute value
                 CompileExpression(augAssign.Value);    // Load right-hand value
 
-                // Perform binary operation
-                var binaryOpType = augAssign.Op.GetOpType();
+                // Perform binary operation (in-place version)
+                var binaryOpType = ConvertToInplaceBinaryOp(augAssign.Op.GetOpType());
                 EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
 
                 // Store result back to attribute
@@ -5187,8 +5190,8 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BINARY_SUBSCR);  // Load current value: [list1, 0, list1[0]]
                 CompileExpression(augAssign.Value);        // Load right-hand value: [list1, 0, list1[0], 10]
 
-                // Perform binary operation
-                var binaryOpType = augAssign.Op.GetOpType();
+                // Perform binary operation (in-place version)
+                var binaryOpType = ConvertToInplaceBinaryOp(augAssign.Op.GetOpType());
                 EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);  // [list1, 0, result]
 
                 // Store result back: SWAP to get [result, list1, 0], then STORE_SUBSCR
@@ -5200,6 +5203,34 @@ namespace SharpPy
             {
                 throw new NotImplementedException($"AugAssign target type '{augAssign.TargetExpr.GetType().Name}' not implemented");
             }
+        }
+
+        /// <summary>
+        /// Convert regular binary operation to in-place version for augmented assignment
+        /// CPython 3.12: Python/compile.c:inplace_binop (lines 1235-1258)
+        /// Maps NB_* to NB_INPLACE_* operations
+        /// </summary>
+        private BinaryOpType ConvertToInplaceBinaryOp(BinaryOpType op)
+        {
+            // CPython 3.12: Python/compile.c:1235-1258
+            // static int inplace_binop(operator_ty op)
+            return op switch
+            {
+                BinaryOpType.ADD => BinaryOpType.INPLACE_ADD,                      // Add -> __iadd__
+                BinaryOpType.SUBTRACT => BinaryOpType.INPLACE_SUBTRACT,            // Sub -> __isub__
+                BinaryOpType.MULTIPLY => BinaryOpType.INPLACE_MULTIPLY,            // Mult -> __imul__
+                BinaryOpType.TRUE_DIVIDE => BinaryOpType.INPLACE_TRUE_DIVIDE,      // Div -> __itruediv__
+                BinaryOpType.FLOOR_DIVIDE => BinaryOpType.INPLACE_FLOOR_DIVIDE,    // FloorDiv -> __ifloordiv__
+                BinaryOpType.MODULO => BinaryOpType.INPLACE_MODULO,                // Mod -> __imod__
+                BinaryOpType.POWER => BinaryOpType.INPLACE_POWER,                  // Pow -> __ipow__
+                BinaryOpType.LSHIFT => BinaryOpType.INPLACE_LSHIFT,                // LShift -> __ilshift__
+                BinaryOpType.RSHIFT => BinaryOpType.INPLACE_RSHIFT,                // RShift -> __irshift__
+                BinaryOpType.OR => BinaryOpType.INPLACE_OR,                        // BitOr -> __ior__
+                BinaryOpType.XOR => BinaryOpType.INPLACE_XOR,                      // BitXor -> __ixor__
+                BinaryOpType.AND => BinaryOpType.INPLACE_AND,                      // BitAnd -> __iand__
+                BinaryOpType.MATRIX_MULTIPLY => BinaryOpType.INPLACE_MATRIX_MULTIPLY,  // MatMult -> __imatmul__
+                _ => throw new ArgumentException($"Unknown binary operation type for in-place conversion: {op}")
+            };
         }
         
         private void CompileAugmentedAssign(AugmentedAssignStatement augAssign)
