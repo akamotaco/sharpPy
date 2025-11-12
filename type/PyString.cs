@@ -1541,6 +1541,60 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 1
             );
+
+            // CPython 3.12: Objects/unicodeobject.c:14711-14730 (unicode_new_impl)
+            // str.__new__(cls, value='', encoding=None, errors=None)
+            strType.TypeDict["__new__"] = new PyStaticBuiltinMethod(
+                "__new__",
+                (args, kwargs) =>
+                {
+                    // args[0] is cls
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("str.__new__(): not enough arguments");
+
+                    PyType cls = args[0] as PyType;
+                    if (cls == null && args[0] is PyClass pyClass)
+                        cls = pyClass.GetPyType();
+                    if (cls == null)
+                        throw PyTypeError.Create("str.__new__(X): X is not a type object");
+
+                    // Get the value argument (args[1] if present)
+                    string value = "";
+                    if (args.Length >= 2 && args[1] != PyNone.Instance)
+                    {
+                        // CPython: Line 14720 - unicode = PyObject_Str(x)
+                        var strObj = args[1].ToStr();
+                        value = strObj.Value;
+                    }
+
+                    // CPython: Line 14726-14728
+                    // if (unicode != NULL && type != &PyUnicode_Type) {
+                    //     Py_SETREF(unicode, unicode_subtype_new(type, unicode));
+                    // }
+                    if (cls != PyType.StrType)
+                    {
+                        // This is a str subclass (like StrEnum)
+                        // CPython: unicode_subtype_new (Objects/unicodeobject.c:14733-14826)
+                        // Creates PyUnicodeObject with subtype's ob_type
+                        if (args[0] is PyClass classObj)
+                        {
+                            // CPython: line 14744 - self = type->tp_alloc(type, 0);
+                            // line 14751-14764 - copy unicode data from original
+                            return new PyStrSubclass(classObj, value);
+                        }
+                        else
+                        {
+                            // cls is a PyType but not PyClass, shouldn't happen normally
+                            throw PyTypeError.Create($"str.__new__: expected class, got {cls.GetTypeName()}");
+                        }
+                    }
+                    else
+                    {
+                        // Regular str type, return PyString
+                        return new PyString(value);
+                    }
+                }
+            );
         }
 
         #region Core Properties

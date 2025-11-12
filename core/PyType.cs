@@ -532,11 +532,44 @@ namespace SharpPy
                 return args[0].GetPyType();
             }
 
-            // type(name, bases, dict) - 새로운 타입 생성
+            // type(name, bases, dict, **kwargs) - 새로운 타입 생성
+            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
             if (this == TypeType && args.Length == 3)
             {
                 if (args[0] is PyString name && args[1] is PyTuple bases && args[2] is PyDict classDict)
                 {
+                    // CPython 3.12: If kwargs are provided, we need to determine the metaclass
+                    // and call its __new__ method with the kwargs
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                    {
+                        // Determine metaclass from bases
+                        PyType metaclass = TypeType;
+                        if (bases.Items.Length > 0)
+                        {
+                            var firstBase = bases.Items[0];
+                            if (firstBase is PyClass baseClass)
+                            {
+                                metaclass = baseClass.Metaclass ?? TypeType;
+                            }
+                            else if (firstBase is PyType baseType)
+                            {
+                                metaclass = TypeType;
+                            }
+                        }
+
+                        // Call the metaclass's __new__ method with kwargs
+                        // CPython reference: Objects/typeobject.c:1667
+                        // obj = type->tp_new(type, args, kwds);
+                        var newMethod = metaclass.GetAttribute("__new__");
+                        if (newMethod != null && newMethod.IsCallable())
+                        {
+                            // Call metaclass.__new__(metaclass, name, bases, dict, **kwargs)
+                            var newArgs = new PyObject[] { metaclass, name, bases, classDict };
+                            return newMethod.Call(newArgs, kwargs);
+                        }
+                    }
+
+                    // No kwargs - use simple class creation
                     // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
                     var baseTypes = new PyType[bases.Items.Length];
                     for (int i = 0; i < bases.Items.Length; i++)
@@ -558,27 +591,43 @@ namespace SharpPy
                 throw PyTypeError.Create("type() arguments must be (name, bases, dict)");
             }
 
-            // CPython 3.12: Special handling for descriptor types
+            // CPython 3.12: Objects/funcobject.c:1241-1256 (staticmethod)
+            // Special handling for descriptor types
             if (this == StaticMethodType)
             {
                 if (args.Length != 1)
                     throw PyTypeError.Create($"staticmethod expected 1 argument, got {args.Length}");
-                if (args[0] == null || !args[0].IsCallable())
-                    throw PyTypeError.Create("staticmethod() argument must be callable");
-                if (args[0] is PyFunction func)
-                    return new PyStaticmethod(func);
-                throw PyTypeError.Create("staticmethod() currently only supports PyFunction objects");
+
+                var func = args[0];
+
+                // If already a staticmethod, return as-is (idempotent)
+                if (func is PyStaticmethod pyStaticmethod)
+                    return pyStaticmethod;
+
+                if (func == null || !func.IsCallable())
+                    throw PyTypeError.Create($"staticmethod() argument must be callable (got {func?.GetTypeName()})");
+
+                // CPython 3.12: Accept ANY callable
+                return new PyStaticmethod(func);
             }
 
+            // CPython 3.12: Objects/funcobject.c:1055-1068 (classmethod)
             if (this == ClassMethodType)
             {
                 if (args.Length != 1)
                     throw PyTypeError.Create($"classmethod expected 1 argument, got {args.Length}");
-                if (args[0] == null || !args[0].IsCallable())
-                    throw PyTypeError.Create("classmethod() argument must be callable");
-                if (args[0] is PyFunction func)
-                    return new PyClassmethod(func);
-                throw PyTypeError.Create("classmethod() currently only supports PyFunction objects");
+
+                var func = args[0];
+
+                // If already a classmethod, return as-is (idempotent)
+                if (func is PyClassmethod pyClassmethod)
+                    return pyClassmethod;
+
+                if (func == null || !func.IsCallable())
+                    throw PyTypeError.Create($"classmethod() argument must be callable (got {func?.GetTypeName()})");
+
+                // CPython 3.12: Accept ANY callable
+                return new PyClassmethod(func);
             }
 
             if (this == PropertyType)
@@ -857,6 +906,14 @@ namespace SharpPy
                         InitializeDictTypeDescriptors();
                     break;
             }
+
+            // CPython 3.12: Objects/typeobject.c:1410-1412
+            // All types have __doc__ attribute (tp_doc)
+            // If not already set by specific type initializer, default to None
+            if (!TypeDict.ContainsKey("__doc__"))
+            {
+                TypeDict["__doc__"] = PyNone.Instance;
+            }
         }
 
         /// <summary>
@@ -865,8 +922,44 @@ namespace SharpPy
         /// </summary>
         private void InitializeStrTypeDescriptors()
         {
+            // str.__new__() - CPython Objects/unicodeobject.c:14871 (tp_new = unicode_new)
+            // This is critical for enum._find_data_type_() to recognize str as a data type
+            TypeDict["__new__"] = new PyBuiltinFunction(
+                "__new__",
+                (args, kwargs) => {
+                    // str.__new__(cls, object='', encoding='utf-8', errors='strict')
+                    if (args.Length == 0)
+                        throw PyTypeError.Create("str.__new__(): not enough arguments");
+
+                    var cls = args[0];
+                    if (cls is not PyType)
+                        throw PyTypeError.Create($"str.__new__(X): X is not a type object ({cls.GetTypeName()})");
+
+                    // If called with just the class, return empty string
+                    if (args.Length == 1)
+                        return new PyString("");
+
+                    var obj = args[1];
+
+                    // Convert object to string
+                    if (obj is PyString pyStr)
+                        return pyStr;
+                    else if (obj is PyInt pyInt)
+                        return new PyString(pyInt.Value.ToString());
+                    else if (obj is PyFloat pyFloat)
+                        return new PyString(pyFloat.Value.ToString());
+                    else if (obj is PyBool pyBool)
+                        return new PyString(pyBool.Value ? "True" : "False");
+                    else if (obj is PyNone)
+                        return new PyString("None");
+                    else
+                        // Call __str__ method
+                        return new PyString(obj.ToString());
+                }
+            );
+
             // PyString.InitializeStringDescriptors()에서 모든 str descriptor를 등록하므로
-            // 여기서는 아무것도 하지 않음 (중복 방지)
+            // 여기서는 __new__ 외에는 아무것도 하지 않음 (중복 방지)
         }
 
         /// <summary>
@@ -875,6 +968,50 @@ namespace SharpPy
         private void InitializeIntTypeDescriptors()
         {
             var intType = this;
+
+            // int.__new__() - CPython Objects/longobject.c:5598-5642 (long_new_impl), line 6342 (tp_new = long_new)
+            // This is critical for enum._find_data_type_() to recognize int as a data type
+            TypeDict["__new__"] = new PyBuiltinFunction(
+                "__new__",
+                (args, kwargs) => {
+                    // int.__new__(cls, x=0, base=10)
+                    if (args.Length == 0)
+                        throw PyTypeError.Create("int.__new__(): not enough arguments");
+
+                    var cls = args[0];
+                    if (cls is not PyType)
+                        throw PyTypeError.Create($"int.__new__(X): X is not a type object ({cls.GetTypeName()})");
+
+                    // If called with just the class, return 0
+                    if (args.Length == 1)
+                        return new PyInt(0);
+
+                    var x = args[1];
+
+                    // Handle base parameter if present
+                    int baseValue = 10;
+                    if (args.Length > 2)
+                    {
+                        if (args[2] is not PyInt baseArg)
+                            throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+                        baseValue = (int)baseArg.Value;
+                        if (baseValue != 0 && (baseValue < 2 || baseValue > 36))
+                            throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+                    }
+
+                    // Convert x to int
+                    if (x is PyInt pyInt)
+                        return pyInt;
+                    else if (x is PyString pyStr)
+                        return PyInt.FromString(pyStr.Value, baseValue);
+                    else if (x is PyFloat pyFloat)
+                        return new PyInt((long)pyFloat.Value);
+                    else if (x is PyBool pyBool)
+                        return new PyInt(pyBool.Value ? 1 : 0);
+                    else
+                        throw PyTypeError.Create($"int() argument must be a string or a number, not '{x.GetTypeName()}'");
+                }
+            );
 
             // int.bit_length() - CPython Objects/longobject.c:long_bit_length
             TypeDict["bit_length"] = new PyMethodDescriptor(
@@ -927,19 +1064,45 @@ namespace SharpPy
                 maxArgs: int.MaxValue
             );
 
-            // object.__new__(cls) - CPython object_new
+            // object.__new__(cls) - CPython Objects/typeobject.c:5444-5515 (object_new)
+            // Note: PyMethodDescriptor extracts first arg as 'self', which is the 'cls' for __new__
             TypeDict["__new__"] = new PyMethodDescriptor(
                 "__new__",
                 objectType,
                 (self, args, kwargs) => {
-                    // __new__ is a static method, first arg is the class
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("__new__() missing 1 required positional argument: 'cls'");
+                    // CPython 3.12: __new__ is a static method, but exposed as method_descriptor
+                    // 'self' parameter here is actually 'cls' (the class to instantiate)
+                    // args contains additional arguments passed to __new__ (should be empty for object.__new__)
 
-                    // Create a basic PyInstance
-                    return new PyInstance();
+                    PyClass cls;
+                    if (self is PyClass clsArg)
+                    {
+                        cls = clsArg;
+                    }
+                    else if (self is PyType typeArg)
+                    {
+                        // Handle PyType as well (for built-in types)
+                        // Create PyClassInstance with a temporary PyClass wrapper
+                        // For built-in types like 'int', 'str', etc., we need special handling
+                        return new PyInstance();
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"object.__new__(X): X is not a type object (got {self.GetTypeName()})");
+                    }
+
+                    // CPython 3.12: Check for excess args (lines 5446-5457)
+                    // object.__new__() takes exactly one argument (the type to instantiate)
+                    if (args.Length > 0 || (kwargs != null && kwargs.Length() > 0))
+                    {
+                        // Note: CPython has more complex logic here for subclasses
+                        // For now, we allow extra args (will be passed to __init__)
+                    }
+
+                    // Create instance of the class
+                    return new PyClassInstance(cls);
                 },
-                minArgs: 1,
+                minArgs: 0,  // 'cls' is extracted as 'self' by PyMethodDescriptor
                 maxArgs: int.MaxValue
             );
 
@@ -1044,6 +1207,23 @@ namespace SharpPy
                     return new PyString(type.Name);
                 }
             );
+
+            // type.__qualname__ - CPython type_qualname (Objects/typeobject.c:250-275)
+            // For now, same as __name__ for built-in types
+            Console.WriteLine("[InitializeTypeTypeDescriptors] Adding __qualname__ descriptor");
+            TypeDict["__qualname__"] = new PyGetSetDescriptor(
+                "__qualname__",
+                typeType,
+                getter: self => {
+                    Console.WriteLine($"[__qualname__ getter] Called for {(self as PyType)?.Name ?? self.ToString()}");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var result = new PyString(type.Name);  // For built-in types, qualname == name
+                    Console.WriteLine($"[__qualname__ getter] Returning {result.Value}");
+                    return result;
+                }
+            );
+            Console.WriteLine($"[InitializeTypeTypeDescriptors] __qualname__ added. TypeDict count: {TypeDict.Count}");
 
             // type.__bases__ - CPython type_get_bases / type_set_bases
             TypeDict["__bases__"] = new PyGetSetDescriptor(
@@ -2019,7 +2199,28 @@ namespace SharpPy
             // CPython: meta_attribute = _PyType_Lookup(metatype, name)
             if (metatype is PyClass metaclass)
             {
-                if (metaclass.ClassDict.TryGetValue(name, out metaAttribute))
+                // Check ClassDict first
+                bool foundInClassDict = metaclass.ClassDict.TryGetValue(name, out metaAttribute);
+                if (foundInClassDict)
+                {
+                    // Check if it's a descriptor
+                    if (metaAttribute is IDescriptor descriptor)
+                    {
+                        metaGet = descriptor;
+
+                        // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
+                        if (metaGet.IsDataDescriptor())
+                        {
+                            // Data descriptors on metatype have highest priority
+                            // Call descriptor.__get__(self, type(self))
+                            return metaGet.Get(this, metatype);
+                        }
+                    }
+                }
+
+                // If not found in ClassDict, also check TypeDict (PyClass inherits from PyType)
+                // This is needed for __format__ and other type descriptors
+                if (!foundInClassDict && metaclass.TypeDict != null && metaclass.TypeDict.TryGetValue(name, out metaAttribute))
                 {
                     // Check if it's a descriptor
                     if (metaAttribute is IDescriptor descriptor)

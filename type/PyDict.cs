@@ -21,12 +21,29 @@ namespace SharpPy
         {
             var dictType = PyType.DictType;
 
+            // Helper to get PyDict from self (handles both PyDict and PyClassInstance dict subclasses)
+            static PyDict GetDict(PyObject self, PyType dictType)
+            {
+                if (self is PyDict dict)
+                    return dict;
+
+                if (self is PyClassInstance ci)
+                {
+                    var storage = ci.GetDictStorage();
+                    if (storage != null)
+                        return storage;
+                }
+
+                throw PyTypeError.Create($"descriptor requires a 'dict' object but received a '{self.GetTypeName()}'");
+            }
+
             // CPython 3.12: Objects/dictobject.c:3627-3630 - dict_get
             // D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None.
             dictType.TypeDict["get"] = new PyMethodDescriptor(
                 "get", dictType,
                 (self, args, kwargs) => {
-                    if (self is not PyDict dict)
+                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
+                    if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'get' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
@@ -34,7 +51,17 @@ namespace SharpPy
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
-                    return dict.Get(key, defaultValue);
+
+                    // For C# PyDict, use direct method
+                    if (self is PyDict dict)
+                        return dict.Get(key, defaultValue);
+
+                    // For Python dict subclasses
+                    var contains = self.Contains(key);
+                    if (contains == PyBool.True)
+                        return self.GetItem(key);
+
+                    return defaultValue;
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -46,10 +73,12 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
+                    if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'keys' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
-                    return dict.Keys();
+                    return GetDict(self, dictType).Keys();
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -61,10 +90,11 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'values' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
-                    return dict.Values();
+                    return GetDict(self, dictType).Values();
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -76,10 +106,11 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'items' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
-                    return dict.Items();
+                    return GetDict(self, dictType).Items();
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -89,7 +120,9 @@ namespace SharpPy
             dictType.TypeDict["setdefault"] = new PyMethodDescriptor(
                 "setdefault", dictType,
                 (self, args, kwargs) => {
-                    if (self is not PyDict dict)
+                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
+                    // Check if self is dict or dict subclass
+                    if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'setdefault' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
@@ -97,7 +130,19 @@ namespace SharpPy
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
-                    return dict.SetDefault(key, defaultValue);
+
+                    // For C# PyDict, use direct method
+                    if (self is PyDict dict)
+                        return dict.SetDefault(key, defaultValue);
+
+                    // For Python dict subclasses, use __contains__, __getitem__, __setitem__
+                    // CPython: if key in D: return D[key] else: D[key] = default; return default
+                    var contains = self.Contains(key);
+                    if (contains == PyBool.True)
+                        return self.GetItem(key);
+
+                    self.SetItem(key, defaultValue);
+                    return defaultValue;
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -108,7 +153,8 @@ namespace SharpPy
             dictType.TypeDict["pop"] = new PyMethodDescriptor(
                 "pop", dictType,
                 (self, args, kwargs) => {
-                    if (self is not PyDict dict)
+                    // CPython 3.12: Include/dictobject.h:17-18 - PyDict_Check accepts subclasses
+                    if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'pop' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
@@ -116,7 +162,36 @@ namespace SharpPy
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : null;
-                    return dict.Pop(key, defaultValue);
+
+                    // For C# PyDict, use direct method
+                    if (self is PyDict dict)
+                        return dict.Pop(key, defaultValue);
+
+                    // For Python dict subclasses, use __delitem__ + __getitem__
+                    // CPython: if key in D: v = D[key]; del D[key]; return v else: return default
+                    var contains = self.Contains(key);
+                    if (contains == PyBool.True)
+                    {
+                        var value = self.GetItem(key);
+
+                        // Call __delitem__ special method
+                        var delitem = self.GetAttribute("__delitem__");
+                        if (delitem != null && delitem.IsCallable())
+                        {
+                            delitem.Call(new PyObject[] { key }, null);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"'{self.GetTypeName()}' object does not support item deletion");
+                        }
+
+                        return value;
+                    }
+
+                    if (defaultValue != null)
+                        return defaultValue;
+
+                    throw PyKeyError.Create(key);
                 },
                 minArgs: 1, maxArgs: 2
             );
@@ -233,12 +308,35 @@ namespace SharpPy
                     }
                     else if (self is PyClassInstance classInstance)
                     {
+                        // CPython 3.12: Lib/enum.py:309-320
                         // Dict subclass: access _dictStorage field
                         var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
                             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                         var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
                         if (dictStorage != null)
                         {
+                            #if DEBUG
+                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
+                            if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
+                            {
+                                Console.WriteLine($"[DEBUG-DICT-GETITEM] dict.__getitem__ for _EnumDict['{keyStr}']:");
+                                Console.WriteLine($"  dictStorage != null: true");
+                                Console.WriteLine($"  dictStorage._dict != null: {dictStorage._dict != null}");
+                                try
+                                {
+                                    var hasKey = dictStorage._dict.TryGetValue(args[0], out var debugValue);
+                                    Console.WriteLine($"  dictStorage._dict.ContainsKey: {hasKey}");
+                                    if (hasKey)
+                                    {
+                                        Console.WriteLine($"  Value: {debugValue}, type={debugValue?.GetType().Name}");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"  Exception during TryGetValue: {ex.Message}");
+                                }
+                            }
+                            #endif
                             return dictStorage._dict.TryGetValue(args[0], out var value)
                                 ? value
                                 : throw PyKeyError.Create(args[0]);
@@ -270,12 +368,20 @@ namespace SharpPy
                     }
                     else if (self is PyClassInstance classInstance)
                     {
+                        // CPython 3.12: Lib/enum.py:369-380
                         // Dict subclass: access _dictStorage field
                         var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
                             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                         var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
                         if (dictStorage != null)
                         {
+                            #if DEBUG
+                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
+                            if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
+                            {
+                                Console.WriteLine($"[DEBUG-DICT-SETITEM] dict.__setitem__ for _EnumDict['{keyStr}'] = {args[1]}, type={args[1]?.GetType().Name}");
+                            }
+                            #endif
                             dictStorage.SetItem(args[0], args[1]);  // Use SetItem to maintain _keys order
                             return PyNone.Instance;
                         }
@@ -284,6 +390,42 @@ namespace SharpPy
                     throw PyTypeError.Create($"descriptor '__setitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
                 },
                 minArgs: 2, maxArgs: 2
+            );
+
+            // CPython 3.12: __delitem__ slot (mp_ass_subscript with NULL value)
+            // CPython 3.12: Objects/dictobject.c:2524-2530 (dict_ass_sub with w == NULL)
+            // del D[key]
+            //
+            // Same pattern: access actual dict storage, NOT polymorphic DelItem
+            dictType.TypeDict["__delitem__"] = new PyMethodDescriptor(
+                "__delitem__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__delitem__ expected 1 argument, got {args.Length}");
+
+                    // CPython 3.12: PyDict_DelItem checks PyDict_Check then deletes from internal storage
+                    if (self is PyDict pyDict)
+                    {
+                        // Real PyDict: delete from _dict directly
+                        pyDict.DelItem(args[0]);
+                        return PyNone.Instance;
+                    }
+                    else if (self is PyClassInstance classInstance)
+                    {
+                        // Dict subclass: access _dictStorage field
+                        var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
+                        if (dictStorage != null)
+                        {
+                            dictStorage.DelItem(args[0]);
+                            return PyNone.Instance;
+                        }
+                    }
+
+                    throw PyTypeError.Create($"descriptor '__delitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                },
+                minArgs: 1, maxArgs: 1
             );
 
             // CPython 3.12: Objects/dictobject.c:2547

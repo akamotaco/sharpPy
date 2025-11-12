@@ -687,6 +687,7 @@ namespace SharpPy
 
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyDict로 변환/캐스팅
+        /// CPython 3.12: Objects/dictobject.c:2637-2672 - dict_init
         /// </summary>
         public virtual PyDict AsDict()
         {
@@ -701,8 +702,41 @@ namespace SharpPy
                 }
                 return newDict;
             }
-            
-            throw PyTypeError.Create($"cannot convert '{GetTypeName()}' to dict");
+
+            // CPython 3.12: dict() can accept an iterable of (key, value) pairs
+            // Objects/dictobject.c:2649-2672
+            try
+            {
+                var newDict = new PyDict();
+                var iter = GetIterator();
+
+                while (true)
+                {
+                    PyObject item;
+                    try
+                    {
+                        item = iter.Next();
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        break;
+                    }
+
+                    // Each item should be a (key, value) pair
+                    if (item is not PyTuple itemPair || itemPair.Items.Length != 2)
+                    {
+                        throw PyTypeError.Create($"dictionary update sequence element must be a sequence of length 2");
+                    }
+
+                    newDict.SetItem(itemPair.Items[0], itemPair.Items[1]);
+                }
+
+                return newDict;
+            }
+            catch (PythonException ex) when (ex.PyException is PyTypeError te && te.Message.Contains("not iterable"))
+            {
+                throw PyTypeError.Create($"cannot convert '{GetTypeName()}' to dict");
+            }
         }
 
         /// <summary>
@@ -1220,12 +1254,29 @@ namespace SharpPy
                     return PyNone.Instance;
                 }),
                 "__new__" => new PyBuiltinFunction("__new__", args => {
+                    // CPython 3.12: Objects/typeobject.c:5444-5515 (object_new)
                     // object.__new__() creates a new instance
-                    if (args.Length > 0 && args[0] is PyClass cls)
+                    // When called as object.__new__(SomeClass), args[0] is the class
+                    // When called through descriptor protocol, first arg is already extracted
+
+                    PyClass cls;
+                    if (args.Length == 0)
                     {
-                        return new PyClassInstance(cls);
+                        // Called through method descriptor: object.__new__(cls) where descriptor
+                        // already extracted 'cls' as self, leaving args empty
+                        throw PyTypeError.Create("object.__new__() missing 1 required positional argument: 'cls'");
                     }
-                    throw PyTypeError.Create("object.__new__() missing 1 required positional argument: 'cls'");
+                    else if (args[0] is PyClass clsArg)
+                    {
+                        // Direct call with class as first argument
+                        cls = clsArg;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create("object.__new__(X): X is not a type object");
+                    }
+
+                    return new PyClassInstance(cls);
                 }),
                 "__str__" => new PyBuiltinFunction("__str__", args => {
                     // object.__str__() delegates to __repr__

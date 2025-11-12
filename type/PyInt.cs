@@ -290,6 +290,85 @@ namespace SharpPy
                     return new PyInt(1);  // For int, denominator is always 1
                 }
             );
+
+            // CPython 3.12: Objects/longobject.c:5597-5641 (long_new_impl)
+            // int.__new__(cls, x=0, base=10)
+            intType.TypeDict["__new__"] = new PyStaticBuiltinMethod(
+                "__new__",
+                (args, kwargs) =>
+                {
+                    // args[0] is cls
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("int.__new__(): not enough arguments");
+
+                    PyType cls = args[0] as PyType;
+                    if (cls == null && args[0] is PyClass pyClass)
+                        cls = pyClass.GetPyType();
+                    if (cls == null)
+                        throw PyTypeError.Create("int.__new__(X): X is not a type object");
+
+                    // Get the value argument (args[1] if present, default 0)
+                    long value = 0;
+                    if (args.Length >= 2 && args[1] != PyNone.Instance)
+                    {
+                        // CPython: Line 5605-5615 - convert x to int
+                        if (args[1] is PyInt pyInt)
+                            value = pyInt.Value;
+                        else if (args[1] is PyFloat pyFloat)
+                            value = (long)Math.Truncate(pyFloat.Value);
+                        else if (args[1] is PyBool pyBool)
+                            value = pyBool.Value ? 1 : 0;
+                        else if (args[1] is PyString pyStr)
+                        {
+                            // Handle base parameter if present
+                            int baseValue = 10;
+                            if (args.Length >= 3 && args[2] is PyInt baseInt)
+                                baseValue = (int)baseInt.Value;
+
+                            var parsed = PyInt.FromString(pyStr.Value, baseValue);
+                            value = parsed.Value;
+                        }
+                        else
+                        {
+                            // Try to convert to int
+                            try
+                            {
+                                value = args[1].ToInt();
+                            }
+                            catch
+                            {
+                                throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{args[1].GetTypeName()}'");
+                            }
+                        }
+                    }
+
+                    // CPython: Line 5603-5604
+                    // if (type != &PyLong_Type)
+                    //     return long_subtype_new(type, x, obase);
+                    if (cls != PyType.IntType)
+                    {
+                        // This is an int subclass (like IntEnum)
+                        // CPython: long_subtype_new (Objects/longobject.c:5648-5677)
+                        // Creates PyLongObject with subtype's ob_type
+                        if (args[0] is PyClass classObj)
+                        {
+                            // CPython: line 5665 - newobj = (PyLongObject *)type->tp_alloc(type, n);
+                            // line 5671-5674 - copy int value from tmp to newobj
+                            return new PyIntSubclass(classObj, value);
+                        }
+                        else
+                        {
+                            // cls is a PyType but not PyClass, shouldn't happen normally
+                            throw PyTypeError.Create($"int.__new__: expected class, got {cls.GetTypeName()}");
+                        }
+                    }
+                    else
+                    {
+                        // Regular int type, return PyInt
+                        return new PyInt(value);
+                    }
+                }
+            );
         }
 
         #region Core Properties
@@ -711,29 +790,91 @@ namespace SharpPy
 
         public override PyObject BitwiseAnd(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:5336 (long_and)
+            // Line 1547-1551: CHECK_BINOP macro
+            // #define CHECK_BINOP(v,w) if (!PyLong_Check(v) || !PyLong_Check(w)) Py_RETURN_NOTIMPLEMENTED;
+
+            // PyLong_Check: Include/longobject.h:12-13
+            // #define PyLong_Check(op) PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_LONG_SUBCLASS)
+            // This includes int subclasses (IntEnum, IntFlag, etc.)
+
+            long otherValue;
             if (other is PyInt otherInt)
-                return new PyInt(Value & otherInt.Value);
-            if (other is PyBool otherBool)
-                return new PyInt(Value & (otherBool.Value ? 1 : 0));
-            throw PyTypeError.Create($"unsupported operand type(s) for &: 'int' and '{other.GetTypeName()}'");
+            {
+                otherValue = otherInt.Value;
+            }
+            else if (other is PyIntSubclass intSubclass)
+            {
+                // int subclass is also PyLong_Check compatible
+                otherValue = intSubclass.GetIntValue().Value;
+            }
+            else if (other is PyBool otherBool)
+            {
+                otherValue = otherBool.Value ? 1 : 0;
+            }
+            else
+            {
+                // CPython: Py_RETURN_NOTIMPLEMENTED for non-int types
+                return PyNotImplemented.Instance;
+            }
+
+            return new PyInt(Value & otherValue);
         }
 
         public override PyObject BitwiseOr(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:5347 (long_or)
+            // Line 1547-1551: CHECK_BINOP macro checks PyLong_Check for both operands
+
+            long otherValue;
             if (other is PyInt otherInt)
-                return new PyInt(Value | otherInt.Value);
-            if (other is PyBool otherBool)
-                return new PyInt(Value | (otherBool.Value ? 1 : 0));
-            throw PyTypeError.Create($"unsupported operand type(s) for |: 'int' and '{other.GetTypeName()}'");
+            {
+                otherValue = otherInt.Value;
+            }
+            else if (other is PyIntSubclass intSubclass)
+            {
+                // int subclass passes PyLong_Check (Include/longobject.h:12-13)
+                otherValue = intSubclass.GetIntValue().Value;
+            }
+            else if (other is PyBool otherBool)
+            {
+                otherValue = otherBool.Value ? 1 : 0;
+            }
+            else
+            {
+                // CPython: Py_RETURN_NOTIMPLEMENTED for non-int types
+                return PyNotImplemented.Instance;
+            }
+
+            return new PyInt(Value | otherValue);
         }
 
         public override PyObject BitwiseXor(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:5358 (long_xor)
+            // Line 1547-1551: CHECK_BINOP macro checks PyLong_Check
+
+            long otherValue;
             if (other is PyInt otherInt)
-                return new PyInt(Value ^ otherInt.Value);
-            if (other is PyBool otherBool)
-                return new PyInt(Value ^ (otherBool.Value ? 1 : 0));
-            throw PyTypeError.Create($"unsupported operand type(s) for ^: 'int' and '{other.GetTypeName()}'");
+            {
+                otherValue = otherInt.Value;
+            }
+            else if (other is PyIntSubclass intSubclass)
+            {
+                // int subclass passes PyLong_Check
+                otherValue = intSubclass.GetIntValue().Value;
+            }
+            else if (other is PyBool otherBool)
+            {
+                otherValue = otherBool.Value ? 1 : 0;
+            }
+            else
+            {
+                // CPython: Py_RETURN_NOTIMPLEMENTED for non-int types
+                return PyNotImplemented.Instance;
+            }
+
+            return new PyInt(Value ^ otherValue);
         }
 
         public override PyObject LeftShift(PyObject other)

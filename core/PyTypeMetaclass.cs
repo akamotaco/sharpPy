@@ -85,12 +85,17 @@ namespace SharpPy
                 return PyNone.Instance;
             }, 4); // self + 3 args
 
-            // type.__prepare__(metacls, name, bases)
+            // type.__prepare__(metacls, name, bases, **kwargs)
             // CPython 3.12: Returns an empty dict by default, can be overridden in subclasses
-            classDict["__prepare__"] = new PyStaticBuiltinMethod("__prepare__", (args) =>
+            // CPython reference: Python/bltinmodule.c:186 - passes mkw to __prepare__
+            classDict["__prepare__"] = new PyStaticBuiltinMethod("__prepare__", (args, kwargs) =>
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 type.__prepare__ called with {args.Length} args");
+                if (kwargs != null && kwargs.InternalDict.Count > 0)
+                {
+                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                }
                 #endif
 
                 if (args.Length >= 2)
@@ -98,6 +103,7 @@ namespace SharpPy
                     // args[0] = metaclass (cls)
                     // args[1] = name
                     // args[2] = bases (optional)
+                    // kwargs may contain additional parameters for custom __prepare__ methods
                     #if DEBUG_LOG
                     Console.WriteLine($"   → Returning empty dict for class namespace");
                     #endif
@@ -109,17 +115,22 @@ namespace SharpPy
                 }
             });
 
-            // type.__new__(cls, name, bases, namespace)
+            // type.__new__(cls, name, bases, namespace, **kwargs)
             // CPython 3.12: tp_new behaves like staticmethod - cls is explicit first argument
-            classDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args) =>
+            // CPython reference: Objects/typeobject.c:3152-3525 (type_new)
+            classDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 type.__new__ (staticmethod) called with {args.Length} args");
+                if (kwargs != null && kwargs.InternalDict.Count > 0)
+                {
+                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                }
                 #endif
 
                 if (args.Length == 4)
                 {
-                    // CPython 3.12: type.__new__(cls, name, bases, namespace)
+                    // CPython 3.12: type.__new__(cls, name, bases, namespace, **kwargs)
                     // args[0] = metaclass (cls)
                     // args[1] = name
                     // args[2] = bases
@@ -131,7 +142,7 @@ namespace SharpPy
                     // When type.__new__ is called (e.g. from ABCMeta.__new__ via super().__new__()),
                     // we should NOT check for custom metaclass __new__ methods again.
                     // CPython avoids this because type_new is a C function that doesn't go through metaclass lookup.
-                    return CreateNewClass(args, skipMetaclassCheck: true);
+                    return CreateNewClass(args, skipMetaclassCheck: true, kwargs: kwargs);
                 }
                 else
                 {
@@ -205,7 +216,44 @@ namespace SharpPy
             var baseTypes = new PyType[] { PyType.ObjectType };
 
             var typeClass = new PyTypeMetaclass("type", baseTypes, classDict);
-            
+
+            // Add type.__format__ - CPython 3.12 (defaults to __str__)
+            // This descriptor is for type objects themselves
+            // Must be added AFTER typeClass is created so we can set OwnerType
+            typeClass.ClassDict["__format__"] = new PyMethodDescriptor(
+                "__format__",
+                typeClass, // OwnerType is the type metaclass itself
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    // format_spec is args[0], but for type objects we just return str()
+                    return new PyString($"<class '{type.Name}'>");
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // Add type.__reduce_ex__ - CPython 3.12 (pickle support)
+            typeClass.ClassDict["__reduce_ex__"] = new PyMethodDescriptor(
+                "__reduce_ex__",
+                typeClass,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__reduce_ex__() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__reduce_ex__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    // Return (type, (type.__name__,))
+                    return new PyTuple(new PyObject[] {
+                        typeClass,
+                        new PyTuple(new PyObject[] { new PyString(type.Name) })
+                    });
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
             #if DEBUG_LOG
             Console.WriteLine("✅ Global 'type' metaclass created successfully");
             #endif
@@ -325,12 +373,20 @@ namespace SharpPy
         /// </summary>
         /// <param name="args">Array of [cls, name, bases, namespace]</param>
         /// <param name="skipMetaclassCheck">CPython 3.12: Skip custom metaclass check (when called from super().__new__)</param>
-        private static PyObject CreateNewClass(PyObject[] args, bool skipMetaclassCheck = false)
+        /// <param name="kwargs">CPython 3.12: Keyword arguments to pass to metaclass.__new__</param>
+        private static PyObject CreateNewClass(PyObject[] args, bool skipMetaclassCheck = false, PyDict kwargs = null)
         {
             var cls = args[0];        // metaclass (should be type or subclass)
             var name = args[1];       // class name
             var bases = args[2];      // base classes tuple
             var namespaceDict = args[3];  // class namespace dict
+
+            #if DEBUG_LOG
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+            {
+                Console.WriteLine($"🔍 CreateNewClass called with kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+            }
+            #endif
 
             #if DEBUG_LOG
             Console.WriteLine($"🏗️ type.__new__ creating class: {(name is PyString pyStr ? pyStr.Value : name.ToString())}");
@@ -601,11 +657,16 @@ namespace SharpPy
                 Console.WriteLine($"🔧 Calling custom metaclass {winner.Name}.__new__");
                 Console.WriteLine($"   Method type: {customNewMethod.GetType().Name}");
                 Console.WriteLine($"   namespaceDict type: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
+                if (kwargs != null && kwargs.InternalDict.Count > 0)
+                {
+                    Console.WriteLine($"   Forwarding kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                }
                 #endif
 
-                // Call metaclass.__new__(cls, name, bases, namespace)
+                // Call metaclass.__new__(cls, name, bases, namespace, **kwargs)
                 // Note: The namespace should be passed as-is (could be _EnumDict)
-                var result = customNewMethod.Call(new PyObject[] { winner, name, bases, namespaceDict }, null);
+                // CPython reference: Objects/typeobject.c:1667 - passes kwargs to tp_new
+                var result = customNewMethod.Call(new PyObject[] { winner, name, bases, namespaceDict }, kwargs);
 
                 if (result is PyClass resultClass)
                 {
@@ -659,7 +720,12 @@ namespace SharpPy
             Console.WriteLine($"   newClass.ClassDict has {newClass.ClassDict.Count} attributes");
             #endif
 
-            foreach (var kvp in newClass.ClassDict)
+            // CPython 3.12: Objects/typeobject.c:9969-10010 (type_new_set_names)
+            // Line 9972: Create a copy of the dict to iterate over
+            // This prevents "Collection was modified" errors when __set_name__ modifies the dict
+            var classDict_copy = new Dictionary<string, PyObject>(newClass.ClassDict);
+
+            foreach (var kvp in classDict_copy)
             {
                 string attrName = kvp.Key;
                 PyObject attrValue = kvp.Value;
@@ -770,8 +836,13 @@ namespace SharpPy
         /// </summary>
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PyTypeMetaclass.Call called with {args.Length} args");
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+            {
+                Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+            }
             #endif
             for (int i = 0; i < args.Length; i++)
             {
@@ -787,16 +858,17 @@ namespace SharpPy
             }
             else if (args.Length == 3)
             {
-                // type(name, bases, namespace) - create new class
+                // type(name, bases, namespace, **kwargs) - create new class
                 // The metaclass itself is the first argument in CreateNewClass
+                // CPython reference: Objects/typeobject.c:1667 - forwards kwargs to tp_new
                 var newArgs = new PyObject[] { this, args[0], args[1], args[2] };
-                return CreateNewClass(newArgs);
+                return CreateNewClass(newArgs, skipMetaclassCheck: false, kwargs: kwargs);
             }
             else if (args.Length == 4)
             {
                 // This might be the case where it's called by __build_class__
                 // args[0] might be the metaclass, args[1] name, args[2] bases, args[3] namespace
-                return CreateNewClass(args);
+                return CreateNewClass(args, skipMetaclassCheck: false, kwargs: kwargs);
             }
             else
             {
@@ -941,9 +1013,9 @@ namespace SharpPy
     public class PyStaticBuiltinMethod : PyObject, IDescriptor
     {
         public string Name { get; }
-        public Func<PyObject[], PyObject> Method { get; }
+        public Func<PyObject[], PyDict, PyObject> Method { get; }
 
-        public PyStaticBuiltinMethod(string name, Func<PyObject[], PyObject> method)
+        public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method)
         {
             Name = name;
             Method = method;
@@ -978,10 +1050,11 @@ namespace SharpPy
 
         public bool IsDataDescriptor() => false;
 
-        // Direct call: all arguments passed as-is
+        // Direct call: all arguments and kwargs passed as-is
+        // CPython 3.12: Objects/typeobject.c - tp_new receives kwargs
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            return Method(args);
+            return Method(args, kwargs);
         }
 
         public override bool IsCallable()
@@ -1488,6 +1561,14 @@ namespace SharpPy
 
                 // Default to __name__
                 return new PyString(pyClass.Name);
+            }
+
+            // CPython 3.12: For builtin types (PyType), return tp_name
+            // Objects/typeobject.c:250-275 (type_qualname getter)
+            if (instance is PyType pyType)
+            {
+                // For builtin types, qualname == name
+                return new PyString(pyType.Name);
             }
 
             return PyNone.Instance;

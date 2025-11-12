@@ -124,9 +124,10 @@ namespace SharpPy.Modules
             module.ModuleDict["setattr"] = new PyBuiltinFunction("setattr", SetAttr);
 
             // Add property, classmethod, staticmethod (required by enum module)
+            // CPython 3.12: These should be TYPE objects, not functions
             module.ModuleDict["property"] = new PyBuiltinFunction("property");
-            module.ModuleDict["classmethod"] = new PyBuiltinFunction("classmethod");
-            module.ModuleDict["staticmethod"] = new PyBuiltinFunction("staticmethod");
+            module.ModuleDict["classmethod"] = PyType.ClassMethodType; // Type object
+            module.ModuleDict["staticmethod"] = PyType.StaticMethodType; // Type object
 
             // Add other commonly used builtins
             module.ModuleDict["print"] = new PyBuiltinFunction("print");
@@ -209,13 +210,23 @@ namespace SharpPy.Modules
 
         private static PyObject IsInstance(PyObject[] args)
         {
+            Console.WriteLine($"[BuiltinsModule.IsInstance] Called with {args.Length} args");
             if (args.Length != 2)
                 throw PyTypeError.Create($"isinstance() takes exactly 2 arguments ({args.Length} given)");
 
             var obj = args[0];
             var classInfo = args[1];
+            Console.WriteLine($"[BuiltinsModule.IsInstance] obj={obj?.GetType().Name} ({obj?.GetTypeName()}), classInfo={classInfo?.GetType().Name} ({classInfo?.GetTypeName()})");
 
-            // CPython 3.12: Check for tuple first
+            // CPython 3.12: Objects/abstract.c:2340-2364 (object_recursive_isinstance)
+            // Quick test for exact type match
+            if (obj.GetPyType() == classInfo)
+            {
+                Console.WriteLine($"[isinstance] Exact type match");
+                return PyBool.True;
+            }
+
+            // CPython: Check for tuple
             if (classInfo is PyTuple tuple)
             {
                 foreach (var item in tuple.Items)
@@ -228,68 +239,40 @@ namespace SharpPy.Modules
                 return PyBool.False;
             }
 
-            // CPython 3.12: Check if classInfo is a valid type by looking for __bases__
-            // This works for both PyType and PyClass (including type metaclass)
+            // CPython 3.12: Objects/abstract.c:2431-2446 (check_class + abstract_get_bases)
+            // Validate that classInfo is a valid type by checking __bases__
             PyObject bases = null;
             try
             {
-                bases = classInfo.GetAttribute("__bases__");
-                #if DEBUG
-                Console.WriteLine($"[isinstance check_class] bases type: {bases?.GetType().Name}");
-                #endif
-                #if DEBUG
-                Console.WriteLine($"[isinstance check_class] bases value: {bases}");
-                #endif
-
-                // If bases is a descriptor, we need to call it with classInfo
-                // to get the actual __bases__ value
-                if (bases is PyGetSetDescriptor getSetDescriptor)
+                // For PyType/PyClass, directly access BaseTypes instead of going through descriptor
+                if (classInfo is PyType pyType)
                 {
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] Calling PyGetSetDescriptor.Get()");
-                    #endif
-                    // Call the descriptor's getter with classInfo as the instance
-                    bases = getSetDescriptor.Get(classInfo, classInfo.GetPyType());
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases type: {bases?.GetType().Name}");
-                    #endif
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases value: {bases}");
-                    #endif
+                    // Convert BaseTypes to PyTuple
+                    var basesList = pyType.BaseTypes.Select(bt => (PyObject)bt).ToArray();
+                    bases = new PyTuple(basesList);
+                    Console.WriteLine($"[isinstance] Got __bases__ from PyType.BaseTypes: {bases}");
                 }
-                else if (bases is PyBasesDescriptor basesDescriptor)
+                else
                 {
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] Calling PyBasesDescriptor.Get()");
-                    #endif
-                    // Call the descriptor's getter with classInfo as the instance
-                    bases = basesDescriptor.Get(classInfo, classInfo.GetPyType());
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases type: {bases?.GetType().Name}");
-                    #endif
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases value: {bases}");
-                    #endif
+                    bases = classInfo.GetAttribute("__bases__");
+                    Console.WriteLine($"[isinstance] Got __bases__: {bases?.GetType().Name}, value: {bases}");
                 }
-
-                if (bases == null || !(bases is PyTuple))
-                {
-                    #if DEBUG
-                    Console.WriteLine($"[isinstance check_class] ERROR: bases is not a PyTuple");
-                    #endif
-                    throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
-                }
-                #if DEBUG
-                Console.WriteLine($"[isinstance check_class] SUCCESS: bases is a PyTuple");
-                #endif
             }
-            catch (Exception ex)
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
-                #if DEBUG
-                Console.WriteLine($"[isinstance check_class] EXCEPTION: {ex.Message}");
-                #endif
-                throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
+                // __bases__ doesn't exist
+                Console.WriteLine($"[isinstance] __bases__ not found");
+                throw PyTypeError.Create("isinstance() arg 2 must be a type, a tuple of types, or a union");
             }
+
+            // CPython: abstract_get_bases returns NULL if __bases__ is not a tuple
+            if (bases == null || !(bases is PyTuple))
+            {
+                Console.WriteLine($"[isinstance] __bases__ is not a tuple: {bases}");
+                throw PyTypeError.Create("isinstance() arg 2 must be a type, a tuple of types, or a union");
+            }
+
+            Console.WriteLine($"[isinstance] Valid type confirmed with __bases__");
 
             // Now perform the actual isinstance check
             // CPython 3.12: First check if obj.__class__ is a subclass of classInfo

@@ -62,6 +62,44 @@ namespace SharpPy
         public bool IsGenerator { get; set; } = false;
         public bool IsCoroutine { get; set; } = false;
 
+        /// <summary>
+        /// CPython 3.12: Create PyFrame with kwargs dict (equivalent to _PyEvalFramePushAndInit_Ex)
+        /// CPython reference: Python/ceval.c:1621-1658
+        /// </summary>
+        public static PyFrame CreateWithKwargs(PyCodeObject code, PyObject[] args, PyDict kwargs,
+            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null)
+        {
+            // CPython 3.12: Line 1628 - _PyStack_UnpackDict converts kwargs dict to (args + kwnames) format
+            var kwNamesList = new List<PyObject>();
+            var kwValues = new List<PyObject>();
+
+            foreach (var kv in kwargs.InternalDict)
+            {
+                kwNamesList.Add(kv.Key);  // PyString key
+                kwValues.Add(kv.Value);   // Argument value
+            }
+
+            // Combine positional args and keyword values
+            var finalArgs = new PyObject[args.Length + kwValues.Count];
+            Array.Copy(args, 0, finalArgs, 0, args.Length);
+            for (int i = 0; i < kwValues.Count; i++)
+            {
+                finalArgs[args.Length + i] = kwValues[i];
+            }
+
+            var kwNames = new PyTuple(kwNamesList.ToArray());
+
+            // Create a parent frame to hold KeywordNamesForNextCall
+            // This simulates CPython's approach where kwnames is passed through the call chain
+            var dummyCode = new PyCodeObject("<kwargs_holder>", new List<ByteCodeInstruction>(),
+                new List<PyObject>(), new List<string>(), new List<string>());
+            var parentFrame = new PyFrame(dummyCode, new PyObject[0], parentScope);
+            parentFrame.KeywordNamesForNextCall = kwNames;
+
+            // Create the actual frame with combined args
+            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, null);
+        }
+
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
         {
 #if DEBUG_LOG
@@ -852,6 +890,16 @@ namespace SharpPy
             }
 
             // CPython 3.12: Pre-populate local scope with initial namespace from __prepare__
+            // IMPORTANT: CPython passes the __prepare__ result dict DIRECTLY as locals() to the class body.
+            // The dict is used as-is, without extraction and re-insertion.
+            // (CPython: Python/bltinmodule.c:198 - ns passed directly to _PyEval_Vector)
+            //
+            // SharpPy Note: The ClassLocalsDict is already the SAME object returned by __prepare__.
+            // Items added by __prepare__ (like _generate_next_value_) are already in that dict.
+            // We must NOT call __setitem__ again for those items, as that would trigger validation logic
+            // (e.g., _EnumDict checking if _auto_called was already set).
+            //
+            // Instead, we only need to make items visible to LOAD_NAME by adding to scope chain.
             if (initialNamespace != null && initialNamespace.Count > 0)
             {
                 #if DEBUG_LOG
@@ -863,6 +911,8 @@ namespace SharpPy
                     if (kvp.Key == "__prepare_result__")
                         continue;
 
+                    // Add to scope chain so LOAD_NAME can find it
+                    // (ClassLocalsDict is checked FIRST by STORE_NAME, but LOAD_NAME uses LEGB)
                     frame.ScopeChain.CurrentScope.SetVariable(kvp.Key, kvp.Value);
                     #if DEBUG_LOG
                     Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
@@ -875,8 +925,19 @@ namespace SharpPy
             // Extract class namespace - capture variables added during class body execution
             var classNamespace = new Dictionary<string, PyObject>();
 
-            // Start with initial namespace from __prepare__ if provided
-            if (initialNamespace != null)
+            // CPython Python/bltinmodule.c:201-209:
+            //   - Class body executes with ns as locals (line 201)
+            //   - After execution, pass SAME ns to metaclass.__new__ (line 208)
+            //   - NO extraction or re-insertion of items
+            //
+            // SharpPy: When ClassLocalsDict was used (prepareResult != null):
+            //   - STORE_NAME already called __setitem__ on ClassLocalsDict for all items
+            //   - Items from initialNamespace are already IN the ClassLocalsDict
+            //   - We must NOT include them in classNamespace again!
+            //   - CallBuildClass will use originalPrepareResult directly
+            //
+            // Only include initialNamespace items when ClassLocalsDict was NOT used
+            if (prepareResult == null && initialNamespace != null)
             {
                 foreach (var kvp in initialNamespace)
                 {
@@ -1384,12 +1445,48 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_NAME:
+                    // CPython 3.12: Python/generated_cases.c.h lines 1708-1770
+                    // LOAD_NAME checks LOCALS() first (which is ClassLocalsDict in class body),
+                    // then GLOBALS(), then BUILTINS()
                     var name = frame.Code.Names[instruction.Argument];
-                    // 기존 LEGB 시스템 사용!
+                    PyObject? value = null;
+
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_NAME({name}): 현재 스코프 = {frame.ScopeChain.CurrentScope?.Name ?? "null"}");
                     #endif
-                    var value = frame.ScopeChain.LookupVariable(name, verbose: true);
+
+                    // CPython 3.12: Check LOCALS() first (line 1711)
+                    // In class body, LOCALS() returns the __prepare__ result (ClassLocalsDict)
+                    if (frame.ClassLocalsDict != null)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 LOAD_NAME({name}): Checking ClassLocalsDict first");
+                        #endif
+
+                        // Try to get item from ClassLocalsDict (lines 1718-1735)
+                        try
+                        {
+                            value = frame.ClassLocalsDict.GetItem(new PyString(name));
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔍 LOAD_NAME({name}): Found in ClassLocalsDict: {value?.GetType().Name}");
+                            #endif
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyKeyError)
+                        {
+                            // Not found in ClassLocalsDict, will fallback to globals/builtins
+                            value = null;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔍 LOAD_NAME({name}): Not found in ClassLocalsDict, trying LEGB");
+                            #endif
+                        }
+                    }
+
+                    // CPython 3.12: If not found in locals, check GLOBALS() and BUILTINS() (lines 1736-1767)
+                    if (value == null)
+                    {
+                        value = frame.ScopeChain.LookupVariable(name, verbose: true);
+                    }
+
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_NAME({name}): loaded {value?.GetType().Name ?? "null"} value = {value}");
                     #endif
@@ -2545,9 +2642,21 @@ namespace SharpPy
                             }
                             else if (attr is PyFunction || attr is PyBuiltinFunction)
                             {
-                                // CPython 3.12: staticmethod or class/instance method
-                                // PySuper returns unbound methods, so treat it like class access
-                                bool isClassAccess = (obj is PyClass) || (obj is PyType) || (obj is PyModule) || (obj is PySuper);
+                                // CPython 3.12: Objects/descrobject.c:271-286 (func_descr_get)
+                                // Function descriptor protocol:
+                                // - Access from TYPE/CLASS → return unbound function
+                                // - Access from INSTANCE → return bound method (push [self, function])
+                                // - staticmethod → always return unbound function
+                                // - instance.__dict__ function → return unbound function (not a method!)
+
+                                // Check if obj is a type/class object
+                                // CPython: PyType_Check(obj) - checks if obj is type or class
+                                // CPython 3.12: Objects/funcobject.c:1228-1238 (sm_descr_get), 1058-1064 (cm_descr_get)
+                                // staticmethod/classmethod: __func__/__wrapped__ returns unbound callable
+                                bool isTypeOrClass = (obj is PyType) || (obj is PyClass) || (obj is PyStaticmethod) || (obj is PyClassmethod);
+
+                                // Check if obj is module or super (also return unbound)
+                                bool isModuleOrSuper = (obj is PyModule) || (obj is PySuper);
 
                                 // CPython: Check if attribute is from instance __dict__ (not a method!)
                                 // Instance attributes that are functions are NOT bound as methods
@@ -2557,19 +2666,20 @@ namespace SharpPy
                                     isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
                                 }
 
-                                if (isClassAccess || isStaticMethod || isInstanceAttribute)
+                                if (isTypeOrClass || isModuleOrSuper || isStaticMethod || isInstanceAttribute)
                                 {
-                                    // Class access, staticmethod, or instance attribute: push [NULL, function]
+                                    // Class/type access, staticmethod, or instance attribute: push [NULL, function]
+                                    // CPython 3.12: No method binding - return function as-is
                                     frame.ValueStack.Push(PyNone.Instance); // NULL marker
-                                    frame.ValueStack.Push(attr); // function
+                                    frame.ValueStack.Push(attr); // unbound function
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   → Class/staticmethod/instance-attr access: pushed [NULL, function]");
+                                    Console.WriteLine($"   → Type/class/staticmethod/instance-attr access: pushed [NULL, function]");
                                     #endif
                                 }
                                 else
                                 {
                                     // Instance method (from class): push [self, unbound_method]
-                                    // This allows CALL to optimize by passing self directly
+                                    // CPython 3.12: Method binding - CALL will pass self as first argument
                                     frame.ValueStack.Push(obj);  // self
                                     frame.ValueStack.Push(attr); // unbound method
                                     #if DEBUG_LOG

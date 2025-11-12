@@ -314,36 +314,21 @@ public partial class PyFunction : PyObject, IDescriptor
             }
             #endif
 
-            // CPython 3.12: Process keyword arguments if present
-            PyObject[] finalArgs = args;
+            // CPython 3.12: Create frame with kwargs if present
+            // CPython reference: Python/ceval.c:1621-1658 (_PyEvalFramePushAndInit_Ex)
+            PyFrame frame;
+
             if (kwargs != null && kwargs.InternalDict.Count > 0)
             {
-                // Map keyword arguments to parameter positions
-                var argNames = CodeObject.VarNames;
-                finalArgs = new PyObject[argNames.Count];
-
-                // Copy positional arguments first
-                for (int i = 0; i < Math.Min(args.Length, argNames.Count); i++)
-                {
-                    finalArgs[i] = args[i];
-                }
-
-                // Fill in keyword arguments
-                foreach (var kv in kwargs.InternalDict)
-                {
-                    var keyName = ((PyString)kv.Key).Value;
-                    for (int i = 0; i < argNames.Count; i++)
-                    {
-                        if (argNames[i] == keyName)
-                        {
-                            finalArgs[i] = kv.Value;
-                            break;
-                        }
-                    }
-                }
+                // Use PyFrame constructor that accepts kwargs dict
+                // This will internally convert it to CPython's (args + kwnames) format
+                frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, functionScopeChain, Closure, defaults);
+            }
+            else
+            {
+                frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
             }
 
-            var frame = new PyFrame(CodeObject, finalArgs, functionScopeChain, Closure, null, defaults);
             var vm = PyVM.Instance;
             return vm.ExecuteFrame(frame);
         }
@@ -585,6 +570,20 @@ public partial class PyFunction : PyObject, IDescriptor
     // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
     public override PyObject GetAttribute(string name)
     {
+        // CPython 3.12: Objects/funcobject.c:358-390 (func_getattro)
+        // Expose __get__ for descriptor protocol
+        if (name == "__get__")
+        {
+            // Return a bound descriptor method
+            return new PyBuiltinFunction("__get__", (args) =>
+            {
+                // __get__(self, obj, type=None)
+                PyObject instance = args.Length > 0 ? args[0] : null;
+                PyType owner = args.Length > 1 && args[1] is PyType t ? t : null;
+                return Get(instance, owner);
+            });
+        }
+
         // CPython 3.12: 먼저 function의 instance dictionary (Attributes) 확인
         if (Attributes.TryGetValue(name, out PyObject value))
             return value;

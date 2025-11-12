@@ -350,17 +350,19 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"   ✅ found '{name}' in ClassDict: {value?.GetType().Name}");
                         #endif
-                        // Descriptor 처리 (CPython 3.12: Objects/typeobject.c:4835)
-                        // CPython: res = meta_get(meta_attribute, (PyObject *)type, (PyObject *)metatype);
-                        // When accessing type.__mro__, 'this' is the type metaclass (instance parameter)
+                        // Descriptor 처리 (CPython 3.12: Objects/descrobject.c:271-286, func_descr_get)
+                        // CPython: When accessing attribute from CLASS (not instance), pass NULL as instance
+                        // Example: MyClass.func → descriptor.__get__(NULL, MyClass)
+                        //          instance.func → descriptor.__get__(instance, type(instance))
                         if (PyClassInstance.IsDescriptor(value))
                         {
                             #if DEBUG_LOG
-                            Console.WriteLine($"   🔧 calling descriptor.__get__(this={Name}, owner={Name}) for '{name}'");
+                            Console.WriteLine($"   🔧 calling descriptor.__get__(null, owner={Name}) for '{name}'");
                             #endif
-                            // CRITICAL: Pass 'this' as instance, not null
-                            // CPython passes the type object itself as the instance parameter
-                            var result = PyClassInstance.CallDescriptorGet(value, this, this);
+                            // CPython 3.12: Objects/descrobject.c:271-286 (func_descr_get)
+                            // Pass NULL as instance when accessing from CLASS object
+                            // This makes function descriptors return unbound functions
+                            var result = PyClassInstance.CallDescriptorGet(value, null, this);
                             #if DEBUG_LOG
                             Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                             #endif
@@ -1161,6 +1163,18 @@ namespace SharpPy
         // 4. NEVER call built-in descriptors from PyType.TypeDict here
         public override PyObject GetItem(PyObject key)
         {
+            #if DEBUG
+            var keyStr = key is PyString ps ? ps.Value : key?.ToString() ?? "null";
+            if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
+            {
+                Console.WriteLine($"[DEBUG-GETITEM] _EnumDict.GetItem('{keyStr}') called, _dictStorage != null: {_dictStorage != null}");
+                if (_dictStorage != null && _dictStorage.InternalDict.TryGetValue(key, out var stored))
+                {
+                    Console.WriteLine($"[DEBUG-GETITEM]   _dictStorage contains '{keyStr}': {stored}, type={stored?.GetType().Name}");
+                }
+            }
+            #endif
+
             // CPython 3.12: Check for user-defined __getitem__ in MRO
             // Only check PyClass.ClassDict, NOT PyType.TypeDict
             foreach (var mroType in InstanceType.MRO)
@@ -1185,7 +1199,14 @@ namespace SharpPy
             // For dict subclasses: read from _dictStorage (like PyDict_GetItem)
             if (_dictStorage != null)
             {
-                return _dictStorage.GetItem(key);
+                var result = _dictStorage.GetItem(key);
+                #if DEBUG
+                if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
+                {
+                    Console.WriteLine($"[DEBUG-GETITEM]   Returning from _dictStorage: {result}, type={result?.GetType().Name}");
+                }
+                #endif
+                return result;
             }
 
             // No __getitem__ and not a dict subclass
@@ -1194,6 +1215,7 @@ namespace SharpPy
 
         // CPython 3.12: Objects/dictobject.c:1879-1889 (PyDict_SetItem)
         // CPython 3.12: Objects/abstract.c:203-234 (PyObject_SetItem)
+        // CPython 3.12: Lib/enum.py:509 (super().__setitem__)
         //
         // In CPython, PyObject_SetItem directly calls tp_as_mapping->mp_ass_subscript,
         // which for dict calls PyDict_SetItem (dictobject.c:2524-2530).
@@ -1206,41 +1228,51 @@ namespace SharpPy
         //
         // SharpPy equivalent:
         // 1. Check ONLY user-defined __setitem__ (PyClass.ClassDict)
-        // 2. If found, call it (this allows subclasses to override behavior)
+        // 2. If found, call it and return (user code must call super().__setitem__ to store)
         // 3. If NOT found, use direct storage (_dictStorage for dict subclasses)
         // 4. NEVER call built-in descriptors from PyType.TypeDict here
         //    (they are already handled at VM level in STORE_SUBSCR)
         public override void SetItem(PyObject key, PyObject value)
         {
-            // CPython 3.12: Check for user-defined __setitem__ in MRO
+            // CPython 3.12 Objects/dictobject.c:1879-1889 (PyDict_SetItem):
+            //   For dict subclasses with user-defined __setitem__:
+            //   - Call user-defined __setitem__ ONLY
+            //   - Internal storage is updated ONLY if user calls super().__setitem__()
+            //   - If user doesn't call super().__setitem__(), storage is NOT updated
+            //
+            // This is critical for Lib/enum.py:509 where _EnumDict.__setitem__
+            // processes auto() values before calling super().__setitem__()
+
+            // Check for user-defined __setitem__ in MRO
             // Only check PyClass.ClassDict, NOT PyType.TypeDict
             foreach (var mroType in InstanceType.MRO)
             {
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__setitem__", out var setitemMethod))
                 {
-                    // Found user-defined __setitem__
+                    // Found user-defined __setitem__ - call it and return
+                    // Storage will be updated only if user code calls super().__setitem__()
                     if (setitemMethod is PyFunction func)
                     {
                         var boundMethod = new PyMethod(this, func);
                         boundMethod.Call(new PyObject[] { key, value }, null);
-                        return;
                     }
                     else if (setitemMethod.IsCallable())
                     {
                         setitemMethod.Call(new PyObject[] { this, key, value }, null);
-                        return;
                     }
-                    break;
+                    return;  // User __setitem__ found and called, we're done
                 }
             }
 
-            // CPython 3.12: Fall back to direct storage access
-            // For dict subclasses: write to _dictStorage (like PyDict_SetItem)
+            // No user-defined __setitem__ found
+            // For dict subclasses: write directly to internal storage
             if (_dictStorage != null)
             {
                 _dictStorage.SetItem(key, value);
                 return;
             }
+
+            // For other types: use base implementation
             base.SetItem(key, value);
         }
 

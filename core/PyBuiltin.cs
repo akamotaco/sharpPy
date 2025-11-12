@@ -179,7 +179,10 @@ namespace SharpPy
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
             _builtinImplementations["any"] = (args, kwargs) => CallAny(args, kwargs);
             _builtinImplementations["all"] = (args, kwargs) => CallAll(args, kwargs);
-            _builtinImplementations["isinstance"] = (args, kwargs) => CallIsInstance(args, kwargs);
+            _builtinImplementations["isinstance"] = (args, kwargs) => {
+                Console.WriteLine($"[BUILTIN isinstance] Called with {args.Length} args");
+                return CallIsInstance(args, kwargs);
+            };
             _builtinImplementations["issubclass"] = (args, kwargs) => CallIsSubclass(args, kwargs);
             _builtinImplementations["hasattr"] = (args, kwargs) => CallHasAttr(args, kwargs);
             _builtinImplementations["getattr"] = (args, kwargs) => CallGetAttr(args, kwargs);
@@ -228,15 +231,20 @@ namespace SharpPy
         // 내장 함수 호출 - CPython 3.12 호환: kwargs 지원
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            // [TEMP LOG] PyBuiltinFunction.Call 진입
+            Console.WriteLine($"[PyBuiltinFunction.Call] Name={Name}, args.Length={args.Length}");
+
             // kwargs 지원 구현이 있으면 우선 사용
             if (_kwargsImplementation != null)
             {
+                Console.WriteLine($"[PyBuiltinFunction.Call] Using _kwargsImplementation for {Name}");
                 return _kwargsImplementation(args, kwargs);
             }
 
             // 시그니처가 있으면 인수 처리 후 기존 구현 호출
             if (_signature != null && _implementation != null)
             {
+                Console.WriteLine($"[PyBuiltinFunction.Call] Using _signature + _implementation for {Name}");
                 var processedArgs = _signature.ProcessArguments(args, kwargs);
                 return _implementation(processedArgs);
             }
@@ -244,12 +252,14 @@ namespace SharpPy
             // 기존 구현이 있으면 사용 (kwargs 무시)
             if (_implementation != null)
             {
+                Console.WriteLine($"[PyBuiltinFunction.Call] Using _implementation for {Name}");
                 return _implementation(args);
             }
 
             // CPython 호환: 딕셔너리 기반 lookup (switch 문 제거)
             if (_builtinImplementations.TryGetValue(Name, out var implementation))
             {
+                Console.WriteLine($"[PyBuiltinFunction.Call] Using _builtinImplementations lookup for {Name}");
                 return implementation(args, kwargs);
             }
 
@@ -855,6 +865,15 @@ namespace SharpPy
             var obj = args[0];
             var classinfo = args[1];
 
+            // [TEMP LOG] isinstance 호출 추적
+            Console.WriteLine($"[isinstance] obj={obj?.GetType().Name}, classinfo={classinfo?.GetType().Name}");
+            Console.WriteLine($"[isinstance] classinfo is PyType? {classinfo is PyType}");
+            Console.WriteLine($"[isinstance] classinfo is PyTuple? {classinfo is PyTuple}");
+            if (classinfo != null)
+            {
+                Console.WriteLine($"[isinstance] classinfo.GetTypeName()={classinfo.GetTypeName()}");
+            }
+
             if (classinfo is PyType type)
             {
                 return PyBool.FromBool(IsInstanceExtended(obj, type));
@@ -871,7 +890,10 @@ namespace SharpPy
             }
             else
             {
-                throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
+                // CPython 3.12: More helpful error message showing what was passed
+                string typename = classinfo?.GetTypeName() ?? "None";
+                Console.WriteLine($"[isinstance ERROR] classinfo C# type: {classinfo?.GetType().FullName}");
+                throw PyTypeError.Create($"isinstance() arg 2 must be a type or tuple of types, got '{typename}'");
             }
         }
         
@@ -989,7 +1011,16 @@ namespace SharpPy
 
             try
             {
-                return obj.GetAttribute(strName.Value);
+                var result = obj.GetAttribute(strName.Value);
+
+                // CPython 3.12: If GetAttribute returns None, treat it as AttributeError for default value handling
+                // Some attributes (like __qualname__) may return None instead of raising AttributeError
+                if (result is PyNone && defaultValue != null)
+                {
+                    return defaultValue;
+                }
+
+                return result;
             }
             catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
@@ -2080,6 +2111,9 @@ namespace SharpPy
             // - Old way: __build_class__(func, name, *bases, "__metaclass__", metaclass)
 
             // CPython 3.12: Check kwargs for 'metaclass' keyword argument first
+            // CPython reference: Python/bltinmodule.c:137-142
+            // Line 140: PyDict_DelItem(mkw, &_Py_ID(metaclass))
+            // The 'metaclass' key is removed from kwargs before passing to __prepare__ and __new__
             if (kwargs != null && kwargs.InternalDict.ContainsKey(new PyString("metaclass")))
             {
                 metaclass = kwargs.InternalDict[new PyString("metaclass")];
@@ -2087,6 +2121,9 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   ✅ Metaclass from kwargs: {metaclass}");
                 #endif
+
+                // Remove 'metaclass' from kwargs so it doesn't get passed to __prepare__ or __new__
+                kwargs.InternalDict.Remove(new PyString("metaclass"));
             }
 
             // Check for explicit metaclass marker (old way, for backward compatibility)
@@ -2266,7 +2303,10 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"  📞 About to call __prepare__ with {prepareArgs.Length} args");
                         #endif
-                        var prepareResult = prepareMethod.Call(prepareArgs, null);
+                        // CPython 3.12: Python/bltinmodule.c:186
+                        // ns = PyObject_VectorcallDict(prep, pargs, 2, mkw);
+                        // Pass kwargs to __prepare__ (after 'metaclass' key has been removed)
+                        var prepareResult = prepareMethod.Call(prepareArgs, kwargs);
                         #if DEBUG_LOG
                         Console.WriteLine($"  ✅ __prepare__ returned: {prepareResult?.GetType().Name} (Type: {prepareResult?.GetTypeName()})");
                         Console.WriteLine($"     is PyDict: {prepareResult is PyDict}, is PyClassInstance: {prepareResult is PyClassInstance}");
@@ -2513,28 +2553,81 @@ namespace SharpPy
                     if (originalPrepareResult != null)
                     {
                         // CPython 3.12: Use the original __prepare__ result directly (PyClassInstance for _EnumDict)
-                        // CRITICAL: We must call Python's __setitem__ to trigger custom dict behavior!
-                        // _EnumDict.__setitem__ tracks member names - SetItem bypasses this!
+                        // CPython Python/bltinmodule.c:186-209:
+                        //   - __prepare__ returns ns dict (line 186)
+                        //   - Class body executes with ns as locals (line 201)
+                        //   - STORE_NAME in class body calls __setitem__ on ns
+                        //   - Pass SAME ns to metaclass.__new__ (line 208) - NO re-processing!
+
+                        Console.WriteLine($"\n🔍 DEBUG: originalPrepareResult check");
+                        Console.WriteLine($"  Type: {originalPrepareResult.GetType().Name}");
+
+                        // Check what's in originalPrepareResult now
+                        try
+                        {
+                            var itemsMethod = originalPrepareResult.GetAttribute("items");
+                            if (itemsMethod != null && itemsMethod.IsCallable())
+                            {
+                                var itemsResult = itemsMethod.Call(new PyObject[0], null);
+                                if (itemsResult is PyList itemsList)
+                                {
+                                    Console.WriteLine($"  Items in originalPrepareResult ({itemsList.Items.Length} total):");
+                                    int count = 0;
+                                    foreach (var item in itemsList.Items)
+                                    {
+                                        if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyString keyStr)
+                                        {
+                                            if (keyStr.Value == "func" || keyStr.Value == "_generate_next_value_")
+                                            {
+                                                Console.WriteLine($"    {keyStr.Value} = {tuple.Items[1]}, type={tuple.Items[1]?.GetTypeName()}");
+                                            }
+                                            if (++count > 15) break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"  Error checking items: {ex.Message}");
+                        }
+
                         #if DEBUG_LOG
                         Console.WriteLine($"  ✅ Using original __prepare__ result from variable! Type: {originalPrepareResult.GetType().Name}");
                         #endif
 
-                        // CPython behavior: During class body execution, STORE_NAME calls __setitem__ on the namespace dict
-                        // This triggers _EnumDict.__setitem__ which populates _member_names
-                        // SharpPy uses C# Dictionary during execution, so we need to replay the assignments
+                        // IMPORTANT: STORE_NAME bytecode handler (PyVM.cs:1491-1509) already called
+                        // __setitem__ on ClassLocalsDict during class body execution.
+                        // We must NOT call __setitem__ again for those items!
+                        // Only items from initialNamespace (like _generate_next_value_ inherited from base)
+                        // were added by __prepare__ before class body execution.
+
+                        // CPython Python/bltinmodule.c:208-209:
+                        //   - Pass the SAME ns dict from __prepare__ to metaclass.__new__
+                        //   - Class body execution has already populated this dict via STORE_NAME
+                        //   - When custom dict has __setitem__, it was already called for each STORE_NAME
+                        //
+                        // SharpPy: The classNamespace dict IS the originalPrepareResult after class body execution.
+                        // All STORE_NAME operations already called __setitem__ on it.
+                        // We should NOT call __setitem__ again here - the dict is already complete!
+                        //
+                        // Note: This code block is actually unnecessary now because:
+                        // 1. When prepareResult != null, ExecuteClassBody uses it as ClassLocalsDict
+                        // 2. STORE_NAME calls __setitem__ on ClassLocalsDict directly
+                        // 3. The returned classNamespace IS the modified originalPrepareResult
+                        // 4. No need to manually call __setitem__ again
+                        //
+                        // However, keeping this as NO-OP for clarity and future reference.
+
                         var setitemMethod = originalPrepareResult.GetAttribute("__setitem__");
                         if (setitemMethod != null && setitemMethod.IsCallable())
                         {
+                            // NO-OP: All items were already added via STORE_NAME during class body execution
+                            // The originalPrepareResult dict is already complete.
                             #if DEBUG_LOG
-                            Console.WriteLine($"  🔧 Found __setitem__ method, calling it for each class member");
+                            Console.WriteLine($"  ✓ __setitem__ found, but NOT calling it (already called during STORE_NAME)");
+                            Console.WriteLine($"     originalPrepareResult now has {classNamespace.Count} items after class body");
                             #endif
-                            foreach (var kvp in classNamespace)
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"    Calling __setitem__('{kvp.Key}', {kvp.Value?.GetTypeName()})");
-                                #endif
-                                setitemMethod.Call(new PyObject[] { new PyString(kvp.Key), kvp.Value }, null);
-                            }
                         }
                         else
                         {
@@ -2733,8 +2826,10 @@ namespace SharpPy
 
                         // CPython 3.12: Pass keyword arguments (like boundary, **kwds) to metaclass.__new__
                         // Metaclasses may have keyword-only parameters after *
-                        // Note: We pass empty kwargs which should use the default values from the function signature
-                        PyDict newKwargs = new PyDict();
+                        // CPython reference: Python/bltinmodule.c:205-209
+                        // Line 208: cls = PyObject_VectorcallDict(meta, margs, 3, mkw);
+                        // mkw contains the keyword arguments passed to __build_class__
+                        PyDict newKwargs = kwargs ?? new PyDict();
 
                         // CPython 3.12: Metaclass methods use __class__ cell variable (compile-time generated)
                         // No need to manipulate global scope - __class__ cell is set during class creation
@@ -2789,37 +2884,26 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine($"🔍 After setting: pyClass.Metaclass = {pyClass.Metaclass}");
                             #endif
-                            
-                            // CPython 3.12: The metaclass.__new__ should have already set all attributes
-                            // But let's ensure any additional attributes from the modified namespace are set
+
+                            // CPython 3.12 Python/bltinmodule.c:208-209:
+                            //   PyObject *margs[3] = {name, bases, ns};
+                            //   cls = PyObject_VectorcallDict(meta, margs, 3, mkw);
+                            //
+                            // The metaclass.__new__ receives the SAME ns dict that was used for class body execution.
+                            // type.__new__ (or custom metaclass.__new__) is responsible for creating the class
+                            // and setting all attributes from ns.
+                            //
+                            // IMPORTANT: CPython does NOT iterate through ns again after metaclass.__new__ returns.
+                            // The returned class already has all attributes set by metaclass.__new__.
+                            //
+                            // Previous code here was redundantly calling SetAttribute for each item in ns,
+                            // which caused attributes to be set twice. This is incorrect and causes bugs
+                            // when __prepare__ returns a custom dict that pre-populates items (like _EnumDict).
+                            //
+                            // Reference: Python/bltinmodule.c:201-209 - no additional attribute setting after line 209
                             #if DEBUG_LOG
-                            Console.WriteLine("Ensuring all namespace attributes are set on metaclass-created class");
+                            Console.WriteLine($"✅ Metaclass.__new__ created class with all attributes from namespace");
                             #endif
-                            // Get items from namespace (dict or dict-like object)
-                            PyList items;
-                            if (namespaceObj is PyDict pyDictObj)
-                            {
-                                items = pyDictObj.Items();
-                            }
-                            else
-                            {
-                                // Try calling items() method on dict-like object
-                                var itemsMethod = namespaceObj.GetAttribute("items");
-                                items = itemsMethod.Call(new PyObject[0], null) as PyList;
-                            }
-                            for (int i = 0; i < items.Items.Length; i++)
-                            {
-                                if (items.Items[i] is PyTuple kvp && kvp.Items.Length == 2)
-                                {
-                                    if (kvp.Items[0] is PyString keyStr)
-                                    {
-                                        pyClass.SetAttribute(keyStr.Value, kvp.Items[1]);
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"  Set attribute from namespace: {keyStr.Value} = {kvp.Items[1].GetType().Name}");
-                                        #endif
-                                    }
-                                }
-                            }
                             
                             // CPython 3.12: NOW update __classcell__ to point to the created class
                             if (classcell != null)
@@ -3468,6 +3552,7 @@ namespace SharpPy
             return new PyProperty(fget, fset, fdel, doc);
         }
 
+        // CPython 3.12: Objects/funcobject.c:1055-1068 (cm_init)
         private static PyObject CallClassmethod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
@@ -3475,12 +3560,22 @@ namespace SharpPy
                 throw PyTypeError.Create($"classmethod expected 1 argument ({args.Length} given)");
             }
 
-            if (!(args[0] is PyFunction function))
+            var func = args[0];
+
+            // CPython 3.12: If already a classmethod, return as-is (idempotent)
+            if (func is PyClassmethod pyClassmethod)
             {
-                throw PyTypeError.Create("classmethod() argument must be callable");
+                return pyClassmethod;
             }
 
-            return new PyClassmethod(function);
+            if (func == null || !func.IsCallable())
+            {
+                throw PyTypeError.Create($"classmethod() argument must be callable (got {func?.GetTypeName()})");
+            }
+
+            // CPython 3.12: Objects/funcobject.c:1062 - Accept ANY callable
+            // cm_callable can be PyFunction, PyBuiltinFunction, PyMethodDescriptor, etc.
+            return new PyClassmethod(func);
         }
 
         private static PyObject CallStaticmethod(PyObject[] args, PyDict kwargs = null)
@@ -3495,7 +3590,8 @@ namespace SharpPy
             Console.WriteLine($"[STATICMETHOD] Received: {func?.GetType().Name} / IsCallable={func?.IsCallable()} / value={func}");
             #endif
 
-            // CPython 3.12: If already a staticmethod, return as-is (idempotent)
+            // CPython 3.12: Objects/funcobject.c:1241-1256 (sm_init)
+            // If already a staticmethod, return as-is (idempotent)
             if (func is PyStaticmethod pyStaticmethod)
             {
                 #if DEBUG_LOG
@@ -3509,15 +3605,9 @@ namespace SharpPy
                 throw PyTypeError.Create($"staticmethod() argument must be callable (got {func?.GetTypeName()})");
             }
 
-            // CPython 3.12: Accept any callable, but PyStaticmethod only stores PyFunction
-            if (func is PyFunction pyFunc)
-            {
-                return new PyStaticmethod(pyFunc);
-            }
-
-            // For non-PyFunction callables, we still need to wrap them
-            // Create a wrapper PyFunction
-            throw PyTypeError.Create("staticmethod() currently only supports PyFunction objects");
+            // CPython 3.12: Objects/funcobject.c:1250 - Accept ANY callable
+            // sm_callable can be PyFunction, PyBuiltinFunction, PyMethodDescriptor, etc.
+            return new PyStaticmethod(func);
         }
 
         /// <summary>
@@ -3526,25 +3616,64 @@ namespace SharpPy
         /// </summary>
         private static PyObject CallTypeNew(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
+            // This function implements type.__new__() which is called when creating a class
+            // It receives: (metaclass, name, bases, dict) as args and potential kwargs
+            // If the metaclass is not 'type', we need to call its __new__ method with kwargs
+
             if (args.Length < 4)
             {
                 throw PyTypeError.Create($"type.__new__() takes exactly 4 arguments ({args.Length} given)");
             }
-            
-            var cls = args[0];        // The metaclass (e.g., MyMeta)
-            var name = args[1];       // Class name (e.g., "MyClass")  
+
+            var cls = args[0];        // The metaclass (e.g., MyMeta, EnumType)
+            var name = args[1];       // Class name (e.g., "MyClass")
             var bases = args[2];      // Base classes tuple (e.g., ())
             var attrs = args[3];      // Class attributes dict (e.g., {"method": <function>})
-            
+
+            #if DEBUG_LOG
+            Console.WriteLine($"\n🔍 CallTypeNew called for class: {(name as PyString)?.Value}");
+            Console.WriteLine($"  metaclass: {cls?.GetTypeName()}");
+            Console.WriteLine($"  attrs type: {attrs?.GetType().Name}, PyType: {attrs?.GetTypeName()}");
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+            {
+                Console.WriteLine($"  kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+            }
+            #endif
+
             // Convert arguments to proper types
             if (!(name is PyString nameStr))
             {
                 throw PyTypeError.Create("type.__new__() argument 2 must be string");
             }
-            
+
             if (!(bases is PyTuple basesTuple))
             {
                 throw PyTypeError.Create("type.__new__() argument 3 must be tuple");
+            }
+
+            // CPython 3.12: Objects/typeobject.c:1667
+            // If cls is a custom metaclass (not type), call its __new__ method with kwargs
+            if (cls is PyType metaclassType && metaclassType != PyType.TypeType)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  🔧 Custom metaclass detected: {metaclassType.Name}, calling its __new__ with kwargs");
+                #endif
+
+                // Get the metaclass's __new__ method
+                var newMethod = metaclassType.GetAttribute("__new__");
+                if (newMethod != null && newMethod.IsCallable())
+                {
+                    // Call metaclass.__new__(metaclass, name, bases, dict, **kwargs)
+                    // args[0] is already the metaclass, so we pass all args
+                    var result = newMethod.Call(args, kwargs);
+                    return result;
+                }
+
+                // Fallback: if __new__ is not found, use the default implementation below
+                #if DEBUG_LOG
+                Console.WriteLine($"  ⚠️ Metaclass {metaclassType.Name} has no __new__, using default");
+                #endif
             }
             
             // CPython 3.12: Accept both PyDict and dict-like objects (e.g., _EnumDict which is PyClassInstance)
@@ -3639,11 +3768,17 @@ namespace SharpPy
                 {
                     if (kvp.Items[0] is PyString keyStr)
                     {
+                        #if DEBUG_LOG
+                        if (keyStr.Value == "func" || keyStr.Value == "_generate_next_value_")
+                        {
+                            Console.WriteLine($"  🔧 Setting attribute: {keyStr.Value} = {kvp.Items[1]}, type={kvp.Items[1]?.GetTypeName()}");
+                        }
+                        #endif
                         newClass.SetAttribute(keyStr.Value, kvp.Items[1]);
                     }
                 }
             }
-            
+
             return newClass;
         }
 

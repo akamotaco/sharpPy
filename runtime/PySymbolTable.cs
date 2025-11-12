@@ -752,26 +752,41 @@ namespace SharpPy
                 else
                 {
                     // Look for it in enclosing scopes
+                    // CPython 3.12: Python/symtable.c:608-617, 622-630
                     var foundInParent = FindInEnclosingScope(table, symbol.Name);
                     if (foundInParent != null)
                     {
-                        // Mark as free variable (needs closure)
-                        symbol.Scope = SymbolScope.Free;
-
-                        // Mark the parent symbol as cell variable if it's assigned OR a parameter
-                        // CPython 3.12: Parameters that are used in nested scopes need to become Cell variables
-                        if (foundInParent.IsAssigned() || foundInParent.IsParameter())
+                        // CPython 3.12: Python/symtable.c:622-630
+                        // If parent scope has this as GLOBAL, it should be GLOBAL here too
+                        if (foundInParent.Scope == SymbolScope.Global)
                         {
-                            foundInParent.Scope = SymbolScope.Cell;
+                            symbol.Scope = SymbolScope.Global;
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"      ↳ Marked as GLOBAL (found in parent as GLOBAL: {foundInParent.Name})");
+#endif
                         }
+                        else
+                        {
+                            // CPython 3.12: Python/symtable.c:608-617
+                            // Mark as free variable (needs closure)
+                            symbol.Scope = SymbolScope.Free;
+
+                            // Mark the parent symbol as cell variable if it's assigned OR a parameter
+                            // CPython 3.12: Parameters that are used in nested scopes need to become Cell variables
+                            if (foundInParent.IsAssigned() || foundInParent.IsParameter())
+                            {
+                                foundInParent.Scope = SymbolScope.Cell;
+                            }
 
 #if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
+                            Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
 #endif
+                        }
                     }
                     else
                     {
                         // Not found in any parent scope, assume global
+                        // CPython 3.12: Python/symtable.c:634
                         symbol.Scope = SymbolScope.Global;
 #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ Marked as GLOBAL (not found in parents)");
@@ -812,6 +827,20 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Found {name} in enclosing scope {parent.GetName()}");
 #endif
+                    // CPython 3.12: Python/symtable.c:608-630
+                    // If parent is a function scope and the symbol is not assigned/parameter in that scope,
+                    // it means the symbol comes from an outer scope (likely module/global).
+                    // In this case, don't treat it as a free variable - continue searching or mark as global.
+                    if (parent.Type == SymbolTableType.Function &&
+                        !symbol.IsAssigned() && !symbol.IsParameter())
+                    {
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"      ↳ Symbol in function scope but not assigned/param - continuing search");
+#endif
+                        parent = parent.GetParent();
+                        continue;
+                    }
+
                     // CPython 3.12: If the symbol is declared as global in the parent scope,
                     // it should not be treated as a free variable in the current scope
                     if (symbol.IsGlobal())
