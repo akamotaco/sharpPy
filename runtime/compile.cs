@@ -11368,18 +11368,35 @@ namespace SharpPy
                 defaults, kwDefaults, genFreeVars, genCellVars,
                 flags, 1, 0, 0);
 
-            // CPython 3.12: Create closure if there are free variables (compile.c:1800-1848)
+            // CPython 3.12: Create closure if there are free variables (compile.c:1797-1849)
+            // compiler_make_closure: Only emit LOAD_CLOSURE for variables that are
+            // in the current scope's cellvars/freevars (line 1814: get_ref_type)
             int makeFunctionFlags = 0;
+            var actualClosureVars = new List<string>();
+
             if (genFreeVars.Count > 0)
             {
-                // Load closure cells for each free variable
+                // CPython 3.12: Check each free variable's reftype in current scope
                 foreach (var freeVar in genFreeVars)
                 {
-                    EmitLoadClosure(freeVar);
+                    // Check if this variable is in current scope's cellvars or freevars
+                    // If not, it's a module-level global - genexpr will use LOAD_GLOBAL
+                    if (_cellVars.Contains(freeVar) || _freeVars.Contains(freeVar))
+                    {
+                        // This variable is a cell/free var in current scope
+                        // Need to pass it as closure to genexpr
+                        actualClosureVars.Add(freeVar);
+                        EmitLoadClosure(freeVar);
+                    }
+                    // else: module-level variable - genexpr will LOAD_GLOBAL directly
                 }
-                // Build tuple of closure cells
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, genFreeVars.Count);
-                makeFunctionFlags |= 0x08;  // Closure flag
+
+                // Build tuple of closure cells only if we have actual closure vars
+                if (actualClosureVars.Count > 0)
+                {
+                    EmitInstruction(ByteCodeOp.BUILD_TUPLE, actualClosureVars.Count);
+                    makeFunctionFlags |= 0x08;  // Closure flag
+                }
             }
 
             // 제너레이터 함수 객체 생성
