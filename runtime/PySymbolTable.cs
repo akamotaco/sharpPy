@@ -1345,6 +1345,15 @@ namespace SharpPy
                     AnalyzeExpression(binOp.Right);
                     break;
 
+                case BoolOpExpression boolOp:
+                    // CPython 3.12: symtable.c - VISIT_SEQ for BoolOp values
+                    // Analyze all operands in the boolean operation (and/or)
+                    foreach (var value in boolOp.Values)
+                    {
+                        AnalyzeExpression(value);
+                    }
+                    break;
+
                 case CompareExpression compareOp:
                     AnalyzeExpression(compareOp.Left);
                     foreach (var comparator in compareOp.Comparators)
@@ -1494,6 +1503,44 @@ namespace SharpPy
                     // This is critical for: list(*(x for x in items))
                     // Without this, the generator expression would not get its symbol table created
                     AnalyzeExpression(starred.Value);
+                    break;
+
+                case DictExpression dict:
+                    // CPython 3.12: symtable.c:2081-2083 - Dict_kind
+                    // Analyze all keys and values
+                    foreach (var item in dict.Items)
+                    {
+                        if (item.Key != null)  // key can be null for ** unpacking
+                            AnalyzeExpression(item.Key);
+                        AnalyzeExpression(item.Value);
+                    }
+                    break;
+
+                case SetExpression set:
+                    // CPython 3.12: symtable.c:2085-2088 - Set_kind
+                    // Analyze all elements
+                    foreach (var element in set.Elements)
+                    {
+                        AnalyzeExpression(element);
+                    }
+                    break;
+
+                case SubscriptExpression subscript:
+                    // CPython 3.12: symtable.c:2156-2161 - Subscript_kind
+                    // Analyze value and slice
+                    AnalyzeExpression(subscript.Value);
+                    AnalyzeExpression(subscript.Slice);
+                    break;
+
+                case SliceExpression slice:
+                    // CPython 3.12: symtable.c:2163-2171 - Slice_kind
+                    // Analyze start, stop, and step if present
+                    if (slice.Start != null)
+                        AnalyzeExpression(slice.Start);
+                    if (slice.Stop != null)
+                        AnalyzeExpression(slice.Stop);
+                    if (slice.Step != null)
+                        AnalyzeExpression(slice.Step);
                     break;
 
                 // Skip constants and other literal expressions

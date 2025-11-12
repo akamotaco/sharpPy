@@ -207,6 +207,84 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 2
             );
+
+            // CPython 3.12: __getitem__ slot (mp_subscript)
+            // CPython 3.12: Objects/dictobject.c:2490-2523 (dict_subscript)
+            // D[key] -> value
+            //
+            // IMPORTANT: Must access actual dict storage, NOT call polymorphic GetItem!
+            // For dict subclasses (PyClassInstance), we must access _dictStorage directly
+            // to avoid calling user-defined __getitem__ again (infinite loop).
+            dictType.TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__getitem__ expected 1 argument, got {args.Length}");
+
+                    // CPython 3.12: PyDict_GetItem checks PyDict_Check then accesses internal storage
+                    // For PyDict: access _dict directly
+                    // For dict subclasses (PyClassInstance): access _dictStorage field via reflection
+                    if (self is PyDict pyDict)
+                    {
+                        // Real PyDict: use internal _dict
+                        return pyDict._dict.TryGetValue(args[0], out var value)
+                            ? value
+                            : throw PyKeyError.Create(args[0]);
+                    }
+                    else if (self is PyClassInstance classInstance)
+                    {
+                        // Dict subclass: access _dictStorage field
+                        var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
+                        if (dictStorage != null)
+                        {
+                            return dictStorage._dict.TryGetValue(args[0], out var value)
+                                ? value
+                                : throw PyKeyError.Create(args[0]);
+                        }
+                    }
+
+                    throw PyTypeError.Create($"descriptor '__getitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
+            // CPython 3.12: __setitem__ slot (mp_ass_subscript)
+            // CPython 3.12: Objects/dictobject.c:2524-2530 (dict_ass_sub)
+            // D[key] = value
+            //
+            // Same pattern: access actual dict storage, NOT polymorphic SetItem
+            dictType.TypeDict["__setitem__"] = new PyMethodDescriptor(
+                "__setitem__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 2)
+                        throw PyTypeError.Create($"__setitem__ expected 2 arguments, got {args.Length}");
+
+                    // CPython 3.12: PyDict_SetItem checks PyDict_Check then writes to internal storage
+                    if (self is PyDict pyDict)
+                    {
+                        // Real PyDict: write to _dict directly
+                        pyDict.SetItem(args[0], args[1]);  // Use SetItem to maintain _keys order
+                        return PyNone.Instance;
+                    }
+                    else if (self is PyClassInstance classInstance)
+                    {
+                        // Dict subclass: access _dictStorage field
+                        var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
+                        if (dictStorage != null)
+                        {
+                            dictStorage.SetItem(args[0], args[1]);  // Use SetItem to maintain _keys order
+                            return PyNone.Instance;
+                        }
+                    }
+
+                    throw PyTypeError.Create($"descriptor '__setitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                },
+                minArgs: 2, maxArgs: 2
+            );
         }
 
         #region Core Properties

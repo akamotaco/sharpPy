@@ -10,18 +10,41 @@ namespace SharpPy
             InitializeListDescriptors();
         }
 
+        // CPython 3.12: Objects/listobject.c
+        // Helper to get PyList storage from self (works for both PyList and list subclasses)
+        private static PyList GetListStorage(PyObject self)
+        {
+            if (self is PyList list)
+                return list;
+
+            // Check if it's a list subclass (PyClassInstance with list base)
+            if (self is PyClassInstance instance)
+            {
+                // Use reflection to call GetListStorage
+                var method = typeof(PyClassInstance).GetMethod("GetListStorage");
+                if (method != null)
+                {
+                    var storage = method.Invoke(instance, null) as PyList;
+                    if (storage != null)
+                        return storage;
+                }
+            }
+
+            throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
+        }
+
         private static void InitializeListDescriptors()
         {
             var listType = PyType.ListType;
 
+            // CPython 3.12: Objects/listobject.c:838-845 (list_append)
             // append method descriptor
             listType.TypeDict["append"] = new PyMethodDescriptor(
                 "append", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'append' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     list.Append(args[0]);
                     return PyNone.Instance;
                 },
@@ -34,8 +57,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 2)
                         throw PyTypeError.Create($"insert() takes exactly two arguments ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'insert' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     var index = args[0].ToInt();
                     list.Insert(index, args[1]);
                     return PyNone.Instance;
@@ -49,8 +71,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'remove' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     list.Remove(args[0]);
                     return PyNone.Instance;
                 },
@@ -63,8 +84,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"pop() takes at most one argument ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'pop' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     var index = args.Length == 0 ? -1 : args[0].ToInt();
                     return list.Pop(index);
                 },
@@ -77,8 +97,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'clear' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     list.Clear();
                     return PyNone.Instance;
                 },
@@ -91,8 +110,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"extend() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'extend' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     list.Extend(args[0]);
                     return PyNone.Instance;
                 },
@@ -105,8 +123,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"index() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'index' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     var index = list.Index(args[0]);
                     return new PyInt(index);
                 },
@@ -119,8 +136,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"count() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'count' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     var count = list.Count(args[0]);
                     return new PyInt(count);
                 },
@@ -133,8 +149,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"reverse() takes no arguments ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'reverse' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     list.Reverse();
                     return PyNone.Instance;
                 },
@@ -147,8 +162,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 0)
                         throw PyTypeError.Create($"sort() takes no positional arguments ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'sort' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
 
                     PyObject? key = null;
                     bool reverse = false;
@@ -180,14 +194,38 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                    if (self is not PyList list)
-                        throw PyTypeError.Create($"descriptor 'copy' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var list = GetListStorage(self);
                     // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
                     var copy = new PyObject[list._items.Count];
                     list._items.CopyTo(copy, 0);
                     return ListCache.Create(copy);
                 },
                 minArgs: 0, maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/listobject.c:2785-2805 (list___init___impl)
+            // __init__ method descriptor
+            listType.TypeDict["__init__"] = new PyMethodDescriptor(
+                "__init__", listType,
+                (self, args, kwargs) => {
+                    if (args.Length > 1)
+                        throw PyTypeError.Create($"list.__init__() takes at most 1 argument ({args.Length} given)");
+
+                    // CPython 3.12: Get actual list storage (works for subclasses)
+                    var list = GetListStorage(self);
+
+                    // CPython 3.12: Empty previous contents
+                    list.Clear();
+
+                    // CPython 3.12: If iterable provided, extend with it
+                    if (args.Length == 1)
+                    {
+                        list.Extend(args[0]);
+                    }
+
+                    return PyNone.Instance;
+                },
+                minArgs: 0, maxArgs: 1
             );
         }
 

@@ -72,6 +72,24 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 1
             );
+
+            // CPython 3.12: Objects/tupleobject.c:230-280 (tuplesubscript)
+            // __getitem__ descriptor
+            tupleType.TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
+
+                    // CPython 3.12: tuple is immutable, so we can call GetItem directly
+                    // No need for special storage handling like dict/list
+                    if (self is not PyTuple tuple)
+                        throw PyTypeError.Create($"descriptor '__getitem__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+
+                    return tuple.GetItem(args[0]);
+                },
+                minArgs: 1, maxArgs: 1
+            );
         }
 
         #region Core Properties

@@ -3393,55 +3393,37 @@ namespace SharpPy
                     }
                     break;
 
+                // CPython 3.12: Python/bytecodes.c BINARY_SUBSCR
+                // CPython 3.12: Objects/abstract.c:171-201 (PyObject_GetItem)
+                //
+                // Similar to STORE_SUBSCR, we need to lookup __getitem__ via MRO
+                // to support user-defined __getitem__ methods in subclasses
                 case ByteCodeOp.BINARY_SUBSCR:
-                    // Stack: [object, key] -> [object[key]]
-                    // CPython-style subscript access for list pattern matching
                     var subscriptKey = frame.ValueStack.Pop();
                     var subscriptObj = frame.ValueStack.Pop();
 
                     try
                     {
+                        // CPython 3.12: Lookup __getitem__ in type's MRO
+                        var objType = subscriptObj.GetPyType();
+                        var getitemAttr = objType.LookupSpecial("__getitem__");
+
                         PyObject subscriptResult;
-                        if (subscriptObj is PyList subscriptList && subscriptKey is PyInt keyIntValue)
+                        if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
                         {
-                            // List indexing: list[int]
-                            subscriptResult = subscriptList.GetItem((int)keyIntValue.Value);
+                            // Found descriptor (user-defined or built-in)
+                            // Call __getitem__(self, key)
+                            subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
                         }
-                        else if (subscriptObj is PyList subscriptList2 && subscriptKey is PySlice sliceKey)
+                        else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
                         {
-                            // List slicing: list[slice] (CPython 3.12 compatible)
-                            subscriptResult = subscriptList2.GetItem(sliceKey);
-                        }
-                        else if (subscriptObj is PyDict subscriptDict)
-                        {
-                            // Dictionary access: dict[key]
-                            subscriptResult = subscriptDict.GetItem(subscriptKey);
-                        }
-                        else if (subscriptObj is PyType subscriptType)
-                        {
-                            // Type subscript access: Type[args] (for generics like Unpack[T], Required[T], etc.)
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 BINARY_SUBSCR: PyType detected - {subscriptType.Name}[{subscriptKey}]");
-                            Console.WriteLine($"   Actual type: {subscriptObj.GetType().Name}");
-                            #endif
-                            subscriptResult = subscriptType.GetItem(subscriptKey);
-                        }
-                        else if (subscriptObj is PyGenericAlias subscriptGeneric)
-                        {
-                            // Generic alias subscript access: Point[int] where Point = tuple[T, T]
-                            subscriptResult = subscriptGeneric.GetItem(subscriptKey);
+                            // Found unbound function (rare case)
+                            subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
                         }
                         else
                         {
-                            // Try generic GetItem method
-                            try
-                            {
-                                subscriptResult = subscriptObj.GetItem(subscriptKey);
-                            }
-                            catch (NotImplementedException)
-                            {
-                                throw PyTypeError.Create($"'{subscriptObj.GetTypeName()}' object is not subscriptable");
-                            }
+                            // No __getitem__ found, use built-in GetItem
+                            subscriptResult = subscriptObj.GetItem(subscriptKey);
                         }
 
                         frame.ValueStack.Push(subscriptResult);
@@ -3475,28 +3457,58 @@ namespace SharpPy
                     }
                     break;
 
+                // CPython 3.12: Python/bytecodes.c STORE_SUBSCR
+                // CPython 3.12: Objects/abstract.c:203-234 (PyObject_SetItem)
+                //
+                // In CPython's VM (ceval.c), STORE_SUBSCR calls PyObject_SetItem,
+                // which looks up tp_as_mapping->mp_ass_subscript from the type.
+                //
+                // For built-in types (dict, list), mp_ass_subscript points to
+                // the C function (e.g., dict_ass_sub -> PyDict_SetItem).
+                //
+                // For user-defined classes, the type's mp_ass_subscript is set
+                // during type creation if __setitem__ is defined. The slot wrapper
+                // mechanism ensures user-defined __setitem__ gets called.
+                //
+                // SharpPy equivalent:
+                // 1. Lookup __setitem__ via LookupSpecial (traverses MRO)
+                // 2. If found (PyMethodDescriptor or PyFunction), call it
+                // 3. Otherwise, fall back to obj.SetItem() (built-in behavior)
                 case ByteCodeOp.STORE_SUBSCR:
-                    // Stack: [value, object, key] -> []
-                    // Implements obj[key] = value
                     var subscrStoreKey = frame.ValueStack.Pop();      // key (top of stack)
                     var subscrStoreObj = frame.ValueStack.Pop();      // object
                     var subscrStoreValue = frame.ValueStack.Pop();    // value (bottom)
 
                     try
                     {
-                        subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
+                        // CPython 3.12: Lookup __setitem__ in type's MRO
+                        var objType = subscrStoreObj.GetPyType();
+                        var setitemAttr = objType.LookupSpecial("__setitem__");
+
+                        if (setitemAttr != null && setitemAttr is PyMethodDescriptor setitemDescriptor)
+                        {
+                            // Found descriptor (user-defined or built-in)
+                            // Call __setitem__(self, key, value)
+                            setitemDescriptor.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                        }
+                        else if (setitemAttr != null && setitemAttr is PyFunction setitemFunc)
+                        {
+                            // Found unbound function (rare case)
+                            setitemFunc.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                        }
+                        else
+                        {
+                            // No __setitem__ found, use built-in SetItem
+                            // This handles types without explicit __setitem__ descriptor
+                            subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
+                        }
                     }
                     catch (Exception ex) when (ex is PyException)
                     {
-                        // Re-throw Python exceptions
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 STORE_SUBSCR: Re-throwing Python exception: {ex.GetType().Name} - {ex.Message}");
-                        #endif
                         throw;
                     }
                     catch (Exception ex)
                     {
-                        // Convert C# exceptions to appropriate Python exceptions
                         throw PyTypeError.Create($"subscript assignment error: {ex.Message}");
                     }
                     break;

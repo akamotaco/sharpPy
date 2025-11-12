@@ -857,18 +857,17 @@ namespace SharpPy
                 // list 타입의 메서드들 - CPython 3.12 compatible
                 if (pyType == PyType.ListType)
                 {
+                    // CPython 3.12: Objects/listobject.c
                     // Helper to get PyList from self (works for both PyList and list subclasses)
                     static PyList GetListStorage(PyObject self)
                     {
                         if (self is PyList list)
                             return list;
 
-                        if (self is PyClassInstance instance && instance.InstanceType.BaseTypes.Any(bt => bt == PyType.ListType))
+                        if (self is PyClassInstance instance && instance.IsListSubclass())
                         {
-                            // List subclass - get its storage
-                            // For now, we don't have internal list storage for subclasses
-                            // This would need to be implemented similar to dict subclasses
-                            throw PyTypeError.Create($"list subclass storage not yet implemented");
+                            // List subclass: return internal list storage
+                            return instance.GetListStorage();
                         }
 
                         throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
@@ -877,6 +876,7 @@ namespace SharpPy
                     return name switch
                     {
                         // CPython 3.12: __getitem__ wrapper descriptor (sq_item slot)
+                        // CPython 3.12: Objects/listobject.c:420-449 (list_subscript)
                         "__getitem__" => new PyWrapperDescriptor(
                             "__getitem__",
                             PyType.ListType,
@@ -886,8 +886,10 @@ namespace SharpPy
                                     throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
 
                                 var key = args[0];
-                                // CPython 3.12: Call self.GetItem() which allows subclass override
-                                return self.GetItem(key);
+                                // CPython 3.12: Direct storage access to avoid infinite loop
+                                // Use GetListStorage() to support both PyList and list subclasses
+                                var list = GetListStorage(self);
+                                return list.GetItem(key);
                             }),
 
                         // CPython 3.12: __setitem__ wrapper descriptor (sq_ass_item slot)
@@ -903,17 +905,8 @@ namespace SharpPy
                                 var value = args[1];
 
                                 // CPython 3.12: Direct storage access (list_ass_item in C)
-                                // This wrapper descriptor represents the C-level slot, not Python method
-                                PyList list;
-                                if (self is PyList l)
-                                {
-                                    list = l;
-                                }
-                                else
-                                {
-                                    throw PyTypeError.Create($"descriptor '__setitem__' for 'list' objects doesn't apply to a '{self.GetTypeName()}' object");
-                                }
-
+                                // Use GetListStorage() to support both PyList and list subclasses
+                                var list = GetListStorage(self);
                                 list.SetItem(key, value);
                                 return PyNone.Instance;
                             }),
@@ -1077,6 +1070,9 @@ namespace SharpPy
         // CPython 3.12: Dict subclasses have internal dict storage
         private PyDict _dictStorage;
 
+        // CPython 3.12: List subclasses have internal list storage
+        private PyList _listStorage;
+
         // CPython 3.12: Cache the __dict__ wrapper for identity consistency
         private PyDict _dictCache;
 
@@ -1097,6 +1093,12 @@ namespace SharpPy
             {
                 _dictStorage = new PyDict();
             }
+
+            // CPython 3.12: If this is a list subclass, create internal list storage
+            if (IsListSubclass())
+            {
+                _listStorage = new PyList();
+            }
         }
 
         public bool IsDictSubclass()
@@ -1105,10 +1107,22 @@ namespace SharpPy
             return InstanceType.BaseTypes.Any(bt => bt == PyType.DictType);
         }
 
+        public bool IsListSubclass()
+        {
+            // Check if any base type is list
+            return InstanceType.BaseTypes.Any(bt => bt == PyType.ListType);
+        }
+
         // CPython 3.12: Provide access to internal dict storage for dict subclasses
         public PyDict GetDictStorage()
         {
             return _dictStorage;
+        }
+
+        // CPython 3.12: Provide access to internal list storage for list subclasses
+        public PyList GetListStorage()
+        {
+            return _listStorage;
         }
 
         public override string ToString()
@@ -1128,38 +1142,38 @@ namespace SharpPy
         public override PyType GetPyType() => InstanceType;
         public override string GetTypeName() => InstanceType.Name;
 
-        // CPython 3.12: Dict subclasses use internal dict storage
+        // CPython 3.12: Objects/dictobject.c:2490-2523 (dict_subscript)
+        // CPython 3.12: Objects/abstract.c:171-201 (PyObject_GetItem)
+        //
+        // Same pattern as SetItem:
+        // 1. Check ONLY user-defined __getitem__ (PyClass.ClassDict)
+        // 2. If found, call it
+        // 3. If NOT found, use direct storage (_dictStorage for dict subclasses)
+        // 4. NEVER call built-in descriptors from PyType.TypeDict here
         public override PyObject GetItem(PyObject key)
         {
-            // CPython 3.12: First check if __getitem__ method is defined
-            // This allows user-defined classes to implement subscript operator
-            try
+            // CPython 3.12: Check for user-defined __getitem__ in MRO
+            // Only check PyClass.ClassDict, NOT PyType.TypeDict
+            foreach (var mroType in InstanceType.MRO)
             {
-                // Look for __getitem__ in class MRO
-                foreach (var mroType in InstanceType.MRO)
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getitem__", out PyObject getItemMethod))
                 {
-                    if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getitem__", out PyObject getItemMethod))
+                    // Found user-defined __getitem__
+                    if (getItemMethod is PyFunction func)
                     {
-                        // Found __getitem__, call it with self and key
-                        if (getItemMethod is PyFunction func)
-                        {
-                            var boundMethod = new PyMethod(this, func);
-                            return boundMethod.Call(new PyObject[] { key }, null);
-                        }
-                        else if (getItemMethod.IsCallable())
-                        {
-                            return getItemMethod.Call(new PyObject[] { this, key }, null);
-                        }
-                        break;
+                        var boundMethod = new PyMethod(this, func);
+                        return boundMethod.Call(new PyObject[] { key }, null);
                     }
+                    else if (getItemMethod.IsCallable())
+                    {
+                        return getItemMethod.Call(new PyObject[] { this, key }, null);
+                    }
+                    break;
                 }
             }
-            catch (PythonException)
-            {
-                throw; // Re-throw Python exceptions
-            }
 
-            // Fall back to dict storage for dict subclasses
+            // CPython 3.12: Fall back to direct storage access
+            // For dict subclasses: read from _dictStorage (like PyDict_GetItem)
             if (_dictStorage != null)
             {
                 return _dictStorage.GetItem(key);
@@ -1169,15 +1183,33 @@ namespace SharpPy
             return base.GetItem(key);
         }
 
+        // CPython 3.12: Objects/dictobject.c:1879-1889 (PyDict_SetItem)
+        // CPython 3.12: Objects/abstract.c:203-234 (PyObject_SetItem)
+        //
+        // In CPython, PyObject_SetItem directly calls tp_as_mapping->mp_ass_subscript,
+        // which for dict calls PyDict_SetItem (dictobject.c:2524-2530).
+        // PyDict_SetItem checks PyDict_Check and writes to internal storage.
+        //
+        // For dict subclasses, CPython creates actual PyDictObject instances,
+        // so mp_ass_subscript always gets the real dict's function pointer.
+        // User-defined __setitem__ is only checked at VM level (STORE_SUBSCR),
+        // NOT at the type slot level.
+        //
+        // SharpPy equivalent:
+        // 1. Check ONLY user-defined __setitem__ (PyClass.ClassDict)
+        // 2. If found, call it (this allows subclasses to override behavior)
+        // 3. If NOT found, use direct storage (_dictStorage for dict subclasses)
+        // 4. NEVER call built-in descriptors from PyType.TypeDict here
+        //    (they are already handled at VM level in STORE_SUBSCR)
         public override void SetItem(PyObject key, PyObject value)
         {
-            // CPython 3.12: Check for user-defined __setitem__ first
-            // This allows dict subclasses to override __setitem__ behavior
+            // CPython 3.12: Check for user-defined __setitem__ in MRO
+            // Only check PyClass.ClassDict, NOT PyType.TypeDict
             foreach (var mroType in InstanceType.MRO)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__setitem__", out PyObject setitemMethod))
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__setitem__", out var setitemMethod))
                 {
-                    // Found __setitem__, call it with self, key, and value
+                    // Found user-defined __setitem__
                     if (setitemMethod is PyFunction func)
                     {
                         var boundMethod = new PyMethod(this, func);
@@ -1193,7 +1225,8 @@ namespace SharpPy
                 }
             }
 
-            // Fall back to direct storage access for dict subclasses
+            // CPython 3.12: Fall back to direct storage access
+            // For dict subclasses: write to _dictStorage (like PyDict_SetItem)
             if (_dictStorage != null)
             {
                 _dictStorage.SetItem(key, value);
