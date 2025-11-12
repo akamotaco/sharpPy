@@ -1,0 +1,898 @@
+// enhanced_ast_nodes_3.cs
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Linq;
+using System.IO;
+using System.Runtime.CompilerServices;
+
+namespace SharpPy
+{
+    // Optimized F-String Node
+    public sealed class FStringNode : ASTNode
+    {
+        public string Template { get; }
+        public List<(string Text, ASTNode Expression)> Parts { get; }
+
+        public FStringNode(string template, int line = 0, int column = 0) : base(line, column)
+        {
+            Template = template;
+            Parts = ParseFString(template);
+        }
+
+        private List<(string Text, ASTNode Expression)> ParseFString(string template)
+        {
+            var parts = new List<(string Text, ASTNode Expression)>();
+            int position = 0;
+            int templateLength = template.Length;
+            
+            while (position < templateLength)
+            {
+                int braceStart = template.IndexOf('{', position);
+                
+                if (braceStart == -1)
+                {
+                    // No more expressions
+                    if (position < templateLength)
+                    {
+                        parts.Add((template.Substring(position), null));
+                    }
+                    break;
+                }
+                
+                // Check for escaped braces {{
+                if (braceStart + 1 < templateLength && template[braceStart + 1] == '{')
+                {
+                    parts.Add((template.Substring(position, braceStart - position) + "{", null));
+                    position = braceStart + 2;
+                    continue;
+                }
+                
+                // Add text before the expression
+                if (braceStart > position)
+                {
+                    parts.Add((template.Substring(position, braceStart - position), null));
+                }
+                
+                // Find matching closing brace
+                int braceEnd = FindMatchingBrace(template, braceStart);
+                
+                if (braceEnd == -1)
+                {
+                    // No matching brace found
+                    parts.Add((template.Substring(braceStart), null));
+                    break;
+                }
+                
+                // Extract and parse the expression
+                string exprStr = template.Substring(braceStart + 1, braceEnd - braceStart - 1);
+                
+                try
+                {
+                    var lexer = new Lexer(exprStr);
+                    var tokens = lexer.Tokenize();
+                    var parser = new Parser(tokens);
+                    var expr = parser.ParseExpression();
+                    
+                    parts.Add(("", expr));
+                }
+                catch
+                {
+                    // If parsing fails, treat it as literal text
+                    parts.Add(("{" + exprStr + "}", null));
+                }
+                
+                position = braceEnd + 1;
+            }
+            
+            return parts;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int FindMatchingBrace(string template, int start)
+        {
+            int braceDepth = 1;
+            int position = start + 1;
+            int templateLength = template.Length;
+            
+            while (position < templateLength && braceDepth > 0)
+            {
+                if (template[position] == '{')
+                    braceDepth++;
+                else if (template[position] == '}')
+                {
+                    // Check for escaped closing brace }}
+                    if (position + 1 < templateLength && template[position + 1] == '}')
+                    {
+                        position++; // Skip escaped brace
+                    }
+                    else
+                    {
+                        braceDepth--;
+                        if (braceDepth == 0)
+                            return position;
+                    }
+                }
+                position++;
+            }
+            
+            return -1;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var result = new StringBuilder();
+                
+                foreach (var (text, expr) in Parts)
+                {
+                    if (expr != null)
+                    {
+                        var value = expr.Evaluate(env);
+                        result.Append(value.ToPythonString());
+                    }
+                    else
+                    {
+                        result.Append(text);
+                    }
+                }
+                
+                return new PythonString(result.ToString());
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in f-string evaluation: {ex.Message}");
+            }
+        }
+    }
+
+    // Optimized List Comprehension Node
+    public sealed class ListComprehensionNode : ASTNode
+    {
+        public ASTNode Expression { get; }
+        public string Variable { get; }
+        public ASTNode Iterable { get; }
+        public ASTNode Condition { get; }
+
+        public ListComprehensionNode(ASTNode expression, string variable, ASTNode iterable, 
+                                     ASTNode condition = null, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Expression = expression;
+            Variable = variable;
+            Iterable = iterable;
+            Condition = condition;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var result = new PythonList();
+                var iterableObj = Iterable.Evaluate(env);
+                var items = GetIterableItems(iterableObj);
+
+                // Create a new scope for the comprehension
+                var comprehensionEnv = new Environment(env);
+
+                // Pre-allocate capacity if possible
+                if (Condition == null)
+                    result.Items.Capacity = items.Count;
+
+                foreach (var item in items)
+                {
+                    comprehensionEnv.SetVariable(Variable, item);
+                    
+                    // Check condition if exists
+                    if (Condition != null)
+                    {
+                        var conditionResult = Condition.Evaluate(comprehensionEnv);
+                        if (!conditionResult.IsTrue())
+                            continue;
+                    }
+                    
+                    // Evaluate expression and add to result
+                    var value = Expression.Evaluate(comprehensionEnv);
+                    result.Items.Add(value);
+                }
+
+                return result;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in list comprehension: {ex.Message}");
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private List<PythonTypeObject> GetIterableItems(PythonTypeObject obj) => obj switch
+        {
+            PythonList list => list.Items,
+            PythonTuple tuple => tuple.Items,
+            PythonString str => str.Value.Select(c => new PythonString(c.ToString()) as PythonTypeObject).ToList(),
+            PythonDict dict => dict.Items.Keys.ToList(),
+            _ => throw CreateException("TypeError", $"'{obj?.Type}' object is not iterable")
+        };
+    }
+
+    // Optimized Compound Assignment Node
+    public sealed class CompoundAssignmentNode : ASTNode
+    {
+        public string VariableName { get; }
+        public string Operator { get; }
+        public ASTNode Value { get; }
+
+        public CompoundAssignmentNode(string name, string op, ASTNode value, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            VariableName = name;
+            Operator = op;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var currentValue = env.GetVariable(VariableName);
+                var newValue = Value.Evaluate(env);
+                
+                PythonTypeObject result = Operator switch
+                {
+                    "+=" => ApplyAdd(currentValue, newValue),
+                    "-=" => ApplySubtract(currentValue, newValue),
+                    "*=" => ApplyMultiply(currentValue, newValue),
+                    "/=" => ApplyDivide(currentValue, newValue),
+                    "%=" => ApplyModulo(currentValue, newValue),
+                    "**=" => ApplyPower(currentValue, newValue),
+                    _ => throw CreateException("SyntaxError", $"Invalid compound assignment operator: {Operator}")
+                };
+                
+                env.SetVariable(VariableName, result);
+                return result;
+            }
+            catch (PythonException ex) when (ex.Type == "NameError")
+            {
+                throw CreateException("NameError", $"Name '{VariableName}' is not defined");
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in compound assignment: {ex.Message}");
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => AddLists(ll, rl),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for +=")
+        };
+
+        private static PythonList AddLists(PythonList left, PythonList right)
+        {
+            left.Items.AddRange(right.Items);
+            return left;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for -=")
+        };
+
+        private PythonTypeObject ApplyMultiply(PythonTypeObject left, PythonTypeObject right)
+        {
+            switch (left)
+            {
+                case PythonInt li:
+                    return li.Multiply(right);
+                case PythonFloat lf:
+                    return lf.Multiply(right);
+                case PythonString ls when NumberHelper.IsNumber(right):
+                    return ls.Repeat(NumberHelper.ToInt(right));
+                case PythonList list when NumberHelper.IsNumber(right):
+                    var originalItems = new List<PythonTypeObject>(list.Items);
+                    list.Items.Clear();
+                    int times = NumberHelper.ToInt(right);
+                    for (int i = 0; i < times; i++)
+                        list.Items.AddRange(originalItems);
+                    return list;
+                default:
+                    throw CreateException("TypeError", "unsupported operand type(s) for *=");
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for /=")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for %=")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", "unsupported operand type(s) for **=")
+        };
+    }
+
+    // Optimized With Statement Node
+    public sealed class WithNode : ASTNode
+    {
+        public ASTNode ContextExpression { get; }
+        public string Variable { get; }
+        public List<ASTNode> Body { get; }
+
+        public WithNode(ASTNode contextExpr, string variable, List<ASTNode> body, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            ContextExpression = contextExpr;
+            Variable = variable;
+            Body = body;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var contextManager = ContextExpression.Evaluate(env);
+                
+                // Call __enter__ method
+                PythonTypeObject enterResult = PythonNone.Instance;
+                
+                switch (contextManager)
+                {
+                    case PythonInstance instance:
+                        try
+                        {
+                            var enterMethod = instance.GetAttribute("__enter__");
+                            if (enterMethod is Function enterFunc)
+                            {
+                                enterResult = enterFunc.Call(new List<PythonTypeObject>());
+                            }
+                            else
+                            {
+                                throw CreateException("AttributeError", "Context manager missing __enter__ method");
+                            }
+                        }
+                        catch (PythonException ex) when (ex.Type == "AttributeError")
+                        {
+                            throw CreateException("AttributeError", "Context manager missing __enter__ method");
+                        }
+                        break;
+                        
+                    case FileObject fileObj:
+                        enterResult = fileObj;
+                        break;
+                        
+                    default:
+                        throw CreateException("TypeError", "Object does not support context management protocol");
+                }
+                
+                // Assign to variable if 'as' clause is present
+                if (!string.IsNullOrEmpty(Variable))
+                {
+                    env.SetVariable(Variable, enterResult);
+                }
+                
+                PythonTypeObject result = PythonNone.Instance;
+                Exception caughtException = null;
+                
+                try
+                {
+                    // Execute body
+                    foreach (var stmt in Body)
+                    {
+                        result = stmt.Evaluate(env);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    caughtException = ex;
+                }
+                
+                // Call __exit__ method
+                switch (contextManager)
+                {
+                    case PythonInstance inst:
+                        try
+                        {
+                            var exitMethod = inst.GetAttribute("__exit__");
+                            if (exitMethod is Function exitFunc)
+                            {
+                                var args = new List<PythonTypeObject>(3);
+                                if (caughtException != null)
+                                {
+                                    args.Add(new PythonString(caughtException.GetType().Name));
+                                    args.Add(new PythonString(caughtException.Message));
+                                    args.Add(PythonNone.Instance);
+                                }
+                                else
+                                {
+                                    args.Add(PythonNone.Instance);
+                                    args.Add(PythonNone.Instance);
+                                    args.Add(PythonNone.Instance);
+                                }
+                                
+                                var suppressException = exitFunc.Call(args);
+                                
+                                // If __exit__ returns True, suppress the exception
+                                if (caughtException != null && !suppressException.IsTrue())
+                                {
+                                    throw caughtException;
+                                }
+                            }
+                        }
+                        catch (PythonException ex) when (ex.Type == "AttributeError")
+                        {
+                            if (caughtException != null) throw caughtException;
+                        }
+                        break;
+                        
+                    case FileObject fileObject:
+                        fileObject.Close();
+                        if (caughtException != null) throw caughtException;
+                        break;
+                }
+                
+                return result;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (!(ex is ReturnException || ex is BreakException || ex is ContinueException))
+            {
+                throw CreateException("RuntimeError", $"Error in with statement: {ex.Message}");
+            }
+        }
+    }
+
+    // Optimized Del Node
+    public sealed class DelNode : ASTNode
+    {
+        public string VariableName { get; }
+
+        public DelNode(string variableName, int line = 0, int column = 0) : base(line, column)
+        {
+            VariableName = variableName;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                env.DeleteVariable(VariableName);
+                return PythonNone.Instance;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in del statement: {ex.Message}");
+            }
+        }
+    }
+    
+    // sharppy_ast_nodes_3.cs에 추가할 새로운 노드 클래스들
+
+    // AttributeCompoundAssignmentNode - self.value += 1 같은 경우
+    public sealed class AttributeCompoundAssignmentNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public string Attribute { get; }
+        public string Operator { get; }
+        public ASTNode Value { get; }
+
+        public AttributeCompoundAssignmentNode(ASTNode obj, string attribute, string op, ASTNode value, int line = 0, int column = 0) 
+            : base(line, column)
+        {
+            Object = obj;
+            Attribute = attribute;
+            Operator = op;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                var newValue = Value.Evaluate(env);
+                
+                // Get current value
+                PythonTypeObject currentValue = obj switch
+                {
+                    PythonInstance instance => instance.GetAttribute(Attribute),
+                    _ => throw CreateException("AttributeError", $"'{obj?.Type}' object has no attribute '{Attribute}'")
+                };
+                
+                // Apply operator
+                PythonTypeObject result = Operator switch
+                {
+                    "+=" => ApplyAdd(currentValue, newValue),
+                    "-=" => ApplySubtract(currentValue, newValue),
+                    "*=" => ApplyMultiply(currentValue, newValue),
+                    "/=" => ApplyDivide(currentValue, newValue),
+                    "%=" => ApplyModulo(currentValue, newValue),
+                    "**=" => ApplyPower(currentValue, newValue),
+                    _ => throw CreateException("SyntaxError", $"Invalid compound assignment operator: {Operator}")
+                };
+                
+                // Set the new value
+                if (obj is PythonInstance instance2)
+                {
+                    instance2.SetAttribute(Attribute, result);
+                    return result;
+                }
+                
+                throw CreateException("AttributeError", $"'{obj?.Type}' object attribute '{Attribute}' is read-only");
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in attribute compound assignment: {ex.Message}");
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => AddLists(ll, rl),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for += with attribute")
+        };
+
+        private static PythonList AddLists(PythonList left, PythonList right)
+        {
+            var result = new PythonList();
+            result.Items.AddRange(left.Items);
+            result.Items.AddRange(right.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for -= with attribute")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyMultiply(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Multiply(right),
+            PythonFloat lf => lf.Multiply(right),
+            PythonString ls when NumberHelper.IsNumber(right) => ls.Repeat(NumberHelper.ToInt(right)),
+            PythonList list when NumberHelper.IsNumber(right) => MultiplyList(list, NumberHelper.ToInt(right)),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for *= with attribute")
+        };
+
+        private static PythonList MultiplyList(PythonList list, int times)
+        {
+            var result = new PythonList();
+            for (int i = 0; i < times; i++)
+                result.Items.AddRange(list.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for /= with attribute")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for %= with attribute")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for **= with attribute")
+        };
+    }
+
+    // IndexCompoundAssignmentNode - list[0] += 1 같은 경우
+    public sealed class IndexCompoundAssignmentNode : ASTNode
+    {
+        public ASTNode Object { get; }
+        public ASTNode Index { get; }
+        public string Operator { get; }
+        public ASTNode Value { get; }
+
+        public IndexCompoundAssignmentNode(ASTNode obj, ASTNode index, string op, ASTNode value, int line = 0, int column = 0)
+            : base(line, column)
+        {
+            Object = obj;
+            Index = index;
+            Operator = op;
+            Value = value;
+        }
+
+        public override PythonTypeObject Evaluate(Environment env)
+        {
+            try
+            {
+                var obj = Object.Evaluate(env);
+                var index = Index.Evaluate(env);
+                var newValue = Value.Evaluate(env);
+                
+                // Get current value
+                PythonTypeObject currentValue = obj switch
+                {
+                    PythonList list when NumberHelper.IsNumber(index) => list.GetItem(NumberHelper.ToInt(index)),
+                    PythonDict dict => dict.GetItem(index),
+                    _ => throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment")
+                };
+                
+                // Apply operator
+                PythonTypeObject result = Operator switch
+                {
+                    "+=" => ApplyAdd(currentValue, newValue),
+                    "-=" => ApplySubtract(currentValue, newValue),
+                    "*=" => ApplyMultiply(currentValue, newValue),
+                    "/=" => ApplyDivide(currentValue, newValue),
+                    "%=" => ApplyModulo(currentValue, newValue),
+                    "**=" => ApplyPower(currentValue, newValue),
+                    _ => throw CreateException("SyntaxError", $"Invalid compound assignment operator: {Operator}")
+                };
+                
+                // Set the new value
+                switch (obj)
+                {
+                    case PythonList list when NumberHelper.IsNumber(index):
+                        list.SetItem(NumberHelper.ToInt(index), result);
+                        break;
+                    case PythonDict dict:
+                        dict.SetItem(index, result);
+                        break;
+                    default:
+                        throw CreateException("TypeError", $"'{obj?.Type}' object does not support item assignment");
+                }
+                
+                return result;
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw CreateException("RuntimeError", $"Error in index compound assignment: {ex.Message}");
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyAdd(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Add(right),
+            PythonFloat lf => lf.Add(right),
+            PythonString ls => ls.Add(right),
+            PythonList ll when right is PythonList rl => AddLists(ll, rl),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for += with index")
+        };
+
+        private static PythonList AddLists(PythonList left, PythonList right)
+        {
+            var result = new PythonList();
+            result.Items.AddRange(left.Items);
+            result.Items.AddRange(right.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplySubtract(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Subtract(right),
+            PythonFloat lf => lf.Subtract(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for -= with index")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyMultiply(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Multiply(right),
+            PythonFloat lf => lf.Multiply(right),
+            PythonString ls when NumberHelper.IsNumber(right) => ls.Repeat(NumberHelper.ToInt(right)),
+            PythonList list when NumberHelper.IsNumber(right) => MultiplyList(list, NumberHelper.ToInt(right)),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for *= with index")
+        };
+
+        private static PythonList MultiplyList(PythonList list, int times)
+        {
+            var result = new PythonList();
+            for (int i = 0; i < times; i++)
+                result.Items.AddRange(list.Items);
+            return result;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyDivide(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Divide(right),
+            PythonFloat lf => lf.Divide(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for /= with index")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyModulo(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Modulo(right),
+            PythonFloat lf => lf.Modulo(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for %= with index")
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private PythonTypeObject ApplyPower(PythonTypeObject left, PythonTypeObject right) => left switch
+        {
+            PythonInt li => li.Power(right),
+            PythonFloat lf => lf.Power(right),
+            _ => throw CreateException("TypeError", $"unsupported operand type(s) for **= with index")
+        };
+    }
+
+    // Optimized File Object for with statement support
+    public sealed class FileObject : PythonTypeObject
+    {
+        private StreamReader reader;
+        private StreamWriter writer;
+        private readonly string mode;
+        private readonly string path;
+        private bool closed;
+
+        public FileObject(string path, string mode = "r")
+        {
+            this.path = path;
+            this.mode = mode;
+            this.closed = false;
+
+            if (mode.Contains("r"))
+            {
+                reader = new StreamReader(path);
+            }
+            else if (mode.Contains("w"))
+            {
+                writer = new StreamWriter(path, false);
+            }
+            else if (mode.Contains("a"))
+            {
+                writer = new StreamWriter(path, true);
+            }
+        }
+
+        public override PythonType Type => PythonType.Instance;
+        public override bool IsTrue() => !closed;
+        public override string ToPythonString() => $"<file '{path}' mode '{mode}'>";
+        public override object GetRawValue() => this;
+        public override bool Equals(PythonTypeObject other) => ReferenceEquals(this, other);
+
+        public PythonString Read()
+        {
+            if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
+            if (reader == null) throw new PythonException("IOError", "File not open for reading");
+            return new PythonString(reader.ReadToEnd());
+        }
+
+        public PythonString ReadLine()
+        {
+            if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
+            if (reader == null) throw new PythonException("IOError", "File not open for reading");
+            var line = reader.ReadLine();
+            return line != null ? new PythonString(line) : PythonString.Create("");
+        }
+
+        public PythonList ReadLines()
+        {
+            if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
+            if (reader == null) throw new PythonException("IOError", "File not open for reading");
+
+            var lines = new PythonList();
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                lines.Items.Add(new PythonString(line + "\n"));
+            }
+            return lines;
+        }
+
+        public void Write(string text)
+        {
+            if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
+            if (writer == null) throw new PythonException("IOError", "File not open for writing");
+            writer.Write(text);
+            writer.Flush();
+        }
+
+        public void WriteLine(string text)
+        {
+            if (closed) throw new PythonException("ValueError", "I/O operation on closed file");
+            if (writer == null) throw new PythonException("IOError", "File not open for writing");
+            writer.WriteLine(text);
+            writer.Flush();
+        }
+
+        public void Close()
+        {
+            if (!closed)
+            {
+                reader?.Close();
+                writer?.Close();
+                closed = true;
+            }
+        }
+
+        public PythonTypeObject GetMethod(string name) => name switch
+        {
+            "read" => new BuiltinFunction("read", args => Read()),
+            "readline" => new BuiltinFunction("readline", args => ReadLine()),
+            "readlines" => new BuiltinFunction("readlines", args => ReadLines()),
+            "write" => new BuiltinFunction("write", args =>
+            {
+                if (args.Count != 1) throw new PythonException("TypeError", "write() takes exactly 1 argument");
+                string text = (args[0] as PythonString)?.Value ?? args[0].ToPythonString();
+                Write(text);
+                return PythonInt.Create(text.Length);
+            }),
+            "close" => new BuiltinFunction("close", args =>
+            {
+                Close();
+                return PythonNone.Instance;
+            }),
+            "__enter__" => new BuiltinFunction("__enter__", args => this),
+            "__exit__" => new BuiltinFunction("__exit__", args =>
+            {
+                Close();
+                return PythonBool.False;
+            }),
+            _ => throw new PythonException("AttributeError", $"'FileObject' has no attribute '{name}'")
+        };
+    }
+}
+
+// enhanced_ast_nodes_3.cs
