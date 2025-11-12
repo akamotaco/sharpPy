@@ -1283,6 +1283,12 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // CPython 3.12: Objects/typeobject.c:4482
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+            typeType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
+            );
         }
 
         /// <summary>
@@ -1550,6 +1556,12 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // CPython 3.12: Objects/setobject.c:2343
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+            setType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
+            );
         }
 
         /// <summary>
@@ -1557,6 +1569,14 @@ namespace SharpPy
         /// </summary>
         private void InitializeFrozenSetTypeDescriptors()
         {
+            var frozensetType = this;
+
+            // CPython 3.12: Objects/setobject.c:2304
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+            frozensetType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
+            );
+
             // TODO: frozenset 메서드들 구현
         }
 
@@ -2117,7 +2137,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 compatible generic type subscripting: list[int], tuple[str, int], etc.
         /// </summary>
-        public virtual PyObject GetItem(PyObject key)
+        public override PyObject GetItem(PyObject key)
         {
             // CPython 3.12: PEP 560 - Check for __class_getitem__ first
             // Reference: Objects/abstract.c:164-202 (PyObject_GetItem for types)
@@ -2147,14 +2167,9 @@ namespace SharpPy
                 }
             }
 
-            // Fallback: For built-in generic types like list, tuple, dict, etc.
-            if (Name == "list" || Name == "tuple" || Name == "dict" || Name == "set" || Name == "frozenset")
-            {
-                // Create a generic alias representation
-                return new PyGenericAlias(this, key);
-            }
-
-            // Not a generic type and no __class_getitem__
+            // CPython 3.12: If no __class_getitem__ found, the type is not subscriptable
+            // All subscriptable types define __class_getitem__ in their TypeDict
+            // This error is only reached if the type doesn't define __class_getitem__
             throw PyTypeError.Create($"type '{Name}' is not subscriptable");
         }
 

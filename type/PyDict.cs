@@ -285,6 +285,12 @@ namespace SharpPy
                 },
                 minArgs: 2, maxArgs: 2
             );
+
+            // CPython 3.12: Objects/dictobject.c:2547
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+            dictType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
+            );
         }
 
         #region Core Properties

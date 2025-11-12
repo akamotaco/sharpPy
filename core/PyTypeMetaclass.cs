@@ -195,6 +195,12 @@ namespace SharpPy
             classDict["__doc__"] = new PyDocDescriptor();
             classDict["__qualname__"] = new PyQualnameDescriptor();
 
+            // CPython 3.12: Objects/typeobject.c:4482
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+            classDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
+            );
+
             // type inherits from object
             var baseTypes = new PyType[] { PyType.ObjectType };
 

@@ -14,23 +14,32 @@ namespace SharpPy
 
         private static void InitializeTypeTypeDescriptors()
         {
-            // PyType.TypeType의 descriptor가 이미 초기화되었는지 확인
-            if (PyType.TypeType.TypeDict.ContainsKey("mro")) return;
-
             var typeType = PyType.TypeType;
 
             // mro() method descriptor - CPython 3.12 호환
-            typeType.TypeDict["mro"] = new PyMethodDescriptor(
-                "mro", typeType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("mro() takes no arguments");
-                    if (self is not PyType type)
-                        throw PyTypeError.Create($"descriptor 'mro' requires a 'type' object but received a '{self.GetTypeName()}'");
-                    return new PyList(type.MRO.Cast<PyObject>().ToList());
-                },
-                minArgs: 0, maxArgs: 0
-            );
+            if (!typeType.TypeDict.ContainsKey("mro"))
+            {
+                typeType.TypeDict["mro"] = new PyMethodDescriptor(
+                    "mro", typeType,
+                    (self, args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create("mro() takes no arguments");
+                        if (self is not PyType type)
+                            throw PyTypeError.Create($"descriptor 'mro' requires a 'type' object but received a '{self.GetTypeName()}'");
+                        return new PyList(type.MRO.Cast<PyObject>().ToList());
+                    },
+                    minArgs: 0, maxArgs: 0
+                );
+            }
+
+            // CPython 3.12: Objects/typeobject.c:4482
+            // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
+            if (!typeType.TypeDict.ContainsKey("__class_getitem__"))
+            {
+                typeType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
+                    (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
+                );
+            }
         }
 
         public Dictionary<string, PyObject> ClassDict { get; }

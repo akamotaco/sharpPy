@@ -3404,26 +3404,58 @@ namespace SharpPy
 
                     try
                     {
-                        // CPython 3.12: Lookup __getitem__ in type's MRO
-                        var objType = subscriptObj.GetPyType();
-                        var getitemAttr = objType.LookupSpecial("__getitem__");
-
+                        // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
+                        // See Objects/typeobject.c:type_subscript
                         PyObject subscriptResult;
-                        if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
+                        if (subscriptObj is PyType typeObj)
                         {
-                            // Found descriptor (user-defined or built-in)
-                            // Call __getitem__(self, key)
-                            subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
-                        }
-                        else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
-                        {
-                            // Found unbound function (rare case)
-                            subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
+                            // Subscripting a type (e.g., dict[int], list[str]) - use __class_getitem__
+                            var classGetitemAttr = typeObj.LookupSpecial("__class_getitem__");
+
+                            if (classGetitemAttr != null && classGetitemAttr is PyBuiltinClassMethod classMethod)
+                            {
+                                // Call __class_getitem__(cls, arg)
+                                subscriptResult = classMethod.Call(new[] { typeObj, subscriptKey }, null);
+                            }
+                            else if (classGetitemAttr != null && classGetitemAttr is IDescriptor descriptor)
+                            {
+                                // Descriptor protocol: Get bound method
+                                var boundMethod = descriptor.Get(null, typeObj);
+                                subscriptResult = boundMethod.Call(new[] { subscriptKey }, null);
+                            }
+                            else if (classGetitemAttr != null)
+                            {
+                                // Fallback: direct call
+                                subscriptResult = classGetitemAttr.Call(new[] { typeObj, subscriptKey }, null);
+                            }
+                            else
+                            {
+                                // No __class_getitem__, fallback to regular __getitem__
+                                subscriptResult = subscriptObj.GetItem(subscriptKey);
+                            }
                         }
                         else
                         {
-                            // No __getitem__ found, use built-in GetItem
-                            subscriptResult = subscriptObj.GetItem(subscriptKey);
+                            // Regular instance subscripting - use __getitem__
+                            var objType = subscriptObj.GetPyType();
+                            var getitemAttr = objType.LookupSpecial("__getitem__");
+
+                            if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
+                            {
+                                // Found descriptor (user-defined or built-in)
+                                // Call __getitem__(self, key)
+                                subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
+                            }
+                            else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
+                            {
+                                // Found unbound function (rare case)
+                                subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
+                            }
+                            else
+                            {
+                                // No __getitem__ found, use built-in GetItem
+                                subscriptResult = subscriptObj.GetItem(subscriptKey);
+                            }
                         }
 
                         frame.ValueStack.Push(subscriptResult);

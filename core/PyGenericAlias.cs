@@ -19,6 +19,7 @@ namespace SharpPy
         
         /// <summary>
         /// String representation: list[int], tuple[str, int], etc.
+        /// CPython 3.12: Objects/genericaliasobject.c:52-120 (ga_repr_item)
         /// </summary>
         public override PyString ToStr()
         {
@@ -27,11 +28,33 @@ namespace SharpPy
                 var argStrs = new string[tuple.Items.Length];
                 for (int i = 0; i < tuple.Items.Length; i++)
                 {
-                    argStrs[i] = tuple.Items[i].ToStr().Value;
+                    argStrs[i] = FormatTypeArg(tuple.Items[i]);
                 }
                 return new PyString($"{Origin.Name}[{string.Join(", ", argStrs)}]");
             }
-            return new PyString($"{Origin.Name}[{Args.ToStr().Value}]");
+            return new PyString($"{Origin.Name}[{FormatTypeArg(Args)}]");
+        }
+
+        /// <summary>
+        /// Format a type argument for display.
+        /// CPython 3.12: Uses __qualname__ for types, repr for others.
+        /// Objects/genericaliasobject.c:52-120 (ga_repr_item)
+        /// </summary>
+        private string FormatTypeArg(PyObject arg)
+        {
+            // CPython: For types (which have __qualname__), use qualname if builtin
+            if (arg is PyType typeArg)
+            {
+                // CPython: builtins use just the name, others use module.name
+                if (string.IsNullOrEmpty(typeArg.Module) || typeArg.Module == "builtins")
+                {
+                    return typeArg.Name;
+                }
+                return $"{typeArg.Module}.{typeArg.Name}";
+            }
+
+            // For non-types (like literals), use str representation
+            return arg.ToStr().Value;
         }
 
         public override PyString ToRepr()
