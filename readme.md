@@ -11,7 +11,6 @@ SharpPy is a complete Python 3.12 interpreter implementation in **pure C#**, pro
 - **Bytecode Compatible**: Generates identical bytecode to CPython 3.12
 - **CFG-based Compiler**: Uses Control Flow Graph for optimization
 - **Exception Tables**: Python 3.12's instruction-level exception handling
-- **.pyc File Generation**: Creates CPython 3.12 compatible `.pyc` files in `__pycache__`
 - **All Python 3.12 Features**: Match statements, walrus operator, f-strings, etc.
 
 ### ✅ Complete Type System (150 Methods)
@@ -63,10 +62,6 @@ dotnet run examples/demo.py
 # Run in release mode (faster, no debug logs)
 dotnet run -c release examples/demo.py
 
-# Compile to .pyc file (CPython 3.12 compatible)
-dotnet run --compile examples/demo.py
-# Output: Compiled: examples/demo.py -> __pycache__/demo.cpython-312.pyc
-
 # View bytecode disassembly
 dotnet run --dis examples/demo.py
 
@@ -75,9 +70,6 @@ dotnet run --ast examples/demo.py
 
 # View tokens
 dotnet run --tokens examples/demo.py
-
-# Combine options (compile + view bytecode)
-dotnet run --compile --dis examples/demo.py
 ```
 
 ## 📖 Usage Examples
@@ -341,36 +333,10 @@ SharpPy aims for 100% compatibility with CPython 3.12:
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Bytecode | ✅ 100% | Identical to CPython 3.12 |
-| .pyc Files | ✅ Compatible | Generates CPython 3.12 format `.pyc` files |
 | Built-in Types | ✅ 100% | All 8 core types complete |
 | Syntax | ✅ 100% | All Python 3.12 syntax |
 | Standard Library | 🚧 Partial | Core modules implemented |
 | C Extensions | ❌ Not supported | Pure Python only |
-
-### Bytecode Compilation
-
-SharpPy can compile Python source files to `.pyc` bytecode files using the `--compile` flag:
-
-```bash
-# Compile a Python file
-dotnet run --compile myfile.py
-# Creates: __pycache__/myfile.cpython-312.pyc
-```
-
-**`.pyc` File Format** (CPython 3.12 compatible):
-- **Magic Number**: `0xCB0D0D0A` (Python 3.12 identifier)
-- **Invalidation Mode**: Timestamp-based (default)
-- **Location**: `__pycache__/<name>.cpython-312.pyc`
-- **Contents**: Marshalled code object with bytecode instructions
-
-**References**:
-- Format: `Lib/importlib/_bootstrap_external.py:768-786` (CPython 3.12)
-- Marshal: `Python/marshal.c:553-578` (CPython 3.12)
-
-**Note**:
-- `--compile` only compiles the source to `.pyc` without executing
-- Normal execution (without `--compile`) always runs from `.py` source
-- `.pyc` files are generated for caching purposes (similar to `python -m py_compile`)
 
 ## 🔧 Development
 
