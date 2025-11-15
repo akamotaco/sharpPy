@@ -5770,6 +5770,9 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.YIELD_VALUE:
+                    // CPython 3.12: Python/bytecodes.c:911-927
+                    // YIELD_VALUE pops the yield value and saves stack pointer at (stack - 1)
+                    // _PyFrame_SetStackPointer(frame, stack_pointer - 1)
                     var yieldValue = frame.ValueStack.Pop();
 
                     // yield는 제너레이터에서만 사용 가능
@@ -5778,12 +5781,16 @@ namespace SharpPy
                         throw PySyntaxError.Create("'yield' outside function");
                     }
 
-                    // CPython 3.12: YIELD_VALUE 후에 다음 명령어(RESUME)로 진행
-                    frame.InstructionPointer++;
+                    // CPython 3.12: bytecodes.c:918 - Stack pointer saved AFTER popping yield value
+                    // IP is NOT incremented here - it stays at YIELD_VALUE
+                    // Objects/genobject.c:217 - Resume will push sent value, then execute from (IP + 1)
+                    // Next resume will execute RESUME instruction (IP+1)
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔄 Generator: Yielding {yieldValue}, stack size: {frame.ValueStack.Count}");
+                    Console.WriteLine($"🔄 YIELD_VALUE: Yielding {yieldValue}, stack size after pop: {frame.ValueStack.Count}, IP: {frame.InstructionPointer}");
                     #endif
+
+                    // DO NOT increment IP here - PyGenerator.Next() will handle resume from correct position
                     throw new PyYieldException(yieldValue);
 
                 case ByteCodeOp.SEND:
@@ -7897,6 +7904,26 @@ namespace SharpPy
             }
 
             var code = pyFunc.CodeObject;
+
+            // CPython 3.12: Python/bytecodes.c:3306-3327 (RETURN_GENERATOR)
+            // Generator functions must create and return a generator object, not execute the frame
+            // Check if this is a generator/coroutine/async generator function
+            if (code.IsGenerator() || code.IsCoroutine() || code.IsAsyncGenerator())
+            {
+                // Convert keyword dict to PyDict for PyFunction.Call
+                PyDict kwDict = null;
+                if (keywordArgs.Count > 0)
+                {
+                    kwDict = new PyDict();
+                    foreach (var kvp in keywordArgs)
+                    {
+                        kwDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                    }
+                }
+
+                // Let PyFunction.Call handle generator/coroutine creation
+                return pyFunc.Call(positionalArgs, kwDict);
+            }
 
             try
             {

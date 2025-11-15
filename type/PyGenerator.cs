@@ -142,21 +142,40 @@ namespace SharpPy
                 }
                 else
                 {
-                    // 재개: CPython 3.12 호환 - sent value를 스택에 push
-                    // RESUME + POP_TOP 패턴을 위해 sent value가 스택에 있어야 함
+                    // CPython 3.12: Objects/genobject.c:215-217 (gen_send_ex2)
+                    // Resume generator execution:
+                    // 1. Push sent value onto frame's value stack
+                    // 2. Call _PyEval_EvalFrame to resume execution
+                    //
+                    // result = arg ? arg : Py_None;
+                    // _PyFrame_StackPush(frame, Py_NewRef(result));
+
                     #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Native Generator: Before push, stack size: {_frame.ValueStack.Count}, IP: {_frame.InstructionPointer}");
+                    Console.WriteLine($"🔄 Generator Resume: IP before adjustment: {_frame.InstructionPointer}, stack size: {_frame.ValueStack.Count}");
                     var stackArray = _frame.ValueStack.ToArray();
                     Array.Reverse(stackArray);
                     for (int i = 0; i < stackArray.Length; i++)
                     {
                         Console.WriteLine($"    Stack[{i}]: {stackArray[i]?.GetType().Name} = {stackArray[i]}");
                     }
+                    #endif
+
+                    // CPython pattern: YIELD_VALUE left IP pointing at itself
+                    // We need to move to RESUME (next instruction) before executing
+                    // Python/bytecodes.c:911-927 - YIELD_VALUE does NOT increment IP
+                    // Objects/genobject.c:230 - Resume executes from saved IP, which will be incremented by main loop
+                    _frame.InstructionPointer++;  // Move from YIELD_VALUE to RESUME
+
+                    #if DEBUG_GENERATOR_LOG
+                    Console.WriteLine($"🔄 Generator Resume: IP after increment: {_frame.InstructionPointer}");
                     Console.WriteLine($"    Pushing sentValue: {_sentValue}");
                     #endif
+
+                    // Now push sent value for RESUME + POP_TOP pattern
                     _frame.ValueStack.Push(_sentValue);
+
                     #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Native Generator: After push, stack size: {_frame.ValueStack.Count}");
+                    Console.WriteLine($"🔄 Generator Resume: After push, stack size: {_frame.ValueStack.Count}");
                     #endif
                 }
 
