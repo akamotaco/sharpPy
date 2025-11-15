@@ -463,10 +463,8 @@ namespace SharpPy
 
             // CPython 3.12: Calculate the winner metaclass
             // This is equivalent to CPython's _PyType_CalculateMetaclass
+            // Objects/typeobject.c:3857-3859
             PyClass winner = CalculateMetaclass(cls as PyClass ?? Instance, baseTypes);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 CalculateMetaclass: metatype={cls}, winner={winner.Name}");
-            #endif
 
             // CPython 3.12: Check if we have a custom metaclass before converting namespace
             // If we have a custom metaclass, we should pass the namespace as-is to its __new__
@@ -514,7 +512,21 @@ namespace SharpPy
                     {
                         if (tuple.Items[0] is PyString keyStr)
                         {
+                            // CPython 3.12: Objects/typeobject.c:3751 - values preserved as-is
                             classDict[keyStr.Value] = tuple.Items[1];
+
+                            // Debug: Track _generate_next_value_
+                            if (keyStr.Value == "_generate_next_value_")
+                            {
+                                Console.WriteLine($"[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']");
+                                Console.WriteLine($"[TYPE_NEW DEBUG]   Value: {tuple.Items[1]}");
+                                Console.WriteLine($"[TYPE_NEW DEBUG]   Type: {tuple.Items[1].GetTypeName()}");
+                                if (tuple.Items[1] is PyStaticmethod sm)
+                                {
+                                    Console.WriteLine($"[TYPE_NEW DEBUG]   It's a staticmethod!");
+                                    Console.WriteLine($"[TYPE_NEW DEBUG]   Callable: {sm.Callable}");
+                                }
+                            }
                         }
                     }
                 }
@@ -706,6 +718,14 @@ namespace SharpPy
                 newClass = new PyClass(nameStr.Value, baseTypes, classDict);
                 // CPython 3.12: Use the winner metaclass (could be custom metaclass)
                 newClass.Metaclass = winner ?? Instance;
+
+                // Debug: Check ClassDict after PyClass creation
+                if (classDict.ContainsKey("_generate_next_value_"))
+                {
+                    Console.WriteLine($"[TYPE_NEW DEBUG] After PyClass creation for {nameStr.Value}:");
+                    Console.WriteLine($"[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: {classDict["_generate_next_value_"].GetTypeName()}");
+                    Console.WriteLine($"[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: {newClass.ClassDict["_generate_next_value_"].GetTypeName()}");
+                }
             }
 
             #if DEBUG_LOG
@@ -837,13 +857,6 @@ namespace SharpPy
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PyTypeMetaclass.Call called with {args.Length} args");
-            if (kwargs != null && kwargs.InternalDict.Count > 0)
-            {
-                Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
-            }
-            #endif
             for (int i = 0; i < args.Length; i++)
             {
                 #if DEBUG_LOG

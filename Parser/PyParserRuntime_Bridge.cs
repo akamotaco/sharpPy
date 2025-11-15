@@ -1345,10 +1345,33 @@ namespace SharpPy.Generated
                         // PEP 695: Convert type parameters
                         var typeParams = ConvertTypeParams(classDef.TypeParams);
 
+                        // CPython 3.12: Process decorators (Parser/Python.asdl:22 decorator_list)
+                        var decoratorExpressions = new List<DecoratorExpression>();
+                        if (classDef.DecoratorList != null && classDef.DecoratorList.Count > 0)
+                        {
 #if DEBUG_AST_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}");
+                            Console.WriteLine($"[DEBUG] Class '{className}' has {classDef.DecoratorList.Count} decorators");
 #endif
-                        var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr);
+                            foreach (var decorator in classDef.DecoratorList.AsEnumerable())
+                            {
+                                if (decorator is GeneratedExpr decoratorExpr)
+                                {
+                                    var convertedDecorator = ConvertAnyExpression(decoratorExpr);
+                                    if (convertedDecorator != null)
+                                    {
+                                        decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
+#if DEBUG_AST_LOG
+                                        Console.WriteLine($"[DEBUG] Added class decorator: {convertedDecorator}");
+#endif
+                                    }
+                                }
+                            }
+                        }
+
+#if DEBUG_AST_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}, decorators={decoratorExpressions.Count}");
+#endif
+                        var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr, decoratorExpressions);
                         CopySourceLocation(classDef, result);
                         return result;
                     }

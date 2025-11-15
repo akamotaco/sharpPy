@@ -3141,27 +3141,31 @@ namespace SharpPy
                 Console.WriteLine($"Setting attributes for metaclass-created class");
                 #endif
 
-                // CPython 3.12: Ensure all namespace attributes are set on metaclass-created class
+                // CPython 3.12: Python/bltinmodule.c:201-209
+                // After metaclass.__new__ returns, CPython does NOT iterate through namespace again!
+                // Line 208-209: cls = PyObject_VectorcallDict(meta, margs, 3, mkw);
+                // The metaclass.__new__ (or type.__new__) is responsible for setting all attributes.
+                //
+                // IMPORTANT: DO NOT call SetAttribute here!
+                // This causes duplicate attribute setting and breaks enum.py behavior:
+                // - EnumType.__new__ processes _generate_next_value_ (unwraps staticmethod to function)
+                // - If we call SetAttribute again here, we overwrite the staticmethod with unwrapped function
+                // - This breaks StrEnum._generate_next_value_ which should remain as staticmethod
+                //
+                // Reference: Objects/typeobject.c:3770 - set_tp_dict(type, dict)
+                // CPython sets the dict directly to type->tp_dict, preserving all values as-is
                 #if DEBUG_LOG
-                Console.WriteLine($"Ensuring all namespace attributes are set on metaclass-created class");
+                Console.WriteLine($"✅ Metaclass.__new__ already set all attributes - skipping duplicate SetAttribute calls");
                 #endif
-                foreach (var kvp in classNamespace)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  Set attribute from namespace: {kvp.Key} = {kvp.Value.GetType().Name}");
-                    #endif
-                    pyClass.SetAttribute(kvp.Key, kvp.Value);
-                }
             }
             else
             {
-                foreach (var kvp in classNamespace)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  Setting class attribute: {kvp.Key} = {kvp.Value.GetType().Name}");
-                    #endif
-                    pyClass.SetAttribute(kvp.Key, kvp.Value);
-                }
+                // CPython 3.12: Same logic applies for non-metaclass case
+                // The namespace dict was already passed to PyClass constructor
+                // Reference: core/PyType.cs:579-589 - stringDict is copied to ClassDict in PyClass constructor
+                #if DEBUG_LOG
+                Console.WriteLine($"✅ PyClass constructor already set all attributes from namespace");
+                #endif
             }
 
             // PEP 560 & PEP 487: Special-case __class_getitem__ and __init_subclass__

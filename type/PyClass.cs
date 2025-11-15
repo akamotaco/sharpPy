@@ -1,3 +1,5 @@
+using System;
+
 namespace SharpPy
 {
     #region User-Defined Classes
@@ -63,7 +65,18 @@ namespace SharpPy
         public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict, List<PyObject>? typeParams, string module)
             : base(name, baseTypes, module)
         {
-            ClassDict = classDict ?? new Dictionary<string, PyObject>();
+            // CPython 3.12: Objects/typeobject.c:3751 (type_new_init)
+            // Line 3751: PyObject *dict = PyDict_Copy(ctx->orig_dict);
+            // We must copy the classDict to prevent shared references
+            // This is critical for enum classes where update() modifies the dict
+            if (classDict != null)
+            {
+                ClassDict = new Dictionary<string, PyObject>(classDict);
+            }
+            else
+            {
+                ClassDict = new Dictionary<string, PyObject>();
+            }
             TypeParams = typeParams;
             
             // __type_params__ 속성 설정
@@ -250,25 +263,9 @@ namespace SharpPy
         // CPython 3.12: Override GetIterator to check metaclass __iter__
         public override PyObject GetIterator()
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PyClass.GetIterator() called for {Name}");
-            Console.WriteLine($"   Metaclass: {Metaclass?.Name}");
-            Console.WriteLine($"   Metaclass type: {Metaclass?.GetType().Name}");
-            Console.WriteLine($"   Metaclass is PyClass: {Metaclass is PyClass}");
-            #endif
-
             // Check if metaclass has __iter__ method
             if (Metaclass != null)
             {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → checking metaclass ClassDict for __iter__");
-                if (Metaclass is PyClass metaPyClassDebug)
-                {
-                    Console.WriteLine($"   → metaclass ClassDict count: {metaPyClassDebug.ClassDict.Count}");
-                    Console.WriteLine($"   → metaclass ClassDict keys: {string.Join(", ", metaPyClassDebug.ClassDict.Keys.Take(10))}");
-                }
-                #endif
-
                 // Check metaclass's ClassDict directly
                 if (Metaclass is PyClass metaClass && metaClass.ClassDict.TryGetValue("__iter__", out PyObject iterMethod))
                 {
@@ -498,6 +495,26 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
+#if DEBUG
+            // Debug: Track _generate_next_value_ modifications
+            if (name == "_generate_next_value_")
+            {
+                Console.WriteLine($"[PyClass.SetAttribute DEBUG] Setting '{name}' on class '{Name}'");
+                var oldValue = ClassDict.ContainsKey(name) ? ClassDict[name].ToString() : "NOT SET";
+                var oldType = ClassDict.ContainsKey(name) ? ClassDict[name].GetTypeName() : "N/A";
+                Console.WriteLine($"[PyClass.SetAttribute DEBUG]   Old value: {oldValue}, type={oldType}");
+                Console.WriteLine($"[PyClass.SetAttribute DEBUG]   New value: {value}, type={value.GetTypeName()}");
+                // Print stack trace to see where this is being called from
+                var stackTrace = new System.Diagnostics.StackTrace(1, true);
+                Console.WriteLine($"[PyClass.SetAttribute DEBUG]   Stack trace:");
+                for (int i = 0; i < Math.Min(15, stackTrace.FrameCount); i++)
+                {
+                    var frame = stackTrace.GetFrame(i);
+                    var method = frame?.GetMethod();
+                    Console.WriteLine($"[PyClass.SetAttribute DEBUG]     [{i}] {method?.DeclaringType?.Name}.{method?.Name}");
+                }
+            }
+#endif
             ClassDict[name] = value;
 
             // CPython 3.12: Invalidate method cache when class dict changes

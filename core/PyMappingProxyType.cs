@@ -43,6 +43,17 @@ namespace SharpPy
         {
             if (key is PyString keyStr)
             {
+#if DEBUG
+                // Debug: Track _generate_next_value_ access from __prepare__
+                if (keyStr.Value == "_generate_next_value_")
+                {
+                    if (_mapping.TryGetValue(keyStr.Value, out var debugValue))
+                    {
+                        Console.WriteLine($"[PyMappingProxy.GetItem DEBUG] Accessing '{keyStr.Value}'");
+                        Console.WriteLine($"[PyMappingProxy.GetItem DEBUG]   Returning: {debugValue}, type={debugValue.GetTypeName()}");
+                    }
+                }
+#endif
                 if (_mapping.TryGetValue(keyStr.Value, out var value))
                     return value;
                 throw PyKeyError.Create($"'{keyStr.Value}'");

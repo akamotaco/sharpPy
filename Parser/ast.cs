@@ -1658,14 +1658,16 @@ namespace SharpPy
         public List<Statement> Body { get; }
         public List<TypeParam> TypeParams { get; } // PEP 695: Type parameters (Python 3.12)
         public Expression? Metaclass { get; } // metaclass= keyword
+        public List<DecoratorExpression> Decorators { get; } // CPython 3.12: Parser/Python.asdl:22 decorator_list
 
-        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<TypeParam>? typeParams = null, Expression? metaclass = null)
+        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<TypeParam>? typeParams = null, Expression? metaclass = null, List<DecoratorExpression>? decorators = null)
         {
             Name = name;
             Bases = bases;
             Body = body;
             TypeParams = typeParams ?? new List<TypeParam>();
             Metaclass = metaclass;
+            Decorators = decorators ?? new List<DecoratorExpression>(); // CPython 3.12: Parser/Python.asdl:22
         }
         
         public override PyObject Evaluate(PyScope scope)

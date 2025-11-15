@@ -904,6 +904,8 @@ namespace SharpPy
                         InitializeTupleTypeDescriptors();
                     else if (Name == "dict")
                         InitializeDictTypeDescriptors();
+                    else if (Name == "mappingproxy")
+                        InitializeMappingProxyTypeDescriptors();
                     break;
             }
 
@@ -1279,10 +1281,22 @@ namespace SharpPy
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
 
-                    // CPython 3.12: Build type's namespace dictionary
-                    var typeDict = new Dictionary<string, PyObject>();
+                    // CPython 3.12: Objects/typeobject.c:1397-1404 (type_dict)
+                    // Simply return mappingproxy of tp_dict, DO NOT traverse MRO
+                    // Line 1399: PyObject *dict = lookup_tp_dict(type);
+                    // Line 1403: return PyDictProxy_New(dict);
 
-                    // Add __name__, __bases__, __mro__
+                    // For PyClass: return mappingproxy of ClassDict
+                    if (type is PyClass customType)
+                    {
+                        return new PyMappingProxy(customType.ClassDict);
+                    }
+
+                    // For built-in types: return mappingproxy of TypeDict
+                    // Add required special attributes
+                    var typeDict = new Dictionary<string, PyObject>(type.TypeDict);
+
+                    // Add __name__
                     typeDict["__name__"] = StringCache.GetOrCreate(type.Name);
 
                     // CPython 3.12 requirement: Cache tuples for identity consistency
@@ -1292,7 +1306,10 @@ namespace SharpPy
                     {
                         basesArray[i] = type.BaseTypes[i];
                     }
-                    type._cachedBasesTuple = new PyTuple(basesArray);
+                    if (type._cachedBasesTuple == null)
+                    {
+                        type._cachedBasesTuple = new PyTuple(basesArray);
+                    }
                     typeDict["__bases__"] = type._cachedBasesTuple;
 
                     var mroArray = new PyObject[type.MRO.Count];
@@ -1300,33 +1317,11 @@ namespace SharpPy
                     {
                         mroArray[i] = type.MRO[i];
                     }
-                    type._cachedMroTuple = new PyTuple(mroArray);
+                    if (type._cachedMroTuple == null)
+                    {
+                        type._cachedMroTuple = new PyTuple(mroArray);
+                    }
                     typeDict["__mro__"] = type._cachedMroTuple;
-
-                    // CPython 3.12: Add descriptors from MRO (inherited descriptors)
-                    // This ensures int.__dict__ includes __new__ from object
-                    foreach (var mroType in type.MRO)
-                    {
-                        // Phase 3: Use TypeDict instead of Descriptors
-                        if (mroType.TypeDict != null)
-                        {
-                            foreach (var kv in mroType.TypeDict)
-                            {
-                                if (!typeDict.ContainsKey(kv.Key))
-                                    typeDict[kv.Key] = kv.Value;
-                            }
-                        }
-                    }
-
-                    // For PyClass, add attributes from ClassDict
-                    if (type is PyClass customType)
-                    {
-                        foreach (var kv in customType.ClassDict)
-                        {
-                            if (!typeDict.ContainsKey(kv.Key))
-                                typeDict[kv.Key] = kv.Value;
-                        }
-                    }
 
                     // Return as read-only mappingproxy
                     return new PyMappingProxy(typeDict);
@@ -2445,6 +2440,57 @@ namespace SharpPy
                 mroNames[i] = MRO[i].Name;
             }
             Console.WriteLine($"{Name} MRO: [{string.Join(", ", mroNames)}]");
+        }
+
+        #endregion
+
+        #region Type-specific Descriptor Initializers
+
+        /// <summary>
+        /// mappingproxy 타입의 descriptor 테이블 초기화
+        /// CPython reference: Objects/descrobject.c:1043-1051 (mappingproxy_as_mapping)
+        /// </summary>
+        private void InitializeMappingProxyTypeDescriptors()
+        {
+            var mappingProxyType = this;
+
+            // mappingproxy.__getitem__(key)
+            // CPython 3.12: Objects/descrobject.c:1043-1046 (mappingproxy_getitem)
+            // Line 1045: return PyObject_GetItem(pp->mapping, key);
+            TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__",
+                mappingProxyType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PyMappingProxy mappingProxy)
+                        throw PyTypeError.Create($"descriptor '__getitem__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
+
+                    // Call GetItem which returns value as-is (no descriptor protocol)
+                    return mappingProxy.GetItem(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // mappingproxy.__contains__(key)
+            // CPython 3.12: Objects/descrobject.c:1079-1085 (mappingproxy_contains)
+            // Line 1082: return PyDict_Contains(pp->mapping, key);
+            TypeDict["__contains__"] = new PyMethodDescriptor(
+                "__contains__",
+                mappingProxyType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__contains__() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PyMappingProxy mappingProxy)
+                        throw PyTypeError.Create($"descriptor '__contains__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
+
+                    // Call Contains which checks the underlying mapping
+                    return mappingProxy.Contains(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
         }
 
         #endregion

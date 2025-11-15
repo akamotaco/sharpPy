@@ -692,11 +692,14 @@ namespace SharpPy
             // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
             if (other is PyDict otherDict)
             {
-                // 삽입 순서 유지: otherDict의 키 순서대로 업데이트
+                // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
+                // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
+                // For dict subclasses, PyDict_SetItem updates internal storage directly,
+                // bypassing user-defined __setitem__
                 foreach (var key in otherDict._keys)
                 {
                     var value = otherDict._dict[key];
-                    // SetItem 사용하여 삽입 순서 보장
+                    // Direct storage update (bypass __setitem__)
                     if (!_dict.ContainsKey(key))
                     {
                         _keys.Add(key);
@@ -706,12 +709,24 @@ namespace SharpPy
             }
             else if (other is PyMappingProxy mappingProxy)
             {
-                // PyMappingProxy uses string keys, convert to PyString
+                // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
+                // Line 2961: value = PyObject_GetItem(b, key);
+                // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
                 foreach (var key in mappingProxy.Keys)
                 {
                     var pyKey = new PyString(key);
                     var value = mappingProxy.GetItem(pyKey);
-                    // SetItem 사용하여 삽입 순서 보장
+
+                    #if DEBUG
+                    // Debug: Track _generate_next_value_ updates
+                    if (key == "_generate_next_value_")
+                    {
+                        Console.WriteLine($"[PyDict.Update DEBUG] Copying '{key}' from mappingproxy");
+                        Console.WriteLine($"[PyDict.Update DEBUG]   value = {value}, type = {value.GetTypeName()}");
+                    }
+                    #endif
+
+                    // Direct storage update (bypass __setitem__)
                     if (!_dict.ContainsKey(pyKey))
                     {
                         _keys.Add(pyKey);

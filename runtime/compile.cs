@@ -5696,6 +5696,40 @@ namespace SharpPy
             Console.WriteLine($"🔍 CompileRegularClass called for: {cls.Name}");
             #endif
 
+            // CPython 3.12: Load decorators FIRST (Python/compile.c:2547, 1852-1862)
+            // compiler_decorators: for (i = 0; i < asdl_seq_LEN(decos); i++)
+            // Decorators are loaded in forward order (0 to N-1)
+            if (cls.Decorators != null && cls.Decorators.Count > 0)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"🎨 Loading {cls.Decorators.Count} decorators for {cls.Name}");
+                #endif
+
+                // CPython: VISIT(c, expr, (expr_ty)asdl_seq_GET(decos, i))
+                // Load each decorator expression onto the stack
+                for (int i = 0; i < cls.Decorators.Count; i++)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Loading decorator {i}: {cls.Decorators[i].GetType().Name}");
+                    #endif
+
+                    var decorator = cls.Decorators[i];
+                    // Compile the decorator function
+                    CompileExpression(decorator.DecoratorFunction);
+
+                    // If the decorator has arguments (e.g., @decorator(arg1, arg2))
+                    // we need to call it first to get the actual decorator
+                    if (decorator.Arguments != null && decorator.Arguments.Count > 0)
+                    {
+                        foreach (var arg in decorator.Arguments)
+                        {
+                            CompileExpression(arg);
+                        }
+                        EmitInstruction(ByteCodeOp.CALL, decorator.Arguments.Count);
+                    }
+                }
+            }
+
             // CPython 3.12: Regular class compilation (no type parameters)
             // PUSH_NULL 먼저, 그 다음 __build_class__ function 로드
             EmitInstruction(ByteCodeOp.PUSH_NULL);
@@ -5747,8 +5781,33 @@ namespace SharpPy
             // Call __build_class__(class_body_function, name, *bases, metaclass=Meta)
             // Note: CALL argument count includes only positional args (keyword args handled by KW_NAMES)
             EmitInstruction(ByteCodeOp.CALL, totalArgs);
-            
-            // Store the created class
+
+            // CPython 3.12: Apply decorators (Python/compile.c:2634-2635, 1865-1876)
+            // Decorators are applied in reverse order: last decorator is called first
+            // Each decorator is a CALL with 0 arguments (the class is already on the stack)
+            if (cls.Decorators != null && cls.Decorators.Count > 0)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"🎨 Applying {cls.Decorators.Count} decorators to {cls.Name}");
+                #endif
+
+                // CPython: for (i = asdl_seq_LEN(decos) - 1; i > -1; i--)
+                // Apply decorators in reverse order
+                for (int i = cls.Decorators.Count - 1; i >= 0; i--)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Decorator {i}: {cls.Decorators[i].GetType().Name}");
+                    #endif
+
+                    // CPython: ADDOP_I(c, loc, CALL, 0)
+                    // The decorator is already on the stack (loaded before class creation)
+                    // The class is on the stack (result of __build_class__)
+                    // Call decorator(class) with 0 arguments
+                    EmitInstruction(ByteCodeOp.CALL, 0);
+                }
+            }
+
+            // Store the created class (or decorated class)
             EmitStoreName(cls.Name);
         }
 
