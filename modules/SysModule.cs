@@ -26,8 +26,9 @@ namespace SharpPy.Modules
             var sysPath = CreateSysPath();
             module.ModuleDict["path"] = sysPath;
 
+            // CPython 3.12: Python/sysmodule.c:3716 - sys.modules is PyDict
             // sys.modules - 로드된 모듈들의 캐시 (동적으로 업데이트)
-            module.ModuleDict["modules"] = new PySysModules();
+            module.ModuleDict["modules"] = PyImportSystem.SysModules;
 
             // 플랫폼 정보
             module.ModuleDict["platform"] = new PyString(GetPlatformName());
@@ -433,130 +434,8 @@ namespace SharpPy.Modules
         }
     }
 
-    /// <summary>
-    /// sys.modules의 동적 딕셔너리 구현
-    /// </summary>
-    public class PySysModules : PyObject
-    {
-        public override string GetTypeName() => "dict";
-        public override PyString ToRepr() => new PyString("<sys.modules dict>");
-        public override string ToString() => "<sys.modules dict>";
-        
-        public override int Length()
-        {
-            return PyImportSystem.SysModules.Count;
-        }
-
-        // CPython 3.12: __contains__ for 'in' operator
-        public override PyBool Contains(PyObject item)
-        {
-            if (item is PyString keyStr)
-            {
-                bool exists = PyImportSystem.SysModules.ContainsKey(keyStr.Value);
-                return exists ? PyBool.True : PyBool.False;
-            }
-            return PyBool.False;
-        }
-
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "keys")
-                return new PySysModulesMethod("keys", this);
-            if (name == "values")
-                return new PySysModulesMethod("values", this);
-            if (name == "items")
-                return new PySysModulesMethod("items", this);
-            if (name == "get")
-                return new PySysModulesMethod("get", this);
-
-            return base.GetAttribute(name);
-        }
-
-        // 딕셔너리처럼 동작
-        public PyObject GetItem(PyObject key)
-        {
-            if (key is PyString keyStr && PyImportSystem.SysModules.TryGetValue(keyStr.Value, out var module))
-                return module;
-            throw PyKeyError.Create(key.ToRepr().Value);
-        }
-
-        public void SetItem(PyObject key, PyObject value)
-        {
-            if (key is PyString keyStr && value is PyModule module)
-                PyImportSystem.SysModules[keyStr.Value] = module;
-            else
-                throw PyTypeError.Create("sys.modules keys must be strings and values must be modules");
-        }
-    }
-
-    /// <summary>
-    /// sys.modules의 메서드들 구현
-    /// </summary>
-    public class PySysModulesMethod : PyBuiltinFunction
-    {
-        private readonly PySysModules _modules;
-
-        public PySysModulesMethod(string name, PySysModules modules) : base(name)
-        {
-            _modules = modules;
-        }
-
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            return Name switch
-            {
-                "keys" => GetKeys(),
-                "values" => GetValues(),
-                "items" => GetItems(),
-                "get" => GetItem(args),
-                _ => throw PyAttributeError.Create($"sys.modules has no method '{Name}'")
-            };
-        }
-
-        private PyObject GetKeys()
-        {
-            var keys = new List<PyObject>();
-            foreach (var key in PyImportSystem.SysModules.Keys)
-            {
-                keys.Add(new PyString(key));
-            }
-            return new PyList(keys.ToArray());
-        }
-
-        private PyObject GetValues()
-        {
-            var values = new List<PyObject>();
-            foreach (var value in PyImportSystem.SysModules.Values)
-            {
-                values.Add(value);
-            }
-            return new PyList(values.ToArray());
-        }
-
-        private PyObject GetItems()
-        {
-            var items = new List<PyObject>();
-            foreach (var kvp in PyImportSystem.SysModules)
-            {
-                items.Add(new PyTuple(new PyString(kvp.Key), kvp.Value));
-            }
-            return new PyList(items.ToArray());
-        }
-
-        private PyObject GetItem(PyObject[] args)
-        {
-            if (args.Length == 0 || args.Length > 2)
-                throw PyTypeError.Create($"get() takes 1 or 2 arguments ({args.Length} given)");
-
-            var key = args[0];
-            var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
-
-            if (key is PyString keyStr && PyImportSystem.SysModules.TryGetValue(keyStr.Value, out var module))
-                return module;
-            
-            return defaultValue;
-        }
-    }
+    // CPython 3.12: sys.modules is a regular PyDict (Python/import.c:185)
+    // No need for custom PySysModules class - use PyDict directly
 
     /// <summary>
     /// 간단한 파일 객체 구현

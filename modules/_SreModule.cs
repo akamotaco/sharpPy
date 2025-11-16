@@ -7,14 +7,37 @@ namespace SharpPy.Modules
     /// <summary>
     /// CPython 3.12 _sre 모듈 - re.py의 C# 백엔드
     /// System.Text.RegularExpressions를 활용한 고성능 구현
+    /// CPython: Modules/_sre/sre.c
     /// </summary>
     public static class _SreModule
     {
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:3359-3371 (PyInit__sre)
+        /// </summary>
         public static PyModule CreateSreModule()
         {
             var module = new PyModule("_sre", "<_sre C module>");
 
-            // CPython _sre.c의 핵심 함수들
+            // CPython 3.12: Modules/_sre/sre.c:3315-3332 (sre_exec - module constants)
+
+            // CPython 3.12: Modules/_sre/sre_constants.h:14
+            // #define SRE_MAGIC 20221023
+            module.ModuleDict["MAGIC"] = new PyInt(20221023);
+
+            // CPython 3.12: Modules/_sre/sre.c:3322
+            // sizeof(SRE_CODE) - typically 4 bytes (uint32_t)
+            module.ModuleDict["CODESIZE"] = new PyInt(4);
+
+            // CPython 3.12: Modules/_sre/sre.h:20
+            // #define SRE_MAXREPEAT (~(SRE_CODE)0)
+            module.ModuleDict["MAXREPEAT"] = new PyInt(4294967295);
+
+            // CPython 3.12: Modules/_sre/sre.h:21
+            // #define SRE_MAXGROUPS ((SRE_CODE)INT32_MAX / 2)
+            module.ModuleDict["MAXGROUPS"] = new PyInt(1073741823);
+
+            // CPython 3.12: Modules/_sre/sre.c:3252-3261 (_functions[])
+            // Module-level functions
             module.ModuleDict["compile"] = new PyBuiltinFunction("compile", Compile);
             module.ModuleDict["match"] = new PyBuiltinFunction("match", Match);
             module.ModuleDict["search"] = new PyBuiltinFunction("search", Search);
@@ -26,6 +49,9 @@ namespace SharpPy.Modules
 
         #region 핵심 함수들
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:2947-3011 (_sre_compile_impl)
+        /// </summary>
         public static PyObject Compile(PyObject[] args)
         {
             if (args.Length == 0)
@@ -106,6 +132,7 @@ namespace SharpPy.Modules
 
     /// <summary>
     /// CPython SRE_Pattern - 컴파일된 정규표현식 패턴 객체
+    /// CPython 3.12: Modules/_sre/sre.c:3080-3128 (pattern_methods[], pattern_spec)
     /// </summary>
     public class PySrePattern : PyObject
     {
@@ -150,6 +177,9 @@ namespace SharpPy.Modules
             }
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1754-1825 (pattern_match_impl)
+        /// </summary>
         private PyObject Match(PyObject[] args)
         {
             if (args.Length == 0)
@@ -160,6 +190,9 @@ namespace SharpPy.Modules
             return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1899-1970 (pattern_search_impl)
+        /// </summary>
         private PyObject Search(PyObject[] args)
         {
             if (args.Length == 0)
@@ -170,6 +203,9 @@ namespace SharpPy.Modules
             return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:2079-2154 (pattern_findall_impl)
+        /// </summary>
         private PyObject FindAll(PyObject[] args)
         {
             if (args.Length == 0)
@@ -280,6 +316,7 @@ namespace SharpPy.Modules
 
     /// <summary>
     /// CPython SRE_Match - 정규표현식 매치 결과 객체
+    /// CPython 3.12: Modules/_sre/sre.c:3139-3156 (match_methods[], match_spec)
     /// </summary>
     public class PySreMatch : PyObject
     {
@@ -318,6 +355,9 @@ namespace SharpPy.Modules
             }
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:862-959 (match_group_impl)
+        /// </summary>
         private PyObject Group(PyObject[] args)
         {
             if (args.Length == 0)
@@ -408,6 +448,9 @@ namespace SharpPy.Modules
             return result;
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1041-1094 (match_start_impl)
+        /// </summary>
         private PyObject Start(PyObject[] args)
         {
             var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
@@ -418,6 +461,9 @@ namespace SharpPy.Modules
             return new PyInt(_match.Groups[groupNum].Index);
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1134-1187 (match_end_impl)
+        /// </summary>
         private PyObject End(PyObject[] args)
         {
             var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
@@ -429,6 +475,9 @@ namespace SharpPy.Modules
             return new PyInt(group.Index + group.Length);
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1227-1267 (match_span_impl)
+        /// </summary>
         private PyObject Span(PyObject[] args)
         {
             var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;

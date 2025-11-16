@@ -92,6 +92,10 @@ namespace SharpPy
             
             // PEP 698: @override 데코레이터 - CPython compatible (no runtime validation at class creation)
             // ValidateOverrideDecorators(); // Disabled for CPython compatibility
+
+            // CPython 3.12: Objects/typeobject.c:6800-6996 (inherit_slots)
+            // 부모 타입의 슬롯 메서드 상속
+            InheritSlotMethods(baseTypes);
         }
 
         public new PyObject CreateInstance(params PyObject[] args)
@@ -193,6 +197,97 @@ namespace SharpPy
             }
 
             return instance;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Objects/typeobject.c:6800-6996 (inherit_slots)
+        /// 부모 builtin 타입의 슬롯 메서드 상속
+        /// </summary>
+        private void InheritSlotMethods(PyType[] bases)
+        {
+            // CPython에서 상속되는 주요 슬롯 메서드들
+            var slotMethods = new[] {
+                // Iterator protocol (CPython: tp_iter, tp_iternext)
+                "__iter__",      // CPython 3.12: Objects/typeobject.c:6956
+                "__next__",      // CPython 3.12: Objects/typeobject.c:6957
+
+                // Sequence protocol (CPython: sq_length, sq_item, etc.)
+                "__len__",       // CPython 3.12: Objects/typeobject.c:6884
+                "__getitem__",   // CPython 3.12: Objects/typeobject.c:6887
+                "__setitem__",   // CPython 3.12: Objects/typeobject.c:6888
+                "__delitem__",   // CPython 3.12: Objects/typeobject.c:6888
+                "__contains__",  // CPython 3.12: Objects/typeobject.c:6889
+
+                // Mapping protocol (for dict subclasses)
+                "keys",
+                "values",
+                "items",
+                "get",
+                "pop",
+                "popitem",
+                "clear",
+                "update",
+                "setdefault",
+
+                // Callable protocol (CPython: tp_call)
+                "__call__",      // CPython 3.12: Objects/typeobject.c:6936
+
+                // Comparison (CPython: tp_richcompare)
+                "__eq__",        // CPython 3.12: Objects/typeobject.c:6950
+                "__ne__",
+                "__lt__",
+                "__le__",
+                "__gt__",
+                "__ge__",
+
+                // String representation (CPython: tp_str, tp_repr)
+                "__str__",       // CPython 3.12: Objects/typeobject.c:6938
+                "__repr__",      // CPython 3.12: Objects/typeobject.c:6922
+
+                // Attribute access (CPython: tp_getattro, tp_setattro)
+                "__getattribute__",  // CPython 3.12: Objects/typeobject.c:6916
+                "__setattr__",       // CPython 3.12: Objects/typeobject.c:6920
+                "__delattr__",
+
+                // Hashing (CPython: tp_hash)
+                "__hash__",      // CPython 3.12: Objects/typeobject.c:6951
+            };
+
+            foreach (var baseType in bases)
+            {
+                // builtin 타입만 슬롯 메서드 상속 (Python 클래스는 일반 MRO 사용)
+                if (!IsBuiltinType(baseType))
+                    continue;
+
+                foreach (var slotMethod in slotMethods)
+                {
+                    // 현재 클래스에 없고 부모에 있으면 상속
+                    if (!TypeDict.ContainsKey(slotMethod) &&
+                        baseType.TypeDict.TryGetValue(slotMethod, out var method))
+                    {
+                        TypeDict[slotMethod] = method;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPython builtin 타입 확인
+        /// </summary>
+        private bool IsBuiltinType(PyType type)
+        {
+            // CPython builtin 타입들
+            return type == PyType.ListType ||
+                   type == PyType.DictType ||
+                   type == PyType.TupleType ||
+                   type == PyType.SetType ||
+                   type == PyType.FrozenSetType ||
+                   type == PyType.StrType ||
+                   type == PyType.BytesType ||
+                   type == PyType.IntType ||
+                   type == PyType.FloatType ||
+                   type == PyType.BoolType ||
+                   type == PyType.ObjectType;
         }
 
         public bool HasMethod(string name)
@@ -1303,7 +1398,8 @@ namespace SharpPy
             return base.Contains(item);
         }
 
-        // CPython 3.12: Support iteration via __iter__ method or dict storage
+        // CPython 3.12: Objects/abstract.c:2859-2864 (PyObject_GetIter)
+        // Support iteration via __iter__ method or dict storage
         public override PyObject GetIterator()
         {
             // Try to call __iter__ method if it exists (takes precedence)
@@ -1316,13 +1412,32 @@ namespace SharpPy
                     return iterMethod.Call(new PyObject[0], null);
                 }
 
-                // Then check class hierarchy
+                // Then check class hierarchy (both PyClass and PyType)
                 foreach (var mroType in InstanceType.MRO)
                 {
+                    // CPython 3.12: Check PyClass (user-defined classes)
                     if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__iter__"))
                     {
                         var method = customClass.ClassDict["__iter__"];
                         if (method is PyFunction func)
+                        {
+                            // Bind to instance
+                            var boundMethod = new PyMethod(this, func);
+                            return boundMethod.Call(new PyObject[0], null);
+                        }
+                        break;
+                    }
+                    // CPython 3.12: Check PyType (builtin types like list, dict)
+                    // This is critical for list subclasses that inherit __iter__ from list
+                    else if (mroType.TypeDict.TryGetValue("__iter__", out var method))
+                    {
+                        // Handle PyMethodDescriptor from builtin types
+                        if (method is PyMethodDescriptor descriptor)
+                        {
+                            // Call the descriptor with self as first argument
+                            return descriptor.Call(new PyObject[] { this }, null);
+                        }
+                        else if (method is PyFunction func)
                         {
                             // Bind to instance
                             var boundMethod = new PyMethod(this, func);

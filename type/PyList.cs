@@ -228,6 +228,38 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 1
             );
 
+            // CPython 3.12: Objects/listobject.c:3155 (tp_iter slot)
+            // __iter__ method descriptor - enables iteration for list subclasses
+            listType.TypeDict["__iter__"] = new PyMethodDescriptor(
+                "__iter__",
+                listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__iter__() takes no arguments");
+
+                    var list = GetListStorage(self);
+                    return list.GetIterator();  // Use existing PyListIterator implementation
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
+
+            // CPython 3.12: Objects/listobject.c:2783 (list_length)
+            // __len__ method descriptor - enables len() for list subclasses
+            listType.TypeDict["__len__"] = new PyMethodDescriptor(
+                "__len__",
+                listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__len__() takes no arguments");
+
+                    var list = GetListStorage(self);
+                    return new PyInt(list.Length());
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
+
             // CPython 3.12: Objects/listobject.c:2867 (list methods table)
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
             // METH_CLASS means it's a classmethod - first arg is the class itself

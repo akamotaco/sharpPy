@@ -545,6 +545,10 @@ namespace SharpPy
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         private int _comprehensionNestingDepth = 0; // Track nesting depth for dict comprehensions
         private bool _isInteractive = false; // CPython 3.12: Track if we're in interactive mode ('single' mode)
+
+        // CPython 3.12: Python/compile.c:2281-2361 (compiler_class)
+        // Track if we're compiling inside a class body (not a method, just the class body itself)
+        private bool _isInClassBody = false;
         
         // Source location tracking for bytecode generation
         private int _currentLineNumber = -1;     // Current line number being compiled
@@ -4488,6 +4492,19 @@ namespace SharpPy
                     {
                         case SymbolScope.Free:
                         case SymbolScope.Cell:
+                            // CPython 3.12: Python/compile.c:4076-4160 (compiler_nameop)
+                            // Class body에서는 enclosing scope 변수를 LOAD_NAME으로 처리
+                            // (FREE/CELL이 아님)
+                            if (_isInClassBody)
+                            {
+                                #if DEBUG_COMPILER_LOG
+                                Console.WriteLine($"      → Class body: Using LOAD_NAME instead of LOAD_DEREF for {name}");
+                                #endif
+                                var nameIndex = AddName(name);
+                                EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
+                                return;
+                            }
+
                             // Free/Cell variable: Use EmitLoadDeref which calculates correct localsplus offset
                             #if DEBUG_COMPILER_LOG
                             Console.WriteLine($"      → Symbol is {symbol.Scope}. Calling EmitLoadDeref");
@@ -6249,6 +6266,10 @@ namespace SharpPy
             // This is critical for proper STORE_NAME emission for decorated methods (@property, etc.)
             _isInFunction = false;
 
+            // CPython 3.12: Python/compile.c:2281-2361 (compiler_class)
+            // Mark that we're in a class body (for proper name resolution)
+            _isInClassBody = true;
+
             // CPython 3.12: Class bodies do NOT use free variables
             // All external variable references use LOAD_NAME (global/builtin lookup)
             // Do NOT set up free variables even if symbol table reports them
@@ -6390,6 +6411,9 @@ namespace SharpPy
 
                 // CPython 3.12: Restore function context flag
                 _isInFunction = savedIsInFunction;
+
+                // CPython 3.12: Restore class body context flag
+                _isInClassBody = false;
             }
         }
         

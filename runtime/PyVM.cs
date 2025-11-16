@@ -3570,9 +3570,10 @@ namespace SharpPy
 
                         frame.ValueStack.Push(subscriptResult);
                     }
-                    catch (Exception ex) when (ex is PyException)
+                    // CPython 3.12: Python exceptions (KeyError, IndexError, TypeError) should propagate
+                    catch (Exception ex) when (ex is PythonException)
                     {
-                        // Re-throw Python exceptions
+                        // Re-throw Python exceptions (PythonException is the C# wrapper)
                         #if DEBUG_LOG
                         Console.WriteLine($"🔍 BINARY_SUBSCR: Re-throwing Python exception: {ex.GetType().Name} - {ex.Message}");
                         #endif
@@ -3645,7 +3646,8 @@ namespace SharpPy
                             subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
                         }
                     }
-                    catch (Exception ex) when (ex is PyException)
+                    // CPython 3.12: Python exceptions should propagate
+                    catch (Exception ex) when (ex is PythonException)
                     {
                         throw;
                     }
@@ -6555,8 +6557,8 @@ namespace SharpPy
 
                     try
                     {
-                        // Get sys.displayhook
-                        if (!PyImportSystem.SysModules.TryGetValue("sys", out var sysModule))
+                        // CPython 3.12: Get sys.displayhook
+                        if (!PyImportSystem.TryGetModule("sys", out var sysModule))
                         {
                             throw new InvalidOperationException("sys module not found");
                         }

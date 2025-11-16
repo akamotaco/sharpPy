@@ -336,8 +336,42 @@ public class PyModule : PyObject
     // Python import 시스템
     public class PyImportSystem
     {
-        // sys.modules 캐시
-        public static Dictionary<string, PyModule> SysModules { get; } = new Dictionary<string, PyModule>();
+        // CPython 3.12: Python/import.c:185 - PyDict_New()
+        // sys.modules 캐시 - CPython과 동일하게 PyDict 사용
+        public static PyDict SysModules { get; } = new PyDict();
+
+        // CPython 3.12: Helper methods for SysModules access with string keys
+        // CPython uses PyUnicode_FromString + PyDict_GetItem pattern
+        public static bool TryGetModule(string name, out PyModule module)
+        {
+            var key = new PyString(name);
+            if (SysModules.InternalDict.TryGetValue(key, out var value) && value is PyModule pyModule)
+            {
+                module = pyModule;
+                return true;
+            }
+            module = null;
+            return false;
+        }
+
+        public static void SetModule(string name, PyModule module)
+        {
+            // CPython 3.12: Python/import.c:630 - PyDict_SetItemString
+            SysModules.SetItem(new PyString(name), module);
+        }
+
+        public static void RemoveModule(string name)
+        {
+            // CPython 3.12: Python/import.c - PyDict_DelItemString
+            var key = new PyString(name);
+            SysModules.InternalDict.Remove(key);
+        }
+
+        public static bool ContainsModule(string name)
+        {
+            var key = new PyString(name);
+            return SysModules.InternalDict.ContainsKey(key);
+        }
 
         // C# 구현 모듈들 (CPython 3.12 C 확장 모듈만)
         private static Dictionary<string, Func<PyModule>> _builtinModules = new Dictionary<string, Func<PyModule>>
@@ -419,7 +453,9 @@ public class PyModule : PyObject
 
                 // Then return only the top-level package
                 var firstPart = moduleName.Split('.')[0];
-                return SysModules[firstPart];
+                if (TryGetModule(firstPart, out var topModule))
+                    return topModule;
+                throw new Exception($"Module '{firstPart}' not found in sys.modules");
             }
 
             return Import(moduleName);
@@ -427,8 +463,8 @@ public class PyModule : PyObject
 
         public static PyModule Import(string moduleName)
         {
-            // 1. sys.modules 캐시 확인
-            if (SysModules.TryGetValue(moduleName, out PyModule cachedModule))
+            // CPython 3.12: Python/import.c:1673 - Check sys.modules cache first
+            if (TryGetModule(moduleName, out PyModule cachedModule))
             {
                 return cachedModule;
             }
@@ -439,11 +475,11 @@ public class PyModule : PyObject
                 return ImportDottedModule(moduleName);
             }
 
-            // 3. 내장 모듈 확인
+            // CPython 3.12: Python/import.c:2158 - Check builtin modules
             if (_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
             {
                 var module = moduleFactory();
-                SysModules[moduleName] = module;
+                SetModule(moduleName, module);
                 return module;
             }
 
@@ -472,8 +508,8 @@ public class PyModule : PyObject
                 var part = parts[i];
                 currentPath = i == 0 ? part : $"{currentPath}.{part}";
                 
-                // sys.modules에서 확인
-                if (SysModules.TryGetValue(currentPath, out PyModule existingModule))
+                // CPython 3.12: Check sys.modules cache for each step
+                if (TryGetModule(currentPath, out PyModule existingModule))
                 {
                     currentModule = existingModule;
                     continue;
@@ -497,8 +533,8 @@ public class PyModule : PyObject
                     throw PyModuleNotFoundError.Create($"No module named '{currentPath}'");
                 }
                 
-                // sys.modules에 등록
-                SysModules[currentPath] = subModule;
+                // CPython 3.12: Register in sys.modules
+                SetModule(currentPath, subModule);
                 
                 // 부모 모듈에 서브모듈 attribute 설정
                 if (currentModule != null)
@@ -607,8 +643,8 @@ public class PyModule : PyObject
         // sys.path 가져오기
         private static PyList GetSysPath()
         {
-            // sys 모듈이 이미 로드되어 있으면 그것의 path 사용
-            if (SysModules.TryGetValue("sys", out PyModule sysModule))
+            // CPython 3.12: Use sys.path if sys module is loaded
+            if (TryGetModule("sys", out PyModule sysModule))
             {
                 if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
                 {
@@ -658,8 +694,8 @@ public class PyModule : PyObject
                 var sourceCode = IOHelper.ReadAllText(filePath);
                 var module = new PyModule(moduleName, filePath);
 
-                // sys.modules에 등록 (순환 import 방지)
-                SysModules[moduleName] = module;
+                // CPython 3.12: Register in sys.modules (prevents circular import)
+                SetModule(moduleName, module);
 
                 // 모듈 실행 (초기화)
                 module.Execute(sourceCode);
@@ -672,13 +708,13 @@ public class PyModule : PyObject
             catch (PySyntaxErrorException)
             {
                 // SyntaxError는 그대로 throw (line number 정보 보존)
-                SysModules.Remove(moduleName);
+                RemoveModule(moduleName);
                 throw;
             }
             catch (System.Exception ex)
             {
-                // 로드 실패 시 sys.modules에서 제거
-                SysModules.Remove(moduleName);
+                // CPython 3.12: Remove from sys.modules on load failure
+                RemoveModule(moduleName);
                 throw PyImportError.Create($"Failed to load module '{moduleName}' from '{filePath}': {ex.Message}");
             }
         }
@@ -690,8 +726,8 @@ public class PyModule : PyObject
         {
             var namespaceModule = new PyNamespaceModule(moduleName, namespaceDirs);
 
-            // sys.modules에 등록
-            SysModules[moduleName] = namespaceModule;
+            // CPython 3.12: Register namespace package in sys.modules
+            SetModule(moduleName, namespaceModule);
 
 #if DEBUG_MODULE_LOG
             Console.WriteLine($"📂 네임스페이스 패키지 '{moduleName}' 생성됨: [{string.Join(", ", namespaceDirs)}]");
