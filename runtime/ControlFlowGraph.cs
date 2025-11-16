@@ -257,7 +257,15 @@ namespace SharpPy
             // even if they share the same handler (using BasicBlock reference, not offset)
             var instructions = new List<(int offset, BasicBlock? exceptBlock, bool isBlockStart)>();
             int currentOffset = 0;
-            foreach (var block in AllBlocks)
+
+            // CPython 3.12: Python/assemble.c:143-166
+            // CRITICAL: Process blocks in instruction order (by block.Offset), NOT AllBlocks order!
+            // AllBlocks order is creation order, which may not match instruction sequence order
+            // (e.g., exception handler blocks created before fallthrough blocks)
+            var sortedBlocks = new List<BasicBlock>(AllBlocks);
+            sortedBlocks.Sort((a, b) => a.Offset.CompareTo(b.Offset));
+
+            foreach (var block in sortedBlocks)
             {
                 bool isFirst = true;
                 foreach (var instr in block.Instructions)
@@ -267,6 +275,7 @@ namespace SharpPy
                         instr.ExceptBlock,  // CPython's i_except: BasicBlock reference
                         isFirst  // Mark first instruction of each block
                     ));
+
                     // CPython 3.12: Must account for inline cache size
                     // Include/internal/pycore_opcode.h - _PyOpcode_Caches table
                     currentOffset += PyAssemble.CountInstructionWords(instr);

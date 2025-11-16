@@ -170,6 +170,16 @@ namespace SharpPy
                 {
                     boundaries.Add(i + 1);
                 }
+
+                // CPython 3.12: Python/flowgraph.c:809-820
+                // SETUP_* instructions (block push) create new basic blocks
+                // The instruction AFTER SETUP_* is the start of the try block
+                // CRITICAL: Even though SETUP_* is removed during CFG construction,
+                // the try block must start at a block boundary so exception handler propagation works correctly
+                if (IsBlockPush(instr.OpCode) && i + 1 < instructions.Count)
+                {
+                    boundaries.Add(i + 1);
+                }
             }
 
             return boundaries;

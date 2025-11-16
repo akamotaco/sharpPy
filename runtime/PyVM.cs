@@ -543,8 +543,10 @@ namespace SharpPy
         public (int? handlerOffset, ExceptionTableEntry? entry) GetExceptionHandlerFromTableWithEntry()
         {
             // CPython 3.12: Exception table uses byte offsets, but InstructionPointer is instruction index
-            // Convert instruction index to byte offset: byteOffset = instructionIndex * 2
-            var currentByteOffset = InstructionPointer * 2;
+            // CRITICAL: Must account for inline cache sizes when converting to byte offset!
+            // WRONG: currentByteOffset = InstructionPointer * 2 (doesn't account for inline cache)
+            // RIGHT: Use PyCodeObject.InstructionIndexToByteOffset which sums actual instruction word counts
+            var currentByteOffset = Code.InstructionIndexToByteOffset(InstructionPointer);
             #if DEBUG_LOG
             Console.WriteLine($"🔍 Searching Exception Table for instruction {InstructionPointer} (byte offset {currentByteOffset}):");
             #endif
@@ -562,8 +564,10 @@ namespace SharpPy
                 if (currentByteOffset >= entry.StartOffset && currentByteOffset < entry.EndOffset)
                 {
                     // CPython 3.12: Handler offset in exception table is byte offset
-                    // Convert to instruction index: instructionIndex = byteOffset / 2
-                    int handlerInstructionIndex = entry.HandlerOffset / 2;
+                    // CRITICAL: Must account for inline cache when converting to instruction index!
+                    // WRONG: handlerInstructionIndex = entry.HandlerOffset / 2 (doesn't account for inline cache)
+                    // RIGHT: Use PyCodeObject.ByteOffsetToInstructionIndex
+                    int handlerInstructionIndex = Code.ByteOffsetToInstructionIndex(entry.HandlerOffset);
                     #if DEBUG_LOG
                     Console.WriteLine($"✅ Exception Table: MATCH! Handler at byte offset {entry.HandlerOffset} (instruction {handlerInstructionIndex}) for instruction {InstructionPointer}");
                     #endif

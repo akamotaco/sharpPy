@@ -682,6 +682,67 @@ namespace SharpPy
         {
             throw new NotImplementedException("PyCodeObject.Evaluate() - 나중에 구현예정");
         }
+
+        // CPython 3.12: Convert instruction index to byte offset, accounting for inline cache
+        // CPython uses byte offsets in exception table, but SharpPy uses instruction indices internally
+        // CRITICAL: Must calculate actual byte offset by summing instruction word counts (including inline cache)
+        // Reference: docs/offset_vs_index_analysis.md
+        public int InstructionIndexToByteOffset(int instructionIndex)
+        {
+            if (instructionIndex < 0 || instructionIndex >= Instructions.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(instructionIndex),
+                    $"Instruction index {instructionIndex} out of range [0, {Instructions.Count})");
+            }
+
+            int byteOffset = 0;
+            for (int i = 0; i < instructionIndex; i++)
+            {
+                // CPython 3.12: Include/internal/pycore_opcode.h - _PyOpcode_Caches table
+                // Each instruction word is 2 bytes
+                // Instruction word count = 1 (opcode + arg) + inline cache size
+                int wordCount = PyAssemble.CountInstructionWords(Instructions[i]);
+                byteOffset += wordCount * INSTRUCTION_WORD_SIZE;
+            }
+
+            return byteOffset;
+        }
+
+        // CPython 3.12: Convert byte offset to instruction index, accounting for inline cache
+        // Reverse of InstructionIndexToByteOffset
+        // CRITICAL: Must scan through instructions and accumulate word counts until we reach target byte offset
+        // Reference: docs/offset_vs_index_analysis.md
+        public int ByteOffsetToInstructionIndex(int byteOffset)
+        {
+            if (byteOffset < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(byteOffset),
+                    $"Byte offset {byteOffset} must be non-negative");
+            }
+
+            int currentByteOffset = 0;
+            for (int i = 0; i < Instructions.Count; i++)
+            {
+                if (currentByteOffset == byteOffset)
+                {
+                    return i;
+                }
+
+                int wordCount = PyAssemble.CountInstructionWords(Instructions[i]);
+                currentByteOffset += wordCount * INSTRUCTION_WORD_SIZE;
+
+                if (currentByteOffset > byteOffset)
+                {
+                    throw new ArgumentException(
+                        $"Byte offset {byteOffset} does not align with an instruction boundary. " +
+                        $"Previous instruction at byte offset {currentByteOffset - wordCount * INSTRUCTION_WORD_SIZE}, " +
+                        $"next instruction at byte offset {currentByteOffset}");
+                }
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(byteOffset),
+                $"Byte offset {byteOffset} exceeds code size {currentByteOffset}");
+        }
     }
 
     // 추가 바이트코드 도구들
