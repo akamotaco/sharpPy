@@ -2628,9 +2628,34 @@ namespace SharpPy
 
                         if (pushNullForMethod)
                         {
-                            // CPython 3.12: Method call optimization
-                            // Check if attr is a bound method or unbound function
-                            if (attr is PyMethod)
+                            // CPython 3.12: Objects/object.c:1310-1410 (_PyObject_GetMethod)
+                            // Method call optimization logic
+
+                            // CPython 3.12: Objects/object.c:1322-1326
+                            // If object has custom tp_getattro (overrides GetAttribute), use simple GetAttr
+                            // This returns 0 → push [NULL, attr]
+                            bool hasCustomGetAttribute = false;
+                            var objType = obj.GetType();
+                            var getAttrMethod = objType.GetMethod("GetAttribute",
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                            if (getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject))
+                            {
+                                hasCustomGetAttribute = true;
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
+                                #endif
+                            }
+
+                            if (hasCustomGetAttribute)
+                            {
+                                // CPython: Custom tp_getattro → push [NULL, attr]
+                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                frame.ValueStack.Push(attr);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → Custom GetAttribute: pushed [NULL, attr]");
+                                #endif
+                            }
+                            else if (attr is PyMethod)
                             {
                                 // It's already a bound method: push [NULL, bound_method]
                                 // The method already has self bound, so we don't add it again
@@ -3654,6 +3679,69 @@ namespace SharpPy
                     catch (Exception ex)
                     {
                         throw PyTypeError.Create($"subscript assignment error: {ex.Message}");
+                    }
+                    break;
+
+                // CPython 3.12: Python/bytecodes.c:584-589 (DELETE_SUBSCR)
+                // Implements: del container[sub]
+                // Stack: [container, sub] -> []
+                case ByteCodeOp.DELETE_SUBSCR:
+                    var delSubSub = frame.ValueStack.Pop();        // sub (top of stack)
+                    var delSubContainer = frame.ValueStack.Pop();  // container
+
+                    try
+                    {
+                        // CPython 3.12: PyObject_DelItem(container, sub)
+                        // Similar to STORE_SUBSCR, lookup __delitem__ via MRO
+                        var containerType = delSubContainer.GetPyType();
+                        var delitemAttr = containerType.LookupSpecial("__delitem__");
+
+
+                        if (delitemAttr != null && delitemAttr is PyWrapperDescriptor delitemWrapper)
+                        {
+                            // Found wrapper descriptor (builtin __delitem__)
+                            // Call __delitem__(self, key)
+                            delitemWrapper.Call(new[] { delSubContainer, delSubSub }, null);
+                        }
+                        else if (delitemAttr != null && delitemAttr is PyMethodDescriptor delitemDescriptor)
+                        {
+                            // Found descriptor (user-defined or built-in)
+                            // Call __delitem__(self, key)
+                            delitemDescriptor.Call(new[] { delSubContainer, delSubSub }, null);
+                        }
+                        else if (delitemAttr != null && delitemAttr is PyFunction delitemFunc)
+                        {
+                            // Found unbound function (rare case)
+                            delitemFunc.Call(new[] { delSubContainer, delSubSub }, null);
+                        }
+                        else
+                        {
+                            // No __delitem__ found, try DelItem method
+                            // Most types don't support deletion
+                            if (delSubContainer is PyDict delDict)
+                            {
+                                // dict supports deletion via pop
+                                delDict.Pop(delSubSub, null);
+                            }
+                            else if (delSubContainer is PyList delList && delSubSub is PyInt delIndex)
+                            {
+                                // list supports deletion
+                                delList.Pop((int)delIndex.Value);
+                            }
+                            else
+                            {
+                                throw PyTypeError.Create($"'{containerType.Name}' object does not support item deletion");
+                            }
+                        }
+                    }
+                    // CPython 3.12: Python exceptions should propagate
+                    catch (Exception ex) when (ex is PythonException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw PyTypeError.Create($"subscript deletion error: {ex.Message}");
                     }
                     break;
 

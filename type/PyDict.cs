@@ -1059,4 +1059,56 @@ namespace SharpPy
 
         #endregion
     }
+
+    /// <summary>
+    /// Special PyDict subclass that synchronizes with global scope variables
+    /// CPython 3.12: globals() returns the actual module __dict__, not a copy
+    /// When globals().update() is called, it modifies the module namespace
+    /// </summary>
+    public class PyGlobalsDict : PyDict
+    {
+        private readonly Dictionary<string, PyObject> _globalScopeVariables;
+
+        public PyGlobalsDict(Dictionary<string, PyObject> globalScopeVariables)
+            : base()
+        {
+            _globalScopeVariables = globalScopeVariables;
+
+            // Initialize with current global variables
+            foreach (var kv in globalScopeVariables)
+            {
+                base.SetItem(new PyString(kv.Key), kv.Value);
+            }
+        }
+
+        public override void SetItem(PyObject key, PyObject value)
+        {
+            // CPython 3.12: Setting globals()[key] = value modifies the module namespace
+            base.SetItem(key, value);
+
+            // Sync back to global scope
+            if (key is PyString strKey)
+            {
+                _globalScopeVariables[strKey.Value] = value;
+            }
+        }
+
+        public override PyNone Update(PyObject other)
+        {
+            // Call base Update to modify this dict
+            var result = base.Update(other);
+
+            // Sync all changes back to global scope
+            // Note: base.Update modifies _dict directly, so we need to sync everything
+            foreach (var key in _keys)
+            {
+                if (key is PyString strKey)
+                {
+                    _globalScopeVariables[strKey.Value] = _dict[key];
+                }
+            }
+
+            return result;
+        }
+    }
 }

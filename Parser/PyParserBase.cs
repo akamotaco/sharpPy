@@ -515,15 +515,13 @@ namespace SharpPy.Generated
                 // For now, treat as comment/unsupported
                 throw new System.NotImplementedException("Complex numbers not yet supported");
             }
-            // Check for floating point
-            else if (cleanValue.Contains(".") || cleanValue.Contains("e", StringComparison.OrdinalIgnoreCase))
-            {
-                constant.Value = new GeneratedPyConstantFloat(double.Parse(cleanValue));
-            }
+            // CPython 3.12: Python/ast.c:4865-4950 (parsenumber function)
+            // Check integer bases BEFORE float check (0x1fbe contains 'e' but is hex, not float!)
             // Check for hexadecimal (0x or 0X)
             else if (cleanValue.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue, 16));
+                // C# Convert.ToInt64(string, base) does NOT accept "0x" prefix, only the digits
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 16));
             }
             // Check for octal (0o or 0O)
             else if (cleanValue.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
@@ -534,6 +532,11 @@ namespace SharpPy.Generated
             else if (cleanValue.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
             {
                 constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 2));
+            }
+            // Check for floating point (MUST come after hex/octal/binary checks!)
+            else if (cleanValue.Contains(".") || cleanValue.Contains("e", StringComparison.OrdinalIgnoreCase))
+            {
+                constant.Value = new GeneratedPyConstantFloat(double.Parse(cleanValue));
             }
             // Decimal integer
             else

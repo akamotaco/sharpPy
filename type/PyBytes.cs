@@ -1903,6 +1903,29 @@ namespace SharpPy
                 minArgs: 0,
                 maxArgs: 2
             );
+
+            // CPython 3.12: Objects/bytesobject.c:2890-2920 - bytes_iter
+            // bytes.__iter__() - Return an iterator over the bytes
+            // Each element is an integer in range(0, 256)
+            bytesType.TypeDict["__iter__"] = new PyMethodDescriptor(
+                "__iter__",
+                bytesType,
+                (self, args, kwargs) =>
+                {
+                    if (self is not PyBytes selfBytes)
+                        throw PyTypeError.Create("descriptor '__iter__' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // Return a bytes iterator that yields PyInt for each byte
+                    var items = new PyObject[selfBytes.Value.Length];
+                    for (int i = 0; i < selfBytes.Value.Length; i++)
+                    {
+                        items[i] = new PyInt(selfBytes.Value[i]);
+                    }
+                    return new PyListIterator(new PyList(items));
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
         }
 
         private static bool ShouldStrip(byte b, byte[] stripChars)
@@ -1939,6 +1962,20 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BytesType;
 
         public override string ToString() => ToRepr().Value;
+
+        /// <summary>
+        /// CPython 3.12: Objects/bytesobject.c:2890-2920 - bytes iterator
+        /// Return an iterator that yields PyInt for each byte (0-255)
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            var items = new PyObject[Value.Length];
+            for (int i = 0; i < Value.Length; i++)
+            {
+                items[i] = new PyInt(Value[i]);
+            }
+            return new PyListIterator(new PyList(items));
+        }
         
         public override PyString ToRepr()
         {

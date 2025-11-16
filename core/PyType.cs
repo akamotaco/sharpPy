@@ -76,6 +76,27 @@ namespace SharpPy
                 {
                     return typeValue;
                 }
+
+                // Fallback: Check hardcoded descriptors via GetTypeAttribute
+                // This handles cases like list.__delitem__ which are defined in PyClass but not in TypeDict
+                // Note: Must be in SharpPy.PyClass (forward reference through dynamic lookup)
+                try
+                {
+                    var getTypeAttrMethod = typeof(SharpPy.PyClass).GetMethod(
+                        "GetTypeAttribute",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
+                    );
+                    if (getTypeAttrMethod != null)
+                    {
+                        var result = (PyObject)getTypeAttrMethod.Invoke(null, new object[] { mroType, name });
+                        if (result != null)
+                            return result;
+                    }
+                }
+                catch
+                {
+                    // Ignore reflection errors
+                }
             }
 
             return null;
@@ -1766,7 +1787,19 @@ namespace SharpPy
         /// </summary>
         private void InitializeListTypeDescriptors()
         {
-            // TODO: list 메서드들 구현
+            // CPython 3.12: Objects/listobject.c
+            // Register essential list descriptors into TypeDict for proper method resolution
+            // Note: The full implementations are in PyClass.GetTypeAttribute, we register them here to TypeDict
+
+            // For now, we'll register the descriptors by marking them as present
+            // The actual lookup will still go through PyClass.GetTypeAttribute via the fallback mechanism
+            // TODO: Migrate full descriptor implementations from PyClass.GetTypeAttribute to here
+
+            // Since we can't easily call PyClass.GetTypeAttribute from here due to circular dependencies,
+            // we'll add a marker that tells the system these methods exist
+            // The SearchMRO will be updated to use GetTypeAttribute as a fallback
+
+            // Temporary: Do nothing here - we'll fix SearchMRO instead to call GetTypeAttribute
         }
 
         /// <summary>

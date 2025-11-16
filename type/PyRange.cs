@@ -74,18 +74,52 @@ namespace SharpPy
         #region Range Operations
 
         /// <summary>
-        /// 인덱스 접근 range[i]
+        /// CPython 3.12: Objects/rangeobject.c:580-650 - range_subscript
+        /// 인덱스/슬라이스 접근 range[i] / range[start:stop:step]
+        /// </summary>
+        public override PyObject GetItem(PyObject index)
+        {
+            if (index is PyInt pyInt)
+            {
+                return GetItem((int)pyInt.Value);
+            }
+            else if (index is PySlice slice)
+            {
+                var length = Length();
+                var (start, stop, step) = slice.Indices(length);
+
+                // Calculate new range parameters
+                if (step == 0)
+                    throw PyValueError.Create("slice step cannot be zero");
+
+                int newStart = Start + start * Step;
+                int newStep = Step * step;
+
+                // Calculate new stop
+                int sliceLength = slice.GetLength(length);
+                int newStop = newStart + sliceLength * newStep;
+
+                return new PyRange(newStart, newStop, newStep);
+            }
+            else
+            {
+                throw PyTypeError.Create($"range indices must be integers or slices, not {index.GetTypeName()}");
+            }
+        }
+
+        /// <summary>
+        /// 인덱스 접근 range[i] (internal helper)
         /// </summary>
         public PyInt GetItem(int index)
         {
             var length = Length();
-            
+
             // 음수 인덱스 지원
             if (index < 0) index += length;
-            
+
             if (index < 0 || index >= length)
                 throw PyIndexError.Create("range object index out of range");
-            
+
             return new PyInt(Start + index * Step);
         }
 

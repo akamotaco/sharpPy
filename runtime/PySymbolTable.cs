@@ -712,12 +712,33 @@ namespace SharpPy
 
         /// <summary>
         /// CPython 3.12: Resolve free variables by checking parent scopes
+        /// Python/symtable.c:604-652 (analyze_name)
         /// </summary>
         private void ResolveFreeVariables(SymbolTable table)
         {
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"  🔍 ResolveFreeVariables: Processing {table.GetSymbols().Count} symbols in {table.GetName()}");
 #endif
+
+            // CPython 3.12: Python/symtable.c:604-652
+            // Module-level symbols are always GLOBAL (never LOCAL, CELL, or FREE)
+            if (table.Type == SymbolTableType.Module)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"    ℹ️ Module-level table: All symbols will be marked as GLOBAL");
+#endif
+                foreach (var symbol in table.GetSymbols().Values)
+                {
+                    if (symbol.Scope == SymbolScope.Unknown)
+                    {
+                        symbol.Scope = SymbolScope.Global;
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"      ↳ Module symbol '{symbol.Name}' marked as GLOBAL");
+#endif
+                    }
+                }
+                return; // No need to check parent scopes for module-level
+            }
 
             foreach (var symbol in table.GetSymbols().Values)
             {

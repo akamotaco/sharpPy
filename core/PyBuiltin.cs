@@ -3791,6 +3791,11 @@ namespace SharpPy
         /// </summary>
         private static PyObject CallGlobals(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: Python/bltinmodule.c:1177-1184 (builtin_globals_impl)
+            // Returns current_frame->f_globals (actual reference, not a copy)
+            // CPython 3.12: Python/ceval.c:2385-2393 (PyEval_GetGlobals)
+            // Returns current_frame->f_globals
+
             if (args.Length != 0)
             {
                 throw PyTypeError.Create($"globals() takes no arguments ({args.Length} given)");
@@ -3810,14 +3815,10 @@ namespace SharpPy
                 return new PyDict(); // Return empty dict if no global scope
             }
 
-            // Convert the global scope variables to a Python dictionary
-            var result = new PyDict();
-            foreach (var variable in globalScope.Variables)
-            {
-                result.SetItem(new PyString(variable.Key), variable.Value);
-            }
-
-            return result;
+            // CPython 3.12: Return actual reference to module's __dict__
+            // When globals().update() is called, it should modify the actual global namespace
+            // Use PyGlobalsDict which synchronizes with globalScope.Variables
+            return new PyGlobalsDict(globalScope.Variables);
         }
 
         /// <summary>

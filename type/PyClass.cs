@@ -105,51 +105,67 @@ namespace SharpPy
 
         public new PyObject CreateInstance(PyObject[] args, PyDict kwargs)
         {
-            // CPython 3.12: Check if this class inherits from tuple
-            // If so, create a PyTupleSubclass instead of PyClassInstance
-            // This is necessary for namedtuple and other tuple subclasses
-            bool inheritsFromTuple = MRO.Any(t => t == PyType.TupleType);
+            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
+            // The correct pattern is:
+            // 1. Call type->tp_new(type, args, kwds) to create the object
+            // 2. If returned object is not instance of type, return it (no __init__)
+            // 3. Otherwise, call type->tp_init(obj, args, kwds)
+
+            // Step 1: Call __new__ to create the object
+            // CPython 3.12: Objects/typeobject.c:1667
+            var newMethod = LookupInMRO("__new__");
 
             PyObject instance;
-            if (inheritsFromTuple)
+            if (newMethod != null)
             {
-                // Special handling for tuple subclasses
-                // tuple.__new__ expects the sequence argument, not passed to __init__
-                // For namedtuple: Point(11, 22) → tuple.__new__(Point, (11, 22))
+                // Call __new__ with (cls, *args, **kwargs)
+                var newArgs = new PyObject[args.Length + 1];
+                newArgs[0] = this;  // cls parameter
+                Array.Copy(args, 0, newArgs, 1, args.Length);
 
-                // Check if there's a custom __new__ method
-                var newMethod = LookupInMRO("__new__");
-                if (newMethod != null && newMethod is PyFunction)
+                // CPython 3.12: __new__ can be a static method, class method, or builtin
+                if (newMethod is PyFunction func)
                 {
-                    // Custom __new__ - call it with the class and args
-                    var newArgs = new PyObject[args.Length + 1];
-                    newArgs[0] = this;
-                    Array.Copy(args, 0, newArgs, 1, args.Length);
-                    var result = newMethod.Call(newArgs, kwargs);
-                    return result;
+                    // User-defined __new__ (should be staticmethod, but bound correctly)
+                    instance = func.Call(newArgs, kwargs);
+                }
+                else if (newMethod is PyStaticBuiltinMethod staticBuiltin)
+                {
+                    // Builtin static __new__ (e.g., int.__new__)
+                    instance = staticBuiltin.Call(newArgs, kwargs);
+                }
+                else if (newMethod is PyBuiltinMethod builtinMethod)
+                {
+                    // Builtin __new__ from base types (int.__new__, object.__new__, etc.)
+                    instance = builtinMethod.Call(newArgs, kwargs);
+                }
+                else if (newMethod is PyMethodDescriptor descriptor)
+                {
+                    // Builtin type's __new__ descriptor
+                    instance = descriptor.Call(newArgs, kwargs);
+                }
+                else if (newMethod.IsCallable())
+                {
+                    instance = newMethod.Call(newArgs, kwargs);
                 }
                 else
                 {
-                    // Default tuple creation: convert args to tuple
-                    PyObject[] tupleItems;
-                    if (args.Length == 1 && args[0] is PyTuple tup)
-                    {
-                        tupleItems = tup.Items;
-                    }
-                    else if (args.Length == 1 && args[0] is PyList list)
-                    {
-                        tupleItems = list.Items;
-                    }
-                    else
-                    {
-                        tupleItems = args;
-                    }
-                    instance = new PyTupleSubclass(this, tupleItems);
+                    throw PyTypeError.Create($"__new__ is not callable");
                 }
             }
             else
             {
-                instance = new PyClassInstance(this);
+                // No __new__ found - this should not happen for valid Python classes
+                // All classes inherit object.__new__ at minimum
+                throw PyTypeError.Create($"cannot create '{Name}' instances: no __new__ method");
+            }
+
+            // Step 2: Check if returned object is an instance of this type
+            // CPython 3.12: Objects/typeobject.c:1672-1675
+            // If __new__ returned a different type, return it immediately (no __init__)
+            if (instance.GetPyType() != this)
+            {
+                return instance;
             }
 
             // Store constructor arguments for toString() behavior
@@ -162,7 +178,9 @@ namespace SharpPy
                 tupleSubclass.ConstructorArgs = args;
             }
 
-            // CPython: __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
+            // Step 3: Call __init__ on the instance
+            // CPython 3.12: Objects/typeobject.c:1677-1687
+            // __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
             // Reference: Objects/typeobject.c:9028 (slot_tp_init -> lookup_method -> _PyType_Lookup)
             var init = LookupInMRO("__init__");
             if (init != null)
@@ -1083,8 +1101,55 @@ namespace SharpPy
                                 }
                                 else if (key is PySlice slice)
                                 {
-                                    // Handle slice deletion
-                                    throw PyNotImplementedError.Create("list slice deletion not yet implemented");
+                                    // CPython 3.12: Objects/listobject.c:623-737 (list_ass_slice)
+                                    // Handle slice deletion: del list[start:stop:step]
+                                    var length = list.Length();
+                                    var (start, stop, step) = slice.Indices(length);
+                                    var sliceLength = slice.GetLength(length);
+
+                                    if (step == 1)
+                                    {
+                                        // Simple case: contiguous deletion
+                                        // del list[start:stop] removes items from start to stop-1
+                                        // CPython: list_ass_slice(a, ilow, ihigh, NULL) with v=NULL means delete
+                                        for (int i = 0; i < sliceLength; i++)
+                                        {
+                                            list.Pop(start);
+                                        }
+                                    }
+                                    else if (step > 0)
+                                    {
+                                        // Extended slice deletion with positive step
+                                        // Delete from end to beginning to maintain indices
+                                        var indicesToDelete = new List<int>();
+                                        for (int i = start; i < stop; i += step)
+                                        {
+                                            if (i >= 0 && i < length)
+                                                indicesToDelete.Add(i);
+                                        }
+                                        // Remove in reverse order
+                                        for (int i = indicesToDelete.Count - 1; i >= 0; i--)
+                                        {
+                                            list.Pop(indicesToDelete[i]);
+                                        }
+                                    }
+                                    else // step < 0
+                                    {
+                                        // Extended slice deletion with negative step
+                                        var indicesToDelete = new List<int>();
+                                        for (int i = start; i > stop; i += step)
+                                        {
+                                            if (i >= 0 && i < length)
+                                                indicesToDelete.Add(i);
+                                        }
+                                        // Remove in reverse order
+                                        indicesToDelete.Sort();
+                                        indicesToDelete.Reverse();
+                                        foreach (var idx in indicesToDelete)
+                                        {
+                                            list.Pop(idx);
+                                        }
+                                    }
                                 }
                                 else
                                 {
