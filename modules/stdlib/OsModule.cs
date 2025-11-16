@@ -153,20 +153,44 @@ namespace SharpPy.Modules.Stdlib
             }
         }
 
+        // CPython 3.12: Lib/os.py:200-230
         private static PyObject MakeDirectories(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"makedirs expected 1 argument ({args.Length} given)");
+            if (args.Length == 0 || args.Length > 3)
+                throw PyTypeError.Create($"makedirs expected at most 3 arguments ({args.Length} given)");
 
             var path = args[0].ToStr();
+            int mode = 0x1FF; // 0o777 in decimal = 511, in hex = 0x1FF (not used on Windows)
+            bool existOk = false;
+
+            // Parse optional arguments
+            if (args.Length >= 2 && args[1] is PyInt modeInt)
+            {
+                mode = (int)modeInt.Value;
+            }
+            if (args.Length >= 3)
+            {
+                // CPython 3.12: exist_ok parameter (third argument)
+                // Use PyObject.IsTrue() for truthiness testing
+                // CPython reference: Objects/object.c:1675-1697 (PyObject_IsTrue)
+                existOk = args[2].IsTrue();
+            }
 
             try
             {
-                IOHelper.CreateDirectory(path.Value); // CreateDirectory는 중간 디렉토리도 자동 생성
+                // CPython 3.12: Lib/os.py:210-230
+                // CreateDirectory creates intermediate directories automatically
+                IOHelper.CreateDirectory(path.Value);
                 return PyNone.Instance;
             }
             catch (Exception ex)
             {
+                // CPython 3.12: Lib/os.py:227-230
+                // If exist_ok=True and directory exists, don't raise error
+                if (existOk && IOHelper.DirExists(path.Value))
+                {
+                    return PyNone.Instance;
+                }
                 throw PyOSError.Create($"makedirs failed: {ex.Message}");
             }
         }

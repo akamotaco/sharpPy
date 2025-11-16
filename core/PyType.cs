@@ -870,7 +870,10 @@ namespace SharpPy
         /// 타입별 descriptor 초기화 (CPython의 타입 객체 초기화와 유사)
         /// CPython equivalent: fast type identification using enum instead of string comparison
         /// </summary>
-        private void InitializeDescriptors()
+        // CPython 3.12: Objects/typeobject.c:7163-7182 (type_ready_fill_dict)
+        // Called from PyType_Ready to add tp_methods, tp_members, tp_getset to tp_dict
+        // SharpPy: Called from constructor, can be overridden by subclasses
+        protected virtual void InitializeDescriptors()
         {
             // CPython 3.12 호환: 각 타입의 tp_methods, tp_getset 초기화
             // readonly TypeKind를 사용하여 빠른 int 비교 (string 비교보다 훨씬 빠름)
@@ -1195,7 +1198,10 @@ namespace SharpPy
         /// type 타입의 descriptor 테이블 초기화 (CPython typeobject.c 참조)
         /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
-        private void InitializeTypeTypeDescriptors()
+        // CPython 3.12: Objects/typeobject.c:1577-1590 (type_getsets array)
+        // Contains __dict__, __bases__, __mro__, __module__, etc.
+        // SharpPy: Add these descriptors to TypeDict (equivalent to tp_dict)
+        protected void InitializeTypeTypeDescriptors()
         {
             var typeType = this;
 
@@ -2213,21 +2219,33 @@ namespace SharpPy
                     }
                 }
 
-                // If not found in ClassDict, also check TypeDict (PyClass inherits from PyType)
-                // This is needed for __format__ and other type descriptors
-                if (!foundInClassDict && metaclass.TypeDict != null && metaclass.TypeDict.TryGetValue(name, out metaAttribute))
+                // CPython 3.12: Objects/typeobject.c:4747 - find_name_in_mro(type, name, &error)
+                // If not found in ClassDict, search through MRO (including base types' TypeDict)
+                // This is needed for __dict__, __format__ and other type descriptors
+                if (!foundInClassDict)
                 {
-                    // Check if it's a descriptor
-                    if (metaAttribute is IDescriptor descriptor)
+                    // Search through metaclass MRO
+                    foreach (var mroType in metaclass.MRO)
                     {
-                        metaGet = descriptor;
-
-                        // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
-                        if (metaGet.IsDataDescriptor())
+                        if (mroType is PyType mroTypeDict && mroTypeDict.TypeDict != null)
                         {
-                            // Data descriptors on metatype have highest priority
-                            // Call descriptor.__get__(self, type(self))
-                            return metaGet.Get(this, metatype);
+                            if (mroTypeDict.TypeDict.TryGetValue(name, out metaAttribute))
+                            {
+                                // Found in MRO - check if it's a descriptor
+                                if (metaAttribute is IDescriptor descriptor)
+                                {
+                                    metaGet = descriptor;
+
+                                    // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
+                                    if (metaGet.IsDataDescriptor())
+                                    {
+                                        // Data descriptors on metatype have highest priority
+                                        // Call descriptor.__get__(self, type(self))
+                                        return metaGet.Get(this, metatype);
+                                    }
+                                }
+                                break; // Found attribute, stop searching
+                            }
                         }
                     }
                 }
@@ -2255,9 +2273,15 @@ namespace SharpPy
 
             // Step 2: Look in tp_dict of this type (and its bases via MRO)
             // CPython: attribute = _PyType_Lookup(type, name)
+            //
+            // CPython 3.12: Objects/typeobject.c:4844 - attribute = _PyType_Lookup(type, name)
+            // Special case: If this == metatype (e.g., type accessing its own attributes),
+            // skip Step 2 because we already searched in Step 1.
+            // This prevents finding the same descriptor twice with different invocation contexts.
+            bool skipSelfLookup = (this == metatype);
 
             // Phase 3: Check TypeDict (unified storage)
-            if (TypeDict != null && TypeDict.TryGetValue(name, out var typeDictAttr))
+            if (!skipSelfLookup && TypeDict != null && TypeDict.TryGetValue(name, out var typeDictAttr))
             {
                 // Found in TypeDict - check if it's a descriptor
                 if (typeDictAttr is IDescriptor localDescriptor)
@@ -2270,14 +2294,18 @@ namespace SharpPy
             }
 
             // Check PyClass.GetTypeAttribute() for wrapper descriptors
-            var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
-            if (typeAttr != null)
+            // Skip if this == metatype (already searched in Step 1)
+            if (!skipSelfLookup)
             {
-                if (typeAttr is IDescriptor localDescriptor)
+                var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
+                if (typeAttr != null)
                 {
-                    return localDescriptor.Get(null, this);
+                    if (typeAttr is IDescriptor localDescriptor)
+                    {
+                        return localDescriptor.Get(null, this);
+                    }
+                    return typeAttr;
                 }
-                return typeAttr;
             }
 
             // Step 3: Use non-data descriptor from metatype (if found in step 1)
@@ -2453,6 +2481,45 @@ namespace SharpPy
         private void InitializeMappingProxyTypeDescriptors()
         {
             var mappingProxyType = this;
+
+            // CPython 3.12: Objects/descrobject.c:1226-1246 (mappingproxy_new_impl)
+            // mappingproxy.__new__(cls, mapping)
+            TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create($"mappingproxy() missing required argument: 'mapping' (pos 1)");
+
+                // args[0] is the class (MappingProxyType)
+                // args[1] is the mapping object
+                var mappingObj = args[1];
+
+                // CPython 3.12: Objects/descrobject.c:1237 - Check if mapping is a mapping
+                // We accept PyDict or any object with dict-like interface
+                if (mappingObj is PyDict pyDict)
+                {
+                    // Convert PyDict to Dictionary<string, PyObject>
+                    var dict = new Dictionary<string, PyObject>();
+                    foreach (var kvp in pyDict.InternalDict)
+                    {
+                        if (kvp.Key is PyString keyStr)
+                        {
+                            dict[keyStr.Value] = kvp.Value;
+                        }
+                    }
+                    return new PyMappingProxy(dict);
+                }
+                else if (mappingObj is PyMappingProxy existingProxy)
+                {
+                    // If already a mappingproxy, return it as-is
+                    return existingProxy;
+                }
+                else
+                {
+                    // For other mapping-like objects, we'd need to iterate and extract items
+                    // For now, throw an error
+                    throw PyTypeError.Create($"mappingproxy() argument must be a mapping, not '{mappingObj.GetTypeName()}'");
+                }
+            });
 
             // mappingproxy.__getitem__(key)
             // CPython 3.12: Objects/descrobject.c:1043-1046 (mappingproxy_getitem)

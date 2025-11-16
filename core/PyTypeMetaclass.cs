@@ -55,11 +55,60 @@ namespace SharpPy
             }
         }
 
-        private PyTypeMetaclass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict) 
+        private PyTypeMetaclass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict)
             : base(name, baseTypes, classDict)
         {
             // type is its own metaclass
             this.Metaclass = this;
+        }
+
+        // CPython 3.12: Objects/typeobject.c:7163-7182 (type_ready_fill_dict)
+        // Override InitializeDescriptors to call InitializeTypeTypeDescriptors
+        // This is called from PyType constructor, equivalent to type_add_getset
+        protected override void InitializeDescriptors()
+        {
+            // CPython 3.12: Objects/typeobject.c:6701-6722 (type_add_getset)
+            // For PyType_Type, tp_getset = type_getsets (Objects/typeobject.c:1577-1590)
+            // SharpPy equivalent: Add type descriptors (__dict__, __bases__, etc.) to TypeDict
+            InitializeTypeTypeDescriptors();
+
+            // Also call base implementation for PyClass-specific descriptors
+            base.InitializeDescriptors();
+        }
+
+        // CPython 3.12: Objects/typeobject.c:5339 - PyType_Type.tp_getattro = _Py_type_getattro
+        // Override GetAttribute to use type_getattro logic (not PyClass custom logic)
+        // This ensures type object attributes invoke descriptors correctly
+        public override PyObject GetAttribute(string name)
+        {
+            // CPython 3.12: Objects/typeobject.c:4800-4880 (type_getattro_impl)
+            // For PyType_Type, metatype = &PyType_Type (type is its own metaclass)
+            // Search in metatype's MRO for descriptors and invoke them with type as instance
+
+            var metatype = GetPyType(); // Returns this (type is its own metaclass)
+
+            // Search in MRO for descriptor
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyType pyType && pyType.TypeDict != null)
+                {
+                    if (pyType.TypeDict.TryGetValue(name, out var attr))
+                    {
+                        // Found attribute - check if it's a descriptor
+                        if (attr is IDescriptor descriptor)
+                        {
+                            // CPython 3.12: Objects/typeobject.c:4835-4838
+                            // meta_get(meta_attribute, (PyObject *)type, (PyObject *)metatype)
+                            // First arg is the type object itself (not NULL!)
+                            return descriptor.Get(this, metatype);
+                        }
+                        return attr;
+                    }
+                }
+            }
+
+            // Not found in MRO, fall back to base implementation
+            return base.GetAttribute(name);
         }
 
         /// <summary>
@@ -215,6 +264,13 @@ namespace SharpPy
             // type inherits from object
             var baseTypes = new PyType[] { PyType.ObjectType };
 
+            // CPython 3.12: Objects/typeobject.c:5322-5367 (PyType_Type static struct)
+            // Line 5323: PyVarObject_HEAD_INIT(&PyType_Type, 0) - type is its own metaclass
+            // Line 5355: .tp_getset = type_getsets (contains __dict__, __bases__, etc.)
+            //
+            // SharpPy: PyTypeMetaclass constructor calls InitializeDescriptors() which:
+            // 1. Calls InitializeTypeTypeDescriptors() to add type_getsets to TypeDict
+            // 2. Calls base.InitializeDescriptors() for PyClass-specific descriptors
             var typeClass = new PyTypeMetaclass("type", baseTypes, classDict);
 
             // Add type.__format__ - CPython 3.12 (defaults to __str__)

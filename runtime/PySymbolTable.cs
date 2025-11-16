@@ -627,6 +627,32 @@ namespace SharpPy
                 }
             }
 
+            // CPython 3.12: Python/symtable.c:1535-1538
+            // Analyze default arguments in CURRENT scope BEFORE entering function scope
+            // This is critical! Default argument expressions are evaluated in the enclosing scope,
+            // not in the function scope. Example: def f(x=_CODEBITS): the _CODEBITS on the right
+            // is looked up in the module/enclosing scope, not in function f's scope.
+            if (func.Arguments.Defaults != null)
+            {
+                foreach (var defaultExpr in func.Arguments.Defaults)
+                {
+                    AnalyzeExpression(defaultExpr);
+                }
+            }
+
+            // CPython 3.12: Python/symtable.c:1537-1538
+            // Analyze keyword-only default arguments in CURRENT scope
+            if (func.Arguments.KwDefaults != null)
+            {
+                foreach (var kwDefaultExpr in func.Arguments.KwDefaults)
+                {
+                    if (kwDefaultExpr != null) // KwDefaults can have null entries
+                    {
+                        AnalyzeExpression(kwDefaultExpr);
+                    }
+                }
+            }
+
             // Define function name in current scope
             _currentTable?.DefineSymbol(func.Name, SymbolFlags.Assigned);
 
@@ -713,7 +739,12 @@ namespace SharpPy
                         symbol.Scope = SymbolScope.Free;
 
                         // Mark the parent symbol as cell variable (needs to be captured)
-                        parentSymbol.Scope = SymbolScope.Cell;
+                        // CPython 3.12: Python/symtable.c:732-770 (analyze_cells)
+                        // CRITICAL: Only LOCAL scope variables can become CELL variables
+                        if (parentSymbol.Scope == SymbolScope.Local)
+                        {
+                            parentSymbol.Scope = SymbolScope.Cell;
+                        }
 
 #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ NONLOCAL marked as FREE (found in parent: {parentSymbol.Name})");
@@ -772,8 +803,11 @@ namespace SharpPy
                             symbol.Scope = SymbolScope.Free;
 
                             // Mark the parent symbol as cell variable if it's assigned OR a parameter
-                            // CPython 3.12: Parameters that are used in nested scopes need to become Cell variables
-                            if (foundInParent.IsAssigned() || foundInParent.IsParameter())
+                            // CPython 3.12: Python/symtable.c:732-770 (analyze_cells)
+                            // CRITICAL: Only LOCAL scope variables can become CELL variables
+                            // Module-level (GLOBAL) variables should NEVER become CELL
+                            if ((foundInParent.IsAssigned() || foundInParent.IsParameter()) &&
+                                foundInParent.Scope == SymbolScope.Local)
                             {
                                 foundInParent.Scope = SymbolScope.Cell;
                             }
@@ -815,10 +849,12 @@ namespace SharpPy
             var parent = currentTable.GetParent();
             while (parent != null)
             {
-                // CPython 3.12: Module-level variables are GLOBAL when accessed from function scope
-                if (parent.Type == SymbolTableType.Module && currentTable.Type == SymbolTableType.Function)
+                // CPython 3.12: Module-level variables are GLOBAL when accessed from nested scopes
+                // Python/symtable.c:732-770 (analyze_cells) - Only LOCAL variables become CELL
+                if (parent.Type == SymbolTableType.Module)
                 {
-                    // Function scope accessing module variables → should be GLOBAL
+                    // Function/Class scope accessing module variables → should be GLOBAL
+                    // Module-level variables can NEVER be CELL variables
                     break;  // Stop searching, will be marked as GLOBAL
                 }
 
@@ -827,6 +863,21 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Found {name} in enclosing scope {parent.GetName()}");
 #endif
+
+                    // CPython 3.12: Python/symtable.c:946-990
+                    // "For ClassBlocks, the bound and global names are initialized
+                    //  before analyzing names, because class bindings aren't visible in methods."
+                    // Class scope symbols should NOT be visible to nested functions (methods).
+                    // Skip class scope entirely when searching for enclosing variables.
+                    if (parent.Type == SymbolTableType.Class)
+                    {
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"      ↳ Symbol in class scope - class bindings not visible in methods, continuing search");
+#endif
+                        parent = parent.GetParent();
+                        continue;
+                    }
+
                     // CPython 3.12: Python/symtable.c:608-630
                     // If parent is a function scope and the symbol is not assigned/parameter in that scope,
                     // it means the symbol comes from an outer scope (likely module/global).
@@ -1060,7 +1111,11 @@ namespace SharpPy
                                 Console.WriteLine($"          Parent scope: {parentSymbol.Scope}, Flags: {parentSymbol.Flags}");
                             }
 #endif
+                            // CPython 3.12: Python/symtable.c:746 - "if (scope != LOCAL) continue;"
+                            // Module-level variables can NEVER be CELL variables
+                            // Only LOCAL variables in FUNCTION scopes can become CELL
                             if (parentSymbol != null &&
+                                table.Type != SymbolTableType.Module &&  // Module variables cannot be CELL!
                                 (parentSymbol.Scope == SymbolScope.Local || parentSymbol.Scope == SymbolScope.Cell) &&
                                 (parentSymbol.IsAssigned() || parentSymbol.IsParameter()))
                             {
@@ -1624,6 +1679,30 @@ namespace SharpPy
 
         private void AnalyzeAsyncFunction(AsyncFunctionDefStatement func)
         {
+            // CPython 3.12: Python/symtable.c:1852-1856
+            // Analyze default arguments in CURRENT scope BEFORE entering function scope
+            // Same as regular functions - default expressions are evaluated in enclosing scope
+            if (func.Arguments.Defaults != null)
+            {
+                foreach (var defaultExpr in func.Arguments.Defaults)
+                {
+                    AnalyzeExpression(defaultExpr);
+                }
+            }
+
+            // CPython 3.12: Python/symtable.c:1854-1856
+            // Analyze keyword-only default arguments in CURRENT scope
+            if (func.Arguments.KwDefaults != null)
+            {
+                foreach (var kwDefaultExpr in func.Arguments.KwDefaults)
+                {
+                    if (kwDefaultExpr != null) // KwDefaults can have null entries
+                    {
+                        AnalyzeExpression(kwDefaultExpr);
+                    }
+                }
+            }
+
             // Similar to regular function
             _currentTable?.DefineSymbol(func.Name, SymbolFlags.Assigned);
 

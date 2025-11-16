@@ -5148,6 +5148,8 @@ namespace SharpPy
                         }
                     }
 
+                    Console.WriteLine($"[IMPORT_NAME] module='{moduleName}', level={importLevel}, fromlist={(fromlistArray != null ? $"[{string.Join(", ", fromlistArray)}]" : "null")}");
+
                     // CPython 3.12: Pass frame.Globals to import system for relative import resolution
                     var importedModule = PyImportSystem.Import(moduleName, importLevel, fromlistArray, frame.Globals);
                     frame.ValueStack.Push(importedModule);
@@ -5248,7 +5250,73 @@ namespace SharpPy
                     else
                     {
                         // Normal case: import specific name
-                        var importedItem = module.GetAttribute(itemName);
+                        // CPython 3.12: Python/ceval.c:2530-2560 (import_from)
+                        PyObject importedItem = null;
+
+                        // Step 1: Try to get attribute from module object
+                        // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
+                        try
+                        {
+                            importedItem = module.GetAttribute(itemName);
+                        }
+                        catch
+                        {
+                            // Attribute not found, continue to fallback
+                        }
+
+                        if (importedItem == null)
+                        {
+                            // Step 2: Fallback for circular imports / submodule import
+                            // CPython 3.12: Python/ceval.c:2538-2560
+                            // Try to read submodule directly from sys.modules, or import it
+                            try
+                            {
+                                // Get package name from module.__name__
+                                // CPython 3.12: Python/ceval.c:2541
+                                var pkgName = module.GetAttribute("__name__");
+                                if (pkgName is PyString pkgNameStr)
+                                {
+                                    // Construct full module name: package.name
+                                    // CPython 3.12: Python/ceval.c:2549
+                                    string fullModuleName = $"{pkgNameStr.Value}.{itemName}";
+
+                                    // Try to get from sys.modules ONLY
+                                    // CPython 3.12: Python/ceval.c:2554 (PyImport_GetModule)
+                                    // IMPORTANT: Do NOT import if not found - this is intentional!
+                                    // The submodule should have been imported by IMPORT_NAME's fromlist handling.
+                                    // If it's not in sys.modules, this is a circular import or the module doesn't exist.
+                                    if (PyImportSystem.TryGetModule(fullModuleName, out var subModule))
+                                    {
+                                        importedItem = subModule;
+                                    }
+                                    // If not found in sys.modules, importedItem remains null
+                                    // and we'll raise an error below
+                                }
+                            }
+                            catch
+                            {
+                                // Fallback also failed
+                            }
+                        }
+
+                        if (importedItem == null)
+                        {
+                            // Generate error message similar to CPython
+                            // CPython 3.12: Python/ceval.c:2561-2579
+                            string pkgModuleName = "unknown";
+                            try
+                            {
+                                var nameAttr = module.GetAttribute("__name__");
+                                if (nameAttr is PyString nameStr)
+                                {
+                                    pkgModuleName = nameStr.Value;
+                                }
+                            }
+                            catch { }
+
+                            throw PyAttributeError.Create($"module '{pkgModuleName}' has no attribute '{itemName}'");
+                        }
+
                         frame.ValueStack.Push(importedItem);
                     }
                     break;

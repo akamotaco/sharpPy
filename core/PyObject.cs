@@ -144,6 +144,79 @@ namespace SharpPy
             return true; // 기본값: 모든 객체는 truthy
         }
 
+        /// <summary>
+        /// CPython 3.12: Objects/object.c:1675-1697 (PyObject_IsTrue)
+        /// Returns the truth value of an object.
+        /// Returns true if the object is considered true, false if considered false.
+        ///
+        /// Truth value testing algorithm:
+        /// 1. True → true
+        /// 2. False → false
+        /// 3. None → false
+        /// 4. If __bool__ exists, call it and use its result
+        /// 5. If __len__ exists (mapping or sequence), call it and return length > 0
+        /// 6. Otherwise → true (default for all objects)
+        /// </summary>
+        public virtual bool IsTrue()
+        {
+            // CPython 3.12: Objects/object.c:1678-1683
+            // Fast path for True/False/None
+            if (this == PyBool.True)
+                return true;
+            if (this == PyBool.False)
+                return false;
+            if (this == PyNone.Instance)
+                return false;
+
+            // CPython 3.12: Objects/object.c:1684-1686
+            // Try __bool__ method (tp_as_number->nb_bool)
+            try
+            {
+                var boolAttr = PyGetAttribute("__bool__");
+                if (boolAttr != null && boolAttr != PyNone.Instance)
+                {
+                    var result = boolAttr.Call(new PyObject[0], null);
+                    if (result is PyBool boolResult)
+                        return boolResult.Value;
+                    if (result is PyInt intResult)
+                        return intResult.Value != 0;
+                    // Invalid __bool__ return type
+                    throw PyTypeError.Create("__bool__ should return bool or int");
+                }
+            }
+            catch (Exception ex) when (ex is PyAttributeError || ex.GetType().Name == "PyAttributeError")
+            {
+                // __bool__ not found, try __len__
+            }
+
+            // CPython 3.12: Objects/object.c:1687-1692
+            // Try __len__ method (tp_as_mapping->mp_length or tp_as_sequence->sq_length)
+            try
+            {
+                var lenAttr = PyGetAttribute("__len__");
+                if (lenAttr != null && lenAttr != PyNone.Instance)
+                {
+                    var result = lenAttr.Call(new PyObject[0], null);
+                    if (result is PyInt intResult)
+                    {
+                        // CPython 3.12: Objects/object.c:1696
+                        // Return true if length > 0
+                        return intResult.Value > 0;
+                    }
+                    // Invalid __len__ return type
+                    throw PyTypeError.Create("__len__ should return an integer");
+                }
+            }
+            catch (Exception ex) when (ex is PyAttributeError || ex.GetType().Name == "PyAttributeError")
+            {
+                // __len__ not found
+            }
+
+            // CPython 3.12: Objects/object.c:1694
+            // Default: all objects are true
+            return true;
+        }
+
         #endregion
 
         #region Attribute Access Protocol (MRO-based with Descriptor Support)

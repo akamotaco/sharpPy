@@ -429,6 +429,8 @@ public class PyModule : PyObject
         /// </summary>
         public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null, Dictionary<string, PyObject> globals = null)
         {
+            Console.WriteLine($"[PyImportSystem.Import] moduleName='{moduleName}', level={level}, fromlist={(fromlist != null ? $"[{string.Join(", ", fromlist)}]" : "null")}");
+
             // CPython 3.12: level parameter for relative imports
             // level=0: absolute import (default)
             // level>0: relative import (1=., 2=.., etc)
@@ -438,12 +440,14 @@ public class PyModule : PyObject
             {
                 // Resolve relative import using globals['__package__'] or globals['__name__']
                 moduleName = ResolveRelativeImport(moduleName, level, globals);
+                Console.WriteLine($"[PyImportSystem.Import] After ResolveRelativeImport: moduleName='{moduleName}'");
             }
 
             // CPython 3.12: fromlist parameter affects what is returned
             // If fromlist is empty/null AND module name has dots, return top-level package
             // If fromlist has items, return the actual module with those attributes
             bool hasFrom = fromlist != null && fromlist.Length > 0;
+            Console.WriteLine($"[PyImportSystem.Import] hasFrom={hasFrom}");
 
             if (!hasFrom && moduleName.Contains('.'))
             {
@@ -458,7 +462,24 @@ public class PyModule : PyObject
                 throw new Exception($"Module '{firstPart}' not found in sys.modules");
             }
 
-            return Import(moduleName);
+            // Load the main module
+            Console.WriteLine($"[PyImportSystem.Import] Calling Import('{moduleName}')...");
+            var module = Import(moduleName);
+            Console.WriteLine($"[PyImportSystem.Import] Import returned module: {module.Name}");
+
+            // CPython 3.12: Python/import.c:2938-2947 (_handle_fromlist)
+            // IMPORTANT: Even if module was cached, we must still handle fromlist!
+            // The fromlist items (submodules) need to be imported regardless of
+            // whether the parent module was newly loaded or from cache.
+            if (hasFrom)
+            {
+                Console.WriteLine($"[PyImportSystem.Import] Calling HandleFromList...");
+                HandleFromList(module, fromlist);
+                Console.WriteLine($"[PyImportSystem.Import] HandleFromList completed");
+            }
+
+            Console.WriteLine($"[PyImportSystem.Import] Returning module: {module.Name}");
+            return module;
         }
 
         public static PyModule Import(string moduleName)
@@ -577,9 +598,9 @@ public class PyModule : PyObject
             var subpackageInit = IOHelper.CombinePath(subpackageDir, "__init__.py");
             if (IOHelper.DirExists(subpackageDir) && IOHelper.FileExists(subpackageInit))
             {
-                // CPython 3.12: Set __path__ for packages
-                var module = LoadModuleFromFile(fullName, subpackageInit);
-                module.ModuleDict["__path__"] = new PyList(new[] { new PyString(subpackageDir) });
+                // CPython 3.12: Pass package directory to LoadModuleFromFile
+                // __path__ will be set BEFORE executing the module code
+                var module = LoadModuleFromFile(fullName, subpackageInit, subpackageDir);
                 return module;
             }
 
@@ -618,9 +639,9 @@ public class PyModule : PyObject
                 var initFile = IOHelper.CombinePath(packageDir, "__init__.py");
                 if (IOHelper.DirExists(packageDir) && IOHelper.FileExists(initFile))
                 {
-                    // CPython 3.12: Pass package directory for __path__ attribute
-                    var module = LoadModuleFromFile(moduleName, initFile);
-                    module.ModuleDict["__path__"] = new PyList(new[] { new PyString(packageDir) });
+                    // CPython 3.12: Pass package directory to LoadModuleFromFile
+                    // __path__ will be set BEFORE executing the module code
+                    var module = LoadModuleFromFile(moduleName, initFile, packageDir);
                     return module;
                 }
 
@@ -687,12 +708,20 @@ public class PyModule : PyObject
         }
 
         // 파일에서 모듈 로드
-        public static PyModule LoadModuleFromFile(string moduleName, string filePath)
+        public static PyModule LoadModuleFromFile(string moduleName, string filePath, string packageDir = null)
         {
             try
             {
                 var sourceCode = IOHelper.ReadAllText(filePath);
                 var module = new PyModule(moduleName, filePath);
+
+                // CPython 3.12: Set __path__ BEFORE executing module code (if it's a package)
+                // importlib/_bootstrap.py:782-788 - Sets module.__path__ in _init_module_attrs
+                // This must happen before exec_module() so that the module code can see __path__
+                if (packageDir != null)
+                {
+                    module.ModuleDict["__path__"] = new PyList(new[] { new PyString(packageDir) });
+                }
 
                 // CPython 3.12: Register in sys.modules (prevents circular import)
                 SetModule(moduleName, module);
@@ -737,6 +766,70 @@ public class PyModule : PyObject
 
 
         /// <summary>
+        /// <summary>
+        /// CPython 3.12: Handle fromlist items by ensuring they are loaded as submodules
+        /// Python/import.c:2940-2948 - Calls _handle_fromlist
+        /// importlib/_bootstrap.py:1020-1040 - _handle_fromlist implementation
+        /// </summary>
+        private static void HandleFromList(PyModule module, string[] fromlist)
+        {
+            Console.WriteLine($"[HandleFromList] ENTRY: module={module.Name}, fromlist={(fromlist != null ? $"[{string.Join(", ", fromlist)}]" : "null")}");
+
+            if (fromlist == null || fromlist.Length == 0)
+            {
+                Console.WriteLine($"[HandleFromList] fromlist is null or empty, returning");
+                return;
+            }
+
+            // CPython 3.12: Check if this is a package (has __path__)
+            bool hasPath = module.ModuleDict.ContainsKey("__path__");
+            Console.WriteLine($"[HandleFromList] module has __path__: {hasPath}");
+            if (!hasPath)
+            {
+                // Not a package, fromlist items should already be attributes
+                Console.WriteLine($"[HandleFromList] Not a package (no __path__), returning");
+                return;
+            }
+
+            string packageName = module.Name;
+            Console.WriteLine($"[HandleFromList] Processing fromlist for package '{packageName}': [{string.Join(", ", fromlist)}]");
+
+            foreach (var itemName in fromlist)
+            {
+                // CPython 3.12: Skip special names like '*'
+                if (itemName == "*")
+                    continue;
+
+                // Check if the attribute already exists in the module
+                if (module.ModuleDict.ContainsKey(itemName))
+                {
+                    Console.WriteLine($"[HandleFromList]   - '{itemName}' already exists in module dict, skipping");
+                    continue;
+                }
+
+                // Try to import as submodule: package.item
+                // CPython 3.12: This is done by calling __import__(package.item)
+                string fullName = $"{packageName}.{itemName}";
+                Console.WriteLine($"[HandleFromList]   - Attempting to import '{fullName}'");
+                try
+                {
+                    var subModule = Import(fullName);
+                    // Add to parent module's namespace
+                    // CPython 3.12: This is done automatically by the import system
+                    // but we need to ensure it's in the module dict
+                    module.ModuleDict[itemName] = subModule;
+                    Console.WriteLine($"[HandleFromList]   - ✅ Successfully imported '{fullName}' and added to module dict");
+                }
+                catch (Exception ex)
+                {
+                    // If import fails, the item might be a regular attribute
+                    // CPython 3.12: Silently ignore if it's not a submodule
+                    // The IMPORT_FROM instruction will handle the error
+                    Console.WriteLine($"[HandleFromList]   - ❌ Failed to import '{fullName}': {ex.Message}");
+                }
+            }
+        }
+
         /// 상대 import 경로 해석 (.module, ..module 등)
         /// </summary>
         /// <summary>

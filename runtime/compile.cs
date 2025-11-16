@@ -3922,11 +3922,15 @@ namespace SharpPy
                         #endif
                     }
 
-                    // CPython 3.12: Update symbol table context for nested function compilation
+                    // CPython 3.12: Save current symbol table context BEFORE switching to function scope
+                    // Python/compile.c:2227 - compiler_enter_scope is called AFTER compiler_default_arguments
+                    // Default arguments must be compiled in the ENCLOSING scope (module/class/function),
+                    // NOT in the function's own scope!
                     savedSymbolTable = _currentSymbolTable;
-                    _currentSymbolTable = funcSymbolTable;
+
                     #if DEBUG_LOG
-                    Console.WriteLine($"  🔄 Symbol table context updated: {savedSymbolTable?.Name} → {funcSymbolTable.Name}");
+                    Console.WriteLine($"  📍 About to switch symbol table context: {savedSymbolTable?.Name} → {funcSymbolTable.Name}");
+                    Console.WriteLine($"  ⚠️ IMPORTANT: This switch will happen AFTER compiling default arguments");
                     #endif
                 }
                 else
@@ -4170,12 +4174,15 @@ namespace SharpPy
             Console.WriteLine($"  📤 Passed source location to nested compiler: {_currentFileName}");
             #endif
 
-            // CPython 3.12: 심볼 테이블 컨텍스트를 새로운 컴파일러에 전달
-            if (_currentSymbolTable != null)
+            // CPython 3.12: Python/compile.c:2361 - compiler_enter_scope
+            // The nested compiler should use the FUNCTION's symbol table as its context,
+            // NOT the parent's symbol table. This is critical for nested functions to find
+            // free variables correctly.
+            if (funcSymbolTable != null)
             {
-                compiler.SetSymbolTableContext(_currentSymbolTable);
+                compiler.SetSymbolTableContext(funcSymbolTable);
                 #if DEBUG_LOG
-                Console.WriteLine($"  📤 Passed symbol table context to nested compiler: {_currentSymbolTable.Name}");
+                Console.WriteLine($"  📤 Passed symbol table context to nested compiler: {funcSymbolTable.Name}");
                 #endif
             }
 

@@ -515,6 +515,20 @@ namespace SharpPy
                                 #if DEBUG_LOG
                                 Console.WriteLine($"   ✅ found '{name}' in MRO type {pyType.Name}: {typeAttribute?.GetType().Name}");
                                 #endif
+                                // CPython 3.12: Objects/typeobject.c:4852-4859
+                                // When descriptor is found in type's tp_dict (via MRO),
+                                // call descriptor.__get__(NULL, owner) where owner is this class
+                                if (PyClassInstance.IsDescriptor(typeAttribute))
+                                {
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   🔧 calling descriptor.__get__(null, {Name}) for '{name}' from PyType MRO");
+                                    #endif
+                                    var result = PyClassInstance.CallDescriptorGet(typeAttribute, null, this);
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
+                                    #endif
+                                    return result;
+                                }
                                 return typeAttribute;
                             }
                         }
