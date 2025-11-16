@@ -226,6 +226,7 @@ namespace SharpPy
                 }
 
                 // Recalculate block offsets based on current instruction sizes
+                // CPython 3.12: Python/flowgraph.c:481-499
                 int currentIndex = 0;
                 foreach (var block in cfg.AllBlocks)
                 {
@@ -242,6 +243,8 @@ namespace SharpPy
                 // Update jump arguments based on new offsets
                 foreach (var block in cfg.AllBlocks)
                 {
+                    // CPython 3.12: Python/flowgraph.c:500-516
+                    // bsize tracks the current position WITHIN the block, starting from block offset
                     int instrIndex = block.Offset;
 
                     for (int i = 0; i < block.Instructions.Count; i++)
@@ -256,6 +259,13 @@ namespace SharpPy
                             // But after EXTENDED_ARG insertion, offsets change
                             // TargetBlock.Offset is dynamically updated each iteration
                             int targetIndex = instr.TargetBlock?.Offset ?? instr.Argument;
+
+                            // CPython 3.12: Python/flowgraph.c:502
+                            // Jump offsets are computed relative to the instruction pointer
+                            // AFTER fetching the jump instruction
+                            // CRITICAL BUG FIX: Must add oldInstrWords AFTER getting instrIndex
+                            // because instrIndex is the START of current instruction,
+                            // and we need the position AFTER this instruction
                             int currentIndexAfter = instrIndex + oldInstrWords;
 
                             // Determine jump direction and opcode
@@ -291,22 +301,6 @@ namespace SharpPy
                             {
                                 // FORWARD: delta = target - (index after jump) (instruction word units)
                                 jumpArg = targetIndex - currentIndexAfter;
-                            }
-
-                            // TEMP: Debug problematic jump in re._compile
-                            if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE && instrIndex >= 50 && instrIndex <= 52)
-                            {
-                                Console.WriteLine($"[TEMP-DEBUG] POP_JUMP_IF_FALSE at instrIndex={instrIndex}, byteOffset={instrIndex*2}");
-                                Console.WriteLine($"[TEMP-DEBUG]   oldInstrWords={oldInstrWords}, currentIndexAfter={currentIndexAfter}");
-                                Console.WriteLine($"[TEMP-DEBUG]   targetIndex={targetIndex}, jumpArg={jumpArg}");
-                                Console.WriteLine($"[TEMP-DEBUG]   TargetBlock.Offset={instr.TargetBlock?.Offset}");
-
-                                // Show what instruction is at target
-                                if (instr.TargetBlock != null && instr.TargetBlock.Instructions.Count > 0)
-                                {
-                                    var targetInstr = instr.TargetBlock.Instructions[0];
-                                    Console.WriteLine($"[TEMP-DEBUG]   Target block first instruction: {targetInstr.OpCode}");
-                                }
                             }
 
                             // Update instruction with new delta and opcode
@@ -345,7 +339,8 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Emit final bytecode instructions with EXTENDED_ARG
+        /// Emit final bytecode instructions with EXTENDED_ARG and inline cache padding
+        /// CPython 3.12: Python/assemble.c:370-410 (assemble_emit)
         /// </summary>
         private static List<ByteCodeInstruction> EmitInstructions(ControlFlowGraph cfg)
         {
@@ -363,6 +358,23 @@ namespace SharpPy
                     else
                     {
                         result.Add(instr);
+                    }
+
+                    // CPython 3.12: Python/assemble.c:396-401
+                    // Emit CACHE instructions for inline cache slots
+                    // This makes the bytecode array match the offset calculation
+                    int cacheSize = GetInlineCacheSize(instr.OpCode);
+                    for (int i = 0; i < cacheSize; i++)
+                    {
+                        result.Add(new ByteCodeInstruction(
+                            ByteCodeOp.CACHE,
+                            0,  // arg=0 for CACHE
+                            instr.LineNumber,
+                            instr.ColumnOffset,
+                            instr.FileName,
+                            null,  // No target for CACHE
+                            null   // No except for CACHE
+                        ));
                     }
                 }
             }
