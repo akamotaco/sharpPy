@@ -148,39 +148,16 @@ public class PyModule : PyObject
     // 모듈 attribute 접근 (Variable == Attribute)
     public override PyObject GetAttribute(string name)
     {
-        // CPython 3.12: Special handling for __dict__ - return same object every time
+        // CPython 3.12: Objects/moduleobject.c:783 - _Py_module_getattro_impl
+        // Special handling for __dict__ - return same object every time
         if (name == "__dict__")
         {
             if (_cachedDict == null)
             {
-                // Create a PyDict wrapper around ModuleDict
-                _cachedDict = new PyDict();
-                // Populate with current contents
-                foreach (var kv in ModuleDict)
-                {
-                    _cachedDict.SetItem(new PyString(kv.Key), kv.Value);
-                }
-            }
-            else
-            {
-                // Sync any changes from ModuleDict to _cachedDict
-                foreach (var kv in ModuleDict)
-                {
-                    var pyKey = new PyString(kv.Key);
-                    // Only update if key doesn't exist or value changed
-                    try
-                    {
-                        var existing = _cachedDict.GetItem(pyKey);
-                        if (existing != kv.Value)
-                        {
-                            _cachedDict.SetItem(pyKey, kv.Value);
-                        }
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyKeyError)
-                    {
-                        _cachedDict.SetItem(pyKey, kv.Value);
-                    }
-                }
+                // CPython 3.12: Python/ceval.c:2392 - frame->f_globals is module->md_dict
+                // Use PyGlobalsDict which synchronizes bidirectionally with ModuleDict
+                // This ensures dict.update() modifies ModuleDict, and LOAD_NAME sees the changes
+                _cachedDict = new PyGlobalsDict(ModuleDict);
             }
             return _cachedDict;
         }
@@ -260,7 +237,9 @@ public class PyModule : PyObject
     private PyScopeChain CreateModuleGlobalScope()
     {
         // CPython 3.12 호환: 모듈 딕셔너리를 직접 글로벌 스코프로 사용
-        return new PyScopeChain(ModuleDict, Name);
+        // CPython 3.12: Python/ceval.c - frame->f_globals references module->md_dict
+        // Pass module reference so globals() can return module.__dict__
+        return new PyScopeChain(ModuleDict, Name, this);
     }
 
     private void ExecuteLine(string line)

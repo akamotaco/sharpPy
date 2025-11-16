@@ -149,6 +149,8 @@ namespace SharpPy
                 if (instr.IsJump && instr.Target.HasValue)
                 {
                     int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+
+
                     // CPython 3.12: Only add valid boundaries (within instruction range)
                     // Labels pointing past the end of code are unreachable (e.g., after RETURN)
                     if (targetIndex >= 0 && targetIndex < instructions.Count)
@@ -198,6 +200,7 @@ namespace SharpPy
                 var block = cfg.CreateBlock();
                 block.Offset = start;
                 indexToBlock[start] = block;
+
             }
 
             // CPython 3.12 pattern: Per-block ExceptStack
@@ -248,12 +251,9 @@ namespace SharpPy
                                 // FIX: Update handlerBlock.Offset to use correct CFG offset from labelToOffset
                                 // handlerBlock.Offset is still the old InstructionSequence offset (includes pseudo-instructions)
                                 // We need the CFG offset (after pseudo-instruction removal) from BuildLabelMapping
-                                string labelKey = instr.Target.Value.ToString();
-                                if (labelToOffset.TryGetValue(labelKey, out int correctCfgOffset))
-                                {
-                                    // Update the block's offset to the correct CFG offset
-                                    handlerBlock.Offset = correctCfgOffset;
-                                }
+                                // CPython 3.12: Python/flowgraph.c:619-620
+                                // Block offsets are recalculated during assembly
+                                // No need to update handlerBlock.Offset here
 
                                 // CPython pattern: Copy ExceptStack for target block (handler branch) BEFORE pushing
                                 // CRITICAL: The handler block needs current stack state BEFORE pushing the new handler
@@ -332,47 +332,47 @@ namespace SharpPy
 
                         if (labelToOffset.TryGetValue(labelKey, out targetCfgOffset))
                         {
-                            // Find target block by searching for block with this offset
-                            // (We need the BasicBlock reference for CPython's i_target)
+                            // CPython 3.12: Python/flowgraph.c:589-593
+                            // In CPython, each basicblock owns a label (b->b_label)
+                            // When a label is used, it points directly to the block that owns it
+                            //
+                            // SharpPy: Labels point to InstructionSequence positions
+                            // A block "owns" a label if the label points to the block's start position
+                            // CRITICAL: Use exact match (blockStart == targetInstrIndex), NOT range check!
+                            // Range check would match wrong blocks when pseudo-instructions are involved
                             int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
-                            for (int bi = 0; bi < sortedStarts.Count; bi++)
-                            {
-                                int blockStart = sortedStarts[bi];
-                                int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
 
-                                if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
-                                {
-                                    if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
-                                    {
-                                        targetBlock = candidateBlock;
-                                        break;
-                                    }
-                                }
+                            // Direct lookup: label points to block start position
+                            if (indexToBlock.TryGetValue(targetInstrIndex, out targetBlock))
+                            {
+                                // Found the block that owns this label
+                            }
+                            else
+                            {
+                                // Label points to a position that's not a block start
+                                // This shouldn't happen in well-formed code
+                                throw new InvalidOperationException(
+                                    $"Label {instr.Target.Value} points to InstrSeq[{targetInstrIndex}], " +
+                                    $"but no block starts at that position. Available block starts: " +
+                                    string.Join(", ", sortedStarts.Take(10)));
                             }
                         }
                         else
                         {
                             // Fallback: resolve using InstructionSequence offset
+                            // (This path is used when labelToOffset doesn't have the label)
                             int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
 
                             // CPython 3.12: Check if target is within valid instruction range
                             // Labels pointing past the end of code are unreachable (after RETURN/RAISE)
                             if (targetInstrIndex >= 0 && targetInstrIndex < instructions.Count)
                             {
-                                // Find which block contains this target instruction
-                                for (int bi = 0; bi < sortedStarts.Count; bi++)
+                                // CPython 3.12: Python/flowgraph.c:589-593
+                                // Labels always point to block start positions
+                                // Use direct lookup instead of range check
+                                if (indexToBlock.TryGetValue(targetInstrIndex, out targetBlock))
                                 {
-                                    int blockStart = sortedStarts[bi];
-                                    int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
-
-                                    if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
-                                    {
-                                        if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
-                                        {
-                                            targetBlock = candidateBlock;
-                                            break;
-                                        }
-                                    }
+                                    // Found the block
                                 }
 
                                 if (targetBlock == null)

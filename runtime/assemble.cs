@@ -96,34 +96,79 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Count how many instruction words this will need
-        /// (1 for normal, more if EXTENDED_ARG needed)
-        /// CPython 3.12: Instructions with arg > 255 need EXTENDED_ARG prefix
+        /// CPython 3.12: Include/internal/pycore_opcode.h - _PyOpcode_Caches table
+        /// Inline cache entries for adaptive bytecode specialization
+        /// Each cache entry is 1 instruction word (2 bytes)
         /// </summary>
-        private static int CountInstructionWords(ByteCodeInstruction instr)
+        internal static int GetInlineCacheSize(ByteCodeOp opCode)
         {
+            // CPython 3.12: Include/internal/pycore_opcode.h lines 12-25
+            // const uint8_t _PyOpcode_Caches[256]
+            switch (opCode)
+            {
+                case ByteCodeOp.BINARY_SUBSCR:
+                case ByteCodeOp.STORE_SUBSCR:
+                case ByteCodeOp.UNPACK_SEQUENCE:
+                case ByteCodeOp.FOR_ITER:
+                case ByteCodeOp.COMPARE_OP:
+                case ByteCodeOp.BINARY_OP:
+                case ByteCodeOp.SEND:
+                case ByteCodeOp.LOAD_SUPER_ATTR:
+                    return 1;
+
+                case ByteCodeOp.CALL:
+                    return 3;  // CALL has 3 cache entries
+
+                case ByteCodeOp.STORE_ATTR:
+                case ByteCodeOp.LOAD_GLOBAL:
+                    return 4;
+
+                case ByteCodeOp.LOAD_ATTR:
+                    return 9;
+
+                default:
+                    return 0;  // No inline cache
+            }
+        }
+
+        /// <summary>
+        /// Count how many instruction words this will need
+        /// CPython 3.12: Instructions may have EXTENDED_ARG prefix + inline cache
+        /// </summary>
+        internal static int CountInstructionWords(ByteCodeInstruction instr)
+        {
+            int baseWords;
+
             // Instructions without arguments always take 1 word
             if (!HasArgument(instr.OpCode))
             {
-                return 1;
+                baseWords = 1;
+            }
+            else
+            {
+                int arg = instr.Argument;
+
+                // Count how many words needed for EXTENDED_ARG + instruction
+                // CPython 3.12: Each instruction word can hold 8 bits of argument
+                // arg <= 255: 1 word
+                // arg <= 65535: 2 words (1 EXTENDED_ARG + 1 instruction)
+                // arg <= 16777215: 3 words (2 EXTENDED_ARG + 1 instruction)
+                // etc.
+                if (arg <= 0xFF)
+                    baseWords = 1;
+                else if (arg <= 0xFFFF)
+                    baseWords = 2;
+                else if (arg <= 0xFFFFFF)
+                    baseWords = 3;
+                else
+                    baseWords = 4;
             }
 
-            int arg = instr.Argument;
+            // CPython 3.12: Add inline cache size
+            // Inline cache entries come AFTER the instruction
+            int cacheSize = GetInlineCacheSize(instr.OpCode);
 
-            // Count how many bytes needed to represent this argument
-            // CPython 3.12: Each instruction word can hold 8 bits of argument
-            // arg <= 255: 1 word
-            // arg <= 65535: 2 words (1 EXTENDED_ARG + 1 instruction)
-            // arg <= 16777215: 3 words (2 EXTENDED_ARG + 1 instruction)
-            // etc.
-            if (arg <= 0xFF)
-                return 1;
-            else if (arg <= 0xFFFF)
-                return 2;
-            else if (arg <= 0xFFFFFF)
-                return 3;
-            else
-                return 4;
+            return baseWords + cacheSize;
         }
 
         /// <summary>
@@ -214,7 +259,11 @@ namespace SharpPy
                             int currentIndexAfter = instrIndex + oldInstrWords;
 
                             // Determine jump direction and opcode
-                            bool isBackwardJump = targetIndex < instrIndex;
+                            // CPython 3.12: Python/flowgraph.c:506-512
+                            // Jump direction determined by comparing target with position AFTER current instruction
+                            // If target < currentIndexAfter: BACKWARD jump
+                            // If target >= currentIndexAfter: FORWARD jump
+                            bool isBackwardJump = targetIndex < currentIndexAfter;
                             ByteCodeOp finalOpCode = instr.OpCode;
 
                             // Convert JUMP/JUMP_NO_INTERRUPT to forward/backward variants
@@ -242,6 +291,22 @@ namespace SharpPy
                             {
                                 // FORWARD: delta = target - (index after jump) (instruction word units)
                                 jumpArg = targetIndex - currentIndexAfter;
+                            }
+
+                            // TEMP: Debug problematic jump in re._compile
+                            if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE && instrIndex >= 50 && instrIndex <= 52)
+                            {
+                                Console.WriteLine($"[TEMP-DEBUG] POP_JUMP_IF_FALSE at instrIndex={instrIndex}, byteOffset={instrIndex*2}");
+                                Console.WriteLine($"[TEMP-DEBUG]   oldInstrWords={oldInstrWords}, currentIndexAfter={currentIndexAfter}");
+                                Console.WriteLine($"[TEMP-DEBUG]   targetIndex={targetIndex}, jumpArg={jumpArg}");
+                                Console.WriteLine($"[TEMP-DEBUG]   TargetBlock.Offset={instr.TargetBlock?.Offset}");
+
+                                // Show what instruction is at target
+                                if (instr.TargetBlock != null && instr.TargetBlock.Instructions.Count > 0)
+                                {
+                                    var targetInstr = instr.TargetBlock.Instructions[0];
+                                    Console.WriteLine($"[TEMP-DEBUG]   Target block first instruction: {targetInstr.OpCode}");
+                                }
                             }
 
                             // Update instruction with new delta and opcode

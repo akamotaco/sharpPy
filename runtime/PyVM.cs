@@ -4853,27 +4853,48 @@ namespace SharpPy
                     }
                     else if (exceptionInstance is PyBaseException builtinException)
                     {
+                        // CPython 3.12: Python/errors.c:350-354
                         // Direct builtin exception (PyValueError, PyTypeError, etc.)
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyBaseException {builtinException.GetType().Name}");
                         #endif
 
-                        var exceptionTypeName = builtinException.GetType().Name;
-                        string simpleName = exceptionTypeName;
-
-                        // Convert PyValueError -> ValueError
-                        if (exceptionTypeName.StartsWith("Py"))
-                        {
-                            simpleName = exceptionTypeName.Substring(2);
-                        }
+                        // CPython: Get exception class from instance
+                        var actualType = builtinException.GetType();
 
                         if (expectedType is PyType pyType)
                         {
-                            matches = pyType.Name == simpleName;
+                            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
+                            var expectedCSharpType = GetExceptionTypeByName(pyType.Name);
+                            if (expectedCSharpType != null)
+                            {
+                                matches = expectedCSharpType.IsAssignableFrom(actualType);
+                            }
+                            else
+                            {
+                                // Fall back to name matching for unknown types
+                                string simpleName = actualType.Name.StartsWith("Py")
+                                    ? actualType.Name.Substring(2)
+                                    : actualType.Name;
+                                matches = pyType.Name == simpleName;
+                            }
                         }
                         else if (expectedType is PyBuiltinType builtinType)
                         {
-                            matches = builtinType.Name == simpleName;
+                            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
+                            var expectedCSharpType = GetExceptionTypeByName(builtinType.Name);
+                            if (expectedCSharpType != null)
+                            {
+                                matches = expectedCSharpType.IsAssignableFrom(actualType);
+                            }
+                            else
+                            {
+                                // Fall back to name matching for unknown types
+                                string simpleName = actualType.Name.StartsWith("Py")
+                                    ? actualType.Name.Substring(2)
+                                    : actualType.Name;
+                                matches = builtinType.Name == simpleName;
+                            }
                         }
                     }
                     else if (exceptionInstance is PyClassInstance classInstance)
@@ -8279,57 +8300,60 @@ namespace SharpPy
         /// <summary>
         /// Check if an exception is an instance of the expected exception type or its parent types
         /// </summary>
+        // CPython 3.12: Python/errors.c:330-358 - PyErr_GivenExceptionMatches
+        // Maps Python exception name to C# exception type for subtype checking
+        private static Type GetExceptionTypeByName(string exceptionName)
+        {
+            switch (exceptionName)
+            {
+                case "BaseException": return typeof(PyBaseException);
+                case "Exception": return typeof(PyException);
+                case "ImportError": return typeof(PyImportError);
+                case "ModuleNotFoundError": return typeof(PyModuleNotFoundError);
+                case "ValueError": return typeof(PyValueError);
+                case "TypeError": return typeof(PyTypeError);
+                case "RuntimeError": return typeof(PyRuntimeError);
+                case "AttributeError": return typeof(PyAttributeError);
+                case "KeyError": return typeof(PyKeyError);
+                case "IndexError": return typeof(PyIndexError);
+                case "NameError": return typeof(PyNameError);
+                case "OSError": return typeof(PyOSError);
+                case "IOError": return typeof(PyOSError);  // In Python 3, IOError is an alias for OSError
+                case "ZeroDivisionError": return typeof(PyZeroDivisionError);
+                case "OverflowError": return typeof(PyOverflowError);
+                case "StopIteration": return typeof(PyStopIteration);
+                case "AssertionError": return typeof(PyAssertionError);
+                case "SystemExit": return typeof(PySystemExit);
+                case "KeyboardInterrupt": return typeof(PyKeyboardInterrupt);
+                case "GeneratorExit": return typeof(PyGeneratorExit);
+                case "LookupError": return typeof(PyLookupError);
+                case "ArithmeticError": return typeof(PyArithmeticError);
+                case "RecursionError": return typeof(PyRecursionError);
+                default: return null;
+            }
+        }
+
+        // CPython 3.12: Python/errors.c:330-358 - PyErr_GivenExceptionMatches
+        // Checks if exception instance is of expected type (using C# subtype checking)
         private static bool IsExceptionInstanceOf(PyException exception, string expectedTypeName)
         {
-            // Direct type match
-            if (exception.GetTypeName() == expectedTypeName)
-                return true;
+            // CPython: Python/errors.c:350-351
+            // If err is an instance, get its class
+            var actualType = exception.GetType();
 
-            // Check inheritance hierarchy
-            switch (exception.GetTypeName())
+            // CPython: Python/errors.c:353-354
+            // If both are exception classes, use PyType_IsSubtype
+            var expectedType = GetExceptionTypeByName(expectedTypeName);
+
+            if (expectedType == null)
             {
-                case "ValueError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "TypeError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "RuntimeError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "AttributeError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "KeyError":
-                    return expectedTypeName == "LookupError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "IndexError":
-                    return expectedTypeName == "LookupError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "NameError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "ImportError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "OSError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "IOError":
-                    return expectedTypeName == "OSError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "ZeroDivisionError":
-                    return expectedTypeName == "ArithmeticError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "OverflowError":
-                    return expectedTypeName == "ArithmeticError" || expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "StopIteration":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "AssertionError":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "SystemExit":
-                    return expectedTypeName == "BaseException";
-                case "KeyboardInterrupt":
-                    return expectedTypeName == "BaseException";
-                case "GeneratorExit":
-                    return expectedTypeName == "BaseException";
-                case "ExceptionGroup":
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
-                case "BaseExceptionGroup":
-                    return expectedTypeName == "BaseException";
-                default:
-                    // For unknown exceptions, assume they inherit from Exception
-                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                // Unknown exception type, fall back to name match
+                return exception.GetTypeName() == expectedTypeName;
             }
+
+            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
+            // In C#: expectedType.IsAssignableFrom(actualType)
+            return expectedType.IsAssignableFrom(actualType);
         }
 
         /// <summary>

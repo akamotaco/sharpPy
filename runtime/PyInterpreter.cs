@@ -41,8 +41,7 @@ namespace SharpPy
             // CPython 3.12 compatible PEG parser is used via GeneratedParserBridge
             _compiler = new PythonCompiler();
             _vm = PyVM.Instance;
-            _globalScope = new PyScopeChain(); // 기존 LEGB 시스템!
-            
+
             // CPython 3.12: Python/pythonrun.c:408 - PyImport_AddModule("__main__")
             // Create __main__ module and register in sys.modules
             var mainModule = new PyModule("__main__", "<main>");
@@ -53,8 +52,10 @@ namespace SharpPy
             mainModule.ModuleDict["__spec__"] = PyNone.Instance;
             PyImportSystem.SetModule("__main__", mainModule);
 
-            // Set __name__ in global scope
-            _globalScope.AssignVariable("__name__", new PyString("__main__"));
+            // CPython 3.12: Python/ceval.c - frame->f_globals references module->md_dict
+            // _globalScope must use mainModule's dict and reference mainModule
+            // This ensures globals() returns the same object as sys.modules['__main__'].__dict__
+            _globalScope = new PyScopeChain(mainModule.ModuleDict, "__main__", mainModule);
 
             SetupBuiltinHelpers();
         }

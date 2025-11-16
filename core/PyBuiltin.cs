@@ -3794,7 +3794,7 @@ namespace SharpPy
             // CPython 3.12: Python/bltinmodule.c:1177-1184 (builtin_globals_impl)
             // Returns current_frame->f_globals (actual reference, not a copy)
             // CPython 3.12: Python/ceval.c:2385-2393 (PyEval_GetGlobals)
-            // Returns current_frame->f_globals
+            // Returns current_frame->f_globals which is the module's md_dict
 
             if (args.Length != 0)
             {
@@ -3815,9 +3815,17 @@ namespace SharpPy
                 return new PyDict(); // Return empty dict if no global scope
             }
 
-            // CPython 3.12: Return actual reference to module's __dict__
-            // When globals().update() is called, it should modify the actual global namespace
-            // Use PyGlobalsDict which synchronizes with globalScope.Variables
+            // CPython 3.12: Python/ceval.c:2392 - return current_frame->f_globals
+            // f_globals is the same as module->md_dict
+            // In SharpPy: GlobalScope.Module references the PyModule, return its __dict__
+            if (globalScope.Module != null)
+            {
+                // Return the module's __dict__ - same object every time
+                // This ensures globals() is module.__dict__ (same object)
+                return globalScope.Module.GetAttribute("__dict__");
+            }
+
+            // Fallback: Use PyGlobalsDict which synchronizes with globalScope.Variables
             return new PyGlobalsDict(globalScope.Variables);
         }
 

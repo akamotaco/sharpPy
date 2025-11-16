@@ -2343,10 +2343,58 @@ namespace SharpPy
         /// <summary>
         /// CPython PyUnicode_AsDouble 호환: PyString에서 C# double 값 추출
         /// </summary>
+        // CPython 3.12: Objects/floatobject.c:165-202 (float_from_string_inner)
+        // CPython 3.12: Python/pystrtod.c:27-57 (_Py_parse_inf_or_nan)
         public override double ToFloat()
         {
-            if (double.TryParse(Value.Trim(), out double result))
+            var trimmed = Value.Trim();
+
+            // CPython 3.12: Python/pystrtod.c:27-57 - _Py_parse_inf_or_nan
+            // Parse special values: inf, -inf, infinity, -infinity, nan, -nan
+            if (trimmed.Length > 0)
+            {
+                bool negate = false;
+                string s = trimmed;
+
+                // Handle leading sign
+                if (s[0] == '-')
+                {
+                    negate = true;
+                    s = s.Substring(1).TrimStart();
+                }
+                else if (s[0] == '+')
+                {
+                    s = s.Substring(1).TrimStart();
+                }
+
+                // Check for "inf" or "infinity" (case insensitive)
+                if (s.Length >= 3 && s.Substring(0, 3).ToLowerInvariant() == "inf")
+                {
+                    // Check if it's "infinity"
+                    if (s.Length >= 8 && s.Substring(0, 8).ToLowerInvariant() == "infinity")
+                    {
+                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
+                    }
+                    // Just "inf"
+                    else if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
+                    {
+                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
+                    }
+                }
+                // Check for "nan" (case insensitive)
+                else if (s.Length >= 3 && s.Substring(0, 3).ToLowerInvariant() == "nan")
+                {
+                    if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
+                    {
+                        return double.NaN;
+                    }
+                }
+            }
+
+            // Standard numeric parsing
+            if (double.TryParse(trimmed, out double result))
                 return result;
+
             throw PyValueError.Create($"could not convert string to float: '{Value}'");
         }
         

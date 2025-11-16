@@ -267,7 +267,9 @@ namespace SharpPy
                         instr.ExceptBlock,  // CPython's i_except: BasicBlock reference
                         isFirst  // Mark first instruction of each block
                     ));
-                    currentOffset++;
+                    // CPython 3.12: Must account for inline cache size
+                    // Include/internal/pycore_opcode.h - _PyOpcode_Caches table
+                    currentOffset += PyAssemble.CountInstructionWords(instr);
                     isFirst = false;
                 }
             }

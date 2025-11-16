@@ -363,6 +363,9 @@ namespace SharpPy
         public Dictionary<string, PyObject> Variables { get; }
         public PyScope EnclosingScope { get; }
         public string Name { get; }
+        // CPython 3.12: frame->f_globals references module->md_dict
+        // Store module reference for global scopes to support globals() builtin
+        public PyModule Module { get; }
 
         public PyScope(ScopeType type, PyScope enclosingScope = null, string name = "")
         {
@@ -370,17 +373,20 @@ namespace SharpPy
             Variables = new Dictionary<string, PyObject>();
             EnclosingScope = enclosingScope;
             Name = name;
+            Module = null;
         }
 
         /// <summary>
         /// 모듈용 생성자: 기존 딕셔너리를 Variables로 사용
+        /// CPython 3.12: Python/ceval.c - frame->f_globals points to module->md_dict
         /// </summary>
-        public PyScope(ScopeType type, Dictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "")
+        public PyScope(ScopeType type, Dictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "", PyModule module = null)
         {
             Type = type;
             Variables = existingVariables ?? new Dictionary<string, PyObject>();
             EnclosingScope = enclosingScope;
             Name = name;
+            Module = module; // Store module for globals() to return module.__dict__
         }
 
         public void SetVariable(string name, PyObject value)
@@ -437,14 +443,16 @@ namespace SharpPy
         /// <summary>
         /// 모듈용 생성자: 기존 모듈 딕셔너리를 글로벌 스코프로 사용
         /// </summary>
-        public PyScopeChain(Dictionary<string, PyObject> moduleDict, string moduleName)
+        // CPython 3.12: Python/ceval.c - frame->f_globals references module->md_dict
+        // Constructor for module scope - requires module reference
+        public PyScopeChain(Dictionary<string, PyObject> moduleDict, string moduleName, PyModule module = null)
         {
             // Builtin은 전역 싱글톤 모듈 (특별!)
             _builtinModule = PyBuiltinsModule.Instance;
 
             // 일반 스코프들 (모듈 딕셔너리를 Global로 시작)
             _normalScopes = new List<PyScope>();
-            var globalScope = new PyScope(ScopeType.Global, moduleDict, null, moduleName);
+            var globalScope = new PyScope(ScopeType.Global, moduleDict, null, moduleName, module);
             _normalScopes.Add(globalScope);
 
             // Global 스코프에 __builtins__ 참조 추가 (Python과 동일) - moduleDict가 이미 포함할 수 있음
