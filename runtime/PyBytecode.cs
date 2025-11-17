@@ -700,8 +700,12 @@ namespace SharpPy
             {
                 // CPython 3.12: Include/internal/pycore_opcode.h - _PyOpcode_Caches table
                 // Each instruction word is 2 bytes
-                // Instruction word count = 1 (opcode + arg) + inline cache size
-                int wordCount = PyAssemble.CountInstructionWords(Instructions[i]);
+                // Instruction word count = 1 (opcode + arg) + EXTENDED_ARG + inline cache size
+                // BUG FIX: Must include inline cache size!
+                // CPython 3.12: Python/assemble.c uses word count INCLUDING cache
+                int instrWords = PyAssemble.CountInstructionWords(Instructions[i]);
+                int cacheWords = PyAssemble.GetInlineCacheSize(Instructions[i].OpCode);
+                int wordCount = instrWords + cacheWords;
                 byteOffset += wordCount * INSTRUCTION_WORD_SIZE;
             }
 

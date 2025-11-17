@@ -278,7 +278,16 @@ namespace SharpPy
 
                     // CPython 3.12: Must account for inline cache size
                     // Include/internal/pycore_opcode.h - _PyOpcode_Caches table
-                    currentOffset += PyAssemble.CountInstructionWords(instr);
+                    int wordCount = PyAssemble.CountInstructionWords(instr);
+                    currentOffset += wordCount;
+
+                    #if DEBUG_LOG
+                    if (instr.ExceptBlock != null)
+                    {
+                        Console.WriteLine($"[EXCTABLE-BUILD] Instr {instr.OpCode} at offset {currentOffset - wordCount}, wordCount={wordCount}, exceptBlock={instr.ExceptBlock.Offset}");
+                    }
+                    #endif
+
                     isFirst = false;
                 }
             }

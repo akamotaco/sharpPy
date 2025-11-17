@@ -321,6 +321,13 @@ namespace SharpPy
                     // Store BasicBlock reference directly (CPython's i_except is a pointer to basicblock)
                     var currentHandlerBlock = exceptStack.Top();
 
+#if DEBUG_LOG
+                    if (currentHandlerBlock != null && (instr.OpCode == ByteCodeOp.RAISE_VARARGS || instr.OpCode == ByteCodeOp.LOAD_CONST))
+                    {
+                        Console.WriteLine($"[FLOWGRAPH-EXCEPT] Instr {instr.OpCode} at {realInstructionCount}, handler={currentHandlerBlock.Offset}, stack depth={exceptStack.Depth}");
+                    }
+#endif
+
                     // CPython 3.12: Special handling for YIELD_VALUE (flowgraph.c:846-847)
                     // YIELD_VALUE stores exception stack depth in its argument
                     int instrArg = instr.Arg ?? 0;

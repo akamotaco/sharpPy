@@ -37,9 +37,11 @@ namespace SharpPy
             // (CPython: assemble_emit_instr_sequence)
             var instructions = FlattenBlocks(cfg);
 
-            // Phase 3: Build exception table from CFG
-            // (CPython: assemble_exception_table)
-            var exceptionTable = cfg.BuildExceptionTable();
+            // Phase 3: Build exception table from FINAL bytecode array (after CACHE emission)
+            // CRITICAL: Must build exception table AFTER EmitInstructions adds CACHE instructions
+            // CPython 3.12: Python/assemble.c:143-166 assemble_exception_table()
+            // This function is called AFTER all instructions (including CACHE) are emitted
+            var exceptionTable = BuildExceptionTableFromInstructions(instructions, cfg);
 
             return new AssembledCode(instructions, exceptionTable);
         }
@@ -473,6 +475,136 @@ namespace SharpPy
                 instr.TargetBlock,
                 instr.ExceptBlock
             ));
+        }
+
+        /// <summary>
+        /// Build exception table from final bytecode array (after CACHE emission)
+        /// CPython 3.12: Python/assemble.c:143-166 assemble_exception_table()
+        /// CRITICAL: This must be called AFTER EmitInstructions() adds CACHE instructions
+        /// </summary>
+        private static List<ExceptionTableEntry> BuildExceptionTableFromInstructions(List<ByteCodeInstruction> instructions, ControlFlowGraph cfg)
+        {
+            var exceptionTable = new List<ExceptionTableEntry>();
+
+            if (instructions.Count == 0)
+                return exceptionTable;
+
+
+#if DEBUG_LOG
+            Console.WriteLine($"[EXCTABLE-FINAL] Building exception table from {instructions.Count} instructions");
+#endif
+
+            // Build mapping: BasicBlock → byte offset in final bytecode array
+            // CRITICAL: Cannot use BasicBlock.Offset because it's modified by ResolveJumpOffsets()
+            // Instead, simulate EmitInstructions() to find where each block starts
+            // CPython 3.12: Python/assemble.c:150-161
+            var blockToByteOffset = new Dictionary<BasicBlock, int>();
+            int currentByteOffset = 0;
+
+            foreach (var block in cfg.AllBlocks)
+            {
+                // Record the starting byte offset of this block
+                blockToByteOffset[block] = currentByteOffset;
+
+#if DEBUG_LOG
+                Console.WriteLine($"[EXCTABLE-FINAL] Block at byte offset {currentByteOffset}");
+#endif
+
+                foreach (var instr in block.Instructions)
+                {
+                    // Count instruction size: 1 word + EXTENDED_ARG + CACHE
+                    int instrWords = CountInstructionWords(instr);
+                    int cacheWords = GetInlineCacheSize(instr.OpCode);
+                    currentByteOffset += (instrWords + cacheWords) * PyCodeObject.INSTRUCTION_WORD_SIZE;
+                }
+            }
+
+            // Track current exception handler info
+            int currentHandler = -1;
+            int depth = -1;
+            bool lasti = false;
+            int startOffset = -1;
+            currentByteOffset = 0;
+
+            // Scan through final bytecode array
+            // CPython 3.12: Python/assemble.c:150-161
+            for (int i = 0; i < instructions.Count; i++)
+            {
+                var instr = instructions[i];
+
+                // Skip CACHE instructions - they inherit exception handler from parent
+                if (instr.OpCode == ByteCodeOp.CACHE)
+                {
+                    currentByteOffset += PyCodeObject.INSTRUCTION_WORD_SIZE;
+                    continue;
+                }
+
+                // Check if exception handler changed
+                // Look up the BasicBlock reference in our mapping
+                int newHandler = -1;
+                if (instr.ExceptBlock != null)
+                {
+                    if (blockToByteOffset.TryGetValue(instr.ExceptBlock, out int handlerByteOffset))
+                    {
+                        newHandler = handlerByteOffset;
+                    }
+                }
+
+#if DEBUG_LOG
+                if (newHandler != -1 && newHandler != currentHandler)
+                {
+                    Console.WriteLine($"[EXCTABLE-FINAL] Index {i}: {instr.OpCode} at offset {currentByteOffset}, handler={newHandler}");
+                }
+#endif
+
+                if (newHandler != currentHandler)
+                {
+                    // Emit previous range
+                    if (currentHandler >= 0 && startOffset >= 0)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"[EXCTABLE-FINAL] Entry: Start={startOffset}, End={currentByteOffset}, Handler={currentHandler}");
+#endif
+                        exceptionTable.Add(new ExceptionTableEntry(
+                            start: startOffset,
+                            end: currentByteOffset,
+                            handler: currentHandler,
+                            depth: depth,
+                            lasti: lasti
+                        ));
+                    }
+
+                    // Start new range
+                    startOffset = currentByteOffset;
+                    currentHandler = newHandler;
+
+                    // Update depth and lasti from new handler
+                    // TODO: Need to track stack depth properly
+                    // CPython tracks this in compiler, we'll use 0 for now
+                    depth = 0;
+                    lasti = false;
+                }
+
+                // CPython 3.12: Python/flowgraph.c:498 - bsize += isize
+                // Count instruction size INCLUDING inline cache
+                int instrWords = CountInstructionWords(instr);
+                int cacheWords = GetInlineCacheSize(instr.OpCode);
+                currentByteOffset += (instrWords + cacheWords) * PyCodeObject.INSTRUCTION_WORD_SIZE;
+            }
+
+            // Emit final range
+            if (currentHandler >= 0 && startOffset >= 0)
+            {
+                exceptionTable.Add(new ExceptionTableEntry(
+                    start: startOffset,
+                    end: currentByteOffset,
+                    handler: currentHandler,
+                    depth: depth,
+                    lasti: lasti
+                ));
+            }
+
+            return exceptionTable;
         }
 
         private static bool IsJumpInstruction(ByteCodeOp op)

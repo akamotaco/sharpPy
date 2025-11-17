@@ -105,7 +105,6 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
 #endif
-
             Code = code;
             ValueStack = new PyStack();
             // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
@@ -547,6 +546,7 @@ namespace SharpPy
             // WRONG: currentByteOffset = InstructionPointer * 2 (doesn't account for inline cache)
             // RIGHT: Use PyCodeObject.InstructionIndexToByteOffset which sums actual instruction word counts
             var currentByteOffset = Code.InstructionIndexToByteOffset(InstructionPointer);
+
             #if DEBUG_LOG
             Console.WriteLine($"🔍 Searching Exception Table for instruction {InstructionPointer} (byte offset {currentByteOffset}):");
             #endif

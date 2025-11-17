@@ -7903,14 +7903,24 @@ namespace SharpPy
             }
 
             // 6. Exception handler entry
-            _instructionSequence.UseLabel(exceptLabel);
+            // CRITICAL: exceptLabel must point to the FIRST REAL INSTRUCTION after pseudo-instructions are removed
+            // In CPython 3.12, the exception handler always starts with PUSH_EXC_INFO
+            // SETUP_CLEANUP is a pseudo-instruction that gets removed by flowgraph, so we need to
+            // place exceptLabel AFTER it, directly at PUSH_EXC_INFO
+            // CPython: Python/compile.c:3357-3360
 
             if (hasExceptHandlers)
             {
+                // CPython pattern (Python/compile.c:3394-3397):
+                //   USE_LABEL(c, except);
+                //   ADDOP_JUMP(c, NO_LOCATION, SETUP_CLEANUP, cleanup);
+                //   ADDOP(c, NO_LOCATION, PUSH_EXC_INFO);
+                // The except label is placed BEFORE SETUP_CLEANUP pseudo-instruction.
+                // When flowgraph removes SETUP_CLEANUP, the label automatically points to PUSH_EXC_INFO.
+                _instructionSequence.UseLabel(exceptLabel);
+
                 // SETUP_CLEANUP protects the exception handlers themselves
                 // (if an exception occurs in a handler, jump to cleanup or finally-except)
-                // NOTE: CPython uses per-block ExceptStack copies to handle multiple POP_BLOCKs
-                // SharpPy uses a simplified approach where handlers share the cleanup
                 var handlerCleanupTarget = hasFinally ? finallyExceptLabel : cleanupLabel;
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, handlerCleanupTarget, _currentLineNumber);
 
@@ -8048,29 +8058,34 @@ namespace SharpPy
 
                 // Reraise if no handler matched
                 _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
-            }
 
-            // CPython pattern: POP_BLOCK MUST come before cleanup label
-            // This ends the SETUP_CLEANUP scope so cleanup code is NOT protected
-            if (hasExceptHandlers)
-            {
+                // CPython pattern: POP_BLOCK MUST come before cleanup label
+                // This ends the SETUP_CLEANUP scope so cleanup code is NOT protected
                 _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+
+                // 8. Cleanup handler (CPython pattern for exception propagation)
+                // This block is reached when an exception occurs in the except handlers
+                // IMPORTANT: This code is NOT protected by any exception handler (POP_BLOCK above)
+                _instructionSequence.UseLabel(cleanupLabel);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+
+                // 8.5. Pop FINALLY_TRY fblock after all except handlers complete
+                // CPython: pop happens after compiler_try_except returns (compile.c:3263)
+                // This is where the try/except/finally structure ends and normal finally begins
+                if (hasFinally)
+                {
+                    PopFBlock(FBlockType.FINALLY_TRY, finallyLabel);
+                }
             }
-
-            // 8. Cleanup handler (CPython pattern for exception propagation)
-            // This block is reached when an exception occurs in the except handlers
-            // IMPORTANT: This code is NOT protected by any exception handler (POP_BLOCK above)
-            _instructionSequence.UseLabel(cleanupLabel);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
-
-            // 8.5. Pop FINALLY_TRY fblock after all except handlers complete
-            // CPython: pop happens after compiler_try_except returns (compile.c:3263)
-            // This is where the try/except/finally structure ends and normal finally begins
-            if (hasFinally)
+            else
             {
-                PopFBlock(FBlockType.FINALLY_TRY, finallyLabel);
+                // No except handlers, but exceptLabel was still created
+                // We need to place it here for the case where there's only finally (or cleanup)
+                // CPython: In this case, exceptLabel is not used at all
+                // SharpPy: We still need to UseLabel to avoid label reference errors
+                _instructionSequence.UseLabel(exceptLabel);
             }
 
             // 9. Finally block (normal path) - offset 18 in CPython disassembly
@@ -8089,10 +8104,12 @@ namespace SharpPy
 
                 // 10. Finally block (exception path) - offset 120 in CPython disassembly
                 // This executes when an exception occurs in except handler
-                _instructionSequence.UseLabel(finallyExceptLabel);
-
+                // CRITICAL: Same as except handlers, place label AFTER SETUP_CLEANUP
                 // SETUP_CLEANUP to protect finally block itself
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, finallyExceptCleanupLabel, _currentLineNumber);
+
+                // NOW place the finallyExceptLabel at PUSH_EXC_INFO
+                _instructionSequence.UseLabel(finallyExceptLabel);
 
                 // PUSH_EXC_INFO to save exception state
                 _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
