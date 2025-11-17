@@ -284,6 +284,36 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: Objects/object.c:1082-1147 (_PyObject_LookupAttr)
+        /// Lookup attribute without raising AttributeError.
+        /// Returns:
+        ///   - attribute value if found
+        ///   - null if not found (AttributeError is suppressed)
+        ///   - throws other exceptions (not AttributeError)
+        ///
+        /// This is the key difference from GetAttribute():
+        /// - GetAttribute() throws AttributeError if not found
+        /// - LookupAttribute() returns null if not found
+        ///
+        /// Used in isinstance/issubclass to avoid infinite recursion when
+        /// checking __bases__ or __class__ attributes.
+        /// </summary>
+        public virtual PyObject LookupAttribute(string name)
+        {
+            try
+            {
+                // Use GenericGetAttribute but catch AttributeError
+                return GenericGetAttribute(name);
+            }
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
+            {
+                // CPython: AttributeError is suppressed, return null
+                return null;
+            }
+            // Other exceptions are propagated
+        }
+
+        /// <summary>
         /// Lookup special method bypassing __getattribute__
         /// CPython: Special method lookup uses _PyType_Lookup which bypasses tp_getattro
         /// Reference: Objects/typeobject.c:2188 (lookup_maybe_method)
