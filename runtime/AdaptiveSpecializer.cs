@@ -318,11 +318,13 @@ namespace SharpPy
         /// </summary>
         public void PrintStats()
         {
+#if DEBUG_LOG
             Console.WriteLine("=== Adaptive Specialization Statistics ===");
             foreach (var kvp in _stats)
             {
                 Console.WriteLine($"{kvp.Key}: {kvp.Value}");
             }
+#endif
         }
 
         #endregion

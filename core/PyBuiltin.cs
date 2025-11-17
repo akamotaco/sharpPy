@@ -231,20 +231,25 @@ namespace SharpPy
         // 내장 함수 호출 - CPython 3.12 호환: kwargs 지원
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            // [TEMP LOG] PyBuiltinFunction.Call 진입
+#if DEBUG_LOG
             Console.WriteLine($"[PyBuiltinFunction.Call] Name={Name}, args.Length={args.Length}");
+#endif
 
             // kwargs 지원 구현이 있으면 우선 사용
             if (_kwargsImplementation != null)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _kwargsImplementation for {Name}");
+#endif
                 return _kwargsImplementation(args, kwargs);
             }
 
             // 시그니처가 있으면 인수 처리 후 기존 구현 호출
             if (_signature != null && _implementation != null)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _signature + _implementation for {Name}");
+#endif
                 var processedArgs = _signature.ProcessArguments(args, kwargs);
                 return _implementation(processedArgs);
             }
@@ -252,14 +257,18 @@ namespace SharpPy
             // 기존 구현이 있으면 사용 (kwargs 무시)
             if (_implementation != null)
             {
+#if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _implementation for {Name}");
+#endif
                 return _implementation(args);
             }
 
             // CPython 호환: 딕셔너리 기반 lookup (switch 문 제거)
             if (_builtinImplementations.TryGetValue(Name, out var implementation))
             {
+#if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _builtinImplementations lookup for {Name}");
+#endif
                 return implementation(args, kwargs);
             }
 
