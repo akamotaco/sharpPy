@@ -183,35 +183,130 @@ namespace SharpPy
 
         #endregion
 
-        #region Bitwise Operations - Delegate to PyInt
+        #region Bitwise Operations - Use Python special methods
+
+        // CPython 3.12: IntFlag bitwise operations are handled by Python-level __or__, __and__, etc.
+        // Lib/enum.py:1550-1596 - Flag.__or__, Flag.__and__, Flag.__xor__, Flag.__invert__
+        //
+        // These methods call self.__class__(value | other_value) to create a new instance
+        // of the same type with the combined flags.
+        //
+        // IMPORTANT: We must check for __or__ etc. in the MRO first, before falling back
+        // to the default int bitwise operations. This matches CPython's special method lookup.
 
         public override PyObject BitwiseAnd(PyObject other)
         {
+            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_and calls __and__
+            // Check if class defines __and__ method
+            try
+            {
+                var andMethod = LookupSpecialMethod("__and__");
+                if (andMethod != null)
+                {
+                    // Call the Python __and__ method
+                    return andMethod.Call(new PyObject[] { this, other }, null);
+                }
+            }
+            catch
+            {
+                // If special method lookup fails, fall through to default
+            }
+
+            // Fallback: use int's bitwise and
             return _intValue.BitwiseAnd(other);
         }
 
         public override PyObject BitwiseOr(PyObject other)
         {
+            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_or calls __or__
+            // Check if class defines __or__ method (e.g., Flag.__or__)
+            try
+            {
+                var orMethod = LookupSpecialMethod("__or__");
+                if (orMethod != null)
+                {
+                    return orMethod.Call(new PyObject[] { this, other }, null);
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
             return _intValue.BitwiseOr(other);
         }
 
         public override PyObject BitwiseXor(PyObject other)
         {
+            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_xor calls __xor__
+            try
+            {
+                var xorMethod = LookupSpecialMethod("__xor__");
+                if (xorMethod != null)
+                {
+                    return xorMethod.Call(new PyObject[] { this, other }, null);
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
             return _intValue.BitwiseXor(other);
         }
 
         public override PyObject BitwiseNot()
         {
+            // CPython: Objects/typeobject.c:8110-8130 - slot_nb_invert calls __invert__
+            try
+            {
+                var invertMethod = LookupSpecialMethod("__invert__");
+                if (invertMethod != null)
+                {
+                    return invertMethod.Call(new PyObject[] { this }, null);
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
             return _intValue.BitwiseNot();
         }
 
         public override PyObject LeftShift(PyObject other)
         {
+            try
+            {
+                var lshiftMethod = LookupSpecialMethod("__lshift__");
+                if (lshiftMethod != null)
+                {
+                    return lshiftMethod.Call(new PyObject[] { this, other }, null);
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
             return _intValue.LeftShift(other);
         }
 
         public override PyObject RightShift(PyObject other)
         {
+            try
+            {
+                var rshiftMethod = LookupSpecialMethod("__rshift__");
+                if (rshiftMethod != null)
+                {
+                    return rshiftMethod.Call(new PyObject[] { this, other }, null);
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+
             return _intValue.RightShift(other);
         }
 
@@ -255,21 +350,30 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
-            // CPython: 먼저 인스턴스 __dict__ 확인
-            if (InstanceDict.TryGetValue(name, out var value))
-                return value;
+            // CPython 3.12: Objects/object.c:1227-1304 (PyObject_GenericGetAttr)
+            //
+            // IMPORTANT: Do NOT delegate to _intValue.GetAttribute()!
+            // _intValue is a plain PyInt without custom type, so its MRO is just [int, object].
+            //
+            // We delegate to base.GetAttribute() which calls GenericGetAttribute().
+            // GenericGetAttribute() will:
+            // 1. Use GetPyType() to get the correct MRO (we override to return _class)
+            // 2. Check for data descriptors in MRO
+            // 3. Check InstanceDict (PyObject.GenericGetAttribute now handles PyIntSubclass)
+            // 4. Check for non-data descriptors in MRO
+            //
+            // This ensures proper attribute lookup order per CPython
 
-            // CPython: 그 다음 클래스 속성 확인
-            if (_class.ClassDict.TryGetValue(name, out var classAttr))
+            // Special case: _value_ attribute for enum members
+            // If not set in InstanceDict, return the underlying int value
+            // This handles enum members during initialization before _value_ is set
+            if (name == "_value_" && !InstanceDict.ContainsKey("_value_"))
             {
-                // Descriptor protocol
-                if (classAttr is IDescriptor descriptor)
-                    return descriptor.Get(this, _class);
-                return classAttr;
+                return _intValue;
             }
 
-            // CPython: int 타입의 메서드/속성 확인
-            return _intValue.GetAttribute(name);
+            // Delegate everything to base class for proper MRO-based lookup
+            return base.GetAttribute(name);
         }
 
         public override void SetAttribute(string name, PyObject value)

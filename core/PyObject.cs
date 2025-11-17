@@ -2,14 +2,32 @@ namespace SharpPy
 {
     /// <summary>
     /// Python object의 핵심 구현 - 데모 동작에 필요한 기능 포함
+    /// CPython 3.12: All PyObjects have ob_type field (Include/object.h:164-195)
     /// </summary>
     public abstract class PyObject
     {
         #region Core Identity
 
-        public virtual PyType GetPyType() => PyType.ObjectType;
-        public virtual string GetTypeName() => this.GetType().Name;
+        // CPython 3.12: Include/object.h:195 - PyTypeObject *ob_type;
+        // For subclasses of builtin types (IntEnum, StrEnum, etc.), this stores the actual subclass type
+        // If null, GetPyType() returns the default type for this object
+        protected PyType? _customType;
+
+        // CPython 3.12: Include/object.h:350 - Py_TYPE(op) macro
+        // Returns ob_type if set, otherwise returns default type
+        public virtual PyType GetPyType() => _customType ?? PyType.ObjectType;
+
+        public virtual string GetTypeName() => GetPyType().Name;
         public virtual PyType PyClass => GetPyType();
+
+        /// <summary>
+        /// Set custom type for this object (used by subclasses of builtin types)
+        /// CPython 3.12: This corresponds to setting ob_type field
+        /// </summary>
+        public void SetCustomType(PyType customType)
+        {
+            _customType = customType;
+        }
 
         protected virtual int GetDefaultHash()
         {
@@ -352,60 +370,17 @@ namespace SharpPy
             Console.WriteLine($"🔍 PyObject.GenericGetAttribute: looking for '{name}' on {type.Name}");
             #endif
 
-            // CPython 3.12: Check for custom __getattribute__ in class (not on instance!)
-            // This allows overriding the entire attribute access mechanism
-            // Reference: Objects/object.c PyObject_GenericGetAttr()
-            if (!(this is PyType || this is PyClass))  // Don't check on type objects themselves
-            {
-                foreach (var mroType in type.MRO)
-                {
-                    PyObject getAttrMethod = null;
-
-                    if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__getattribute__", out getAttrMethod))
-                    {
-                        // Found custom __getattribute__ - must be in class, not instance
-                        // Only call if it's different from the base implementation
-                        if (mroType != PyType.ObjectType)  // Skip object.__getattribute__
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   🎯 Found custom __getattribute__ in {mroType.Name}");
-                            #endif
-
-                            try
-                            {
-                                return getAttrMethod.Call(new PyObject[] { this, new PyString(name) }, null);
-                            }
-                            catch (Exception ex)
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   ❌ Custom __getattribute__ failed: {ex.Message}");
-                                #endif
-                                throw;
-                            }
-                        }
-                        break;
-                    }
-
-                    if (mroType is PyClass customType && customType.ClassDict.TryGetValue("__getattribute__", out getAttrMethod))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   🎯 Found custom __getattribute__ in {customType.Name}");
-                        #endif
-
-                        try
-                        {
-                            return getAttrMethod.Call(new PyObject[] { this, new PyString(name) }, null);
-                        }
-                        catch (Exception ex)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   ❌ Custom __getattribute__ failed: {ex.Message}");
-                            #endif
-                            throw;
-                        }
-                    }
-                }
-            }
+            // CPython 3.12: GenericGetAttr does NOT check for __getattribute__!
+            // __getattribute__ is handled at a higher level (tp_getattro slot).
+            // GenericGetAttr is the DEFAULT implementation of tp_getattro.
+            //
+            // Removing the __getattribute__ check here prevents infinite recursion:
+            // - PyIntSubclass.GetAttribute() calls base.GetAttribute()
+            // - base.GetAttribute() calls GenericGetAttribute()
+            // - GenericGetAttribute() should NOT call __getattribute__ again!
+            //
+            // Custom __getattribute__ methods should be handled by overriding
+            // GetAttribute() at the Python class level, not here.
 
             // 1. 타입의 MRO에서 descriptor 찾기
             IDescriptor descriptor = null;
@@ -424,6 +399,7 @@ namespace SharpPy
                 if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeAttr))
                 {
                     attr = typeAttr;
+
                     #if DEBUG_LOG
                     Console.WriteLine($"   ✅ found '{name}' in {mroType.Name} TypeDict: {typeAttr?.GetType().Name}");
                     #endif
@@ -494,7 +470,18 @@ namespace SharpPy
             }
 
             // 3. instance dictionary 확인
+            // CPython: Objects/object.c:1255-1259 - check instance __dict__
             if (this is PyClassInstance instance && instance.InstanceDict.TryGetValue(name, out PyObject value))
+            {
+                return value;
+            }
+            // Also check PyIntSubclass which has InstanceDict but is not PyClassInstance
+            else if (this is PyIntSubclass intSubclass && intSubclass.InstanceDict.TryGetValue(name, out value))
+            {
+                return value;
+            }
+            // Also check PyStrSubclass which has InstanceDict but is not PyClassInstance
+            else if (this is PyStrSubclass strSubclass && strSubclass.InstanceDict.TryGetValue(name, out value))
             {
                 return value;
             }

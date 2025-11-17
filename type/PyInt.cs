@@ -23,6 +23,56 @@ namespace SharpPy
         {
             var intType = PyType.IntType;
 
+            // CPython 3.12: Objects/longobject.c:5598-5605, 5652-5684 - long_new / long_subtype_new
+            // __new__(cls, x=0, /) - Create a new int object
+            // For int subclasses (IntEnum, IntFlag), this must preserve the custom type
+            // Note: __new__ is special - 'self' parameter is actually 'cls' (the type)
+            // CPython: tp_new slot, wrapped by WRAP_NEW macro (Objects/typeobject.c)
+            intType.TypeDict["__new__"] = new PyMethodDescriptor(
+                "__new__", intType,
+                (self, args, kwargs) => {
+                    // CPython: __new__ is special: 'self' is the class (cls), not an instance
+                    // When called as: int.__new__(RegexFlag, 64)
+                    // PyMethodDescriptor extracts first arg as 'self', so:
+                    //   self = RegexFlag (the class)
+                    //   args = [64] (remaining arguments)
+                    PyType cls = self as PyType ?? (self as PyClass);
+                    if (cls == null)
+                        throw PyTypeError.Create($"__new__() argument 1 must be a type, not '{self.GetTypeName()}'");
+
+                    // First arg in 'args' (if present) is the value
+                    long value = 0;
+                    if (args.Length > 0)
+                    {
+                        if (args[0] is PyInt intArg)
+                            value = intArg.Value;
+                        else if (args[0] is PyBool boolArg)
+                            value = boolArg.Value ? 1 : 0;
+                        else if (args[0] is PyString strArg)
+                            value = long.Parse(strArg.Value);
+                        else
+                            throw PyTypeError.Create($"int() argument must be a string or a number, not '{args[0].GetTypeName()}'");
+                    }
+
+                    // CPython 3.12: Objects/longobject.c:5603-5605
+                    // if (type != &PyLong_Type)
+                    //     return long_subtype_new(type, x, obase);
+                    // For int subclasses, create PyInt with custom type
+                    // CPython: long_subtype_new allocates via type->tp_alloc which sets ob_type
+                    if (cls != PyType.IntType)
+                    {
+                        // Subclass of int - preserve the custom type
+                        return new PyInt(value, cls);
+                    }
+                    else
+                    {
+                        // Plain int - no custom type needed
+                        return new PyInt(value);
+                    }
+                },
+                minArgs: 0, maxArgs: 1  // After 'self' extraction: 0-1 args (value)
+            );
+
             // CPython 3.12: Objects/longobject.c:5642-5658 - int_bit_length
             // Number of bits necessary to represent self in binary.
             // >>> bin(37)
@@ -375,10 +425,20 @@ namespace SharpPy
 
         public Py_int_t Value { get; }
 
-        public PyInt(Py_int_t value) => Value = value;
+        // CPython 3.12: Objects/longobject.c - PyLongObject inherits ob_type from PyObject
+        // Constructor can optionally set custom type for subclasses (IntEnum, IntFlag)
+        public PyInt(Py_int_t value, PyType? customType = null)
+        {
+            Value = value;
+            if (customType != null)
+            {
+                _customType = customType;  // Inherited from PyObject
+            }
+        }
 
-        public override PyType GetPyType() => PyType.IntType;
-        public override string GetTypeName() => "int";
+        // CPython 3.12: Objects/object.c:350 - Py_TYPE(op) returns ob_type
+        // Uses PyObject's GetPyType() which returns _customType ?? PyType.IntType
+        public override PyType GetPyType() => _customType ?? PyType.IntType;
 
         #endregion
 

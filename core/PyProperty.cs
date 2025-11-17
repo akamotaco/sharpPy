@@ -146,6 +146,80 @@ public interface IDescriptor
                     throw PyTypeError.Create("descriptor 'fdel' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 }
             );
+
+            // CPython 3.12 호환: Descriptor protocol methods
+            // Objects/descrobject.c:1979-1980 property type definition
+            // tp_descr_get = property_descr_get
+            // tp_descr_set = property_descr_set
+            // Python code sees these as __get__, __set__, __delete__ methods
+
+            // __get__ method descriptor - CPython: property_descr_get
+            propType.TypeDict["__get__"] = new PyMethodDescriptor(
+                "__get__",
+                propType,
+                (self, args, kwargs) => {
+                    if (self is not PyProperty prop)
+                        throw PyTypeError.Create("descriptor '__get__' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // __get__(self, instance, owner=None)
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"__get__() takes 2 or 3 positional arguments but {args.Length + 1} were given");
+
+                    PyObject instance = args[0];
+                    PyType owner = args.Length > 1 && args[1] is PyType ownerType ? ownerType : null;
+
+                    // CPython behavior: if instance is None, return the property object itself
+                    if (instance is PyNone)
+                        return prop;
+
+                    return prop.Get(instance, owner);
+                },
+                minArgs: 1,
+                maxArgs: 2
+            );
+
+            // __set__ method descriptor - CPython: property_descr_set (for setting)
+            propType.TypeDict["__set__"] = new PyMethodDescriptor(
+                "__set__",
+                propType,
+                (self, args, kwargs) => {
+                    if (self is not PyProperty prop)
+                        throw PyTypeError.Create("descriptor '__set__' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // __set__(self, instance, value)
+                    if (args.Length != 2)
+                        throw PyTypeError.Create($"__set__() takes exactly 2 arguments ({args.Length} given)");
+
+                    PyObject instance = args[0];
+                    PyObject value = args[1];
+
+                    prop.Set(instance, value);
+                    return PyNone.Instance;
+                },
+                minArgs: 2,
+                maxArgs: 2
+            );
+
+            // __delete__ method descriptor - CPython: property_descr_set (for deleting)
+            propType.TypeDict["__delete__"] = new PyMethodDescriptor(
+                "__delete__",
+                propType,
+                (self, args, kwargs) => {
+                    if (self is not PyProperty prop)
+                        throw PyTypeError.Create("descriptor '__delete__' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // __delete__(self, instance)
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__delete__() takes exactly 1 argument ({args.Length} given)");
+
+                    PyObject instance = args[0];
+
+                    prop.Delete(instance);
+                    return PyNone.Instance;
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
         }
 
         public PyObject Get(PyObject instance, PyType owner)

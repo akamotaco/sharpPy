@@ -128,21 +128,30 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
-            // CPython: 먼저 인스턴스 __dict__ 확인
-            if (InstanceDict.TryGetValue(name, out var value))
-                return value;
+            // CPython 3.12: Objects/object.c:1227-1304 (PyObject_GenericGetAttr)
+            //
+            // IMPORTANT: Do NOT delegate to _strValue.GetAttribute()!
+            // _strValue is a plain PyString without custom type, so its MRO is just [str, object].
+            //
+            // We delegate to base.GetAttribute() which calls GenericGetAttribute().
+            // GenericGetAttribute() will:
+            // 1. Use GetPyType() to get the correct MRO (we override to return _class)
+            // 2. Check for data descriptors in MRO
+            // 3. Check InstanceDict (PyObject.GenericGetAttribute now handles PyStrSubclass)
+            // 4. Check for non-data descriptors in MRO
+            //
+            // This ensures proper attribute lookup order per CPython
 
-            // CPython: 그 다음 클래스 속성 확인
-            if (_class.ClassDict.TryGetValue(name, out var classAttr))
+            // Special case: _value_ attribute for enum members
+            // If not set in InstanceDict, return the underlying string value
+            // This handles enum members during initialization before _value_ is set
+            if (name == "_value_" && !InstanceDict.ContainsKey("_value_"))
             {
-                // Descriptor protocol
-                if (classAttr is IDescriptor descriptor)
-                    return descriptor.Get(this, _class);
-                return classAttr;
+                return _strValue;
             }
 
-            // CPython: str 타입의 메서드/속성 확인
-            return _strValue.GetAttribute(name);
+            // Delegate everything to base class for proper MRO-based lookup
+            return base.GetAttribute(name);
         }
 
         public override void SetAttribute(string name, PyObject value)

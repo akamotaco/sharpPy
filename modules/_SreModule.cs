@@ -12,6 +12,26 @@ namespace SharpPy.Modules
     public static class _SreModule
     {
         /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:2947 (Pattern_Type)
+        /// Pattern 객체의 타입
+        /// </summary>
+        public static PyType PyPatternType { get; private set; }
+
+        /// <summary>
+        /// Static constructor - PyPatternType 초기화
+        /// </summary>
+        static _SreModule()
+        {
+            // CPython 3.12: Modules/_sre/sre.c:2947-3011 (pattern_type_spec)
+            PyPatternType = new PyType("Pattern", new[] { PyType.ObjectType });
+            PyPatternType.TypeDict["__name__"] = new PyString("Pattern");
+            PyPatternType.TypeDict["__module__"] = new PyString("_sre");
+
+            // Pattern methods are added dynamically via PySrePattern.GetAttribute()
+            // This matches CPython's approach where methods are descriptors on the type
+        }
+
+        /// <summary>
         /// CPython 3.12: Modules/_sre/sre.c:3359-3371 (PyInit__sre)
         /// </summary>
         public static PyModule CreateSreModule()
@@ -42,7 +62,10 @@ namespace SharpPy.Modules
             module.ModuleDict["match"] = new PyBuiltinFunction("match", Match);
             module.ModuleDict["search"] = new PyBuiltinFunction("search", Search);
 
-            // SRE_Pattern, SRE_Match 타입은 런타임에서 생성됨
+            // CPython 3.12: Modules/_sre/sre.c:3365-3367
+            // Export Pattern type to module
+            module.ModuleDict["Pattern"] = PyPatternType;
+            module.ModuleDict["SRE_Pattern"] = PyPatternType;  // Alias for compatibility
 
             return module;
         }
@@ -147,8 +170,12 @@ namespace SharpPy.Modules
             _regex = new Regex(pattern, flags);
         }
 
-        public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "SRE_Pattern";
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:2947 (Pattern_Type)
+        /// Returns the Pattern type instead of object type
+        /// </summary>
+        public override PyType GetPyType() => _SreModule.PyPatternType;
+        public override string GetTypeName() => "Pattern";
 
         public override PyObject GetAttribute(string name)
         {
