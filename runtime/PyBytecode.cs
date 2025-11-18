@@ -715,7 +715,10 @@ namespace SharpPy
         // CPython 3.12: Convert byte offset to instruction index, accounting for inline cache
         // Reverse of InstructionIndexToByteOffset
         // CRITICAL: Must scan through instructions and accumulate word counts until we reach target byte offset
+        // BUG FIX: Instructions array ALREADY contains CACHE instructions as separate entries
+        // So we should NOT add GetInlineCacheSize() - just count each instruction as 1 word (or more for EXTENDED_ARG)
         // Reference: docs/offset_vs_index_analysis.md
+        // Reference: Python/assemble.c:150-161
         public int ByteOffsetToInstructionIndex(int byteOffset)
         {
             if (byteOffset < 0)
@@ -732,6 +735,10 @@ namespace SharpPy
                     return i;
                 }
 
+                // CRITICAL FIX: The Instructions array ALREADY has CACHE instructions inserted
+                // So we should count each instruction individually (including CACHE as 1 word each)
+                // We do NOT add GetInlineCacheSize() because those CACHE instructions are already in the array!
+                // Only count the instruction itself (may be >1 word if it has EXTENDED_ARG prefix)
                 int wordCount = PyAssemble.CountInstructionWords(Instructions[i]);
                 currentByteOffset += wordCount * INSTRUCTION_WORD_SIZE;
 

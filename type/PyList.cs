@@ -434,13 +434,35 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Handle slice assignment: list[start:stop] = values
-                if (!(value is PyList valueList))
+                // CPython 3.12: Objects/listobject.c:716-856 - list_ass_subscript
+                // Must accept any iterable, not just lists
+                PyList valueList;
+                if (value is PyList pl)
                 {
-                    throw PyTypeError.Create("can only assign a list to a slice");
+                    valueList = pl;
                 }
-                
+                else
+                {
+                    // Convert iterable to list
+                    var tempList = new List<PyObject>();
+                    var iterator = value.GetIterator();
+                    try
+                    {
+                        while (true)
+                        {
+                            var item = iterator.Next();
+                            tempList.Add(item);
+                        }
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        // Normal iteration end
+                    }
+                    valueList = new PyList(tempList);
+                }
+
                 var (start, stop, step) = slice.Indices(_items.Count);
-                
+
                 if (step == 1)
                 {
                     // Simple slice assignment: replace items[start:stop] with valueList
@@ -455,7 +477,7 @@ namespace SharpPy
                     {
                         throw PyValueError.Create($"attempt to assign sequence of size {valueList.Items.Length} to extended slice of size {sliceIndices.Length}");
                     }
-                    
+
                     for (int i = 0; i < sliceIndices.Length; i++)
                     {
                         _items[sliceIndices[i]] = valueList.Items[i];

@@ -128,18 +128,35 @@ namespace SharpPy
     {
         private readonly PyList _list;
         private int _index;
+        private static int _totalCallCount = 0;
+        private readonly int _listLength;
 
         public PyListIterator(PyList list)
         {
             _list = list ?? throw new ArgumentNullException(nameof(list));
             _index = 0;
+            _listLength = _list.Length();
+            Console.WriteLine($"[DEBUG] PyListIterator created: list length = {_listLength}");
         }
 
         public override PyObject Next()
         {
+            _totalCallCount++;
+            if (_totalCallCount % 10000 == 0)
+            {
+                Console.WriteLine($"[DEBUG] PyListIterator.Next() called {_totalCallCount} times total");
+            }
+            if (_index % 1000 == 0 && _index > 0)
+            {
+                Console.WriteLine($"[DEBUG] PyListIterator.Next(): _index={_index}, list length={_listLength}");
+            }
+
             if (_index >= _list.Length())
+            {
+                Console.WriteLine($"[DEBUG] PyListIterator.Next(): Reached end at _index={_index}, raising StopIteration");
                 throw PyStopIteration.Create();
-            
+            }
+
             var item = _list.GetItem(_index);
             _index++;
             return item;
@@ -299,7 +316,7 @@ namespace SharpPy
         {
             if (!_enumerator.MoveNext())
                 throw PyStopIteration.Create();
-            
+
             return _enumerator.Current;
         }
 
@@ -388,15 +405,26 @@ namespace SharpPy
     {
         private readonly PyObject _sequence;
         private int _index;
+        private static int _totalCallCount = 0;
 
         public PyGenericIterator(PyObject sequence)
         {
             _sequence = sequence ?? throw new ArgumentNullException(nameof(sequence));
             _index = 0;
+            Console.WriteLine($"[DEBUG] PyGenericIterator created for {_sequence.GetTypeName()}");
         }
 
         public override PyObject Next()
         {
+            _totalCallCount++;
+            if (_totalCallCount % 1000 == 0)
+            {
+                Console.WriteLine($"[DEBUG] PyGenericIterator.Next() called {_totalCallCount} times total");
+            }
+            if (_index % 100 == 0 && _index > 0)
+            {
+                Console.WriteLine($"[DEBUG] PyGenericIterator.Next(): _index={_index} for {_sequence.GetTypeName()}");
+            }
             try
             {
                 var result = _sequence.GetAttribute("__getitem__").Call(new PyObject[] { new PyInt(_index) }, null);
@@ -405,10 +433,12 @@ namespace SharpPy
             }
             catch (PythonException ex) when (ex.PyException is PyIndexError)
             {
+                Console.WriteLine($"[DEBUG] PyGenericIterator.Next(): IndexError at _index={_index}, raising StopIteration");
                 throw PyStopIteration.Create();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"[DEBUG] PyGenericIterator.Next(): Exception at _index={_index}: {ex.GetType().Name}");
                 throw PyStopIteration.Create();
             }
         }

@@ -1062,9 +1062,13 @@ namespace SharpPy
 #endif
             // 🛡️ 무한루프 방지 안전장치
             var startTime = DateTime.UtcNow;
-            var maxInstructions = 1000000; // 최대 100만 명령어
+            var maxInstructions = 50_000; // 최대 5만 명령어 (for debugging infinite loops)
             var maxTimeSeconds = 30; // 최대 30초
             var instructionCount = 0;
+
+            // DEBUG: Track last instructions for debugging infinite loops
+            var lastInstructions = new System.Collections.Generic.Queue<string>();
+            const int maxLastInstructions = 100; // Increase to 100 for better analysis
 
             // CPython 3.12: Extended argument accumulation for EXTENDED_ARG support
             int extendedArg = 0;
@@ -1084,11 +1088,24 @@ namespace SharpPy
                         }
                         if (instructionCount > maxInstructions)
                         {
+                            Console.WriteLine($"\n[DEBUG] Instruction limit exceeded. Last {lastInstructions.Count} instructions:");
+                            foreach (var log in lastInstructions)
+                            {
+                                Console.WriteLine($"  {log}");
+                            }
+                            Console.WriteLine($"[DEBUG] Current frame: {frame.Code.Name}");
+                            Console.WriteLine($"[DEBUG] Current instruction pointer: {frame.InstructionPointer}");
                             throw new PythonException(new PyRuntimeError($"Instruction limit exceeded: {instructionCount} instructions"));
                         }
                     }
 
                     var instruction = frame.Code.Instructions[frame.InstructionPointer];
+
+                    // DEBUG: Track instruction for debugging
+                    var instructionLog = $"[{instructionCount}] IP={frame.InstructionPointer} {instruction.OpCode} arg={instruction.Argument} in {frame.Code.Name}";
+                    if (lastInstructions.Count >= maxLastInstructions)
+                        lastInstructions.Dequeue();
+                    lastInstructions.Enqueue(instructionLog);
 
                     // CPython 3.12: Handle EXTENDED_ARG by accumulating argument bits
                     // EXTENDED_ARG shifts left by 8 bits and ORs with next instruction's arg
@@ -1948,6 +1965,19 @@ namespace SharpPy
                         Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
 
+                    // DEBUG: Log call details if in _compile
+                    if (frame.Code.Name == "_compile")
+                    {
+                        var callableName = "unknown";
+                        if (actualCallable is PyFunction pf) callableName = pf.Name;
+                        else if (actualCallable is PyBuiltinFunction pbf) callableName = pbf.Name;
+                        else if (actualCallable is PyMethod pm) callableName = pm.ToString();
+                        else callableName = actualCallable.GetTypeName();
+
+                        var argsStr = string.Join(", ", finalArgs.Take(3).Select(a => a?.GetTypeName() ?? "null"));
+                        Console.WriteLine($"[DEBUG CALL] Calling {callableName}({argsStr}...)");
+                    }
+
                     // CPython 3.12: 키워드 인수 처리
                     if (kwNames != null && kwNames.Items.Length > 0)
                     {
@@ -1973,6 +2003,14 @@ namespace SharpPy
                         {
                             newCallResult = actualCallable.Call(finalArgs, null);
                         }
+                    }
+
+                    // DEBUG: Log call result
+                    if (frame.Code.Name == "_compile")
+                    {
+                        var resultStr = newCallResult?.GetTypeName() ?? "null";
+                        var resultBool = newCallResult != null ? newCallResult.PyBoolValue().ToString() : "null";
+                        Console.WriteLine($"[DEBUG CALL] Result: {resultStr}, PyBoolValue: {resultBool}");
                     }
 
                     frame.ValueStack.Push(newCallResult);

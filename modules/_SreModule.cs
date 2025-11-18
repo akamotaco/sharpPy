@@ -17,25 +17,21 @@ namespace SharpPy.Modules
         /// </summary>
         public static PyType PyPatternType { get; private set; }
 
-        /// <summary>
-        /// Static constructor - PyPatternType 초기화
-        /// </summary>
-        static _SreModule()
-        {
-            // CPython 3.12: Modules/_sre/sre.c:2947-3011 (pattern_type_spec)
-            PyPatternType = new PyType("Pattern", new[] { PyType.ObjectType });
-            PyPatternType.TypeDict["__name__"] = new PyString("Pattern");
-            PyPatternType.TypeDict["__module__"] = new PyString("_sre");
-
-            // Pattern methods are added dynamically via PySrePattern.GetAttribute()
-            // This matches CPython's approach where methods are descriptors on the type
-        }
 
         /// <summary>
         /// CPython 3.12: Modules/_sre/sre.c:3359-3371 (PyInit__sre)
         /// </summary>
         public static PyModule CreateSreModule()
         {
+            // CPython 3.12: Modules/_sre/sre.c:2947-3011 (pattern_type_spec)
+            // Lazy initialization to avoid static constructor issues
+            if (PyPatternType == null)
+            {
+                PyPatternType = new PyType("Pattern", new[] { PyType.ObjectType });
+                PyPatternType.TypeDict["__name__"] = new PyString("Pattern");
+                PyPatternType.TypeDict["__module__"] = new PyString("_sre");
+            }
+
             var module = new PyModule("_sre", "<_sre C module>");
 
             // CPython 3.12: Modules/_sre/sre.c:3315-3332 (sre_exec - module constants)
@@ -61,6 +57,13 @@ namespace SharpPy.Modules
             module.ModuleDict["compile"] = new PyBuiltinFunction("compile", Compile);
             module.ModuleDict["match"] = new PyBuiltinFunction("match", Match);
             module.ModuleDict["search"] = new PyBuiltinFunction("search", Search);
+
+            // CPython 3.12: Modules/_sre/sre.c:377-431
+            // Case checking and conversion functions (required by re._compiler)
+            module.ModuleDict["ascii_iscased"] = new PyBuiltinFunction("ascii_iscased", AsciiIscased);
+            module.ModuleDict["unicode_iscased"] = new PyBuiltinFunction("unicode_iscased", UnicodeIscased);
+            module.ModuleDict["ascii_tolower"] = new PyBuiltinFunction("ascii_tolower", AsciiTolower);
+            module.ModuleDict["unicode_tolower"] = new PyBuiltinFunction("unicode_tolower", UnicodeTolower);
 
             // CPython 3.12: Modules/_sre/sre.c:3365-3367
             // Export Pattern type to module
@@ -135,6 +138,77 @@ namespace SharpPy.Modules
             {
                 throw PyRegexError.Create($"Invalid regular expression: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:377-385 (_sre_ascii_iscased_impl)
+        /// Check if ASCII character has case (is alphabetic)
+        /// </summary>
+        public static PyObject AsciiIscased(PyObject[] args)
+        {
+            if (args.Length == 0)
+                throw PyTypeError.Create("ascii_iscased() missing 1 required positional argument: 'character'");
+
+            int ch = args[0].ToInt();
+
+            // CPython: ch < 128 && Py_ISALPHA(ch)
+            // Py_ISALPHA checks if character is alphabetic (A-Z, a-z)
+            bool result = ch < 128 && char.IsLetter((char)ch);
+            return PyBool.FromBool(result);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:393-401 (_sre_unicode_iscased_impl)
+        /// Check if Unicode character has case
+        /// </summary>
+        public static PyObject UnicodeIscased(PyObject[] args)
+        {
+            if (args.Length == 0)
+                throw PyTypeError.Create("unicode_iscased() missing 1 required positional argument: 'character'");
+
+            int ch = args[0].ToInt();
+            char c = (char)ch;
+
+            // CPython: ch != sre_lower_unicode(ch) || ch != sre_upper_unicode(ch)
+            // A character is cased if converting to lower/upper changes it
+            bool result = c != char.ToLowerInvariant(c) || c != char.ToUpperInvariant(c);
+            return PyBool.FromBool(result);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:409-416 (_sre_ascii_tolower_impl)
+        /// Convert ASCII character to lowercase
+        /// </summary>
+        public static PyObject AsciiTolower(PyObject[] args)
+        {
+            if (args.Length == 0)
+                throw PyTypeError.Create("ascii_tolower() missing 1 required positional argument: 'character'");
+
+            int ch = args[0].ToInt();
+
+            // CPython: sre_lower_ascii(character)
+            // ASCII lowercase: if ch is 'A'-'Z', return 'a'-'z', otherwise return ch
+            if (ch >= 'A' && ch <= 'Z')
+                return new PyInt(ch + ('a' - 'A'));
+            return new PyInt(ch);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:424-431 (_sre_unicode_tolower_impl)
+        /// Convert Unicode character to lowercase
+        /// </summary>
+        public static PyObject UnicodeTolower(PyObject[] args)
+        {
+            if (args.Length == 0)
+                throw PyTypeError.Create("unicode_tolower() missing 1 required positional argument: 'character'");
+
+            int ch = args[0].ToInt();
+
+            // CPython: sre_lower_unicode(character)
+            // Use C# char.ToLowerInvariant for Unicode case mapping
+            char c = (char)ch;
+            char lower = char.ToLowerInvariant(c);
+            return new PyInt((int)lower);
         }
 
         #endregion

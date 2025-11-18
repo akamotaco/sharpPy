@@ -91,6 +91,55 @@ namespace SharpPy
                 minArgs: 1, maxArgs: 1
             );
 
+            // CPython 3.12: Objects/tupleobject.c:440-486 - tupleconcat
+            // CPython 3.12: Objects/tupleobject.c:753 - sq_concat mapped to __add__
+            // tuple + tuple -> concatenated tuple
+            tupleType.TypeDict["__add__"] = new PyMethodDescriptor(
+                "__add__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__add__() takes exactly 1 argument ({args.Length} given)");
+
+                    if (self is not PyTuple tuple)
+                        throw PyTypeError.Create($"descriptor '__add__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+
+                    return tuple.Add(args[0]);
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
+            // CPython 3.12: Objects/tupleobject.c:487-540 - tuplerepeat
+            // CPython 3.12: Objects/tupleobject.c:754 - sq_repeat mapped to __mul__ and __rmul__
+            // tuple * int -> repeated tuple
+            tupleType.TypeDict["__mul__"] = new PyMethodDescriptor(
+                "__mul__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__mul__() takes exactly 1 argument ({args.Length} given)");
+
+                    if (self is not PyTuple tuple)
+                        throw PyTypeError.Create($"descriptor '__mul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+
+                    return tuple.Multiply(args[0]);
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
+            // CPython 3.12: tuple.__rmul__ is same as __mul__ (sequence repeat is commutative)
+            tupleType.TypeDict["__rmul__"] = new PyMethodDescriptor(
+                "__rmul__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__rmul__() takes exactly 1 argument ({args.Length} given)");
+
+                    if (self is not PyTuple tuple)
+                        throw PyTypeError.Create($"descriptor '__rmul__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+
+                    return tuple.Multiply(args[0]);
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
             // CPython 3.12: Objects/tupleobject.c:576
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
             tupleType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
@@ -269,8 +318,9 @@ namespace SharpPy
 
         /// <summary>
         /// 튜플 연결 (+ 연산자)
+        /// CPython 3.12: Objects/tupleobject.c:440-486 - tupleconcat
         /// </summary>
-        public PyObject Add(PyObject other)
+        public override PyObject Add(PyObject other)
         {
             if (other is PyTuple otherTuple)
             {
@@ -286,8 +336,9 @@ namespace SharpPy
 
         /// <summary>
         /// 튜플 반복 (* 연산자)
+        /// CPython 3.12: Objects/tupleobject.c:487-540 - tuplerepeat
         /// </summary>
-        public PyObject Multiply(PyObject other)
+        public override PyObject Multiply(PyObject other)
         {
             if (other is PyInt count)
             {

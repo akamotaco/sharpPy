@@ -229,16 +229,27 @@ namespace SharpPy
 
                 // Recalculate block offsets based on current instruction sizes
                 // CPython 3.12: Python/flowgraph.c:481-499
+                // CRITICAL: Must account for inline cache when calculating offsets
+                // because EmitInstructions() will add CACHE instructions later
                 int currentIndex = 0;
                 foreach (var block in cfg.AllBlocks)
                 {
                     block.Offset = currentIndex;
+                    #if DEBUG_COMPILER_LOG
+                    string labelInfo = block.Label >= 0 ? $"L{block.Label}" : "no_label";
+                    Console.WriteLine($"[assemble] Block {labelInfo} offset = {currentIndex}, {block.Instructions.Count} instructions");
+                    #endif
 
                     foreach (var instr in block.Instructions)
                     {
-                        // Count instruction words (1 + EXTENDED_ARG count)
-                        int instrWords = CountInstructionWords(instr);
-                        currentIndex += instrWords;
+                        // CPython 3.12: Python/compile.c:163 - instr_size includes CACHE
+                        // Count instruction words (1 + EXTENDED_ARG count + inline cache)
+                        // This MUST match what EmitInstructions() will actually produce
+                        int instrSize = CountInstructionWords(instr);  // Already includes CACHE
+                        #if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"     {instr.OpCode} at {currentIndex} → +{instrSize} = {currentIndex + instrSize}");
+                        #endif
+                        currentIndex += instrSize;
                     }
                 }
 
@@ -252,7 +263,9 @@ namespace SharpPy
                     for (int i = 0; i < block.Instructions.Count; i++)
                     {
                         var instr = block.Instructions[i];
-                        int oldInstrWords = CountInstructionWords(instr);
+                        // CPython 3.12: Python/flowgraph.c:499 - int isize = instr_size(instr);
+                        // instr_size includes EXTENDED_ARG + 1 + CACHE
+                        int oldInstrSize = CountInstructionWords(instr);  // Already includes CACHE
 
                         if (IsJumpInstruction(instr.OpCode))
                         {
@@ -262,13 +275,21 @@ namespace SharpPy
                             // TargetBlock.Offset is dynamically updated each iteration
                             int targetIndex = instr.TargetBlock?.Offset ?? instr.Argument;
 
-                            // CPython 3.12: Python/flowgraph.c:502
+                            // CPython 3.12: Python/flowgraph.c:502-504
                             // Jump offsets are computed relative to the instruction pointer
                             // AFTER fetching the jump instruction
-                            // CRITICAL BUG FIX: Must add oldInstrWords AFTER getting instrIndex
-                            // because instrIndex is the START of current instruction,
-                            // and we need the position AFTER this instruction
-                            int currentIndexAfter = instrIndex + oldInstrWords;
+                            // bsize += isize; (where isize includes CACHE)
+                            int currentIndexAfter = instrIndex + oldInstrSize;
+
+                            #if DEBUG_COMPILER_LOG
+                            if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || instr.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
+                            {
+                                Console.WriteLine($"🔍 JUMP DEBUG: {instr.OpCode} at instrIndex={instrIndex} (byte {instrIndex*2})");
+                                Console.WriteLine($"   oldInstrSize={oldInstrSize} (including CACHE)");
+                                Console.WriteLine($"   currentIndexAfter={currentIndexAfter}");
+                                Console.WriteLine($"   targetIndex={targetIndex} (byte {targetIndex*2})");
+                            }
+                            #endif
 
                             // Determine jump direction and opcode
                             // CPython 3.12: Python/flowgraph.c:506-512
@@ -305,6 +326,13 @@ namespace SharpPy
                                 jumpArg = targetIndex - currentIndexAfter;
                             }
 
+                            #if DEBUG_COMPILER_LOG
+                            if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || instr.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
+                            {
+                                Console.WriteLine($"   jumpArg={jumpArg} (calculated: {targetIndex} - {currentIndexAfter})");
+                            }
+                            #endif
+
                             // Update instruction with new delta and opcode
                             var newInstr = new ByteCodeInstruction(
                                 finalOpCode,
@@ -316,12 +344,12 @@ namespace SharpPy
                                 instr.ExceptBlock
                             );
 
-                            // Check if instruction size changed
-                            int newInstrWords = CountInstructionWords(newInstr);
-                            if (oldInstrWords != newInstrWords)
+                            // Check if instruction size changed (Python/flowgraph.c:515-517)
+                            int newInstrSize = CountInstructionWords(newInstr);
+                            if (oldInstrSize != newInstrSize)
                             {
                                 #if DEBUG_COMPILER_LOG
-                                Console.WriteLine($"[assemble]   Instruction size changed: {instr.OpCode} at block offset {block.Offset}, old={oldInstrWords}, new={newInstrWords}, jumpArg={jumpArg}");
+                                Console.WriteLine($"[assemble]   Instruction size changed: {instr.OpCode} at block offset {block.Offset}, old={oldInstrSize}, new={newInstrSize}, jumpArg={jumpArg}");
                                 #endif
                                 needRecompile = true;  // EXTENDED_ARG count changed
                             }
@@ -329,7 +357,9 @@ namespace SharpPy
                             block.Instructions[i] = newInstr;
                         }
 
-                        instrIndex += oldInstrWords;
+                        // CPython 3.12: Python/flowgraph.c:504 - bsize += isize;
+                        // Advance instrIndex by instruction size (already includes CACHE)
+                        instrIndex += oldInstrSize;
                     }
                 }
 

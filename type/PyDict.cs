@@ -52,15 +52,26 @@ namespace SharpPy
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
 
+                    var keyType = key != null ? key.GetTypeName() : "null";
+                    var keyStr = key != null ? key.ToRepr().ToString() : "null";
+                    var defaultStr = defaultValue != null ? defaultValue.ToRepr().ToString() : "null";
+                    Console.WriteLine($"[DEBUG dict.get] key type={keyType}, key={keyStr}, default={defaultStr}");
+
                     // For C# PyDict, use direct method
                     if (self is PyDict dict)
-                        return dict.Get(key, defaultValue);
+                    {
+                        var result = dict.Get(key, defaultValue);
+                        var resultStr = result != null ? result.ToRepr().ToString() : "null";
+                        Console.WriteLine($"[DEBUG dict.get] result={resultStr}");
+                        return result;
+                    }
 
                     // For Python dict subclasses
                     var contains = self.Contains(key);
                     if (contains == PyBool.True)
                         return self.GetItem(key);
 
+                    Console.WriteLine($"[DEBUG dict.get] returning default={defaultStr}");
                     return defaultValue;
                 },
                 minArgs: 1, maxArgs: 2
@@ -270,17 +281,20 @@ namespace SharpPy
             // CPython 3.12: Objects/dictobject.c:3657-3660 - dict_fromkeys
             // dict.fromkeys(S[,v]) -> New dict with keys from S and values equal to v.
             // v defaults to None.
-            dictType.TypeDict["fromkeys"] = new PyMethodDescriptor(
+            // IMPORTANT: fromkeys is a classmethod, not an instance method!
+            // CPython 3.12: Objects/dictobject.c:4108 - METH_CLASS | METH_FASTCALL | METH_KEYWORDS
+            dictType.TypeDict["fromkeys"] = new PyClassMethodDescriptor(
                 "fromkeys", dictType,
-                (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"fromkeys expected at most 2 arguments, got {args.Length}");
+                new PyBuiltinFunction("fromkeys", (args, kwargs) => {
+                    // First arg is the class (from classmethod binding)
+                    // Remaining args are: keys, [value]
+                    if (args.Length < 2 || args.Length > 3)
+                        throw PyTypeError.Create($"fromkeys expected at most 2 arguments, got {args.Length - 1}");
 
-                    var keys = args[0];
-                    var value = args.Length == 2 ? args[1] : PyNone.Instance;
+                    var keys = args[1];
+                    var value = args.Length == 3 ? args[2] : PyNone.Instance;
                     return PyDict.FromKeys(keys, value);
-                },
-                minArgs: 1, maxArgs: 2
+                })
             );
 
             // CPython 3.12: __getitem__ slot (mp_subscript)
@@ -623,7 +637,10 @@ namespace SharpPy
         /// </summary>
         public override PyBool Contains(PyObject key)
         {
-            return PyBool.FromBool(_dict.ContainsKey(key));
+            var result = _dict.ContainsKey(key);
+            var keyStr = key != null ? key.ToRepr().ToString() : "null";
+            Console.WriteLine($"[DEBUG dict.Contains] key={keyStr}, result={result}");
+            return PyBool.FromBool(result);
         }
 
         /// <summary>

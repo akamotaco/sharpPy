@@ -14,6 +14,13 @@ namespace SharpPy
         public int BlockId { get; set; }
 
         /// <summary>
+        /// CPython 3.12: Label for this block if it's a jump target
+        /// Include/internal/pycore_flowgraph.h:40 - _PyCfgJumpTargetLabel b_label
+        /// -1 means not a jump target
+        /// </summary>
+        public int Label { get; set; } = -1;
+
+        /// <summary>
         /// Instructions in this block
         /// </summary>
         public List<ByteCodeInstruction> Instructions { get; set; }

@@ -2091,7 +2091,10 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Simple decorator: @decorator - just load the function
+                    // CPython 3.12: Simple decorator: @decorator - needs PUSH_NULL before loading
+                    // Python/bytecodes.c:2770-2788 - CALL instruction pops: args[oparg], callable, method (NULL)
+                    // So we must push NULL before the decorator function
+                    EmitInstruction(ByteCodeOp.PUSH_NULL);
                     CompileExpression(decorator.DecoratorFunction);
                 }
             }
@@ -5755,9 +5758,10 @@ namespace SharpPy
             }
 
             // CPython 3.12: Regular class compilation (no type parameters)
-            // PUSH_NULL 먼저, 그 다음 __build_class__ function 로드
-            EmitInstruction(ByteCodeOp.PUSH_NULL);
-            EmitLoadName("__build_class__");
+            // CPython 3.12: Python/bytecodes.c:987 - LOAD_BUILD_CLASS opcode
+            // SharpPy doesn't have LOAD_BUILD_CLASS, so we use LOAD_GLOBAL with pushNull=true
+            // This pushes NULL then __build_class__, equivalent to PUSH_NULL + LOAD_GLOBAL
+            EmitLoadGlobal("__build_class__", pushNull: true);
 
             // Compile class body into a function
             var classBodyName = $"<class_body_{cls.Name}>";
@@ -6142,8 +6146,9 @@ namespace SharpPy
                 EmitStoreDeref(".type_params");
                 
                 // 5. Create regular class with __build_class__
-                EmitInstruction(ByteCodeOp.PUSH_NULL);
-                EmitLoadName("__build_class__");
+                // CPython 3.12: Python/bytecodes.c:987 - LOAD_BUILD_CLASS opcode
+                // SharpPy uses LOAD_GLOBAL with pushNull=true instead
+                EmitLoadGlobal("__build_class__", pushNull: true);
                 
                 // 6. Load closure for class body (type parameters) - CPython 3.12 uses LOAD_CLOSURE
                 EmitLoadClosure(".type_params");

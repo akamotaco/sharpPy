@@ -1537,7 +1537,24 @@ namespace SharpPy
                 return _dictStorage.GetIterator();
             }
 
-            // No __iter__ method found
+            // CPython 3.12: Objects/abstract.c - PyObject_GetIter fallback to PySeqIter_New
+            // If no __iter__ method, check for __getitem__ (sequence protocol)
+            // Try to check if __getitem__ exists
+            try
+            {
+                var getitemAttr = GetAttribute("__getitem__");
+                if (getitemAttr != null && getitemAttr.IsCallable())
+                {
+                    // Object has __getitem__, create a generic iterator
+                    return new PyGenericIterator(this);
+                }
+            }
+            catch (PythonException)
+            {
+                // __getitem__ doesn't exist, fall through to error
+            }
+
+            // No __iter__ or __getitem__ method found
             return base.GetIterator();
         }
 
