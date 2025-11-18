@@ -55,7 +55,8 @@ namespace SharpPy
             int offset = 0;
             int currentIndex = 0;
 
-            foreach (var block in cfg.AllBlocks)
+            // CRITICAL: Must iterate using b_next (execution order)
+            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
             {
                 foreach (var instr in block.Instructions)
                 {
@@ -82,7 +83,8 @@ namespace SharpPy
         {
             int offset = 0;
 
-            foreach (var block in cfg.AllBlocks)
+            // CRITICAL: Must iterate using b_next (execution order)
+            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
             {
                 block.Offset = offset;
 
@@ -231,8 +233,10 @@ namespace SharpPy
                 // CPython 3.12: Python/flowgraph.c:481-499
                 // CRITICAL: Must account for inline cache when calculating offsets
                 // because EmitInstructions() will add CACHE instructions later
+                // CRITICAL: Must iterate using b_next (execution order), NOT AllBlocks (creation order)!
+                // CPython: for (basicblock *b = entryblock; b != NULL; b = b->b_next)
                 int currentIndex = 0;
-                foreach (var block in cfg.AllBlocks)
+                for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
                 {
                     block.Offset = currentIndex;
                     #if DEBUG_COMPILER_LOG
@@ -254,7 +258,8 @@ namespace SharpPy
                 }
 
                 // Update jump arguments based on new offsets
-                foreach (var block in cfg.AllBlocks)
+                // CRITICAL: Must iterate using b_next (execution order), NOT AllBlocks (creation order)!
+                for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
                 {
                     // CPython 3.12: Python/flowgraph.c:500-516
                     // bsize tracks the current position WITHIN the block, starting from block offset
@@ -378,7 +383,8 @@ namespace SharpPy
         {
             var result = new List<ByteCodeInstruction>();
 
-            foreach (var block in cfg.AllBlocks)
+            // CRITICAL: Must iterate using b_next (execution order)
+            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
             {
                 foreach (var instr in block.Instructions)
                 {
@@ -531,7 +537,8 @@ namespace SharpPy
             var blockToByteOffset = new Dictionary<BasicBlock, int>();
             int currentByteOffset = 0;
 
-            foreach (var block in cfg.AllBlocks)
+            // CRITICAL: Must iterate using b_next (execution order)
+            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
             {
                 // Record the starting byte offset of this block
                 blockToByteOffset[block] = currentByteOffset;

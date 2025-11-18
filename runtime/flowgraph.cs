@@ -213,6 +213,16 @@ namespace SharpPy
 
             }
 
+            // CRITICAL: Link ALL blocks in sorted order via Next (CPython's b_next linked list)
+            // CPython: Python/flowgraph.c:243 - g->g_curblock->b_next = block
+            // This ensures ALL blocks (including exception handlers) are in the iteration chain
+            for (int i = 0; i < sortedStarts.Count - 1; i++)
+            {
+                var block = indexToBlock[sortedStarts[i]];
+                var nextBlock = indexToBlock[sortedStarts[i + 1]];
+                block.Next = nextBlock;
+            }
+
             // CPython 3.12 pattern: Per-block ExceptStack
             // Each block carries its own exception stack state
             // Store ExceptStack for each block (block start index → ExceptStack)
@@ -551,27 +561,19 @@ namespace SharpPy
             Dictionary<int, BasicBlock> indexToBlock)
         {
             // For each block, link to successors
+            // NOTE: block.Next is already set globally in CreateBasicBlocks() for ALL blocks
+            // Here we only set Successors (control flow targets), not Next (iteration order)
             for (int i = 0; i < cfg.AllBlocks.Count; i++)
             {
                 var block = cfg.AllBlocks[i];
 
-                // Empty blocks always fall through to next block
+                // Empty blocks don't have jump successors
                 if (block.Instructions.Count == 0)
                 {
-                    if (i + 1 < cfg.AllBlocks.Count)
-                    {
-                        block.Next = cfg.AllBlocks[i + 1];
-                    }
                     continue;
                 }
 
                 var lastInstr = block.Instructions[block.Instructions.Count - 1];
-
-                // Set fallthrough (next block)
-                if (i + 1 < cfg.AllBlocks.Count && !IsUnconditionalJump(lastInstr.OpCode))
-                {
-                    block.Next = cfg.AllBlocks[i + 1];
-                }
 
                 // Set jump successors
                 if (IsJumpInstruction(lastInstr.OpCode))
