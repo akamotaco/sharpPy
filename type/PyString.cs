@@ -390,11 +390,17 @@ namespace SharpPy
                     if (args.Length >= 3 && args[2] is PyInt endInt)
                         end = (int)endInt.Value;
 
-                    // Normalize indices
+                    // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
+                    // Normalize negative indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
-                    if (end > str.Value.Length) end = str.Value.Length;
-                    if (start > end) return new PyInt(-1);
+
+                    // Clamp to valid range
+                    start = Math.Max(0, Math.Min(start, str.Value.Length));
+                    end = Math.Max(0, Math.Min(end, str.Value.Length));
+
+                    // Empty range check
+                    if (start >= end) return new PyInt(-1);
 
                     int index = str.Value.IndexOf(sub.Value, start, end - start);
                     return new PyInt(index);
@@ -423,11 +429,16 @@ namespace SharpPy
                     if (args.Length >= 3 && args[2] is PyInt endInt)
                         end = (int)endInt.Value;
 
-                    // Normalize indices
+                    // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
+                    // Normalize negative indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
-                    if (end > str.Value.Length) end = str.Value.Length;
-                    if (start > end)
+
+                    // Clamp to valid range
+                    start = Math.Max(0, Math.Min(start, str.Value.Length));
+                    end = Math.Max(0, Math.Min(end, str.Value.Length));
+
+                    if (start >= end)
                         throw PyValueError.Create("substring not found");
 
                     int index = str.Value.IndexOf(sub.Value, start, end - start);
@@ -459,13 +470,22 @@ namespace SharpPy
                     if (args.Length >= 3 && args[2] is PyInt endInt)
                         end = (int)endInt.Value;
 
-                    // Normalize indices
+                    // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_rfind
+                    // Normalize negative indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
-                    if (end > str.Value.Length) end = str.Value.Length;
-                    if (start > end) return new PyInt(-1);
 
-                    int index = str.Value.LastIndexOf(sub.Value, start, end - start);
+                    // Clamp to valid range
+                    start = Math.Max(0, Math.Min(start, str.Value.Length));
+                    end = Math.Max(0, Math.Min(end, str.Value.Length));
+
+                    if (start >= end) return new PyInt(-1);
+
+                    // C# LastIndexOf: searches backwards from startIndex for count characters
+                    // Python rfind: searches in range [start, end)
+                    // So we search backwards from (end - 1) for (end - start) characters
+                    if (end == 0) return new PyInt(-1);
+                    int index = str.Value.LastIndexOf(sub.Value, end - 1, end - start);
                     return new PyInt(index);
                 },
                 minArgs: 1, maxArgs: 3
@@ -492,14 +512,23 @@ namespace SharpPy
                     if (args.Length >= 3 && args[2] is PyInt endInt)
                         end = (int)endInt.Value;
 
-                    // Normalize indices
+                    // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_rindex
+                    // Normalize negative indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
-                    if (end > str.Value.Length) end = str.Value.Length;
-                    if (start > end)
+
+                    // Clamp to valid range
+                    start = Math.Max(0, Math.Min(start, str.Value.Length));
+                    end = Math.Max(0, Math.Min(end, str.Value.Length));
+
+                    if (start >= end)
                         throw PyValueError.Create("substring not found");
 
-                    int index = str.Value.LastIndexOf(sub.Value, start, end - start);
+                    // C# LastIndexOf: searches backwards from startIndex for count characters
+                    // Python rindex: searches in range [start, end)
+                    if (end == 0)
+                        throw PyValueError.Create("substring not found");
+                    int index = str.Value.LastIndexOf(sub.Value, end - 1, end - start);
                     if (index == -1)
                         throw PyValueError.Create("substring not found");
                     return new PyInt(index);
@@ -531,11 +560,16 @@ namespace SharpPy
                     if (args.Length >= 3 && args[2] is PyInt endInt)
                         end = (int)endInt.Value;
 
-                    // Normalize indices
+                    // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_count
+                    // Normalize negative indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
-                    if (end > str.Value.Length) end = str.Value.Length;
-                    if (start > end) return new PyInt(0);
+
+                    // Clamp to valid range
+                    start = Math.Max(0, Math.Min(start, str.Value.Length));
+                    end = Math.Max(0, Math.Min(end, str.Value.Length));
+
+                    if (start >= end) return new PyInt(0);
 
                     int count = 0;
                     int pos = start;
