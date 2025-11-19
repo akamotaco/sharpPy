@@ -360,6 +360,21 @@ namespace SharpPy
         }
     }
 
+    // CPython 3.12: Objects/exceptions.c - SystemError
+    // Internal error in the interpreter
+    public class PySystemError : PyException
+    {
+        public PySystemError(string message = "") : base(message) { }
+        public override PyType GetPyType() => PyType.SystemErrorType;
+        public override string GetTypeName() => "SystemError";
+
+        public new static System.Exception Create(string message = "")
+        {
+            var pyException = new PySystemError(message);
+            return new PythonException(pyException);
+        }
+    }
+
     public class PyNotImplementedError : PyRuntimeError
     {
         public PyNotImplementedError(string message = "method not implemented") : base(message) { }

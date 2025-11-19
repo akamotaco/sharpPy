@@ -250,6 +250,7 @@ namespace SharpPy
         public static readonly PyType UnboundLocalErrorType = new PyType("UnboundLocalError", new[] { NameErrorType });
         
         public static readonly PyType RuntimeErrorType = new PyType("RuntimeError", new[] { ExceptionType });
+        public static readonly PyType SystemErrorType = new PyType("SystemError", new[] { ExceptionType });
         public static readonly PyType NotImplementedErrorType = new PyType("NotImplementedError", new[] { RuntimeErrorType });
         public static readonly PyType RecursionErrorType = new PyType("RecursionError", new[] { RuntimeErrorType });
 
@@ -708,6 +709,8 @@ namespace SharpPy
                     return new PyKeyError(message);
                 case "RuntimeError":
                     return new PyRuntimeError(message);
+                case "SystemError":
+                    return new PySystemError(message);
                 case "NotImplementedError":
                     return new PyNotImplementedError(message);
                 case "RecursionError":
