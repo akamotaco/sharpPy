@@ -1378,33 +1378,91 @@ namespace SharpPy
 
                             string field = format.Substring(openBrace + 1, closeBrace - openBrace - 1);
 
-                            // Simple field reference: {}, {0}, {name}
-                            if (string.IsNullOrEmpty(field))
+                            // CPython 3.12: PEP 3101 - parse field as "field_name!conversion:format_spec"
+                            // For now, we support: {0:04x}, {name:format}, etc.
+                            string fieldName = field;
+                            string formatSpec = null;
+                            string conversion = null;
+
+                            // Parse conversion (!r, !s, !a)
+                            int conversionIdx = field.IndexOf('!');
+                            if (conversionIdx != -1)
+                            {
+                                fieldName = field.Substring(0, conversionIdx);
+                                int formatSpecIdx = field.IndexOf(':', conversionIdx);
+                                if (formatSpecIdx != -1)
+                                {
+                                    conversion = field.Substring(conversionIdx + 1, formatSpecIdx - conversionIdx - 1);
+                                    formatSpec = field.Substring(formatSpecIdx + 1);
+                                }
+                                else
+                                {
+                                    conversion = field.Substring(conversionIdx + 1);
+                                }
+                            }
+                            else
+                            {
+                                // Parse format spec
+                                int formatSpecIdx = field.IndexOf(':');
+                                if (formatSpecIdx != -1)
+                                {
+                                    fieldName = field.Substring(0, formatSpecIdx);
+                                    formatSpec = field.Substring(formatSpecIdx + 1);
+                                }
+                            }
+
+                            // Get the value to format
+                            PyObject value = null;
+                            if (string.IsNullOrEmpty(fieldName))
                             {
                                 if (argIndex >= args.Length)
                                     throw PyIndexError.Create("Replacement index out of range");
-                                result.Append(args[argIndex].ToStr().Value);
+                                value = args[argIndex];
                                 argIndex++;
                             }
-                            else if (int.TryParse(field, out int index))
+                            else if (int.TryParse(fieldName, out int index))
                             {
                                 if (index >= args.Length)
                                     throw PyIndexError.Create("Replacement index out of range");
-                                result.Append(args[index].ToStr().Value);
+                                value = args[index];
                             }
                             else
                             {
                                 // Named argument - requires kwargs
-                                if (kwargs != null && kwargs.Contains(new PyString(field)).Value)
+                                if (kwargs != null && kwargs.Contains(new PyString(fieldName)).Value)
                                 {
-                                    var value = kwargs.GetItem(new PyString(field));
-                                    result.Append(value.ToStr().Value);
+                                    value = kwargs.GetItem(new PyString(fieldName));
                                 }
                                 else
                                 {
-                                    throw PyKeyError.Create(field);
+                                    throw PyKeyError.Create(fieldName);
                                 }
                             }
+
+                            // Apply conversion
+                            if (conversion != null)
+                            {
+                                value = conversion switch
+                                {
+                                    "s" => value.ToStr(),
+                                    "r" => value.ToRepr(),
+                                    "a" => value.ToRepr(), // ASCII version (simplified)
+                                    _ => throw PyValueError.Create($"Unknown conversion specifier {conversion}")
+                                };
+                            }
+
+                            // Apply format spec
+                            string formattedValue;
+                            if (formatSpec != null)
+                            {
+                                formattedValue = FormatValue(value, formatSpec);
+                            }
+                            else
+                            {
+                                formattedValue = value.ToStr().Value;
+                            }
+
+                            result.Append(formattedValue);
 
                             i_pos = closeBrace + 1;
                         }
@@ -2978,6 +3036,248 @@ namespace SharpPy
         {
             // String literals evaluate to themselves (CPython style)
             return this;
+        }
+
+        #endregion
+
+        #region Format Spec Helper
+
+        // CPython 3.12: Objects/stringlib/unicode_format.h - format_spec parsing
+        // PEP 3101: Format Specification Mini-Language
+        // [[fill]align][sign][#][0][width][,][.precision][type]
+        private static string FormatValue(PyObject value, string formatSpec)
+        {
+            if (string.IsNullOrEmpty(formatSpec))
+                return value.ToStr().Value;
+
+            // Parse format spec
+            char? type = null;
+            int? width = null;
+            int? precision = null;
+            char? align = null;
+            char? fill = ' ';
+            char? sign = null;
+            bool alternate = false;
+            bool zeroPad = false;
+
+            int i = 0;
+
+            // Parse fill and align (up to 2 chars)
+            if (formatSpec.Length >= 2 && IsAlignChar(formatSpec[1]))
+            {
+                fill = formatSpec[0];
+                align = formatSpec[1];
+                i = 2;
+            }
+            else if (formatSpec.Length >= 1 && IsAlignChar(formatSpec[0]))
+            {
+                align = formatSpec[0];
+                i = 1;
+            }
+
+            // Parse sign
+            if (i < formatSpec.Length && (formatSpec[i] == '+' || formatSpec[i] == '-' || formatSpec[i] == ' '))
+            {
+                sign = formatSpec[i];
+                i++;
+            }
+
+            // Parse #
+            if (i < formatSpec.Length && formatSpec[i] == '#')
+            {
+                alternate = true;
+                i++;
+            }
+
+            // Parse 0 (zero padding)
+            if (i < formatSpec.Length && formatSpec[i] == '0')
+            {
+                zeroPad = true;
+                if (!align.HasValue)
+                {
+                    align = '=';
+                    fill = '0';
+                }
+                i++;
+            }
+
+            // Parse width
+            int widthStart = i;
+            while (i < formatSpec.Length && char.IsDigit(formatSpec[i]))
+                i++;
+            if (i > widthStart)
+                width = int.Parse(formatSpec.Substring(widthStart, i - widthStart));
+
+            // Parse comma (grouping)
+            if (i < formatSpec.Length && formatSpec[i] == ',')
+                i++;
+
+            // Parse precision
+            if (i < formatSpec.Length && formatSpec[i] == '.')
+            {
+                i++;
+                int precStart = i;
+                while (i < formatSpec.Length && char.IsDigit(formatSpec[i]))
+                    i++;
+                if (i > precStart)
+                    precision = int.Parse(formatSpec.Substring(precStart, i - precStart));
+            }
+
+            // Parse type
+            if (i < formatSpec.Length)
+            {
+                type = formatSpec[i];
+                i++;
+            }
+
+            // Format the value based on type
+            string result;
+            if (value is PyInt pyInt)
+            {
+                result = FormatInt(pyInt.Value, type, width, precision, sign, alternate, fill, align);
+            }
+            else if (value is PyFloat pyFloat)
+            {
+                result = FormatFloat(pyFloat.Value, type, width, precision, sign, alternate);
+            }
+            else if (value is PyString pyStr)
+            {
+                result = FormatString(pyStr.Value, width, precision, align, fill);
+            }
+            else
+            {
+                result = value.ToStr().Value;
+                if (width.HasValue)
+                    result = ApplyAlignment(result, width.Value, align ?? '<', fill ?? ' ');
+            }
+
+            return result;
+        }
+
+        private static bool IsAlignChar(char c)
+        {
+            return c == '<' || c == '>' || c == '=' || c == '^';
+        }
+
+        // CPython 3.12: Python/formatter_unicode.c:format_long_internal
+        private static string FormatInt(long value, char? type, int? width, int? precision, char? sign, bool alternate, char? fill, char? align)
+        {
+            string result;
+            int baseValue = 10;
+            string prefix = "";
+
+            switch (type)
+            {
+                case 'b': // Binary
+                    baseValue = 2;
+                    result = Convert.ToString(Math.Abs(value), 2);
+                    if (alternate && value != 0) prefix = "0b";
+                    break;
+                case 'o': // Octal
+                    baseValue = 8;
+                    result = Convert.ToString(Math.Abs(value), 8);
+                    if (alternate && value != 0) prefix = "0o";
+                    break;
+                case 'x': // Hex lowercase
+                    result = Math.Abs(value).ToString("x");
+                    if (alternate && value != 0) prefix = "0x";
+                    break;
+                case 'X': // Hex uppercase
+                    result = Math.Abs(value).ToString("X");
+                    if (alternate && value != 0) prefix = "0X";
+                    break;
+                case 'd':
+                case 'n':
+                case null: // Default is decimal
+                    result = Math.Abs(value).ToString();
+                    break;
+                default:
+                    throw PyValueError.Create($"Unknown format code '{type}' for object of type 'int'");
+            }
+
+            // Apply precision (minimum digits)
+            if (precision.HasValue && result.Length < precision.Value)
+                result = result.PadLeft(precision.Value, '0');
+
+            // Add sign
+            string signStr = "";
+            if (value < 0)
+                signStr = "-";
+            else if (sign == '+')
+                signStr = "+";
+            else if (sign == ' ')
+                signStr = " ";
+
+            result = signStr + prefix + result;
+
+            // Apply width and alignment
+            if (width.HasValue && result.Length < width.Value)
+                result = ApplyAlignment(result, width.Value, align ?? '>', fill ?? ' ');
+
+            return result;
+        }
+
+        private static string FormatFloat(double value, char? type, int? width, int? precision, char? sign, bool alternate)
+        {
+            string result;
+            int prec = precision ?? 6;
+
+            switch (type)
+            {
+                case 'e': result = value.ToString($"e{prec}"); break;
+                case 'E': result = value.ToString($"E{prec}"); break;
+                case 'f':
+                case 'F':
+                case null:
+                    result = value.ToString($"F{prec}");
+                    break;
+                case 'g': result = value.ToString($"g{prec}"); break;
+                case 'G': result = value.ToString($"G{prec}"); break;
+                case '%': result = (value * 100).ToString($"F{prec}") + "%"; break;
+                default:
+                    throw PyValueError.Create($"Unknown format code '{type}' for object of type 'float'");
+            }
+
+            // Apply width
+            if (width.HasValue && result.Length < width.Value)
+                result = result.PadLeft(width.Value);
+
+            return result;
+        }
+
+        private static string FormatString(string value, int? width, int? precision, char? align, char? fill)
+        {
+            string result = value;
+
+            // Apply precision (max length)
+            if (precision.HasValue && result.Length > precision.Value)
+                result = result.Substring(0, precision.Value);
+
+            // Apply width and alignment
+            if (width.HasValue && result.Length < width.Value)
+                result = ApplyAlignment(result, width.Value, align ?? '<', fill ?? ' ');
+
+            return result;
+        }
+
+        private static string ApplyAlignment(string value, int width, char align, char fill)
+        {
+            int padding = width - value.Length;
+            if (padding <= 0)
+                return value;
+
+            return align switch
+            {
+                '<' => value + new string(fill, padding),  // Left align
+                '>' => new string(fill, padding) + value,  // Right align
+                '=' => // Sign-aware (for numbers)
+                    (value.Length > 0 && (value[0] == '+' || value[0] == '-' || value[0] == ' '))
+                        ? value[0] + new string(fill, padding) + value.Substring(1)
+                        : new string(fill, padding) + value,
+                '^' => // Center
+                    new string(fill, padding / 2) + value + new string(fill, (padding + 1) / 2),
+                _ => value
+            };
         }
 
         #endregion

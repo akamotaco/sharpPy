@@ -1097,18 +1097,70 @@ namespace SharpPy
 
         // === 타입 변환 함수들 ===
 
+        // CPython 3.12: Objects/unicodeobject.c:14702-14730 (unicode_new_impl)
         private static PyObject CallStr(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: str() with no args returns empty string
+            // CPython 3.12: str(object='', encoding=None, errors='strict')
+            // x == NULL: return empty string
             if (args.Length == 0)
                 return new PyString("");
 
-            if (args.Length != 1)
-                throw PyTypeError.Create($"str expected at most 1 argument ({args.Length} given)");
+            if (args.Length > 3)
+                throw PyTypeError.Create($"str() takes at most 3 arguments ({args.Length} given)");
 
-            return new PyString(args[0].AsString());
+            var x = args[0];
+
+            // CPython 3.12: encoding == NULL and errors == NULL → PyObject_Str(x)
+            if (args.Length == 1)
+                return new PyString(x.AsString());
+
+            // CPython 3.12: str(bytes, encoding, errors='strict') → PyUnicode_FromEncodedObject
+            var encoding = args.Length > 1 ? args[1] : PyNone.Instance;
+            var errors = args.Length > 2 ? args[2] : new PyString("strict");
+
+            if (encoding == PyNone.Instance && errors is PyString errStr && errStr.Value == "strict")
+            {
+                // No encoding specified, just convert to string
+                return new PyString(x.AsString());
+            }
+
+            // Decode bytes with specified encoding
+            if (!(x is PyBytes pyBytes))
+            {
+                throw PyTypeError.Create($"decoding to str: need a bytes-like object, {x.GetTypeName()} found");
+            }
+
+            if (!(encoding is PyString encStr))
+            {
+                throw PyTypeError.Create($"str() argument 2 must be str, not {encoding.GetTypeName()}");
+            }
+
+            if (!(errors is PyString))
+            {
+                throw PyTypeError.Create($"str() argument 3 must be str, not {errors.GetTypeName()}");
+            }
+
+            // Decode bytes using specified encoding
+            // For now, only support 'utf-8' and 'latin-1' encodings
+            string encodingName = encStr.Value.ToLower();
+            try
+            {
+                System.Text.Encoding enc = encodingName switch
+                {
+                    "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+                    "latin-1" or "latin1" or "iso-8859-1" => System.Text.Encoding.Latin1,
+                    "ascii" => System.Text.Encoding.ASCII,
+                    _ => throw PyLookupError.Create($"unknown encoding: {encStr.Value}")
+                };
+                return new PyString(enc.GetString(pyBytes.Value));
+            }
+            catch (Exception ex)
+            {
+                throw PyUnicodeDecodeError.Create($"'{encStr.Value}' codec can't decode bytes: {ex.Message}");
+            }
         }
 
+        // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
         private static PyObject CallInt(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: int() with no args returns 0
@@ -1118,8 +1170,47 @@ namespace SharpPy
             if (args.Length > 2)
                 throw PyTypeError.Create($"int() takes at most 2 arguments ({args.Length} given)");
 
-            // int(x, base=10) - base parameter not fully implemented yet
-            return args[0].AsInt();
+            var x = args[0];
+
+            // CPython 3.12: int(x) without base - default base and limit, forward to standard implementation
+            if (args.Length == 1)
+                return x.AsInt();
+
+            // CPython 3.12: int(x, base) - convert string with explicit base
+            var obase = args[1];
+
+            if (x == PyNone.Instance)
+            {
+                throw PyTypeError.Create("int() missing string argument");
+            }
+
+            // CPython 3.12: base validation (lines 5617-5624)
+            if (!(obase is PyInt baseInt))
+            {
+                throw PyTypeError.Create($"int() argument 2 must be int, not {obase.GetTypeName()}");
+            }
+
+            int baseValue = (int)baseInt.Value;
+
+            if ((baseValue != 0 && baseValue < 2) || baseValue > 36)
+            {
+                throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
+            }
+
+            // CPython 3.12: Only strings (and bytes) can be converted with explicit base (lines 5626-5639)
+            if (x is PyString pyStr)
+            {
+                return PyInt.FromString(pyStr.Value, baseValue);
+            }
+            else if (x is PyBytes pyBytes)
+            {
+                // TODO: Implement bytes-to-int conversion with base
+                throw PyTypeError.Create("int() can't convert bytes with explicit base (not implemented yet)");
+            }
+            else
+            {
+                throw PyTypeError.Create("int() can't convert non-string with explicit base");
+            }
         }
 
         private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
