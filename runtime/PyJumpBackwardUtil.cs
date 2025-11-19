@@ -396,21 +396,28 @@ namespace SharpPy
         /// <exception cref="InvalidOperationException">바이트 오프셋이 instruction 경계와 일치하지 않을 때</exception>
         public static int ByteOffsetToInstructionIndex(int targetByteOffset, List<ByteCodeInstruction> instructions)
         {
+            // CRITICAL FIX: Instructions array ALREADY has CACHE instructions as separate entries
+            // So we should count each instruction (including CACHE) as exactly 1 word (2 bytes)
+            // NOT use GetCPythonInstructionSize which assumes CACHE entries are inline!
+            // This is the same fix as in PyBytecode.cs:722-744
+            // CPython 3.12: Python/assemble.c:150-161 - each instruction in array is 1 word
+            // runtime/PyJumpBackwardUtil.cs:397-434
+            const int INSTRUCTION_WORD_SIZE = 2;
             int currentOffset = 0;
-            
+
             for (int i = 0; i < instructions.Count; i++)
             {
                 if (currentOffset == targetByteOffset)
                 {
                     return i;
                 }
-                
+
                 if (currentOffset > targetByteOffset)
                 {
                     // 정확한 instruction 경계가 아닌 경우, 디버그를 위해 에러 발생
 #if DEBUG_LOG
                     Console.WriteLine($"❌ 바이트 오프셋 계산 오류: targetByteOffset={targetByteOffset}, currentOffset={currentOffset}");
-                    Console.WriteLine($"🎯 가장 가까운: 오프셋 {currentOffset - GetCPythonInstructionSize(instructions[i-1].OpCode, instructions[i-1].Argument)} → instruction {i-1} ({instructions[i-1].OpCode})");
+                    Console.WriteLine($"🎯 가장 가까운: 오프셋 {currentOffset - INSTRUCTION_WORD_SIZE} → instruction {i-1} ({instructions[i-1].OpCode})");
 
                     // 디버그: 모든 instruction의 바이트 오프셋 출력
                     Console.WriteLine("📋 전체 instruction 바이트 오프셋:");
@@ -418,18 +425,20 @@ namespace SharpPy
                     for (int j = 0; j < Math.Min(instructions.Count, i + 3); j++)
                     {
                         var inst = instructions[j];
-                        int size = GetCPythonInstructionSize(inst.OpCode, inst.Argument);
-                        Console.WriteLine($"    [{j}] {inst.OpCode} (arg={inst.Argument}) → 오프셋 {debugOffset} (크기 {size})");
-                        debugOffset += size;
+                        Console.WriteLine($"    [{j}] {inst.OpCode} (arg={inst.Argument}) → 오프셋 {debugOffset}");
+                        debugOffset += INSTRUCTION_WORD_SIZE;
                     }
 #endif
-                    
+
                     throw new InvalidOperationException($"JUMP_BACKWARD: 바이트 오프셋 {targetByteOffset}에 정확한 instruction이 없음!");
                 }
-                
-                currentOffset += GetCPythonInstructionSize(instructions[i].OpCode, instructions[i].Argument);
+
+                // CRITICAL FIX: Each instruction in Instructions array is exactly 1 word (2 bytes)
+                // including CACHE, EXTENDED_ARG, and regular instructions
+                // Python/assemble.c:150-161 - iterate through final bytecode array
+                currentOffset += INSTRUCTION_WORD_SIZE;
             }
-            
+
             return Math.Max(0, instructions.Count - 1);
         }
     }

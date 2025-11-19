@@ -2077,10 +2077,23 @@ namespace SharpPy
                     // CPython 3.12: Extended function call with *args and **kwargs
                     var hasKwargs = (instruction.Argument & 1) != 0;
 
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[CALL_FUNCTION_EX] hasKwargs={hasKwargs}, stack size={frame.ValueStack.Count}, frame={frame.Code.Name}");
+                    #endif
+
                     PyObject kwargsDict = null;
                     if (hasKwargs)
                     {
+                        if (frame.ValueStack.Count == 0)
+                        {
+                            throw new InvalidOperationException($"[CALL_FUNCTION_EX] Stack is empty when trying to pop kwargs. Frame={frame.Code.Name}, IP={frame.InstructionPointer}");
+                        }
                         kwargsDict = frame.ValueStack.Pop(); // kwargs dictionary
+                    }
+
+                    if (frame.ValueStack.Count < 3)
+                    {
+                        throw new InvalidOperationException($"[CALL_FUNCTION_EX] Stack has only {frame.ValueStack.Count} items, need at least 3. Frame={frame.Code.Name}, IP={frame.InstructionPointer}");
                     }
 
                     var argsIterable = frame.ValueStack.Pop(); // args iterable

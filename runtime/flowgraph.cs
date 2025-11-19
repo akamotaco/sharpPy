@@ -173,12 +173,16 @@ namespace SharpPy
                 {
                     int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
 
-
-                    // CPython 3.12: Only add valid boundaries (within instruction range)
-                    // Labels pointing past the end of code are unreachable (e.g., after RETURN)
+                    // CPython 3.12: Python/flowgraph.c:809-820
+                    // CRITICAL FIX: Labels may point to pseudo-instructions (SETUP_*, POP_BLOCK)
+                    // We must find the next real instruction to use as block boundary
+                    // Otherwise, jumps can land in the middle of an instruction sequence
+                    // causing stack corruption (e.g., jumping to BUILD_LIST without preceding PUSH_NULL)
+                    // runtime/flowgraph.cs:171-183
                     if (targetIndex >= 0 && targetIndex < instructions.Count)
                     {
-                        boundaries.Add(targetIndex);
+                        int realTargetIndex = FindNextRealInstruction(instrSeq, targetIndex);
+                        boundaries.Add(realTargetIndex);
                     }
 
                     // Instruction after conditional jump is a block start (fallthrough path)
@@ -283,6 +287,16 @@ namespace SharpPy
                         if (instr.Target.HasValue)
                         {
                             int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+
+                            // CPython 3.12: Python/flowgraph.c:809-820
+                            // CRITICAL FIX: Labels may point to pseudo-instructions (SETUP_*, POP_BLOCK)
+                            // Must find next real instruction before block lookup
+                            // runtime/flowgraph.cs:284-298
+                            if (targetIndex >= 0 && targetIndex < instructions.Count)
+                            {
+                                targetIndex = FindNextRealInstruction(instrSeq, targetIndex);
+                            }
+
                             // IMPORTANT: Look up block using original targetIndex (block start),
                             // but the block's Offset will be updated to point to the real instruction
                             if (indexToBlock.TryGetValue(targetIndex, out var handlerBlock))
@@ -388,6 +402,15 @@ namespace SharpPy
                             // Range check would match wrong blocks when pseudo-instructions are involved
                             int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
 
+                            // CPython 3.12: Python/flowgraph.c:809-820
+                            // CRITICAL FIX: Labels may point to pseudo-instructions (SETUP_*, POP_BLOCK)
+                            // Must find next real instruction before block lookup
+                            // runtime/flowgraph.cs:393-403
+                            if (targetInstrIndex >= 0 && targetInstrIndex < instructions.Count)
+                            {
+                                targetInstrIndex = FindNextRealInstruction(instrSeq, targetInstrIndex);
+                            }
+
                             // Direct lookup: label points to block start position
                             if (indexToBlock.TryGetValue(targetInstrIndex, out targetBlock))
                             {
@@ -408,6 +431,15 @@ namespace SharpPy
                             // Fallback: resolve using InstructionSequence offset
                             // (This path is used when labelToOffset doesn't have the label)
                             int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+
+                            // CPython 3.12: Python/flowgraph.c:809-820
+                            // CRITICAL FIX: Labels may point to pseudo-instructions (SETUP_*, POP_BLOCK)
+                            // Must find next real instruction before block lookup
+                            // runtime/flowgraph.cs:410-424
+                            if (targetInstrIndex >= 0 && targetInstrIndex < instructions.Count)
+                            {
+                                targetInstrIndex = FindNextRealInstruction(instrSeq, targetInstrIndex);
+                            }
 
                             // CPython 3.12: Check if target is within valid instruction range
                             // Labels pointing past the end of code are unreachable (after RETURN/RAISE)
