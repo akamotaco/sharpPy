@@ -470,46 +470,61 @@ namespace SharpPy
 
         protected override PyObject PyLess(PyObject other)
         {
-            return other switch
-            {
-                PyInt otherInt => PyBool.FromBool(Value < otherInt.Value),
-                PyFloat otherFloat => PyBool.FromBool(Value < otherFloat.Value),
-                PyBool otherBool => PyBool.FromBool(Value < (otherBool.Value ? 1 : 0)),
-                _ => throw PyTypeError.Create($"'<' not supported between instances of 'int' and '{other.GetTypeName()}'")
-            };
+            // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
+            if (other is PyInt otherInt)
+                return PyBool.FromBool(Value < otherInt.Value);
+            if (other is PyFloat otherFloat)
+                return PyBool.FromBool(Value < otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value < (otherBool.Value ? 1 : 0));
+
+            // Return NotImplemented to allow other object's __gt__ to be tried
+            return PyNotImplemented.Instance;
         }
 
         protected override PyObject PyLessEqual(PyObject other)
         {
-            return other switch
-            {
-                PyInt otherInt => PyBool.FromBool(Value <= otherInt.Value),
-                PyFloat otherFloat => PyBool.FromBool(Value <= otherFloat.Value),
-                PyBool otherBool => PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0)),
-                _ => throw PyTypeError.Create($"'<=' not supported between instances of 'int' and '{other.GetTypeName()}'")
-            };
+            // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
+            if (other is PyInt otherInt)
+                return PyBool.FromBool(Value <= otherInt.Value);
+            if (other is PyFloat otherFloat)
+                return PyBool.FromBool(Value <= otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0));
+
+            // Return NotImplemented to allow other object's __ge__ to be tried
+            return PyNotImplemented.Instance;
         }
 
         protected override PyObject PyGreater(PyObject other)
         {
-            return other switch
-            {
-                PyInt otherInt => PyBool.FromBool(Value > otherInt.Value),
-                PyFloat otherFloat => PyBool.FromBool(Value > otherFloat.Value),
-                PyBool otherBool => PyBool.FromBool(Value > (otherBool.Value ? 1 : 0)),
-                _ => throw PyTypeError.Create($"'>' not supported between instances of 'int' and '{other.GetTypeName()}'")
-            };
+            // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
+            if (other is PyInt otherInt)
+                return PyBool.FromBool(Value > otherInt.Value);
+            if (other is PyFloat otherFloat)
+                return PyBool.FromBool(Value > otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value > (otherBool.Value ? 1 : 0));
+
+            // Return NotImplemented to allow other object's __lt__ to be tried
+            return PyNotImplemented.Instance;
         }
 
         protected override PyObject PyGreaterEqual(PyObject other)
         {
-            return other switch
-            {
-                PyInt otherInt => PyBool.FromBool(Value >= otherInt.Value),
-                PyFloat otherFloat => PyBool.FromBool(Value >= otherFloat.Value),
-                PyBool otherBool => PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0)),
-                _ => throw PyTypeError.Create($"'>=' not supported between instances of 'int' and '{other.GetTypeName()}'")
-            };
+            // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
+            // Try direct comparison first
+            if (other is PyInt otherInt)
+                return PyBool.FromBool(Value >= otherInt.Value);
+            if (other is PyFloat otherFloat)
+                return PyBool.FromBool(Value >= otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0));
+
+            // CPython: If other type doesn't handle comparison, return NotImplemented
+            // This allows the other object's __le__ method to be tried
+            // Objects/longobject.c:3246 - Py_RETURN_NOTIMPLEMENTED
+            return PyNotImplemented.Instance;
         }
 
         #endregion
