@@ -221,6 +221,85 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 3
             );
+
+            // CPython 3.12: Objects/bytearrayobject.c:2100-2200 - bytearray_translate
+            baType.TypeDict["translate"] = new PyMethodDescriptor(
+                "translate", baType,
+                (self, args, kwargs) => {
+                    if (self is not PyByteArray ba)
+                        throw PyTypeError.Create($"descriptor 'translate' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"translate() takes at least 1 argument ({args.Length} given)");
+
+                    // Get translation table (can be None)
+                    PyObject tableArg = args[0];
+                    byte[]? table = null;
+
+                    if (tableArg != PyNone.Instance)
+                    {
+                        if (tableArg is PyBytes tableBytes)
+                        {
+                            table = tableBytes.Value;
+                            if (table.Length != 256)
+                                throw PyValueError.Create("translation table must be 256 characters long");
+                        }
+                        else if (tableArg is PyByteArray tableByteArray)
+                        {
+                            table = tableByteArray._bytes.ToArray();
+                            if (table.Length != 256)
+                                throw PyValueError.Create("translation table must be 256 characters long");
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"a bytes-like object is required, not '{tableArg.GetTypeName()}'");
+                        }
+                    }
+
+                    // Get delete characters (optional)
+                    byte[] deleteChars = Array.Empty<byte>();
+                    if (args.Length >= 2 && args[1] != PyNone.Instance)
+                    {
+                        if (args[1] is PyBytes deleteBytes)
+                        {
+                            deleteChars = deleteBytes.Value;
+                        }
+                        else if (args[1] is PyByteArray deleteByteArray)
+                        {
+                            deleteChars = deleteByteArray._bytes.ToArray();
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"a bytes-like object is required, not '{args[1].GetTypeName()}'");
+                        }
+                    }
+
+                    // Create delete set for fast lookup
+                    HashSet<byte> deleteSet = new HashSet<byte>(deleteChars);
+
+                    // Translate bytearray
+                    List<byte> result = new List<byte>();
+                    foreach (byte b in ba._bytes)
+                    {
+                        // Skip if in delete set
+                        if (deleteSet.Contains(b))
+                            continue;
+
+                        // Apply translation if table exists
+                        if (table != null)
+                        {
+                            result.Add(table[b]);
+                        }
+                        else
+                        {
+                            result.Add(b);
+                        }
+                    }
+
+                    return new PyByteArray(result.ToArray());
+                },
+                minArgs: 1, maxArgs: 2
+            );
         }
 
         #endregion
