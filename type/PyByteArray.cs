@@ -151,6 +151,76 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
+
+            // CPython 3.12: Objects/bytearrayobject.c:1500-1550 - bytearray_find
+            // B.find(sub[, start[, end]]) -> int
+            // Return the lowest index in B where subsection sub is found, such that sub is contained within B[start,end].
+            // Optional arguments start and end are interpreted as in slice notation.
+            // Return -1 on failure.
+            baType.TypeDict["find"] = new PyMethodDescriptor(
+                "find", baType,
+                (self, args, kwargs) => {
+                    if (self is not PyByteArray ba)
+                        throw PyTypeError.Create($"descriptor 'find' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length < 1 || args.Length > 3)
+                        throw PyTypeError.Create($"find() takes at least 1 argument ({args.Length} given)");
+
+                    // Accept bytes, bytearray, or int (single byte)
+                    byte[] subBytes;
+                    if (args[0] is PyBytes subBytesObj)
+                    {
+                        subBytes = subBytesObj.Value;
+                    }
+                    else if (args[0] is PyByteArray subByteArray)
+                    {
+                        subBytes = subByteArray._bytes.ToArray();
+                    }
+                    else if (args[0] is PyInt intValue)
+                    {
+                        // CPython allows int (0-255) as single byte to search
+                        long val = intValue.Value;
+                        if (val < 0 || val > 255)
+                            throw PyValueError.Create("byte must be in range(0, 256)");
+                        subBytes = new byte[] { (byte)val };
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
+                    }
+
+                    int start = 0;
+                    int end = ba._bytes.Count;
+
+                    if (args.Length >= 2 && args[1] is PyInt startInt)
+                        start = (int)startInt.Value;
+                    if (args.Length >= 3 && args[2] is PyInt endInt)
+                        end = (int)endInt.Value;
+
+                    // Normalize indices (CPython behavior)
+                    if (start < 0) start += ba._bytes.Count;
+                    if (end < 0) end += ba._bytes.Count;
+                    start = Math.Max(0, Math.Min(start, ba._bytes.Count));
+                    end = Math.Max(0, Math.Min(end, ba._bytes.Count));
+
+                    // Search for substring
+                    for (int i = start; i <= end - subBytes.Length; i++)
+                    {
+                        bool match = true;
+                        for (int j = 0; j < subBytes.Length; j++)
+                        {
+                            if (ba._bytes[i + j] != subBytes[j])
+                            {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) return new PyInt(i);
+                    }
+                    return new PyInt(-1);
+                },
+                minArgs: 1, maxArgs: 3
+            );
         }
 
         #endregion
