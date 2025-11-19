@@ -2663,6 +2663,32 @@ namespace SharpPy
                 // Fallback: return empty string
                 return new PyString("");
             });
+
+            // CPython 3.12: Objects/exceptions.c:785-795 (BaseException_args member descriptor)
+            // BaseException.args - data descriptor (writable, with both getter and setter)
+            // CPython reference: Objects/exceptions.c:786 - PyMemberDef args_descriptor
+            TypeDict["args"] = new PyGetSetDescriptor(
+                name: "args",
+                ownerType: this,
+                getter: (PyObject self) =>
+                {
+                    if (self is PyClassInstance inst)
+                    {
+                        if (inst.InstanceDict.TryGetValue("args", out var argsValue))
+                            return argsValue;
+                    }
+                    // If not found, return empty tuple
+                    return new PyTuple(new PyObject[0]);
+                },
+                setter: (PyObject self, PyObject value) =>
+                {
+                    // CPython allows setting args attribute
+                    if (self is PyClassInstance inst)
+                    {
+                        inst.InstanceDict["args"] = value;
+                    }
+                }
+            );
         }
 
         #endregion

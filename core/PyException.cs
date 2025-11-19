@@ -146,30 +146,40 @@ namespace SharpPy
         public override PyType GetPyType() => OriginalClass ?? PyType.ExceptionType;
         public override string GetTypeName() => OriginalClass?.Name ?? "Exception";
 
-        // CPython 3.12: Override GetAttribute to check OriginalInstance for user-defined attributes
-        // In CPython, exception instances store custom attributes in their dict
-        // In SharpPy, we store the original PyClassInstance which has those attributes
-        public override PyObject GetAttribute(string name)
+        // CPython 3.12: Objects/exceptions.c:79-105 (BaseException_str)
+        // For user-defined exceptions, delegate ToStr() to OriginalInstance
+        // This ensures BaseException.__str__ descriptor is properly invoked
+        public override PyString ToStr()
         {
-            // Try standard exception attributes first
-            try
+            // CPython 3.12: User-defined exception instances use __str__ method from class hierarchy
+            if (OriginalInstance != null)
             {
-                var result = base.GetAttribute(name);
-                return result;
-            }
-            catch (PythonException ex) when (ex.PyException is PyAttributeError)
-            {
-                // Attribute not in standard exception attributes, continue below
+                return OriginalInstance.ToStr();
             }
 
-            // For user-defined exceptions, check OriginalInstance
+            // CPython 3.12: C-level exceptions use Args-based string representation
+            return base.ToStr();
+        }
+
+        // CPython 3.12: Objects/exceptions.c:42-849
+        // Exception attribute lookup follows standard descriptor protocol
+        // User-defined exception instances delegate ALL attribute access to OriginalInstance
+        // This ensures descriptors (like BaseException.args) are properly invoked
+        public override PyObject GetAttribute(string name)
+        {
+            // CPython 3.12: Objects/exceptions.c:42-849
+            // For user-defined exceptions (Python classes inheriting from Exception),
+            // ALL attribute access goes through the original PyClassInstance
+            // This ensures proper descriptor protocol and MRO traversal
             if (OriginalInstance != null)
             {
                 return OriginalInstance.GetAttribute(name);
             }
 
-            // Not found anywhere
-            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            // CPython 3.12: Objects/exceptions.c:785-795
+            // For C-level exceptions (PyBaseException), use standard attribute lookup
+            // This includes built-in exception types like TypeError, ValueError, etc.
+            return base.GetAttribute(name);
         }
 
         public new static System.Exception Create(string message = "")
