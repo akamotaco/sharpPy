@@ -2134,11 +2134,15 @@ namespace SharpPy
             var actualEnd = end ?? Value.Length;
             if (start < 0) start = 0;
             if (actualEnd > Value.Length) actualEnd = Value.Length;
-            
-            var searchIn = start == 0 && actualEnd == Value.Length 
-                ? Value 
+
+            // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
+            // If start >= end, return -1 (empty string search)
+            if (start >= actualEnd) return new PyInt(-1);
+
+            var searchIn = start == 0 && actualEnd == Value.Length
+                ? Value
                 : Value.Substring(start, actualEnd - start);
-                
+
             var index = searchIn.IndexOf(sub);
             return new PyInt(index == -1 ? -1 : index + start);
         }
