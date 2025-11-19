@@ -389,5 +389,29 @@ namespace SharpPy
                 Console.WriteLine($"    {i,4}: {_instructions[i]}");
             }
         }
+
+        /// <summary>
+        /// CPython 3.12: Python/flowgraph.c - Check if last instruction is unconditional terminator
+        /// Used to avoid emitting unreachable JUMP after RETURN/RAISE/etc
+        /// </summary>
+        public bool EndsWithTerminator()
+        {
+            if (_instructions.Count == 0)
+                return false;
+
+            var lastInstr = _instructions[_instructions.Count - 1];
+            return IsUnconditionalTerminator(lastInstr.OpCode);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Python/flowgraph.c - Check if opcode never returns
+        /// </summary>
+        private static bool IsUnconditionalTerminator(ByteCodeOp op)
+        {
+            return op == ByteCodeOp.RETURN_VALUE ||
+                   op == ByteCodeOp.RETURN_CONST ||
+                   op == ByteCodeOp.RAISE_VARARGS ||
+                   op == ByteCodeOp.RERAISE;
+        }
     }
 }

@@ -36,9 +36,32 @@ namespace SharpPy
             // Phase 4: Link blocks together (set successors and next)
             LinkBlocks(cfg, instrSeq, indexToBlock);
 
+            // Phase 5: Link ALL blocks via Next in AllBlocks order (creation order)
+            // CPython: Python/flowgraph.c:243 - g->g_curblock->b_next = block
+            // AllBlocks contains blocks in the order they were created (= InstructionSequence order after sorting)
+#if DEBUG_LOG
+            Console.WriteLine($"[FLOWGRAPH] AllBlocks.Count = {cfg.AllBlocks.Count}");
+            for (int i = 0; i < cfg.AllBlocks.Count; i++)
+            {
+                Console.WriteLine($"[FLOWGRAPH] AllBlocks[{i}] = Block {cfg.AllBlocks[i].BlockId}, Instructions.Count={cfg.AllBlocks[i].Instructions.Count}");
+            }
+#endif
+            for (int i = 0; i < cfg.AllBlocks.Count - 1; i++)
+            {
+                cfg.AllBlocks[i].Next = cfg.AllBlocks[i + 1];
+#if DEBUG_LOG
+                Console.WriteLine($"[FLOWGRAPH] Set Block {cfg.AllBlocks[i].BlockId}.Next = Block {cfg.AllBlocks[i + 1].BlockId}");
+#endif
+            }
+
             // NOTE: Exception handler propagation is already done in CreateBasicBlocks (Phase 3)
             // during instruction processing. No need for a separate phase.
             // CPython's label_exception_targets() happens during CFG build, not after.
+
+            // Phase 6: Calculate predecessors and eliminate unreachable code
+            // CPython 3.12: Python/flowgraph.c:1600-1610
+            cfg.CalculatePredecessors();
+            cfg.EliminateUnreachableCode();
 
             return cfg;
         }
@@ -213,15 +236,11 @@ namespace SharpPy
 
             }
 
-            // CRITICAL: Link ALL blocks in sorted order via Next (CPython's b_next linked list)
+            // CRITICAL: Link ALL blocks via Next in CREATION order (AllBlocks), NOT sorted order!
             // CPython: Python/flowgraph.c:243 - g->g_curblock->b_next = block
-            // This ensures ALL blocks (including exception handlers) are in the iteration chain
-            for (int i = 0; i < sortedStarts.Count - 1; i++)
-            {
-                var block = indexToBlock[sortedStarts[i]];
-                var nextBlock = indexToBlock[sortedStarts[i + 1]];
-                block.Next = nextBlock;
-            }
+            // CPython links blocks in the order they're created, which matches the source code order
+            // Linking in sorted order would put exception handler blocks BEFORE normal code!
+            // We'll link them AFTER all blocks are added to cfg.AllBlocks
 
             // CPython 3.12 pattern: Per-block ExceptStack
             // Each block carries its own exception stack state
@@ -622,7 +641,8 @@ namespace SharpPy
             return op == ByteCodeOp.JUMP_FORWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
-                   op == ByteCodeOp.RETURN_VALUE;
+                   op == ByteCodeOp.RETURN_VALUE ||
+                   op == ByteCodeOp.RAISE_VARARGS;  // CPython: RAISE_VARARGS never returns
         }
 
         private static bool IsBlockPush(ByteCodeOp op)

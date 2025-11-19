@@ -37,6 +37,13 @@ namespace SharpPy
         public List<BasicBlock> Successors { get; set; }
 
         /// <summary>
+        /// CPython 3.12: Number of blocks that jump to this block
+        /// Python/flowgraph.c - b_predecessors
+        /// Used to detect unreachable blocks (predecessors == 0)
+        /// </summary>
+        public int Predecessors { get; set; }
+
+        /// <summary>
         /// Fallthrough block (next block in sequence)
         /// </summary>
         public BasicBlock? Next { get; set; }

@@ -35,13 +35,14 @@ namespace SharpPy
 
             // Phase 2: Resolve jump targets and add EXTENDED_ARG if needed
             // (CPython: assemble_emit_instr_sequence)
-            var instructions = FlattenBlocks(cfg);
+            // ALSO: Get block-to-byte-offset mapping for exception table
+            var (instructions, blockToByteOffset) = FlattenBlocksWithOffsets(cfg);
 
             // Phase 3: Build exception table from FINAL bytecode array (after CACHE emission)
             // CRITICAL: Must build exception table AFTER EmitInstructions adds CACHE instructions
             // CPython 3.12: Python/assemble.c:143-166 assemble_exception_table()
             // This function is called AFTER all instructions (including CACHE) are emitted
-            var exceptionTable = BuildExceptionTableFromInstructions(instructions, cfg);
+            var exceptionTable = BuildExceptionTableFromInstructions(instructions, blockToByteOffset);
 
             return new AssembledCode(instructions, exceptionTable);
         }
@@ -193,6 +194,19 @@ namespace SharpPy
 
             // Phase 2: Emit final bytecode with EXTENDED_ARG
             return EmitInstructions(cfg);
+        }
+
+        /// <summary>
+        /// Flatten blocks to instructions AND track block byte offsets for exception table
+        /// </summary>
+        private static (List<ByteCodeInstruction>, Dictionary<BasicBlock, int>) FlattenBlocksWithOffsets(ControlFlowGraph cfg)
+        {
+            // Phase 1: Resolve jump offsets with iterative refinement
+            // CPython: Python/flowgraph.c:481-536 (resolve_jump_offsets)
+            ResolveJumpOffsets(cfg);
+
+            // Phase 2: Emit final bytecode with EXTENDED_ARG AND track block offsets
+            return EmitInstructionsWithBlockOffsets(cfg);
         }
 
         /// <summary>
@@ -378,29 +392,56 @@ namespace SharpPy
         /// <summary>
         /// Emit final bytecode instructions with EXTENDED_ARG and inline cache padding
         /// CPython 3.12: Python/assemble.c:370-410 (assemble_emit)
+        /// ALSO: Record where each block starts in the emitted bytecode (for exception table)
         /// </summary>
-        private static List<ByteCodeInstruction> EmitInstructions(ControlFlowGraph cfg)
+        private static (List<ByteCodeInstruction>, Dictionary<BasicBlock, int>) EmitInstructionsWithBlockOffsets(ControlFlowGraph cfg)
         {
             var result = new List<ByteCodeInstruction>();
+            var blockToByteOffset = new Dictionary<BasicBlock, int>();
+            int currentByteOffset = 0;
 
-            // CRITICAL: Must iterate using b_next (execution order)
-            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
+            // CRITICAL: Must iterate ALL blocks in Next chain order
+            // Use AllBlocks[0] as starting point, not cfg.EntryBlock
+            // cfg.EntryBlock may skip empty leading blocks
+#if DEBUG_LOG
+            Console.WriteLine($"[EMIT] cfg.EntryBlock = Block {cfg.EntryBlock?.BlockId ?? -1}, AllBlocks[0] = Block {cfg.AllBlocks[0].BlockId}");
+#endif
+            BasicBlock? startBlock = cfg.AllBlocks.Count > 0 ? cfg.AllBlocks[0] : cfg.EntryBlock;
+#if DEBUG_LOG
+            Console.WriteLine($"[EMIT] Starting emission from Block {startBlock?.BlockId ?? -1}");
+#endif
+            for (BasicBlock? block = startBlock; block != null; block = block.Next)
             {
+                // Record where this block starts
+                // IMPORTANT: Record even for empty blocks - they mark positions in bytecode
+                blockToByteOffset[block] = currentByteOffset;
+
+#if DEBUG_LOG
+                Console.WriteLine($"[EMIT-BLOCK] Block {block.BlockId} starts at byte offset {currentByteOffset}, Instructions.Count={block.Instructions.Count}, Next={block.Next?.BlockId ?? -1}");
+#endif
+
                 foreach (var instr in block.Instructions)
                 {
                     // Add EXTENDED_ARG if needed (arguments > 255)
                     if (HasArgument(instr.OpCode) && instr.Argument > 0xFF)
                     {
                         EmitWithExtendedArg(result, instr);
+                        // Count EXTENDED_ARG size
+                        int extendedArgCount = 0;
+                        int arg = instr.Argument;
+                        if (arg > 0xFFFFFF) extendedArgCount = 3;
+                        else if (arg > 0xFFFF) extendedArgCount = 2;
+                        else if (arg > 0xFF) extendedArgCount = 1;
+                        currentByteOffset += (extendedArgCount + 1) * PyCodeObject.INSTRUCTION_WORD_SIZE;
                     }
                     else
                     {
                         result.Add(instr);
+                        currentByteOffset += PyCodeObject.INSTRUCTION_WORD_SIZE;
                     }
 
                     // CPython 3.12: Python/assemble.c:396-401
                     // Emit CACHE instructions for inline cache slots
-                    // This makes the bytecode array match the offset calculation
                     int cacheSize = GetInlineCacheSize(instr.OpCode);
                     for (int i = 0; i < cacheSize; i++)
                     {
@@ -413,11 +454,19 @@ namespace SharpPy
                             null,  // No target for CACHE
                             null   // No except for CACHE
                         ));
+                        currentByteOffset += PyCodeObject.INSTRUCTION_WORD_SIZE;
                     }
                 }
             }
 
-            return result;
+            return (result, blockToByteOffset);
+        }
+
+        // Legacy wrapper for compatibility
+        private static List<ByteCodeInstruction> EmitInstructions(ControlFlowGraph cfg)
+        {
+            var (instructions, _) = EmitInstructionsWithBlockOffsets(cfg);
+            return instructions;
         }
 
         /// <summary>
@@ -518,7 +567,7 @@ namespace SharpPy
         /// CPython 3.12: Python/assemble.c:143-166 assemble_exception_table()
         /// CRITICAL: This must be called AFTER EmitInstructions() adds CACHE instructions
         /// </summary>
-        private static List<ExceptionTableEntry> BuildExceptionTableFromInstructions(List<ByteCodeInstruction> instructions, ControlFlowGraph cfg)
+        private static List<ExceptionTableEntry> BuildExceptionTableFromInstructions(List<ByteCodeInstruction> instructions, Dictionary<BasicBlock, int> blockToByteOffset)
         {
             var exceptionTable = new List<ExceptionTableEntry>();
 
@@ -528,40 +577,15 @@ namespace SharpPy
 
 #if DEBUG_LOG
             Console.WriteLine($"[EXCTABLE-FINAL] Building exception table from {instructions.Count} instructions");
+            Console.WriteLine($"[EXCTABLE-FINAL] Received blockToByteOffset with {blockToByteOffset.Count} entries");
 #endif
-
-            // Build mapping: BasicBlock → byte offset in final bytecode array
-            // CRITICAL: Cannot use BasicBlock.Offset because it's modified by ResolveJumpOffsets()
-            // Instead, simulate EmitInstructions() to find where each block starts
-            // CPython 3.12: Python/assemble.c:150-161
-            var blockToByteOffset = new Dictionary<BasicBlock, int>();
-            int currentByteOffset = 0;
-
-            // CRITICAL: Must iterate using b_next (execution order)
-            for (BasicBlock? block = cfg.EntryBlock; block != null; block = block.Next)
-            {
-                // Record the starting byte offset of this block
-                blockToByteOffset[block] = currentByteOffset;
-
-#if DEBUG_LOG
-                Console.WriteLine($"[EXCTABLE-FINAL] Block at byte offset {currentByteOffset}");
-#endif
-
-                foreach (var instr in block.Instructions)
-                {
-                    // Count instruction size: 1 word + EXTENDED_ARG + CACHE
-                    int instrWords = CountInstructionWords(instr);
-                    int cacheWords = GetInlineCacheSize(instr.OpCode);
-                    currentByteOffset += (instrWords + cacheWords) * PyCodeObject.INSTRUCTION_WORD_SIZE;
-                }
-            }
 
             // Track current exception handler info
             int currentHandler = -1;
             int depth = -1;
             bool lasti = false;
             int startOffset = -1;
-            currentByteOffset = 0;
+            int currentByteOffset = 0;
 
             // Scan through final bytecode array
             // CPython 3.12: Python/assemble.c:150-161
@@ -581,13 +605,41 @@ namespace SharpPy
                 int newHandler = -1;
                 if (instr.ExceptBlock != null)
                 {
-                    if (blockToByteOffset.TryGetValue(instr.ExceptBlock, out int handlerByteOffset))
+                    // CRITICAL: If the exception handler block is empty, find the first non-empty block
+                    // Empty blocks are just markers and don't contain actual exception handler code
+                    var handlerBlock = instr.ExceptBlock;
+                    while (handlerBlock != null && handlerBlock.Instructions.Count == 0 && handlerBlock.Next != null)
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"[EXCTABLE-SKIP] Skipping empty exception handler Block {handlerBlock.BlockId}, using Next block");
+#endif
+                        handlerBlock = handlerBlock.Next;
+                    }
+
+                    if (handlerBlock != null && blockToByteOffset.TryGetValue(handlerBlock, out int handlerByteOffset))
                     {
                         newHandler = handlerByteOffset;
+#if DEBUG_LOG
+                        if (handlerBlock != instr.ExceptBlock)
+                        {
+                            Console.WriteLine($"[EXCTABLE-SKIP] Original handler Block {instr.ExceptBlock.BlockId} was empty, using Block {handlerBlock.BlockId} at offset {handlerByteOffset}");
+                        }
+#endif
+                    }
+                    else
+                    {
+#if DEBUG_LOG
+                        Console.WriteLine($"[EXCTABLE-ERROR] Block {handlerBlock?.BlockId ?? -1} referenced but NOT in blockToByteOffset! (instruction {i} at offset {currentByteOffset})");
+                        Console.WriteLine($"[EXCTABLE-ERROR]   Block {handlerBlock?.BlockId ?? -1} has Offset={handlerBlock?.Offset ?? -1}, Instructions.Count={handlerBlock?.Instructions.Count ?? 0}");
+                        Console.WriteLine($"[EXCTABLE-ERROR]   This is likely a bug in flowgraph - exception handler blocks must be in b_next chain");
+#endif
+                        // DON'T use fallback - it causes infinite loops
+                        // Exception handler block MUST be in the emitted bytecode
                     }
                 }
 
 #if DEBUG_LOG
+                Console.WriteLine($"[EXCTABLE-SCAN] Index {i}: {instr.OpCode} at offset {currentByteOffset}, ExceptBlock={(instr.ExceptBlock != null ? $"Block{instr.ExceptBlock.BlockId}" : "null")}, handler={newHandler}");
                 if (newHandler != -1 && newHandler != currentHandler)
                 {
                     Console.WriteLine($"[EXCTABLE-FINAL] Index {i}: {instr.OpCode} at offset {currentByteOffset}, handler={newHandler}");
@@ -612,7 +664,13 @@ namespace SharpPy
                     }
 
                     // Start new range
-                    startOffset = currentByteOffset;
+                    // CRITICAL FIX: When handler becomes null (entering unprotected code),
+                    // don't update startOffset. When handler becomes non-null again,
+                    // use current offset as startOffset for NEW range.
+                    if (newHandler >= 0)
+                    {
+                        startOffset = currentByteOffset;
+                    }
                     currentHandler = newHandler;
 
                     // Update depth and lasti from new handler

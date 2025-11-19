@@ -737,16 +737,26 @@ namespace SharpPy
 
                 // CRITICAL FIX: The Instructions array ALREADY has CACHE instructions inserted
                 // So we should count each instruction individually (including CACHE as 1 word each)
-                // We do NOT add GetInlineCacheSize() because those CACHE instructions are already in the array!
-                // Only count the instruction itself (may be >1 word if it has EXTENDED_ARG prefix)
-                int wordCount = PyAssemble.CountInstructionWords(Instructions[i]);
-                currentByteOffset += wordCount * INSTRUCTION_WORD_SIZE;
+                // CPython 3.12: Python/assemble.c:150-161 - iterate through final bytecode array
+                // Each instruction in the array is exactly 1 word (CACHE, EXTENDED_ARG, and regular instructions)
+                // WRONG: CountInstructionWords() includes inline cache which is already separate instructions!
+                // RIGHT: Each instruction in Instructions array is 1 word
+                currentByteOffset += INSTRUCTION_WORD_SIZE;
 
                 if (currentByteOffset > byteOffset)
                 {
+                    // DEBUG: Print instructions around the problematic offset
+                    Console.WriteLine($"[DEBUG ByteOffsetToInstructionIndex] Looking for offset {byteOffset}");
+                    Console.WriteLine($"[DEBUG] Instructions around index {i}:");
+                    for (int j = Math.Max(0, i - 3); j < Math.Min(Instructions.Count, i + 5); j++)
+                    {
+                        int offset = j * INSTRUCTION_WORD_SIZE;  // Each instruction is 1 word
+                        Console.WriteLine($"  [{j}] offset={offset}: {Instructions[j].OpCode}");
+                    }
+
                     throw new ArgumentException(
-                        $"Byte offset {byteOffset} does not align with an instruction boundary. " +
-                        $"Previous instruction at byte offset {currentByteOffset - wordCount * INSTRUCTION_WORD_SIZE}, " +
+                        $"[{Name}] Byte offset {byteOffset} does not align with an instruction boundary. " +
+                        $"Previous instruction at byte offset {currentByteOffset - INSTRUCTION_WORD_SIZE}, " +
                         $"next instruction at byte offset {currentByteOffset}");
                 }
             }

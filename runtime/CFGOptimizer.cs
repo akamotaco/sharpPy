@@ -197,19 +197,36 @@ namespace SharpPy
         /// </summary>
         private void EliminateEmptyBlocks()
         {
+            // CRITICAL: Build set of blocks that are exception handler targets
+            // These blocks MUST NOT be eliminated even if empty
+            // CPython 3.12 requires exception handler blocks to be emitted for exception table
+            var exceptionHandlerBlocks = new HashSet<BasicBlock>();
+            foreach (var block in _cfg.AllBlocks)
+            {
+                foreach (var instr in block.Instructions)
+                {
+                    if (instr.ExceptBlock != null)
+                    {
+                        exceptionHandlerBlocks.Add(instr.ExceptBlock);
+                    }
+                }
+            }
+
             // Step 1: Update fallthrough chain (b_next) to skip empty blocks
+            // EXCEPT for exception handler blocks - they must be preserved
             for (var b = _cfg.EntryBlock; b != null; b = b.Next)
             {
                 var next = b.Next;
-                while (next != null && next.Instructions.Count == 0)
+                while (next != null && next.Instructions.Count == 0 && !exceptionHandlerBlocks.Contains(next))
                 {
-                    next = next.Next;  // Skip empty blocks
+                    next = next.Next;  // Skip empty blocks (but not exception handlers)
                 }
                 b.Next = next;
             }
 
             // Step 2: If entry block is empty, skip to next non-empty block
-            while (_cfg.EntryBlock != null && _cfg.EntryBlock.Instructions.Count == 0)
+            // EXCEPT if it's an exception handler - preserve it
+            while (_cfg.EntryBlock != null && _cfg.EntryBlock.Instructions.Count == 0 && !exceptionHandlerBlocks.Contains(_cfg.EntryBlock))
             {
                 _cfg.EntryBlock = _cfg.EntryBlock.Next;
             }
@@ -243,9 +260,9 @@ namespace SharpPy
                             continue;  // Invalid target, skip
                         }
 
-                        // Skip past any empty blocks
+                        // Skip past any empty blocks (except exception handlers)
                         var originalTarget = target;
-                        while (target != null && target.Instructions.Count == 0)
+                        while (target != null && target.Instructions.Count == 0 && !exceptionHandlerBlocks.Contains(target))
                         {
                             target = target.Next;
                         }

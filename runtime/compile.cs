@@ -7865,10 +7865,16 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
 
+            // Check if try block ends with unconditional terminator (RETURN/RAISE)
+            // CPython 3.12: Python/flowgraph.c - avoid emitting unreachable code
+            bool tryEndsWithTerminator = _instructionSequence.EndsWithTerminator();
+
             // NOTE: Don't pop FINALLY_TRY yet! Except handlers need to see it too.
             // CPython: pop happens AFTER compiler_try_except returns (compile.c:3263)
 
             // 3. POP_BLOCK - pop exception handler from stack (normal completion)
+            // CRITICAL: POP_BLOCK is a pseudo-instruction, removed by flowgraph
+            // But we still need to track it for exception handler stack management
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             // Pop exception handler from compiler stack
             _exceptionHandlerStack.Pop();
@@ -7894,17 +7900,22 @@ namespace SharpPy
                 }
             }
 
-            // 5. Try block completed successfully - ALWAYS use JUMP
+            // 5. Try block completed successfully - JUMP to skip handlers
             // CPython 3.12: Both module-level and function-level use JUMP to skip handlers
             //               RETURN_CONST is only added at the END of the module
             // NOTE: This is crucial for nested try-except blocks!
-            if (hasFinally)
+            // CRITICAL: Don't add JUMP if try block ends with unconditional terminator (RETURN/RAISE/etc)
+            // CPython 3.12: Python/flowgraph.c - unreachable code elimination
+            if (!tryEndsWithTerminator)
             {
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
-            }
-            else
-            {
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+                if (hasFinally)
+                {
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
+                }
+                else
+                {
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+                }
             }
 
             // 6. Exception handler entry

@@ -259,13 +259,10 @@ namespace SharpPy
             int currentOffset = 0;
 
             // CPython 3.12: Python/assemble.c:143-166
-            // CRITICAL: Process blocks in instruction order (by block.Offset), NOT AllBlocks order!
-            // AllBlocks order is creation order, which may not match instruction sequence order
-            // (e.g., exception handler blocks created before fallthrough blocks)
-            var sortedBlocks = new List<BasicBlock>(AllBlocks);
-            sortedBlocks.Sort((a, b) => a.Offset.CompareTo(b.Offset));
-
-            foreach (var block in sortedBlocks)
+            // CRITICAL: Must iterate using b_next (execution order), NOT AllBlocks (creation order)!
+            // This MUST match the iteration order used in assemble.cs
+            // CPython: for (basicblock *b = entryblock; b != NULL; b = b->b_next)
+            for (BasicBlock? block = EntryBlock; block != null; block = block.Next)
             {
                 bool isFirst = true;
                 foreach (var instr in block.Instructions)
@@ -521,6 +518,74 @@ namespace SharpPy
                             }
                             break;
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Python/flowgraph.c:1600-1610
+        /// Calculate predecessor count for each block
+        /// Used to eliminate unreachable code (blocks with predecessors == 0)
+        /// </summary>
+        public void CalculatePredecessors()
+        {
+            // Reset all predecessor counts
+            foreach (var block in AllBlocks)
+            {
+                block.Predecessors = 0;
+            }
+
+            // Entry block always has 1 predecessor (the caller)
+            if (EntryBlock != null)
+            {
+                EntryBlock.Predecessors = 1;
+            }
+
+            // Count predecessors based on control flow
+            for (BasicBlock? b = EntryBlock; b != null; b = b.Next)
+            {
+                // Fallthrough to next block
+                if (b.Next != null)
+                {
+                    b.Next.Predecessors++;
+                }
+
+                // Jump successors
+                foreach (var successor in b.Successors)
+                {
+                    successor.Predecessors++;
+                }
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[CFG] Predecessor counts:");
+            for (BasicBlock? b = EntryBlock; b != null; b = b.Next)
+            {
+                Console.WriteLine($"  Block {b.BlockId}: predecessors={b.Predecessors}, instructions={b.Instructions.Count}");
+            }
+#endif
+        }
+
+        /// <summary>
+        /// CPython 3.12: Python/flowgraph.c:1600-1610
+        /// Delete unreachable instructions (blocks with no predecessors)
+        /// This eliminates dead code after RETURN/RAISE statements
+        /// </summary>
+        public void EliminateUnreachableCode()
+        {
+            // CPython: for (basicblock *b = g->g_entryblock; b != NULL; b = b->b_next) {
+            //            if (b->b_predecessors == 0) {
+            //                b->b_iused = 0;
+            //            }
+            //          }
+            for (BasicBlock? b = EntryBlock; b != null; b = b.Next)
+            {
+                if (b.Predecessors == 0)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"[CFG] Eliminating unreachable Block {b.BlockId} ({b.Instructions.Count} instructions)");
+#endif
+                    b.Instructions.Clear();
                 }
             }
         }
