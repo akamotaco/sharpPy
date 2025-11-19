@@ -930,6 +930,8 @@ namespace SharpPy
                         InitializeDictTypeDescriptors();
                     else if (Name == "mappingproxy")
                         InitializeMappingProxyTypeDescriptors();
+                    else if (Name == "BaseException")
+                        InitializeBaseExceptionTypeDescriptors();
                     break;
             }
 
@@ -2591,6 +2593,76 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+        }
+
+        /// <summary>
+        /// BaseException 타입의 descriptor 테이블 초기화
+        /// CPython reference: Objects/exceptions.c:79-105 (BaseException_str)
+        /// </summary>
+        private void InitializeBaseExceptionTypeDescriptors()
+        {
+            // CPython 3.12: Objects/exceptions.c:42-71 (BaseException_init)
+            // BaseException.__init__(self, *args) - stores args in self.args
+            TypeDict["__init__"] = new PyBuiltinFunction("__init__", args =>
+            {
+                if (args.Length == 0)
+                    throw PyTypeError.Create("descriptor '__init__' of 'BaseException' object needs an argument");
+
+                var self = args[0];
+
+                // Extract *args (skip self)
+                var initArgs = args.Skip(1).ToArray();
+
+                // Store args in instance
+                if (self is PyClassInstance inst)
+                {
+                    inst.InstanceDict["args"] = new PyTuple(initArgs);
+                }
+
+                return PyNone.Instance;
+            });
+
+            // CPython 3.12: Objects/exceptions.c:79-105 (BaseException_str)
+            // BaseException.__str__(self) - returns str(args[0]) if len(args) == 1, else str(args)
+            TypeDict["__str__"] = new PyBuiltinFunction("__str__", args =>
+            {
+                if (args.Length == 0)
+                    throw PyTypeError.Create("descriptor '__str__' of 'BaseException' object needs an argument");
+
+                var self = args[0];
+
+                // Get args attribute from exception instance
+                PyObject argsAttr;
+                if (self is PyBaseException exc)
+                {
+                    // C# exception object - directly access Args
+                    var excArgs = exc.Args;
+                    if (excArgs.Length == 0)
+                        return new PyString("");
+                    if (excArgs.Length == 1)
+                        return excArgs[0].ToStr();
+                    return new PyString($"({string.Join(", ", excArgs.Select(a => a.ToRepr().Value))})");
+                }
+                else if (self is PyClassInstance inst)
+                {
+                    // Python-level exception instance - get args attribute
+                    if (inst.InstanceDict.TryGetValue("args", out argsAttr) ||
+                        inst.InstanceType.ClassDict.TryGetValue("args", out argsAttr))
+                    {
+                        if (argsAttr is PyTuple tuple)
+                        {
+                            if (tuple.Items.Length == 0)
+                                return new PyString("");
+                            if (tuple.Items.Length == 1)
+                                return tuple.Items[0].ToStr();
+                            return new PyString($"({string.Join(", ", tuple.Items.Select(a => a.ToRepr().Value))})");
+                        }
+                    }
+                }
+
+                // Fallback: return empty string
+                return new PyString("");
+            });
         }
 
         #endregion

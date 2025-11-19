@@ -2172,7 +2172,22 @@ namespace SharpPy
                 // Then check class hierarchy (but not object's __str__)
                 foreach (var mroType in InstanceType.MRO)
                 {
-                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
+                    // Check PyType (builtin types like BaseException, Exception)
+                    if (mroType is PyType pyType && pyType.TypeDict.ContainsKey("__str__"))
+                    {
+                        var method = pyType.TypeDict["__str__"];
+                        if (method is PyBuiltinFunction builtinFunc)
+                        {
+                            var result = builtinFunc.Call(new PyObject[] { this }, null);
+                            if (result is PyString pyStr)
+                            {
+                                return pyStr;
+                            }
+                        }
+                        break;
+                    }
+                    // Check PyClass (user-defined classes)
+                    else if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
                     {
                         var method = customClass.ClassDict["__str__"];
                         if (method is PyFunction func)
