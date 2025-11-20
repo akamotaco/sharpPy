@@ -2606,6 +2606,13 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
+            // CPython 3.12: For methods that have descriptors in TypeDict, delegate to base
+            // to use the descriptor protocol. This ensures correct behavior with start/end parameters.
+            if (name == "startswith" || name == "endswith")
+            {
+                return base.GetAttribute(name);
+            }
+
             return name switch
             {
                 "upper" => new PyStringMethod(this, "upper", Upper),
@@ -2617,8 +2624,6 @@ namespace SharpPy
                 "replace" => new PyStringMethod(this, "replace", Replace),
                 "split" => new PyStringMethod(this, "split", Split),
                 "join" => new PyStringMethod(this, "join", Join),
-                "startswith" => new PyStringMethod(this, "startswith", StartsWith),
-                "endswith" => new PyStringMethod(this, "endswith", EndsWith),
                 "find" => new PyStringMethod(this, "find", Find),
                 "count" => new PyStringMethod(this, "count", Count),
                 "encode" => new PyStringMethod(this, "encode", EncodeMethod),

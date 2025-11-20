@@ -215,11 +215,54 @@ namespace SharpPy.Modules
 
         #region 헬퍼 메서드들
 
+        /// <summary>
+        /// CPython 3.12: Lib/re/_constants.py:205-217
+        /// Maps Python re flags to C# RegexOptions
+        ///
+        /// Python flags:
+        /// - IGNORECASE = 2 (re.I)
+        /// - MULTILINE = 8 (re.M)
+        /// - DOTALL = 16 (re.S)
+        /// - VERBOSE = 64 (re.X) - NOT mapped! Python's parser handles this
+        ///
+        /// C# RegexOptions:
+        /// - IgnoreCase = 1
+        /// - Multiline = 2
+        /// - Singleline = 16 (equivalent to DOTALL)
+        /// - IgnorePatternWhitespace = 32 - DO NOT USE! Incompatible with Python's VERBOSE
+        /// </summary>
         private static RegexOptions GetFlags(PyObject flagsObj)
         {
-            if (flagsObj is PyInt flagsInt)
-                return (RegexOptions)flagsInt.Value;
-            return RegexOptions.None;
+            if (flagsObj is not PyInt flagsInt)
+                return RegexOptions.None;
+
+            int pyFlags = (int)flagsInt.Value;
+            RegexOptions csFlags = RegexOptions.None;
+
+            // CPython 3.12: Lib/re/_constants.py:205
+            const int SRE_FLAG_IGNORECASE = 2;
+            // CPython 3.12: Lib/re/_constants.py:207
+            const int SRE_FLAG_MULTILINE = 8;
+            // CPython 3.12: Lib/re/_constants.py:209
+            const int SRE_FLAG_DOTALL = 16;
+            // CPython 3.12: Lib/re/_constants.py:213
+            const int SRE_FLAG_VERBOSE = 64;
+
+            // Map Python flags to C# RegexOptions
+            if ((pyFlags & SRE_FLAG_IGNORECASE) != 0)
+                csFlags |= RegexOptions.IgnoreCase;
+
+            if ((pyFlags & SRE_FLAG_MULTILINE) != 0)
+                csFlags |= RegexOptions.Multiline;
+
+            if ((pyFlags & SRE_FLAG_DOTALL) != 0)
+                csFlags |= RegexOptions.Singleline;  // C# Singleline = Python DOTALL
+
+            // IMPORTANT: Do NOT map SRE_FLAG_VERBOSE to RegexOptions.IgnorePatternWhitespace!
+            // Python's re._parser already handles VERBOSE flag by preprocessing the pattern.
+            // C# IgnorePatternWhitespace is incompatible - it ignores spaces inside character classes too!
+
+            return csFlags;
         }
 
         #endregion
@@ -280,6 +323,7 @@ namespace SharpPy.Modules
 
         /// <summary>
         /// CPython 3.12: Modules/_sre/sre.c:1754-1825 (pattern_match_impl)
+        /// Signature: match(string, pos=0, endpos=sys.maxsize)
         /// </summary>
         private PyObject Match(PyObject[] args)
         {
@@ -287,7 +331,18 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create("match() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var match = _regex.Match(text.Value);
+            // CPython 3.12: Modules/_sre/sre.c:1761-1767 - handle pos and endpos parameters
+            int pos = args.Length > 1 && args[1] is PyInt posInt ? (int)posInt.Value : 0;
+            int endpos = args.Length > 2 && args[2] is PyInt endposInt ? (int)endposInt.Value : text.Value.Length;
+
+            // Clamp pos and endpos to valid range
+            if (pos < 0) pos = 0;
+            if (pos > text.Value.Length) pos = text.Value.Length;
+            if (endpos < pos) endpos = pos;
+            if (endpos > text.Value.Length) endpos = text.Value.Length;
+
+            // Use C# Regex.Match with starting position
+            var match = _regex.Match(text.Value, pos, endpos - pos);
             return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
         }
 

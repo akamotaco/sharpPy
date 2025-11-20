@@ -267,7 +267,27 @@ namespace SharpPy
                         return self.ToStr();
                     }, 1);
                 case "__repr__":
-                    // CPython 3.12: object.__repr__ bound method
+                    // CPython 3.12: Check if type has its own __repr__ descriptor first
+                    // This allows int, str, etc. to define their own __repr__
+                    var type = GetPyType();
+                    foreach (var mroType in type.MRO)
+                    {
+                        if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__repr__", out var typeAttr))
+                        {
+                            // Found a type-level __repr__, use descriptor protocol
+                            if (typeAttr is IDescriptor desc)
+                            {
+                                return desc.Get(this, type);
+                            }
+                            // If it's not a descriptor but callable, wrap it as a bound method
+                            if (typeAttr.IsCallable())
+                            {
+                                // Found type's __repr__, delegate to full attribute lookup
+                                return PyGetAttribute(name);
+                            }
+                        }
+                    }
+                    // Fallback to object.__repr__ bound method
                     return new PyBuiltinMethod("__repr__", (self, args) => {
                         if (args.Length != 0) // self is separate
                             throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");

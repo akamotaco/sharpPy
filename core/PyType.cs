@@ -1044,6 +1044,21 @@ namespace SharpPy
                 }
             );
 
+            // int.__repr__() - CPython Objects/longobject.c:long_to_decimal_string
+            TypeDict["__repr__"] = new PyMethodDescriptor(
+                "__repr__",
+                intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt pyInt)
+                        throw PyTypeError.Create("descriptor '__repr__' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return pyInt.ToRepr();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
+
             // int.bit_length() - CPython Objects/longobject.c:long_bit_length
             TypeDict["bit_length"] = new PyMethodDescriptor(
                 "bit_length",
