@@ -372,6 +372,7 @@ public class PyModule : PyObject
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),  // random.py가 사용
+            ["_codecs"] = () => SharpPy.Modules._CodecsModule.CreateCodecsModule(),  // codecs.py가 사용
 
             // OS 인터페이스 C 모듈 (cross-platform)
             ["nt"] = () => SharpPy.Modules.NtModule.CreateNtModule(),  // os.py가 사용 (Windows/Linux/Mac)
