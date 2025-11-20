@@ -10,6 +10,9 @@ namespace SharpPy
     {
         private readonly Dictionary<string, PyObject> _mapping;
 
+        // Internal property to access the count without triggering recursion in __len__
+        internal int InternalCount => _mapping.Count;
+
         public PyMappingProxy(Dictionary<string, PyObject> mapping)
         {
             // CPython 3.12: Keep reference to original dictionary, don't copy

@@ -167,10 +167,24 @@ namespace SharpPy
         // This ensures descriptors (like BaseException.args) are properly invoked
         public override PyObject GetAttribute(string name)
         {
+            // CPython 3.12: Exception chaining attributes are stored on the exception wrapper,
+            // not on the user-defined instance. Check these first before delegating.
+            // Corresponds to BaseException attributes in Objects/exceptions.c:785-795
+            switch (name)
+            {
+                case "args":
+                case "__cause__":
+                case "__context__":
+                case "__suppress_context__":
+                case "__traceback__":
+                    // These are exception-specific attributes stored on the wrapper
+                    return base.GetAttribute(name);
+            }
+
             // CPython 3.12: Objects/exceptions.c:42-849
             // For user-defined exceptions (Python classes inheriting from Exception),
-            // ALL attribute access goes through the original PyClassInstance
-            // This ensures proper descriptor protocol and MRO traversal
+            // delegate remaining attribute access to the original PyClassInstance
+            // This ensures proper descriptor protocol and MRO traversal for custom attributes
             if (OriginalInstance != null)
             {
                 return OriginalInstance.GetAttribute(name);

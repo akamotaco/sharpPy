@@ -2611,6 +2611,26 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // mappingproxy.__len__()
+            // CPython 3.12: Objects/descrobject.c:1037-1040 (mappingproxy_len)
+            // Line 1039: return PyObject_Size(pp->mapping);
+            TypeDict["__len__"] = new PyMethodDescriptor(
+                "__len__",
+                mappingProxyType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"__len__() takes no arguments ({args.Length} given)");
+                    if (self is not PyMappingProxy mappingProxy)
+                        throw PyTypeError.Create($"descriptor '__len__' for 'mappingproxy' objects doesn't apply to a '{self.GetTypeName()}' object");
+
+                    // Return the length of the underlying mapping
+                    // Use InternalCount to avoid recursion (don't call Length() which looks up __len__)
+                    return new PyInt(mappingProxy.InternalCount);
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
         }
 
         /// <summary>

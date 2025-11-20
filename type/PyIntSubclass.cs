@@ -94,10 +94,12 @@ namespace SharpPy
 
         protected override PyObject PyEquals(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:3150-3173 (long_richcompare)
+            // IntEnum (int subclass) should compare equal to int with same value
             if (other is PyIntSubclass otherSub)
                 other = otherSub._intValue;
-            // Delegate to PyInt's Equals which calls PyEquals internally
-            return _intValue.Equals(other) ? PyBool.True : PyBool.False;
+            // Delegate to PyInt's RichCompare for proper value comparison
+            return _intValue.RichCompare(other, CompareOp.EQ);
         }
 
         protected override PyObject PyLess(PyObject other)
