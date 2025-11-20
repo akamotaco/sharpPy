@@ -2091,10 +2091,10 @@ namespace SharpPy
                 }
                 else
                 {
-                    // CPython 3.12: Simple decorator: @decorator - needs PUSH_NULL before loading
-                    // Python/bytecodes.c:2770-2788 - CALL instruction pops: args[oparg], callable, method (NULL)
-                    // So we must push NULL before the decorator function
-                    EmitInstruction(ByteCodeOp.PUSH_NULL);
+                    // CPython 3.12: Python/compile.c:1852-1861 (compiler_decorators)
+                    // Simple decorator: @decorator - just load the decorator name
+                    // Decorators are loaded onto stack and applied later in CompilerApplyDecorators
+                    // PUSH_NULL is NOT needed - decorators are not called here, just loaded
                     CompileExpression(decorator.DecoratorFunction);
                 }
             }
