@@ -234,6 +234,8 @@ namespace SharpPy
             _builtinImplementations["object"] = (args, kwargs) => CallObject(args, kwargs);
             _builtinImplementations["vars"] = (args, kwargs) => CallVars(args, kwargs);
             _builtinImplementations["format"] = (args, kwargs) => CallFormat(args, kwargs);
+            _builtinImplementations["help"] = (args, kwargs) => CallHelp(args, kwargs);
+            _builtinImplementations["breakpoint"] = (args, kwargs) => CallBreakpoint(args, kwargs);
         }
 
         // 내장 함수 호출 - CPython 3.12 호환: kwargs 지원
@@ -4588,6 +4590,75 @@ namespace SharpPy
                 }
                 throw PyTypeError.Create($"unsupported format string passed to {value.GetTypeName()}.__format__");
             }
+        }
+
+        /// <summary>
+        /// help([object]) - Invoke the built-in help system.
+        /// CPython 3.12: Python/bltinmodule.c - builtin_help
+        /// Note: This is a simplified implementation that prints __doc__ or type info.
+        /// Full interactive help system requires the pydoc module.
+        /// </summary>
+        private static PyObject CallHelp(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length == 0)
+            {
+                // Interactive help (simplified)
+                Console.WriteLine("Type help(object) for help about that object.");
+                return PyNone.Instance;
+            }
+
+            if (args.Length > 1)
+                throw PyTypeError.Create($"help expected at most 1 argument, got {args.Length}");
+
+            var obj = args[0];
+
+            // Get type name
+            string typeName = obj.GetTypeName();
+
+            // Try to get __doc__
+            string doc = null;
+            try
+            {
+                var docAttr = obj.GetAttribute("__doc__");
+                if (docAttr != PyNone.Instance && docAttr is PyString docStr)
+                    doc = docStr.Value;
+            }
+            catch { }
+
+            // Build help output
+            Console.WriteLine($"Help on {typeName} object:");
+            Console.WriteLine();
+
+            if (!string.IsNullOrEmpty(doc))
+            {
+                Console.WriteLine(doc);
+            }
+            else
+            {
+                Console.WriteLine($"No documentation available for {typeName}.");
+            }
+
+            // Show type info
+            Console.WriteLine();
+            Console.WriteLine($"Type: {typeName}");
+
+            return PyNone.Instance;
+        }
+
+        /// <summary>
+        /// breakpoint(*args, **kws) - Drop into the debugger.
+        /// CPython 3.12: Python/bltinmodule.c - builtin_breakpoint
+        /// Note: This is a simplified implementation that just prints a message.
+        /// Full debugger integration requires sys.breakpointhook.
+        /// </summary>
+        private static PyObject CallBreakpoint(PyObject[] args, PyDict kwargs = null)
+        {
+            // CPython 3.12: calls sys.breakpointhook(*args, **kws)
+            // Default hook calls pdb.set_trace()
+            // Simplified: just print a message
+            Console.WriteLine("*** Breakpoint ***");
+            Console.WriteLine("(breakpoint() is simplified - full debugger not implemented)");
+            return PyNone.Instance;
         }
 
         #endregion

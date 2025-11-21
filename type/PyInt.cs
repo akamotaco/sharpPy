@@ -1103,43 +1103,117 @@ namespace SharpPy
 
         #region Static Factory Methods
 
+        /// <summary>
+        /// Convert string to PyInt with optional base.
+        /// CPython 3.12: Objects/longobject.c - PyLong_FromString() lines 2500-2700
+        /// </summary>
         public static PyInt FromString(string s, int baseValue = 10)
         {
             try
             {
                 s = s.Trim();
 
-                // 진법 접두사 처리
-                if (baseValue == 0)
+                // Handle sign prefix (CPython: longobject.c line 2540)
+                int sign = 1;
+                if (s.Length > 0 && (s[0] == '+' || s[0] == '-'))
                 {
-                    if (s.StartsWith("0x") || s.StartsWith("0X"))
+                    if (s[0] == '-') sign = -1;
+                    s = s.Substring(1);
+                }
+
+                // Handle base prefix (CPython: longobject.c lines 2550-2600)
+                // When base is 0, auto-detect from prefix
+                // When base is explicit, strip matching prefix if present
+                if (s.Length >= 2 && s[0] == '0')
+                {
+                    char prefix = char.ToLower(s[1]);
+                    if (prefix == 'x')
                     {
-                        baseValue = 16;
-                        s = s.Substring(2);
+                        if (baseValue == 0 || baseValue == 16)
+                        {
+                            if (baseValue == 0) baseValue = 16;
+                            s = s.Substring(2);
+                        }
                     }
-                    else if (s.StartsWith("0b") || s.StartsWith("0B"))
+                    else if (prefix == 'b')
                     {
-                        baseValue = 2;
-                        s = s.Substring(2);
+                        if (baseValue == 0 || baseValue == 2)
+                        {
+                            if (baseValue == 0) baseValue = 2;
+                            s = s.Substring(2);
+                        }
                     }
-                    else if (s.StartsWith("0o") || s.StartsWith("0O"))
+                    else if (prefix == 'o')
                     {
-                        baseValue = 8;
-                        s = s.Substring(2);
-                    }
-                    else
-                    {
-                        baseValue = 10;
+                        if (baseValue == 0 || baseValue == 8)
+                        {
+                            if (baseValue == 0) baseValue = 8;
+                            s = s.Substring(2);
+                        }
                     }
                 }
 
-                Py_int_t result = Convert.ToInt64(s, baseValue);
+                // Default base for auto-detect (CPython: longobject.c line 2610)
+                if (baseValue == 0) baseValue = 10;
+
+                // Handle empty string after prefix strip
+                if (string.IsNullOrEmpty(s))
+                {
+                    throw PyValueError.Create($"invalid literal for int() with base {baseValue}: '{s}'");
+                }
+
+                // Handle underscore separators (CPython 3.6+: PEP 515)
+                s = s.Replace("_", "");
+
+                // Convert string to number (CPython: longobject.c lines 2620-2700)
+                // .NET's Convert.ToInt64 only supports base 2, 8, 10, 16
+                // For other bases, use custom conversion
+                Py_int_t result;
+                if (baseValue == 2 || baseValue == 8 || baseValue == 10 || baseValue == 16)
+                {
+                    result = Convert.ToInt64(s, baseValue);
+                }
+                else
+                {
+                    result = ConvertFromBase(s, baseValue);
+                }
+                result *= sign;
                 return new PyInt(result);
             }
-            catch (Exception)
+            catch
             {
                 throw PyValueError.Create($"invalid literal for int() with base {baseValue}: '{s}'");
             }
+        }
+
+        /// <summary>
+        /// Convert string to long for bases not supported by Convert.ToInt64.
+        /// CPython 3.12: Objects/longobject.c lines 2620-2700
+        /// </summary>
+        private static Py_int_t ConvertFromBase(string s, int baseValue)
+        {
+            if (baseValue < 2 || baseValue > 36)
+                throw new ArgumentException($"int() base must be >= 2 and <= 36, or 0");
+
+            Py_int_t result = 0;
+            foreach (char c in s)
+            {
+                int digit;
+                if (c >= '0' && c <= '9')
+                    digit = c - '0';
+                else if (c >= 'a' && c <= 'z')
+                    digit = c - 'a' + 10;
+                else if (c >= 'A' && c <= 'Z')
+                    digit = c - 'A' + 10;
+                else
+                    throw new FormatException($"Invalid character '{c}'");
+
+                if (digit >= baseValue)
+                    throw new FormatException($"Invalid digit '{c}' for base {baseValue}");
+
+                result = result * baseValue + digit;
+            }
+            return result;
         }
 
         public static PyInt FromNumber(PyObject obj)

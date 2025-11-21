@@ -194,6 +194,8 @@ namespace SharpPy.Modules
             module.ModuleDict["vars"] = new PyBuiltinFunction("vars", Vars);
             module.ModuleDict["format"] = new PyBuiltinFunction("format", Format);
             module.ModuleDict["memoryview"] = new PyBuiltinFunction("memoryview", MemoryView);
+            module.ModuleDict["help"] = new PyBuiltinFunction("help");
+            module.ModuleDict["breakpoint"] = new PyBuiltinFunction("breakpoint");
 
             // CPython 3.12: __build_class__ is a builtin function for class creation
             module.ModuleDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
