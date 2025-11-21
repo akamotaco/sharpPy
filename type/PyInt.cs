@@ -598,7 +598,7 @@ namespace SharpPy
             else if (other is PyBool otherBool)
                 otherValue = otherBool.Value ? 1.0 : 0.0;
             else
-                throw PyTypeError.Create($"unsupported operand type(s) for /: 'int' and '{other.GetTypeName()}'");
+                return PyNotImplemented.Instance;
 
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("division by zero");
@@ -638,7 +638,7 @@ namespace SharpPy
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
                 return new PyInt(Value);
             }
-            throw PyTypeError.Create($"unsupported operand type(s) for //: 'int' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         public override PyObject Modulo(PyObject other)
@@ -679,7 +679,7 @@ namespace SharpPy
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
                 return new PyInt(0);
             }
-            throw PyTypeError.Create($"unsupported operand type(s) for %: 'int' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -757,7 +757,7 @@ namespace SharpPy
             }
             else
             {
-                throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'int' and '{other.GetTypeName()}'");
+                return PyNotImplemented.Instance;
             }
         }
 
@@ -979,7 +979,7 @@ namespace SharpPy
         public override PyObject LeftShift(PyObject other)
         {
             if (!(other is PyInt otherInt))
-                throw PyTypeError.Create($"unsupported operand type(s) for <<: 'int' and '{other.GetTypeName()}'");
+                return PyNotImplemented.Instance;
 
             if (otherInt.Value < 0)
                 throw PyValueError.Create("negative shift count");
@@ -990,7 +990,7 @@ namespace SharpPy
         public override PyObject RightShift(PyObject other)
         {
             if (!(other is PyInt otherInt))
-                throw PyTypeError.Create($"unsupported operand type(s) for >>: 'int' and '{other.GetTypeName()}'");
+                return PyNotImplemented.Instance;
 
             if (otherInt.Value < 0)
                 throw PyValueError.Create("negative shift count");

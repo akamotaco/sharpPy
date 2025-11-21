@@ -6274,12 +6274,62 @@ namespace SharpPy
         private PyObject TryInplaceOp(PyObject left, PyObject right, string inplaceMethodName, Func<PyObject> regularOpFallback)
         {
             // CPython: Objects/abstract.c:1166-1173 - Try in-place method first
-            var method = left.GetType().GetMethod(inplaceMethodName);
-            if (method != null)
+            // Map C# method name to Python dunder method name
+            string pythonMethodName = inplaceMethodName switch
+            {
+                "InplaceAdd" => "__iadd__",
+                "InplaceSubtract" => "__isub__",
+                "InplaceMultiply" => "__imul__",
+                "InplaceDivide" => "__itruediv__",
+                "InplaceFloorDivide" => "__ifloordiv__",
+                "InplaceModulo" => "__imod__",
+                "InplacePower" => "__ipow__",
+                "InplaceLeftShift" => "__ilshift__",
+                "InplaceRightShift" => "__irshift__",
+                "InplaceBitwiseAnd" => "__iand__",
+                "InplaceBitwiseOr" => "__ior__",
+                "InplaceBitwiseXor" => "__ixor__",
+                "InplaceMatrixMultiply" => "__imatmul__",
+                _ => null
+            };
+
+            // Try Python dunder method via GetAttribute (for user-defined classes)
+            if (pythonMethodName != null)
             {
                 try
                 {
-                    var result = method.Invoke(left, new object[] { right }) as PyObject;
+                    PyObject method = left.GetAttribute(pythonMethodName);
+                    if (method != null)
+                    {
+                        PyObject result = null;
+                        if (method is PyMethod boundMethod)
+                            result = boundMethod.Call(new PyObject[] { right }, null);
+                        else if (method is PyFunction func)
+                            result = func.Call(new PyObject[] { left, right }, null);
+                        else if (method is PyBuiltinFunction builtinFunc)
+                            result = builtinFunc.Call(new PyObject[] { right });
+                        else
+                            result = method.Call(new PyObject[] { right }, null);
+
+                        // CPython: Objects/abstract.c:1171 - If not NotImplemented, use result
+                        if (result != null && result != PyNotImplemented.Instance)
+                            return result;
+                    }
+                }
+                catch
+                {
+                    // If GetAttribute throws AttributeError or any other error,
+                    // fall through to C# method or fallback
+                }
+            }
+
+            // Try C# method for built-in types (PyList, etc.)
+            var csharpMethod = left.GetType().GetMethod(inplaceMethodName);
+            if (csharpMethod != null)
+            {
+                try
+                {
+                    var result = csharpMethod.Invoke(left, new object[] { right }) as PyObject;
 
                     // CPython: Objects/abstract.c:1171 - If not NotImplemented, use result
                     if (result != null && result != PyNotImplemented.Instance)
@@ -6301,29 +6351,67 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Try reverse binary operation: right.__rop__(left)
+        /// Try reverse binary operation (right.__rop__(left))
         /// CPython 3.12: Objects/abstract.c:964-984 (binary_op1)
         /// </summary>
         private PyObject TryReverseBinaryOp(PyObject right, PyObject left, BinaryOpType binaryOp)
         {
             try
             {
-                return binaryOp switch
+                // Get the reflected method name
+                string methodName = binaryOp switch
                 {
-                    BinaryOpType.ADD => right.Add(left),
-                    BinaryOpType.SUBTRACT => right.Subtract(left),
-                    BinaryOpType.MULTIPLY => right.Multiply(left),
-                    BinaryOpType.TRUE_DIVIDE => right.Divide(left),
-                    BinaryOpType.FLOOR_DIVIDE => right.FloorDivide(left),
-                    BinaryOpType.MODULO => right.Modulo(left),
-                    BinaryOpType.POWER => right.Power(left),
-                    BinaryOpType.LSHIFT => right.LeftShift(left),
-                    BinaryOpType.RSHIFT => right.RightShift(left),
-                    BinaryOpType.AND => right.BitwiseAnd(left),
-                    BinaryOpType.OR => right.BitwiseOr(left),
-                    BinaryOpType.XOR => right.BitwiseXor(left),
-                    _ => PyNotImplemented.Instance
+                    BinaryOpType.ADD => "__radd__",
+                    BinaryOpType.SUBTRACT => "__rsub__",
+                    BinaryOpType.MULTIPLY => "__rmul__",
+                    BinaryOpType.TRUE_DIVIDE => "__rtruediv__",
+                    BinaryOpType.FLOOR_DIVIDE => "__rfloordiv__",
+                    BinaryOpType.MODULO => "__rmod__",
+                    BinaryOpType.POWER => "__rpow__",
+                    BinaryOpType.LSHIFT => "__rlshift__",
+                    BinaryOpType.RSHIFT => "__rrshift__",
+                    BinaryOpType.AND => "__rand__",
+                    BinaryOpType.OR => "__ror__",
+                    BinaryOpType.XOR => "__rxor__",
+                    BinaryOpType.MATRIX_MULTIPLY => "__rmatmul__",
+                    _ => null
                 };
+
+                if (methodName == null)
+                    return PyNotImplemented.Instance;
+
+                // Try to get the reflected method from the right operand
+                PyObject method = null;
+                try
+                {
+                    method = right.GetAttribute(methodName);
+                }
+                catch
+                {
+                    return PyNotImplemented.Instance;
+                }
+
+                if (method == null)
+                    return PyNotImplemented.Instance;
+
+                // Call the reflected method with left as argument
+                if (method is PyMethod boundMethod)
+                {
+                    return boundMethod.Call(new PyObject[] { left }, null);
+                }
+                else if (method is PyFunction func)
+                {
+                    return func.Call(new PyObject[] { right, left }, null);
+                }
+                else if (method is PyBuiltinFunction builtinFunc)
+                {
+                    return builtinFunc.Call(new PyObject[] { left });
+                }
+                else
+                {
+                    // Try to call it as a callable
+                    return method.Call(new PyObject[] { left }, null);
+                }
             }
             catch
             {

@@ -101,64 +101,74 @@ namespace SharpPy
             if (Step == PyNone.Instance)
                 return 1;
 
-            if (Step is PyInt stepInt)
-                return (int)stepInt.Value;
+            // Try __index__ protocol for integer-like objects
+            // CPython 3.12: Objects/sliceobject.c:245 (slice_indices)
+            var index = PyObject.TryGetIndex(Step);
+            if (index != null)
+                return (int)index.Value;
 
-            throw PyTypeError.Create("slice indices must be integers or None");
+            throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
         }
 
         private (int start, int stop) GetStartStopValues(int length, int step)
         {
             int start, stop;
 
-            // Start 값 처리
+            // Start 값 처리 - __index__ protocol 지원
+            // CPython 3.12: Objects/sliceobject.c:246-248 (slice_indices)
             if (Start == PyNone.Instance)
             {
                 start = step < 0 ? length - 1 : 0;
             }
-            else if (Start is PyInt startInt)
-            {
-                start = (int)startInt.Value;
-                if (start < 0) start += length;
-                // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:289-290)
-                // if (*start >= length) { *start = (step < 0) ? length - 1 : length; }
-                if (start < 0)
-                {
-                    start = (step < 0) ? -1 : 0;
-                }
-                else if (start >= length)
-                {
-                    start = (step < 0) ? length - 1 : length;
-                }
-            }
             else
             {
-                throw PyTypeError.Create("slice indices must be integers or None");
+                var startIndex = PyObject.TryGetIndex(Start);
+                if (startIndex != null)
+                {
+                    start = (int)startIndex.Value;
+                    if (start < 0) start += length;
+                    // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:289-290)
+                    if (start < 0)
+                    {
+                        start = (step < 0) ? -1 : 0;
+                    }
+                    else if (start >= length)
+                    {
+                        start = (step < 0) ? length - 1 : length;
+                    }
+                }
+                else
+                {
+                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+                }
             }
 
-            // Stop 값 처리
+            // Stop 값 처리 - __index__ protocol 지원
             if (Stop == PyNone.Instance)
             {
                 stop = step < 0 ? -1 : length;
             }
-            else if (Stop is PyInt stopInt)
-            {
-                stop = (int)stopInt.Value;
-                if (stop < 0) stop += length;
-                // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:299-300)
-                // if (*stop >= length) { *stop = (step < 0) ? length - 1 : length; }
-                if (stop < 0)
-                {
-                    stop = (step < 0) ? -1 : 0;
-                }
-                else if (stop >= length)
-                {
-                    stop = (step < 0) ? length - 1 : length;
-                }
-            }
             else
             {
-                throw PyTypeError.Create("slice indices must be integers or None");
+                var stopIndex = PyObject.TryGetIndex(Stop);
+                if (stopIndex != null)
+                {
+                    stop = (int)stopIndex.Value;
+                    if (stop < 0) stop += length;
+                    // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:299-300)
+                    if (stop < 0)
+                    {
+                        stop = (step < 0) ? -1 : 0;
+                    }
+                    else if (stop >= length)
+                    {
+                        stop = (step < 0) ? length - 1 : length;
+                    }
+                }
+                else
+                {
+                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+                }
             }
 
             return (start, stop);

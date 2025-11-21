@@ -380,13 +380,10 @@ namespace SharpPy
         }
         
         // PyObject.GetItem 오버라이드 - 슬라이싱 및 인덱싱 지원
+        // CPython 3.12: Objects/listobject.c:268-291 (list_subscript)
         public override PyObject GetItem(PyObject index)
         {
-            if (index is PyInt pyInt)
-            {
-                return GetItem((int)pyInt.Value);
-            }
-            else if (index is PySlice slice)
+            if (index is PySlice slice)
             {
                 // 슬라이싱 처리
                 var (start, stop, step) = slice.Indices(_items.Count);
@@ -413,7 +410,9 @@ namespace SharpPy
             }
             else
             {
-                throw PyTypeError.Create($"list indices must be integers or slices, not {index.GetTypeName()}");
+                // Try __index__ protocol for integer-like objects
+                int idx = PyObject.GetIndex(index, "list");
+                return GetItem(idx);
             }
         }
 

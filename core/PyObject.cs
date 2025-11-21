@@ -104,6 +104,67 @@ namespace SharpPy
 
         #endregion
 
+        #region Index Protocol
+
+        /// <summary>
+        /// Convert an object to an integer index by calling __index__().
+        /// CPython 3.12: Objects/abstract.c:1324-1355 (PyNumber_Index)
+        /// </summary>
+        /// <param name="obj">The object to convert</param>
+        /// <returns>PyInt if successful, null if __index__ not found</returns>
+        public static PyInt? TryGetIndex(PyObject obj)
+        {
+            // Fast path for int and bool
+            if (obj is PyInt pyInt)
+                return pyInt;
+            if (obj is PyBool pyBool)
+                return new PyInt(pyBool.IsTrue() ? 1 : 0);
+
+            // Try __index__ method
+            try
+            {
+                var indexMethod = obj.GetAttribute("__index__");
+                if (indexMethod != null)
+                {
+                    PyObject result;
+                    if (indexMethod is PyMethod boundMethod)
+                        result = boundMethod.Call(new PyObject[0], null);
+                    else if (indexMethod is PyFunction func)
+                        result = func.Call(new PyObject[] { obj }, null);
+                    else if (indexMethod is PyBuiltinFunction builtinFunc)
+                        result = builtinFunc.Call(new PyObject[0]);
+                    else
+                        result = indexMethod.Call(new PyObject[0], null);
+
+                    if (result is PyInt intResult)
+                        return intResult;
+
+                    throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                }
+            }
+            catch
+            {
+                // No __index__ method or any other error
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Convert object to int index or throw TypeError.
+        /// CPython 3.12: Used for list/tuple/string indexing
+        /// </summary>
+        public static int GetIndex(PyObject obj, string typeName)
+        {
+            var index = TryGetIndex(obj);
+            if (index != null)
+                return (int)index.Value;
+
+            throw PyTypeError.Create($"{typeName} indices must be integers or slices, not {obj.GetTypeName()}");
+        }
+
+        #endregion
+
         #region Comparison Protocol
 
         public enum CompareOp { LT, LE, EQ, NE, GT, GE }
