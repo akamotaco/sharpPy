@@ -642,6 +642,10 @@ namespace SharpPy
                 }
             }
 #endif
+            // Note: Metaclass __setattr__ support is disabled due to super() compatibility issues.
+            // This is a known limitation - metaclass __setattr__ won't be called.
+            // TODO: Fix super() for metaclass contexts to enable this feature.
+
             ClassDict[name] = value;
 
             // CPython 3.12: Invalidate method cache when class dict changes
@@ -2066,6 +2070,33 @@ namespace SharpPy
             Console.WriteLine($"🔧 PyClassInstance.SetAttribute: {InstanceType.Name} instance.{name} = {value}");
             #endif
 
+            // CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
+            // First check for user-defined __setattr__ method
+            var setattr = LookupSpecialMethod("__setattr__");
+            if (setattr != null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → found user __setattr__, calling it");
+                #endif
+                setattr.Call(new PyObject[] { new PyString(name), value }, null);
+                return;
+            }
+
+            // No user __setattr__, use default behavior
+            SetAttributeDefault(name, value);
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyObject_GenericSetAttrWithDict (Objects/object.c:1563-1572)
+        /// Default attribute setting behavior without __setattr__ lookup.
+        /// Called by object.__setattr__ and directly when no user __setattr__ exists.
+        /// </summary>
+        public void SetAttributeDefault(string name, PyObject value)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyClassInstance.SetAttributeDefault: {InstanceType.Name} instance.{name} = {value}");
+            #endif
+
             // CPython 3.12 descriptor protocol:
             // Reference: Objects/object.c:1563-1572 (_PyObject_GenericSetAttrWithDict)
             // 1. 클래스 MRO에서 attribute 찾기
@@ -2100,6 +2131,119 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"   → stored in instance dict (now {InstanceDict.Count} items)");
             #endif
+        }
+
+        /// <summary>
+        /// CPython 3.12: Lookup a special method in the class hierarchy, excluding object base class.
+        /// Returns null if only object's version is found.
+        /// </summary>
+        private PyObject LookupSpecialMethod(string name)
+        {
+            foreach (var mroType in InstanceType.MRO)
+            {
+                // Skip object type - we don't want object.__setattr__/__delattr__
+                if (mroType.Name == "object")
+                    continue;
+
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject method))
+                {
+                    // Found user-defined special method, bind it to self
+                    if (method is PyFunction func)
+                    {
+                        return new PyMethod(this, func);
+                    }
+                    return method;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
+        /// Override DelAttribute to check for user-defined __delattr__ method.
+        /// </summary>
+        public override void DelAttribute(string name)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyClassInstance.DelAttribute: {InstanceType.Name} instance.{name}");
+            #endif
+
+            // CPython 3.12: First check for user-defined __delattr__ method
+            var delattr = LookupSpecialMethod("__delattr__");
+            if (delattr != null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → found user __delattr__, calling it");
+                #endif
+                delattr.Call(new PyObject[] { new PyString(name) }, null);
+                return;
+            }
+
+            // No user __delattr__, use default behavior
+            DelAttributeDefault(name);
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyObject_GenericSetAttrWithDict with value=NULL (Objects/object.c:1563-1572)
+        /// Default attribute deletion behavior without __delattr__ lookup.
+        /// Called by object.__delattr__ and directly when no user __delattr__ exists.
+        /// </summary>
+        public void DelAttributeDefault(string name)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PyClassInstance.DelAttributeDefault: {InstanceType.Name} instance.{name}");
+            #endif
+
+            // CPython 3.12 descriptor protocol:
+            // 1. 클래스 MRO에서 data descriptor 찾기
+            // 2. data descriptor라면 descriptor.__delete__() 호출
+            // 3. 아니라면 instance.__dict__에서 삭제
+
+            // 1. 클래스 MRO에서 descriptor 찾기
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    // 2. data descriptor 확인 및 __delete__ 호출
+                    if (IsDataDescriptor(classValue))
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → found data descriptor in {mroType.Name}, calling __delete__()");
+                        #endif
+                        CallDescriptorDelete(classValue, this);
+                        return;
+                    }
+                    break;
+                }
+            }
+
+            // 3. 인스턴스 __dict__에서 삭제
+            if (!InstanceDict.ContainsKey(name))
+            {
+                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            }
+            InstanceDict.Remove(name);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"   → removed from instance dict");
+            #endif
+        }
+
+        /// <summary>
+        /// CPython 3.12: Call descriptor's __delete__ method
+        /// </summary>
+        private static void CallDescriptorDelete(PyObject descriptor, PyObject instance)
+        {
+            // Try to call __delete__
+            try
+            {
+                var deleteMethod = descriptor.GetAttribute("__delete__");
+                deleteMethod.Call(new PyObject[] { instance }, null);
+            }
+            catch
+            {
+                throw PyAttributeError.Create($"cannot delete attribute");
+            }
         }
 
         public override PyString ToRepr()

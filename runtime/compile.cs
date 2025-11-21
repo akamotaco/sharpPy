@@ -1520,7 +1520,25 @@ namespace SharpPy
                 }
             }
 
-            // Add *args parameter
+            // CPython 3.12: symtable.c:symtable_visit_arguments
+            // The order is: posonlyargs, args, kwonlyargs, vararg, kwarg
+            // (kwonlyargs BEFORE vararg in varnames!)
+
+            // Add keyword-only parameters (BEFORE *args, per CPython)
+            foreach (var arg in arguments.KwOnlyArgs)
+            {
+                paramNames.Add(arg.Name);
+                if (arg.Annotation != null)
+                {
+                    // CPython 3.12: Store annotation Expression (not string) for compilation
+                    annotations[arg.Name] = arg.Annotation;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  KwOnlyArg: {arg.Name}, Annotation Expression: {arg.Annotation.GetType().Name}");
+                    #endif
+                }
+            }
+
+            // Add *args parameter (AFTER kwonlyargs, per CPython)
             if (arguments.VarArg != null)
             {
                 paramNames.Add("*" + arguments.VarArg.Name);
@@ -1531,20 +1549,6 @@ namespace SharpPy
                     annotations[arguments.VarArg.Name] = arguments.VarArg.Annotation;
                     #if DEBUG_LOG
                     Console.WriteLine($"    → Stored vararg annotation Expression: {arguments.VarArg.Annotation.GetType().Name}");
-                    #endif
-                }
-            }
-
-            // Add keyword-only parameters
-            foreach (var arg in arguments.KwOnlyArgs)
-            {
-                paramNames.Add(arg.Name);
-                if (arg.Annotation != null)
-                {
-                    // CPython 3.12: Store annotation Expression (not string) for compilation
-                    annotations[arg.Name] = arg.Annotation;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  KwOnlyArg: {arg.Name}, Annotation Expression: {arg.Annotation.GetType().Name}");
                     #endif
                 }
             }

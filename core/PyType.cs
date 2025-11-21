@@ -1182,6 +1182,8 @@ namespace SharpPy
 
             // object.__setattr__(self, name, value) - CPython PyObject_GenericSetAttr
             // Reference: Objects/object.c:1565
+            // IMPORTANT: This must call SetAttributeDefault, NOT SetAttribute,
+            // to avoid infinite recursion when user defines __setattr__ that calls super().__setattr__()
             TypeDict["__setattr__"] = new PyMethodDescriptor(
                 "__setattr__",
                 objectType,
@@ -1192,8 +1194,18 @@ namespace SharpPy
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
-                    // Call the default SetAttribute implementation
-                    self.SetAttribute(nameStr.Value, args[1]);
+                    // CPython 3.12: object.__setattr__ uses _PyObject_GenericSetAttrWithDict
+                    // which is the "default" behavior without __setattr__ lookup
+                    if (self is SharpPy.PyClassInstance instance)
+                    {
+                        instance.SetAttributeDefault(nameStr.Value, args[1]);
+                    }
+                    else
+                    {
+                        // For other types (built-in types), use SetAttribute directly
+                        // These don't have user-defined __setattr__ so no recursion issue
+                        self.SetAttribute(nameStr.Value, args[1]);
+                    }
                     return PyNone.Instance;
                 },
                 minArgs: 2,
@@ -1202,6 +1214,8 @@ namespace SharpPy
 
             // object.__delattr__(self, name) - CPython PyObject_GenericSetAttr with value=NULL
             // Reference: Objects/object.c:1565 (same function, value=NULL means delete)
+            // IMPORTANT: This must call DelAttributeDefault, NOT DelAttribute,
+            // to avoid infinite recursion when user defines __delattr__ that calls super().__delattr__()
             TypeDict["__delattr__"] = new PyMethodDescriptor(
                 "__delattr__",
                 objectType,
@@ -1212,8 +1226,17 @@ namespace SharpPy
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
-                    // Call the default DelAttribute implementation
-                    self.DelAttribute(nameStr.Value);
+                    // CPython 3.12: object.__delattr__ uses _PyObject_GenericSetAttrWithDict with value=NULL
+                    if (self is SharpPy.PyClassInstance instance)
+                    {
+                        instance.DelAttributeDefault(nameStr.Value);
+                    }
+                    else
+                    {
+                        // For other types (built-in types), use DelAttribute directly
+                        // These don't have user-defined __delattr__ so no recursion issue
+                        self.DelAttribute(nameStr.Value);
+                    }
                     return PyNone.Instance;
                 },
                 minArgs: 1,
@@ -1434,6 +1457,35 @@ namespace SharpPy
                 },
                 minArgs: 4,
                 maxArgs: 4
+            );
+
+            // type.__setattr__(cls, name, value) - CPython type_setattro
+            // Reference: Objects/typeobject.c:4815-4894 (type_setattro)
+            TypeDict["__setattr__"] = new PyMethodDescriptor(
+                "__setattr__",
+                typeType,
+                (self, args, kwargs) => {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("__setattr__() missing required positional arguments");
+
+                    if (args[0] is not PyString nameStr)
+                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+
+                    // CPython 3.12: Objects/typeobject.c:4815-4894 (type_setattro)
+                    // Set attribute directly on the type's dict
+                    if (self is PyClass cls)
+                    {
+                        cls.ClassDict[nameStr.Value] = args[1];
+                        cls.InvalidateTypeCache();
+                    }
+                    else if (self is PyType type)
+                    {
+                        type.TypeDict[nameStr.Value] = args[1];
+                    }
+                    return PyNone.Instance;
+                },
+                minArgs: 2,
+                maxArgs: 2
             );
 
             // type.__repr__ - CPython type_repr (from PyTypeMetaclass)

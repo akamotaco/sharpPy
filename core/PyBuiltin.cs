@@ -4178,21 +4178,90 @@ namespace SharpPy
             Type = type;
             Object = obj;
 
-            // CPython 3.12: supercheck() logic
-            // Determine obj_type based on obj
+            // CPython 3.12: supercheck() logic (Objects/typeobject.c:10431-10481)
+            // Determine obj_type based on obj, following CPython's exact validation
             if (obj != null)
             {
-                // If obj is a type itself, obj_type = obj
-                if (obj is PyType objAsType)
+                ObjectType = SuperCheck(type, obj);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: supercheck() (Objects/typeobject.c:10431-10481)
+        /// Check that a super() call makes sense and return the appropriate type object.
+        ///
+        /// obj can be a class, or an instance of one:
+        /// - If it is a class, it must be a subclass of 'type'. Return obj.
+        /// - If it is an instance, it must be an instance of 'type'. Return obj.__class__.
+        ///
+        /// But when obj is an instance, we also allow Py_TYPE(obj) != subclass of type,
+        /// as long as obj.__class__ is! This allows using super() with a proxy for obj.
+        /// </summary>
+        private static PyType SuperCheck(PyType type, PyObject obj)
+        {
+            // Case 1: obj is a type and subtype of 'type' (class method case)
+            // CPython: if (PyType_Check(obj) && PyType_IsSubtype((PyTypeObject *)obj, type))
+            if (obj is PyType objAsType)
+            {
+                if (IsSubtype(objAsType, type))
                 {
-                    ObjectType = objAsType;
+                    return objAsType;
                 }
-                // Otherwise, obj_type = type(obj)
-                else
+                // If obj is a type but NOT a subtype of 'type', try Case 2
+                // This is critical for metaclass methods where obj is a class
+                // and type is the metaclass
+            }
+
+            // Case 2: Normal case - obj is an instance of 'type'
+            // CPython: if (PyType_IsSubtype(Py_TYPE(obj), type))
+            PyType objType = obj.GetPyType() as PyType;
+            if (objType != null && IsSubtype(objType, type))
+            {
+                return objType;
+            }
+
+            // Case 3: Try the slow way - check obj.__class__
+            // CPython: _PyObject_LookupAttr(obj, &_Py_ID(__class__), &class_attr)
+            try
+            {
+                PyObject classAttr = obj.GetAttribute("__class__");
+                if (classAttr is PyType classType && classType != objType)
                 {
-                    ObjectType = obj.GetPyType() as PyType;
+                    if (IsSubtype(classType, type))
+                    {
+                        return classType;
+                    }
                 }
             }
+            catch
+            {
+                // __class__ lookup failed, continue to error
+            }
+
+            throw PyTypeError.Create("super(type, obj): obj must be an instance or subtype of type");
+        }
+
+        /// <summary>
+        /// CPython 3.12: PyType_IsSubtype() check
+        /// Returns true if 'a' is a subtype of 'b' (or same type)
+        /// </summary>
+        private static bool IsSubtype(PyType a, PyType b)
+        {
+            if (a == b) return true;
+
+            // Check MRO of 'a' for 'b'
+            if (a.MRO != null)
+            {
+                foreach (var mroType in a.MRO)
+                {
+                    if (mroType == b || mroType.Name == b.Name)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

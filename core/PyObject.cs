@@ -305,7 +305,7 @@ namespace SharpPy
         {
             if (name == "__class__")
                 throw PyAttributeError.Create($"can't set attribute '{name}'");
-            
+
             PySetAttribute(name, value);
         }
 
