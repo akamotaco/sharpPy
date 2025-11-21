@@ -673,11 +673,35 @@ namespace SharpPy
                     }
                     currentHandler = newHandler;
 
-                    // Update depth and lasti from new handler
-                    // TODO: Need to track stack depth properly
-                    // CPython tracks this in compiler, we'll use 0 for now
-                    depth = 0;
-                    lasti = false;
+                    // CPython 3.12: Python/assemble.c:155-160 (assemble_exception_table)
+                    // Read depth and lasti from the exception handler block
+                    // - SETUP_FINALLY: depth=0, lasti=false
+                    // - SETUP_CLEANUP: depth=1, lasti=true
+                    // - SETUP_WITH: depth=1, lasti=true (uses SETUP_CLEANUP internally)
+                    if (instr.ExceptBlock != null)
+                    {
+                        // Find the actual handler block (skipping empty blocks)
+                        var handlerBlock = instr.ExceptBlock;
+                        while (handlerBlock != null && handlerBlock.Instructions.Count == 0 && handlerBlock.Next != null)
+                        {
+                            handlerBlock = handlerBlock.Next;
+                        }
+                        if (handlerBlock != null)
+                        {
+                            depth = handlerBlock.ExceptionDepth;
+                            lasti = handlerBlock.PreserveLasti;
+                        }
+                        else
+                        {
+                            depth = 0;
+                            lasti = false;
+                        }
+                    }
+                    else
+                    {
+                        depth = 0;
+                        lasti = false;
+                    }
                 }
 
                 // CPython 3.12: Python/flowgraph.c:498 - bsize += isize
