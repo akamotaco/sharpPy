@@ -3028,30 +3028,37 @@ namespace SharpPy
                         }
 
                         // Handle **kwargs
+                        // CPython 3.12: Python/compile.c:5066-5103 (compiler_call_helper)
+                        // CALL_FUNCTION_EX expects: [func, args_tuple, kwargs_dict]
                         if (hasKwargUnpacking)
                         {
-                            // Create empty dict first
-                            EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+                            // CPython 3.12: First, create dict with regular keyword arguments using BUILD_MAP
+                            // Performance: Eliminated LINQ
+                            var regularKwargs = new List<KeywordExpression>();
+                            foreach (var kw in call.Keywords)
+                            {
+                                if (kw.Arg != null)
+                                {
+                                    regularKwargs.Add(kw);
+                                }
+                            }
 
-                            // Add each kwargs dict
+                            // CPython 3.12: BUILD_MAP with count of regular keyword args
+                            // Stack: [key1, val1, key2, val2, ...] -> BUILD_MAP n -> [dict]
+                            foreach (var kw in regularKwargs)
+                            {
+                                EmitLoadConst(new PyString(kw.Arg));  // key
+                                CompileExpression(kw.Value);         // value
+                            }
+                            EmitInstruction(ByteCodeOp.BUILD_MAP, regularKwargs.Count);
+
+                            // CPython 3.12: Then merge each **kwargs dict using DICT_MERGE
                             // Performance: Eliminated LINQ
                             foreach (var kwarg in call.Keywords)
                             {
                                 if (kwarg.Arg == null)
                                 {
                                     CompileExpression(kwarg.Value); // This should be a dict
-                                    EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
-                                }
-                            }
-
-                            // Regular keyword arguments
-                            // Performance: Eliminated LINQ
-                            foreach (var kw in call.Keywords)
-                            {
-                                if (kw.Arg != null)
-                                {
-                                    EmitLoadConst(new PyString(kw.Arg));
-                                    CompileExpression(kw.Value);
                                     EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
                                 }
                             }
