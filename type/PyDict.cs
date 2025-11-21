@@ -342,9 +342,34 @@ namespace SharpPy
                                 }
                             }
                             #endif
-                            return dictStorage._dict.TryGetValue(args[0], out var value)
-                                ? value
-                                : throw PyKeyError.Create(args[0]);
+                            if (dictStorage._dict.TryGetValue(args[0], out var value))
+                                return value;
+
+                            // CPython 3.12: Objects/dictobject.c:2143-2157 - call __missing__ if key not found
+                            // Try __missing__ method for dict subclasses
+                            try
+                            {
+                                var missingMethod = classInstance.GetAttribute("__missing__");
+                                if (missingMethod != null)
+                                {
+                                    PyObject result;
+                                    if (missingMethod is PyMethod boundMethod)
+                                        result = boundMethod.Call(new PyObject[] { args[0] }, null);
+                                    else if (missingMethod is PyFunction func)
+                                        result = func.Call(new PyObject[] { classInstance, args[0] }, null);
+                                    else if (missingMethod is PyBuiltinFunction builtinFunc)
+                                        result = builtinFunc.Call(new PyObject[] { args[0] });
+                                    else
+                                        result = missingMethod.Call(new PyObject[] { args[0] }, null);
+                                    return result;
+                                }
+                            }
+                            catch
+                            {
+                                // No __missing__ method or it raised an error
+                            }
+
+                            throw PyKeyError.Create(args[0]);
                         }
                     }
 

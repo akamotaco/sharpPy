@@ -684,28 +684,104 @@ namespace SharpPy
 
         private static PyObject CallReversed(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: Objects/enumobject.c:281-352 (reversed_new)
             if (args.Length != 1)
                 throw PyTypeError.Create($"reversed expected exactly 1 arguments ({args.Length} given)");
 
-            var iterable = args[0];
-            var items = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
+            var seq = args[0];
 
+            // CPython 3.12: First try __reversed__ method
             try
             {
-                while (true)
+                var reversedMethod = seq.GetAttribute("__reversed__");
+                if (reversedMethod != null)
                 {
-                    items.Add(iterator.Next());
+                    PyObject result;
+                    if (reversedMethod is PyMethod boundMethod)
+                        result = boundMethod.Call(new PyObject[0], null);
+                    else if (reversedMethod is PyFunction func)
+                        result = func.Call(new PyObject[] { seq }, null);
+                    else if (reversedMethod is PyBuiltinFunction builtinFunc)
+                        result = builtinFunc.Call(new PyObject[0]);
+                    else
+                        result = reversedMethod.Call(new PyObject[0], null);
+                    return result;
                 }
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            catch
             {
-                // 정상 종료
+                // No __reversed__ method, try fallback
             }
 
-            items.Reverse();
-            // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
-            return new PyList(items.ToArray());
+            // CPython 3.12: Fallback to using __len__ and __getitem__
+            // For sequences (list, tuple, string), get length and iterate backwards
+            if (seq is PyList pyList)
+            {
+                var items = new System.Collections.Generic.List<PyObject>();
+                for (int i = pyList.Length() - 1; i >= 0; i--)
+                    items.Add(pyList.GetItem(i));
+                return new PyListIterator(new PyList(items.ToArray()));
+            }
+            else if (seq is PyTuple pyTuple)
+            {
+                var items = new System.Collections.Generic.List<PyObject>();
+                for (int i = pyTuple.Length() - 1; i >= 0; i--)
+                    items.Add(pyTuple.GetItem(new PyInt(i)));
+                return new PyListIterator(new PyList(items.ToArray()));
+            }
+            else if (seq is PyString pyStr)
+            {
+                var chars = pyStr.Value.ToCharArray();
+                System.Array.Reverse(chars);
+                var items = new System.Collections.Generic.List<PyObject>();
+                foreach (var c in chars)
+                    items.Add(new PyString(c.ToString()));
+                return new PyListIterator(new PyList(items.ToArray()));
+            }
+
+            // General fallback: use __len__ and __getitem__
+            try
+            {
+                var lenAttr = seq.GetAttribute("__len__");
+                var getItemAttr = seq.GetAttribute("__getitem__");
+                if (lenAttr != null && getItemAttr != null)
+                {
+                    PyObject lenResult;
+                    if (lenAttr is PyMethod lenMethod)
+                        lenResult = lenMethod.Call(new PyObject[0], null);
+                    else if (lenAttr is PyFunction lenFunc)
+                        lenResult = lenFunc.Call(new PyObject[] { seq }, null);
+                    else if (lenAttr is PyBuiltinFunction lenBuiltin)
+                        lenResult = lenBuiltin.Call(new PyObject[0]);
+                    else
+                        lenResult = lenAttr.Call(new PyObject[0], null);
+
+                    if (lenResult is PyInt lenInt)
+                    {
+                        var items = new System.Collections.Generic.List<PyObject>();
+                        for (int i = (int)lenInt.Value - 1; i >= 0; i--)
+                        {
+                            PyObject item;
+                            if (getItemAttr is PyMethod getItemMethod)
+                                item = getItemMethod.Call(new PyObject[] { new PyInt(i) }, null);
+                            else if (getItemAttr is PyFunction getItemFunc)
+                                item = getItemFunc.Call(new PyObject[] { seq, new PyInt(i) }, null);
+                            else if (getItemAttr is PyBuiltinFunction getItemBuiltin)
+                                item = getItemBuiltin.Call(new PyObject[] { new PyInt(i) });
+                            else
+                                item = getItemAttr.Call(new PyObject[] { new PyInt(i) }, null);
+                            items.Add(item);
+                        }
+                        return new PyListIterator(new PyList(items.ToArray()));
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback failed
+            }
+
+            throw PyTypeError.Create($"argument to reversed() must be a sequence");
         }
 
         private static PyObject CallSum(PyObject[] args, PyDict kwargs = null)
