@@ -1180,5 +1180,23 @@ namespace SharpPy
         }
 
         #endregion
+
+        #region Special Methods
+
+        /// <summary>
+        /// CPython 3.12: __complex__() returns complex(self, 0) for float objects
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "__complex__")
+            {
+                // Return a bound method that returns complex(self, 0)
+                // CPython 3.12: Objects/floatobject.c:1041 - float___complex___impl
+                return new PyBuiltinFunction("__complex__", (args) => new PyComplex(Value, 0));
+            }
+            return base.GetAttribute(name);
+        }
+
+        #endregion
     }
 }

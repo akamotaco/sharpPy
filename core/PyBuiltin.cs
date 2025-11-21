@@ -1258,8 +1258,12 @@ namespace SharpPy
                 return PyComplex.FromString(pyStr.Value);
             }
 
-            // Get real part
+            // Get real part - try __complex__ protocol first
+            // CPython 3.12: Objects/complexobject.c:102-127 (try_complex_special_method)
             double real = 0;
+            double imag = 0;
+            bool gotFromComplex = false;
+
             if (firstArg is PyInt pyInt)
                 real = pyInt.Value;
             else if (firstArg is PyFloat pyFloat)
@@ -1273,10 +1277,44 @@ namespace SharpPy
             else if (firstArg is PyBool pyBool)
                 real = pyBool.Value ? 1 : 0;
             else
+            {
+                // Try __complex__ protocol
+                try
+                {
+                    var complexMethod = firstArg.GetAttribute("__complex__");
+                    if (complexMethod != null)
+                    {
+                        PyObject result;
+                        if (complexMethod is PyMethod boundMethod)
+                            result = boundMethod.Call(new PyObject[0], null);
+                        else if (complexMethod is PyFunction func)
+                            result = func.Call(new PyObject[] { firstArg }, null);
+                        else if (complexMethod is PyBuiltinFunction builtinFunc)
+                            result = builtinFunc.Call(new PyObject[0]);
+                        else
+                            result = complexMethod.Call(new PyObject[0], null);
+
+                        if (result is PyComplex complexResult)
+                        {
+                            if (args.Length > 1)
+                                throw PyTypeError.Create("complex() second arg can't be used when first arg is complex (from __complex__)");
+                            return complexResult;
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"__complex__ returned non-complex (type {result.GetTypeName()})");
+                        }
+                    }
+                }
+                catch
+                {
+                    // No __complex__ method, fall through to error
+                }
+
                 throw PyTypeError.Create($"complex() argument must be a string or a number, not '{firstArg.GetTypeName()}'");
+            }
 
             // Get imaginary part if provided
-            double imag = 0;
             if (args.Length == 2)
             {
                 var secondArg = args[1];
