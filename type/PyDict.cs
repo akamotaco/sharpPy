@@ -52,18 +52,10 @@ namespace SharpPy
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
 
-                    var keyType = key != null ? key.GetTypeName() : "null";
-                    var keyStr = key != null ? key.ToRepr().ToString() : "null";
-                    var defaultStr = defaultValue != null ? defaultValue.ToRepr().ToString() : "null";
-                    Console.WriteLine($"[DEBUG dict.get] key type={keyType}, key={keyStr}, default={defaultStr}");
-
                     // For C# PyDict, use direct method
                     if (self is PyDict dict)
                     {
-                        var result = dict.Get(key, defaultValue);
-                        var resultStr = result != null ? result.ToRepr().ToString() : "null";
-                        Console.WriteLine($"[DEBUG dict.get] result={resultStr}");
-                        return result;
+                        return dict.Get(key, defaultValue);
                     }
 
                     // For Python dict subclasses
@@ -71,7 +63,6 @@ namespace SharpPy
                     if (contains == PyBool.True)
                         return self.GetItem(key);
 
-                    Console.WriteLine($"[DEBUG dict.get] returning default={defaultStr}");
                     return defaultValue;
                 },
                 minArgs: 1, maxArgs: 2
@@ -637,10 +628,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool Contains(PyObject key)
         {
-            var result = _dict.ContainsKey(key);
-            var keyStr = key != null ? key.ToRepr().ToString() : "null";
-            Console.WriteLine($"[DEBUG dict.Contains] key={keyStr}, result={result}");
-            return PyBool.FromBool(result);
+            return PyBool.FromBool(_dict.ContainsKey(key));
         }
 
         /// <summary>

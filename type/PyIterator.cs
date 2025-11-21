@@ -136,24 +136,12 @@ namespace SharpPy
             _list = list ?? throw new ArgumentNullException(nameof(list));
             _index = 0;
             _listLength = _list.Length();
-            Console.WriteLine($"[DEBUG] PyListIterator created: list length = {_listLength}");
         }
 
         public override PyObject Next()
         {
-            _totalCallCount++;
-            if (_totalCallCount % 10000 == 0)
-            {
-                Console.WriteLine($"[DEBUG] PyListIterator.Next() called {_totalCallCount} times total");
-            }
-            if (_index % 1000 == 0 && _index > 0)
-            {
-                Console.WriteLine($"[DEBUG] PyListIterator.Next(): _index={_index}, list length={_listLength}");
-            }
-
             if (_index >= _list.Length())
             {
-                Console.WriteLine($"[DEBUG] PyListIterator.Next(): Reached end at _index={_index}, raising StopIteration");
                 throw PyStopIteration.Create();
             }
 

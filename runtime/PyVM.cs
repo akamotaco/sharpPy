@@ -1965,19 +1965,6 @@ namespace SharpPy
                         Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
 
-                    // DEBUG: Log call details if in _compile
-                    if (frame.Code.Name == "_compile")
-                    {
-                        var callableName = "unknown";
-                        if (actualCallable is PyFunction pf) callableName = pf.Name;
-                        else if (actualCallable is PyBuiltinFunction pbf) callableName = pbf.Name;
-                        else if (actualCallable is PyMethod pm) callableName = pm.ToString();
-                        else callableName = actualCallable.GetTypeName();
-
-                        var argsStr = string.Join(", ", finalArgs.Take(3).Select(a => a?.GetTypeName() ?? "null"));
-                        Console.WriteLine($"[DEBUG CALL] Calling {callableName}({argsStr}...)");
-                    }
-
                     // CPython 3.12: 키워드 인수 처리
                     if (kwNames != null && kwNames.Items.Length > 0)
                     {
@@ -2003,14 +1990,6 @@ namespace SharpPy
                         {
                             newCallResult = actualCallable.Call(finalArgs, null);
                         }
-                    }
-
-                    // DEBUG: Log call result
-                    if (frame.Code.Name == "_compile")
-                    {
-                        var resultStr = newCallResult?.GetTypeName() ?? "null";
-                        var resultBool = newCallResult != null ? newCallResult.PyBoolValue().ToString() : "null";
-                        Console.WriteLine($"[DEBUG CALL] Result: {resultStr}, PyBoolValue: {resultBool}");
                     }
 
                     frame.ValueStack.Push(newCallResult);
@@ -5311,8 +5290,6 @@ namespace SharpPy
                             fromlistArray[i] = item is PyString s ? s.Value : item.AsString();
                         }
                     }
-
-                    Console.WriteLine($"[IMPORT_NAME] module='{moduleName}', level={importLevel}, fromlist={(fromlistArray != null ? $"[{string.Join(", ", fromlistArray)}]" : "null")}");
 
                     // CPython 3.12: Pass frame.Globals to import system for relative import resolution
                     var importedModule = PyImportSystem.Import(moduleName, importLevel, fromlistArray, frame.Globals);

@@ -2011,6 +2011,7 @@ namespace SharpPy
             );
 
             // Add Exception Table entries (CPython 3.12 compatible)
+            // CPython 3.12: compile.c:7775 _PyAssemble_MakeCodeObject
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);

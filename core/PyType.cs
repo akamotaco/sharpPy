@@ -1259,20 +1259,15 @@ namespace SharpPy
 
             // type.__qualname__ - CPython type_qualname (Objects/typeobject.c:250-275)
             // For now, same as __name__ for built-in types
-            Console.WriteLine("[InitializeTypeTypeDescriptors] Adding __qualname__ descriptor");
             TypeDict["__qualname__"] = new PyGetSetDescriptor(
                 "__qualname__",
                 typeType,
                 getter: self => {
-                    Console.WriteLine($"[__qualname__ getter] Called for {(self as PyType)?.Name ?? self.ToString()}");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    var result = new PyString(type.Name);  // For built-in types, qualname == name
-                    Console.WriteLine($"[__qualname__ getter] Returning {result.Value}");
-                    return result;
+                    return new PyString(type.Name);  // For built-in types, qualname == name
                 }
             );
-            Console.WriteLine($"[InitializeTypeTypeDescriptors] __qualname__ added. TypeDict count: {TypeDict.Count}");
 
             // type.__bases__ - CPython type_get_bases / type_set_bases
             TypeDict["__bases__"] = new PyGetSetDescriptor(
