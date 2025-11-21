@@ -220,64 +220,18 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Objects/typeobject.c:6800-6996 (inherit_slots)
         /// 부모 builtin 타입의 슬롯 메서드 상속
+        /// 슬롯 정의는 core/SlotDefs.cs에 테이블화됨
         /// </summary>
         private void InheritSlotMethods(PyType[] bases)
         {
-            // CPython에서 상속되는 주요 슬롯 메서드들
-            var slotMethods = new[] {
-                // Iterator protocol (CPython: tp_iter, tp_iternext)
-                "__iter__",      // CPython 3.12: Objects/typeobject.c:6956
-                "__next__",      // CPython 3.12: Objects/typeobject.c:6957
-
-                // Sequence protocol (CPython: sq_length, sq_item, etc.)
-                "__len__",       // CPython 3.12: Objects/typeobject.c:6884
-                "__getitem__",   // CPython 3.12: Objects/typeobject.c:6887
-                "__setitem__",   // CPython 3.12: Objects/typeobject.c:6888
-                "__delitem__",   // CPython 3.12: Objects/typeobject.c:6888
-                "__contains__",  // CPython 3.12: Objects/typeobject.c:6889
-
-                // Mapping protocol (for dict subclasses)
-                "keys",
-                "values",
-                "items",
-                "get",
-                "pop",
-                "popitem",
-                "clear",
-                "update",
-                "setdefault",
-
-                // Callable protocol (CPython: tp_call)
-                "__call__",      // CPython 3.12: Objects/typeobject.c:6936
-
-                // Comparison (CPython: tp_richcompare)
-                "__eq__",        // CPython 3.12: Objects/typeobject.c:6950
-                "__ne__",
-                "__lt__",
-                "__le__",
-                "__gt__",
-                "__ge__",
-
-                // String representation (CPython: tp_str, tp_repr)
-                "__str__",       // CPython 3.12: Objects/typeobject.c:6938
-                "__repr__",      // CPython 3.12: Objects/typeobject.c:6922
-
-                // Attribute access (CPython: tp_getattro, tp_setattro)
-                "__getattribute__",  // CPython 3.12: Objects/typeobject.c:6916
-                "__setattr__",       // CPython 3.12: Objects/typeobject.c:6920
-                "__delattr__",
-
-                // Hashing (CPython: tp_hash)
-                "__hash__",      // CPython 3.12: Objects/typeobject.c:6951
-            };
-
             foreach (var baseType in bases)
             {
                 // builtin 타입만 슬롯 메서드 상속 (Python 클래스는 일반 MRO 사용)
-                if (!IsBuiltinType(baseType))
+                if (!SlotDefs.IsBuiltinType(baseType))
                     continue;
 
-                foreach (var slotMethod in slotMethods)
+                // 특수 메서드 슬롯 상속
+                foreach (var slotMethod in SlotDefs.InheritableSlots)
                 {
                     // 현재 클래스에 없고 부모에 있으면 상속
                     if (!TypeDict.ContainsKey(slotMethod) &&
@@ -286,26 +240,20 @@ namespace SharpPy
                         TypeDict[slotMethod] = method;
                     }
                 }
-            }
-        }
 
-        /// <summary>
-        /// CPython builtin 타입 확인
-        /// </summary>
-        private bool IsBuiltinType(PyType type)
-        {
-            // CPython builtin 타입들
-            return type == PyType.ListType ||
-                   type == PyType.DictType ||
-                   type == PyType.TupleType ||
-                   type == PyType.SetType ||
-                   type == PyType.FrozenSetType ||
-                   type == PyType.StrType ||
-                   type == PyType.BytesType ||
-                   type == PyType.IntType ||
-                   type == PyType.FloatType ||
-                   type == PyType.BoolType ||
-                   type == PyType.ObjectType;
+                // dict 서브클래스인 경우 매핑 메서드도 상속
+                if (baseType == PyType.DictType)
+                {
+                    foreach (var mappingMethod in SlotDefs.MappingMethods)
+                    {
+                        if (!TypeDict.ContainsKey(mappingMethod) &&
+                            baseType.TypeDict.TryGetValue(mappingMethod, out var method))
+                        {
+                            TypeDict[mappingMethod] = method;
+                        }
+                    }
+                }
+            }
         }
 
         public bool HasMethod(string name)
@@ -1266,7 +1214,7 @@ namespace SharpPy
     /// <summary>
     /// 사용자 정의 클래스의 인스턴스
     /// </summary>
-    public class PyClassInstance : PyObject
+    public class PyClassInstance : PyObject, IInstanceDictAccessor
     {
         public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }
@@ -2435,7 +2383,7 @@ namespace SharpPy
     /// Tuple subclass instance for user-defined classes that inherit from tuple
     /// CPython 3.12: Used for namedtuple and other tuple subclasses
     /// </summary>
-    public class PyTupleSubclass : PyTuple
+    public class PyTupleSubclass : PyTuple, IInstanceDictAccessor
     {
         public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }

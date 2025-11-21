@@ -14,7 +14,7 @@ namespace SharpPy
     ///
     /// SharpPy에서는 PyString의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
-    public class PyStrSubclass : PyObject
+    public class PyStrSubclass : PyObject, IInstanceDictAccessor
     {
         // CPython: Objects/unicodeobject.c:14744 - self = type->tp_alloc(type, 0);
         // Objects/unicodeobject.c:14751-14764 - copy unicode data from original

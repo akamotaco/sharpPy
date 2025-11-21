@@ -14,7 +14,7 @@ namespace SharpPy
     ///
     /// SharpPy에서는 PyInt의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
-    public class PyIntSubclass : PyObject
+    public class PyIntSubclass : PyObject, IInstanceDictAccessor
     {
         // CPython: Objects/longobject.c:5671-5674
         // newobj->long_value.lv_tag = tmp->long_value.lv_tag;

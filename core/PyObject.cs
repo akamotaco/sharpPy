@@ -315,8 +315,9 @@ namespace SharpPy
                 case "__class__":
                     return PyClass;
                 case "__dict__":
-                    if (this is PyClassInstance instance)
-                        return new PyDict(instance.InstanceDict);
+                    // CPython 3.12: Objects/object.c:4200-4250 (PyObject_GenericGetDict)
+                    if (this is IInstanceDictAccessor dictAccessor)
+                        return new PyDict(dictAccessor.InstanceDict);
                     // CPython 3.12: Non-instance objects should delegate to type's __dict__ descriptor
                     // For objects like None, functions, etc., __dict__ access should go through the type
                     return PyGetAttribute(name);
@@ -551,18 +552,8 @@ namespace SharpPy
             }
 
             // 3. instance dictionary 확인
-            // CPython: Objects/object.c:1255-1259 - check instance __dict__
-            if (this is PyClassInstance instance && instance.InstanceDict.TryGetValue(name, out PyObject value))
-            {
-                return value;
-            }
-            // Also check PyIntSubclass which has InstanceDict but is not PyClassInstance
-            else if (this is PyIntSubclass intSubclass && intSubclass.InstanceDict.TryGetValue(name, out value))
-            {
-                return value;
-            }
-            // Also check PyStrSubclass which has InstanceDict but is not PyClassInstance
-            else if (this is PyStrSubclass strSubclass && strSubclass.InstanceDict.TryGetValue(name, out value))
+            // CPython 3.12: Objects/object.c:1255-1259 - check instance __dict__
+            if (this is IInstanceDictAccessor dictAccessor && dictAccessor.InstanceDict.TryGetValue(name, out PyObject value))
             {
                 return value;
             }
