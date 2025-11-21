@@ -1256,6 +1256,31 @@ namespace SharpPy
                     return PyNone.Instance;
                 }
             );
+
+            // object.__format__(format_spec) - CPython 3.12: Objects/typeobject.c:6257 (object___format__)
+            // Default implementation: if format_spec is empty, return str(self), else raise TypeError
+            TypeDict["__format__"] = new PyMethodDescriptor(
+                "__format__",
+                objectType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
+
+                    if (args[0] is not PyString specStr)
+                        throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
+
+                    // CPython: empty format_spec returns str(self)
+                    if (specStr.Value == "")
+                    {
+                        return self.ToStr();
+                    }
+
+                    // CPython: non-empty format_spec raises TypeError for base object
+                    throw PyTypeError.Create($"unsupported format string passed to {self.GetTypeName()}.__format__");
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
         }
 
         /// <summary>

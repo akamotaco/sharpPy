@@ -27,6 +27,20 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.SliceType;
         public override string GetTypeName() => "slice";
 
+        /// <summary>
+        /// CPython 3.12: slice.start, slice.stop, slice.step attributes
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "start" => Start,
+                "stop" => Stop,
+                "step" => Step,
+                _ => base.GetAttribute(name)
+            };
+        }
+
         #endregion
 
         #region String Representation

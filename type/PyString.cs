@@ -1634,6 +1634,23 @@ namespace SharpPy
                 minArgs: 1, maxArgs: 1
             );
 
+            // CPython 3.12: Objects/unicodeobject.c:14632-14670 - unicode__format___impl
+            // str.__format__(format_spec) - Format the string according to format_spec
+            strType.TypeDict["__format__"] = new PyMethodDescriptor(
+                "__format__", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
+                    if (self is not PyString strObj)
+                        throw PyTypeError.Create($"descriptor '__format__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    if (args[0] is not PyString specStr)
+                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+
+                    return new PyString(FormatString(strObj.Value, specStr.Value));
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
             // CPython 3.12: Objects/unicodeobject.c:14711-14730 (unicode_new_impl)
             // str.__new__(cls, value='', encoding=None, errors=None)
             strType.TypeDict["__new__"] = new PyStaticBuiltinMethod(
@@ -3283,6 +3300,97 @@ namespace SharpPy
                     new string(fill, padding / 2) + value + new string(fill, (padding + 1) / 2),
                 _ => value
             };
+        }
+
+        /// <summary>
+        /// CPython 3.12: Objects/unicodeobject.c - Format a string value according to format_spec
+        /// Format spec mini-language: [[fill]align][width][.precision][type]
+        /// Type can be: 's' (string) or '' (default, same as s)
+        /// </summary>
+        public static string FormatString(string value, string formatSpec)
+        {
+            if (string.IsNullOrEmpty(formatSpec))
+                return value;
+
+            // Parse format spec
+            char fill = ' ';
+            char align = '<';  // Default alignment for strings is left
+            int width = 0;
+            int precision = -1;  // -1 means no limit
+            char type = 's';    // default type for strings
+
+            int i = 0;
+            int len = formatSpec.Length;
+
+            // Check for fill + align (fill is any char, align is one of <>^)
+            if (len >= 2 && "<>^".Contains(formatSpec[1]))
+            {
+                fill = formatSpec[0];
+                align = formatSpec[1];
+                i = 2;
+            }
+            else if (len >= 1 && "<>^".Contains(formatSpec[0]))
+            {
+                align = formatSpec[0];
+                i = 1;
+            }
+
+            // Width
+            while (i < len && char.IsDigit(formatSpec[i]))
+            {
+                width = width * 10 + (formatSpec[i] - '0');
+                i++;
+            }
+
+            // Precision
+            if (i < len && formatSpec[i] == '.')
+            {
+                i++;
+                precision = 0;
+                while (i < len && char.IsDigit(formatSpec[i]))
+                {
+                    precision = precision * 10 + (formatSpec[i] - '0');
+                    i++;
+                }
+            }
+
+            // Type
+            if (i < len)
+            {
+                type = formatSpec[i];
+                i++;
+            }
+
+            // Only 's' or empty type is valid for strings
+            if (type != 's' && type != '\0')
+                throw PyValueError.Create($"Unknown format code '{type}' for object of type 'str'");
+
+            // Apply precision (truncation)
+            string result = value;
+            if (precision >= 0 && result.Length > precision)
+                result = result.Substring(0, precision);
+
+            // Apply width and alignment
+            if (width > result.Length)
+            {
+                int padLen = width - result.Length;
+                switch (align)
+                {
+                    case '<':  // left-aligned
+                        result = result + new string(fill, padLen);
+                        break;
+                    case '>':  // right-aligned
+                        result = new string(fill, padLen) + result;
+                        break;
+                    case '^':  // centered
+                        int leftPad = padLen / 2;
+                        int rightPad = padLen - leftPad;
+                        result = new string(fill, leftPad) + result + new string(fill, rightPad);
+                        break;
+                }
+            }
+
+            return result;
         }
 
         #endregion

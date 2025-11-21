@@ -341,6 +341,30 @@ namespace SharpPy
                 }
             );
 
+            // CPython 3.12: Objects/longobject.c:5822-5840 - long_format
+            // int.__format__(format_spec) - Format the integer according to format_spec
+            intType.TypeDict["__format__"] = new PyMethodDescriptor(
+                "__format__", intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
+                    if (args[0] is not PyString specStr)
+                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+
+                    // Support both PyInt and PyIntSubclass (for IntEnum, IntFlag, etc.)
+                    long value;
+                    if (self is PyInt intObj)
+                        value = intObj.Value;
+                    else if (self is PyIntSubclass intSubclass)
+                        value = intSubclass.GetIntValue().Value;
+                    else
+                        throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
+
+                    return new PyString(FormatInt(value, specStr.Value));
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
             // CPython 3.12: Objects/longobject.c:5597-5641 (long_new_impl)
             // int.__new__(cls, x=0, base=10)
             intType.TypeDict["__new__"] = new PyStaticBuiltinMethod(
@@ -1162,6 +1186,183 @@ namespace SharpPy
                 return new PyBuiltinFunction("__index__", (args) => this);
             }
             return base.GetAttribute(name);
+        }
+
+        #endregion
+
+        #region Format Support
+
+        /// <summary>
+        /// CPython 3.12: Objects/longobject.c - Format an integer value according to format_spec
+        /// Format spec mini-language: [[fill]align][sign][#][0][width][,][.precision][type]
+        /// Type can be: b (binary), c (character), d (decimal), o (octal), x/X (hex), n (number), '' (same as d)
+        /// </summary>
+        public static string FormatInt(long value, string formatSpec)
+        {
+            if (string.IsNullOrEmpty(formatSpec))
+                return value.ToString();
+
+            // Parse format spec
+            char fill = ' ';
+            char align = '\0';  // '\0' means default
+            char sign = '-';    // default: only negative
+            bool alternate = false;
+            bool zeropad = false;
+            int width = 0;
+            bool thousands = false;
+            char type = 'd';    // default type
+
+            int i = 0;
+            int len = formatSpec.Length;
+
+            // Check for fill + align (fill is any char, align is one of <>^=)
+            if (len >= 2 && "<>=^".Contains(formatSpec[1]))
+            {
+                fill = formatSpec[0];
+                align = formatSpec[1];
+                i = 2;
+            }
+            else if (len >= 1 && "<>=^".Contains(formatSpec[0]))
+            {
+                align = formatSpec[0];
+                i = 1;
+            }
+
+            // Sign
+            if (i < len && "+-".Contains(formatSpec[i]))
+            {
+                sign = formatSpec[i];
+                i++;
+            }
+            else if (i < len && formatSpec[i] == ' ')
+            {
+                sign = ' ';
+                i++;
+            }
+
+            // Alternate form (#)
+            if (i < len && formatSpec[i] == '#')
+            {
+                alternate = true;
+                i++;
+            }
+
+            // Zero padding (0)
+            if (i < len && formatSpec[i] == '0')
+            {
+                zeropad = true;
+                i++;
+            }
+
+            // Width
+            while (i < len && char.IsDigit(formatSpec[i]))
+            {
+                width = width * 10 + (formatSpec[i] - '0');
+                i++;
+            }
+
+            // Grouping option (,)
+            if (i < len && formatSpec[i] == ',')
+            {
+                thousands = true;
+                i++;
+            }
+
+            // Skip precision for integers (not used)
+            if (i < len && formatSpec[i] == '.')
+            {
+                i++;
+                while (i < len && char.IsDigit(formatSpec[i]))
+                    i++;
+            }
+
+            // Type
+            if (i < len)
+            {
+                type = formatSpec[i];
+                i++;
+            }
+
+            // Convert value based on type
+            string result;
+            string prefix = "";
+            bool isNegative = value < 0;
+            long absValue = Math.Abs(value);
+
+            switch (type)
+            {
+                case 'b':  // binary
+                    result = Convert.ToString(absValue, 2);
+                    if (alternate) prefix = "0b";
+                    break;
+                case 'c':  // character
+                    if (value < 0 || value > 0x10FFFF)
+                        throw PyOverflowError.Create("%c arg not in range(0x110000)");
+                    return char.ConvertFromUtf32((int)value);
+                case 'd':  // decimal
+                case 'n':  // number (same as d for integers)
+                case '\0': // default
+                    result = absValue.ToString();
+                    if (thousands)
+                        result = absValue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+                    break;
+                case 'o':  // octal
+                    result = Convert.ToString(absValue, 8);
+                    if (alternate) prefix = "0o";
+                    break;
+                case 'x':  // hex lowercase
+                    result = Convert.ToString(absValue, 16).ToLower();
+                    if (alternate) prefix = "0x";
+                    break;
+                case 'X':  // hex uppercase
+                    result = Convert.ToString(absValue, 16).ToUpper();
+                    if (alternate) prefix = "0X";
+                    break;
+                default:
+                    throw PyValueError.Create($"Unknown format code '{type}' for object of type 'int'");
+            }
+
+            // Build sign string
+            string signStr = "";
+            if (isNegative)
+                signStr = "-";
+            else if (sign == '+')
+                signStr = "+";
+            else if (sign == ' ')
+                signStr = " ";
+
+            // Apply width and alignment
+            string fullPrefix = signStr + prefix;
+            int totalLen = fullPrefix.Length + result.Length;
+
+            if (width <= totalLen)
+                return fullPrefix + result;
+
+            int padLen = width - totalLen;
+
+            // Default alignment for numbers is right-aligned
+            if (align == '\0')
+                align = zeropad ? '=' : '>';
+
+            // Apply padding
+            if (zeropad && align == '=')
+                fill = '0';
+
+            switch (align)
+            {
+                case '<':  // left-aligned
+                    return fullPrefix + result + new string(fill, padLen);
+                case '>':  // right-aligned
+                    return new string(fill, padLen) + fullPrefix + result;
+                case '=':  // pad after sign
+                    return signStr + prefix + new string(fill, padLen) + result;
+                case '^':  // centered
+                    int leftPad = padLen / 2;
+                    int rightPad = padLen - leftPad;
+                    return new string(fill, leftPad) + fullPrefix + result + new string(fill, rightPad);
+                default:
+                    return fullPrefix + result;
+            }
         }
 
         #endregion

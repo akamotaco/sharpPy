@@ -262,6 +262,23 @@ namespace SharpPy
                     return new PyFloat(0.0);  // For float, imaginary part is 0
                 }
             );
+
+            // CPython 3.12: Objects/floatobject.c:1710-1750 - float_format
+            // float.__format__(format_spec) - Format the float according to format_spec
+            floatType.TypeDict["__format__"] = new PyMethodDescriptor(
+                "__format__", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
+                    if (self is not PyFloat floatObj)
+                        throw PyTypeError.Create($"descriptor '__format__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (args[0] is not PyString specStr)
+                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+
+                    return new PyString(FormatFloat(floatObj.Value, specStr.Value));
+                },
+                minArgs: 1, maxArgs: 1
+            );
         }
 
         // Helper method for GCD calculation
@@ -888,6 +905,278 @@ namespace SharpPy
             if (c >= 'a' && c <= 'f') return c - 'a' + 10;
             if (c >= 'A' && c <= 'F') return c - 'A' + 10;
             return 0;
+        }
+
+        #endregion
+
+        #region Format Support
+
+        /// <summary>
+        /// CPython 3.12: Objects/floatobject.c - Format a float value according to format_spec
+        /// Format spec mini-language: [[fill]align][sign][#][0][width][,][.precision][type]
+        /// Type can be: e/E (exponential), f/F (fixed), g/G (general), % (percentage), '' (same as g)
+        /// </summary>
+        public static string FormatFloat(double value, string formatSpec)
+        {
+            if (string.IsNullOrEmpty(formatSpec))
+                return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            // Parse format spec
+            char fill = ' ';
+            char align = '\0';  // '\0' means default
+            char sign = '-';    // default: only negative
+            bool alternate = false;
+            bool zeropad = false;
+            int width = 0;
+            bool thousands = false;
+            int precision = -1;  // -1 means default
+            char type = '\0';   // default type
+
+            int i = 0;
+            int len = formatSpec.Length;
+
+            // Check for fill + align (fill is any char, align is one of <>^=)
+            if (len >= 2 && "<>=^".Contains(formatSpec[1]))
+            {
+                fill = formatSpec[0];
+                align = formatSpec[1];
+                i = 2;
+            }
+            else if (len >= 1 && "<>=^".Contains(formatSpec[0]))
+            {
+                align = formatSpec[0];
+                i = 1;
+            }
+
+            // Sign
+            if (i < len && "+-".Contains(formatSpec[i]))
+            {
+                sign = formatSpec[i];
+                i++;
+            }
+            else if (i < len && formatSpec[i] == ' ')
+            {
+                sign = ' ';
+                i++;
+            }
+
+            // Alternate form (#)
+            if (i < len && formatSpec[i] == '#')
+            {
+                alternate = true;
+                i++;
+            }
+
+            // Zero padding (0)
+            if (i < len && formatSpec[i] == '0')
+            {
+                zeropad = true;
+                i++;
+            }
+
+            // Width
+            while (i < len && char.IsDigit(formatSpec[i]))
+            {
+                width = width * 10 + (formatSpec[i] - '0');
+                i++;
+            }
+
+            // Grouping option (,)
+            if (i < len && formatSpec[i] == ',')
+            {
+                thousands = true;
+                i++;
+            }
+
+            // Precision
+            if (i < len && formatSpec[i] == '.')
+            {
+                i++;
+                precision = 0;
+                while (i < len && char.IsDigit(formatSpec[i]))
+                {
+                    precision = precision * 10 + (formatSpec[i] - '0');
+                    i++;
+                }
+            }
+
+            // Type
+            if (i < len)
+            {
+                type = formatSpec[i];
+                i++;
+            }
+
+            // Handle special float values
+            if (double.IsNaN(value))
+                return FormatSpecialFloat("nan", fill, align, width, sign, false);
+            if (double.IsPositiveInfinity(value))
+                return FormatSpecialFloat("inf", fill, align, width, sign, false);
+            if (double.IsNegativeInfinity(value))
+                return FormatSpecialFloat("inf", fill, align, width, '-', true);
+
+            // Convert value based on type
+            string result;
+            bool isNegative = value < 0;
+            double absValue = Math.Abs(value);
+
+            // Default precision
+            if (precision < 0)
+                precision = (type == 'f' || type == 'F') ? 6 : 6;
+
+            switch (type)
+            {
+                case 'e':  // exponential lowercase
+                    result = absValue.ToString($"e{precision}", System.Globalization.CultureInfo.InvariantCulture);
+                    break;
+                case 'E':  // exponential uppercase
+                    result = absValue.ToString($"E{precision}", System.Globalization.CultureInfo.InvariantCulture);
+                    break;
+                case 'f':  // fixed-point lowercase
+                case 'F':  // fixed-point uppercase (same as f for Python)
+                    result = absValue.ToString($"F{precision}", System.Globalization.CultureInfo.InvariantCulture);
+                    break;
+                case 'g':  // general format lowercase
+                    result = FormatGeneral(absValue, precision, false);
+                    break;
+                case 'G':  // general format uppercase
+                    result = FormatGeneral(absValue, precision, true);
+                    break;
+                case '%':  // percentage
+                    result = (absValue * 100).ToString($"F{precision}", System.Globalization.CultureInfo.InvariantCulture) + "%";
+                    break;
+                case '\0': // default (same as g but without trailing zeros)
+                    result = FormatGeneral(absValue, precision >= 0 ? precision : 6, false);
+                    break;
+                default:
+                    throw PyValueError.Create($"Unknown format code '{type}' for object of type 'float'");
+            }
+
+            // Apply thousands separator if requested
+            if (thousands && (type == 'f' || type == 'F' || type == '\0' || type == 'g' || type == 'G'))
+            {
+                result = ApplyThousandsSeparator(result);
+            }
+
+            // Alternate form: always include decimal point
+            if (alternate && !result.Contains('.') && !result.Contains('e') && !result.Contains('E'))
+            {
+                result += ".";
+            }
+
+            // Build sign string
+            string signStr = "";
+            if (isNegative)
+                signStr = "-";
+            else if (sign == '+')
+                signStr = "+";
+            else if (sign == ' ')
+                signStr = " ";
+
+            // Apply width and alignment
+            string fullPrefix = signStr;
+            int totalLen = fullPrefix.Length + result.Length;
+
+            if (width <= totalLen)
+                return fullPrefix + result;
+
+            int padLen = width - totalLen;
+
+            // Default alignment for numbers is right-aligned
+            if (align == '\0')
+                align = zeropad ? '=' : '>';
+
+            // Apply padding
+            if (zeropad && align == '=')
+                fill = '0';
+
+            switch (align)
+            {
+                case '<':  // left-aligned
+                    return fullPrefix + result + new string(fill, padLen);
+                case '>':  // right-aligned
+                    return new string(fill, padLen) + fullPrefix + result;
+                case '=':  // pad after sign
+                    return signStr + new string(fill, padLen) + result;
+                case '^':  // centered
+                    int leftPad = padLen / 2;
+                    int rightPad = padLen - leftPad;
+                    return new string(fill, leftPad) + fullPrefix + result + new string(fill, rightPad);
+                default:
+                    return fullPrefix + result;
+            }
+        }
+
+        private static string FormatSpecialFloat(string value, char fill, char align, int width, char sign, bool isNegative)
+        {
+            string signStr = isNegative ? "-" : (sign == '+' ? "+" : (sign == ' ' ? " " : ""));
+            string result = signStr + value;
+
+            if (width <= result.Length)
+                return result;
+
+            int padLen = width - result.Length;
+            if (align == '\0') align = '>';
+
+            switch (align)
+            {
+                case '<': return result + new string(fill, padLen);
+                case '>': return new string(fill, padLen) + result;
+                case '^':
+                    int leftPad = padLen / 2;
+                    return new string(fill, leftPad) + result + new string(fill, padLen - leftPad);
+                default: return result;
+            }
+        }
+
+        private static string FormatGeneral(double value, int precision, bool uppercase)
+        {
+            // CPython's general format: uses exponential if exponent < -4 or >= precision
+            if (value == 0)
+                return "0";
+
+            int exponent = (int)Math.Floor(Math.Log10(Math.Abs(value)));
+
+            if (exponent < -4 || exponent >= precision)
+            {
+                // Use exponential format
+                string format = uppercase ? $"E{precision - 1}" : $"e{precision - 1}";
+                return value.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                // Use fixed format, then strip trailing zeros
+                int decimalPlaces = precision - exponent - 1;
+                if (decimalPlaces < 0) decimalPlaces = 0;
+                string result = value.ToString($"F{decimalPlaces}", System.Globalization.CultureInfo.InvariantCulture);
+                // Strip trailing zeros after decimal point
+                if (result.Contains('.'))
+                {
+                    result = result.TrimEnd('0').TrimEnd('.');
+                }
+                return result;
+            }
+        }
+
+        private static string ApplyThousandsSeparator(string value)
+        {
+            int dotIndex = value.IndexOf('.');
+            string intPart = dotIndex >= 0 ? value.Substring(0, dotIndex) : value;
+            string decPart = dotIndex >= 0 ? value.Substring(dotIndex) : "";
+
+            // Add commas to integer part
+            var chars = new System.Collections.Generic.List<char>();
+            int count = 0;
+            for (int j = intPart.Length - 1; j >= 0; j--)
+            {
+                if (count > 0 && count % 3 == 0 && char.IsDigit(intPart[j]))
+                    chars.Insert(0, ',');
+                chars.Insert(0, intPart[j]);
+                if (char.IsDigit(intPart[j]))
+                    count++;
+            }
+
+            return new string(chars.ToArray()) + decPart;
         }
 
         #endregion

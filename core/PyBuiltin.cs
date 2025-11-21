@@ -226,6 +226,14 @@ namespace SharpPy
             _builtinImplementations["bytes"] = (args, kwargs) => CallBytes(args, kwargs);
             _builtinImplementations["bytearray"] = (args, kwargs) => CallBytearray(args, kwargs);
             _builtinImplementations["memoryview"] = (args, kwargs) => CallMemoryview(args, kwargs);
+            _builtinImplementations["hex"] = (args, kwargs) => CallHex(args, kwargs);
+            _builtinImplementations["oct"] = (args, kwargs) => CallOct(args, kwargs);
+            _builtinImplementations["bin"] = (args, kwargs) => CallBin(args, kwargs);
+            _builtinImplementations["ascii"] = (args, kwargs) => CallAscii(args, kwargs);
+            _builtinImplementations["slice"] = (args, kwargs) => CallSlice(args, kwargs);
+            _builtinImplementations["object"] = (args, kwargs) => CallObject(args, kwargs);
+            _builtinImplementations["vars"] = (args, kwargs) => CallVars(args, kwargs);
+            _builtinImplementations["format"] = (args, kwargs) => CallFormat(args, kwargs);
         }
 
         // 내장 함수 호출 - CPython 3.12 호환: kwargs 지원
@@ -4157,6 +4165,317 @@ namespace SharpPy
             return obj.ToRepr();
         }
 
+        /// <summary>
+        /// hex(x) - CPython 3.12: Python/bltinmodule.c:1439 (builtin_hex)
+        /// Convert an integer number to a lowercase hexadecimal string prefixed with "0x"
+        /// </summary>
+        private static PyObject CallHex(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"hex() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // CPython: PyNumber_Index() is called first
+            long value;
+            if (obj is PyInt pyInt)
+            {
+                value = pyInt.Value;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                value = pyBool.IsTrue() ? 1 : 0;
+            }
+            else
+            {
+                // Try __index__ method
+                try
+                {
+                    var indexMethod = obj.GetAttribute("__index__");
+                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyInt indexResult)
+                    {
+                        value = indexResult.Value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+                catch
+                {
+                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+                }
+            }
+
+            // Format as hex with 0x prefix (negative numbers get -0x prefix)
+            string result_str;
+            if (value >= 0)
+            {
+                result_str = $"0x{value:x}";
+            }
+            else
+            {
+                result_str = $"-0x{(-value):x}";
+            }
+            return new PyString(result_str);
+        }
+
+        /// <summary>
+        /// oct(x) - CPython 3.12: Python/bltinmodule.c:1855 (builtin_oct)
+        /// Convert an integer number to an octal string prefixed with "0o"
+        /// </summary>
+        private static PyObject CallOct(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"oct() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            long value;
+            if (obj is PyInt pyInt)
+            {
+                value = pyInt.Value;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                value = pyBool.IsTrue() ? 1 : 0;
+            }
+            else
+            {
+                try
+                {
+                    var indexMethod = obj.GetAttribute("__index__");
+                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyInt indexResult)
+                    {
+                        value = indexResult.Value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+                catch
+                {
+                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+                }
+            }
+
+            // Format as octal with 0o prefix
+            string result_str;
+            if (value >= 0)
+            {
+                result_str = $"0o{Convert.ToString(value, 8)}";
+            }
+            else
+            {
+                result_str = $"-0o{Convert.ToString(-value, 8)}";
+            }
+            return new PyString(result_str);
+        }
+
+        /// <summary>
+        /// bin(x) - CPython 3.12: Python/bltinmodule.c:541 (builtin_bin)
+        /// Convert an integer number to a binary string prefixed with "0b"
+        /// </summary>
+        private static PyObject CallBin(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"bin() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            long value;
+            if (obj is PyInt pyInt)
+            {
+                value = pyInt.Value;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                value = pyBool.IsTrue() ? 1 : 0;
+            }
+            else
+            {
+                try
+                {
+                    var indexMethod = obj.GetAttribute("__index__");
+                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyInt indexResult)
+                    {
+                        value = indexResult.Value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+                catch
+                {
+                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+                }
+            }
+
+            // Format as binary with 0b prefix
+            string result_str;
+            if (value >= 0)
+            {
+                result_str = $"0b{Convert.ToString(value, 2)}";
+            }
+            else
+            {
+                result_str = $"-0b{Convert.ToString(-value, 2)}";
+            }
+            return new PyString(result_str);
+        }
+
+        /// <summary>
+        /// ascii(obj) - CPython 3.12: Python/bltinmodule.c:414 (builtin_ascii)
+        /// Return string containing a printable representation of an object,
+        /// but escape non-ASCII characters using \x, \u, or \U escapes
+        /// </summary>
+        private static PyObject CallAscii(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"ascii() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+            var repr = obj.ToRepr().Value;
+
+            // Escape non-ASCII characters
+            var sb = new System.Text.StringBuilder();
+            foreach (char c in repr)
+            {
+                if (c < 128)
+                {
+                    sb.Append(c);
+                }
+                else if (c <= 0xFF)
+                {
+                    sb.Append($"\\x{(int)c:x2}");
+                }
+                else if (c <= 0xFFFF)
+                {
+                    sb.Append($"\\u{(int)c:x4}");
+                }
+                else
+                {
+                    sb.Append($"\\U{(int)c:x8}");
+                }
+            }
+            return new PyString(sb.ToString());
+        }
+
+        /// <summary>
+        /// slice(stop) or slice(start, stop[, step]) - CPython 3.12: Python/bltinmodule.c:2379
+        /// Return a slice object representing the set of indices
+        /// </summary>
+        private static PyObject CallSlice(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length == 0 || args.Length > 3)
+                throw PyTypeError.Create($"slice expected at most 3 arguments, got {args.Length}");
+
+            PyObject start, stop, step;
+
+            if (args.Length == 1)
+            {
+                // slice(stop)
+                start = PyNone.Instance;
+                stop = args[0];
+                step = PyNone.Instance;
+            }
+            else if (args.Length == 2)
+            {
+                // slice(start, stop)
+                start = args[0];
+                stop = args[1];
+                step = PyNone.Instance;
+            }
+            else
+            {
+                // slice(start, stop, step)
+                start = args[0];
+                stop = args[1];
+                step = args[2];
+            }
+
+            return new PySlice(start, stop, step);
+        }
+
+        /// <summary>
+        /// object() - CPython 3.12: Objects/typeobject.c (object_new)
+        /// Return a featureless object that is a base for all classes
+        /// </summary>
+        private static PyObject CallObject(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length > 0)
+                throw PyTypeError.Create("object() takes no arguments");
+
+            // Return a new base object instance
+            return new PyBaseObject();
+        }
+
+        /// <summary>
+        /// vars([object]) - CPython 3.12: Python/bltinmodule.c:2802 (builtin_vars)
+        /// Return the __dict__ attribute for a module, class, instance, or any other object
+        /// </summary>
+        private static PyObject CallVars(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"vars() takes at most 1 argument ({args.Length} given)");
+
+            if (args.Length == 0)
+            {
+                // vars() without argument returns locals()
+                return CallLocals(args, kwargs);
+            }
+
+            var obj = args[0];
+
+            // Try to get __dict__ attribute
+            try
+            {
+                var dict = obj.GetAttribute("__dict__");
+                return dict;
+            }
+            catch
+            {
+                throw PyTypeError.Create($"vars() argument must have __dict__ attribute");
+            }
+        }
+
+        /// <summary>
+        /// format(value[, format_spec]) - CPython 3.12: Python/bltinmodule.c:946 (builtin_format)
+        /// Return value.__format__(format_spec)
+        /// </summary>
+        private static PyObject CallFormat(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length < 1 || args.Length > 2)
+                throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
+
+            var value = args[0];
+            var formatSpec = args.Length > 1 ? args[1] : new PyString("");
+
+            if (formatSpec is not PyString specStr)
+                throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
+
+            // Try to call __format__ method
+            try
+            {
+                var formatMethod = value.GetAttribute("__format__");
+                return formatMethod.Call(new PyObject[] { specStr }, null);
+            }
+            catch
+            {
+                // Fallback: use str() for empty format spec, raise error otherwise
+                if (specStr.Value == "")
+                {
+                    return value.ToStr();
+                }
+                throw PyTypeError.Create($"unsupported format string passed to {value.GetTypeName()}.__format__");
+            }
+        }
+
         #endregion
 
         public override string ToString() => $"<built-in function {Name}>";
@@ -4482,5 +4801,17 @@ namespace SharpPy
         }
 
         public override string ToString() => _message;
+    }
+
+    /// <summary>
+    /// PyBaseObject - CPython 3.12: The most basic object instance
+    /// Returned by object() builtin function
+    /// </summary>
+    public class PyBaseObject : PyObject
+    {
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "object";
+        public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
+        public override PyString ToStr() => ToRepr();
     }
 }
