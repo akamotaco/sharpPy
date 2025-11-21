@@ -106,15 +106,16 @@ namespace SharpPy.Modules
 
         private static PyObject CreateImplementation()
         {
-            // CPython 3.12: sys.implementation is a namespace object with interpreter details
-            // We'll use a simple PyDict to simulate namespace
-            var impl = new PyDict();
-            impl.SetItem(new PyString("name"), new PyString("sharppy"));
-            impl.SetItem(new PyString("version"), CreateVersionInfo());
-            impl.SetItem(new PyString("hexversion"), new PyInt(0x030c0000)); // 3.12.0
-            impl.SetItem(new PyString("cache_tag"), new PyString("sharppy-312"));
+            // CPython 3.12: Python/sysmodule.c:3193-3246 (make_impl_info)
+            // sys.implementation is a SimpleNamespace object with interpreter details
+            // Created via _PyNamespace_New(impl_info) in CPython
+            var kwargs = new PyDict();
+            kwargs.SetItem(new PyString("name"), new PyString("sharppy"));
+            kwargs.SetItem(new PyString("version"), CreateVersionInfo());
+            kwargs.SetItem(new PyString("hexversion"), new PyInt(0x030c0000)); // 3.12.0
+            kwargs.SetItem(new PyString("cache_tag"), new PyString("sharppy-312"));
 
-            return impl;
+            return new PySimpleNamespace(kwargs);
         }
 
         private static PyList CreateSysPath()
