@@ -8606,7 +8606,13 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RERAISE, 1);
 
             // Mark end label
+            // CPython 3.12: Python/compile.c:6063 - USE_LABEL(c, exit)
+            // CRITICAL: Add NOP after endLabel to prevent EndsWithTerminator() from considering
+            // the with exception handler (ending with RERAISE) as the end of enclosing try body.
+            // This ensures that if with is the last statement in a try block, the try compiler
+            // will emit JUMP to skip except handlers (Python/compile.c:3249-3330).
             _instructionSequence.UseLabel(endLabel);
+            EmitInstruction(ByteCodeOp.NOP);
         }
 
         /// <summary>
