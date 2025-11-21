@@ -408,6 +408,10 @@ namespace SharpPy.Modules
             return new PySreMatchIterator(matchObjects);
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:2015-2077 (pattern_sub_impl)
+        /// In Python, count=0 means "replace all occurrences" (unlimited)
+        /// </summary>
         private PyObject Sub(PyObject[] args)
         {
             if (args.Length < 2)
@@ -415,15 +419,24 @@ namespace SharpPy.Modules
 
             var repl = args[0].ToStr();
             var text = args[1].ToStr();
-            var count = args.Length > 2 && args[2] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
+            // CPython 3.12: count=0 means unlimited replacements
+            // .NET Regex.Replace with count=0 means NO replacements
+            int count = 0;
+            if (args.Length > 2 && args[2] is PyInt countInt)
+                count = (int)countInt.Value;
 
-            var result = count == int.MaxValue ?
+            // In Python, count <= 0 means replace all
+            var result = count <= 0 ?
                 _regex.Replace(text.Value, repl.Value) :
                 _regex.Replace(text.Value, repl.Value, count);
 
             return new PyString(result);
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:2079-2154 (pattern_subn_impl)
+        /// In Python, count=0 means "replace all occurrences" (unlimited)
+        /// </summary>
         private PyObject SubN(PyObject[] args)
         {
             if (args.Length < 2)
@@ -431,14 +444,18 @@ namespace SharpPy.Modules
 
             var repl = args[0].ToStr();
             var text = args[1].ToStr();
-            var count = args.Length > 2 && args[2] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
+            // CPython 3.12: count=0 means unlimited replacements
+            int count = 0;
+            if (args.Length > 2 && args[2] is PyInt countInt)
+                count = (int)countInt.Value;
 
             var matches = _regex.Matches(text.Value).Count;
-            var result = count == int.MaxValue ?
+            // In Python, count <= 0 means replace all
+            var result = count <= 0 ?
                 _regex.Replace(text.Value, repl.Value) :
                 _regex.Replace(text.Value, repl.Value, count);
 
-            var actualSubstitutions = Math.Min(matches, count == int.MaxValue ? matches : count);
+            var actualSubstitutions = count <= 0 ? matches : Math.Min(matches, count);
             return new PyTuple(new PyString(result), new PyInt(actualSubstitutions));
         }
 
