@@ -4594,9 +4594,8 @@ namespace SharpPy
 
         /// <summary>
         /// help([object]) - Invoke the built-in help system.
-        /// CPython 3.12: Python/bltinmodule.c - builtin_help
-        /// Note: This is a simplified implementation that prints __doc__ or type info.
-        /// Full interactive help system requires the pydoc module.
+        /// CPython 3.12: Python/bltinmodule.c:1580-1590 (builtin_help)
+        /// Note: Simplified implementation - full interactive help requires pydoc module.
         /// </summary>
         private static PyObject CallHelp(PyObject[] args, PyDict kwargs = null)
         {
@@ -4612,37 +4611,115 @@ namespace SharpPy
 
             var obj = args[0];
 
-            // Get type name
+            // Determine the type of object and format accordingly
+            // CPython 3.12: Lib/pydoc.py (Helper.help)
+            string objName = GetObjectName(obj);
             string typeName = obj.GetTypeName();
+            string doc = GetDocString(obj);
 
-            // Try to get __doc__
-            string doc = null;
-            try
+            // Format output based on object type
+            // Check PyClass before PyType since PyClass extends PyType
+            if (obj is PyClass cls)
             {
-                var docAttr = obj.GetAttribute("__doc__");
-                if (docAttr != PyNone.Instance && docAttr is PyString docStr)
-                    doc = docStr.Value;
+                Console.WriteLine($"Help on class {cls.Name}:");
+                Console.WriteLine();
+                Console.WriteLine($"class {cls.Name}");
             }
-            catch { }
-
-            // Build help output
-            Console.WriteLine($"Help on {typeName} object:");
-            Console.WriteLine();
-
-            if (!string.IsNullOrEmpty(doc))
+            else if (obj is PyType typeObj)
             {
-                Console.WriteLine(doc);
+                Console.WriteLine($"Help on class {objName} in module builtins:");
+                Console.WriteLine();
+                Console.WriteLine($"class {objName}(object)");
+            }
+            else if (obj is PyBuiltinFunction || obj is PyBuiltinMethod)
+            {
+                Console.WriteLine($"Help on built-in function {objName} in module builtins:");
+                Console.WriteLine();
+                Console.WriteLine($"{objName}(...)");
+            }
+            else if (obj is PyFunction func)
+            {
+                Console.WriteLine($"Help on function {func.Name}:");
+                Console.WriteLine();
+                Console.WriteLine($"{func.Name}(...)");
             }
             else
             {
-                Console.WriteLine($"No documentation available for {typeName}.");
+                Console.WriteLine($"Help on {typeName} object:");
             }
 
-            // Show type info
+            // Print docstring
             Console.WriteLine();
-            Console.WriteLine($"Type: {typeName}");
+            if (!string.IsNullOrEmpty(doc))
+            {
+                // Indent docstring lines
+                foreach (var line in doc.Split('\n'))
+                {
+                    Console.WriteLine($" |  {line.TrimEnd()}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"No documentation available for {objName}.");
+            }
 
             return PyNone.Instance;
+        }
+
+        /// <summary>
+        /// Get object name for help display
+        /// </summary>
+        private static string GetObjectName(PyObject obj)
+        {
+            return obj switch
+            {
+                PyClass c => c.Name,  // PyClass extends PyType, so check first
+                PyType t => t.Name,
+                PyBuiltinFunction b => b.Name,
+                PyBuiltinMethod bm => bm.Name,
+                PyFunction f => f.Name,
+                _ => obj.GetTypeName()
+            };
+        }
+
+        /// <summary>
+        /// Get __doc__ string from object
+        /// CPython 3.12: Objects/object.c (PyObject_GetAttr for __doc__)
+        /// </summary>
+        private static string GetDocString(PyObject obj)
+        {
+            try
+            {
+                // For types, check the type's __dict__
+                if (obj is PyType typeObj && typeObj.TypeDict.TryGetValue("__doc__", out var typeDoc))
+                {
+                    if (typeDoc is PyString docStr)
+                        return docStr.Value;
+                }
+
+                // For classes, check __doc__ in __dict__
+                if (obj is PyClass cls)
+                {
+                    if (cls.TypeDict.TryGetValue("__doc__", out var clsDoc) && clsDoc is PyString docStr)
+                        return docStr.Value;
+                }
+
+                // For functions
+                if (obj is PyFunction func)
+                {
+                    var docAttr = func.GetAttribute("__doc__");
+                    if (docAttr != PyNone.Instance && docAttr is PyString docStr)
+                        return docStr.Value;
+                }
+
+                // Generic attribute access
+                var docObj = obj.GetAttribute("__doc__");
+                if (docObj != PyNone.Instance && docObj is PyString str)
+                    return str.Value;
+            }
+            catch { }
+
+            return null;
         }
 
         /// <summary>

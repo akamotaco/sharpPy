@@ -6360,10 +6360,29 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
                 }
 
-                // Compile class body statements
-                foreach (var stmt in body)
+                // CPython 3.12: Handle class docstring (compile.c:2295-2310)
+                // First statement can be a docstring (string expression)
+                int startIndex = 0;
+                string? docstring = GetDocString(body);
+                if (docstring != null)
                 {
-                    CompileStatement(stmt);
+                    // CPython: VISIT(c, expr, st->v.Expr.value);
+                    // Load docstring constant
+                    var docConstIndex = GetOrAddConstant(new PyString(docstring));
+                    EmitInstruction(ByteCodeOp.LOAD_CONST, docConstIndex);
+
+                    // CPython: compiler_nameop(c, NO_LOCATION, &_Py_ID(__doc__), Store);
+                    // Store in __doc__
+                    EmitStoreName("__doc__");
+
+                    // Skip first statement (it's the docstring)
+                    startIndex = 1;
+                }
+
+                // Compile class body statements
+                for (int i = startIndex; i < body.Count; i++)
+                {
+                    CompileStatement(body[i]);
                 }
                 
                 // CPython 3.12: If __class__ cell variable exists, store __classcell__ for __build_class__

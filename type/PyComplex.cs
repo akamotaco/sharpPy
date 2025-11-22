@@ -57,18 +57,47 @@ namespace SharpPy
             return value.ToString("G");
         }
 
+        /// <summary>
+        /// CPython 3.12: Objects/complexobject.c:100-130 (complex_format)
+        /// </summary>
         private string FormatImaginary(double value)
         {
             if (double.IsPositiveInfinity(value)) return "inf";
             if (double.IsNegativeInfinity(value)) return "-inf";
             if (double.IsNaN(value)) return "nan";
-            
-            if (value == 1.0) return "";
-            if (value == -1.0) return "-";
+
+            // CPython: 1j outputs as "1j", not "j"
             if (value == Math.Floor(value) && !double.IsInfinity(value))
                 return value.ToString("0");
-            
+
             return value.ToString("G");
+        }
+
+        #endregion
+
+        #region Attribute Access
+
+        /// <summary>
+        /// CPython 3.12: Objects/complexobject.c:398-410 (complex_getset)
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "real":
+                    return new PyFloat(Real);
+                case "imag":
+                    return new PyFloat(Imag);
+                case "conjugate":
+                    // Return a bound method - capture 'this' in the lambda
+                    var self = this;
+                    return new PyBuiltinMethod("conjugate", (_, args) => self.Conjugate(), 0);
+                case "__abs__":
+                    var selfAbs = this;
+                    return new PyBuiltinMethod("__abs__", (_, args) => selfAbs.Absolute(), 0);
+                default:
+                    return base.GetAttribute(name);
+            }
         }
 
         #endregion
