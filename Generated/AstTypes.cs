@@ -1550,6 +1550,14 @@ namespace SharpPy.Generated
         internal GeneratedPyConstantEllipsis() { }
     }
 
+    public class GeneratedPyConstantComplex : GeneratedPyConstant
+    {
+        // CPython 3.12: Objects/complexobject.c - complex number constant for imaginary literals (e.g., 3j, 4.5j)
+        public double Real { get; }
+        public double Imag { get; }
+        public GeneratedPyConstantComplex(double real, double imag) { Real = real; Imag = imag; }
+    }
+
     public class GeneratedStarEtc : GeneratedPtr
     {
         public GeneratedArg? Vararg { get; set; }

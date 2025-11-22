@@ -5206,6 +5206,7 @@ namespace SharpPy
 
                     var unpackExSequence = frame.ValueStack.Pop();
 
+                    // CPython 3.12: Python/ceval.c:1960-1970 - Convert iterable to list first
                     PyObject[] itemsToUnpack;
                     if (unpackExSequence is PyList unpackExList)
                     {
@@ -5215,9 +5216,40 @@ namespace SharpPy
                     {
                         itemsToUnpack = unpackExTuple.Items;
                     }
+                    else if (unpackExSequence is PyRange unpackExRange)
+                    {
+                        // CPython 3.12: Convert range to list for unpacking
+                        itemsToUnpack = unpackExRange.ToList().Items;
+                    }
+                    else if (unpackExSequence is PyString unpackExStr)
+                    {
+                        // Convert string to array of single-character strings
+                        itemsToUnpack = unpackExStr.Value.Select(c => (PyObject)new PyString(c.ToString())).ToArray();
+                    }
                     else
                     {
-                        throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
+                        // CPython 3.12: Try to iterate using __iter__
+                        try
+                        {
+                            var unpackIterator = unpackExSequence.GetIterator();
+                            var unpackItems = new System.Collections.Generic.List<PyObject>();
+                            while (true)
+                            {
+                                try
+                                {
+                                    unpackItems.Add(unpackIterator.Next());
+                                }
+                                catch (Exception ex) when (ex is PyStopIteration || ex.Message.Contains("StopIteration"))
+                                {
+                                    break;
+                                }
+                            }
+                            itemsToUnpack = unpackItems.ToArray();
+                        }
+                        catch (Exception)
+                        {
+                            throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
+                        }
                     }
 
                     if (itemsToUnpack.Length < countBefore + countAfter)

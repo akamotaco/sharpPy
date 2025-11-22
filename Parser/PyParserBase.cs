@@ -509,11 +509,25 @@ namespace SharpPy.Generated
             // Underscores are allowed in all numeric literals for readability
             string cleanValue = value.Replace("_", "");
 
-            // Check for complex numbers (j suffix) - TODO: implement PyComplex
-            if (cleanValue.EndsWith("j", StringComparison.OrdinalIgnoreCase) || cleanValue.EndsWith("J"))
+            // CPython 3.12: Parser/action_helpers.c:785-793 (_PyPegen_ensure_imaginary)
+            // Complex numbers: imaginary part only (e.g., 3j, 4.5j)
+            // The parser treats "j" suffix as imaginary number literal
+            if (cleanValue.EndsWith("j", StringComparison.OrdinalIgnoreCase))
             {
-                // For now, treat as comment/unsupported
-                throw new System.NotImplementedException("Complex numbers not yet supported");
+                // Remove 'j' or 'J' suffix
+                string imagPart = cleanValue.Substring(0, cleanValue.Length - 1);
+                double imagValue;
+                if (string.IsNullOrEmpty(imagPart))
+                {
+                    // Just 'j' or 'J' means 1j
+                    imagValue = 1.0;
+                }
+                else
+                {
+                    imagValue = double.Parse(imagPart, System.Globalization.CultureInfo.InvariantCulture);
+                }
+                // Create complex with real=0, imag=parsed value
+                constant.Value = new GeneratedPyConstantComplex(0.0, imagValue);
             }
             // CPython 3.12: Python/ast.c:4865-4950 (parsenumber function)
             // Check integer bases BEFORE float check (0x1fbe contains 'e' but is hex, not float!)

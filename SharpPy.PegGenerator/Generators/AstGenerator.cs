@@ -350,7 +350,7 @@ public class AstGenerator
         WriteLine("}");
         WriteLine();
 
-        var constantTypes = new[] { "None", "Bool", "Int", "Float", "String", "Bytes", "Ellipsis" };
+        var constantTypes = new[] { "None", "Bool", "Int", "Float", "String", "Bytes", "Ellipsis", "Complex" };
         foreach (var ct in constantTypes)
         {
             WriteLine($"public class GeneratedPyConstant{ct} : GeneratedPyConstant");
@@ -385,6 +385,14 @@ public class AstGenerator
             {
                 WriteLine("public byte[] Value { get; }");
                 WriteLine("public GeneratedPyConstantBytes(byte[] value) => Value = value;");
+            }
+            else if (ct == "Complex")
+            {
+                // CPython 3.12: Objects/complexobject.c - complex number constant
+                WriteLine("// CPython 3.12: Objects/complexobject.c - complex number constant for imaginary literals (e.g., 3j, 4.5j)");
+                WriteLine("public double Real { get; }");
+                WriteLine("public double Imag { get; }");
+                WriteLine("public GeneratedPyConstantComplex(double real, double imag) { Real = real; Imag = imag; }");
             }
 
             _indentLevel--;

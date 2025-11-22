@@ -11670,8 +11670,9 @@ namespace SharpPy
                     break;
                     
                 case TupleExpression tuple:
-                    // Check if this is starred unpacking (contains StarExpression)
-                    var starIndex = tuple.Elements.FindIndex(e => e is StarExpression);
+                    // CPython 3.12: Python/compile.c:4370-4400 (unpack_helper)
+                    // Check if this is starred unpacking (contains StarExpression or StarredExpression)
+                    var starIndex = tuple.Elements.FindIndex(e => e is StarExpression || e is StarredExpression);
                     if (starIndex >= 0)
                     {
                         // Starred unpacking: first, *middle, last = items
@@ -11679,12 +11680,12 @@ namespace SharpPy
                         var beforeStarCount = starIndex;
                         var afterStarCount = tuple.Elements.Count - starIndex - 1;
                         var arg = beforeStarCount | (afterStarCount << 8);
-                        
+
                         // CPython 3.12: UNPACK_EX argument format
                         // Low byte: number of elements before *
                         // High byte: number of elements after *
                         EmitInstruction(ByteCodeOp.UNPACK_EX, arg);
-                        
+
                         // Store elements in order: before*, starred, after*
                         for (int i = 0; i < tuple.Elements.Count; i++)
                         {
@@ -11692,6 +11693,11 @@ namespace SharpPy
                             if (element is StarExpression star)
                             {
                                 CompileAssignmentTarget(star.Value);
+                            }
+                            else if (element is StarredExpression starred)
+                            {
+                                // CPython 3.12: Python/compile.c:4395 - visit starred value
+                                CompileAssignmentTarget(starred.Value);
                             }
                             else
                             {
@@ -11760,22 +11766,84 @@ namespace SharpPy
                     break;
                     
                 case TupleExpression tuple:
-                    // Nested tuple unpacking: (a, (b, c)) = (1, (2, 3))
-                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
-                    for (int i = 0; i < tuple.Elements.Count; i++)
+                    // CPython 3.12: Python/compile.c:4370-4400 (unpack_helper)
+                    // Nested tuple unpacking with possible star expression: (a, *b, c) = (1, 2, 3, 4)
+                    var nestedStarIndex = tuple.Elements.FindIndex(e => e is StarExpression || e is StarredExpression);
+                    if (nestedStarIndex >= 0)
                     {
-                        var element = tuple.Elements[i];
-                        CompileAssignmentTarget(element);
+                        // Starred unpacking in nested tuple
+                        var beforeCount = nestedStarIndex;
+                        var afterCount = tuple.Elements.Count - nestedStarIndex - 1;
+                        var unpackArg = beforeCount | (afterCount << 8);
+                        EmitInstruction(ByteCodeOp.UNPACK_EX, unpackArg);
+
+                        for (int i = 0; i < tuple.Elements.Count; i++)
+                        {
+                            var element = tuple.Elements[i];
+                            if (element is StarExpression nestedStar)
+                            {
+                                CompileAssignmentTarget(nestedStar.Value);
+                            }
+                            else if (element is StarredExpression nestedStarred)
+                            {
+                                CompileAssignmentTarget(nestedStarred.Value);
+                            }
+                            else
+                            {
+                                CompileAssignmentTarget(element);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Regular nested tuple unpacking: (a, (b, c)) = (1, (2, 3))
+                        EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
+                        for (int i = 0; i < tuple.Elements.Count; i++)
+                        {
+                            var element = tuple.Elements[i];
+                            CompileAssignmentTarget(element);
+                        }
                     }
                     break;
 
                 case ListExpression list:
-                    // List unpacking: [a, b] = [1, 2]
-                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, list.Elements.Count);
-                    for (int i = 0; i < list.Elements.Count; i++)
+                    // CPython 3.12: Python/compile.c:4370-4400 (unpack_helper)
+                    // List unpacking with possible star expression: [a, *b] = [1, 2, 3]
+                    var listStarIndex = list.Elements.FindIndex(e => e is StarExpression || e is StarredExpression);
+                    if (listStarIndex >= 0)
                     {
-                        var element = list.Elements[i];
-                        CompileAssignmentTarget(element);
+                        // Starred unpacking
+                        var beforeCount = listStarIndex;
+                        var afterCount = list.Elements.Count - listStarIndex - 1;
+                        var unpackArg = beforeCount | (afterCount << 8);
+                        EmitInstruction(ByteCodeOp.UNPACK_EX, unpackArg);
+
+                        for (int i = 0; i < list.Elements.Count; i++)
+                        {
+                            var element = list.Elements[i];
+                            if (element is StarExpression listStar)
+                            {
+                                CompileAssignmentTarget(listStar.Value);
+                            }
+                            else if (element is StarredExpression listStarred)
+                            {
+                                CompileAssignmentTarget(listStarred.Value);
+                            }
+                            else
+                            {
+                                CompileAssignmentTarget(element);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Regular list unpacking: [a, b] = [1, 2]
+                        EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, list.Elements.Count);
+                        for (int i = 0; i < list.Elements.Count; i++)
+                        {
+                            var element = list.Elements[i];
+                            CompileAssignmentTarget(element);
+                        }
                     }
                     break;
 

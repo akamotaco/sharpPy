@@ -89,12 +89,12 @@ namespace SharpPy
                 case "imag":
                     return new PyFloat(Imag);
                 case "conjugate":
-                    // Return a bound method - capture 'this' in the lambda
-                    var self = this;
-                    return new PyBuiltinMethod("conjugate", (_, args) => self.Conjugate(), 0);
+                    // CPython 3.12: Return a bound method - instance already bound
+                    var conjugateMethod = new PyBuiltinMethod("conjugate", (s, args) => ((PyComplex)s).Conjugate(), 0);
+                    return new PyBoundBuiltinMethod(this, conjugateMethod);
                 case "__abs__":
-                    var selfAbs = this;
-                    return new PyBuiltinMethod("__abs__", (_, args) => selfAbs.Absolute(), 0);
+                    var absMethod = new PyBuiltinMethod("__abs__", (s, args) => ((PyComplex)s).Absolute(), 0);
+                    return new PyBoundBuiltinMethod(this, absMethod);
                 default:
                     return base.GetAttribute(name);
             }

@@ -3119,6 +3119,7 @@ namespace SharpPy.Generated
         /// </summary>
         private static PyObject ConvertGeneratedPyConstantToPyObject(GeneratedPyConstant value)
         {
+            // CPython 3.12: Objects/complexobject.c - complex number constant handling
             return value switch
             {
                 GeneratedPyConstantNone => PyNone.Instance,
@@ -3127,6 +3128,7 @@ namespace SharpPy.Generated
                 GeneratedPyConstantFloat f => new PyFloat(f.Value),
                 GeneratedPyConstantString s => new PyString(s.Value),
                 GeneratedPyConstantBytes bytes => new PyBytes(bytes.Value),
+                GeneratedPyConstantComplex c => new PyComplex(c.Real, c.Imag),  // CPython 3.12: Parser/action_helpers.c:785
                 GeneratedPyConstantEllipsis => PyNone.Instance,  // TODO: Implement PyEllipsis
                 _ => throw new NotImplementedException($"Unknown GeneratedPyConstant type: {value.GetType().Name}")
             };

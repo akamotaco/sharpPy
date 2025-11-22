@@ -557,33 +557,39 @@ namespace SharpPy
 
         public override PyObject Add(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c (long_add), Objects/complexobject.c (complex_add)
             return other switch
             {
                 PyInt otherInt => new PyInt(Value + otherInt.Value),
                 PyFloat otherFloat => new PyFloat(Value + otherFloat.Value),
                 PyBool otherBool => new PyInt(Value + (otherBool.Value ? 1 : 0)),
+                PyComplex otherComplex => new PyComplex(Value + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
         }
 
         public override PyObject Subtract(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c (long_sub), Objects/complexobject.c (complex_sub)
             return other switch
             {
                 PyInt otherInt => new PyInt(Value - otherInt.Value),
                 PyFloat otherFloat => new PyFloat(Value - otherFloat.Value),
                 PyBool otherBool => new PyInt(Value - (otherBool.Value ? 1 : 0)),
+                PyComplex otherComplex => new PyComplex(Value - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
         }
 
         public override PyObject Multiply(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c (long_mul), Objects/complexobject.c (complex_mul)
             return other switch
             {
                 PyInt otherInt => new PyInt(Value * otherInt.Value),
                 PyFloat otherFloat => new PyFloat(Value * otherFloat.Value),
                 PyBool otherBool => new PyInt(Value * (otherBool.Value ? 1 : 0)),
+                PyComplex otherComplex => new PyComplex(Value * otherComplex.Real, Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
         }
