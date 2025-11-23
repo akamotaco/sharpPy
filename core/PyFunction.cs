@@ -105,12 +105,23 @@ public partial class PyFunction : PyObject, IDescriptor
         );
 
         // __doc__ getset descriptor
+        // CPython 3.12: __doc__ is the first constant in co_consts if it's a string
+        // See Python/funcobject.c:func_get_doc
         funcType.TypeDict["__doc__"] = new PyGetSetDescriptor(
             "__doc__",
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return new PyString($"Function {func.Name}");
+                {
+                    // CPython 3.12: docstring is first constant if it's a string
+                    if (func.CodeObject != null &&
+                        func.CodeObject.Constants.Count > 0 &&
+                        func.CodeObject.Constants[0] is PyString docString)
+                    {
+                        return docString;
+                    }
+                    return PyNone.Instance;
+                }
                 throw PyTypeError.Create("descriptor '__doc__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );

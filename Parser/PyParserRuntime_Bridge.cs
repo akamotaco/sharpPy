@@ -2186,9 +2186,11 @@ namespace SharpPy.Generated
                 ),
 
                 // Lambda expressions
+                // CPython 3.12: Python/compile.c:2590-2650 (compiler_lambda)
                 GeneratedLambda lambda => new LambdaExpression(
                     ConvertFunctionArgumentsToNames(lambda.Args),
-                    ConvertAnyExpression(lambda.Body)
+                    ConvertAnyExpression(lambda.Body),
+                    ConvertFunctionArgumentsDefaults(lambda.Args)
                 ),
 
                 // Ternary (if expression)
@@ -3080,6 +3082,25 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Convert GeneratedArguments.Defaults to List&lt;Expression&gt; for Lambda expressions
+        /// CPython 3.12: Python/ast.c - ast_for_arguments()
+        /// </summary>
+        private static List<Expression> ConvertFunctionArgumentsDefaults(GeneratedArguments? argumentsData)
+        {
+            var defaults = new List<Expression>();
+            if (argumentsData?.Defaults == null)
+                return defaults;
+
+            // GeneratedExprSeq iterates as GeneratedPtr, need explicit cast to GeneratedExpr
+            for (int i = 0; i < argumentsData.Defaults.Count; i++)
+            {
+                var defaultExpr = (GeneratedExpr)argumentsData.Defaults[i];
+                defaults.Add(ConvertAnyExpression(defaultExpr));
+            }
+            return defaults;
+        }
+
+        /// <summary>
         /// PEP 695: Convert GeneratedTypeParamSeq to List<TypeParam>
         /// Converts Generated AST type parameters to SharpPy AST type parameters
         /// </summary>
@@ -3129,7 +3150,7 @@ namespace SharpPy.Generated
                 GeneratedPyConstantString s => new PyString(s.Value),
                 GeneratedPyConstantBytes bytes => new PyBytes(bytes.Value),
                 GeneratedPyConstantComplex c => new PyComplex(c.Real, c.Imag),  // CPython 3.12: Parser/action_helpers.c:785
-                GeneratedPyConstantEllipsis => PyNone.Instance,  // TODO: Implement PyEllipsis
+                GeneratedPyConstantEllipsis => PyEllipsis.Instance,  // CPython 3.12: Objects/sliceobject.c - _PyEllipsis_Type
                 _ => throw new NotImplementedException($"Unknown GeneratedPyConstant type: {value.GetType().Name}")
             };
         }

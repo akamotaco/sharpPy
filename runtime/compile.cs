@@ -1862,7 +1862,46 @@ namespace SharpPy
             }
             return PyNone.Instance;
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Evaluate constant expression at compile time
+        /// Python/compile.c - handles lambda default values
+        /// </summary>
+        private PyObject EvaluateConstantExpression(Expression expr)
+        {
+            switch (expr)
+            {
+                case ConstantExpression constExpr:
+                    return constExpr.Value;
+
+                case NameExpression nameExpr:
+                    // Special names
+                    if (nameExpr.Name == "None") return PyNone.Instance;
+                    if (nameExpr.Name == "True") return PyBool.True;
+                    if (nameExpr.Name == "False") return PyBool.False;
+                    // For other names, we cannot evaluate at compile time
+                    // This would be a runtime evaluation case
+                    #if DEBUG_LOG
+                    Console.WriteLine($"⚠️ Warning: Non-constant default value '{nameExpr.Name}' - using None");
+                    #endif
+                    return PyNone.Instance;
+
+                case UnaryOpExpression unaryExpr when unaryExpr.OpNode is USub:
+                    // Handle negative numbers like -5
+                    var innerValue = EvaluateConstantExpression(unaryExpr.Operand);
+                    if (innerValue is PyInt pyInt)
+                        return new PyInt(-pyInt.Value);
+                    if (innerValue is PyFloat pyFloat)
+                        return new PyFloat(-pyFloat.Value);
+                    return PyNone.Instance;
+
+                default:
+                    #if DEBUG_LOG
+                    Console.WriteLine($"⚠️ Warning: Cannot evaluate expression '{expr.GetType().Name}' at compile time");
+                    #endif
+                    return PyNone.Instance;
+            }
+        }
 
         /// <summary>
         /// CPython 3.12: compiler_function_body
@@ -7196,22 +7235,24 @@ namespace SharpPy
             #endif
 
             // Create labels for loop control
-            var loopStartLabel = _instructionSequence!.NewLabel();   // Initial condition check
-            var loopBodyLabel = _instructionSequence!.NewLabel();    // Loop body start (continue target)
-            var endLabel = _instructionSequence!.NewLabel();         // break target (loop end)
+            // CPython 3.12: Python/compile.c:3270-3320 (compiler_while)
+            var loopStartLabel = _instructionSequence!.NewLabel();   // Initial condition check (continue target)
+            var loopBodyLabel = _instructionSequence!.NewLabel();    // Loop body start
+            var elseLabel = _instructionSequence!.NewLabel();        // else clause (condition false target)
+            var endLabel = _instructionSequence!.NewLabel();         // break target (after else clause)
 
-            // Push loop context (CPython 3.12: PushFBlock, continue goes to loop body)
+            // Push loop context - break should jump past else clause
             var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.WHILE_LOOP, loopBodyLabel, endLabel, null);
+            PushFBlock(loc, FBlockType.WHILE_LOOP, loopStartLabel, endLabel, null);
 
             // Phase 1: Initial condition check at loop start
             _instructionSequence.UseLabel(loopStartLabel);
             CompileExpression(whileStmt.Test);
 
-            // If condition is false, jump to end
+            // If condition is false, jump to else clause (or end if no else)
             _instructionSequence.AddOpWithLabel(
                 ByteCodeOp.POP_JUMP_IF_FALSE,
-                endLabel,
+                elseLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
                 _currentFileName
@@ -7230,7 +7271,7 @@ namespace SharpPy
             // If condition is still true, jump back to loop body (skip initial check)
             _instructionSequence.AddOpWithLabel(
                 ByteCodeOp.POP_JUMP_IF_FALSE,
-                endLabel,
+                elseLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
                 _currentFileName
@@ -7246,10 +7287,10 @@ namespace SharpPy
             );
 
             // Pop loop context (CPython 3.12: PopFBlock)
-            PopFBlock(FBlockType.WHILE_LOOP, loopBodyLabel);
+            PopFBlock(FBlockType.WHILE_LOOP, loopStartLabel);
 
-            // Phase 4: Mark loop end
-            _instructionSequence.UseLabel(endLabel);
+            // Phase 4: Mark else clause position
+            _instructionSequence.UseLabel(elseLabel);
 
             // Compile else clause if present (executed when loop exits normally, not via break)
             if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
@@ -7259,6 +7300,9 @@ namespace SharpPy
                     CompileStatement(stmt);
                 }
             }
+
+            // Phase 5: Mark end position (break target)
+            _instructionSequence.UseLabel(endLabel);
 
             #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료 (with loop rotation)");
@@ -9718,36 +9762,58 @@ namespace SharpPy
             // Create a unique name for the lambda function
             string lambdaName = $"<lambda_{_lambdaCounter++}>";
 
-            // CPython 3.12: Extract clean parameter names and default values FIRST
+            // CPython 3.12: Extract clean parameter names and default values
+            // Python/compile.c:2590-2650 (compiler_lambda)
             var cleanParamNames = new List<string>();
             var defaultValues = new List<PyObject>();
 
+            // First, collect all clean parameter names (without '=' parsing)
             foreach (var arg in lambda.Args)
             {
+                // Check if it's a raw name or contains '='
                 if (arg.Contains("="))
                 {
-                    // Parameter with default value: name=defaultValue
+                    // Legacy: Parameter with default in string format
                     var parts = arg.Split('=', 2);
-                    var paramName = parts[0].Trim();
-                    var defaultValueStr = parts[1].Trim();
-
-                    cleanParamNames.Add(paramName);
-
-                    // Parse and evaluate default value at compile time (CPython way)
-                    var defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr);
-                    defaultValues.Add(defaultValue);
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Parameter '{paramName}' with default value: {defaultValue}");
-                    #endif
+                    cleanParamNames.Add(parts[0].Trim());
                 }
                 else
                 {
-                    // Parameter without default value
                     cleanParamNames.Add(arg.Trim());
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Parameter '{arg}' (no default)");
-                    #endif
+                }
+            }
+
+            // CPython 3.12: Use lambda.Defaults if available (from AST)
+            // This is the proper way - defaults are stored in the AST node as Expression
+            // We need to evaluate them at compile time to get PyObject values
+            if (lambda.Defaults != null && lambda.Defaults.Count > 0)
+            {
+                foreach (var defaultExpr in lambda.Defaults)
+                {
+                    // CPython 3.12: Evaluate constant expressions at compile time
+                    // Python/compile.c - compiler_lambda()
+                    var defaultValue = EvaluateConstantExpression(defaultExpr);
+                    defaultValues.Add(defaultValue);
+                }
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Using {lambda.Defaults.Count} defaults from lambda.Defaults");
+                #endif
+            }
+            else
+            {
+                // Fallback: Parse defaults from string (legacy behavior)
+                foreach (var arg in lambda.Args)
+                {
+                    if (arg.Contains("="))
+                    {
+                        var parts = arg.Split('=', 2);
+                        var defaultValueStr = parts[1].Trim();
+                        var defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr);
+                        defaultValues.Add(defaultValue);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  → Parsed default from string: {defaultValue}");
+                        #endif
+                    }
                 }
             }
 
@@ -9893,16 +9959,30 @@ namespace SharpPy
             #endif
             
             // CPython 3.12: Handle default values if present (스택 순서 1)
-            if (defaultValues.Count > 0)
+            // Default values must be compiled as expressions, not evaluated at compile time
+            // This ensures variables like 'i' in 'lambda x, i=i: x * i' are properly resolved at runtime
+            if (lambda.Defaults != null && lambda.Defaults.Count > 0)
             {
-                // Load default values onto stack
+                // Compile default value expressions - they will be evaluated at function definition time
+                foreach (var defaultExpr in lambda.Defaults)
+                {
+                    CompileExpression(defaultExpr);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, lambda.Defaults.Count);
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Built defaults tuple: {lambda.Defaults.Count} defaults (compiled expressions)");
+                #endif
+            }
+            else if (defaultValues.Count > 0)
+            {
+                // Fallback: Load pre-evaluated default values as constants (legacy behavior)
                 foreach (var defaultValue in defaultValues)
                 {
                     EmitLoadConst(defaultValue);
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultValues.Count);
                 #if DEBUG_LOG
-                Console.WriteLine($"  → Built defaults tuple: {defaultValues.Count} defaults");
+                Console.WriteLine($"  → Built defaults tuple: {defaultValues.Count} defaults (constants)");
                 #endif
             }
             
@@ -9930,7 +10010,8 @@ namespace SharpPy
             
             // CPython 3.12: MAKE_FUNCTION 플래그 동적 계산
             int flags = 0;
-            if (defaultValues.Count > 0)
+            bool hasDefaults = (lambda.Defaults != null && lambda.Defaults.Count > 0) || defaultValues.Count > 0;
+            if (hasDefaults)
             {
                 flags |= MakeFunctionFlags.DEFAULTS;
             }
@@ -9938,9 +10019,9 @@ namespace SharpPy
             {
                 flags |= MakeFunctionFlags.CLOSURE;
             }
-            
+
             #if DEBUG_LOG
-            Console.WriteLine($"  → MAKE_FUNCTION flags: {flags} (defaults={defaultValues.Count > 0}, closure={freeVars.Count > 0})");
+            Console.WriteLine($"  → MAKE_FUNCTION flags: {flags} (defaults={hasDefaults}, closure={freeVars.Count > 0})");
             #endif
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, flags);
         }

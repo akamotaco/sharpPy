@@ -3469,65 +3469,45 @@ namespace SharpPy
         public override string NodeType => "Lambda";
         public List<string> Args { get; }
         public Expression Body { get; }
-        public List<PyObject> Defaults { get; } // CPython 3.12: Lambda default values
-        
+        public List<Expression> Defaults { get; } // CPython 3.12: Lambda default value expressions
+
         public LambdaExpression(List<string> args, Expression body)
         {
             Args = args;
             Body = body;
-            Defaults = new List<PyObject>();
+            Defaults = new List<Expression>();
         }
-        
-        // CPython 호환: 기본값이 있는 lambda 생성자 
-        public LambdaExpression(List<string> args, Expression body, List<PyObject> defaults)
+
+        // CPython 호환: 기본값이 있는 lambda 생성자
+        public LambdaExpression(List<string> args, Expression body, List<Expression> defaults)
         {
             Args = args;
             Body = body;
-            Defaults = defaults ?? new List<PyObject>();
+            Defaults = defaults ?? new List<Expression>();
         }
         
         public override PyObject Evaluate(PyScope scope)
         {
-            // CPython 3.12: Lambda 함수를 기본값 지원으로 생성 
-            var cleanArgNames = new List<string>();
+            // CPython 3.12: Lambda 함수를 기본값 지원으로 생성
+            // 기본값은 정의 시점에서 평가됨 (CPython behavior)
             var evaluatedDefaults = new List<PyObject>();
-            
-            // CPython 방식: 매개변수와 기본값 분리 처리
-            for (int i = 0; i < Args.Count; i++)
+            foreach (var defaultExpr in Defaults)
             {
-                var param = Args[i];
-                if (param.Contains("="))
-                {
-                    // 기본값이 있는 매개변수: name=defaultValue
-                    var parts = param.Split('=', 2);
-                    var paramName = parts[0].Trim();
-                    var defaultValueStr = parts[1].Trim();
-                    
-                    cleanArgNames.Add(paramName);
-                    
-                    // CPython 호환: 기본값을 정의 시점에서 평가
-                    var defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr, scope);
-                    evaluatedDefaults.Add(defaultValue);
-                }
-                else
-                {
-                    // 기본값이 없는 매개변수
-                    cleanArgNames.Add(param.Trim());
-                }
+                evaluatedDefaults.Add(defaultExpr.Evaluate(scope));
             }
-            
+
             // Lambda 함수 생성 (CPython과 동일한 기본값 처리)
             return new PyFunction("<lambda>", providedArgs =>
             {
                 var lambdaScope = new PyScope(ScopeType.Local, scope, "<lambda>");
-                
+
                 // CPython 호환: 매개변수 바인딩 (기본값 포함)
-                int defaultStartIndex = cleanArgNames.Count - evaluatedDefaults.Count;
-                
-                for (int i = 0; i < cleanArgNames.Count; i++)
+                int defaultStartIndex = Args.Count - evaluatedDefaults.Count;
+
+                for (int i = 0; i < Args.Count; i++)
                 {
-                    var paramName = cleanArgNames[i];
-                    
+                    var paramName = Args[i];
+
                     if (i < providedArgs.Length)
                     {
                         // 제공된 인수가 있는 경우
@@ -3552,7 +3532,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"<lambda>() missing required argument: '{paramName}'");
                     }
                 }
-                
+
                 return Body.Evaluate(lambdaScope);
             });
         }

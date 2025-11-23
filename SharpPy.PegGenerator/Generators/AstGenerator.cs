@@ -368,6 +368,8 @@ public class AstGenerator
             }
             else if (ct == "Int")
             {
+                // TODO: CPython 3.12: Objects/longobject.c - arbitrary precision integers
+                // 현재는 long 사용, BigInteger로 변경 필요 (IMPROVEMENT_PLAN.md 참조)
                 WriteLine("public long Value { get; }");
                 WriteLine("public GeneratedPyConstantInt(long value) => Value = value;");
             }

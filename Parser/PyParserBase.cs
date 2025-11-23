@@ -530,6 +530,7 @@ namespace SharpPy.Generated
                 constant.Value = new GeneratedPyConstantComplex(0.0, imagValue);
             }
             // CPython 3.12: Python/ast.c:4865-4950 (parsenumber function)
+            // TODO: Objects/longobject.c - arbitrary precision integers 지원 필요
             // Check integer bases BEFORE float check (0x1fbe contains 'e' but is hex, not float!)
             // Check for hexadecimal (0x or 0X)
             else if (cleanValue.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
@@ -550,7 +551,7 @@ namespace SharpPy.Generated
             // Check for floating point (MUST come after hex/octal/binary checks!)
             else if (cleanValue.Contains(".") || cleanValue.Contains("e", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantFloat(double.Parse(cleanValue));
+                constant.Value = new GeneratedPyConstantFloat(double.Parse(cleanValue, System.Globalization.CultureInfo.InvariantCulture));
             }
             // Decimal integer
             else
