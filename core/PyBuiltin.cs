@@ -472,7 +472,18 @@ namespace SharpPy
                 throw PyTypeError.Create($"enumerate expected at most 2 arguments, got {args.Length}");
 
             var iterable = args[0];
-            var start = args.Length > 1 ? ((PyInt)args[1]).Value : 0;
+
+            // CPython 3.12: enumerate(iterable, start=0)
+            // Check kwargs for 'start' parameter first, then positional arg
+            long start = 0;
+            if (kwargs != null && kwargs.Contains(new PyString("start")).ToBool())
+            {
+                start = ((PyInt)kwargs.GetItem(new PyString("start"))).Value;
+            }
+            else if (args.Length > 1)
+            {
+                start = ((PyInt)args[1]).Value;
+            }
 
             // CPython 3.12 호환: enumerate iterator 객체 반환
             return new PyEnumerateIterator(iterable, start);
