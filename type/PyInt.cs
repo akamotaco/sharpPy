@@ -88,8 +88,10 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor 'bit_length' requires a 'int' object but received a '{self.GetTypeName()}'");
 
                     long value = intObj.Value;
+                    // CPython 3.12: Objects/longobject.c:5642-5658
+                    // For negative numbers, bit_length() returns the same as abs(n).bit_length()
                     if (value < 0)
-                        value = -value - 1; // Two's complement for negative numbers
+                        value = -value; // Use absolute value
 
                     int bitLength = 0;
                     while (value > 0)

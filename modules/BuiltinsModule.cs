@@ -530,6 +530,14 @@ namespace SharpPy.Modules
             }
 
             // Fallback: check MRO directly
+            // CPython 3.12: Objects/abstract.c:2498-2563 (abstract_issubclass)
+            // Handle PyType (built-in types like int, bool, str, etc.)
+            if (subclass is PyType subPyType && classInfo is PyType classPyType)
+            {
+                return PyBool.FromBool(subPyType.IsSubclassOf(classPyType));
+            }
+
+            // Handle PyClass (user-defined classes)
             if (subclass is PyClass subPyClass && classInfo is PyClass classPyClass)
             {
                 foreach (var mroType in subPyClass.MRO)
@@ -537,6 +545,20 @@ namespace SharpPy.Modules
                     if (ReferenceEquals(mroType, classPyClass))
                         return PyBool.True;
                 }
+            }
+
+            // Handle mixed case: PyClass subclass, PyType classInfo (e.g., MyClass subclass of object)
+            if (subclass is PyClass subPyClassMixed && classInfo is PyType classPyTypeMixed)
+            {
+                // Check if any type in the MRO matches the classInfo PyType
+                foreach (var mroType in subPyClassMixed.MRO)
+                {
+                    if (mroType is PyType mroTypeAsType && ReferenceEquals(mroTypeAsType, classPyTypeMixed))
+                        return PyBool.True;
+                }
+                // Check if classInfo is 'object' type - all classes inherit from object
+                if (classPyTypeMixed == PyType.ObjectType)
+                    return PyBool.True;
             }
 
             return PyBool.False;

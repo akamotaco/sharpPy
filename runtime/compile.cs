@@ -2071,7 +2071,8 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: compiler_decorators
         /// Compiles decorator expressions (called before function compilation)
-        /// Loads decorators in bottom-to-top order (reverse of source order)
+        /// Loads decorators in SOURCE order (top to bottom)
+        /// After MAKE_FUNCTION, CALL is applied in reverse (stack order)
         /// </summary>
         private void CompilerDecorators(List<DecoratorExpression>? decorators)
         {
@@ -2079,11 +2080,14 @@ namespace SharpPy
                 return;
 
             #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🎨 CompilerDecorators: Loading {decorators.Count} decorators in reverse order");
+            Console.WriteLine($"🎨 CompilerDecorators: Loading {decorators.Count} decorators in source order");
             #endif
 
-            // CPython 3.12: Load decorators in REVERSE order (bottom to top in source)
-            for (int i = decorators.Count - 1; i >= 0; i--)
+            // CPython 3.12: Load decorators in SOURCE order (top to bottom)
+            // Python/compile.c:1852-1861 - compiler_decorators
+            // The last decorator loaded (bottom-most in source) will be on top of stack
+            // and will be called FIRST, wrapping the function before outer decorators
+            for (int i = 0; i < decorators.Count; i++)
             {
                 var decorator = decorators[i];
 

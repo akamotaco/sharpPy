@@ -27,3 +27,6 @@ X_OK = nt.X_OK
 
 # Platform information
 name = 'nt'  # Windows
+
+# os.path submodule
+import ntpath as path
