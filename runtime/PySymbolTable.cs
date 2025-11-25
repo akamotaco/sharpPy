@@ -935,6 +935,9 @@ namespace SharpPy
         /// Find the correct enclosing scope for a walrus variable in a comprehension.
         /// Iterates through the scope stack in reverse order, skips comprehension scopes,
         /// and adds the variable to the first Function or Module scope found.
+        ///
+        /// For FunctionBlock: Checks if variable is already declared as global/nonlocal,
+        /// then marks appropriately in both current comprehension scope and target scope.
         /// </summary>
         private void ExtendNamedExprScope(string varName)
         {
@@ -966,7 +969,8 @@ namespace SharpPy
                 Console.WriteLine($"      Checking scope[{i}]: {ste.GetName()}, Type: {ste.Type}, IsComprehension: {ste.IsComprehension}");
 #endif
 
-                // CPython 3.12: If we find a comprehension scope, skip it
+                // CPython 3.12: symtable.c:1923-1937
+                // If we find a comprehension scope, check for conflict with iteration variables
                 if (ste.IsComprehension)
                 {
 #if DEBUG_COMPILER_LOG
@@ -975,27 +979,90 @@ namespace SharpPy
                     continue;
                 }
 
-                // CPython 3.12: If we find a FunctionBlock entry, add as LOCAL (ASSIGNED)
+                // CPython 3.12: symtable.c:1940-1958
+                // If we find a FunctionBlock entry, add as GLOBAL/LOCAL or NONLOCAL/LOCAL
                 if (ste.Type == SymbolTableType.Function)
                 {
+                    // Check if variable is already declared in the function scope
+                    var existingSymbol = ste.Lookup(varName);
+                    bool isGlobal = existingSymbol != null && existingSymbol.Scope == SymbolScope.Global;
+
 #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"      ↳ Adding '{varName}' to function scope '{ste.GetName()}' as ASSIGNED (will use STORE_FAST)");
+                    Console.WriteLine($"      ↳ Found FunctionBlock '{ste.GetName()}'");
+                    Console.WriteLine($"         Variable '{varName}' existing: {existingSymbol != null}, isGlobal: {isGlobal}");
 #endif
+
+                    // CPython: long target_in_scope = symtable_lookup_entry(st, ste, target_name);
+                    // if (target_in_scope & DEF_GLOBAL) {
+                    //     if (!symtable_add_def(st, target_name, DEF_GLOBAL, LOCATION(e)))
+                    // } else {
+                    //     if (!symtable_add_def(st, target_name, DEF_NONLOCAL, LOCATION(e)))
+                    // }
+
+                    // Mark in the comprehension scope (current table)
+                    if (_currentTable != null && _currentTable.IsComprehension)
+                    {
+                        if (isGlobal)
+                        {
+                            // If already global in function, mark as global in comprehension
+                            _currentTable.DefineSymbol(varName, SymbolFlags.Used);
+                            var symbol = _currentTable.Lookup(varName);
+                            if (symbol != null)
+                            {
+                                symbol.Scope = SymbolScope.Global;
+                            }
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"         Marked '{varName}' as GLOBAL in comprehension scope");
+#endif
+                        }
+                        else
+                        {
+                            // Otherwise, mark as free (will be resolved to nonlocal)
+                            _currentTable.DefineSymbol(varName, SymbolFlags.Used);
+                            var symbol = _currentTable.Lookup(varName);
+                            if (symbol != null)
+                            {
+                                symbol.Scope = SymbolScope.Free;
+                            }
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"         Marked '{varName}' as FREE in comprehension scope (will resolve to cell in function)");
+#endif
+                        }
+                    }
+
+                    // CPython: return symtable_add_def_helper(st, target_name, DEF_LOCAL, ste, LOCATION(e));
+                    // Mark as LOCAL (assigned) in the function scope
                     ste.DefineSymbol(varName, SymbolFlags.Assigned);
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"         Added '{varName}' to function scope as ASSIGNED");
+#endif
                     return;
                 }
 
-                // CPython 3.12: If we find a ModuleBlock entry, add as GLOBAL (ASSIGNED)
+                // CPython 3.12: symtable.c:1960-1968
+                // If we find a ModuleBlock entry, add as GLOBAL
                 if (ste.Type == SymbolTableType.Module)
                 {
 #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"      ↳ Adding '{varName}' to module scope '{ste.GetName()}' as ASSIGNED (will use STORE_GLOBAL)");
+                    Console.WriteLine($"      ↳ Adding '{varName}' to module scope '{ste.GetName()}' as ASSIGNED (will use STORE_NAME)");
 #endif
                     ste.DefineSymbol(varName, SymbolFlags.Assigned);
+
+                    // Mark as global in comprehension scope too
+                    if (_currentTable != null && _currentTable.IsComprehension)
+                    {
+                        _currentTable.DefineSymbol(varName, SymbolFlags.Used);
+                        var symbol = _currentTable.Lookup(varName);
+                        if (symbol != null)
+                        {
+                            symbol.Scope = SymbolScope.Global;
+                        }
+                    }
                     return;
                 }
 
-                // CPython 3.12: Class scopes are also skipped for walrus variables
+                // CPython 3.12: symtable.c:1970-1988
+                // Class scopes are also skipped for walrus variables
                 if (ste.Type == SymbolTableType.Class)
                 {
 #if DEBUG_COMPILER_LOG

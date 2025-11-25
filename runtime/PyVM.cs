@@ -6092,30 +6092,40 @@ namespace SharpPy
                     }
                     catch (PythonException pyEx) when (pyEx.PyException is PyStopIteration stopIter)
                     {
-                        // CPython: if (_PyGen_FetchStopIterationValue(&retval) == 0) { JUMPBY(oparg); }
+                        // CPython 3.12: Python/bytecodes.c:858-865
+                        // if (_PyGen_FetchStopIterationValue(&retval) == 0) { JUMPBY(oparg); }
                         // StopIteration raised - extract value and jump
                         //
-                        // CRITICAL INSIGHT: CPython's JUMPBY uses instruction OFFSET, not INDEX
-                        // In CPython 3.12, SEND's oparg is the DELTA (number of instruction words to skip)
-                        // The formula is: next_instr += oparg (where next_instr was already incremented)
+                        // CPython 3.12: Python/bytecodes.c:843 - JUMPBY(oparg)
+                        // In CPython, next_instr is already past SEND instruction and points to CACHE
+                        // JUMPBY(oparg) means: next_instr += oparg (instruction words)
+                        // oparg is the relative offset from the position AFTER SEND+CACHE
+                        //
+                        // CPython 3.12: Include/internal/pycore_opcode.h:120
+                        // SEND has INLINE_CACHE_ENTRIES_SEND = 1 (one CACHE instruction)
                         //
                         // In SharpPy:
-                        // - We use instruction INDEX (not byte offset)
-                        // - The main loop does IP++ AFTER executing each instruction
-                        // - So at this point, IP still points to SEND instruction
-                        // - We want to jump to END_SEND, which is (current + oparg + 1) instructions away
-                        // - But since main loop will do IP++, we add oparg only
+                        // - IP is currently at SEND instruction (index 36 in example)
+                        // - SEND has 1 CACHE entry at index 37
+                        // - oparg is relative to position AFTER SEND+CACHE (index 38 in example)
+                        // - Main loop will do IP++ after we return
+                        // - To reach target: IP = current + 1 (SEND) + 1 (CACHE) + oparg - 1 (main loop++)
+                        // - Simplify: IP += (1 + INLINE_CACHE_ENTRIES_SEND + oparg - 1)
+                        // - Final: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    🛑 SEND: StopIteration raised, value={stopIter.Value}");
-                        Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by {instruction.Argument} instructions");
+                        Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by oparg={instruction.Argument}");
                         #endif
 
                         // Push StopIteration value to stack (receiver stays on stack for END_SEND)
                         frame.ValueStack.Push(stopIter.Value ?? PyNone.Instance);
 
-                        // Jump forward: IP += oparg
-                        // Main loop will then do IP++, arriving at END_SEND
-                        frame.InstructionPointer += instruction.Argument;
+                        // CPython 3.12: SEND has 1 CACHE entry (Include/internal/pycore_opcode.h:120)
+                        const int INLINE_CACHE_ENTRIES_SEND = 1;
+
+                        // Jump forward: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
+                        // Example: IP=36 + (1 + 4) = 41, main loop IP++ → 42 (END_SEND)
+                        frame.InstructionPointer += INLINE_CACHE_ENTRIES_SEND + instruction.Argument;
 
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    🛑 SEND: After jump, IP={frame.InstructionPointer} (will become {frame.InstructionPointer + 1} after main loop increment)");

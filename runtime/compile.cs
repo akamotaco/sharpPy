@@ -4663,14 +4663,17 @@ namespace SharpPy
                 }
 
                 // 이 변수가 cell로 변환되었는지 확인
+                // CPython 3.12: Objects/codeobject.c:402-410 - _PyCode_Validate
+                // Deref indices: freevars come first (0 to nfreevars-1), then cellvars (nfreevars to nfreevars+ncellvars-1)
                 if (_cellVars.Contains(name))
                 {
                     // Cell 변수는 LOAD_DEREF로 접근
-                    // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
+                    // CPython 3.12: freevars come before cellvars in the deref space
                     var cellIndex = _cellVars.IndexOf(name);
-                    EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
+                    var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, derefIndex);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex})");
+                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex}, deref index {derefIndex})");
                     #endif
                 }
                 else
@@ -4751,13 +4754,14 @@ namespace SharpPy
                         {
                             case SymbolScope.Cell:
                                 // Cell variable: STORE_DEREF 사용
-                                // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
+                                // CPython 3.12: Objects/codeobject.c:402-410 - freevars come before cellvars
                                 if (_cellVars.Contains(name))
                                 {
                                     var cellIndex = _cellVars.IndexOf(name);
-                                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
+                                    var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                                    EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex})");
+                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex}, deref index {derefIndex})");
                                     #endif
                                     return;
                                 }
@@ -4812,13 +4816,14 @@ namespace SharpPy
                 }
                 
                 // 셀 변수 처리 (Phase 2)
-                // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
+                // CPython 3.12: Objects/codeobject.c:402-410 - freevars come before cellvars
                 if (_cellVars.Contains(name))
                 {
                     var cellIndex = _cellVars.IndexOf(name);
-                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
+                    var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex})");
+                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex}, deref index {derefIndex})");
                     #endif
                     return;
                 }
@@ -10911,13 +10916,15 @@ namespace SharpPy
             }
 
             // CPython 3.12: Cell 변수인지 확인하고 적절한 명령어 사용
+            // CPython 3.12: Objects/codeobject.c:402-410 - freevars come before cellvars
             if (IsCellVariable(name))
             {
                 // Cell 변수일 때는 STORE_DEREF 사용
                 var cellIndex = GetCellVariableIndex(name);
-                EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
+                var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                 #if DEBUG_LOG
-                Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_DEREF index {cellIndex})");
+                Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_DEREF cell index {cellIndex}, deref index {derefIndex})");
                 #endif
             }
             else
@@ -11970,53 +11977,50 @@ namespace SharpPy
         
         /// <summary>
         /// Emit STORE_DEREF for cell/free variables
-        /// CPython 3.12: STORE_DEREF uses localsplus offset for both cell and free variables
+        /// CPython 3.12: Objects/codeobject.c:402-410 - _PyCode_Validate
+        /// Deref indices: freevars come first (0 to nfreevars-1), then cellvars (nfreevars to nfreevars+ncellvars-1)
         /// </summary>
         private void EmitStoreDeref(string varName)
         {
-            // CPython 3.12: Check free variables first (like EmitLoadDeref)
+            // CPython 3.12: Check free variables first
             var freeIndex = _freeVars.IndexOf(varName);
             if (freeIndex != -1)
             {
-                // Free variable: emit freevars index (will be remapped to localsplus offset later)
-                // freevars start at offset ncellvars in the combined cellvars+freevars space
-                int combinedIndex = _cellVars.Count + freeIndex;
-                EmitInstruction(ByteCodeOp.STORE_DEREF, combinedIndex);
+                // Free variable: use freeIndex directly (freevars start at deref index 0)
+                EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
                 return;
             }
 
-            // Cell variable
+            // Cell variable: offset by number of free vars
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex == -1)
                 throw new Exception($"Variable '{varName}' not found in cell or free variables");
-            EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
+            int derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+            EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
         }
         
         /// <summary>
         /// Emit LOAD_DEREF for cell/free variables
-        /// CPython 3.12: LOAD_DEREF uses localsplus offset, not cell/free index!
-        /// localsplus layout: [nlocals] + [ncellvars] + [nfreevars]
+        /// CPython 3.12: Objects/codeobject.c:402-410 - _PyCode_Validate
+        /// Deref indices: freevars come first (0 to nfreevars-1), then cellvars (nfreevars to nfreevars+ncellvars-1)
         /// </summary>
         private void EmitLoadDeref(string varName)
         {
-            // CPython 3.12: Emit cellvars/freevars index, will be remapped to localsplus offset by FixCellOffsets
-            // Check if it's a free variable first
+            // CPython 3.12: Check free variables first
             var freeIndex = _freeVars.IndexOf(varName);
             if (freeIndex != -1)
             {
-                // CPython 3.12: Emit freevars index (will be remapped to localsplus offset later)
-                // freevars start at offset ncellvars in the combined cellvars+freevars space
-                int combinedIndex = _cellVars.Count + freeIndex;
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, combinedIndex);
+                // Free variable: use freeIndex directly (freevars start at deref index 0)
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
                 return;
             }
 
-            // Check if it's a cell variable
+            // Cell variable: offset by number of free vars
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex != -1)
             {
-                // CPython 3.12: Emit cellvars index (will be remapped to localsplus offset later)
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
+                int derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, derefIndex);
                 return;
             }
 

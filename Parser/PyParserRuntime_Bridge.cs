@@ -418,27 +418,12 @@ namespace SharpPy.Generated
 
                 case GeneratedExprStmt exprStmt:
                     // Expression statement (standalone expression)
+                    // CPython 3.12: Python/compile.c:3915-3929 (compiler_stmt_expr)
+                    // Yield and YieldFrom are ALWAYS expressions in the AST, wrapped in Expr statement
                     {
                         var valueExpr = exprStmt.Value;  // Already GeneratedExpr
                         if (valueExpr != null)
                         {
-                            // CPython 3.12: Yield expressions as statements become YieldStatement
-                            if (valueExpr is GeneratedYield yieldExpr)
-                            {
-                                var yieldValue = yieldExpr.Value != null ? ConvertAnyExpression(yieldExpr.Value) : null;
-                                var result = new YieldStatement(yieldValue);
-                                CopySourceLocation(stmt, result);
-                                return result;
-                            }
-                            // CPython 3.12: YieldFrom expressions as statements become YieldFromStatement
-                            else if (valueExpr is GeneratedYieldFrom yieldFromExpr)
-                            {
-                                var yieldFromValue = ConvertAnyExpression(yieldFromExpr.Value);
-                                var result = new YieldFromStatement(yieldFromValue);
-                                CopySourceLocation(stmt, result);
-                                return result;
-                            }
-
                             var expression = ConvertAnyExpression(valueExpr);
                             var exprResult = new ExpressionStatement(expression);
                             CopySourceLocation(stmt, exprResult);

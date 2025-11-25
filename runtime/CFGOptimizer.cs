@@ -33,6 +33,7 @@ namespace SharpPy
             RemoveUnreachableBlocks();       // Mark and remove unreachable blocks
             EliminateEmptyBlocks();          // Remove blocks with no instructions
             RemoveRedundantJumps();          // Remove jumps to next block (fallthrough)
+            PushColdBlocksToEnd();           // CPython 3.12: flowgraph.c:1963-2039 - move cold blocks to end
 
             // NOTE: CPython 3.12 also does:
             // - inline_small_exit_blocks() - not implemented yet
@@ -377,6 +378,202 @@ namespace SharpPy
         // CPython 3.12 does NOT perform peephole optimizations at CFG level
         // All peephole optimizations (constant folding, dead code elimination, etc.)
         // are performed at AST level in Python/ast_opt.c (SharpPy: PyASTOptimizer.cs)
+
+        /// <summary>
+        /// CPython 3.12: flowgraph.c:1963-2039 push_cold_blocks_to_end()
+        /// Moves "cold" blocks (exception handlers, rarely executed code) to the end.
+        /// This ensures SEND's target (END_SEND) is not blocked by CLEANUP_THROW.
+        /// </summary>
+        private void PushColdBlocksToEnd()
+        {
+            if (_cfg.EntryBlock == null || _cfg.AllBlocks.Count <= 1)
+            {
+                return;
+            }
+
+            // CPython 3.12: flowgraph.c:1913-1938 mark_cold()
+            // Step 1: Mark all blocks reachable from entry via normal control flow as "warm"
+            var warmBlocks = new HashSet<BasicBlock>();
+            var queue = new Queue<BasicBlock>();
+
+            queue.Enqueue(_cfg.EntryBlock);
+            warmBlocks.Add(_cfg.EntryBlock);
+
+            while (queue.Count > 0)
+            {
+                var block = queue.Dequeue();
+
+                // Follow normal control flow (successors and fallthrough)
+                foreach (var successor in block.Successors)
+                {
+                    if (!warmBlocks.Contains(successor))
+                    {
+                        warmBlocks.Add(successor);
+                        queue.Enqueue(successor);
+                    }
+                }
+
+                // CPython 3.12: flowgraph.c:1894-1908 (mark_warm)
+                // Also follow jump targets via instruction TargetBlock references
+                // IMPORTANT: Only follow normal control flow jumps, NOT exception handlers
+                foreach (var instr in block.Instructions)
+                {
+                    if (instr.TargetBlock != null && !warmBlocks.Contains(instr.TargetBlock))
+                    {
+                        // Check if this is a normal jump (not exception handler setup)
+                        // Exception handlers are set up by SETUP_FINALLY/SETUP_CLEANUP which are pseudo-ops
+                        // Normal jumps include: JUMP_*, FOR_ITER, SEND, etc.
+                        bool isNormalJump = instr.OpCode == ByteCodeOp.JUMP_FORWARD ||
+                                           instr.OpCode == ByteCodeOp.JUMP_BACKWARD ||
+                                           instr.OpCode == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
+                                           instr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                                           instr.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE ||
+                                           instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE ||
+                                           instr.OpCode == ByteCodeOp.POP_JUMP_IF_NONE ||
+                                           instr.OpCode == ByteCodeOp.POP_JUMP_IF_NOT_NONE ||
+                                           instr.OpCode == ByteCodeOp.FOR_ITER ||
+                                           instr.OpCode == ByteCodeOp.SEND;
+                        if (isNormalJump)
+                        {
+                            warmBlocks.Add(instr.TargetBlock);
+                            queue.Enqueue(instr.TargetBlock);
+                        }
+                    }
+                }
+
+                // Follow fallthrough (b_next) only if block doesn't end with unconditional jump/return
+                if (block.Next != null && !warmBlocks.Contains(block.Next))
+                {
+                    bool hasFallthrough = true;
+                    if (block.Instructions.Count > 0)
+                    {
+                        var lastInstr = block.Instructions[block.Instructions.Count - 1];
+                        // No fallthrough if ends with unconditional jump, return, raise, etc.
+                        // CPython 3.12: Python/flowgraph.c:1875-1885 (BB_HAS_FALLTHROUGH)
+                        if (lastInstr.OpCode == ByteCodeOp.JUMP_FORWARD ||
+                            lastInstr.OpCode == ByteCodeOp.JUMP_BACKWARD ||
+                            lastInstr.OpCode == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
+                            lastInstr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                            lastInstr.OpCode == ByteCodeOp.RETURN_VALUE ||
+                            lastInstr.OpCode == ByteCodeOp.RETURN_CONST ||
+                            lastInstr.OpCode == ByteCodeOp.RETURN_GENERATOR ||
+                            lastInstr.OpCode == ByteCodeOp.RAISE_VARARGS ||
+                            lastInstr.OpCode == ByteCodeOp.RERAISE ||
+                            lastInstr.OpCode == ByteCodeOp.YIELD_VALUE)  // YIELD_VALUE suspends, no fallthrough to next block
+                        {
+                            hasFallthrough = false;
+                        }
+                    }
+                    if (hasFallthrough)
+                    {
+                        warmBlocks.Add(block.Next);
+                        queue.Enqueue(block.Next);
+                    }
+                }
+            }
+
+            // Step 2: Identify cold blocks (not warm = exception handlers, etc.)
+            // CPython 3.12: flowgraph.c:1937 - b->b_cold = 1 for non-warm blocks
+            var coldBlocks = new List<BasicBlock>();
+            var warmBlocksList = new List<BasicBlock>();
+
+            foreach (var block in _cfg.AllBlocks)
+            {
+                if (warmBlocks.Contains(block))
+                {
+                    warmBlocksList.Add(block);
+                }
+                else
+                {
+                    coldBlocks.Add(block);
+                }
+            }
+
+            // If no cold blocks, nothing to do
+            if (coldBlocks.Count == 0)
+            {
+                return;
+            }
+
+            // Step 3: CPython 3.12: flowgraph.c:1976-1992
+            // If cold block has fallthrough to warm block, add explicit jump
+            foreach (var coldBlock in coldBlocks)
+            {
+                if (coldBlock.Instructions.Count == 0)
+                {
+                    continue;
+                }
+
+                var lastInstr = coldBlock.Instructions[coldBlock.Instructions.Count - 1];
+                bool hasFallthrough = !(lastInstr.OpCode == ByteCodeOp.JUMP_FORWARD ||
+                                        lastInstr.OpCode == ByteCodeOp.JUMP_BACKWARD ||
+                                        lastInstr.OpCode == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
+                                        lastInstr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                                        lastInstr.OpCode == ByteCodeOp.RETURN_VALUE ||
+                                        lastInstr.OpCode == ByteCodeOp.RETURN_CONST ||
+                                        lastInstr.OpCode == ByteCodeOp.RETURN_GENERATOR ||
+                                        lastInstr.OpCode == ByteCodeOp.RAISE_VARARGS ||
+                                        lastInstr.OpCode == ByteCodeOp.RERAISE ||
+                                        lastInstr.OpCode == ByteCodeOp.YIELD_VALUE);
+
+                if (hasFallthrough && coldBlock.Next != null && warmBlocks.Contains(coldBlock.Next))
+                {
+                    // CPython 3.12: flowgraph.c:1984 - basicblock_addop(explicit_jump, JUMP, ...)
+                    // Add explicit JUMP to the original next (warm) block
+                    // Note: We use JUMP_BACKWARD since cold blocks are moved to end
+                    // The assembler will compute the correct backward offset
+                    var targetWarmBlock = coldBlock.Next;
+                    var jumpInstr = new ByteCodeInstruction(
+                        ByteCodeOp.JUMP_BACKWARD,
+                        targetWarmBlock.Offset,
+                        lastInstr.LineNumber,
+                        lastInstr.ColumnOffset,
+                        lastInstr.FileName,
+                        targetWarmBlock,  // TargetBlock
+                        null  // ExceptBlock
+                    );
+                    coldBlock.Instructions.Add(jumpInstr);
+                }
+            }
+
+            // Step 4: CPython 3.12: flowgraph.c:1995-2033
+            // Reorder AllBlocks: warm blocks first, then cold blocks
+            _cfg.AllBlocks.Clear();
+            _cfg.AllBlocks.AddRange(warmBlocksList);
+            _cfg.AllBlocks.AddRange(coldBlocks);
+
+            // Step 5: Rebuild the Next chain based on new order
+            for (int i = 0; i < _cfg.AllBlocks.Count - 1; i++)
+            {
+                _cfg.AllBlocks[i].Next = _cfg.AllBlocks[i + 1];
+            }
+            if (_cfg.AllBlocks.Count > 0)
+            {
+                _cfg.AllBlocks[_cfg.AllBlocks.Count - 1].Next = null;
+            }
+
+            // Update entry block (should still be first warm block)
+            if (_cfg.AllBlocks.Count > 0)
+            {
+                _cfg.EntryBlock = _cfg.AllBlocks[0];
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[CFG] PushColdBlocksToEnd: {warmBlocksList.Count} warm, {coldBlocks.Count} cold blocks");
+            foreach (var wb in warmBlocksList)
+            {
+                var firstOp = wb.Instructions.Count > 0 ? wb.Instructions[0].OpCode.ToString() : "empty";
+                Console.WriteLine($"  Warm block {wb.BlockId}: starts with {firstOp}, Successors.Count={wb.Successors.Count}");
+            }
+            foreach (var cb in coldBlocks)
+            {
+                if (cb.Instructions.Count > 0)
+                {
+                    Console.WriteLine($"  Cold block {cb.BlockId}: starts with {cb.Instructions[0].OpCode}");
+                }
+            }
+#endif
+        }
 
     }
 }

@@ -301,12 +301,14 @@ namespace SharpPy
                             int currentIndexAfter = instrIndex + oldInstrSize;
 
                             #if DEBUG_COMPILER_LOG
-                            if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || instr.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
+                            if (instr.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || instr.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE ||
+                                instr.OpCode == ByteCodeOp.SEND)
                             {
                                 Console.WriteLine($"🔍 JUMP DEBUG: {instr.OpCode} at instrIndex={instrIndex} (byte {instrIndex*2})");
                                 Console.WriteLine($"   oldInstrSize={oldInstrSize} (including CACHE)");
                                 Console.WriteLine($"   currentIndexAfter={currentIndexAfter}");
                                 Console.WriteLine($"   targetIndex={targetIndex} (byte {targetIndex*2})");
+                                Console.WriteLine($"   TargetBlock={instr.TargetBlock?.BlockId ?? -1}, TargetBlock.Offset={instr.TargetBlock?.Offset ?? -1}");
                             }
                             #endif
 
