@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using SharpPy.Modules;
 using SharpPy.Generated;
 
@@ -424,9 +425,10 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
+            // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
             return args[0] switch
             {
-                PyInt intVal => new PyInt(Math.Abs(intVal.Value)),
+                PyInt intVal => new PyInt(BigInteger.Abs(intVal.Value)),
                 PyFloat floatVal => new PyFloat(Math.Abs(floatVal.Value)),
                 PyComplex complexVal => complexVal.Absolute(),
                 _ => throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'")
@@ -473,16 +475,16 @@ namespace SharpPy
 
             var iterable = args[0];
 
-            // CPython 3.12: enumerate(iterable, start=0)
+            // CPython 3.12: Objects/enumobject.c:246-292 - enum_new
             // Check kwargs for 'start' parameter first, then positional arg
             long start = 0;
             if (kwargs != null && kwargs.Contains(new PyString("start")).ToBool())
             {
-                start = ((PyInt)kwargs.GetItem(new PyString("start"))).Value;
+                start = (long)((PyInt)kwargs.GetItem(new PyString("start"))).Value;
             }
             else if (args.Length > 1)
             {
-                start = ((PyInt)args[1]).Value;
+                start = (long)((PyInt)args[1]).Value;
             }
 
             // CPython 3.12 호환: enumerate iterator 객체 반환
@@ -1354,7 +1356,7 @@ namespace SharpPy
             bool gotFromComplex = false;
 
             if (firstArg is PyInt pyInt)
-                real = pyInt.Value;
+                real = (double)pyInt.Value;
             else if (firstArg is PyFloat pyFloat)
                 real = pyFloat.Value;
             else if (firstArg is PyComplex pyComplex)
@@ -1408,7 +1410,7 @@ namespace SharpPy
             {
                 var secondArg = args[1];
                 if (secondArg is PyInt pyInt2)
-                    imag = pyInt2.Value;
+                    imag = (double)pyInt2.Value;
                 else if (secondArg is PyFloat pyFloat2)
                     imag = pyFloat2.Value;
                 else if (secondArg is PyBool pyBool2)
@@ -4161,12 +4163,13 @@ namespace SharpPy
                     // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
                     return new PyBytes(byteList.ToArray());
                 }
+                // CPython 3.12: Objects/bytesobject.c:2571-2585 - bytes_new
                 // bytes(int) - create bytes of specified size filled with zeros
                 else if (arg is PyInt size)
                 {
                     if (size.Value < 0)
                         throw PyValueError.Create("negative count");
-                    return new PyBytes(new byte[size.Value]);
+                    return new PyBytes(new byte[(int)size.Value]);
                 }
                 else
                 {
@@ -4223,11 +4226,12 @@ namespace SharpPy
                 {
                     return new PyBytearrayObject(bytearrayObj.Data);
                 }
+                // CPython 3.12: Objects/bytearrayobject.c:773-788 - bytearray_init
                 else if (arg is PyInt size)
                 {
                     if (size.Value < 0)
                         throw PyValueError.Create("negative count");
-                    return new PyBytearrayObject(new byte[size.Value]);
+                    return new PyBytearrayObject(new byte[(int)size.Value]);
                 }
                 else if (arg is PyList list)
                 {
@@ -4303,15 +4307,16 @@ namespace SharpPy
 
             var obj = args[0];
 
+            // CPython 3.12: Python/bltinmodule.c:1803-1825 - builtin_hex
             // CPython: PyNumber_Index() is called first
-            long value;
+            PyInt intValue;
             if (obj is PyInt pyInt)
             {
-                value = pyInt.Value;
+                intValue = pyInt;
             }
             else if (obj is PyBool pyBool)
             {
-                value = pyBool.IsTrue() ? 1 : 0;
+                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
             }
             else
             {
@@ -4322,7 +4327,7 @@ namespace SharpPy
                     var result = indexMethod.Call(Array.Empty<PyObject>(), null);
                     if (result is PyInt indexResult)
                     {
-                        value = indexResult.Value;
+                        intValue = indexResult;
                     }
                     else
                     {
@@ -4335,17 +4340,8 @@ namespace SharpPy
                 }
             }
 
-            // Format as hex with 0x prefix (negative numbers get -0x prefix)
-            string result_str;
-            if (value >= 0)
-            {
-                result_str = $"0x{value:x}";
-            }
-            else
-            {
-                result_str = $"-0x{(-value):x}";
-            }
-            return new PyString(result_str);
+            // Delegate to PyInt.Hex() for proper BigInteger formatting
+            return intValue.Hex();
         }
 
         /// <summary>
@@ -4359,14 +4355,15 @@ namespace SharpPy
 
             var obj = args[0];
 
-            long value;
+            // CPython 3.12: Python/bltinmodule.c:2069-2091 - builtin_oct
+            PyInt intValue;
             if (obj is PyInt pyInt)
             {
-                value = pyInt.Value;
+                intValue = pyInt;
             }
             else if (obj is PyBool pyBool)
             {
-                value = pyBool.IsTrue() ? 1 : 0;
+                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
             }
             else
             {
@@ -4376,7 +4373,7 @@ namespace SharpPy
                     var result = indexMethod.Call(Array.Empty<PyObject>(), null);
                     if (result is PyInt indexResult)
                     {
-                        value = indexResult.Value;
+                        intValue = indexResult;
                     }
                     else
                     {
@@ -4389,17 +4386,8 @@ namespace SharpPy
                 }
             }
 
-            // Format as octal with 0o prefix
-            string result_str;
-            if (value >= 0)
-            {
-                result_str = $"0o{Convert.ToString(value, 8)}";
-            }
-            else
-            {
-                result_str = $"-0o{Convert.ToString(-value, 8)}";
-            }
-            return new PyString(result_str);
+            // Delegate to PyInt.Oct() for proper BigInteger formatting
+            return intValue.Oct();
         }
 
         /// <summary>
@@ -4413,14 +4401,15 @@ namespace SharpPy
 
             var obj = args[0];
 
-            long value;
+            // CPython 3.12: Python/bltinmodule.c:541-563 - builtin_bin
+            PyInt intValue;
             if (obj is PyInt pyInt)
             {
-                value = pyInt.Value;
+                intValue = pyInt;
             }
             else if (obj is PyBool pyBool)
             {
-                value = pyBool.IsTrue() ? 1 : 0;
+                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
             }
             else
             {
@@ -4430,7 +4419,7 @@ namespace SharpPy
                     var result = indexMethod.Call(Array.Empty<PyObject>(), null);
                     if (result is PyInt indexResult)
                     {
-                        value = indexResult.Value;
+                        intValue = indexResult;
                     }
                     else
                     {
@@ -4443,17 +4432,8 @@ namespace SharpPy
                 }
             }
 
-            // Format as binary with 0b prefix
-            string result_str;
-            if (value >= 0)
-            {
-                result_str = $"0b{Convert.ToString(value, 2)}";
-            }
-            else
-            {
-                result_str = $"-0b{Convert.ToString(-value, 2)}";
-            }
-            return new PyString(result_str);
+            // Delegate to PyInt.Bin() for proper BigInteger formatting
+            return intValue.Bin();
         }
 
         /// <summary>

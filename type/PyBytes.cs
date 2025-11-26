@@ -2047,13 +2047,15 @@ namespace SharpPy
         /// </summary>
         public override PyObject Multiply(PyObject other)
         {
+            // CPython 3.12: Objects/bytesobject.c:1230-1250 - bytes_repeat
             if (other is PyInt count)
             {
                 if (count.Value < 0)
                     return new PyBytes(new byte[0]);
-                
-                var result = new byte[Value.Length * count.Value];
-                for (int i = 0; i < count.Value; i++)
+
+                int countInt = (int)count.Value;
+                var result = new byte[Value.Length * countInt];
+                for (int i = 0; i < countInt; i++)
                 {
                     Array.Copy(Value, 0, result, i * Value.Length, Value.Length);
                 }
@@ -2097,6 +2099,7 @@ namespace SharpPy
         /// <summary>
         /// bytes indexing - returns int (byte value)
         /// </summary>
+        // CPython 3.12: Objects/bytesobject.c:1470-1510 - bytes_subscript
         public override PyObject GetItem(PyObject index)
         {
             if (index is PyInt pyInt)
@@ -2105,8 +2108,8 @@ namespace SharpPy
                 if (idx < 0) idx += Value.Length;
                 if (idx < 0 || idx >= Value.Length)
                     throw PyIndexError.Create("index out of range");
-                
-                return new PyInt(Value[idx]);
+
+                return new PyInt(Value[(int)idx]);
             }
             else if (index is PySlice slice)
             {

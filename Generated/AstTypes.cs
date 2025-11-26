@@ -1523,8 +1523,8 @@ namespace SharpPy.Generated
 
     public class GeneratedPyConstantInt : GeneratedPyConstant
     {
-        public long Value { get; }
-        public GeneratedPyConstantInt(long value) => Value = value;
+        public System.Numerics.BigInteger Value { get; }
+        public GeneratedPyConstantInt(System.Numerics.BigInteger value) => Value = value;
     }
 
     public class GeneratedPyConstantFloat : GeneratedPyConstant

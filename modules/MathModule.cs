@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 
 namespace SharpPy.Modules
 {
@@ -568,9 +569,12 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"gcd() takes exactly two arguments ({args.Length} given)");
 
+            // CPython 3.12: Modules/mathmodule.c:3170-3200 - math_gcd
             if (args[0] is PyInt a && args[1] is PyInt b)
             {
-                return new PyInt(GcdHelper((int)Math.Abs(a.Value), (int)Math.Abs(b.Value)));
+                var absA = BigInteger.Abs(a.Value);
+                var absB = BigInteger.Abs(b.Value);
+                return new PyInt(GcdHelper((int)absA, (int)absB));
             }
             else
             {
@@ -583,10 +587,13 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"lcm() takes exactly two arguments ({args.Length} given)");
 
+            // CPython 3.12: Modules/mathmodule.c:3203-3233 - math_lcm
             if (args[0] is PyInt a && args[1] is PyInt b)
             {
-                var gcd = GcdHelper((int)Math.Abs(a.Value), (int)Math.Abs(b.Value));
-                return new PyInt(Math.Abs(a.Value * b.Value) / gcd);
+                var absA = BigInteger.Abs(a.Value);
+                var absB = BigInteger.Abs(b.Value);
+                var gcd = GcdHelper((int)absA, (int)absB);
+                return new PyInt(BigInteger.Abs(a.Value * b.Value) / gcd);
             }
             else
             {
@@ -655,10 +662,11 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"ldexp() takes exactly two arguments ({args.Length} given)");
 
+            // CPython 3.12: Modules/mathmodule.c:1466-1485 - math_ldexp
             var x = GetFloatValue(args[0]);
             if (args[1] is PyInt exp)
             {
-                return new PyFloat(x * Math.Pow(2, exp.Value));
+                return new PyFloat(x * Math.Pow(2, (double)exp.Value));
             }
             else
             {
@@ -673,12 +681,13 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"isqrt() takes exactly one argument ({args.Length} given)");
 
+            // CPython 3.12: Modules/mathmodule.c:3102-3167 - math_isqrt
             if (args[0] is PyInt n)
             {
                 if (n.Value < 0)
                     throw PyValueError.Create("isqrt() domain error");
 
-                return new PyInt((int)Math.Floor(Math.Sqrt(n.Value)));
+                return new PyInt((int)Math.Floor(Math.Sqrt((double)n.Value)));
             }
             else
             {

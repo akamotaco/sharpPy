@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 
 namespace SharpPy
 {
@@ -100,11 +101,12 @@ namespace SharpPy
 
         public override PyObject Add(PyObject other)
         {
+            // CPython 3.12: Objects/boolobject.c - bool is subclass of int, uses int operations
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
                 PyBool otherBool => SmallIntCache.GetOrCreate(boolAsInt + (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => SmallIntCache.GetOrCreate(boolAsInt + otherInt.Value),
+                PyInt otherInt => new PyInt(boolAsInt + otherInt.Value),
                 PyFloat otherFloat => FloatCache.GetOrCreate(boolAsInt + otherFloat.Value),
                 _ => PyNotImplemented.Instance
             };
@@ -112,11 +114,12 @@ namespace SharpPy
 
         public override PyObject Subtract(PyObject other)
         {
+            // CPython 3.12: Objects/boolobject.c - bool arithmetic via int
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
                 PyBool otherBool => SmallIntCache.GetOrCreate(boolAsInt - (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => SmallIntCache.GetOrCreate(boolAsInt - otherInt.Value),
+                PyInt otherInt => new PyInt(boolAsInt - otherInt.Value),
                 PyFloat otherFloat => FloatCache.GetOrCreate(boolAsInt - otherFloat.Value),
                 _ => PyNotImplemented.Instance
             };
@@ -124,11 +127,12 @@ namespace SharpPy
 
         public override PyObject Multiply(PyObject other)
         {
+            // CPython 3.12: Objects/boolobject.c - bool multiplication via int
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
                 PyBool otherBool => SmallIntCache.GetOrCreate(boolAsInt * (otherBool.Value ? 1 : 0)),
-                PyInt otherInt => SmallIntCache.GetOrCreate(boolAsInt * otherInt.Value),
+                PyInt otherInt => new PyInt(boolAsInt * otherInt.Value),
                 PyFloat otherFloat => FloatCache.GetOrCreate(boolAsInt * otherFloat.Value),
                 _ => PyNotImplemented.Instance
             };
@@ -165,9 +169,10 @@ namespace SharpPy
 
             if (other is PyInt otherInt)
             {
+                // CPython 3.12: Objects/longobject.c:2453-2494 - long_div
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return SmallIntCache.GetOrCreate(boolAsInt / otherInt.Value);
+                return new PyInt(boolAsInt / otherInt.Value);
             }
 
             if (other is PyFloat otherFloat)
@@ -193,9 +198,10 @@ namespace SharpPy
 
             if (other is PyInt otherInt)
             {
+                // CPython 3.12: Objects/longobject.c:2496-2531 - long_mod
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return SmallIntCache.GetOrCreate(boolAsInt % otherInt.Value);
+                return new PyInt(boolAsInt % otherInt.Value);
             }
 
             if (other is PyFloat otherFloat)
@@ -220,9 +226,10 @@ namespace SharpPy
 
             if (other is PyInt otherInt)
             {
+                // CPython 3.12: Objects/longobject.c:4319-4538 - long_pow
                 if (otherInt.Value < 0)
-                    return FloatCache.GetOrCreate(Math.Pow(boolAsInt, otherInt.Value));
-                return SmallIntCache.GetOrCreate((int)Math.Pow(boolAsInt, otherInt.Value));
+                    return FloatCache.GetOrCreate(Math.Pow(boolAsInt, (double)otherInt.Value));
+                return new PyInt(BigInteger.Pow(boolAsInt, (int)otherInt.Value));
             }
             
             throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'bool' and '{other.GetTypeName()}'");
@@ -234,33 +241,36 @@ namespace SharpPy
 
         public PyObject BitwiseAnd(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:3562-3590 - long_and
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
                 PyBool otherBool => PyBool.FromBool(Value && otherBool.Value),
-                PyInt otherInt => SmallIntCache.GetOrCreate(boolAsInt & otherInt.Value),
+                PyInt otherInt => new PyInt(boolAsInt & otherInt.Value),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for &: 'bool' and '{other.GetTypeName()}'")
             };
         }
 
         public PyObject BitwiseOr(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:3592-3620 - long_or
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
                 PyBool otherBool => PyBool.FromBool(Value || otherBool.Value),
-                PyInt otherInt => SmallIntCache.GetOrCreate(boolAsInt | otherInt.Value),
+                PyInt otherInt => new PyInt(boolAsInt | otherInt.Value),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for |: 'bool' and '{other.GetTypeName()}'")
             };
         }
 
         public PyObject BitwiseXor(PyObject other)
         {
+            // CPython 3.12: Objects/longobject.c:3622-3650 - long_xor
             int boolAsInt = Value ? 1 : 0;
             return other switch
             {
                 PyBool otherBool => PyBool.FromBool(Value ^ otherBool.Value),
-                PyInt otherInt => SmallIntCache.GetOrCreate(boolAsInt ^ otherInt.Value),
+                PyInt otherInt => new PyInt(boolAsInt ^ otherInt.Value),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for ^: 'bool' and '{other.GetTypeName()}'")
             };
         }

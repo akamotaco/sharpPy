@@ -176,10 +176,11 @@ namespace SharpPy
                     {
                         subBytes = subByteArray._bytes.ToArray();
                     }
+                    // CPython 3.12: Objects/bytearrayobject.c:1180-1220 - bytearray_find
                     else if (args[0] is PyInt intValue)
                     {
                         // CPython allows int (0-255) as single byte to search
-                        long val = intValue.Value;
+                        long val = (long)intValue.Value;
                         if (val < 0 || val > 255)
                             throw PyValueError.Create("byte must be in range(0, 256)");
                         subBytes = new byte[] { (byte)val };

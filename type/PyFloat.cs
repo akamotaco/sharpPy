@@ -366,8 +366,9 @@ namespace SharpPy
         {
             return other switch
             {
+                // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value == otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(Value == (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1.0 : 0.0)),
                 _ => PyBool.False
             };
@@ -381,8 +382,9 @@ namespace SharpPy
         {
             return other switch
             {
+                // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value < otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value < otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(Value < (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(Value < (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'<' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -392,8 +394,9 @@ namespace SharpPy
         {
             return other switch
             {
+                // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value <= otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value <= otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(Value <= (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(Value <= (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'<=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -403,8 +406,9 @@ namespace SharpPy
         {
             return other switch
             {
+                // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value > otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value > otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(Value > (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(Value > (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'>' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -414,8 +418,9 @@ namespace SharpPy
         {
             return other switch
             {
+                // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value >= otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value >= otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(Value >= (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(Value >= (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'>=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -431,7 +436,7 @@ namespace SharpPy
             return other switch
             {
                 PyFloat otherFloat => new PyFloat(Value + otherFloat.Value),
-                PyInt otherInt => new PyFloat(Value + otherInt.Value),
+                PyInt otherInt => new PyFloat(Value + (double)otherInt.Value),
                 PyBool otherBool => new PyFloat(Value + (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -444,7 +449,7 @@ namespace SharpPy
             return other switch
             {
                 PyFloat otherFloat => new PyFloat(Value - otherFloat.Value),
-                PyInt otherInt => new PyFloat(Value - otherInt.Value),
+                PyInt otherInt => new PyFloat(Value - (double)otherInt.Value),
                 PyBool otherBool => new PyFloat(Value - (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -457,7 +462,7 @@ namespace SharpPy
             return other switch
             {
                 PyFloat otherFloat => new PyFloat(Value * otherFloat.Value),
-                PyInt otherInt => new PyFloat(Value * otherInt.Value),
+                PyInt otherInt => new PyFloat(Value * (double)otherInt.Value),
                 PyBool otherBool => new PyFloat(Value * (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value * otherComplex.Real, Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
@@ -860,13 +865,14 @@ namespace SharpPy
 
         /// <summary>
         /// 다른 숫자 타입에서 PyFloat 생성
+        /// CPython 3.12: Objects/floatobject.c:1533-1623 - PyFloat_FromDouble
         /// </summary>
         public static PyFloat FromNumber(PyObject obj)
         {
             return obj switch
             {
                 PyFloat pyFloat => pyFloat,
-                PyInt pyInt => new PyFloat(pyInt.Value),
+                PyInt pyInt => new PyFloat((double)pyInt.Value),
                 PyBool pyBool => new PyFloat(pyBool.Value ? 1.0 : 0.0),
                 _ => throw PyTypeError.Create($"float() argument must be a string or a number, not '{obj.GetTypeName()}'")
             };

@@ -122,10 +122,11 @@ namespace SharpPy
             {
                 PyComplex otherComplex => PyBool.FromBool(
                     Real == otherComplex.Real && Imag == otherComplex.Imag),
+                // CPython 3.12: Objects/complexobject.c:395-430 - complex_richcompare
                 PyFloat otherFloat => PyBool.FromBool(
                     Imag == 0.0 && Real == otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(
-                    Imag == 0.0 && Real == otherInt.Value),
+                    Imag == 0.0 && Real == (double)otherInt.Value),
                 PyBool otherBool => PyBool.FromBool(
                     Imag == 0.0 && Real == (otherBool.Value ? 1.0 : 0.0)),
                 _ => PyBool.False
@@ -138,15 +139,16 @@ namespace SharpPy
 
         public override PyObject Add(PyObject other)
         {
+            // CPython 3.12: Objects/complexobject.c:305-328 - complex_add
             return other switch
             {
                 PyComplex otherComplex => new PyComplex(
-                    Real + otherComplex.Real, 
+                    Real + otherComplex.Real,
                     Imag + otherComplex.Imag),
                 PyFloat otherFloat => new PyComplex(
                     Real + otherFloat.Value, Imag),
                 PyInt otherInt => new PyComplex(
-                    Real + otherInt.Value, Imag),
+                    Real + (double)otherInt.Value, Imag),
                 PyBool otherBool => new PyComplex(
                     Real + (otherBool.Value ? 1.0 : 0.0), Imag),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for +: 'complex' and '{other.GetTypeName()}'")
@@ -155,15 +157,16 @@ namespace SharpPy
 
         public override PyObject Subtract(PyObject other)
         {
+            // CPython 3.12: Objects/complexobject.c:330-353 - complex_sub
             return other switch
             {
                 PyComplex otherComplex => new PyComplex(
-                    Real - otherComplex.Real, 
+                    Real - otherComplex.Real,
                     Imag - otherComplex.Imag),
                 PyFloat otherFloat => new PyComplex(
                     Real - otherFloat.Value, Imag),
                 PyInt otherInt => new PyComplex(
-                    Real - otherInt.Value, Imag),
+                    Real - (double)otherInt.Value, Imag),
                 PyBool otherBool => new PyComplex(
                     Real - (otherBool.Value ? 1.0 : 0.0), Imag),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for -: 'complex' and '{other.GetTypeName()}'")
@@ -172,6 +175,7 @@ namespace SharpPy
 
         public override PyObject Multiply(PyObject other)
         {
+            // CPython 3.12: Objects/complexobject.c:279-303 - complex_mul
             return other switch
             {
                 PyComplex otherComplex => new PyComplex(
@@ -180,7 +184,7 @@ namespace SharpPy
                 PyFloat otherFloat => new PyComplex(
                     Real * otherFloat.Value, Imag * otherFloat.Value),
                 PyInt otherInt => new PyComplex(
-                    Real * otherInt.Value, Imag * otherInt.Value),
+                    Real * (double)otherInt.Value, Imag * (double)otherInt.Value),
                 PyBool otherBool => otherBool.Value ? this : new PyComplex(0, 0),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for *: 'complex' and '{other.GetTypeName()}'")
             };
@@ -188,14 +192,15 @@ namespace SharpPy
 
         public override PyObject Divide(PyObject other)
         {
+            // CPython 3.12: Objects/complexobject.c:206-241 - complex_div
             return other switch
             {
                 PyComplex otherComplex => DivideComplex(otherComplex),
-                PyFloat otherFloat => CheckZeroDivision(otherFloat.Value) ? 
+                PyFloat otherFloat => CheckZeroDivision(otherFloat.Value) ?
                     new PyComplex(Real / otherFloat.Value, Imag / otherFloat.Value) :
                     throw PyZeroDivisionError.Create("complex division by zero"),
-                PyInt otherInt => CheckZeroDivision(otherInt.Value) ?
-                    new PyComplex(Real / otherInt.Value, Imag / otherInt.Value) :
+                PyInt otherInt => CheckZeroDivision((double)otherInt.Value) ?
+                    new PyComplex(Real / (double)otherInt.Value, Imag / (double)otherInt.Value) :
                     throw PyZeroDivisionError.Create("complex division by zero"),
                 PyBool otherBool => otherBool.Value ?
                     this : throw PyZeroDivisionError.Create("complex division by zero"),
@@ -206,13 +211,13 @@ namespace SharpPy
         private PyComplex DivideComplex(PyComplex other)
         {
             var denominator = other.Real * other.Real + other.Imag * other.Imag;
-            
+
             if (denominator == 0.0)
                 throw PyZeroDivisionError.Create("complex division by zero");
-            
+
             var realPart = (Real * other.Real + Imag * other.Imag) / denominator;
             var imagPart = (Imag * other.Real - Real * other.Imag) / denominator;
-            
+
             return new PyComplex(realPart, imagPart);
         }
 
@@ -220,11 +225,12 @@ namespace SharpPy
 
         public override PyObject Power(PyObject other)
         {
+            // CPython 3.12: Objects/complexobject.c:243-277 - complex_pow
             return other switch
             {
                 PyComplex otherComplex => PowerComplex(otherComplex),
                 PyFloat otherFloat => PowerComplex(new PyComplex(otherFloat.Value)),
-                PyInt otherInt => PowerComplex(new PyComplex(otherInt.Value)),
+                PyInt otherInt => PowerComplex(new PyComplex((double)otherInt.Value)),
                 PyBool otherBool => PowerComplex(new PyComplex(otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for **: 'complex' and '{other.GetTypeName()}'")
             };

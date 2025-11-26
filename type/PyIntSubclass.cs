@@ -107,12 +107,13 @@ namespace SharpPy
             if (other is PyIntSubclass otherSub)
                 other = otherSub._intValue;
 
+            // CPython 3.12: Objects/longobject.c - int subclass comparison
             // Extract int value for comparison
-            long thisValue = _intValue.Value;
+            long thisValue = (long)_intValue.Value;
             long otherValue;
 
             if (other is PyInt otherInt)
-                otherValue = otherInt.Value;
+                otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue < otherFloat.Value ? PyBool.True : PyBool.False;
             else if (other is PyBool otherBool)
@@ -128,11 +129,12 @@ namespace SharpPy
             if (other is PyIntSubclass otherSub)
                 other = otherSub._intValue;
 
-            long thisValue = _intValue.Value;
+            // CPython 3.12: Objects/longobject.c - int subclass comparison
+            long thisValue = (long)_intValue.Value;
             long otherValue;
 
             if (other is PyInt otherInt)
-                otherValue = otherInt.Value;
+                otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue <= otherFloat.Value ? PyBool.True : PyBool.False;
             else if (other is PyBool otherBool)
@@ -148,11 +150,12 @@ namespace SharpPy
             if (other is PyIntSubclass otherSub)
                 other = otherSub._intValue;
 
-            long thisValue = _intValue.Value;
+            // CPython 3.12: Objects/longobject.c - int subclass comparison
+            long thisValue = (long)_intValue.Value;
             long otherValue;
 
             if (other is PyInt otherInt)
-                otherValue = otherInt.Value;
+                otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue > otherFloat.Value ? PyBool.True : PyBool.False;
             else if (other is PyBool otherBool)
@@ -168,11 +171,12 @@ namespace SharpPy
             if (other is PyIntSubclass otherSub)
                 other = otherSub._intValue;
 
-            long thisValue = _intValue.Value;
+            // CPython 3.12: Objects/longobject.c - int subclass comparison
+            long thisValue = (long)_intValue.Value;
             long otherValue;
 
             if (other is PyInt otherInt)
-                otherValue = otherInt.Value;
+                otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue >= otherFloat.Value ? PyBool.True : PyBool.False;
             else if (other is PyBool otherBool)

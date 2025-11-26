@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 
 namespace SharpPy.Modules
 {
@@ -171,10 +172,11 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly 1 argument ({args.Length} given)");
 
+            // CPython 3.12: Modules/_operator.c:185-210 - _operator_abs
             var obj = args[0];
             return obj switch
             {
-                PyInt pyInt => new PyInt(Math.Abs(pyInt.Value)),
+                PyInt pyInt => new PyInt(BigInteger.Abs(pyInt.Value)),
                 PyFloat pyFloat => new PyFloat(Math.Abs(pyFloat.Value)),
                 _ => throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'")
             };

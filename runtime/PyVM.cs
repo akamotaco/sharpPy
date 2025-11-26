@@ -1864,11 +1864,12 @@ namespace SharpPy
                     frame.ValueStack.Push(result);
                     break;
 
+                // CPython 3.12: Python/bytecodes.c:400-450 - Specialized Binary Operations
                 // Specialized Binary Operations - CPython 3.12 Adaptive Specialization
                 case ByteCodeOp.BINARY_ADD_INT:
                     var rightInt = ((PyInt)frame.ValueStack.Pop()).Value;
                     var leftInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(SmallIntCache.GetOrCreate(leftInt + rightInt));
+                    frame.ValueStack.Push(SmallIntCache.GetOrCreate((long)(leftInt + rightInt)));
                     break;
 
                 case ByteCodeOp.BINARY_ADD_FLOAT:
@@ -1886,7 +1887,7 @@ namespace SharpPy
                 case ByteCodeOp.BINARY_MULTIPLY_INT:
                     var rightMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
                     var leftMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(SmallIntCache.GetOrCreate(leftMulInt * rightMulInt));
+                    frame.ValueStack.Push(SmallIntCache.GetOrCreate((long)(leftMulInt * rightMulInt)));
                     break;
 
                 case ByteCodeOp.BINARY_MULTIPLY_FLOAT:
@@ -6588,14 +6589,15 @@ namespace SharpPy
                         }
                     }
 
+                    // CPython 3.12: Objects/stringlib/formatter.h - format_int_or_long
                     // Format the value based on type
                     string formatted = typeSpec switch
                     {
                         "d" => intObj.Value.ToString(),
                         "x" => intObj.Value.ToString("x"),
                         "X" => intObj.Value.ToString("X"),
-                        "o" => Convert.ToString(intObj.Value, 8),
-                        "b" => Convert.ToString(intObj.Value, 2),
+                        "o" => Convert.ToString((long)intObj.Value, 8),
+                        "b" => Convert.ToString((long)intObj.Value, 2),
                         _ => intObj.Value.ToString()
                     };
 

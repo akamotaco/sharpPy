@@ -50,12 +50,13 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create("sleep() takes exactly one argument");
 
             var delayObj = args[0];
+            // CPython 3.12: Modules/_asynciomodule.c - asyncio.sleep equivalent
             double delay;
 
             if (delayObj is PyFloat pyFloat)
                 delay = pyFloat.Value;
             else if (delayObj is PyInt pyInt)
-                delay = pyInt.Value;
+                delay = (double)pyInt.Value;
             else
                 throw PyTypeError.Create("sleep() argument must be a number");
 

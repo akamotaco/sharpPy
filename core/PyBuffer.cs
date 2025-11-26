@@ -137,12 +137,13 @@ namespace SharpPy
             // CPython 3.12: line 2571-2576 - integer indexing
             if (index is PyInt pyInt)
             {
+                // CPython 3.12: Objects/memoryobject.c:2540-2560 - memory_subscript
                 var idx = pyInt.Value;
                 if (idx < 0) idx += _data.Length;
                 if (idx < 0 || idx >= _data.Length)
                     throw PyIndexError.Create("memoryview index out of range");
 
-                return new PyInt(_data[idx]);
+                return new PyInt(_data[(int)idx]);
             }
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
@@ -177,13 +178,14 @@ namespace SharpPy
             {
                 var idx = pyInt.Value;
                 if (idx < 0) idx += _data.Length;
+                // CPython 3.12: Objects/memoryobject.c:2700-2730 - memory_ass_sub
                 if (idx < 0 || idx >= _data.Length)
                     throw PyIndexError.Create("memoryview index out of range");
 
                 if (pyValue.Value < 0 || pyValue.Value > 255)
                     throw PyValueError.Create("byte must be in range(0, 256)");
 
-                _data[idx] = (byte)pyValue.Value;
+                _data[(int)idx] = (byte)(int)pyValue.Value;
                 return;
             }
             throw PyTypeError.Create($"memoryview indices must be integers, not {index.GetTypeName()}");

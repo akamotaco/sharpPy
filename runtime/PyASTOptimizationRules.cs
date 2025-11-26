@@ -115,9 +115,10 @@ namespace SharpPy
                     _ => 0
                 };
 
+                // CPython 3.12: Python/ast_opt.c:145-165 - safe_multiply
                 if (size > 0)
                 {
-                    long n = multiplier.Value;
+                    long n = (long)multiplier.Value;
                     if (n < 0 || n > MAX_COLLECTION_SIZE / size)
                     {
                         return null; // Collection too large
@@ -131,7 +132,7 @@ namespace SharpPy
 
                 if (size > 0)
                 {
-                    long n = strMultiplier.Value;
+                    long n = (long)strMultiplier.Value;
                     if (n < 0 || n > MAX_STR_SIZE / size)
                     {
                         return null; // String too large
@@ -157,11 +158,12 @@ namespace SharpPy
                     return left.Power(right);
                 }
 
+                // CPython 3.12: Python/ast_opt.c:197-213 - safe_power
                 // Check for exponential growth
                 if (baseInt.Value != 0 && expInt.Value != 0)
                 {
                     int baseBits = (int)baseInt.BitLength().Value;
-                    long exponent = expInt.Value;
+                    long exponent = (long)expInt.Value;
 
                     // Rough approximation: result_bits ≈ base_bits * exponent
                     // Using double to avoid overflow in multiplication
@@ -192,11 +194,12 @@ namespace SharpPy
                     return left.LeftShift(right);
                 }
 
+                // CPython 3.12: Python/ast_opt.c:216-230 - safe_lshift
                 // Check for bit overflow
                 if (valueInt.Value != 0)
                 {
                     int valueBits = (int)valueInt.BitLength().Value;
-                    long shiftAmount = shiftInt.Value;
+                    long shiftAmount = (long)shiftInt.Value;
 
                     // Using double to avoid overflow
                     double resultBits = valueBits + (double)shiftAmount;

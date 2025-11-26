@@ -3152,11 +3152,12 @@ namespace SharpPy
                 i++;
             }
 
+            // CPython 3.12: Objects/stringlib/formatter.h:820-950 - format_int_or_long
             // Format the value based on type
             string result;
             if (value is PyInt pyInt)
             {
-                result = FormatInt(pyInt.Value, type, width, precision, sign, alternate, fill, align);
+                result = FormatInt((long)pyInt.Value, type, width, precision, sign, alternate, fill, align);
             }
             else if (value is PyFloat pyFloat)
             {

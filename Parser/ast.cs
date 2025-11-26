@@ -3336,11 +3336,12 @@ namespace SharpPy
             var obj = Value.Evaluate(scope);
             var index = Slice.Evaluate(scope);
 
+            // CPython 3.12: Python/compile.c - constant folding helpers
             // GetItem 대신 기존 메서드 사용
             if (obj is PyDict dict)
                 return dict.GetItem(index);
             else if (obj is PyList list && index is PyInt intIndex)
-                return list.Items[intIndex.Value]; // 간단한 구현
+                return list.Items[(int)intIndex.Value]; // 간단한 구현
             else
                 return PyNone.Instance;
         }
@@ -3930,13 +3931,14 @@ namespace SharpPy
                     {
                         return new PyString(intObj.Value.ToString("X"));
                     }
+                    // CPython 3.12: Objects/stringlib/formatter.h - format_int_or_long
                     else if (formatSpec == "o")
                     {
-                        return new PyString(Convert.ToString(intObj.Value, 8));
+                        return new PyString(Convert.ToString((long)intObj.Value, 8));
                     }
                     else if (formatSpec == "b")
                     {
-                        return new PyString(Convert.ToString(intObj.Value, 2));
+                        return new PyString(Convert.ToString((long)intObj.Value, 2));
                     }
                 }
                 

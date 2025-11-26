@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using SharpPy.Generated;
 
 namespace SharpPy.Generated
@@ -530,23 +531,29 @@ namespace SharpPy.Generated
                 constant.Value = new GeneratedPyConstantComplex(0.0, imagValue);
             }
             // CPython 3.12: Python/ast.c:4865-4950 (parsenumber function)
-            // TODO: Objects/longobject.c - arbitrary precision integers 지원 필요
+            // CPython 3.12: Objects/longobject.c - arbitrary precision integers with BigInteger
             // Check integer bases BEFORE float check (0x1fbe contains 'e' but is hex, not float!)
             // Check for hexadecimal (0x or 0X)
             else if (cleanValue.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
-                // C# Convert.ToInt64(string, base) does NOT accept "0x" prefix, only the digits
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 16));
+                // BigInteger.Parse with hexadecimal format
+                // Note: BigInteger.Parse with NumberStyles.HexNumber does NOT accept "0x" prefix
+                // CPython 3.12: Python hex literals are always positive (unsigned)
+                // Prepend "0" to ensure positive parsing (avoid MSB sign interpretation)
+                var hexDigits = cleanValue.Substring(2);
+                constant.Value = new GeneratedPyConstantInt(BigInteger.Parse("0" + hexDigits, System.Globalization.NumberStyles.HexNumber));
             }
             // Check for octal (0o or 0O)
             else if (cleanValue.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 8));
+                // Convert from octal string to BigInteger
+                constant.Value = new GeneratedPyConstantInt(ConvertFromBase(cleanValue.Substring(2), 8));
             }
             // Check for binary (0b or 0B)
             else if (cleanValue.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 2));
+                // Convert from binary string to BigInteger
+                constant.Value = new GeneratedPyConstantInt(ConvertFromBase(cleanValue.Substring(2), 2));
             }
             // Check for floating point (MUST come after hex/octal/binary checks!)
             else if (cleanValue.Contains(".") || cleanValue.Contains("e", StringComparison.OrdinalIgnoreCase))
@@ -556,7 +563,9 @@ namespace SharpPy.Generated
             // Decimal integer
             else
             {
-                constant.Value = new GeneratedPyConstantInt(long.Parse(cleanValue));
+                // CPython 3.12: Parser/action_helpers.c:805-820 (_PyPegen_number_token)
+                // Arbitrary precision integer support with BigInteger
+                constant.Value = new GeneratedPyConstantInt(BigInteger.Parse(cleanValue));
             }
 
             constant.LineNo = token.Line;
@@ -564,6 +573,40 @@ namespace SharpPy.Generated
             constant.EndLineNo = token.EndLine;
             constant.EndColOffset = token.EndColumn;
             return constant;
+        }
+
+        /// <summary>
+        /// Convert string in arbitrary base (2-36) to BigInteger
+        /// CPython 3.12: Objects/longobject.c:2230-2420 (PyLong_FromString)
+        /// </summary>
+        private static BigInteger ConvertFromBase(string digits, int baseValue)
+        {
+            BigInteger result = 0;
+            BigInteger baseMultiplier = 1;
+
+            // Process digits from right to left
+            for (int i = digits.Length - 1; i >= 0; i--)
+            {
+                char c = digits[i];
+                int digitValue;
+
+                if (c >= '0' && c <= '9')
+                    digitValue = c - '0';
+                else if (c >= 'a' && c <= 'z')
+                    digitValue = c - 'a' + 10;
+                else if (c >= 'A' && c <= 'Z')
+                    digitValue = c - 'A' + 10;
+                else
+                    throw new FormatException($"Invalid digit '{c}' for base {baseValue}");
+
+                if (digitValue >= baseValue)
+                    throw new FormatException($"Digit '{c}' out of range for base {baseValue}");
+
+                result += digitValue * baseMultiplier;
+                baseMultiplier *= baseValue;
+            }
+
+            return result;
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 
 namespace SharpPy.Modules
 {
@@ -213,10 +214,11 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
+            // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
             var obj = args[0];
             return obj switch
             {
-                PyInt pyInt => new PyInt(Math.Abs(pyInt.Value)),
+                PyInt pyInt => new PyInt(BigInteger.Abs(pyInt.Value)),
                 PyFloat pyFloat => new PyFloat(Math.Abs(pyFloat.Value)),
                 PyComplex pyComplex => pyComplex.Absolute(),
                 _ => throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'")
@@ -634,15 +636,16 @@ namespace SharpPy.Modules
 
             var obj = args[0];
 
-            // Try to get __index__ method for integer conversion
-            long value;
+            // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
+            // BigInteger support for arbitrary precision integers
+            PyInt intValue;
             if (obj is PyInt pyInt)
             {
-                value = pyInt.Value;
+                intValue = pyInt;
             }
             else if (obj is PyBool pyBool)
             {
-                value = pyBool.Value ? 1 : 0;
+                intValue = new PyInt(pyBool.Value ? 1 : 0);
             }
             else
             {
@@ -653,7 +656,7 @@ namespace SharpPy.Modules
                     var result = indexMethod.Call(Array.Empty<PyObject>(), null);
                     if (result is PyInt indexInt)
                     {
-                        value = indexInt.Value;
+                        intValue = indexInt;
                     }
                     else
                     {
@@ -666,16 +669,8 @@ namespace SharpPy.Modules
                 }
             }
 
-            // Convert to binary string with "0b" prefix
-            if (value >= 0)
-            {
-                return new PyString("0b" + Convert.ToString(value, 2));
-            }
-            else
-            {
-                // Negative numbers: "-0b..." format
-                return new PyString("-0b" + Convert.ToString(-value, 2));
-            }
+            // Delegate to PyInt.Bin() for proper BigInteger formatting
+            return intValue.Bin();
         }
 
         // CPython 3.12: Python/bltinmodule.c:1133 - builtin_hex
@@ -686,15 +681,16 @@ namespace SharpPy.Modules
 
             var obj = args[0];
 
-            // Try to get __index__ method for integer conversion
-            long value;
+            // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
+            // BigInteger support for arbitrary precision integers
+            PyInt intValue;
             if (obj is PyInt pyInt)
             {
-                value = pyInt.Value;
+                intValue = pyInt;
             }
             else if (obj is PyBool pyBool)
             {
-                value = pyBool.Value ? 1 : 0;
+                intValue = new PyInt(pyBool.Value ? 1 : 0);
             }
             else
             {
@@ -705,7 +701,7 @@ namespace SharpPy.Modules
                     var result = indexMethod.Call(Array.Empty<PyObject>(), null);
                     if (result is PyInt indexInt)
                     {
-                        value = indexInt.Value;
+                        intValue = indexInt;
                     }
                     else
                     {
@@ -718,16 +714,8 @@ namespace SharpPy.Modules
                 }
             }
 
-            // Convert to hexadecimal string with "0x" prefix
-            if (value >= 0)
-            {
-                return new PyString("0x" + value.ToString("x"));
-            }
-            else
-            {
-                // Negative numbers: "-0x..." format
-                return new PyString("-0x" + (-value).ToString("x"));
-            }
+            // Delegate to PyInt.Hex() for proper BigInteger formatting
+            return intValue.Hex();
         }
 
         // CPython 3.12: Python/bltinmodule.c:1664 - builtin_oct
@@ -738,15 +726,16 @@ namespace SharpPy.Modules
 
             var obj = args[0];
 
-            // Try to get __index__ method for integer conversion
-            long value;
+            // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
+            // BigInteger support for arbitrary precision integers
+            PyInt intValue;
             if (obj is PyInt pyInt)
             {
-                value = pyInt.Value;
+                intValue = pyInt;
             }
             else if (obj is PyBool pyBool)
             {
-                value = pyBool.Value ? 1 : 0;
+                intValue = new PyInt(pyBool.Value ? 1 : 0);
             }
             else
             {
@@ -757,7 +746,7 @@ namespace SharpPy.Modules
                     var result = indexMethod.Call(Array.Empty<PyObject>(), null);
                     if (result is PyInt indexInt)
                     {
-                        value = indexInt.Value;
+                        intValue = indexInt;
                     }
                     else
                     {
@@ -770,16 +759,8 @@ namespace SharpPy.Modules
                 }
             }
 
-            // Convert to octal string with "0o" prefix
-            if (value >= 0)
-            {
-                return new PyString("0o" + Convert.ToString(value, 8));
-            }
-            else
-            {
-                // Negative numbers: "-0o..." format
-                return new PyString("-0o" + Convert.ToString(-value, 8));
-            }
+            // Delegate to PyInt.Oct() for proper BigInteger formatting
+            return intValue.Oct();
         }
 
         // CPython 3.12: Python/bltinmodule.c:537 - builtin_ascii

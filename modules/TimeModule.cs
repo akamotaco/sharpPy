@@ -135,12 +135,13 @@ namespace SharpPy
                     throw PyTypeError.Create("sleep() takes exactly one argument");
 
                 var seconds = args[0];
+                // CPython 3.12: Modules/timemodule.c:397-420 - time_sleep
                 double delay;
 
                 if (seconds is PyFloat pyFloat)
                     delay = pyFloat.Value;
                 else if (seconds is PyInt pyInt)
-                    delay = pyInt.Value;
+                    delay = (double)pyInt.Value;
                 else
                     throw PyTypeError.Create("sleep() argument must be a number");
 
@@ -441,13 +442,14 @@ namespace SharpPy
             SetAttribute("tzname", tznameTuple);
         }
 
+        // CPython 3.12: Modules/timemodule.c - seconds argument parsing
         // Helper: seconds 인자 파싱
         private double GetSecondsArgument(PyObject arg)
         {
             if (arg is PyFloat pyFloat)
                 return pyFloat.Value;
             else if (arg is PyInt pyInt)
-                return pyInt.Value;
+                return (double)pyInt.Value;
             else if (arg is PyNone)
                 return (DateTime.UtcNow - UnixEpoch).TotalSeconds;
             else

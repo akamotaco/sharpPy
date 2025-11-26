@@ -4975,8 +4975,8 @@ namespace SharpPy
         /// </summary>
         private PyObject? FoldIntBinaryOp(PyInt left, PyInt right, BinaryOpType opType)
         {
-            long leftVal = left.Value;
-            long rightVal = right.Value;
+            long leftVal = (long)left.Value;
+            long rightVal = (long)right.Value;
 
             switch (opType)
             {

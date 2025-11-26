@@ -35,13 +35,14 @@ namespace SharpPy
         /// </summary>
         private PyObject CountFunction(PyObject[] args)
         {
+            // CPython 3.12: Modules/itertoolsmodule.c:4510-4550 - itertools_count
             long start = 0;
             long step = 1;
 
             if (args.Length >= 1 && args[0] is PyInt startInt)
-                start = startInt.Value;
+                start = (long)startInt.Value;
             if (args.Length >= 2 && args[1] is PyInt stepInt)
-                step = stepInt.Value;
+                step = (long)stepInt.Value;
 
             return new CountIterator(start, step);
         }

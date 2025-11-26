@@ -628,8 +628,9 @@ namespace SharpPy.Modules.Stdlib
 
         public override PyObject Multiply(PyObject other)
         {
+            // CPython 3.12: Modules/_datetimemodule.c:2830-2850 - delta_multiply
             if (other is PyInt intVal)
-                return new PyTimeDelta(new TimeSpan(_timeSpan.Ticks * intVal.Value));
+                return new PyTimeDelta(new TimeSpan(_timeSpan.Ticks * (long)intVal.Value));
             else if (other is PyFloat floatVal)
                 return new PyTimeDelta(new TimeSpan((long)(_timeSpan.Ticks * floatVal.Value)));
             throw PyTypeError.Create($"unsupported operand type(s) for *: 'timedelta' and '{other.GetTypeName()}'");
