@@ -9498,6 +9498,12 @@ namespace SharpPy
             _instructionSequence.AddOpWithArg(ByteCodeOp.RAISE_VARARGS, 1, _currentLineNumber);
 
             // Mark end of assert
+            // CPython 3.12: Python/compile.c:3164 - ADDOP(c, loc, NOP) ensures label points to real instruction
+            // CRITICAL FIX (2025-11-28): Add NOP before endLabel to ensure it doesn't collapse
+            // with exception handler label when only pseudo-instructions (POP_BLOCK) separate them.
+            // Without NOP, FindNextRealInstruction skips POP_BLOCK and makes endLabel point to
+            // PUSH_EXC_INFO (except handler), causing infinite loop.
+            _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
             _instructionSequence.UseLabel(endLabel);
         }
         private void CompileRaise(RaiseStatement raise)

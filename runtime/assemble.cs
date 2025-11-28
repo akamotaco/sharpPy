@@ -706,11 +706,13 @@ namespace SharpPy
                     }
                 }
 
-                // CPython 3.12: Python/flowgraph.c:498 - bsize += isize
-                // Count instruction size INCLUDING inline cache
-                int instrWords = CountInstructionWords(instr);
-                int cacheWords = GetInlineCacheSize(instr.OpCode);
-                currentByteOffset += (instrWords + cacheWords) * PyCodeObject.INSTRUCTION_WORD_SIZE;
+                // CPython 3.12: Python/assemble.c:156 (assemble_exception_table scans flat bytecode)
+                // CRITICAL FIX (2025-11-28): The instructions list ALREADY contains:
+                // 1. EXTENDED_ARG prefixes (added by EmitWithExtendedArg at line 430)
+                // 2. CACHE instructions (added by EmitInstructionsWithBlockOffsets at line 450)
+                // So we scan the flat list and each entry is exactly 1 word!
+                // DO NOT use CountInstructionWords() - it's for CFG offset calculation (before emission).
+                currentByteOffset += PyCodeObject.INSTRUCTION_WORD_SIZE;
             }
 
             // Emit final range
