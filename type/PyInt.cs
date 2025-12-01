@@ -1185,7 +1185,9 @@ namespace SharpPy
 
             var absValue = BigInteger.Abs(Value);
             // BigInteger.ToString("x") provides lowercase hex without prefix
-            var hexStr = absValue.ToString("x");
+            // Note: C# "x" format may add leading zero for even-length output, we need to trim it
+            var hexStr = absValue.ToString("x").TrimStart('0');
+            if (string.IsNullOrEmpty(hexStr)) hexStr = "0";
 
             return Value < 0
                 ? new PyString("-0x" + hexStr)

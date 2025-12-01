@@ -304,6 +304,8 @@ namespace SharpPy.Modules
                     return new PyInt((int)_flags);
                 case "match":
                     return new PyBuiltinFunction("match", Match);
+                case "fullmatch":
+                    return new PyBuiltinFunction("fullmatch", FullMatch);
                 case "search":
                     return new PyBuiltinFunction("search", Search);
                 case "findall":
@@ -344,6 +346,38 @@ namespace SharpPy.Modules
             // Use C# Regex.Match with starting position
             var match = _regex.Match(text.Value, pos, endpos - pos);
             return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1827-1897 (pattern_fullmatch_impl)
+        /// Signature: fullmatch(string, pos=0, endpos=sys.maxsize)
+        /// Try to apply the pattern to all of the string, returning a Match object, or None if no match was found.
+        /// </summary>
+        private PyObject FullMatch(PyObject[] args)
+        {
+            if (args.Length == 0)
+                throw PyTypeError.Create("fullmatch() missing 1 required positional argument: 'string'");
+
+            var text = args[0].ToStr();
+            int pos = args.Length > 1 && args[1] is PyInt posInt ? (int)posInt.Value : 0;
+            int endpos = args.Length > 2 && args[2] is PyInt endposInt ? (int)endposInt.Value : text.Value.Length;
+
+            // Clamp pos and endpos to valid range
+            if (pos < 0) pos = 0;
+            if (pos > text.Value.Length) pos = text.Value.Length;
+            if (endpos < pos) endpos = pos;
+            if (endpos > text.Value.Length) endpos = text.Value.Length;
+
+            // fullmatch requires the entire string (or substring) to match
+            string substring = text.Value.Substring(pos, endpos - pos);
+            var match = _regex.Match(substring);
+
+            // Check if match covers the entire substring
+            if (match.Success && match.Index == 0 && match.Length == substring.Length)
+            {
+                return new PySreMatch(match, text.Value, pos);
+            }
+            return PyNone.Instance;
         }
 
         /// <summary>
@@ -459,17 +493,40 @@ namespace SharpPy.Modules
             return new PyTuple(new PyString(result), new PyInt(actualSubstitutions));
         }
 
+        /// <summary>
+        /// CPython 3.12: Modules/_sre/sre.c:1397-1485 (pattern_split)
+        /// Python maxsplit semantics:
+        /// - maxsplit=0: unlimited splits (default)
+        /// - maxsplit=N: split at most N times, resulting in at most N+1 substrings
+        /// C# Regex.Split semantics:
+        /// - Split(input): unlimited splits
+        /// - Split(input, count): return at most 'count' substrings
+        /// </summary>
         private PyObject Split(PyObject[] args)
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("split() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var maxsplit = args.Length > 1 && args[1] is PyInt maxInt ? (int)maxInt.Value + 1 : 0;
+            // Python: maxsplit=0 means unlimited, maxsplit=N means at most N splits
+            // C#: Split(text, count) returns at most 'count' parts, so we need count = maxsplit + 1
+            int maxsplit = 0;
+            if (args.Length > 1 && args[1] is PyInt maxInt)
+            {
+                maxsplit = (int)maxInt.Value;
+            }
 
-            var parts = maxsplit > 0 ?
-                _regex.Split(text.Value, maxsplit) :
-                _regex.Split(text.Value);
+            string[] parts;
+            if (maxsplit <= 0)
+            {
+                // Unlimited splits
+                parts = _regex.Split(text.Value);
+            }
+            else
+            {
+                // At most maxsplit splits → maxsplit+1 parts
+                parts = _regex.Split(text.Value, maxsplit + 1);
+            }
 
             var result = new List<PyObject>();
             foreach (var part in parts)
@@ -495,11 +552,13 @@ namespace SharpPy.Modules
     {
         private readonly Match _match;
         private readonly string _string;
+        private readonly int _posOffset;  // Offset for fullmatch when substring is used
 
-        public PySreMatch(Match match, string text)
+        public PySreMatch(Match match, string text, int posOffset = 0)
         {
             _match = match;
             _string = text;
+            _posOffset = posOffset;
         }
 
         public override PyType GetPyType() => PyType.ObjectType;
