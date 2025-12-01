@@ -920,6 +920,7 @@ namespace SharpPy
         private readonly int _step;
         private int _index;
 
+        // CPython 3.12: Modules/itertoolsmodule.c:1655-1734 (islice_new)
         public ISliceIterator(PyObject[] args)
         {
             if (args.Length < 2 || args.Length > 4)
@@ -931,36 +932,120 @@ namespace SharpPy
                 throw PyTypeError.Create("islice argument 1 must be iterable");
             _iterator = (PyIterator)iteratorObj;
 
+            // CPython 3.12: Modules/itertoolsmodule.c:1658 - default values
+            // stop=-1 means "infinite" (None), start=0, step=1
             if (args.Length == 2)
             {
-                // islice(iterable, stop)
+                // CPython 3.12: Modules/itertoolsmodule.c:1673-1684
+                // islice(iterable, stop) - if stop is None, use -1 (infinite)
                 _start = 0;
-                _stop = (int?)((PyInt)args[1]).Value;
                 _step = 1;
+                if (args[1] is PyNone)
+                {
+                    // CPython 3.12: line 1674 - if (a1 != Py_None) check
+                    _stop = null; // None means infinite iteration
+                }
+                else if (args[1] is PyInt stopInt)
+                {
+                    _stop = (int?)stopInt.Value;
+                }
+                else
+                {
+                    throw PyValueError.Create("Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+                }
             }
             else if (args.Length == 3)
             {
+                // CPython 3.12: Modules/itertoolsmodule.c:1685-1700
                 // islice(iterable, start, stop)
-                _start = (int)((PyInt)args[1]).Value;
-                _stop = (int?)((PyInt)args[2]).Value;
                 _step = 1;
+
+                // CPython 3.12: line 1686-1687 - start can be None (treated as 0)
+                if (args[1] is PyNone)
+                {
+                    _start = 0;
+                }
+                else if (args[1] is PyInt startInt)
+                {
+                    _start = (int)startInt.Value;
+                }
+                else
+                {
+                    throw PyValueError.Create("Indices for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+                }
+
+                // CPython 3.12: line 1690-1700 - stop can be None (infinite)
+                if (args[2] is PyNone)
+                {
+                    _stop = null; // None means infinite iteration
+                }
+                else if (args[2] is PyInt stopInt)
+                {
+                    _stop = (int?)stopInt.Value;
+                }
+                else
+                {
+                    throw PyValueError.Create("Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+                }
             }
             else
             {
+                // CPython 3.12: Modules/itertoolsmodule.c:1709-1718
                 // islice(iterable, start, stop, step)
-                _start = (int)((PyInt)args[1]).Value;
-                _stop = (int?)((PyInt)args[2]).Value;
-                _step = (int)((PyInt)args[3]).Value;
 
+                // start
+                if (args[1] is PyNone)
+                {
+                    _start = 0;
+                }
+                else if (args[1] is PyInt startInt)
+                {
+                    _start = (int)startInt.Value;
+                }
+                else
+                {
+                    throw PyValueError.Create("Indices for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+                }
+
+                // stop
+                if (args[2] is PyNone)
+                {
+                    _stop = null;
+                }
+                else if (args[2] is PyInt stopInt)
+                {
+                    _stop = (int?)stopInt.Value;
+                }
+                else
+                {
+                    throw PyValueError.Create("Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+                }
+
+                // CPython 3.12: line 1709-1718 - step can be None (treated as 1)
+                if (args[3] is PyNone)
+                {
+                    _step = 1;
+                }
+                else if (args[3] is PyInt stepInt)
+                {
+                    _step = (int)stepInt.Value;
+                }
+                else
+                {
+                    throw PyValueError.Create("Step for islice() must be a positive integer or None.");
+                }
+
+                // CPython 3.12: line 1715-1718
                 if (_step <= 0)
                     throw PyValueError.Create("Step for islice() must be a positive integer or None.");
             }
 
+            // CPython 3.12: Modules/itertoolsmodule.c:1702-1706
             if (_start < 0)
-                throw PyValueError.Create("Indices for islice() must be None or an integer: 0 <= x <= maxint.");
-            
+                throw PyValueError.Create("Indices for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
+
             if (_stop.HasValue && _stop < 0)
-                throw PyValueError.Create("Stop argument for islice() must be None or an integer: 0 <= x <= maxint.");
+                throw PyValueError.Create("Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.");
 
             _index = 0;
             

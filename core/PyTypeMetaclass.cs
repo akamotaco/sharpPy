@@ -1345,13 +1345,33 @@ namespace SharpPy
             if (instance == null || instance == PyNone.Instance)
                 return this;
 
+            // CPython 3.12: Objects/typeobject.c:1063-1091 (type_module)
+            // Check PyClass first (heap type - user-defined classes)
             if (instance is PyClass pyClass)
             {
-                // CPython: Look up __module__ in ClassDict
+                // CPython: For heap types, look up __module__ in ClassDict (tp_dict)
                 if (pyClass.ClassDict.TryGetValue("__module__", out var module))
                     return module;
 
                 // Default to "builtins" if not found
+                return new PyString("builtins");
+            }
+
+            // CPython 3.12: Objects/typeobject.c:1078-1088
+            // For built-in types (non-heap types), check tp_name for '.'
+            // If found, return module name (part before '.'); otherwise return "builtins"
+            if (instance is PyType pyType)
+            {
+                // CPython: const char *s = strrchr(type->tp_name, '.');
+                var dotIndex = pyType.Name.LastIndexOf('.');
+                if (dotIndex >= 0)
+                {
+                    // Return module name (part before '.')
+                    return new PyString(pyType.Name.Substring(0, dotIndex));
+                }
+
+                // Default: "builtins" for built-in types
+                // CPython: mod = Py_NewRef(&_Py_ID(builtins));
                 return new PyString("builtins");
             }
 

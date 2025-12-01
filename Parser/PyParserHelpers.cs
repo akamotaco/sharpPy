@@ -2686,14 +2686,202 @@ namespace SharpPy.Generated
             return PyParserRuntime.DecodedConstantFromToken(tok);
         }
 
-        // CPython: ConcatenateStrings - Concatenate string expressions
+        // CPython: _PyPegen_concatenate_strings - Concatenate string expressions
+        // CPython 3.12: Parser/action_helpers.c:1413-1603
         public static GeneratedExpr ConcatenateStrings(GeneratedExprSeq strings,
                                                        int lineno, int col_offset, int end_lineno, int end_col_offset)
         {
-            // TODO: Implement string concatenation - for now return first string
             if (strings == null || strings.Count == 0)
                 return PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
-            return (GeneratedExpr)strings[0];
+
+            int len = strings.Count;
+
+            // CPython: Check for f-strings, unicode strings, and bytes
+            bool fStringFound = false;
+            bool unicodeStringFound = false;
+            bool bytesFound = false;
+            int nFlattenedElements = 0;
+
+            for (int i = 0; i < len; i++)
+            {
+                var elem = strings[i] as GeneratedExpr;
+                if (elem == null) continue;
+
+                if (elem is GeneratedConstant constant)
+                {
+                    if (constant.Value is GeneratedPyConstantBytes)
+                    {
+                        bytesFound = true;
+                    }
+                    else
+                    {
+                        unicodeStringFound = true;
+                    }
+                    nFlattenedElements++;
+                }
+                else if (elem is GeneratedJoinedStr joinedStr)
+                {
+                    nFlattenedElements += joinedStr.Values?.Count ?? 0;
+                    fStringFound = true;
+                }
+                else
+                {
+                    nFlattenedElements++;
+                    fStringFound = true;
+                }
+            }
+
+            // CPython: cannot mix bytes and nonbytes literals
+            if ((unicodeStringFound || fStringFound) && bytesFound)
+            {
+                throw new InvalidOperationException("cannot mix bytes and nonbytes literals");
+            }
+
+            // CPython: Handle bytes concatenation
+            if (bytesFound)
+            {
+                var bytesList = new System.Collections.Generic.List<byte>();
+                string? kind = null;
+
+                for (int i = 0; i < len; i++)
+                {
+                    var elem = strings[i] as GeneratedConstant;
+                    if (elem?.Value is GeneratedPyConstantBytes bytesVal)
+                    {
+                        if (i == 0) kind = elem.Kind;
+                        bytesList.AddRange(bytesVal.Value);
+                    }
+                }
+
+                return PyAst.Constant(new GeneratedPyConstantBytes(bytesList.ToArray()), kind, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: If no f-string and only one element, return it directly
+            if (!fStringFound && len == 1)
+            {
+                return strings[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: Build flattened list (flatten JoinedStr nodes)
+            var flattened = new System.Collections.Generic.List<GeneratedExpr>(nFlattenedElements);
+            for (int i = 0; i < len; i++)
+            {
+                var elem = strings[i] as GeneratedExpr;
+                if (elem == null) continue;
+
+                if (elem is GeneratedJoinedStr joinedStr && joinedStr.Values != null)
+                {
+                    foreach (var subvalue in joinedStr.Values)
+                    {
+                        if (subvalue is GeneratedExpr subExpr)
+                            flattened.Add(subExpr);
+                    }
+                }
+                else
+                {
+                    flattened.Add(elem);
+                }
+            }
+
+            // CPython: Calculate folded element count (consecutive Constants merge into one)
+            int nElements = 0;
+            bool prevIsConstant = false;
+            for (int i = 0; i < flattened.Count; i++)
+            {
+                var elem = flattened[i];
+
+                // Skip empty constants in f-string context
+                if (fStringFound && elem is GeneratedConstant emptyConst &&
+                    emptyConst.Value is GeneratedPyConstantString emptyStr &&
+                    string.IsNullOrEmpty(emptyStr.Value))
+                {
+                    continue;
+                }
+
+                if (!prevIsConstant || !(elem is GeneratedConstant))
+                {
+                    nElements++;
+                }
+                prevIsConstant = elem is GeneratedConstant;
+            }
+
+            // CPython: Build folded list (concatenate consecutive Constants)
+            var values = new GeneratedExprSeq(nElements);
+            var sb = new System.Text.StringBuilder();
+
+            for (int i = 0; i < flattened.Count; i++)
+            {
+                var elem = flattened[i];
+
+                // CPython: if the current elem and the following are constants, fold them
+                if (elem is GeneratedConstant constant && constant.Value is GeneratedPyConstantString strVal)
+                {
+                    // Check if next element is also a constant string
+                    if (i + 1 < flattened.Count && flattened[i + 1] is GeneratedConstant nextConst &&
+                        nextConst.Value is GeneratedPyConstantString)
+                    {
+                        var firstElem = constant;
+                        string? kind = constant.Kind;
+                        sb.Clear();
+
+                        GeneratedConstant lastElem = constant;
+                        int j = i;
+                        for (; j < flattened.Count; j++)
+                        {
+                            if (flattened[j] is GeneratedConstant currentConst &&
+                                currentConst.Value is GeneratedPyConstantString currentStr)
+                            {
+                                sb.Append(currentStr.Value);
+                                lastElem = currentConst;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        i = j - 1;
+
+                        var concatenatedStr = sb.ToString();
+                        elem = PyAst.Constant(new GeneratedPyConstantString(concatenatedStr), kind,
+                                              firstElem.LineNo, firstElem.ColOffset,
+                                              lastElem.EndLineNo, lastElem.EndColOffset) as GeneratedExpr;
+                    }
+
+                    // Skip empty constant strings in f-string context
+                    if (fStringFound && elem is GeneratedConstant emptyCheck &&
+                        emptyCheck.Value is GeneratedPyConstantString emptyVal &&
+                        string.IsNullOrEmpty(emptyVal.Value))
+                    {
+                        continue;
+                    }
+                }
+
+                values.Add(elem!);
+            }
+
+            // CPython: If no f-string, return the single concatenated constant
+            if (!fStringFound)
+            {
+                if (values.Count == 1)
+                {
+                    return values[0] as GeneratedExpr ?? PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+                }
+                // Fallback: concatenate all string values
+                sb.Clear();
+                string? finalKind = null;
+                foreach (var v in values)
+                {
+                    if (v is GeneratedConstant c && c.Value is GeneratedPyConstantString s)
+                    {
+                        sb.Append(s.Value);
+                        if (finalKind == null) finalKind = c.Kind;
+                    }
+                }
+                return PyAst.Constant(new GeneratedPyConstantString(sb.ToString()), finalKind, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: Return JoinedStr for f-strings
+            return PyAst.JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset);
         }
 
         // CPython: JoinedStr - Create a JoinedStr (f-string)

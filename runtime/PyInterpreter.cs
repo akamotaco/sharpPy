@@ -1,3 +1,4 @@
+using System.IO;
 using SharpPy.Generated;
 using SharpPy.Tools;
 
@@ -87,6 +88,14 @@ namespace SharpPy
 
         public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File)
         {
+            // CPython 3.12: Python/pythonrun.c - co_filename uses absolute path for file execution
+            // Convert relative paths to absolute paths (like CPython does for __file__)
+            // But keep special names like "<string>", "<stdin>", "<module>" as-is
+            if (!string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<") && !Path.IsPathRooted(fileName))
+            {
+                fileName = Path.GetFullPath(fileName);
+            }
+
             // Store filename and source lines for Python-like error reporting
             _currentFileName = fileName;
             // Fix: Handle all line ending types correctly (\r\n, \r, \n)

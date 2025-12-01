@@ -275,33 +275,38 @@ namespace SharpPy.Modules
             return new PyInt(1);
         }
 
+        /// <summary>
+        /// CPython 3.12: Python/sysmodule.c:898-914 (sys_exc_info_impl)
+        /// Return current exception information: (type, value, traceback).
+        /// Traverses the frame stack to find the topmost exception.
+        /// </summary>
         private PyObject CallExcInfo(PyObject[] args)
         {
             if (args.Length != 0)
                 throw PyTypeError.Create($"exc_info() takes no arguments ({args.Length} given)");
 
-            // Get current frame from VM
-            var currentFrame = PyVM.GetCurrentFrame();
-
-            if (currentFrame == null)
-            {
-                // No frame context: return (None, None, None)
-                return new PyTuple(PyNone.Instance, PyNone.Instance, PyNone.Instance);
-            }
-
-            // Check for current exception in frame
-            var exception = currentFrame.CurrentException ?? currentFrame.LastException;
+            // CPython 3.12: Python/sysmodule.c:902
+            // _PyErr_StackItem *err_info = _PyErr_GetTopmostException(_PyThreadState_GET());
+            var exception = PyVM.GetTopmostException();
 
             if (exception == null)
             {
+                // CPython 3.12: Python/sysmodule.c:903-905
                 // No exception: return (None, None, None)
                 return new PyTuple(PyNone.Instance, PyNone.Instance, PyNone.Instance);
             }
 
-            // CPython 3.12: exc_info() returns (type, value, traceback)
+            // CPython 3.12: Python/sysmodule.c:907-913
+            // exc_info() returns (type, value, traceback)
             var excType = exception.GetPyType();  // Exception type (class)
-            var excValue = exception;              // Exception instance
-            var excTraceback = PyNone.Instance;    // TODO: Implement traceback objects
+            PyObject excValue = exception;         // Exception instance (PyBaseException is PyObject)
+
+            // Get traceback from exception's __traceback__ attribute
+            PyObject excTraceback = PyNone.Instance;
+            if (exception.__traceback__ != null)
+            {
+                excTraceback = exception.__traceback__;
+            }
 
             return new PyTuple(excType, excValue, excTraceback);
         }
@@ -363,6 +368,11 @@ namespace SharpPy.Modules
         /// Return the current exception being handled (CPython 3.12 new function).
         /// This is preferred over sys.exc_info() in Python 3.12+
         /// </summary>
+        /// <summary>
+        /// CPython 3.12: Python/sysmodule.c:878-886 (sys_exception_impl)
+        /// Return the current exception being handled.
+        /// Traverses the frame stack to find the topmost exception.
+        /// </summary>
         private PyObject CallException(PyObject[] args)
         {
             if (args.Length != 0)
@@ -370,25 +380,18 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"exception() takes no arguments ({args.Length} given)");
             }
 
-            // Get current frame from VM
-            var currentFrame = PyVM.GetCurrentFrame();
-
-            if (currentFrame == null)
-            {
-                // CPython 3.12: No frame context → return None (sysmodule.c:885: Py_RETURN_NONE)
-                return PyNone.Instance;
-            }
-
-            // Check for current exception in frame
-            var exception = currentFrame.CurrentException ?? currentFrame.LastException;
+            // CPython 3.12: Python/sysmodule.c:881
+            // _PyErr_StackItem *err_info = _PyErr_GetTopmostException(_PyThreadState_GET());
+            var exception = PyVM.GetTopmostException();
 
             if (exception == null)
             {
-                // CPython 3.12: No exception being handled → return None (sysmodule.c:885)
-                // Reference: sys_exception_impl() returns None when err_info->exc_value == NULL
+                // CPython 3.12: Python/sysmodule.c:885 - Py_RETURN_NONE
                 return PyNone.Instance;
             }
 
+            // CPython 3.12: Python/sysmodule.c:883 - return Py_NewRef(err_info->exc_value)
+            // PyBaseException is a PyObject, so we can return it directly
             return exception;
         }
 

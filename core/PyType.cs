@@ -1418,6 +1418,57 @@ namespace SharpPy
                 }
             );
 
+            // CPython 3.12: Objects/typeobject.c:1063-1091 (type_module / type_set_module)
+            // type.__module__ - returns module name for the type
+            // For heap types (user-defined): lookup in tp_dict
+            // For built-in types: "builtins" (or extract from tp_name if it contains '.')
+            TypeDict["__module__"] = new PyGetSetDescriptor(
+                "__module__",
+                typeType,
+                getter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // CPython 3.12: Objects/typeobject.c:1065-1088
+                    // For heap types (PyClass), check ClassDict
+                    if (type is PyClass customType)
+                    {
+                        if (customType.ClassDict.TryGetValue("__module__", out var mod))
+                        {
+                            return mod;
+                        }
+                        throw PyAttributeError.Create("__module__");
+                    }
+
+                    // For built-in types: check if tp_name contains '.'
+                    // CPython: const char *s = strrchr(type->tp_name, '.');
+                    var dotIndex = type.Name.LastIndexOf('.');
+                    if (dotIndex >= 0)
+                    {
+                        return new PyString(type.Name.Substring(0, dotIndex));
+                    }
+
+                    // Default: "builtins" for built-in types
+                    // CPython: mod = Py_NewRef(&_Py_ID(builtins));
+                    return new PyString("builtins");
+                },
+                setter: (self, value) => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // CPython 3.12: Objects/typeobject.c:1094-1105 (type_set_module)
+                    // Only allow setting for heap types (user-defined classes)
+                    if (type is PyClass customType)
+                    {
+                        customType.ClassDict["__module__"] = value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"cannot set '__module__' attribute of immutable type '{type.Name}'");
+                    }
+                }
+            );
+
             // type.__new__ - CPython type_new
             TypeDict["__new__"] = new PyMethodDescriptor(
                 "__new__",

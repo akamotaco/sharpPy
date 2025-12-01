@@ -715,6 +715,30 @@ namespace SharpPy
         // CPython 3.12: Get current frame for sys.exc_info() and other introspection
         public static PyFrame? GetCurrentFrame() => CurrentFrame;
 
+        /// <summary>
+        /// CPython 3.12: Python/errors.c:125-136 (_PyErr_GetTopmostException)
+        /// Traverse the frame stack to find the topmost exception.
+        /// Returns the exception from current frame or any parent frame that has one.
+        /// </summary>
+        public static PyBaseException? GetTopmostException()
+        {
+            // CPython 3.12: Python/errors.c:130-134
+            // while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
+            //        exc_info->previous_item != NULL)
+            // {
+            //     exc_info = exc_info->previous_item;
+            // }
+            foreach (var frame in Instance._frameStack)
+            {
+                var exception = frame.CurrentException ?? frame.LastException;
+                if (exception != null)
+                {
+                    return exception;
+                }
+            }
+            return null;
+        }
+
         private PyVM()
         {
             _frameStack = new Stack<PyFrame>();
@@ -1984,30 +2008,42 @@ namespace SharpPy
                     }
 
                     // CPython 3.12: 키워드 인수 처리
-                    if (kwNames != null && kwNames.Items.Length > 0)
+                    // CPython 3.12: Wrap function call in try-catch to add caller frame to traceback
+                    // This ensures the full call stack is recorded when exception propagates
+                    try
                     {
-                        // 키워드 인수가 있는 경우 - CallWithKeywords 사용
-                        newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
-                    }
-                    else
-                    {
-                        // 위치 인수만 있는 경우 - 기존 방식 사용
-                        if (actualCallable is PyBuiltinFunction builtin)
+                        if (kwNames != null && kwNames.Items.Length > 0)
                         {
-                            newCallResult = builtin.Call(finalArgs, null);
-                        }
-                        else if (actualCallable is PyMethod method)
-                        {
-                            newCallResult = method.Call(finalArgs, null);
-                        }
-                        else if (actualCallable is PyFunction func)
-                        {
-                            newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                            // 키워드 인수가 있는 경우 - CallWithKeywords 사용
+                            newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
                         }
                         else
                         {
-                            newCallResult = actualCallable.Call(finalArgs, null);
+                            // 위치 인수만 있는 경우 - 기존 방식 사용
+                            if (actualCallable is PyBuiltinFunction builtin)
+                            {
+                                newCallResult = builtin.Call(finalArgs, null);
+                            }
+                            else if (actualCallable is PyMethod method)
+                            {
+                                newCallResult = method.Call(finalArgs, null);
+                            }
+                            else if (actualCallable is PyFunction func)
+                            {
+                                newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                            }
+                            else
+                            {
+                                newCallResult = actualCallable.Call(finalArgs, null);
+                            }
                         }
+                    }
+                    catch (PythonException pyEx)
+                    {
+                        // CPython 3.12: Add caller frame to traceback when exception propagates
+                        // This matches CPython's PyTraceBack_Here() behavior in ceval.c
+                        PyTraceBack_Here(frame, pyEx);
+                        throw;
                     }
 
                     frame.ValueStack.Push(newCallResult);
@@ -4697,7 +4733,12 @@ namespace SharpPy
                         }
 
                         frame.LastException = excInstance;
-                        throw new PythonException(excInstance);
+
+                        // CPython 3.12: Set traceback to current frame before throwing
+                        // Corresponds to PyTraceBack_Here() in traceback.c:266
+                        var pyExToThrow = new PythonException(excInstance);
+                        PyTraceBack_Here(frame, pyExToThrow);
+                        throw pyExToThrow;
                     }
                     else if (instruction.Argument == 1)
                     {
@@ -4717,7 +4758,10 @@ namespace SharpPy
 
                             // Already an exception instance
                             frame.LastException = pyEx;
-                            throw new PythonException(pyEx);
+                            // CPython 3.12: Set traceback to current frame before throwing
+                            var pyExToThrow1 = new PythonException(pyEx);
+                            PyTraceBack_Here(frame, pyExToThrow1);
+                            throw pyExToThrow1;
                         }
                         else if (raisedException is PyType pyType)
                         {
@@ -4736,7 +4780,10 @@ namespace SharpPy
                                 }
 
                                 frame.LastException = instanceException;
-                                throw new PythonException(instanceException);
+                                // CPython 3.12: Set traceback to current frame before throwing
+                                var pyExToThrow2 = new PythonException(instanceException);
+                                PyTraceBack_Here(frame, pyExToThrow2);
+                                throw pyExToThrow2;
                             }
                             else
                             {
@@ -4760,7 +4807,10 @@ namespace SharpPy
                                 }
 
                                 frame.LastException = pyExInstance;
-                                throw new PythonException(pyExInstance);
+                                // CPython 3.12: Set traceback to current frame before throwing
+                                var pyExToThrow3 = new PythonException(pyExInstance);
+                                PyTraceBack_Here(frame, pyExToThrow3);
+                                throw pyExToThrow3;
                             }
                             else
                             {
@@ -4783,7 +4833,10 @@ namespace SharpPy
                                 }
 
                                 frame.LastException = pyUserExInstance;
-                                throw new PythonException(pyUserExInstance);
+                                // CPython 3.12: Set traceback to current frame before throwing
+                                var pyExToThrow4 = new PythonException(pyUserExInstance);
+                                PyTraceBack_Here(frame, pyExToThrow4);
+                                throw pyExToThrow4;
                             }
                             else
                             {
@@ -4825,7 +4878,10 @@ namespace SharpPy
                                 }
 
                                 frame.LastException = wrappedException;
-                                throw new PythonException(wrappedException);
+                                // CPython 3.12: Set traceback to current frame before throwing
+                                var pyExToThrow5 = new PythonException(wrappedException);
+                                PyTraceBack_Here(frame, pyExToThrow5);
+                                throw pyExToThrow5;
                             }
                             else
                             {
@@ -8065,17 +8121,27 @@ namespace SharpPy
         /// </summary>
         private void PyTraceBack_Here(PyFrame frame, PythonException pyEx)
         {
-            // CPython 3.12: RERAISE preserves existing traceback without adding new frames
-            if (pyEx.FromReraise)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 PyTraceBack_Here: Skipping traceback addition for RERAISE");
-#endif
-                return;
-            }
-
             // 1. Get existing traceback from exception (may be null)
             var existingTraceback = pyEx.PyException.__traceback__;
+
+            // CPython 3.12: RERAISE preserves existing traceback for the same frame only
+            // When exception propagates to a different frame (caller), we should add the caller frame
+            // CPython traceback.c:266 - PyTraceBack_Here adds frames as exception unwinds
+            if (pyEx.FromReraise)
+            {
+                // Check if exception's top traceback frame is the same as current frame
+                // If so, skip (this is the same frame that did RERAISE)
+                // If not, this is a caller frame and we should add it
+                if (existingTraceback != null && existingTraceback.Frame == frame)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"🔍 PyTraceBack_Here: Skipping RERAISE in same frame '{frame.Code.Name}'");
+#endif
+                    return;
+                }
+                // Different frame - clear FromReraise flag since we're in a new frame
+                pyEx.FromReraise = false;
+            }
 
             // 2. Calculate lasti - CPython uses "next_instr-1" (ceval.c:941)
             // InstructionPointer points to NEXT instruction after exception, so subtract 1
