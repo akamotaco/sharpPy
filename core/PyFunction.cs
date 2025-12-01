@@ -260,8 +260,8 @@ public partial class PyFunction : PyObject, IDescriptor
         // 일반 generator 함수인지 확인
         else if (CodeObject?.IsGenerator() == true)
         {
-            // 제너레이터 객체 생성 (kwargs는 생성 시 사용하지 않음)
-            return CreateGenerator(args);
+            // 제너레이터 객체 생성 (kwargs 지원 - CPython 3.12 호환)
+            return CreateGenerator(args, kwargs);
         }
 
         // CPython 3.12: CodeObject가 있으면 VM을 통해 실행
@@ -414,7 +414,7 @@ public partial class PyFunction : PyObject, IDescriptor
     /// <summary>
     /// 제너레이터 객체 생성 - CPython 3.12 완전 호환
     /// </summary>
-    private PyGenerator CreateGenerator(PyObject[] args)
+    private PyGenerator CreateGenerator(PyObject[] args, PyDict kwargs = null)
     {
         // CPython 3.12 방식: Frame과 VM을 사용한 실제 제너레이터
         if (CodeObject == null)
@@ -464,7 +464,16 @@ public partial class PyFunction : PyObject, IDescriptor
         // CPython 3.12: Pass defaults from func.__defaults__
         var defaults = GetDefaults();
 
-        var frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults);
+        // CPython 3.12: Create frame with kwargs if present (same as regular function calls)
+        PyFrame frame;
+        if (kwargs != null && kwargs.InternalDict.Count > 0)
+        {
+            frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, generatorScopeChain, Closure, defaults);
+        }
+        else
+        {
+            frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults);
+        }
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // CPython 3.12 완전 호환 PyGenerator 사용

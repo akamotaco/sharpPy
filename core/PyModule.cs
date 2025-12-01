@@ -384,11 +384,11 @@ public class PyModule : PyObject
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),  // datetime.py가 사용
 
-            // CPython 3.12: 다음 모듈들은 순수 Python으로 stdlib/에서 로드됨:
-            // - types (stdlib/types.py)
-            // - random (stdlib/random.py + _random C# 모듈)
-            // - os (stdlib/os.py + nt C# 모듈)
-            // - datetime (stdlib/datetime.py + _datetime C# 모듈)
+            // CPython 3.12: 다음 모듈들은 순수 Python으로 Lib/에서 로드됨:
+            // - types (Lib/types.py)
+            // - random (Lib/random.py + _random C# 모듈)
+            // - os (Lib/os.py + nt C# 모듈)
+            // - datetime (Lib/datetime.py + _datetime C# 모듈)
 
             // TODO: CPython 호환을 위해 Python으로 전환 필요:
             // - urllib → Lib/urllib/ Python 모듈로 전환 (완료)
@@ -662,10 +662,7 @@ public class PyModule : PyObject
             // 프로젝트 루트 디렉토리 (exe는 bin/Debug/net8.0/에 있으므로 3단계 위로)
             var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
 
-            // 1순위: stdlib 디렉토리 (SharpPy 내장 Python 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "stdlib")));
-
-            // 2순위: Lib 디렉토리 (CPython 호환 표준 라이브러리) - 프로젝트 루트에서
+            // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
             pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
 
             // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서

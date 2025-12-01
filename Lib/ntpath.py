@@ -131,3 +131,34 @@ def expanduser(path):
     if path.startswith('~' + sep) or path.startswith('~' + altsep):
         return home + path[1:]
     return path  # ~user not supported
+
+
+def islink(path):
+    """Test whether a path is a symbolic link.
+
+    Note: This is a simplified implementation. Since SharpPy doesn't have
+    lstat yet, this always returns False (which is safe for most cases).
+    CPython 3.12: Lib/genericpath.py:77-85
+    """
+    # Without lstat, we can't reliably detect symlinks on Windows
+    # Safe fallback: return False
+    return False
+
+
+def isjunction(path):
+    """Test whether a path is a junction.
+
+    Note: This is a simplified implementation.
+    CPython 3.12: Lib/ntpath.py:283-295
+    """
+    # Without st_reparse_tag support, we can't detect junctions
+    return False
+
+
+def lexists(path):
+    """Test whether a path exists. Returns True for broken symbolic links.
+
+    CPython 3.12: Lib/ntpath.py:300-306
+    """
+    # Without lstat, same as exists
+    return exists(path)
