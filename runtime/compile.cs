@@ -1934,6 +1934,7 @@ namespace SharpPy
             // CRITICAL: Set free and cell variables from parameters
             // These must be set BEFORE compiling the body so EmitLoadName can find them
             _freeVars = freeVars ?? new List<string>();
+            // CPython 3.12: CellVars should be in alphabetical order (matching FindCellVariables)
             _cellVars = cellVars ?? new List<string>();
 
 #if DEBUG_COMPILER_LOG
@@ -4443,7 +4444,12 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"    → Found nested function: {nestedFunc.Name}");
                         #endif
-                        // 재귀적으로 중첩 함수도 확인 (하지만 별도 스코프이므로 현재 함수에는 추가하지 않음)
+                        // CPython 3.12: The nested function name IS a local variable in the enclosing scope
+                        // Python/compile.c: def inner(): ... makes 'inner' a local in the outer function
+                        if (!localVars.Contains(nestedFunc.Name))
+                        {
+                            localVars.Add(nestedFunc.Name);
+                        }
                         break;
                         
                     // TODO: 다른 statement 타입들에서 변수 할당 확인 가능
@@ -4663,17 +4669,17 @@ namespace SharpPy
                 }
 
                 // 이 변수가 cell로 변환되었는지 확인
-                // CPython 3.12: Objects/codeobject.c:402-410 - _PyCode_Validate
-                // Deref indices: freevars come first (0 to nfreevars-1), then cellvars (nfreevars to nfreevars+ncellvars-1)
+                // CPython 3.12: Python/compile.c, Objects/codeobject.c
+                // Emit cell index, FixCellOffsets will remap to localsplus offset
                 if (_cellVars.Contains(name))
                 {
                     // Cell 변수는 LOAD_DEREF로 접근
-                    // CPython 3.12: freevars come before cellvars in the deref space
-                    var cellIndex = _cellVars.IndexOf(name);
-                    var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
-                    EmitInstruction(ByteCodeOp.LOAD_DEREF, derefIndex);
+                    // Emit the cell index (position in _cellVars), not varIndex
+                    // FixCellOffsets will map this to the correct localsplus offset
+                    var cellIdx = _cellVars.IndexOf(name);
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIdx);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex}, deref index {derefIndex})");
+                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cellIndex {cellIdx})");
                     #endif
                 }
                 else
@@ -4684,6 +4690,8 @@ namespace SharpPy
             }
             
             // 2. 자유 변수 처리 (Phase 2)
+            // CPython 3.12: Free vars are stored after varnames in localsplus
+            // localsplus index for free var = len(varnames) + freeVars.IndexOf(name)
             #if DEBUG_COMPILER_LOG
             Console.WriteLine($"  🔍 EmitLoadName('{name}'): Checking _freeVars. List contains: [{string.Join(", ", _freeVars)}]");
             Console.WriteLine($"     _cellVars: [{string.Join(", ", _cellVars)}]");
@@ -4692,9 +4700,11 @@ namespace SharpPy
             if (_freeVars.Contains(name))
             {
                 var freeIndex = _freeVars.IndexOf(name);
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                // CPython 3.12: Free vars come after varnames in localsplus
+                var derefIndex = _varNames.Count + freeIndex;
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, derefIndex);
                 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
+                Console.WriteLine($"    → LOAD_DEREF for free var: {name} (freeIndex {freeIndex}, derefIndex {derefIndex})");
                 #endif
                 return;
             }
@@ -4754,14 +4764,18 @@ namespace SharpPy
                         {
                             case SymbolScope.Cell:
                                 // Cell variable: STORE_DEREF 사용
-                                // CPython 3.12: Objects/codeobject.c:402-410 - freevars come before cellvars
+                                // CPython 3.12: Python/compile.c, Objects/codeobject.c
+                                // Emit cell index, FixCellOffsets will remap to localsplus offset
                                 if (_cellVars.Contains(name))
                                 {
-                                    var cellIndex = _cellVars.IndexOf(name);
-                                    var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
-                                    EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
+                                    // Emit the cell index (position in _cellVars)
+                                    // FixCellOffsets will map this to the correct localsplus offset:
+                                    // - param cells: varnames index
+                                    // - non-param cells: nlocals + position among non-param cells
+                                    var cellIdx = _cellVars.IndexOf(name);
+                                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIdx);
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex}, deref index {derefIndex})");
+                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cellIndex {cellIdx})");
                                     #endif
                                     return;
                                 }
@@ -4807,34 +4821,40 @@ namespace SharpPy
                     {
                         _freeVars.Add(name);
                     }
+                    // CPython 3.12: Free vars come after varnames in localsplus
                     var freeIndex = _freeVars.IndexOf(name);
-                    EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"    → STORE_DEREF for nonlocal var: {name} (free index {freeIndex})");
-                    #endif
-                    return;
-                }
-                
-                // 셀 변수 처리 (Phase 2)
-                // CPython 3.12: Objects/codeobject.c:402-410 - freevars come before cellvars
-                if (_cellVars.Contains(name))
-                {
-                    var cellIndex = _cellVars.IndexOf(name);
-                    var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                    var derefIndex = _varNames.Count + freeIndex;
                     EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex}, deref index {derefIndex})");
+                    Console.WriteLine($"    → STORE_DEREF for nonlocal var: {name} (freeIndex {freeIndex}, derefIndex {derefIndex})");
                     #endif
                     return;
                 }
-                
+
+                // 셀 변수 처리 (Phase 2)
+                // CPython 3.12: Python/compile.c, Objects/codeobject.c
+                // Emit cell index, FixCellOffsets will remap to localsplus offset
+                if (_cellVars.Contains(name))
+                {
+                    // Emit the cell index (position in _cellVars)
+                    // FixCellOffsets will map this to the correct localsplus offset
+                    var cellIdx = _cellVars.IndexOf(name);
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIdx);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cellIndex {cellIdx})");
+                    #endif
+                    return;
+                }
+
                 // 자유 변수 처리 (Phase 2)
+                // CPython 3.12: Free vars come after varnames in localsplus
                 if (_freeVars.Contains(name))
                 {
                     var freeIndex = _freeVars.IndexOf(name);
-                    EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
+                    var derefIndex = _varNames.Count + freeIndex;
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → STORE_DEREF for free var: {name} (index {freeIndex})");
+                    Console.WriteLine($"    → STORE_DEREF for free var: {name} (freeIndex {freeIndex}, derefIndex {derefIndex})");
                     #endif
                     return;
                 }
@@ -9498,11 +9518,9 @@ namespace SharpPy
             _instructionSequence.AddOpWithArg(ByteCodeOp.RAISE_VARARGS, 1, _currentLineNumber);
 
             // Mark end of assert
-            // CPython 3.12: Python/compile.c:3164 - ADDOP(c, loc, NOP) ensures label points to real instruction
-            // CRITICAL FIX (2025-11-28): Add NOP before endLabel to ensure it doesn't collapse
-            // with exception handler label when only pseudo-instructions (POP_BLOCK) separate them.
-            // Without NOP, FindNextRealInstruction skips POP_BLOCK and makes endLabel point to
-            // PUSH_EXC_INFO (except handler), causing infinite loop.
+            // CPython 3.12: Python/compile.c:3164 - ADDOP(c, loc, NOP)
+            // CRITICAL FIX (2025-11-29): Add NOP before endLabel
+            // Without NOP, FindNextRealInstruction skips POP_BLOCK and endLabel points to PUSH_EXC_INFO
             _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
             _instructionSequence.UseLabel(endLabel);
         }
@@ -10922,15 +10940,19 @@ namespace SharpPy
             }
 
             // CPython 3.12: Cell 변수인지 확인하고 적절한 명령어 사용
-            // CPython 3.12: Objects/codeobject.c:402-410 - freevars come before cellvars
+            // CPython 3.12: Python/compile.c, Objects/codeobject.c
+            // Cell vars use their original varnames index
             if (IsCellVariable(name))
             {
-                // Cell 변수일 때는 STORE_DEREF 사용
-                var cellIndex = GetCellVariableIndex(name);
-                var derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
-                EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
+                // Cell 변수일 때는 STORE_DEREF 사용 (varNames에서의 인덱스)
+                var varIndex = _varNames.IndexOf(name);
+                if (varIndex == -1)
+                {
+                    varIndex = GetOrAddVarName(name);
+                }
+                EmitInstruction(ByteCodeOp.STORE_DEREF, varIndex);
                 #if DEBUG_LOG
-                Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_DEREF cell index {cellIndex}, deref index {derefIndex})");
+                Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_DEREF varIndex {varIndex})");
                 #endif
             }
             else
@@ -11983,49 +12005,47 @@ namespace SharpPy
         
         /// <summary>
         /// Emit STORE_DEREF for cell/free variables
-        /// CPython 3.12: Objects/codeobject.c:402-410 - _PyCode_Validate
-        /// Deref indices: freevars come first (0 to nfreevars-1), then cellvars (nfreevars to nfreevars+ncellvars-1)
+        /// CPython 3.12: Emit cell index for cell vars (will be remapped by FixCellOffsets)
+        /// Free vars use ncellvars + freeIndex
         /// </summary>
         private void EmitStoreDeref(string varName)
         {
-            // CPython 3.12: Check free variables first
-            var freeIndex = _freeVars.IndexOf(varName);
-            if (freeIndex != -1)
+            // CPython 3.12: Cell variables - emit cell index, will be remapped
+            var cellIndex = _cellVars.IndexOf(varName);
+            if (cellIndex != -1)
             {
-                // Free variable: use freeIndex directly (freevars start at deref index 0)
-                EmitInstruction(ByteCodeOp.STORE_DEREF, freeIndex);
+                EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
                 return;
             }
 
-            // Cell variable: offset by number of free vars
-            var cellIndex = _cellVars.IndexOf(varName);
-            if (cellIndex == -1)
+            // Free variable: offset by ncellvars
+            var freeIndex = _freeVars.IndexOf(varName);
+            if (freeIndex == -1)
                 throw new Exception($"Variable '{varName}' not found in cell or free variables");
-            int derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+            int derefIndex = _cellVars.Count + freeIndex;
             EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
         }
         
         /// <summary>
         /// Emit LOAD_DEREF for cell/free variables
-        /// CPython 3.12: Objects/codeobject.c:402-410 - _PyCode_Validate
-        /// Deref indices: freevars come first (0 to nfreevars-1), then cellvars (nfreevars to nfreevars+ncellvars-1)
+        /// CPython 3.12: Emit cell index for cell vars (will be remapped by FixCellOffsets)
+        /// Free vars use ncellvars + freeIndex
         /// </summary>
         private void EmitLoadDeref(string varName)
         {
-            // CPython 3.12: Check free variables first
-            var freeIndex = _freeVars.IndexOf(varName);
-            if (freeIndex != -1)
-            {
-                // Free variable: use freeIndex directly (freevars start at deref index 0)
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
-                return;
-            }
-
-            // Cell variable: offset by number of free vars
+            // CPython 3.12: Cell variables - emit cell index, will be remapped
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex != -1)
             {
-                int derefIndex = _freeVars.Count + cellIndex;  // Offset by number of free vars
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
+                return;
+            }
+
+            // Free variable: offset by ncellvars
+            var freeIndex = _freeVars.IndexOf(varName);
+            if (freeIndex != -1)
+            {
+                int derefIndex = _cellVars.Count + freeIndex;
                 EmitInstruction(ByteCodeOp.LOAD_DEREF, derefIndex);
                 return;
             }
@@ -12035,8 +12055,9 @@ namespace SharpPy
         
         /// <summary>
         /// Emit LOAD_CLOSURE for creating closure tuples
-        /// CPython 3.12: LOAD_CLOSURE uses localsplus offset, same as LOAD_DEREF!
-        /// localsplus layout: [nlocals] + [ncellvars] + [nfreevars]
+        /// CPython 3.12: LOAD_CLOSURE uses localsplus offset
+        /// For cell vars: emits cell index which FixCellOffsets will remap
+        /// For free vars: emits varnames.count + freeIndex (already correct)
         /// </summary>
         private void EmitLoadClosure(string varName)
         {
@@ -12047,30 +12068,26 @@ namespace SharpPy
             Console.WriteLine($"       _freeVars: [{string.Join(", ", _freeVars)}]");
             #endif
 
-            // CPython 3.12: Emit cellvars/freevars index, will be remapped to localsplus offset by FixCellOffsets
-            // Check if it's a free variable first
-            var freeIndex = _freeVars.IndexOf(varName);
-            if (freeIndex != -1)
-            {
-                // CPython 3.12: Emit freevars index (will be remapped to localsplus offset later)
-                // freevars start at offset ncellvars in the combined cellvars+freevars space
-                int combinedIndex = _cellVars.Count + freeIndex;
-                #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"    → LOAD_CLOSURE for free var: {varName} (free index {freeIndex} → combined index {combinedIndex})");
-                #endif
-                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, combinedIndex);
-                return;
-            }
-
-            // Check if it's a cell variable
+            // CPython 3.12: Cell variables - emit cell index, will be remapped by FixCellOffsets
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex != -1)
             {
-                // CPython 3.12: Emit cellvars index (will be remapped to localsplus offset later)
                 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"    → LOAD_CLOSURE for cell var: {varName} (cell index {cellIndex})");
+                Console.WriteLine($"    → LOAD_CLOSURE for cell var: {varName} (cellIndex {cellIndex})");
                 #endif
                 EmitInstruction(ByteCodeOp.LOAD_CLOSURE, cellIndex);
+                return;
+            }
+
+            // CPython 3.12: Free variables - emit ncellvars + freeIndex
+            var freeIndex = _freeVars.IndexOf(varName);
+            if (freeIndex != -1)
+            {
+                int derefIndex = _cellVars.Count + freeIndex;
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"    → LOAD_CLOSURE for free var: {varName} (freeIndex {freeIndex}, derefIndex {derefIndex})");
+                #endif
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, derefIndex);
                 return;
             }
 
