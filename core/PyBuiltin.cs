@@ -3447,8 +3447,50 @@ namespace SharpPy
                     #endif
                 }
             }
-            
+
+            // CPython 3.12: Call __set_name__ on all class attributes (descriptors)
+            // Reference: Objects/typeobject.c:3485-3517 (type_new_set_names)
+            CallSetNameOnClassAttributes(pyClass);
+
             return pyClass;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Call __set_name__ on all class attributes
+        /// Reference: Objects/typeobject.c:3485-3517 (type_new_set_names)
+        /// </summary>
+        private static void CallSetNameOnClassAttributes(PyClass pyClass)
+        {
+            // Iterate through all class attributes
+            foreach (var kvp in pyClass.ClassDict)
+            {
+                var key = kvp.Key;
+                var value = kvp.Value;
+
+                // Skip None values
+                if (value == null || value == PyNone.Instance)
+                    continue;
+
+                // Look for __set_name__ method on the attribute
+                // CPython: _PyObject_LookupSpecial(value, &_Py_ID(__set_name__))
+                try
+                {
+                    var setNameMethod = value.LookupAttribute("__set_name__");
+                    if (setNameMethod != null && setNameMethod != PyNone.Instance)
+                    {
+                        // Call __set_name__(owner, name)
+                        // CPython 3.12: PyObject_CallFunctionObjArgs(set_name, type, key, NULL)
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 Calling __set_name__ for attribute '{key}' on {value.GetTypeName()}");
+                        #endif
+                        setNameMethod.Call(new PyObject[] { pyClass, new PyString(key) }, null);
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyAttributeError)
+                {
+                    // __set_name__ not found - this is normal, not all attributes have it
+                }
+            }
         }
 
         /// <summary>

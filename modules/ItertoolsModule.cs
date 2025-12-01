@@ -632,10 +632,66 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// itertools.accumulate iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:3587-3616 (accumulate_next)
+    /// </summary>
     public class AccumulateIterator : PyIterator
     {
-        public AccumulateIterator(PyObject iterable, PyObject func, PyObject initial) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyIterator _iterator;
+        private readonly PyObject _binop;  // CPython: lz->binop
+        private PyObject _total;           // CPython: lz->total
+        private PyObject _initial;         // CPython: lz->initial
+
+        public AccumulateIterator(PyObject iterable, PyObject func, PyObject initial)
+        {
+            var iterObj = iterable.GetIterator();
+            if (iterObj == null)
+                throw PyTypeError.Create("accumulate argument must be iterable");
+            _iterator = (PyIterator)iterObj;
+            _binop = func;
+            _total = null;
+            _initial = initial;
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:3591-3594
+            // if (lz->initial != Py_None) { lz->total = lz->initial; ... return lz->total; }
+            if (_initial != null)
+            {
+                _total = _initial;
+                _initial = null;
+                return _total;
+            }
+
+            // CPython 3.12: Modules/itertoolsmodule.c:3596-3598
+            var val = _iterator.Next();
+
+            // CPython 3.12: Modules/itertoolsmodule.c:3600-3603
+            // if (lz->total == NULL) { lz->total = val; return lz->total; }
+            if (_total == null)
+            {
+                _total = val;
+                return _total;
+            }
+
+            // CPython 3.12: Modules/itertoolsmodule.c:3605-3608
+            // if (lz->binop == NULL) newtotal = PyNumber_Add(lz->total, val);
+            // else newtotal = PyObject_CallFunctionObjArgs(lz->binop, lz->total, val, NULL);
+            PyObject newtotal;
+            if (_binop == null)
+            {
+                newtotal = _total.Add(val);
+            }
+            else
+            {
+                newtotal = _binop.Call(new[] { _total, val }, null);
+            }
+
+            _total = newtotal;
+            return newtotal;
+        }
     }
 
     public class CompressIterator : PyIterator
@@ -644,22 +700,166 @@ namespace SharpPy
         public override PyObject Next() => throw PyStopIteration.Create();
     }
 
+    /// <summary>
+    /// itertools.dropwhile iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:1422-1452 (dropwhile_next)
+    /// </summary>
     public class DropWhileIterator : PyIterator
     {
-        public DropWhileIterator(PyObject predicate, PyObject iterable) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyObject _func;      // CPython: lz->func
+        private readonly PyIterator _iterator; // CPython: lz->it
+        private int _start;                    // CPython: lz->start (0=dropping, 1=started)
+
+        public DropWhileIterator(PyObject predicate, PyObject iterable)
+        {
+            _func = predicate;
+            var iterObj = iterable.GetIterator();
+            if (iterObj == null)
+                throw PyTypeError.Create("dropwhile argument 2 must be iterable");
+            _iterator = (PyIterator)iterObj;
+            _start = 0;
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:1430-1451
+            while (true)
+            {
+                // item = iternext(it);
+                var item = _iterator.Next();
+
+                // CPython 3.12: Modules/itertoolsmodule.c:1434-1435
+                // if (lz->start == 1) return item;
+                if (_start == 1)
+                    return item;
+
+                // CPython 3.12: Modules/itertoolsmodule.c:1437-1443
+                // good = PyObject_CallOneArg(lz->func, item);
+                // ok = PyObject_IsTrue(good);
+                // Note: Using ToBool() instead of IsTrue() because PyObject_IsTrue
+                // uses nb_bool slot directly (CPython Objects/object.c:1684-1686)
+                var good = _func.Call(new[] { item }, null);
+                bool ok = good.ToBool();
+
+                // CPython 3.12: Modules/itertoolsmodule.c:1444-1447
+                // if (ok == 0) { lz->start = 1; return item; }
+                if (!ok)
+                {
+                    _start = 1;
+                    return item;
+                }
+                // Continue dropping (Py_DECREF(item) in CPython)
+            }
+        }
     }
 
+    /// <summary>
+    /// itertools.takewhile iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:1566-1592 (takewhile_next)
+    /// </summary>
     public class TakeWhileIterator : PyIterator
     {
-        public TakeWhileIterator(PyObject predicate, PyObject iterable) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyObject _func;       // CPython: lz->func
+        private readonly PyIterator _iterator;  // CPython: lz->it
+        private int _stop;                      // CPython: lz->stop
+
+        public TakeWhileIterator(PyObject predicate, PyObject iterable)
+        {
+            _func = predicate;
+            var iterObj = iterable.GetIterator();
+            if (iterObj == null)
+                throw PyTypeError.Create("takewhile argument 2 must be iterable");
+            _iterator = (PyIterator)iterObj;
+            _stop = 0;
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:1572-1573
+            // if (lz->stop == 1) return NULL;
+            if (_stop == 1)
+                throw PyStopIteration.Create();
+
+            // CPython 3.12: Modules/itertoolsmodule.c:1575-1577
+            // item = (*Py_TYPE(it)->tp_iternext)(it);
+            var item = _iterator.Next();
+
+            // CPython 3.12: Modules/itertoolsmodule.c:1579-1585
+            // good = PyObject_CallOneArg(lz->func, item);
+            // ok = PyObject_IsTrue(good);
+            // Note: Using ToBool() instead of IsTrue() because PyObject_IsTrue
+            // uses nb_bool slot directly (CPython Objects/object.c:1684-1686)
+            var good = _func.Call(new[] { item }, null);
+            bool ok = good.ToBool();
+
+            // CPython 3.12: Modules/itertoolsmodule.c:1586-1591
+            // if (ok > 0) return item;
+            // if (ok == 0) lz->stop = 1;
+            // return NULL;
+            if (ok)
+            {
+                return item;
+            }
+            else
+            {
+                _stop = 1;
+                throw PyStopIteration.Create();
+            }
+        }
     }
 
+    /// <summary>
+    /// itertools.filterfalse iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:3903-3934 (filterfalse_next)
+    /// </summary>
     public class FilterFalseIterator : PyIterator
     {
-        public FilterFalseIterator(PyObject predicate, PyObject iterable) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyObject _func;       // CPython: lz->func
+        private readonly PyIterator _iterator;  // CPython: lz->it
+
+        public FilterFalseIterator(PyObject predicate, PyObject iterable)
+        {
+            _func = predicate;
+            var iterObj = iterable.GetIterator();
+            if (iterObj == null)
+                throw PyTypeError.Create("filterfalse argument 2 must be iterable");
+            _iterator = (PyIterator)iterObj;
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:3911-3933
+            while (true)
+            {
+                // item = iternext(it);
+                var item = _iterator.Next();
+
+                bool ok;
+                // CPython 3.12: Modules/itertoolsmodule.c:3916-3927
+                // if (lz->func == Py_None || lz->func == (PyObject *)&PyBool_Type)
+                //     ok = PyObject_IsTrue(item);
+                // else { good = PyObject_CallOneArg(lz->func, item); ok = PyObject_IsTrue(good); }
+                // Note: Using ToBool() instead of IsTrue() because PyObject_IsTrue
+                // uses nb_bool slot directly (CPython Objects/object.c:1684-1686)
+                if (_func == null || _func is PyNone)
+                {
+                    ok = item.ToBool();
+                }
+                else
+                {
+                    var good = _func.Call(new[] { item }, null);
+                    ok = good.ToBool();
+                }
+
+                // CPython 3.12: Modules/itertoolsmodule.c:3928-3929
+                // if (ok == 0) return item;
+                if (!ok)
+                {
+                    return item;
+                }
+                // Continue filtering (Py_DECREF(item) in CPython)
+            }
+        }
     }
 
     public class ISliceIterator : PyIterator

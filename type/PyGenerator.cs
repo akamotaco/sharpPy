@@ -109,17 +109,24 @@ namespace SharpPy
             if (_finished)
                 throw PyStopIteration.Create();
 
-            // 제너레이터에 던져진 예외가 있으면 프레임에서 발생시키기
+            // CPython 3.12: 제너레이터에 던져진 예외가 있으면 프레임의 PendingException으로 설정
+            // 예외는 VM ExecuteFrame에서 exception table을 통해 처리됨
+            // CPython reference: Objects/genobject.c:531-556 (gen_send_ex with exc_state handling)
             if (_thrownException != null)
             {
                 var exceptionToThrow = _thrownException;
                 _thrownException = null; // 한 번만 사용
-                
-                // 프레임 내에서 예외 발생 (일단 간단한 구현)
-                _finished = true;
+
+                // Set as PendingException so VM's exception handler can route to try-finally
                 if (exceptionToThrow is PythonException pyEx)
-                    throw pyEx;
-                throw PyRuntimeError.Create($"generator exception: {exceptionToThrow.Message}");
+                {
+                    _frame.PendingException = pyEx;
+                }
+                else
+                {
+                    _frame.PendingException = new PythonException(new PyRuntimeError(exceptionToThrow.Message));
+                }
+                // Fall through to execute the frame - VM will pick up the pending exception
             }
 
             try
@@ -334,17 +341,20 @@ namespace SharpPy
         private System.Exception CreateExceptionFromType(PyType excType, PyObject? value)
         {
             var message = value?.ToStr()?.Value ?? "generator exception";
-            
+
             // 기본적인 예외 타입들만 처리
+            // CPython 3.12: Objects/genobject.c:284-340 (CreateExceptionFromType equivalent)
             if (excType == PyType.StopIterationType)
                 return PyStopIteration.Create();
+            if (excType == PyType.GeneratorExitType)
+                return PyGeneratorExit.Create(message);
             if (excType == PyType.ValueErrorType)
                 return PyValueError.Create(message);
             if (excType == PyType.TypeErrorType)
                 return PyTypeError.Create(message);
             if (excType == PyType.RuntimeErrorType)
                 return PyRuntimeError.Create(message);
-            
+
             return PyRuntimeError.Create($"generator exception: {message}");
         }
 
