@@ -1,6 +1,11 @@
 # Simplified os module for SharpPy
-# Import the low-level nt module (C# implementation)
+# CPython 3.12 compatible
+import sys
 import nt
+
+# os.path submodule - CPython 3.12: os.py line 95
+import ntpath as path
+sys.modules['os.path'] = path
 
 # Re-export commonly used functions from nt
 stat = nt.stat
@@ -27,6 +32,3 @@ X_OK = nt.X_OK
 
 # Platform information
 name = 'nt'  # Windows
-
-# os.path submodule
-import ntpath as path

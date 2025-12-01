@@ -49,6 +49,10 @@ namespace SharpPy
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
         public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
 
+        // CPython 3.12: Generator throw() support - injected exception to raise on next frame execution
+        // CPython reference: Objects/genobject.c:531-556 (gen_send_ex with exc_state handling)
+        public PythonException? PendingException { get; set; }
+
         // CPython 3.12 style generator frame state
         public enum FrameState
         {
@@ -1176,6 +1180,19 @@ namespace SharpPy
 
                     try
                     {
+                        // CPython 3.12: Check for pending exception from generator.throw()
+                        // This must be inside the try block so it can be caught by exception handler
+                        // CPython reference: Objects/genobject.c:531-556 (gen_send_ex with exc_state handling)
+                        if (frame.PendingException != null)
+                        {
+                            var pendingExc = frame.PendingException;
+                            frame.PendingException = null; // Clear before handling
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 PendingException detected: {pendingExc.PyException?.GetTypeName() ?? "unknown"}");
+                            #endif
+                            throw pendingExc; // This will be caught by the exception handler below
+                        }
+
                         var result = ExecuteInstruction(frame, instruction);
 
                         // RETURN_VALUE인 경우 함수 종료

@@ -48,6 +48,20 @@ class Sequence:
     def count(self, value):
         return sum(1 for v in self if v == value or v is value)
 
+# _check_methods function for os.py compatibility
+def _check_methods(C, *methods):
+    """Check if class C has all the specified methods."""
+    mro = C.__mro__
+    for method in methods:
+        for B in mro:
+            if method in B.__dict__:
+                if B.__dict__[method] is None:
+                    return NotImplemented
+                break
+        else:
+            return NotImplemented
+    return True
+
 # Register builtin types as Sequences
 # This is done in CPython's _collections_abc.py
 # For SharpPy, we just export the Sequence class
