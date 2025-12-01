@@ -313,11 +313,8 @@ namespace SharpPy
                     }
                     else if (self is PyClassInstance classInstance)
                     {
-                        // CPython 3.12: Lib/enum.py:309-320
-                        // Dict subclass: access _dictStorage field
-                        var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
+                        // Dict subclass: use GetDictStorage() which is now properly initialized
+                        var dictStorage = classInstance.GetDictStorage();
                         if (dictStorage != null)
                         {
                             #if DEBUG
@@ -398,11 +395,8 @@ namespace SharpPy
                     }
                     else if (self is PyClassInstance classInstance)
                     {
-                        // CPython 3.12: Lib/enum.py:369-380
-                        // Dict subclass: access _dictStorage field
-                        var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
+                        // Dict subclass: use GetDictStorage() which is now properly initialized
+                        var dictStorage = classInstance.GetDictStorage();
                         if (dictStorage != null)
                         {
                             #if DEBUG
@@ -442,10 +436,8 @@ namespace SharpPy
                     }
                     else if (self is PyClassInstance classInstance)
                     {
-                        // Dict subclass: access _dictStorage field
-                        var dictStorageField = typeof(PyClassInstance).GetField("_dictStorage",
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var dictStorage = dictStorageField?.GetValue(classInstance) as PyDict;
+                        // Dict subclass: use GetDictStorage() which is now properly initialized
+                        var dictStorage = classInstance.GetDictStorage();
                         if (dictStorage != null)
                         {
                             dictStorage.DelItem(args[0]);
@@ -644,7 +636,17 @@ namespace SharpPy
                 throw PyKeyError.Create(key.ToRepr());
 
             // _keys에서도 제거 (삽입 순서 유지)
-            _keys.Remove(key);
+            // Use PyObjectEqualityComparer for proper Python equality semantics
+            // (List.Remove uses Object.Equals which doesn't work for PyObject)
+            var comparer = new PyObjectEqualityComparer();
+            for (int i = 0; i < _keys.Count; i++)
+            {
+                if (comparer.Equals(_keys[i], key))
+                {
+                    _keys.RemoveAt(i);
+                    break;
+                }
+            }
             return PyNone.Instance;
         }
 

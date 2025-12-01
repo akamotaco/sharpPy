@@ -166,10 +166,51 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     return result
 
 
-# Stub implementations for other types
+# deque implementation
+# CPython 3.12: Modules/_collectionsmodule.c (deque_type)
 class deque(list):
-    """Deque stub - inherits from list for basic functionality"""
-    pass
+    """Double-ended queue implementation"""
+    def __init__(self, iterable=None, maxlen=None):
+        super().__init__()
+        self.maxlen = maxlen
+        if iterable is not None:
+            for elem in iterable:
+                self.append(elem)
+
+    def appendleft(self, x):
+        """Add an element to the left side of the deque."""
+        self.insert(0, x)
+        if self.maxlen is not None and len(self) > self.maxlen:
+            self.pop()
+
+    def popleft(self):
+        """Remove and return an element from the left side of the deque."""
+        if not self:
+            raise IndexError("pop from an empty deque")
+        return super().pop(0)
+
+    def extendleft(self, iterable):
+        """Extend the left side of the deque with elements from iterable."""
+        for elem in iterable:
+            self.appendleft(elem)
+
+    def rotate(self, n=1):
+        """Rotate the deque n steps to the right (negative for left)."""
+        if not self:
+            return
+        n = n % len(self)
+        if n:
+            # Move last n elements to front (in order)
+            # Pop from right: [0,1,2,3].rotate(2) -> pop 3, pop 2 -> temp=[3,2]
+            # Insert at front in reverse: insert 2 then 3 -> [2,3,0,1]
+            temp = []
+            for _ in range(n):
+                temp.append(super(deque, self).pop())
+            # Reverse to maintain original order
+            temp.reverse()
+            # Insert all at front (in order)
+            for i, elem in enumerate(temp):
+                self.insert(i, elem)
 
 class defaultdict(dict):
     """defaultdict stub - inherits from dict"""
@@ -184,11 +225,68 @@ class defaultdict(dict):
         return self[key]
 
 class OrderedDict(dict):
-    """OrderedDict stub - Python 3.7+ dicts are ordered by default"""
-    pass
+    """OrderedDict - Python 3.7+ dicts are ordered by default"""
+    # CPython 3.12: Lib/collections/__init__.py line 80-176
+
+    def __init__(self, other=None, **kwds):
+        """Initialize an ordered dictionary."""
+        super().__init__()
+        if other is not None:
+            if hasattr(other, 'items'):
+                for key, value in other.items():
+                    self[key] = value
+            elif hasattr(other, '__iter__'):
+                for key, value in other:
+                    self[key] = value
+        for key, value in kwds.items():
+            self[key] = value
+
+    def move_to_end(self, key, last=True):
+        """Move an existing element to either end of the dictionary.
+
+        The element is moved to the right end if last is True (default)
+        or to the beginning if last is False.
+        """
+        if key not in self:
+            raise KeyError(key)
+        value = self[key]
+        if last:
+            # Delete and re-add to move to end
+            # Use dict.__delitem__ directly to avoid issues with super() binding
+            dict.__delitem__(self, key)
+            self[key] = value
+        else:
+            # For last=False, we need to rebuild the entire dict
+            # Save all items except the target key
+            items = [(k, v) for k, v in self.items() if k != key]
+            # Clear by deleting all keys one by one
+            # (dict.clear has descriptor issues with dict subclasses in SharpPy)
+            for k in list(self.keys()):
+                dict.__delitem__(self, k)
+            # Rebuild with target key first
+            self[key] = value
+            for k, v in items:
+                self[k] = v
+
+    def popitem(self, last=True):
+        """Remove and return a (key, value) pair from the dictionary.
+
+        Pairs are returned in LIFO order if last is True or FIFO order if False.
+        """
+        if not self:
+            raise KeyError('dictionary is empty')
+        if last:
+            key = list(self.keys())[-1]
+        else:
+            key = list(self.keys())[0]
+        value = self.pop(key)
+        return (key, value)
 
 class Counter(dict):
-    """Counter stub - dict subclass for counting"""
+    """Dict subclass for counting hashable items.
+    CPython 3.12: Lib/collections/__init__.py line 541-759
+    """
+
     def __init__(self, iterable=None, **kwds):
         super().__init__()
         if iterable is not None:
@@ -203,3 +301,56 @@ class Counter(dict):
 
     def __missing__(self, key):
         return 0
+
+    def most_common(self, n=None):
+        """List the n most common elements and their counts from the most
+        common to the least.  If n is None, then list all element counts.
+
+        >>> Counter('abracadabra').most_common(3)
+        [('a', 5), ('b', 2), ('r', 2)]
+        """
+        if n is None:
+            return sorted(self.items(), key=lambda item: item[1], reverse=True)
+        # Use sorted instead of heapq for simplicity
+        return sorted(self.items(), key=lambda item: item[1], reverse=True)[:n]
+
+    def elements(self):
+        """Iterator over elements repeating each as many times as its count.
+
+        >>> c = Counter('ABCABC')
+        >>> sorted(c.elements())
+        ['A', 'A', 'B', 'B', 'C', 'C']
+
+        Positive counts only (ignores zero and negative counts).
+        """
+        for elem, count in self.items():
+            for _ in range(count):
+                yield elem
+
+    def update(self, iterable=None, **kwds):
+        """Like dict.update() but add counts instead of replacing them."""
+        if iterable is not None:
+            if hasattr(iterable, 'items'):
+                for elem, count in iterable.items():
+                    self[elem] = self.get(elem, 0) + count
+            else:
+                for elem in iterable:
+                    self[elem] = self.get(elem, 0) + 1
+        for elem, count in kwds.items():
+            self[elem] = self.get(elem, 0) + count
+
+    def subtract(self, iterable=None, **kwds):
+        """Like dict.update() but subtracts counts instead of replacing them."""
+        if iterable is not None:
+            if hasattr(iterable, 'items'):
+                for elem, count in iterable.items():
+                    self[elem] = self.get(elem, 0) - count
+            else:
+                for elem in iterable:
+                    self[elem] = self.get(elem, 0) - 1
+        for elem, count in kwds.items():
+            self[elem] = self.get(elem, 0) - count
+
+    def total(self):
+        """Sum of all counts."""
+        return sum(self.values())

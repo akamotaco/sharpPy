@@ -146,18 +146,48 @@ namespace SharpPy.Modules
         {
             if (other is PySimpleNamespace otherNs)
             {
-                if (_attrs.Count != otherNs._attrs.Count)
-                    return false;
-                foreach (var kvp in _attrs)
-                {
-                    if (!otherNs._attrs.TryGetValue(kvp.Key, out var otherValue))
-                        return false;
-                    if (!kvp.Value.Equals(otherValue))
-                        return false;
-                }
-                return true;
+                return CompareNamespaces(otherNs);
             }
             return false;
+        }
+
+        private bool CompareNamespaces(PySimpleNamespace other)
+        {
+            if (_attrs.Count != other._attrs.Count)
+                return false;
+            foreach (var kvp in _attrs)
+            {
+                if (!other._attrs.TryGetValue(kvp.Key, out var otherValue))
+                    return false;
+                // Use PyObject comparison for proper Python semantics
+                var cmp = kvp.Value.RichCompare(otherValue, PyObject.CompareOp.EQ);
+                if (cmp is PyBool b && !b.IsTrue())
+                    return false;
+                if (cmp == PyNone.Instance || cmp == PyNotImplemented.Instance)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Objects/namespaceobject.c:222-250 (namespace_richcompare)
+        /// Override RichCompare for proper Python == operator support
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, PyObject.CompareOp op)
+        {
+            if (op == PyObject.CompareOp.EQ)
+            {
+                if (other is PySimpleNamespace otherNs)
+                    return PyBool.FromBool(CompareNamespaces(otherNs));
+                return PyBool.False;
+            }
+            if (op == PyObject.CompareOp.NE)
+            {
+                if (other is PySimpleNamespace otherNs)
+                    return PyBool.FromBool(!CompareNamespaces(otherNs));
+                return PyBool.True;
+            }
+            return PyNotImplemented.Instance;
         }
 
         public override int GetHashCode()

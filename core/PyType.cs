@@ -2295,11 +2295,128 @@ namespace SharpPy
             );
 
             // dict.__init__ - CPython 3.12: dict.__init__ can accept optional args and kwargs
+            // CPython: Objects/dictobject.c:3293-3378 (dict___init___impl)
             TypeDict["__init__"] = new PyMethodDescriptor(
                 "__init__",
                 dictType,
                 (self, args, kwargs) => {
-                    // For dict subclasses (like _EnumDict), just return None
+                    // Get the target dict storage
+                    PyDict targetDict;
+                    if (self is PyDict d)
+                    {
+                        targetDict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsDictSubclass())
+                    {
+                        targetDict = ci.GetDictStorage();
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"descriptor '__init__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    }
+
+                    // Process positional argument (mapping or iterable)
+                    if (args.Length > 0)
+                    {
+                        var arg = args[0];
+                        if (arg is PyDict srcDict)
+                        {
+                            // dict(mapping) - copy from dict using Keys() which returns PyList
+                            var keysList = srcDict.Keys();
+                            for (int i = 0; i < keysList.Length(); i++)
+                            {
+                                var key = keysList.GetItem(new PyInt(i));
+                                targetDict.SetItem(key, srcDict.GetItem(key));
+                            }
+                        }
+                        else
+                        {
+                            // Check if arg has keys method (mapping-like)
+                            PyObject keysMethod = null;
+                            try { keysMethod = arg.GetAttribute("keys"); } catch { }
+
+                            if (keysMethod != null && keysMethod.IsCallable())
+                            {
+                                // dict(mapping) - copy from mapping-like object
+                                var keysResult = keysMethod.Call(Array.Empty<PyObject>(), null);
+                                var keysIter = keysResult.GetIterator();
+                                while (true)
+                                {
+                                    try
+                                    {
+                                        var key = keysIter.Next();
+                                        targetDict.SetItem(key, arg.GetItem(key));
+                                    }
+                                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // dict(iterable) - copy from iterable of pairs
+                                var iter = arg.GetIterator();
+                                while (true)
+                                {
+                                    try
+                                    {
+                                        var item = iter.Next();
+                                        // Each item should be a pair (key, value)
+                                        if (item is PyTuple tuple && tuple.Length() == 2)
+                                        {
+                                            targetDict.SetItem(tuple.GetItem(0), tuple.GetItem(1));
+                                        }
+                                        else if (item is PyList list && list.Length() == 2)
+                                        {
+                                            targetDict.SetItem(list.GetItem(new PyInt(0)), list.GetItem(new PyInt(1)));
+                                        }
+                                        else
+                                        {
+                                            // Try to iterate the item to get key, value
+                                            var pairList = new List<PyObject>();
+                                            var pairIter = item.GetIterator();
+                                            while (true)
+                                            {
+                                                try
+                                                {
+                                                    pairList.Add(pairIter.Next());
+                                                }
+                                                catch (PythonException ex2) when (ex2.PyException is PyStopIteration)
+                                                {
+                                                    break;
+                                                }
+                                            }
+                                            if (pairList.Count == 2)
+                                            {
+                                                targetDict.SetItem(pairList[0], pairList[1]);
+                                            }
+                                            else
+                                            {
+                                                throw PyValueError.Create($"dictionary update sequence element has length {pairList.Count}; 2 is required");
+                                            }
+                                        }
+                                    }
+                                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Process keyword arguments (kwargs is PyDict)
+                    if (kwargs != null && kwargs.Length() > 0)
+                    {
+                        var kwargKeysList = kwargs.Keys();
+                        for (int i = 0; i < kwargKeysList.Length(); i++)
+                        {
+                            var key = kwargKeysList.GetItem(new PyInt(i));
+                            targetDict.SetItem(key, kwargs.GetItem(key));
+                        }
+                    }
+
                     return PyNone.Instance;
                 },
                 minArgs: 0,

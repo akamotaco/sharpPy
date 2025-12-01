@@ -3744,7 +3744,16 @@ namespace SharpPy
                     try
                     {
                         // CPython 3.12: PyObject_DelItem(container, sub)
-                        // Similar to STORE_SUBSCR, lookup __delitem__ via MRO
+                        // For PyClassInstance (including dict subclasses), use DelItem directly
+                        // This allows the override in PyClassInstance to handle user-defined __delitem__
+                        // and fall back to _dictStorage for dict subclasses
+                        if (delSubContainer is PyClassInstance classInstance)
+                        {
+                            classInstance.DelItem(delSubSub);
+                            break;
+                        }
+
+                        // For built-in types, lookup __delitem__ via MRO
                         var containerType = delSubContainer.GetPyType();
                         var delitemAttr = containerType.LookupSpecial("__delitem__");
 

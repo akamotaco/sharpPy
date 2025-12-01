@@ -787,17 +787,8 @@ namespace SharpPy
 
                     return name switch
                     {
-                        "__init__" => new PyMethodDescriptor("__init__", PyType.DictType, (self, args, kwargs) =>
-                        {
-                            // CPython 3.12: dict.__init__ can accept optional args and kwargs
-                            // dict() -> empty dict
-                            // dict(mapping) -> dict initialized from a mapping
-                            // dict(**kwargs) -> dict initialized with keyword arguments
-                            // dict(iterable) -> dict initialized from iterable of pairs
-                            // For dict subclasses (like _EnumDict), just return None
-                            // The subclass's __init__ will handle its own initialization
-                            return PyNone.Instance;
-                        }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true),
+                        // Note: dict.__init__ is now implemented in PyType.cs DictType initialization
+                        // The TypeDict lookup in GetTypeAttribute will find it there
 
                         // CPython 3.12: __getitem__ wrapper descriptor (mp_subscript slot)
                         "__getitem__" => new PyWrapperDescriptor(
@@ -1257,14 +1248,16 @@ namespace SharpPy
 
         public bool IsDictSubclass()
         {
-            // Check if any base type is dict
-            return InstanceType.BaseTypes.Any(bt => bt == PyType.DictType);
+            // Check if dict is in MRO (not just direct base types)
+            // This handles multi-level inheritance like TracedOrderedDict -> OrderedDict -> dict
+            return InstanceType.MRO.Any(bt => bt == PyType.DictType);
         }
 
         public bool IsListSubclass()
         {
-            // Check if any base type is list
-            return InstanceType.BaseTypes.Any(bt => bt == PyType.ListType);
+            // Check if list is in MRO (not just direct base types)
+            // This handles multi-level inheritance
+            return InstanceType.MRO.Any(bt => bt == PyType.ListType);
         }
 
         // CPython 3.12: Provide access to internal dict storage for dict subclasses
@@ -1417,6 +1410,41 @@ namespace SharpPy
 
             // For other types: use base implementation
             base.SetItem(key, value);
+        }
+
+        // CPython 3.12: Dict subclasses support item deletion (del container[key])
+        // Same pattern as SetItem - check user-defined __delitem__ first, then fall back to storage
+        public override void DelItem(PyObject key)
+        {
+            // Check for user-defined __delitem__ in MRO
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__delitem__", out var delitemMethod))
+                {
+                    // Found user-defined __delitem__ - call it and return
+                    if (delitemMethod is PyFunction func)
+                    {
+                        var boundMethod = new PyMethod(this, func);
+                        boundMethod.Call(new PyObject[] { key }, null);
+                    }
+                    else if (delitemMethod.IsCallable())
+                    {
+                        delitemMethod.Call(new PyObject[] { this, key }, null);
+                    }
+                    return;
+                }
+            }
+
+            // No user-defined __delitem__ found
+            // For dict subclasses: delete directly from internal storage
+            if (_dictStorage != null)
+            {
+                _dictStorage.DelItem(key);
+                return;
+            }
+
+            // For other types: use base implementation
+            base.DelItem(key);
         }
 
         // CPython 3.12: Dict subclasses support 'in' operator

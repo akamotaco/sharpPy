@@ -28,6 +28,19 @@ namespace SharpPy
             AddFunction("islice", ISliceFunction);
             AddFunction("groupby", GroupByFunction);
             AddFunction("zip_longest", ZipLongestFunction);
+            AddFunction("starmap", StarmapFunction);
+        }
+
+        /// <summary>
+        /// itertools.starmap(function, iterable) - 각 인수를 언팩하여 함수 호출
+        /// CPython 3.12: Modules/itertoolsmodule.c:1144-1180
+        /// </summary>
+        private PyObject StarmapFunction(PyObject[] args)
+        {
+            if (args.Length != 2)
+                throw PyTypeError.Create($"starmap expected 2 arguments ({args.Length} given)");
+
+            return new StarmapIterator(args[0], args[1]);
         }
 
         /// <summary>
@@ -694,10 +707,47 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// itertools.compress iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:2890-2922 (compress_next)
+    /// </summary>
     public class CompressIterator : PyIterator
     {
-        public CompressIterator(PyObject data, PyObject selectors) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyIterator _dataIterator;     // CPython: lz->data
+        private readonly PyIterator _selectorIterator; // CPython: lz->selectors
+
+        public CompressIterator(PyObject data, PyObject selectors)
+        {
+            var dataObj = data.GetIterator();
+            if (dataObj == null)
+                throw PyTypeError.Create("compress data must be iterable");
+            _dataIterator = (PyIterator)dataObj;
+
+            var selectorsObj = selectors.GetIterator();
+            if (selectorsObj == null)
+                throw PyTypeError.Create("compress selectors must be iterable");
+            _selectorIterator = (PyIterator)selectorsObj;
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:2896-2921
+            while (true)
+            {
+                // datum = (*Py_TYPE(lz->data)->tp_iternext)(lz->data);
+                // selector = (*Py_TYPE(lz->selectors)->tp_iternext)(lz->selectors);
+                var datum = _dataIterator.Next();
+                var selector = _selectorIterator.Next();
+
+                // ok = PyObject_IsTrue(selector);
+                bool ok = selector.ToBool();
+
+                // if (ok > 0) return datum;
+                if (ok)
+                    return datum;
+                // Continue (skip non-selected items)
+            }
+        }
     }
 
     /// <summary>
@@ -973,9 +1023,119 @@ namespace SharpPy
         public override PyObject Next() => throw PyStopIteration.Create();
     }
 
+    /// <summary>
+    /// itertools.zip_longest iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:4320-4380 (zip_longest_next)
+    /// </summary>
     public class ZipLongestIterator : PyIterator
     {
-        public ZipLongestIterator(PyObject[] iterables, PyObject fillvalue) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyIterator[] _iterators;   // CPython: lz->ittuple
+        private readonly PyObject _fillvalue;       // CPython: lz->fillvalue
+        private readonly bool[] _active;            // Track active iterators
+
+        public ZipLongestIterator(PyObject[] iterables, PyObject fillvalue)
+        {
+            _fillvalue = fillvalue;
+            _iterators = new PyIterator[iterables.Length];
+            _active = new bool[iterables.Length];
+
+            for (int i = 0; i < iterables.Length; i++)
+            {
+                var iterObj = iterables[i].GetIterator();
+                if (iterObj == null)
+                    throw PyTypeError.Create("zip_longest argument must be iterable");
+                _iterators[i] = (PyIterator)iterObj;
+                _active[i] = true;
+            }
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:4328-4375
+            var result = new PyObject[_iterators.Length];
+            bool anyActive = false;
+
+            for (int i = 0; i < _iterators.Length; i++)
+            {
+                if (_active[i])
+                {
+                    try
+                    {
+                        result[i] = _iterators[i].Next();
+                        anyActive = true;
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        _active[i] = false;
+                        result[i] = _fillvalue;
+                    }
+                }
+                else
+                {
+                    result[i] = _fillvalue;
+                }
+            }
+
+            // If all iterators are exhausted, stop
+            if (!anyActive)
+                throw PyStopIteration.Create();
+
+            return new PyTuple(result);
+        }
+    }
+
+    /// <summary>
+    /// itertools.starmap iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c:1166-1190 (starmap_next)
+    /// </summary>
+    public class StarmapIterator : PyIterator
+    {
+        private readonly PyObject _func;       // CPython: lz->func
+        private readonly PyIterator _iterator; // CPython: lz->it
+
+        public StarmapIterator(PyObject func, PyObject iterable)
+        {
+            _func = func;
+            var iterObj = iterable.GetIterator();
+            if (iterObj == null)
+                throw PyTypeError.Create("starmap argument 2 must be iterable");
+            _iterator = (PyIterator)iterObj;
+        }
+
+        public override PyObject Next()
+        {
+            // CPython 3.12: Modules/itertoolsmodule.c:1172-1188
+            // args = iternext(lz->it);
+            var args = _iterator.Next();
+
+            // result = PyObject_Call(lz->func, args, NULL);
+            // Unpack args and call function
+            PyObject[] argsArray;
+            if (args is PyTuple tuple)
+            {
+                argsArray = tuple.Items;
+            }
+            else if (args is PyList list)
+            {
+                argsArray = list.Items.ToArray();
+            }
+            else
+            {
+                // Try to iterate
+                var tempList = new System.Collections.Generic.List<PyObject>();
+                var iter = args.GetIterator();
+                try
+                {
+                    while (true)
+                    {
+                        tempList.Add(iter.Next());
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+                argsArray = tempList.ToArray();
+            }
+
+            return _func.Call(argsArray, null);
+        }
     }
 }
