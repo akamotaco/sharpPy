@@ -86,6 +86,15 @@ namespace SharpPy
             return Execute(sourceCode, "<stdin>", false, false, false, CompileMode.Single);
         }
 
+        /// <summary>
+        /// Evaluate Python expression and return result
+        /// CPython 3.12: Python/bltinmodule.c:776-781 uses Py_eval_input for eval()
+        /// </summary>
+        public PyObject ExecuteEval(string expression)
+        {
+            return Execute(expression, "<eval>", false, false, false, CompileMode.Eval);
+        }
+
         public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File)
         {
             // CPython 3.12: Python/pythonrun.c - co_filename uses absolute path for file execution
@@ -686,6 +695,22 @@ namespace SharpPy
         {
             Console.WriteLine("\n📊 전역 스코프 상태:");
             _globalScope.PrintSystemState();
+        }
+
+        /// <summary>
+        /// 전역 스코프에서 변수 값 가져오기
+        /// </summary>
+        public PyObject GetGlobalVariable(string name)
+        {
+            return _globalScope.LookupVariable(name);
+        }
+
+        /// <summary>
+        /// 전역 스코프에 변수 설정
+        /// </summary>
+        public void SetGlobalVariable(string name, PyObject value)
+        {
+            _globalScope.AssignVariable(name, value);
         }
     }
 

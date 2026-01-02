@@ -545,6 +545,7 @@ namespace SharpPy
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         private int _comprehensionNestingDepth = 0; // Track nesting depth for dict comprehensions
         private bool _isInteractive = false; // CPython 3.12: Track if we're in interactive mode ('single' mode)
+        private bool _isEval = false; // CPython 3.12: Track if we're in eval mode (expression returns value)
 
         // CPython 3.12: Python/compile.c:2281-2361 (compiler_class)
         // Track if we're compiling inside a class body (not a method, just the class body itself)
@@ -1170,6 +1171,11 @@ namespace SharpPy
             // Python/pythonrun.c:266 - REPL uses Py_single_input
             // Include/compile.h:8 - Py_single_input = 256
             _isInteractive = (mode == CompileMode.Single);
+
+            // CPython 3.12: Set eval mode flag
+            // Python/bltinmodule.c:776-781 - eval() uses Py_eval_input
+            // Include/compile.h:10 - Py_eval_input = 258
+            _isEval = (mode == CompileMode.Eval);
 
             // CPython 3.12: Build symbol table first
             var symbolTableBuilder = new SymbolTableBuilder();
@@ -2543,7 +2549,18 @@ namespace SharpPy
                     
                 case ExpressionStatement expr:
                     // CPython 3.12: compiler_stmt_expr (Python/compile.c line 3915)
-                    if (_isInteractive && !_isInFunction)
+                    if (_isEval && !_isInFunction)
+                    {
+                        // Eval mode: expression result becomes return value
+                        // CPython: eval() expects single expression and returns its value
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🎯 Eval mode: Compiling expression statement with RETURN_VALUE");
+                        Console.WriteLine($"   Expression type: {expr.Expression.GetType().Name}");
+                        #endif
+                        CompileExpression(expr.Expression);
+                        EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                    }
+                    else if (_isInteractive && !_isInFunction)
                     {
                         // Interactive mode: print expression result
                         // CPython: if (c->c_interactive && c->c_nestlevel <= 1)
