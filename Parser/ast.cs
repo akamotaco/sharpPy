@@ -1240,7 +1240,7 @@ namespace SharpPy
                 // Count positional-only parameters (CPython 3.12)
                 int posonlyArgCount = Arguments.PosOnlyArgs.Count;
 
-                #if DEBUG
+                #if SHARPPY_DEBUG
                 Console.WriteLine($"[DEBUG] Function '{Name}': {posonlyArgCount} positional-only parameters");
                 #endif
 

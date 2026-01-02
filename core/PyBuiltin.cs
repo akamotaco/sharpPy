@@ -1031,7 +1031,7 @@ namespace SharpPy
 
         private static PyObject CallIsSubclass(PyObject[] args, PyDict kwargs = null)
         {
-#if DEBUG
+#if SHARPPY_DEBUG
             Console.WriteLine($"[CallIsSubclass] Called with {args.Length} arguments");
             Console.WriteLine($"  args[0] = {args[0]}, type = {args[0].GetType().Name}");
             Console.WriteLine($"  args[1] = {args[1]}, type = {args[1].GetType().Name}");
@@ -1042,24 +1042,24 @@ namespace SharpPy
 
             if (!(args[0] is PyType subclass))
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[CallIsSubclass] args[0] is not PyType!");
 #endif
                 throw PyTypeError.Create("issubclass() arg 1 must be a class");
             }
 
-#if DEBUG
+#if SHARPPY_DEBUG
             Console.WriteLine($"[CallIsSubclass] args[0] IS PyType: {subclass.Name}");
 #endif
 
             if (args[1] is PyType superclass)
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[CallIsSubclass] args[1] IS PyType: {superclass.Name}");
                 Console.WriteLine($"[CallIsSubclass] Calling {subclass.Name}.IsSubclassOf({superclass.Name})");
 #endif
                 var result = subclass.IsSubclassOf(superclass);
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[CallIsSubclass] IsSubclassOf returned: {result}");
 #endif
                 return PyBool.FromBool(result);
@@ -1076,7 +1076,7 @@ namespace SharpPy
             }
             else
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[CallIsSubclass] args[1] is NOT PyType or PyTuple!");
 #endif
                 throw PyTypeError.Create("issubclass() arg 2 must be a class or tuple of classes");
@@ -2796,6 +2796,7 @@ namespace SharpPy
                         //   - STORE_NAME in class body calls __setitem__ on ns
                         //   - Pass SAME ns to metaclass.__new__ (line 208) - NO re-processing!
 
+#if SHARPPY_DEBUG
                         Console.WriteLine($"\n🔍 DEBUG: originalPrepareResult check");
                         Console.WriteLine($"  Type: {originalPrepareResult.GetType().Name}");
 
@@ -2828,6 +2829,7 @@ namespace SharpPy
                         {
                             Console.WriteLine($"  Error checking items: {ex.Message}");
                         }
+#endif
 
                         #if DEBUG_LOG
                         Console.WriteLine($"  ✅ Using original __prepare__ result from variable! Type: {originalPrepareResult.GetType().Name}");

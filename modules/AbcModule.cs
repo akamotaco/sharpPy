@@ -289,20 +289,20 @@ namespace SharpPy.Modules
 
                 // Also collect abstract methods from base classes
                 var bases = GetBases(cls);
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[ComputeAbstractMethods] Class: {cls}, Bases count: {bases?.Count ?? 0}");
 #endif
                 if (bases != null)
                 {
                     foreach (var baseCls in bases)
                     {
-#if DEBUG
+#if SHARPPY_DEBUG
                         Console.WriteLine($"[ComputeAbstractMethods] Processing base class: {baseCls}");
 #endif
                         try
                         {
                             var baseAbstractMethods = baseCls.GetAttribute("__abstractmethods__");
-#if DEBUG
+#if SHARPPY_DEBUG
                             Console.WriteLine($"[ComputeAbstractMethods] Base __abstractmethods__: {baseAbstractMethods}");
 #endif
                             if (baseAbstractMethods != null && baseAbstractMethods != PyNone.Instance)
@@ -315,7 +315,7 @@ namespace SharpPy.Modules
                                     {
                                         var methodName = iterator.Next();
                                         var methodNameStr = ((PyString)methodName).Value;
-#if DEBUG
+#if SHARPPY_DEBUG
                                         Console.WriteLine($"[ComputeAbstractMethods] Checking method '{methodNameStr}' from base");
 #endif
 
@@ -325,7 +325,7 @@ namespace SharpPy.Modules
                                         try
                                         {
                                             var value = cls.GetAttribute(methodNameStr);
-#if DEBUG
+#if SHARPPY_DEBUG
                                             Console.WriteLine($"[ComputeAbstractMethods] cls.GetAttribute('{methodNameStr}') returned: {value?.GetType().Name}");
 #endif
                                             if (value != null && value != PyNone.Instance)
@@ -334,18 +334,18 @@ namespace SharpPy.Modules
                                                 try
                                                 {
                                                     var isStillAbstract = value.GetAttribute("__isabstractmethod__");
-#if DEBUG
+#if SHARPPY_DEBUG
                                                     Console.WriteLine($"[ComputeAbstractMethods] __isabstractmethod__: {isStillAbstract}");
 #endif
                                                     if (isStillAbstract != null && isStillAbstract.PyBoolValue())
                                                     {
-#if DEBUG
+#if SHARPPY_DEBUG
                                                         Console.WriteLine($"[ComputeAbstractMethods] ✓ Adding '{methodNameStr}' to abstract methods");
 #endif
                                                         // Still abstract - add it
                                                         abstractMethods.Add(methodName);
                                                     }
-#if DEBUG
+#if SHARPPY_DEBUG
                                                     else
                                                     {
                                                         Console.WriteLine($"[ComputeAbstractMethods] ✗ NOT adding '{methodNameStr}' - concrete implementation");
@@ -355,7 +355,7 @@ namespace SharpPy.Modules
                                                 }
                                                 catch
                                                 {
-#if DEBUG
+#if SHARPPY_DEBUG
                                                     Console.WriteLine($"[ComputeAbstractMethods] ✗ NOT adding '{methodNameStr}' - no __isabstractmethod__ attribute");
 #endif
                                                     // No __isabstractmethod__ attribute - it's concrete
@@ -366,7 +366,7 @@ namespace SharpPy.Modules
                                         }
                                         catch (Exception ex)
                                         {
-#if DEBUG
+#if SHARPPY_DEBUG
                                             Console.WriteLine($"[ComputeAbstractMethods] Exception during lookup: {ex.Message}");
 #endif
                                             // Error during attribute lookup - skip this method
@@ -381,7 +381,7 @@ namespace SharpPy.Modules
                         }
                         catch (Exception ex)
                         {
-#if DEBUG
+#if SHARPPY_DEBUG
                             Console.WriteLine($"[ComputeAbstractMethods] Base class exception: {ex.Message}");
 #endif
                             // Base class doesn't have __abstractmethods__
@@ -408,14 +408,14 @@ namespace SharpPy.Modules
         /// </summary>
         private static bool AbcSubclassCheckInternal(PyObject cls, PyObject subclass, AbcData abcData)
         {
-#if DEBUG
+#if SHARPPY_DEBUG
             Console.WriteLine($"[AbcSubclassCheckInternal] Checking if {subclass} is subclass of {cls}");
 #endif
 
             // Check registry first
             if (abcData.Registry != null && abcData.Registry.Contains(subclass).Value)
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[AbcSubclassCheckInternal] Found in registry");
 #endif
                 return true;
@@ -428,7 +428,7 @@ namespace SharpPy.Modules
                 // CPython: Modules/_abc.c lines 719-735
                 // CPython uses pointer comparison: for (i = 0; i < n; i++) { if (PyTuple_GET_ITEM(mro, i) == cls)
                 var mro = GetMRO(subclass);
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[AbcSubclassCheckInternal] MRO count: {mro?.Count ?? 0}");
 #endif
                 if (mro != null)
@@ -436,14 +436,14 @@ namespace SharpPy.Modules
                     for (int i = 0; i < mro.Count; i++)
                     {
                         var baseClass = mro[i];
-#if DEBUG
+#if SHARPPY_DEBUG
                         Console.WriteLine($"  [AbcSubclassCheckInternal] MRO[{i}]: {baseClass}, ReferenceEquals={ReferenceEquals(baseClass, cls)}");
 #endif
                         // Use ReferenceEquals for pointer comparison like CPython
                         // This is critical for ABC metaclass checks to work correctly
                         if (ReferenceEquals(baseClass, cls))
                         {
-#if DEBUG
+#if SHARPPY_DEBUG
                             Console.WriteLine($"[AbcSubclassCheckInternal] MATCH! Returning true");
 #endif
                             return true;
@@ -453,13 +453,13 @@ namespace SharpPy.Modules
             }
             catch (Exception ex)
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[AbcSubclassCheckInternal] Exception: {ex.Message}");
 #endif
                 // MRO not available or error
             }
 
-#if DEBUG
+#if SHARPPY_DEBUG
             Console.WriteLine($"[AbcSubclassCheckInternal] No match, returning false");
 #endif
             return false;

@@ -570,7 +570,7 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
-#if DEBUG
+#if SHARPPY_DEBUG
             // Debug: Track _generate_next_value_ modifications
             if (name == "_generate_next_value_")
             {
@@ -1299,7 +1299,7 @@ namespace SharpPy
         // 4. NEVER call built-in descriptors from PyType.TypeDict here
         public override PyObject GetItem(PyObject key)
         {
-            #if DEBUG
+            #if SHARPPY_DEBUG
             var keyStr = key is PyString ps ? ps.Value : key?.ToString() ?? "null";
             if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
             {
@@ -1336,7 +1336,7 @@ namespace SharpPy
             if (_dictStorage != null)
             {
                 var result = _dictStorage.GetItem(key);
-                #if DEBUG
+                #if SHARPPY_DEBUG
                 if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                 {
                     Console.WriteLine($"[DEBUG-GETITEM]   Returning from _dictStorage: {result}, type={result?.GetType().Name}");

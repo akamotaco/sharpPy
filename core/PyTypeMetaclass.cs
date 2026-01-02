@@ -571,6 +571,7 @@ namespace SharpPy
                             // CPython 3.12: Objects/typeobject.c:3751 - values preserved as-is
                             classDict[keyStr.Value] = tuple.Items[1];
 
+#if SHARPPY_DEBUG
                             // Debug: Track _generate_next_value_
                             if (keyStr.Value == "_generate_next_value_")
                             {
@@ -583,6 +584,7 @@ namespace SharpPy
                                     Console.WriteLine($"[TYPE_NEW DEBUG]   Callable: {sm.Callable}");
                                 }
                             }
+#endif
                         }
                     }
                 }
@@ -775,6 +777,7 @@ namespace SharpPy
                 // CPython 3.12: Use the winner metaclass (could be custom metaclass)
                 newClass.Metaclass = winner ?? Instance;
 
+#if SHARPPY_DEBUG
                 // Debug: Check ClassDict after PyClass creation
                 if (classDict.ContainsKey("_generate_next_value_"))
                 {
@@ -782,6 +785,7 @@ namespace SharpPy
                     Console.WriteLine($"[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: {classDict["_generate_next_value_"].GetTypeName()}");
                     Console.WriteLine($"[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: {newClass.ClassDict["_generate_next_value_"].GetTypeName()}");
                 }
+#endif
             }
 
             #if DEBUG_LOG

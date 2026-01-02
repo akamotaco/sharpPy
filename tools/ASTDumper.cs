@@ -21,7 +21,7 @@ namespace SharpPy.Tools
         {
             try
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine("[DEBUG] ASTDumper.DumpAST START");
 #endif
                 if (string.IsNullOrEmpty(pythonFile) || !File.Exists(pythonFile))
@@ -30,11 +30,11 @@ namespace SharpPy.Tools
                     return;
                 }
 
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[DEBUG] Reading file: {pythonFile}");
 #endif
                 var source = File.ReadAllText(pythonFile);
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[DEBUG] File content length: {source.Length}");
 #endif
 
@@ -45,12 +45,12 @@ namespace SharpPy.Tools
                     Console.WriteLine("========================================");
                 }
 
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine("[DEBUG] Calling PyParserRuntime.ParseSource...");
 #endif
                 var tokens = PyParserRuntime.LexerSource(source);
                 var statements = PyParserRuntime.ParseSource(tokens, source, pythonFile);
-#if DEBUG
+#if SHARPPY_DEBUG
                 Console.WriteLine($"[DEBUG] ParseSource returned {statements?.Count ?? 0} statements");
 #endif
 

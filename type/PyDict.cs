@@ -317,7 +317,7 @@ namespace SharpPy
                         var dictStorage = classInstance.GetDictStorage();
                         if (dictStorage != null)
                         {
-                            #if DEBUG
+                            #if SHARPPY_DEBUG
                             var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
                             if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                             {
@@ -399,7 +399,7 @@ namespace SharpPy
                         var dictStorage = classInstance.GetDictStorage();
                         if (dictStorage != null)
                         {
-                            #if DEBUG
+                            #if SHARPPY_DEBUG
                             var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
                             if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                             {
@@ -749,7 +749,7 @@ namespace SharpPy
                     var pyKey = new PyString(key);
                     var value = mappingProxy.GetItem(pyKey);
 
-                    #if DEBUG
+                    #if SHARPPY_DEBUG
                     // Debug: Track _generate_next_value_ updates
                     if (key == "_generate_next_value_")
                     {

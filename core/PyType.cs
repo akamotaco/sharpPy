@@ -496,7 +496,7 @@ namespace SharpPy
         // isinstance/issubclass 지원
         public bool IsSubclassOf(PyType other)
         {
-#if DEBUG
+#if SHARPPY_DEBUG_SUBCLASS
             Console.WriteLine($"[IsSubclassOf] Checking if {this.Name} (id={this.GetHashCode()}) is subclass of {other.Name} (id={other.GetHashCode()})");
             Console.WriteLine($"[IsSubclassOf] MRO.Count = {MRO.Count}");
             for (int i = 0; i < MRO.Count; i++)
@@ -513,7 +513,7 @@ namespace SharpPy
             {
                 if (ReferenceEquals(MRO[i], other))
                 {
-#if DEBUG
+#if SHARPPY_DEBUG_SUBCLASS
                     Console.WriteLine($"[IsSubclassOf] Found match at MRO[{i}] by ReferenceEquals");
 #endif
                     return true;
@@ -529,14 +529,14 @@ namespace SharpPy
                      mroType.Name == "str" || mroType.Name == "int" || mroType.Name == "float" ||
                      mroType.Name == "bool" || mroType.Name == "object" || mroType.Name == "type"))
                 {
-#if DEBUG
+#if SHARPPY_DEBUG_SUBCLASS
                     Console.WriteLine($"[IsSubclassOf] Found match by name: {mroType.Name}");
 #endif
                     return true;
                 }
             }
 
-#if DEBUG
+#if SHARPPY_DEBUG_SUBCLASS
             Console.WriteLine($"[IsSubclassOf] No match found, returning false");
 #endif
             return false;

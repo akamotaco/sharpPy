@@ -18,23 +18,23 @@ namespace SharpPy.Generated
         /// </summary>
         public static List<GeneratedTokenInfo> LexerSource(string source, bool generateExtraTokens = false)
         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] PyParserRuntime.LexerSource START");
             Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser");
 #endif
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Creating tokenizer...");
 #endif
             // Use generated tokenizer
             // CPython 3.12: generateExtraTokens = true for tokenize module (--tokens flag)
             // CPython 3.12: generateExtraTokens = false for parser (default)
             var tokenizer = new Tokenizer(source, generateExtraTokens);
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
 #endif
             var generatedTokens = tokenizer.Tokenize();
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] Tokenize returned {generatedTokens.Count} tokens");
 #endif
             return generatedTokens;
@@ -43,17 +43,17 @@ namespace SharpPy.Generated
         public static List<Statement> ParseSource(List<GeneratedTokenInfo> generatedTokens, string source, string filename = "<string>")
         {
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Creating parser...");
 #endif
             // Use generated parser
             // CPython 3.12: COMMENT and NL tokens are not generated in parser mode (generateExtraTokens=false)
             var parser = new PyParser(generatedTokens, filename, source);
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling parser.ParseFile()...");
 #endif
             GeneratedMod parseResult = parser.ParseFile();
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ParseFile returned: {parseResult?.GetType()?.Name ?? "null"}");
             Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");
             if (parseResult != null)
@@ -72,17 +72,17 @@ namespace SharpPy.Generated
         /// </summary>
         public static Expression ParseExpression(List<GeneratedTokenInfo> generatedTokens, string source, string filename = "<string>")
         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] ParseExpression: Creating parser for eval mode...");
 #endif
             var parser = new PyParser(generatedTokens, filename, source);
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] ParseExpression: Calling parser.ParseEval()...");
 #endif
             GeneratedMod parseResult = parser.ParseEval();
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ParseEval returned: {parseResult?.GetType()?.Name ?? "null"}");
 #endif
 
@@ -116,12 +116,12 @@ namespace SharpPy.Generated
         /// </summary>
         private static List<Statement> ConvertToSharpPyAST(GeneratedMod? parseResult, string filename)
         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult is {(parseResult == null ? "null" : "not null")}");
 #endif
             if (parseResult == null)
             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                 Console.WriteLine("[DEBUG] ConvertToSharpPyAST: returning empty list (parseResult is null)");
 #endif
                 return new List<Statement>();
@@ -131,7 +131,7 @@ namespace SharpPy.Generated
             // SharpPy: GeneratedMod is abstract, cast to specific type
             if (parseResult is not GeneratedModule moduleResult)
             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                 Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult is {parseResult.GetType().Name}, not GeneratedModule");
 #endif
                 // For now, only support Module mode (file parsing)
@@ -139,7 +139,7 @@ namespace SharpPy.Generated
                 return new List<Statement>();
             }
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: moduleResult.Body is {(moduleResult.Body == null ? "null" : "not null")}");
             if (moduleResult.Body != null)
             {
@@ -147,12 +147,12 @@ namespace SharpPy.Generated
             }
 
             // Phase 2: Start implementing AST conversion
-            #if DEBUG
+            #if SHARPPY_DEBUG
             Console.WriteLine("[DEBUG] ConvertToSharpPyAST: Calling ConvertGeneratedAST...");
             #endif
 #endif
             var result = ConvertGeneratedAST(moduleResult, filename);
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: ConvertGeneratedAST returned {result.Count} statements");
 #endif
             return result;
@@ -177,12 +177,12 @@ namespace SharpPy.Generated
             if (module.Body != null)
             {
                 // Convert each statement in the module body
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                 int stmtIndex = 0;
 #endif
                 foreach (var stmt in module.Body.AsEnumerable())
                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] Module statement #{stmtIndex}: Type={stmt.GetType().Name}");
 #endif
                     try
@@ -198,7 +198,7 @@ namespace SharpPy.Generated
                         Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
                         throw;
                     }
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                     stmtIndex++;
 #endif
                 }
@@ -235,7 +235,7 @@ namespace SharpPy.Generated
         /// </summary>
         private static Statement? ConvertStatement(GeneratedStmt stmt, bool insideLoop = false, bool insideFunction = false)
         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertStatement: Converting statement type '{stmt.GetType().Name}' (insideLoop: {insideLoop})");
 #endif
 
@@ -288,7 +288,7 @@ namespace SharpPy.Generated
 
                             if (targetName == null)
                             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Failed to extract target name");
 #endif
                                 return null;
@@ -300,7 +300,7 @@ namespace SharpPy.Generated
                             // Convert value (optional)
                             Expression? valueExpr = annAssign.Value != null ? ConvertAnyExpression(annAssign.Value) : null;
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}'");
 #endif
 
@@ -310,7 +310,7 @@ namespace SharpPy.Generated
                         }
                         catch (Exception ex)
                         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign error: {ex.Message}");
 #endif
                             return null;
@@ -323,7 +323,7 @@ namespace SharpPy.Generated
                         var targets = assignStmt.Targets;  // Already GeneratedExprSeq (List<GeneratedExpr>)
                         var valueExpr = assignStmt.Value;   // Already GeneratedExpr
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Targets.Count={targets?.Count ?? 0}, Value={valueExpr != null}");
 #endif
 
@@ -364,7 +364,7 @@ namespace SharpPy.Generated
                         var op = augAssign.Op;  // GeneratedOperator
                         var value = augAssign.Value;
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target={target != null}, Op={op?.GetType().Name}, Value={value != null}");
 #endif
 
@@ -384,7 +384,7 @@ namespace SharpPy.Generated
                             {
                                 if (targetExpr is NameExpression nameExpr)
                                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with Name target='{nameExpr.Name}', op={opNode.OperatorType}");
 #endif
                                     var result = new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
@@ -393,7 +393,7 @@ namespace SharpPy.Generated
                                 }
                                 else if (targetExpr is AttributeExpression attrExpr)
                                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with Attribute target, op={opNode.OperatorType}");
 #endif
                                     // CPython 3.12: AugAssignStatement with AttributeExpression target
@@ -403,7 +403,7 @@ namespace SharpPy.Generated
                                 }
                                 else
                                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with generic target, op={opNode.OperatorType}");
 #endif
                                     // CPython 3.12: Support subscript and other targets
@@ -637,7 +637,7 @@ namespace SharpPy.Generated
                 case GeneratedTry tryStmt:
                     // Try statement (try: body except: handler)
                     {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] try case: tryStmt.Body count = {tryStmt.Body?.Count}, Handlers count = {tryStmt.Handlers?.Count}");
 #endif
 
@@ -657,7 +657,7 @@ namespace SharpPy.Generated
                             foreach (var exceptBlock in tryStmt.Handlers.AsEnumerable())
                         {
                             var exceptData = (GeneratedExceptHandler)exceptBlock;
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] exceptData type: {exceptData?.GetType()?.Name}");
 #endif
                             // Convert except body statements
@@ -810,22 +810,22 @@ namespace SharpPy.Generated
                             // OLD CODE BELOW - will be removed after testing
                             /*
                             // Debug Arguments structure
-                            #if DEBUG
+                            #if SHARPPY_DEBUG
                             Console.WriteLine($"[DEBUG] Arguments type: {funcData.Arguments.GetType().Name}");
                             #endif
-                            #if DEBUG
+                            #if SHARPPY_DEBUG
                             Console.WriteLine($"[DEBUG] Arguments value: {funcData.Arguments}");
                             #endif
 
                                 // Arguments structure parsing - try Dictionary first
                                 if (funcData.Arguments is Dictionary<string, object> argsDict)
                                 {
-                                    #if DEBUG
+                                    #if SHARPPY_DEBUG
                                     Console.WriteLine($"[DEBUG] Arguments is Dictionary with keys: [{string.Join(", ", argsDict.Keys)}]");
                                     #endif
                                     foreach (var kvp in argsDict)
                                     {
-                                        #if DEBUG
+                                        #if SHARPPY_DEBUG
                                         Console.WriteLine($"[DEBUG] Key: {kvp.Key}, Value: {kvp.Value} (Type: {kvp.Value?.GetType().Name})");
                                         #endif
 
@@ -834,14 +834,14 @@ namespace SharpPy.Generated
                                         {
                                             if (kvp.Value is List<object> posonlyArgsList)
                                             {
-                                                #if DEBUG
+                                                #if SHARPPY_DEBUG
                                                 Console.WriteLine($"[DEBUG] Found posonlyargs list with {posonlyArgsList.Count} items");
                                                 #endif
                                                 foreach (var param in posonlyArgsList)
                                                 {
                                                     if (param != null)
                                                     {
-                                                        #if DEBUG
+                                                        #if SHARPPY_DEBUG
                                                         Console.WriteLine($"[DEBUG] Processing positional-only parameter: {param} (Type: {param.GetType().Name})");
                                                         #endif
 
@@ -855,7 +855,7 @@ namespace SharpPy.Generated
                                                                 var extractedParamName = extractedArg?.ToString();
                                                                 if (!string.IsNullOrEmpty(extractedParamName))
                                                                 {
-                                                                    #if DEBUG
+                                                                    #if SHARPPY_DEBUG
                                                                     Console.WriteLine($"[DEBUG] Adding positional-only parameter: {extractedParamName}");
                                                                     #endif
                                                                     parameters.Add(extractedParamName + " [posonly]"); // Mark as positional-only
@@ -864,7 +864,7 @@ namespace SharpPy.Generated
                                                         }
                                                         else
                                                         {
-                                                            #if DEBUG
+                                                            #if SHARPPY_DEBUG
                                                             Console.WriteLine($"[DEBUG] Adding positional-only parameter (toString): {param}");
                                                             #endif
                                                             parameters.Add(param.ToString() + " [posonly]");
@@ -879,17 +879,17 @@ namespace SharpPy.Generated
                                         {
                                             if (kvp.Value is List<object> paramList)
                                             {
-                                                #if DEBUG
+                                                #if SHARPPY_DEBUG
                                                 Console.WriteLine($"[DEBUG] Found parameter list with {paramList.Count} items");
                                                 #endif
                                                 foreach (var param in paramList)
                                                 {
-                                                    #if DEBUG
+                                                    #if SHARPPY_DEBUG
                                                     Console.WriteLine($"[DEBUG] Processing param: {param} (Type: {param?.GetType().Name})");
                                                     #endif
                                                     if (param is string paramName)
                                                     {
-                                                        #if DEBUG
+                                                        #if SHARPPY_DEBUG
                                                         Console.WriteLine($"[DEBUG] Adding string parameter: {paramName}");
                                                         #endif
                                                         parameters.Add(paramName);
@@ -899,26 +899,26 @@ namespace SharpPy.Generated
                                                         // Try to extract parameter name from complex objects
                                                         if (param is Dictionary<string, object> paramDict)
                                                         {
-                                                            #if DEBUG
+                                                            #if SHARPPY_DEBUG
                                                             Console.WriteLine($"[DEBUG] Parameter is Dictionary with keys: [{string.Join(", ", paramDict.Keys)}]");
                                                             #endif
                                                             if (paramDict.ContainsKey("arg"))
                                                             {
-                                                                #if DEBUG
+                                                                #if SHARPPY_DEBUG
                                                                 Console.WriteLine($"[DEBUG] Adding arg parameter: {paramDict["arg"]}");
                                                                 #endif
                                                                 parameters.Add(paramDict["arg"].ToString());
                                                             }
                                                             else if (paramDict.ContainsKey("name"))
                                                             {
-                                                                #if DEBUG
+                                                                #if SHARPPY_DEBUG
                                                                 Console.WriteLine($"[DEBUG] Adding name parameter: {paramDict["name"]}");
                                                                 #endif
                                                                 parameters.Add(paramDict["name"].ToString());
                                                             }
                                                             else
                                                             {
-                                                                #if DEBUG
+                                                                #if SHARPPY_DEBUG
                                                                 Console.WriteLine($"[DEBUG] No 'arg' or 'name' key found in parameter dict");
                                                                 #endif
                                                             }
@@ -930,7 +930,7 @@ namespace SharpPy.Generated
                                                             {
                                                                 if (genExpr.Value is object valueObj)
                                                                 {
-                                                                    #if DEBUG
+                                                                    #if SHARPPY_DEBUG
                                                                     Console.WriteLine($"[DEBUG] GeneratedExpr.Value type: {valueObj.GetType().Name}");
                                                                     #endif
 
@@ -939,20 +939,20 @@ namespace SharpPy.Generated
                                                                     if (argProperty != null)
                                                                     {
                                                                         var argValue = argProperty.GetValue(valueObj);
-                                                                        #if DEBUG
+                                                                        #if SHARPPY_DEBUG
                                                                         Console.WriteLine($"[DEBUG] Found 'arg' property: '{argValue}' (type: {argValue?.GetType().Name})");
                                                                         #endif
                                                                         var extractedParamName = argValue?.ToString();
                                                                         if (!string.IsNullOrEmpty(extractedParamName))
                                                                         {
-                                                                            #if DEBUG
+                                                                            #if SHARPPY_DEBUG
                                                                             Console.WriteLine($"[DEBUG] Adding extracted parameter name from 'arg': {extractedParamName}");
                                                                             #endif
                                                                             parameters.Add(extractedParamName);
                                                                         }
                                                                         else
                                                                         {
-                                                                            #if DEBUG
+                                                                            #if SHARPPY_DEBUG
                                                                             Console.WriteLine($"[DEBUG] 'arg' property is empty, using toString: {param}");
                                                                             #endif
                                                                             parameters.Add(param.ToString());
@@ -965,20 +965,20 @@ namespace SharpPy.Generated
                                                                         if (valueProperty != null)
                                                                         {
                                                                             var extractedValue = valueProperty.GetValue(valueObj);
-                                                                            #if DEBUG
+                                                                            #if SHARPPY_DEBUG
                                                                             Console.WriteLine($"[DEBUG] Found 'value' property: '{extractedValue}' (type: {extractedValue?.GetType().Name})");
                                                                             #endif
                                                                             var extractedParamName = extractedValue?.ToString();
                                                                             if (!string.IsNullOrEmpty(extractedParamName))
                                                                             {
-                                                                                #if DEBUG
+                                                                                #if SHARPPY_DEBUG
                                                                                 Console.WriteLine($"[DEBUG] Adding extracted parameter name from 'value': {extractedParamName}");
                                                                                 #endif
                                                                                 parameters.Add(extractedParamName);
                                                                             }
                                                                             else
                                                                             {
-                                                                                #if DEBUG
+                                                                                #if SHARPPY_DEBUG
                                                                                 Console.WriteLine($"[DEBUG] 'value' property is empty, using toString: {param}");
                                                                                 #endif
                                                                                 parameters.Add(param.ToString());
@@ -986,7 +986,7 @@ namespace SharpPy.Generated
                                                                         }
                                                                         else
                                                                         {
-                                                                            #if DEBUG
+                                                                            #if SHARPPY_DEBUG
                                                                             Console.WriteLine($"[DEBUG] No 'arg' or 'value' property found in {valueObj.GetType().Name}, using toString: {param}");
                                                                             #endif
                                                                             parameters.Add(param.ToString());
@@ -995,7 +995,7 @@ namespace SharpPy.Generated
                                                                 }
                                                                 else
                                                                 {
-                                                                    #if DEBUG
+                                                                    #if SHARPPY_DEBUG
                                                                     Console.WriteLine($"[DEBUG] GeneratedExpr.Value is null, using toString: {param}");
                                                                     #endif
                                                                     parameters.Add(param.ToString());
@@ -1006,13 +1006,13 @@ namespace SharpPy.Generated
                                                                 // Debug info for non-GeneratedExpr case
                                                                 if (param is GeneratedExpr genExprDebug)
                                                                 {
-                                                                    #if DEBUG
+                                                                    #if SHARPPY_DEBUG
                                                                     Console.WriteLine($"[DEBUG] GeneratedExpr with ExpressionType '{genExprDebug.ExpressionType}' != 'Name', using toString: {param}");
                                                                     #endif
                                                                 }
                                                                 else
                                                                 {
-                                                                    #if DEBUG
+                                                                    #if SHARPPY_DEBUG
                                                                     Console.WriteLine($"[DEBUG] Not a GeneratedExpr (type: {param?.GetType().Name}), using toString: {param}");
                                                                     #endif
                                                                 }
@@ -1022,7 +1022,7 @@ namespace SharpPy.Generated
                                                     }
                                                     else
                                                     {
-                                                        #if DEBUG
+                                                        #if SHARPPY_DEBUG
                                                         Console.WriteLine("[DEBUG] Parameter is null, skipping");
                                                         #endif
                                                     }
@@ -1030,7 +1030,7 @@ namespace SharpPy.Generated
                                             }
                                             else if (kvp.Value != null)
                                             {
-                                                #if DEBUG
+                                                #if SHARPPY_DEBUG
                                                 Console.WriteLine($"[DEBUG] Parameter value is not a list: {kvp.Value}");
                                                 #endif
                                             }
@@ -1041,14 +1041,14 @@ namespace SharpPy.Generated
                                         {
                                             if (kvp.Value is List<object> defaultsList)
                                             {
-                                                #if DEBUG
+                                                #if SHARPPY_DEBUG
                                                 Console.WriteLine($"[DEBUG] Found defaults list with {defaultsList.Count} items");
                                                 #endif
                                                 // Store defaults by index - we'll match them to parameters later
                                                 for (int i = 0; i < defaultsList.Count; i++)
                                                 {
                                                     var defaultValue = defaultsList[i];
-                                                    #if DEBUG
+                                                    #if SHARPPY_DEBUG
                                                     Console.WriteLine($"[DEBUG] Processing default {i}: {defaultValue} (Type: {defaultValue?.GetType().Name})");
                                                     #endif
                                                     defaultValues[i.ToString()] = defaultValue;
@@ -1065,7 +1065,7 @@ namespace SharpPy.Generated
                                         var argsData = funcData.Arguments as dynamic;
                                         if (argsData != null && argsData.args != null)
                                         {
-                                            #if DEBUG
+                                            #if SHARPPY_DEBUG
                                             Console.WriteLine("[DEBUG] Found args field via dynamic");
                                             #endif
                                             foreach (var arg in argsData.args)
@@ -1080,14 +1080,14 @@ namespace SharpPy.Generated
                                     }
                                     catch (Exception ex)
                                     {
-                                        #if DEBUG
+                                        #if SHARPPY_DEBUG
                                         Console.WriteLine($"[DEBUG] Dynamic parsing failed: {ex.Message}");
                                         #endif
 
                                         // Final fallback - try as List<object>
                                         if (funcData.Arguments is List<object> argsList)
                                         {
-                                            #if DEBUG
+                                            #if SHARPPY_DEBUG
                                             Console.WriteLine("[DEBUG] Arguments is List<object>");
                                             #endif
                                             foreach (var arg in argsList)
@@ -1105,13 +1105,13 @@ namespace SharpPy.Generated
                                     }
                                 }
 
-                                #if DEBUG
+                                #if SHARPPY_DEBUG
                                 Console.WriteLine($"[DEBUG] Extracted function parameters: [{string.Join(", ", parameters)}]");
                                 #endif
                             }
                             else
                             {
-                                #if DEBUG
+                                #if SHARPPY_DEBUG
                                 Console.WriteLine("[DEBUG] funcData.Arguments is null");
                                 #endif
                             }
@@ -1142,7 +1142,7 @@ namespace SharpPy.Generated
                             var decoratorExpressions = new List<DecoratorExpression>();
                             if (funcDef.DecoratorList != null && funcDef.DecoratorList.Count > 0)
                             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Function '{name}' has {funcDef.DecoratorList.Count} decorators");
 #endif
                                 // Convert decorators to expressions
@@ -1155,7 +1155,7 @@ namespace SharpPy.Generated
                                         {
                                             // Wrap the expression in a DecoratorExpression
                                             decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                             Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
 #endif
                                         }
@@ -1168,7 +1168,7 @@ namespace SharpPy.Generated
                             if (funcDef.Returns != null)
                             {
                                 returnAnnotation = ConvertAnyExpression(funcDef.Returns);
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Function '{name}' has return annotation: {returnAnnotation}");
 #endif
                             }
@@ -1177,7 +1177,7 @@ namespace SharpPy.Generated
                             var typeParams = ConvertTypeParams(funcDef.TypeParams);
 
                             // CPython 3.12: Create function with FunctionArguments and return annotation
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
 #endif
                             var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
@@ -1256,7 +1256,7 @@ namespace SharpPy.Generated
                 case GeneratedClassDef classDef:
                     // Class definition from parser (class name: body)
                     {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Processing class statement");
                         Console.WriteLine($"[DEBUG] classDef.Name: {classDef.Name}");
                         Console.WriteLine($"[DEBUG] classDef.Bases count: {classDef.Bases?.Count ?? 0}");
@@ -1282,7 +1282,7 @@ namespace SharpPy.Generated
                                 }
                                 catch (Exception ex)
                                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] Class base class conversion error: {ex.Message}");
 #endif
                                 }
@@ -1303,7 +1303,7 @@ namespace SharpPy.Generated
                                 }
                                 catch (Exception ex)
                                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
 #endif
                                 }
@@ -1319,7 +1319,7 @@ namespace SharpPy.Generated
                                 if (keyword is GeneratedKeyword kw && kw.Arg?.Value == "metaclass")
                                 {
                                     metaclassExpr = ConvertAnyExpression(kw.Value);
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] Found metaclass keyword: {metaclassExpr?.GetType().Name}");
 #endif
                                     break;
@@ -1334,7 +1334,7 @@ namespace SharpPy.Generated
                         var decoratorExpressions = new List<DecoratorExpression>();
                         if (classDef.DecoratorList != null && classDef.DecoratorList.Count > 0)
                         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] Class '{className}' has {classDef.DecoratorList.Count} decorators");
 #endif
                             foreach (var decorator in classDef.DecoratorList.AsEnumerable())
@@ -1345,7 +1345,7 @@ namespace SharpPy.Generated
                                     if (convertedDecorator != null)
                                     {
                                         decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                         Console.WriteLine($"[DEBUG] Added class decorator: {convertedDecorator}");
 #endif
                                     }
@@ -1353,7 +1353,7 @@ namespace SharpPy.Generated
                             }
                         }
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}, decorators={decoratorExpressions.Count}");
 #endif
                         var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr, decoratorExpressions);
@@ -1427,7 +1427,7 @@ namespace SharpPy.Generated
                 case GeneratedImport importStmt:
                     // Import statement (import module)
                     {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] Import case triggered");
                         Console.WriteLine($"  importStmt.Names count: {importStmt.Names?.Count ?? 0}");
 #endif
@@ -1492,7 +1492,7 @@ namespace SharpPy.Generated
 
                             if (names.Count > 0)
                             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Import: Creating ImportStatement with {names.Count} modules: {string.Join(", ", names)}");
 #endif
                                 var result = new ImportStatement(names);
@@ -1500,7 +1500,7 @@ namespace SharpPy.Generated
                                 return result;
                             }
                         }
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] Import: No valid modules found - returning fallback");
 #endif
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -1509,11 +1509,11 @@ namespace SharpPy.Generated
                 case GeneratedImportFrom importFromStmt:
                     // From import statement (from module import name) - CPython 3.12 compatible
                     {
-#if DEBUG
+#if SHARPPY_DEBUG
                         Console.WriteLine($"[DEBUG] importFromStmt.Module type: {importFromStmt.Module?.GetType()?.Name}, value: {importFromStmt.Module}");
 #endif
                         var module = importFromStmt.Module?.ToString();
-#if DEBUG
+#if SHARPPY_DEBUG
                         Console.WriteLine($"[DEBUG] Processing from_import: module={module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
 #endif
                         var level = importFromStmt.Level ?? 0;  // CPython 3.12: None → 0 (absolute import)
@@ -1521,23 +1521,23 @@ namespace SharpPy.Generated
 
                         if (importFromStmt.Names != null)
                         {
-#if DEBUG
+#if SHARPPY_DEBUG
                             Console.WriteLine($"[DEBUG] importFromStmt.Names type: {importFromStmt.Names.GetType().Name}");
 #endif
                             int nameIndex = 0;
                             foreach (var nameItem in importFromStmt.Names)
                             {
-#if DEBUG
+#if SHARPPY_DEBUG
                                 Console.WriteLine($"[DEBUG] Processing name item #{nameIndex}: type={nameItem?.GetType()?.Name}");
 #endif
                                 var alias = (GeneratedAlias)nameItem;
-#if DEBUG
+#if SHARPPY_DEBUG
                                 Console.WriteLine($"[DEBUG] alias.Name type: {alias.Name?.GetType()?.Name}, value: {alias.Name}");
                                 Console.WriteLine($"[DEBUG] alias.Asname type: {alias.Asname?.GetType()?.Name}, value: {alias.Asname}");
 #endif
                                 var name = alias.Name?.ToString();
                                 var asName = alias.Asname?.ToString();
-#if DEBUG
+#if SHARPPY_DEBUG
                                 Console.WriteLine($"[DEBUG] Converted: name={name}, asName={asName}");
 #endif
                                 nameIndex++;
@@ -1545,7 +1545,7 @@ namespace SharpPy.Generated
                                 if (!string.IsNullOrEmpty(name))
                                 {
                                     importAliases.Add(new ImportAlias(name, asName));
-#if DEBUG
+#if SHARPPY_DEBUG
                                     Console.WriteLine($"[DEBUG] Added import alias: {name} as {asName ?? name}");
 #endif
                                 }
@@ -1554,7 +1554,7 @@ namespace SharpPy.Generated
 
                         if (importAliases.Count > 0)
                         {
-#if DEBUG
+#if SHARPPY_DEBUG
                             Console.WriteLine($"[DEBUG] Creating ImportFromStatement: module={module}, level={level}, aliases={importAliases.Count}");
 #endif
                             var result = new ImportFromStatement(module, importAliases, level);
@@ -1562,7 +1562,7 @@ namespace SharpPy.Generated
                             return result;
                         }
 
-#if DEBUG
+#if SHARPPY_DEBUG
                         Console.WriteLine("[DEBUG] Failed to parse from_import, returning placeholder");
 #endif
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -1671,7 +1671,7 @@ namespace SharpPy.Generated
                                 {
                                     foreach (var bodyStmt in caseData.Body.AsEnumerable().Cast<GeneratedStmt>())
                                     {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                         Console.WriteLine($"[DEBUG] Match case body statement type: {bodyStmt?.GetType()?.Name}");
                                         Console.WriteLine($"[DEBUG] Match case body statement value: {bodyStmt}");
 #endif
@@ -1684,7 +1684,7 @@ namespace SharpPy.Generated
                                         }
                                         else if (bodyStmt is IList<object> bodyList)
                                         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                             Console.WriteLine($"[DEBUG] Converting List body with {bodyList.Count} statements");
 #endif
                                             // Convert each statement in the list
@@ -1698,7 +1698,7 @@ namespace SharpPy.Generated
                                                 }
                                                 else
                                                 {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                                     Console.WriteLine($"[DEBUG] List item not GeneratedStmt: {listItem?.GetType()?.Name}");
 #endif
                                                 }
@@ -1706,7 +1706,7 @@ namespace SharpPy.Generated
                                         }
                                         else
                                         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                                             Console.WriteLine($"[DEBUG] Skipping unsupported body statement type: {bodyStmt?.GetType()?.Name}");
 #endif
                                             // For now, create a simple pass statement as fallback
@@ -1729,7 +1729,7 @@ namespace SharpPy.Generated
 
                 default:
                     // Fallback for unhandled statement types
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] ConvertStatement: Unhandled statement type '{stmt.GetType().Name}'");
 #endif
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -1842,7 +1842,7 @@ namespace SharpPy.Generated
             var value = attrExpr.value;
             var attr = attrExpr.attr.ToString();
 
-            #if DEBUG
+            #if SHARPPY_DEBUG
             Console.WriteLine($"[DEBUG] ConvertAttributeAccess: attr='{attr}', value type={value.GetType().Name}");
             #endif
 
@@ -1858,7 +1858,7 @@ namespace SharpPy.Generated
             var value = subscriptExpr.value;
             var slice = subscriptExpr.slice;
 
-            #if DEBUG
+            #if SHARPPY_DEBUG
             Console.WriteLine($"[DEBUG] ConvertSubscriptAccess: slice type={slice.GetType().Name}, value type={value.GetType().Name}");
             #endif
 
@@ -2353,13 +2353,13 @@ namespace SharpPy.Generated
         /// </summary>
         private static CallExpression ConvertCallExpression(GeneratedCall call)
         {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertCallExpression: Func={call.Func != null}, Args={call.Args != null}, Keywords={call.Keywords != null}");
 #endif
 
             // Convert function expression
             var funcExpr = ConvertAnyExpression(call.Func);
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertCallExpression: funcExpr converted successfully");
 #endif
 
@@ -2367,7 +2367,7 @@ namespace SharpPy.Generated
             var args = new List<Expression>();
             if (call.Args != null)
             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                 Console.WriteLine($"[DEBUG] ConvertCallExpression: Converting {call.Args.Count} args");
 #endif
                 foreach (var arg in call.Args.ToEnumerable<GeneratedExpr>())
@@ -2383,7 +2383,7 @@ namespace SharpPy.Generated
             var keywords = new List<KeywordExpression>();
             if (call.Keywords != null)
             {
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
                 Console.WriteLine($"[DEBUG] ConvertCallExpression: Converting {call.Keywords.Count} keywords");
 #endif
                 foreach (var kw in call.Keywords.ToEnumerable<GeneratedKeyword>())
@@ -2395,7 +2395,7 @@ namespace SharpPy.Generated
                 }
             }
 
-#if DEBUG_AST_LOG
+#if SHARPPY_DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertCallExpression: Creating CallExpression with {args.Count} args, {keywords.Count} keywords");
 #endif
             return new CallExpression(funcExpr, args, keywords);
@@ -2585,7 +2585,7 @@ namespace SharpPy.Generated
             // TODO: Implement specific expression conversions
             // This will handle all Python expression types (name, constant, binop, etc.)
 
-            #if DEBUG
+            #if SHARPPY_DEBUG
             Console.WriteLine($"[DEBUG] ConvertExpression: Converting {expr.GetType()}");
             #endif
 
@@ -2957,7 +2957,7 @@ namespace SharpPy.Generated
         {
             if (defaultValue == null) return "None";
 
-            #if DEBUG
+            #if SHARPPY_DEBUG
             Console.WriteLine($"[DEBUG] ConvertDefaultToString: {defaultValue} (Type: {defaultValue.GetType().Name})");
             #endif
 
@@ -2965,7 +2965,7 @@ namespace SharpPy.Generated
             if (defaultValue is GeneratedConstant constantExpr)
             {
                 var value = constantExpr.Value;
-                #if DEBUG
+                #if SHARPPY_DEBUG
                 Console.WriteLine($"[DEBUG] GeneratedConstant value: {value} (Type: {value?.GetType().Name})");
                 #endif
 
@@ -2986,7 +2986,7 @@ namespace SharpPy.Generated
             // Handle other GeneratedExpr types (recurse through conversion)
             if (defaultValue is GeneratedExpr genExpr)
             {
-                #if DEBUG
+                #if SHARPPY_DEBUG
                 Console.WriteLine($"[DEBUG] GeneratedExpr type: {genExpr.GetType().Name}");
                 #endif
 
@@ -3019,7 +3019,7 @@ namespace SharpPy.Generated
                 }
                 catch (Exception ex)
                 {
-                    #if DEBUG
+                    #if SHARPPY_DEBUG
                     Console.WriteLine($"[DEBUG] Error converting GeneratedExpr: {ex.Message}");
                     #endif
                 }

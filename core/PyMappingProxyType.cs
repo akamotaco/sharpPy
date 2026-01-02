@@ -46,7 +46,7 @@ namespace SharpPy
         {
             if (key is PyString keyStr)
             {
-#if DEBUG
+#if SHARPPY_DEBUG
                 // Debug: Track _generate_next_value_ access from __prepare__
                 if (keyStr.Value == "_generate_next_value_")
                 {
