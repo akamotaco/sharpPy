@@ -1,6 +1,10 @@
 using System;
 using System.IO;
 
+#if GODOT
+using Godot_IO;
+#endif
+
 namespace SharpPy
 {
     /// <summary>
@@ -47,6 +51,7 @@ namespace SharpPy
 
     /// <summary>
     /// File context manager implementation (CPython compatible)
+    /// Godot 환경에서는 res://, user:// 경로를 지원
     /// </summary>
     public class PyFileContextManager : PyContextManager
     {
@@ -56,6 +61,10 @@ namespace SharpPy
         private StreamWriter? _writer;
         private Stream? _stream;
         private bool _closed = false;
+#if GODOT
+        private string? _godotContent;  // Godot 전용: 읽기 모드에서 파일 내용 저장
+        private bool _isGodotPath = false;
+#endif
 
         public PyFileContextManager(string filename, string mode = "r")
         {
@@ -70,6 +79,31 @@ namespace SharpPy
         {
             try
             {
+#if GODOT
+                // Godot 경로 (res://, user://) 처리
+                if (Helper.IsGodotPath(_filename))
+                {
+                    _isGodotPath = true;
+                    switch (_mode.ToLower())
+                    {
+                        case "r":
+                        case "rt":
+                            _godotContent = Helper.ReadAllText(_filename);
+                            _reader = new StreamReader(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(_godotContent)));
+                            break;
+                        case "w":
+                        case "wt":
+                            // 쓰기 모드: MemoryStream 사용, Exit 시 Godot에 저장
+                            _stream = new MemoryStream();
+                            _writer = new StreamWriter(_stream, System.Text.Encoding.UTF8);
+                            break;
+                        default:
+                            throw PyValueError.Create($"invalid mode for Godot path: '{_mode}'");
+                    }
+                    return this;
+                }
+#endif
+                // 기본 .NET 파일 처리
                 switch (_mode.ToLower())
                 {
                     case "r":
@@ -112,6 +146,16 @@ namespace SharpPy
             {
                 try
                 {
+#if GODOT
+                    // Godot 쓰기 모드: MemoryStream 내용을 파일로 저장
+                    if (_isGodotPath && _writer != null && _stream is MemoryStream ms)
+                    {
+                        _writer.Flush();
+                        ms.Position = 0;
+                        var content = System.Text.Encoding.UTF8.GetString(ms.ToArray());
+                        Helper.WriteAllText(_filename, content);
+                    }
+#endif
                     _reader?.Dispose();
                     _writer?.Dispose();
                     _stream?.Dispose();
