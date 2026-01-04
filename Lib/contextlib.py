@@ -16,6 +16,18 @@ class AbstractContextManager:
         return None
 
 
+class AbstractAsyncContextManager:
+    """An abstract base class for async context managers."""
+
+    async def __aenter__(self):
+        """Return `self` upon entering the runtime context."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        """Raise any exception triggered within the runtime context."""
+        return None
+
+
 class _GeneratorContextManager(AbstractContextManager):
     """Helper for @contextmanager decorator.
 

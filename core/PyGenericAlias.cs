@@ -100,5 +100,32 @@ namespace SharpPy
             // This implements parameterization of generic aliases
             return new PyGenericAlias(Origin, key);
         }
+
+        /// <summary>
+        /// CPython 3.12: Support | operator for Union types (PEP 604)
+        /// Example: list[int] | None → types.UnionType
+        /// Objects/genericaliasobject.c:ga_or / ga_ror
+        /// </summary>
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            // GenericAlias | X → UnionType([self, X])
+            if (other is PyUnionType otherUnion)
+            {
+                // GenericAlias | UnionType → flatten
+                var combinedArgs = new PyObject[1 + otherUnion.Args.Length];
+                combinedArgs[0] = this;
+                for (int i = 0; i < otherUnion.Args.Length; i++)
+                {
+                    combinedArgs[1 + i] = otherUnion.Args[i];
+                }
+                return new PyUnionType(combinedArgs);
+            }
+            else
+            {
+                // GenericAlias | Type/None/GenericAlias/etc. → UnionType
+                return new PyUnionType(new PyObject[] { this, other });
+            }
+        }
+
     }
 }
