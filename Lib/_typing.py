@@ -230,6 +230,29 @@ class TypeAliasType:
         return NotImplemented
 
 
+class _GenericAliasStub:
+    """Minimal stub for Generic[...] before typing.py fully initializes.
+
+    This is used during typing.py's own import when Generic[T] is referenced
+    before _generic_class_getitem is properly set up.
+    """
+    def __init__(self, origin, params):
+        self.__origin__ = origin
+        self.__args__ = params if isinstance(params, tuple) else (params,)
+
+    def __repr__(self):
+        args_str = ', '.join(repr(arg) for arg in self.__args__)
+        return f'{self.__origin__.__name__}[{args_str}]'
+
+    def __hash__(self):
+        return hash((self.__origin__, self.__args__))
+
+    def __eq__(self, other):
+        if isinstance(other, _GenericAliasStub):
+            return self.__origin__ == other.__origin__ and self.__args__ == other.__args__
+        return NotImplemented
+
+
 class Generic:
     """Abstract base class for generic types.
 
@@ -251,9 +274,6 @@ class Generic:
         pass
 
     def __class_getitem__(cls, params):
-        # typing.py replaces this with _generic_class_getitem
-        # For the base _typing module, we need a minimal implementation
-        # that just allows Generic[T] syntax to work
-        raise NotImplementedError(
-            "Generic.__class_getitem__ requires typing module initialization"
-        )
+        # typing.py replaces this with _generic_class_getitem after import
+        # During typing.py's own import, use a minimal stub implementation
+        return _GenericAliasStub(cls, params)
