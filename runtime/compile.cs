@@ -5863,14 +5863,38 @@ namespace SharpPy
             // Compile class body into a function
             var classBodyName = $"<class_body_{cls.Name}>";
 
-            // CPython 3.12: Class bodies do NOT use closures/free variables
-            // All external variable references in class bodies use LOAD_NAME (global/builtin lookup)
-            // This is different from regular functions which use LOAD_DEREF for closures
-            // See CPython's symtable.c: class scopes are handled differently
-            var classBodyCode = CompileClassBody(cls.Body, classBodyName);
+            // CPython 3.12: Get free variables for this class from symbol table
+            // When a class is defined inside a function and its methods reference
+            // variables from the enclosing function, those become free variables.
+            // Example: def outer(): x=1; class Inner: def get(self): return x
+            // The class body receives 'x' as a free variable via closure.
+            var classFreeVars = GetClassFreeVariables(cls.Name);
+
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔍 CompileRegularClass: {cls.Name} free variables: [{string.Join(", ", classFreeVars)}]");
+            #endif
+
+            // CPython 3.12: If class has free variables, emit LOAD_CLOSURE for each
+            // before compiling class body and creating closure
+            if (classFreeVars.Count > 0)
+            {
+                foreach (var freeVar in classFreeVars)
+                {
+                    #if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"   → LOAD_CLOSURE for class free var: {freeVar}");
+                    #endif
+                    EmitLoadClosure(freeVar);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, classFreeVars.Count);
+            }
+
+            var classBodyCode = CompileClassBody(cls.Body, classBodyName, classFreeVars);
             EmitLoadConst(classBodyCode);
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0); // No closure flag
-            
+
+            // CPython 3.12: MAKE_FUNCTION with closure flag if class has free variables
+            int makeFunctionFlags = classFreeVars.Count > 0 ? MakeFunctionFlags.CLOSURE : 0;
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
+
             // Load class name
             EmitLoadConst(new PyString(cls.Name));
             
@@ -6301,7 +6325,16 @@ namespace SharpPy
             }
         }
         
-        private PyCodeObject CompileClassBody(List<Statement> body, string className)
+        /// <summary>
+        /// CPython 3.12: Compile class body with optional free variables
+        /// When a class is defined inside a function and its methods reference
+        /// variables from the enclosing function, those variables are passed
+        /// as free variables to the class body.
+        /// </summary>
+        /// <param name="body">Class body statements</param>
+        /// <param name="className">Class name (or &lt;class_body_ClassName&gt;)</param>
+        /// <param name="classFreeVars">Free variables from enclosing scope (optional)</param>
+        private PyCodeObject CompileClassBody(List<Statement> body, string className, List<string>? classFreeVars = null)
         {
             // Save current compilation state
             var savedInstructionSequence = _instructionSequence;
@@ -6367,7 +6400,11 @@ namespace SharpPy
             _names = new List<string>();
             _varNames = new List<string>();
             _cellVars = new List<string>();
-            _freeVars = new List<string>();
+            // CPython 3.12: Class bodies CAN have free variables when defined inside a function
+            // and their methods reference variables from the enclosing function scope.
+            // Example: def outer(): x=1; class Inner: def get(self): return x
+            // In this case, Inner's class body receives 'x' as a free variable.
+            _freeVars = classFreeVars != null ? new List<string>(classFreeVars) : new List<string>();
             // Keep existing Exception Table entries instead of resetting
             // _exceptionTable = new List<ExceptionTableEntry>(); // Removed: This was causing Exception Table entry loss
 
@@ -6379,10 +6416,18 @@ namespace SharpPy
             // Mark that we're in a class body (for proper name resolution)
             _isInClassBody = true;
 
-            // CPython 3.12: Class bodies do NOT use free variables
-            // All external variable references use LOAD_NAME (global/builtin lookup)
-            // Do NOT set up free variables even if symbol table reports them
-            
+            // CPython 3.12: If class has free variables, emit COPY_FREE_VARS first
+            // This must come BEFORE MAKE_CELL and RESUME
+            // See CPython bytecode: Inner class starts with COPY_FREE_VARS 1
+            if (_freeVars.Count > 0)
+            {
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔧 Class {className} has {_freeVars.Count} free variables: [{string.Join(", ", _freeVars)}]");
+                Console.WriteLine($"🔧 Emitting COPY_FREE_VARS {_freeVars.Count}");
+                #endif
+                EmitInstruction(ByteCodeOp.COPY_FREE_VARS, _freeVars.Count);
+            }
+
             // Check if class body contains super() calls and add __class__ cell variable if needed
             if (ContainsSuperCalls(body))
             {
@@ -6390,7 +6435,7 @@ namespace SharpPy
                 Console.WriteLine($"🔍 Detected super() calls in class {className}, adding __class__ cell variable");
                 #endif
                 _cellVars.Add("__class__");
-                
+
                 // Generate MAKE_CELL instruction for __class__ cell variable
                 // CPython 3.12: __class__ cell variable uses index 0 (first cellVar)
                 var cellVarIndex = 0; // __class__ is always the first (index 0) cell variable
@@ -6400,20 +6445,11 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
             }
 
-            // CPython 3.12: RESUME instruction after MAKE_CELL (or at start of class body)
+            // CPython 3.12: RESUME instruction after COPY_FREE_VARS and MAKE_CELL
             EmitInstruction(ByteCodeOp.RESUME, 0);
-
-            // For now, disable free variable analysis for class bodies
-            // Class bodies will use normal name lookup instead of closure mechanism
-            // var freeVariableAnalyzer = new ClassBodyFreeVariableAnalyzer();
-            // var classFreeVars = freeVariableAnalyzer.AnalyzeClassBody(body, savedNames);
-            // _freeVars.AddRange(classFreeVars);
 
             try
             {
-                // CPython 3.12: Class bodies do NOT emit COPY_FREE_VARS
-                // Classes use LOAD_NAME for external variable access, not closures
-
                 // CPython 3.12: Setup __module__ attribute in class body
                 // This is equivalent to: __module__ = __name__
                 EmitLoadName("__name__");  // Load current module name

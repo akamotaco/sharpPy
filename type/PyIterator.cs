@@ -223,9 +223,9 @@ namespace SharpPy
     public class PyRangeIterator : PyIterator
     {
         private readonly PyRange _range;
-        private int _current;
-        private readonly int _step;
-        private readonly int _stop;
+        private long _current;
+        private readonly long _step;
+        private readonly long _stop;
 
         public PyRangeIterator(PyRange range)
         {

@@ -1503,6 +1503,13 @@ namespace SharpPy
                     {
                         AnalyzeExpression(arg);
                     }
+                    // CPython 3.12: symtable.c:2132-2138 - Also analyze keyword argument values
+                    // This is critical for closures like: func(typed=typed)
+                    // where 'typed' on the right side is a variable reference
+                    foreach (var keyword in call.Keywords)
+                    {
+                        AnalyzeExpression(keyword.Value);
+                    }
                     break;
 
                 case AttributeExpression attr:

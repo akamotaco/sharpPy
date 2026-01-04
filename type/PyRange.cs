@@ -10,19 +10,19 @@ namespace SharpPy
     {
         #region Core Properties
 
-        public int Start { get; }
-        public int Stop { get; }
-        public int Step { get; }
+        public long Start { get; }
+        public long Stop { get; }
+        public long Step { get; }
 
-        public PyRange(int stop) : this(0, stop, 1) { }
-        
-        public PyRange(int start, int stop) : this(start, stop, 1) { }
-        
-        public PyRange(int start, int stop, int step)
+        public PyRange(long stop) : this(0, stop, 1) { }
+
+        public PyRange(long start, long stop) : this(start, stop, 1) { }
+
+        public PyRange(long start, long stop, long step)
         {
             if (step == 0)
                 throw PyValueError.Create("range() arg 3 must not be zero");
-            
+
             Start = start;
             Stop = stop;
             Step = step;
@@ -81,7 +81,7 @@ namespace SharpPy
         {
             if (index is PyInt pyInt)
             {
-                return GetItem((int)pyInt.Value);
+                return GetItem((long)pyInt.Value);
             }
             else if (index is PySlice slice)
             {
@@ -92,12 +92,12 @@ namespace SharpPy
                 if (step == 0)
                     throw PyValueError.Create("slice step cannot be zero");
 
-                int newStart = Start + start * Step;
-                int newStep = Step * step;
+                long newStart = Start + start * Step;
+                long newStep = Step * step;
 
                 // Calculate new stop
                 int sliceLength = slice.GetLength(length);
-                int newStop = newStart + sliceLength * newStep;
+                long newStop = newStart + sliceLength * newStep;
 
                 return new PyRange(newStart, newStop, newStep);
             }
@@ -110,9 +110,9 @@ namespace SharpPy
         /// <summary>
         /// 인덱스 접근 range[i] (internal helper)
         /// </summary>
-        public PyInt GetItem(int index)
+        public PyInt GetItem(long index)
         {
-            var length = Length();
+            var length = LengthLong();
 
             // 음수 인덱스 지원
             if (index < 0) index += length;
@@ -126,26 +126,26 @@ namespace SharpPy
         /// <summary>
         /// 슬라이싱 range[start:stop:step]
         /// </summary>
-        public PyRange GetSlice(int? start = null, int? stop = null, int? step = null)
+        public PyRange GetSlice(long? start = null, long? stop = null, long? step = null)
         {
-            var length = Length();
+            var length = LengthLong();
             var sliceStep = step ?? 1;
-            
+
             if (sliceStep == 0)
                 throw PyValueError.Create("slice step cannot be zero");
-            
+
             var actualStart = start ?? (sliceStep > 0 ? 0 : length - 1);
             var actualStop = stop ?? (sliceStep > 0 ? length : -1);
-            
+
             // 음수 인덱스 정규화
             if (actualStart < 0) actualStart += length;
             if (actualStop < 0) actualStop += length;
-            
+
             // 슬라이스 범위를 실제 range 값으로 변환
             var newStart = Start + Math.Max(0, actualStart) * Step;
             var newStop = Start + Math.Min(length, actualStop) * Step;
             var newStep = Step * sliceStep;
-            
+
             return new PyRange(newStart, newStop, newStep);
         }
 
@@ -208,12 +208,12 @@ namespace SharpPy
         {
             if (Step > 0)
             {
-                for (int i = Start; i < Stop; i += Step)
+                for (long i = Start; i < Stop; i += Step)
                     yield return new PyInt(i);
             }
             else
             {
-                for (int i = Start; i > Stop; i += Step)
+                for (long i = Start; i > Stop; i += Step)
                     yield return new PyInt(i);
             }
         }
@@ -258,7 +258,10 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length()
+        /// <summary>
+        /// Returns the length as long (for internal use with large ranges)
+        /// </summary>
+        public long LengthLong()
         {
             if (Step > 0)
             {
@@ -272,7 +275,15 @@ namespace SharpPy
             }
         }
 
-        public override bool PyBoolValue() => Length() > 0;
+        public override int Length()
+        {
+            var len = LengthLong();
+            if (len > int.MaxValue)
+                throw PyOverflowError.Create("Python int too large to convert to C# int");
+            return (int)len;
+        }
+
+        public override bool PyBoolValue() => LengthLong() > 0;
 
         #endregion
 
@@ -335,17 +346,17 @@ namespace SharpPy
         /// <summary>
         /// range(stop) 생성
         /// </summary>
-        public static PyRange Create(int stop) => new PyRange(stop);
+        public static PyRange Create(long stop) => new PyRange(stop);
 
         /// <summary>
         /// range(start, stop) 생성
         /// </summary>
-        public static PyRange Create(int start, int stop) => new PyRange(start, stop);
+        public static PyRange Create(long start, long stop) => new PyRange(start, stop);
 
         /// <summary>
         /// range(start, stop, step) 생성
         /// </summary>
-        public static PyRange Create(int start, int stop, int step) => new PyRange(start, stop, step);
+        public static PyRange Create(long start, long stop, long step) => new PyRange(start, stop, step);
 
         #endregion
 
@@ -364,7 +375,7 @@ namespace SharpPy
         /// <summary>
         /// range가 빈지 확인
         /// </summary>
-        public bool IsEmpty() => Length() == 0;
+        public bool IsEmpty() => LengthLong() == 0;
 
         /// <summary>
         /// range의 최소값
@@ -373,11 +384,11 @@ namespace SharpPy
         {
             if (IsEmpty())
                 throw PyValueError.Create("min() arg is an empty sequence");
-            
+
             if (Step > 0)
                 return new PyInt(Start);
             else
-                return new PyInt(Start + (Length() - 1) * Step);
+                return new PyInt(Start + (LengthLong() - 1) * Step);
         }
 
         /// <summary>
@@ -387,9 +398,9 @@ namespace SharpPy
         {
             if (IsEmpty())
                 throw PyValueError.Create("max() arg is an empty sequence");
-            
+
             if (Step > 0)
-                return new PyInt(Start + (Length() - 1) * Step);
+                return new PyInt(Start + (LengthLong() - 1) * Step);
             else
                 return new PyInt(Start);
         }

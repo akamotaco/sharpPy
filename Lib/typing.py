@@ -88,6 +88,7 @@ _ORIGIN_TO_TYPING_NAME[dict] = 'Dict'
 _ORIGIN_TO_TYPING_NAME[set] = 'Set'
 _ORIGIN_TO_TYPING_NAME[tuple] = 'Tuple'
 _ORIGIN_TO_TYPING_NAME[frozenset] = 'FrozenSet'
+_ORIGIN_TO_TYPING_NAME[type] = 'Type'
 
 
 # Special forms that don't use _GenericAlias
@@ -178,3 +179,11 @@ class _GeneratorType:
     pass
 
 Generator = _SpecialGenericAlias(_GeneratorType, 'Generator')
+
+# Type is a special generic alias for class types
+# Type[C] represents the class C itself, not an instance of C
+Type = _SpecialGenericAlias(type, 'Type')
+
+# TYPE_CHECKING is a constant that is False at runtime but True for type checkers
+# This allows imports that are only needed for type hints to be skipped at runtime
+TYPE_CHECKING = False

@@ -80,8 +80,8 @@ namespace SharpPy.Modules
             if (abcData == null)
                 throw PyTypeError.Create("_abc_impl is not set or is set to a wrong type");
 
-            // Check if subclass is a class
-            if (!(subclass is PyClass))
+            // Check if subclass is a class (PyClass or PyType)
+            if (!(subclass is PyClass) && !(subclass is PyType))
                 throw PyTypeError.Create("Can only register classes");
 
             // Add to registry

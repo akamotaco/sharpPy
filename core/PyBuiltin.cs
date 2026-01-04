@@ -451,17 +451,17 @@ namespace SharpPy
             {
                 1 => args[0] switch
                 {
-                    PyInt stop => PyRange.Create((int)stop.Value),
+                    PyInt stop => PyRange.Create((long)stop.Value),
                     _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
                 },
                 2 => (args[0], args[1]) switch
                 {
-                    (PyInt start, PyInt stop) => PyRange.Create((int)start.Value, (int)stop.Value),
+                    (PyInt start, PyInt stop) => PyRange.Create((long)start.Value, (long)stop.Value),
                     _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
                 },
                 3 => (args[0], args[1], args[2]) switch
                 {
-                    (PyInt start, PyInt stop, PyInt step) => PyRange.Create((int)start.Value, (int)stop.Value, (int)step.Value),
+                    (PyInt start, PyInt stop, PyInt step) => PyRange.Create((long)start.Value, (long)stop.Value, (long)step.Value),
                     _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
                 },
                 _ => throw PyTypeError.Create($"range expected at most 3 arguments, got {args.Length}")
