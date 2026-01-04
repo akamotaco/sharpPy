@@ -1841,7 +1841,7 @@ namespace SharpPy
                 }
                 else if (iterable is PyRange range)
                 {
-                    for (int i = range.Start; i < range.Stop; i += range.Step)
+                    for (long i = range.Start; i < range.Stop; i += range.Step)
                     {
                         AssignTarget(scope, Target, new PyInt(i));
                         try
