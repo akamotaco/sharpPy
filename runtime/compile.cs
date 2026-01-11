@@ -10008,20 +10008,13 @@ namespace SharpPy
             _freeVars = tempFreeVars; // Restore original FreeVars
             _isInFunction = tempIsInFunction; // Restore function context flag
             _currentSymbolTable = originalSymbolTable; // Restore original symbol table
-            
+
             // CPython 3.12: Create function code object with correct VarNames order
-            // VarNames = parameters first, then any local variables used in lambda body
+            // VarNames = parameters only (CPython co_varnames contains only local variables and parameters)
+            // Note: lambdaNames is the 'names' array (for LOAD_ATTR, LOAD_GLOBAL), NOT varnames!
+            // See CPython: lambda with no params has co_varnames=(), co_names=('append', 'instantiate')
             var lambdaVarNames = new List<string>(cleanParamNames);
-            
-            // Add any additional local variables that were used (beyond parameters)
-            foreach (var name in lambdaNames)
-            {
-                if (!lambdaVarNames.Contains(name))
-                {
-                    lambdaVarNames.Add(name);
-                }
-            }
-            
+
             var functionCode = new PyCodeObject(
                 lambdaName,
                 lambdaInstructions,
