@@ -680,7 +680,13 @@ namespace SharpPy
                 _currentTable.DefineSymbol(paramName, SymbolFlags.Parameter | SymbolFlags.Assigned);
             }
 
-            // Analyze function body
+            // CPython 3.12: Pre-collect all assignments in the function body BEFORE analyzing nested functions.
+            // This ensures that variables assigned after nested function definitions are recognized
+            // as local variables when analyzing the nested function's free variables.
+            // Python/symtable.c does this implicitly through its two-pass analysis.
+            PreCollectAssignments(func.Body);
+
+            // Analyze function body (now with all local assignments already registered)
             foreach (var stmt in func.Body)
             {
                 AnalyzeStatement(stmt);
@@ -2173,6 +2179,151 @@ namespace SharpPy
                 }
             }
             // AttributeExpression, SubscriptExpression don't define new symbols
+        }
+
+        /// <summary>
+        /// CPython 3.12: Pre-collect all assignment targets in a function body.
+        /// This ensures that variables assigned after nested function definitions
+        /// are still recognized as local variables when analyzing the nested function.
+        ///
+        /// Example:
+        ///   def outer():
+        ///       def inner():
+        ///           x.append(1)  # x should be FREE, not GLOBAL
+        ///       x = []  # This assignment must be known before analyzing inner()
+        ///
+        /// CPython does this implicitly by scanning the entire function body first.
+        /// Python/symtable.c uses a two-pass approach where bindings are collected
+        /// before analyzing nested scopes.
+        /// </summary>
+        private void PreCollectAssignments(IEnumerable<Statement> statements)
+        {
+            foreach (var stmt in statements)
+            {
+                PreCollectAssignmentFromStatement(stmt);
+            }
+        }
+
+        /// <summary>
+        /// Recursively collect assignment targets from a single statement.
+        /// Only collects direct assignments, not assignments inside nested functions/lambdas.
+        /// </summary>
+        private void PreCollectAssignmentFromStatement(Statement stmt)
+        {
+            switch (stmt)
+            {
+                case AssignStatement assign:
+                    // Collect all assignment targets
+                    foreach (var target in assign.Targets)
+                    {
+                        PreCollectAssignmentTarget(target);
+                    }
+                    break;
+
+                case AugmentedAssignStatement augAssign:
+                    // Target is Expression type, use PreCollectAssignmentTarget
+                    PreCollectAssignmentTarget(augAssign.Target);
+                    break;
+
+                case AnnAssignStatement annAssign:
+                    _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
+                    break;
+
+                case ForStatement forStmt:
+                    // Loop variable is assigned
+                    DefineTargetSymbols(forStmt.Target, SymbolFlags.Assigned);
+                    // Recursively check body (but not nested functions)
+                    PreCollectAssignments(forStmt.Body);
+                    if (forStmt.ElseClause != null)
+                        PreCollectAssignments(forStmt.ElseClause);
+                    break;
+
+                case WhileStatement whileStmt:
+                    PreCollectAssignments(whileStmt.Body);
+                    if (whileStmt.ElseClause != null)
+                        PreCollectAssignments(whileStmt.ElseClause);
+                    break;
+
+                case IfStatement ifStmt:
+                    PreCollectAssignments(ifStmt.Body);
+                    // OrElse contains else/elif statements
+                    if (ifStmt.OrElse != null)
+                        PreCollectAssignments(ifStmt.OrElse);
+                    break;
+
+                case TryStatement tryStmt:
+                    PreCollectAssignments(tryStmt.Body);
+                    foreach (var handler in tryStmt.Handlers)
+                    {
+                        if (handler.Name != null)
+                        {
+                            _currentTable?.DefineSymbol(handler.Name, SymbolFlags.Assigned);
+                        }
+                        PreCollectAssignments(handler.Body);
+                    }
+                    if (tryStmt.OrElse != null)
+                        PreCollectAssignments(tryStmt.OrElse);
+                    if (tryStmt.FinalBody != null)
+                        PreCollectAssignments(tryStmt.FinalBody);
+                    break;
+
+                case WithStatement withStmt:
+                    foreach (var item in withStmt.Items)
+                    {
+                        if (item.OptionalVars is NameExpression nameExpr)
+                        {
+                            _currentTable?.DefineSymbol(nameExpr.Name, SymbolFlags.Assigned);
+                        }
+                    }
+                    PreCollectAssignments(withStmt.Body);
+                    break;
+
+                case MatchStatement matchStmt:
+                    foreach (var caseBlock in matchStmt.Cases)
+                    {
+                        PreCollectAssignments(caseBlock.Body);
+                    }
+                    break;
+
+                // FunctionDefStatement and AsyncFunctionDefStatement are NOT recursed into
+                // because they create their own scope
+                // LambdaExpression is also not recursed into
+
+                default:
+                    // Other statements don't define local variables
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Pre-collect assignment target (only for simple names, not attributes/subscripts)
+        /// </summary>
+        private void PreCollectAssignmentTarget(Expression target)
+        {
+            switch (target)
+            {
+                case NameExpression name:
+                    _currentTable?.DefineSymbol(name.Name, SymbolFlags.Assigned);
+                    break;
+
+                case TupleExpression tuple:
+                    foreach (var element in tuple.Elements)
+                    {
+                        PreCollectAssignmentTarget(element);
+                    }
+                    break;
+
+                case ListExpression list:
+                    foreach (var element in list.Elements)
+                    {
+                        PreCollectAssignmentTarget(element);
+                    }
+                    break;
+
+                // AttributeExpression, SubscriptExpression don't define new local symbols
+                default:
+                    break;
+            }
         }
 
         /// <summary>
