@@ -473,6 +473,10 @@ namespace SharpPy
         // Uses PyObject's GetPyType() which returns _customType ?? PyType.IntType
         public override PyType GetPyType() => _customType ?? PyType.IntType;
 
+        // CPython 3.12: Objects/longobject.c - long_bool
+        // Optimized: Direct value check, no MRO traversal
+        public override bool IsTrue() => Value != 0;
+
         #endregion
 
         #region Type Conversion Methods (CPython 3.12 compatible)

@@ -41,7 +41,9 @@ namespace SharpPy
                     _frame.InstructionPointer = 0;
                     _frame.State = PyFrame.FrameState.Executing;
                     _started = true;
+#if DEBUG_VM_LOG
                     Console.WriteLine("🔄 Generator: First execution, starting from instruction 0");
+#endif
                 }
                 else
                 {
@@ -63,7 +65,9 @@ namespace SharpPy
                         {
                             _frame.ValueStack.Push(item);
                         }
+#if DEBUG_VM_LOG
                         Console.WriteLine($"🔄 Generator: Resumed with stack size {_frame.ValueStack.Count} at instruction {_lastInstructionPointer}");
+#endif
                     }
                 }
 
@@ -86,7 +90,9 @@ namespace SharpPy
                 // O(n) optimized clone using List.AddRange
                 _savedStack = _frame.ValueStack.Clone();
 
+#if DEBUG_VM_LOG
                 Console.WriteLine($"🔄 Generator: Yielded {yieldEx.Value} at instruction {_lastInstructionPointer}, saved stack size {_savedStack.Count}");
+#endif
                 _current = yieldEx.Value ?? PyNone.Instance;
                 return true;
             }

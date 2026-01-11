@@ -510,6 +510,10 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.DictType;
         public override string GetTypeName() => "dict";
 
+        // CPython 3.12: Objects/dictobject.c - dict_bool
+        // Optimized: Direct count check, no MRO traversal
+        public override bool IsTrue() => _dict.Count > 0;
+
         #endregion
 
         #region String Representation

@@ -292,6 +292,11 @@ namespace SharpPy
 
         public override string GetTypeName() => "list";
         public override PyType GetPyType() => PyType.ListType;
+
+        // CPython 3.12: Objects/listobject.c - list_bool
+        // Optimized: Direct count check, no MRO traversal
+        public override bool IsTrue() => _items.Count > 0;
+
         public override string ToString()
         {
             // Performance: CPython-style - pre-calculate size, allocate once, direct copy
