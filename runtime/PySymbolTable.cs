@@ -2304,6 +2304,23 @@ namespace SharpPy
                     }
                     break;
 
+                // CPython 3.12: GlobalStatement must be processed before assignments
+                // Otherwise, a variable might be marked as Local before Global is seen
+                case GlobalStatement global:
+                    foreach (var name in global.Names)
+                    {
+                        _currentTable?.DefineSymbol(name, SymbolFlags.Global);
+                    }
+                    break;
+
+                // CPython 3.12: NonlocalStatement must also be processed before assignments
+                case NonlocalStatement nonlocal:
+                    foreach (var name in nonlocal.Names)
+                    {
+                        _currentTable?.DefineSymbol(name, SymbolFlags.Nonlocal);
+                    }
+                    break;
+
                 // FunctionDefStatement and AsyncFunctionDefStatement are NOT recursed into
                 // because they create their own scope
                 // LambdaExpression is also not recursed into
