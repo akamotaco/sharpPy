@@ -81,6 +81,10 @@ namespace SharpPy
 
         public override bool PyBoolValue() => false; // None은 항상 falsy
 
+        // CPython 3.12: Objects/object.c - Py_None always returns false
+        // Optimized: Direct return, no MRO traversal
+        public override bool IsTrue() => false;
+
         #endregion
 
         #region Type Conversion (None은 대부분 변환 불가)

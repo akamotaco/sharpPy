@@ -156,6 +156,10 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.TupleType;
         public override string GetTypeName() => "tuple";
 
+        // CPython 3.12: Objects/tupleobject.c - tuple_bool
+        // Optimized: Direct length check, no MRO traversal
+        public override bool IsTrue() => Items.Length > 0;
+
         #endregion
 
         #region String Representation

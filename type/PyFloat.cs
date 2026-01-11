@@ -309,6 +309,10 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.FloatType;
         public override string GetTypeName() => "float";
 
+        // CPython 3.12: Objects/floatobject.c - float_bool
+        // Optimized: Direct value check, no MRO traversal
+        public override bool IsTrue() => Value != 0.0;
+
         #endregion
 
         #region String Representation

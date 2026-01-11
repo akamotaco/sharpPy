@@ -1088,7 +1088,12 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"\n🚀 VM 실행: {frame}");
 #endif
-            // 🛡️ 무한루프 방지 안전장치
+
+            // CPython 3.12: Extended argument accumulation for EXTENDED_ARG support
+            int extendedArg = 0;
+
+#if DEBUG
+            // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용)
             var startTime = DateTime.UtcNow;
             var maxInstructions = 50_000; // 최대 5만 명령어 (for debugging infinite loops)
             var maxTimeSeconds = 30; // 최대 30초
@@ -1097,15 +1102,14 @@ namespace SharpPy
             // DEBUG: Track last instructions for debugging infinite loops
             var lastInstructions = new System.Collections.Generic.Queue<string>();
             const int maxLastInstructions = 100; // Increase to 100 for better analysis
-
-            // CPython 3.12: Extended argument accumulation for EXTENDED_ARG support
-            int extendedArg = 0;
+#endif
 
             try
             {
                 while (frame.InstructionPointer < frame.Code.Instructions.Count)
                 {
-                    // 🛡️ 안전장치 검사
+#if DEBUG
+                    // 🛡️ 안전장치 검사 (DEBUG 모드 전용)
                     instructionCount++;
                     if (instructionCount % 10000 == 0) // 1만 명령어마다 검사
                     {
@@ -1126,14 +1130,17 @@ namespace SharpPy
                             throw new PythonException(new PyRuntimeError($"Instruction limit exceeded: {instructionCount} instructions"));
                         }
                     }
+#endif
 
                     var instruction = frame.Code.Instructions[frame.InstructionPointer];
 
+#if DEBUG
                     // DEBUG: Track instruction for debugging
                     var instructionLog = $"[{instructionCount}] IP={frame.InstructionPointer} {instruction.OpCode} arg={instruction.Argument} in {frame.Code.Name}";
                     if (lastInstructions.Count >= maxLastInstructions)
                         lastInstructions.Dequeue();
                     lastInstructions.Enqueue(instructionLog);
+#endif
 
                     // CPython 3.12: Handle EXTENDED_ARG by accumulating argument bits
                     // EXTENDED_ARG shifts left by 8 bits and ORs with next instruction's arg
@@ -1885,21 +1892,10 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BINARY_OP:
-                    // CPython 3.12+ unified binary operation with adaptive profiling
+                    // CPython 3.12+ unified binary operation
                     var operation = (BinaryOpType)instruction.Argument;
                     var right = frame.ValueStack.Pop();
                     var left = frame.ValueStack.Pop();
-
-                    // Record profiling data for adaptive specialization
-                    var location = $"{frame.Code.Name}_{frame.InstructionPointer}";
-                    var opName = operation.ToString().ToLower().Replace("_", "");
-                    if (opName == "truedivide") opName = "/";
-                    else if (opName == "floordivide") opName = "//";
-                    else if (opName == "add") opName = "+";
-                    else if (opName == "subtract") opName = "-";
-                    else if (opName == "multiply") opName = "*";
-                    else if (opName == "modulo") opName = "%";
-                    else if (opName == "power") opName = "**";
 
                     var result = ExecuteBinaryOpType(left, right, operation);
                     frame.ValueStack.Push(result);
