@@ -895,8 +895,9 @@ namespace SharpPy
                     // "For ClassBlocks, the bound and global names are initialized
                     //  before analyzing names, because class bindings aren't visible in methods."
                     // Class scope symbols should NOT be visible to nested functions (methods).
-                    // Skip class scope entirely when searching for enclosing variables.
-                    if (parent.Type == SymbolTableType.Class)
+                    // EXCEPTION: __class__ is a special implicit cell variable that IS visible to methods.
+                    // Skip class scope entirely when searching for enclosing variables, EXCEPT for __class__.
+                    if (parent.Type == SymbolTableType.Class && name != "__class__")
                     {
 #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ Symbol in class scope - class bindings not visible in methods, continuing search");
@@ -1970,6 +1971,24 @@ namespace SharpPy
 
             // CPython 3.12: Push onto scope stack (symtable.c:331)
             _scopeStack.Push(_currentTable);
+
+            // CPython 3.12: If class body or any method contains super() calls,
+            // add __class__ as an implicit CELL variable in the class scope BEFORE analyzing methods.
+            // This ensures that when methods' ResolveFreeVariables runs, it can find __class__ in parent.
+            // Python/symtable.c: symtable_add_def_helper() with DEF_CELL flag
+            if (PythonCompiler.ContainsSuperCalls(cls.Body))
+            {
+                // Define __class__ as CELL in class scope
+                _currentTable.DefineSymbol("__class__", SymbolFlags.Assigned);
+                var symbols = _currentTable.GetSymbols();
+                if (symbols.TryGetValue("__class__", out var classSymbol))
+                {
+                    classSymbol.Scope = SymbolScope.Cell;
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  ✅ Pre-added __class__ as CELL in class scope '{cls.Name}' due to super() calls");
+#endif
+                }
+            }
 
             // Analyze class body
             foreach (var stmt in cls.Body)

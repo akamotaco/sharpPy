@@ -3240,7 +3240,9 @@ namespace SharpPy
                                     {
                                         // CPython 3.12: LOAD_GLOBAL without NULL for LOAD_SUPER_ATTR
                                         EmitLoadGlobal("super", pushNull: false);
-                                        EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
+                                        // CPython 3.12: Use EmitLoadDeref to calculate correct localsplus offset
+                                        // Free variable offset = ncellvars + freevar_index
+                                        EmitLoadDeref("__class__");
 
                                         // Load self - first parameter (cls/self)
                                         EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
@@ -3359,7 +3361,8 @@ namespace SharpPy
                             {
                                 // CPython 3.12: LOAD_GLOBAL without NULL for LOAD_SUPER_ATTR
                                 EmitLoadGlobal("super", pushNull: false);
-                                EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
+                                // CPython 3.12: Use EmitLoadDeref to calculate correct localsplus offset
+                                EmitLoadDeref("__class__");
 
                                 // Load self - first parameter (cls/self)
                                 EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
