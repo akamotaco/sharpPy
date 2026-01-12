@@ -3003,7 +3003,8 @@ namespace SharpPy
                         #endif
                         
                         // CPython 3.12: Dynamic __class__ cell binding for inherited metaclass methods
-                        if (newMethod is PyFunction pyFunc && pyFunc.CodeObject?.FreeVars?.Contains("__class__") == true)
+                        // Optimized: Use cached HasClassCell instead of FreeVars.Contains("__class__")
+                        if (newMethod is PyFunction pyFunc && pyFunc.CodeObject?.HasClassCell == true)
                         {
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 CPython 3.12: Adjusting __class__ cell for inherited metaclass method");
@@ -3014,22 +3015,26 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine($"   Target metaclass: {metaclass}");
                             #endif
-                            
+
                             // Create a copy of the closure and update the __class__ cell
                             if (pyFunc.Closure != null && pyFunc.Closure.Length > 0)
                             {
                                 var adjustedClosure = new PyCell[pyFunc.Closure.Length];
                                 Array.Copy(pyFunc.Closure, adjustedClosure, pyFunc.Closure.Length);
-                                
-                                var classIndex = pyFunc.CodeObject.FreeVars.IndexOf("__class__");
-                                if (classIndex >= 0 && classIndex < adjustedClosure.Length)
+
+                                // Optimized: Use cached ClassCellIndex instead of FreeVars.IndexOf("__class__")
+                                var classIndex = pyFunc.CodeObject.ClassCellIndex;
+                                // Note: ClassCellIndex is combined index (CellVars.Count + freeIndex)
+                                // For closure array, we need the index relative to FreeVars
+                                var closureIndex = classIndex - pyFunc.CodeObject.CellVars.Count;
+                                if (closureIndex >= 0 && closureIndex < adjustedClosure.Length)
                                 {
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[classIndex]?.Value}");
+                                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[closureIndex]?.Value}");
                                     #endif
-                                    adjustedClosure[classIndex] = new PyCell(metaclass);
+                                    adjustedClosure[closureIndex] = new PyCell(metaclass);
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   ✅ Updated __class__ cell[{classIndex}] to {metaclass}");
+                                    Console.WriteLine($"   ✅ Updated __class__ cell[{closureIndex}] to {metaclass}");
                                     #endif
                                     
                                     // Create a new function with the adjusted closure
@@ -3683,30 +3688,13 @@ namespace SharpPy
                 if (currentFrame != null)
                 {
                     // CPython 3.12: __class__ can be in FreeVars (from parent) or CellVars (local)
-                    int classIndex = -1;
-                    
-                    // Check FreeVars first (most common for class methods)
-                    var freeVarIndex = currentFrame.Code.FreeVars.IndexOf("__class__");
-                    if (freeVarIndex >= 0)
-                    {
-                        classIndex = freeVarIndex; // FreeVars start at index 0
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 Found __class__ in FreeVars at index {classIndex}");
-                        #endif
-                    }
-                    else
-                    {
-                        // Check CellVars (local cell variables come after FreeVars)
-                        var cellVarIndex = currentFrame.Code.CellVars.IndexOf("__class__");
-                        if (cellVarIndex >= 0)
-                        {
-                            classIndex = (currentFrame.Code.FreeVars?.Count ?? 0) + cellVarIndex;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 Found __class__ in CellVars at combined index {classIndex}");
-                            #endif
-                        }
-                    }
-                    
+                    // Optimized: Use cached ClassCellIndex instead of IndexOf calls
+                    int classIndex = currentFrame.Code.ClassCellIndex;
+                    #if DEBUG_LOG
+                    if (classIndex >= 0)
+                        Console.WriteLine($"🔍 Found __class__ at cached ClassCellIndex={classIndex}");
+                    #endif
+
                     if (classIndex >= 0)
                     {
                         // Try to get the __class__ value from cell variables
