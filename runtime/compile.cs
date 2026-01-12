@@ -3138,10 +3138,17 @@ namespace SharpPy
                             #endif
 
                             // Check if it's a local variable (LOAD_FAST) or free variable (LOAD_DEREF) in function scope
+                            // CPython 3.12 PEP 709: Comprehensions are inlined but have their own scope
+                            // For inlined comprehensions, also check parent scope if not found in current scope
                             bool isHandled = false;
-                            if (_currentSymbolTable != null && _isInFunction)
+                            if (_currentSymbolTable != null && (_isInFunction || _isInComprehension))
                             {
                                 var symbol = _currentSymbolTable.Lookup(funcName.Name);
+                                // CPython 3.12 PEP 709: If not found in comprehension scope, check parent scope
+                                if (symbol == null && _isInComprehension && _currentSymbolTable.GetParent() != null)
+                                {
+                                    symbol = _currentSymbolTable.GetParent().Lookup(funcName.Name);
+                                }
                                 if (symbol != null)
                                 {
                                     if (symbol.Scope == SymbolScope.Local)
@@ -3201,7 +3208,8 @@ namespace SharpPy
                                 }
                                 else
                                 {
-                                    // Module scope: CPython 3.12 uses PUSH_NULL + LOAD_NAME
+                                    // Module scope (including inlined comprehensions): CPython 3.12 uses PUSH_NULL + LOAD_NAME
+                                    // CPython 3.12 PEP 709: Comprehensions at module level use LOAD_NAME for outer variables
                                     #if DEBUG_LOG
                                     Console.WriteLine($"   → Module scope, using PUSH_NULL + LOAD_NAME");
                                     #endif
@@ -4555,6 +4563,11 @@ namespace SharpPy
             if (_currentSymbolTable != null)
             {
                 var symbol = _currentSymbolTable.Lookup(name);
+                // CPython 3.12 PEP 709: If not found in comprehension scope, check parent scope
+                if (symbol == null && _isInComprehension && _currentSymbolTable.GetParent() != null)
+                {
+                    symbol = _currentSymbolTable.GetParent().Lookup(name);
+                }
                 if (symbol != null)
                 {
                     #if DEBUG_COMPILER_LOG
@@ -4608,8 +4621,9 @@ namespace SharpPy
 
                         case SymbolScope.Local:
                             // Local variable: LOAD_FAST 사용
-                            // CPython 3.12: 모듈 레벨에서는 LOAD_NAME 사용 (comprehension 변수도 마찬가지)
-                            if (_isInFunction)
+                            // CPython 3.12: 모듈 레벨에서는 LOAD_NAME 사용
+                            // 단, comprehension 내부의 iteration 변수는 LOAD_FAST 사용 (PEP 709)
+                            if (_isInFunction || _isInComprehension)
                             {
                                 var localIndex = _varNames.IndexOf(name);
                                 if (localIndex >= 0)
@@ -10509,6 +10523,18 @@ namespace SharpPy
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
+            // CPython 3.12 PEP 709: Inlined comprehensions use their own symbol table for iteration variables,
+            // but fall back to enclosing scope for outer variables (handled in EmitLoadName/CompileCallExpression)
+            var savedSymbolTable = _currentSymbolTable;
+            var compSymbolTable = _symbolTableBuilder.LookupSymbolTable(listComp);
+            if (compSymbolTable != null)
+            {
+                _currentSymbolTable = compSymbolTable;
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Switched to comprehension symbol table: {compSymbolTable.Name}");
+                #endif
+            }
+
             // 중첩 깊이 추적 시작 (리스트 컴프리헨션)
             _comprehensionNestingDepth++;
             #if DEBUG_LOG
@@ -10733,6 +10759,7 @@ namespace SharpPy
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
+            _currentSymbolTable = savedSymbolTable;
 
             // 중첩 깊이 추적 종료 (리스트 컴프리헨션)
             _comprehensionNestingDepth--;
