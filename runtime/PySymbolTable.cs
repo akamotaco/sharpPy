@@ -2267,17 +2267,19 @@ namespace SharpPy
                     break;
             }
         }
-        private static bool IsKeyword(string name)
+        /// <summary>
+        /// CPython 3.12: Static keyword set for O(1) lookup
+        /// Avoids creating new HashSet on every IsKeyword() call
+        /// </summary>
+        private static readonly HashSet<string> _pythonKeywords = new HashSet<string>
         {
-            var pythonKeywords = new HashSet<string>
-            {
-                "False", "None", "True", "__peg_parser__", "and", "as", "assert", "async", "await",
-                "break", "class", "continue", "def", "del", "elif", "else", "except", "finally",
-                "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
-                "or", "pass", "raise", "return", "try", "while", "with", "yield", "match", "case"
-            };
-            return pythonKeywords.Contains(name);
-        }
+            "False", "None", "True", "__peg_parser__", "and", "as", "assert", "async", "await",
+            "break", "class", "continue", "def", "del", "elif", "else", "except", "finally",
+            "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
+            "or", "pass", "raise", "return", "try", "while", "with", "yield", "match", "case"
+        };
+
+        private static bool IsKeyword(string name) => _pythonKeywords.Contains(name);
 
         /// <summary>
         /// Define symbols from target expression (supports tuple unpacking)

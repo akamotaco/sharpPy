@@ -8,17 +8,17 @@
 
 ## 🔧 **개발 환경**
 - **OS** : windows
-- **CPython 3.12**: `C:\Users\m11\miniforge3\envs\py312\python.exe`
+- **CPython 3.12**: ` C:\ProgramData\miniforge3\python.exe`
 - **SharpPy 빌드**: `dotnet build`
 - **SharpPy 실행**: `dotnet run [filename]`
-- **CPython 3.12 바이트코드 비교**: `export PYTHONUTF8=1 && "C:\Users\m11\miniforge3\envs\py312\python.exe" -m dis [filename]`
+- **CPython 3.12 바이트코드 비교**: `export PYTHONUTF8=1 && " C:\ProgramData\miniforge3\python.exe" -m dis [filename]`
 - **SharpPy 토큰 비교**: `dotnet run --tokens [filename]`
 - **SharpPy 바이트코드 비교**: `dotnet run --dis [filename]`
 - **SharpPy 바이트코드 비교**: `dotnet run --ast [filename]`
 - **SharpPy 로그 최소화**: `dotnet run -c release [filename]`
 - **utf-8 인코딩 설정** : `set PYTHONUTF8=1` 또는 `export PYTHONUTF8=1`
 - **빌드 순서** : Tokenizer 빌드&실행 -> PEG Interpreter 빌드&실행 -> SharpPy 빌드&실행
-- **CPython 3.12 로컬 소스코드 위치** : `C:\Users\m11\Desktop\work\dup\cpython-3.12`
+- **CPython 3.12 로컬 소스코드 위치** : `C:\Users\akamo\Desktop\work\cpython-3.12`
 
 ### 🔍 **디버그 로그 카테고리**
 
@@ -152,5 +152,40 @@ AST → InstructionSequence → CFG → Optimize → ByteCode
 - `runtime/assemble.cs`: CFG → ByteCode
 - `runtime/ControlFlowGraph.cs`: CFG 관리
 - `runtime/compile.cs`: AST → InstructionSequence
+
+---
+
+## ⚡ **CPython 3.12 스타일 최적화**
+
+SharpPy는 CPython 3.12의 성능 최적화 패턴을 따릅니다.
+
+### **PyCodeObject 캐시 (runtime/PyBytecode.cs)**
+- `CellVarIndexMap`: CellVar name → index Dictionary (O(1) lookup)
+- `FreeVarIndexMap`: FreeVar name → index Dictionary (O(1) lookup)
+- `VarNameIndexMap`: VarName name → index Dictionary (O(1) lookup)
+- `VarNameSet`: VarNames HashSet (O(1) Contains)
+- `ClassCellIndex`: `__class__` 셀 인덱스 캐시 (-1이면 없음)
+- `HasClassCell`: `__class__` 존재 여부 (O(1))
+
+### **PyGlobalStrings (runtime/PyGlobalStrings.cs)**
+- CPython의 `_Py_global_strings` / `_Py_ID()` 매크로 구현
+- 모든 매직 메서드/속성 이름 interned string 상수
+- `PyGlobalStrings.Id.__class__`, `PyGlobalStrings.Id.__init__` 등
+- `PyGlobalStrings.Literals.ListComp`, `PyGlobalStrings.Literals.Module` 등
+
+### **ComprehensionType Enum (runtime/PySymbolTable.cs)**
+- CPython의 `_Py_comprehension_ty` 구현
+- `ComprehensionType.None`, `ListComp`, `SetComp`, `DictComp`, `GeneratorExp`
+- `IsInlined()` 확장 메서드: PEP 709 인라인 여부 (genexpr 제외)
+- 문자열 비교 대신 정수 비교로 성능 향상
+
+### **정적 HashSet (runtime/PySymbolTable.cs)**
+- `_pythonKeywords`: Python 키워드 정적 HashSet
+- 매 호출마다 새 HashSet 생성 대신 정적 참조
+
+### **PyVM.cs DEREF 명령어 최적화**
+- `CellVars.IndexOf()` → `CellVarIndexMap[name]` (O(n) → O(1))
+- `VarNames.Contains()` → `VarNameSet.Contains()` (O(n) → O(1))
+- `VarNames.IndexOf()` → `VarNameIndexMap[name]` (O(n) → O(1))
 
 ---
