@@ -440,7 +440,7 @@ namespace SharpPy
         /// Replaces O(n) VarNames.Contains() calls
         /// </summary>
         public HashSet<string> VarNameSet { get; private set; } = null!;
-        
+
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
         public const int CO_NEWLOCALS = 0x0002;         // 새로운 지역 변수 네임스페이스
