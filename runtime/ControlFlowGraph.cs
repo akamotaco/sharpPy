@@ -431,18 +431,17 @@ namespace SharpPy
 
         /// <summary>
         /// CPython 3.12: compile.c:7590-7632 fix_cell_offsets()
+        /// Remap cell/free variable indices to localsplus offsets
+        /// CRITICAL: Must be called AFTER CFG is built but BEFORE final assembly
         ///
-        /// MODIFIED FOR SHARPPY: Instead of remapping to CPython localsplus offsets,
-        /// we remap directly to SharpPy Cells array indices for zero runtime overhead.
-        ///
-        /// SharpPy Cells layout: [freevars(0..nfreevars-1) | cellvars(nfreevars..)]
-        /// - Free vars: use freeIndex directly (0 to nfreevars-1)
-        /// - Cell vars: use nfreevars + cellIndex
-        ///
-        /// This eliminates ALL runtime conversion logic in VM DEREF instructions.
+        /// localsplus layout: [varnames] [non-param cellvars] [freevars]
+        /// - Param cell vars: use their varnames index
+        /// - Non-param cell vars: use nlocals + (position among non-param cells)
+        /// - Free vars: use nlocals + num_nonparam_cells + freeIndex
         /// </summary>
         public void FixCellOffsets(List<string> varNames, List<string> cellVars, List<string> freeVars)
         {
+            int nlocals = varNames.Count;
             int ncellvars = cellVars.Count;
             int nfreevars = freeVars.Count;
             int noffsets = ncellvars + nfreevars;
@@ -452,36 +451,53 @@ namespace SharpPy
                 return; // No cell/free vars to remap
             }
 
-            // Build mapping: compiler_index → SharpPy Cells index
-            // Compiler emits: cellvar as index 0..ncellvars-1, freevar as ncellvars..ncellvars+nfreevars-1
-            // SharpPy Cells: freevars at 0..nfreevars-1, cellvars at nfreevars..nfreevars+ncellvars-1
+            // CPython compile.c:7484-7514: build_cellfixedoffsets()
+            // Build mapping: cellvar_index → localsplus_offset
             int[] fixedmap = new int[noffsets];
 
-            // Cell vars: SharpPy index = nfreevars + cellIndex
+            // Count non-param cells and assign localsplus offsets
+            int nonParamCellCount = 0;
             for (int cellIndex = 0; cellIndex < ncellvars; cellIndex++)
             {
-                fixedmap[cellIndex] = nfreevars + cellIndex;
+                string cellName = cellVars[cellIndex];
+                int varIndex = varNames.IndexOf(cellName);
+                if (varIndex >= 0)
+                {
+                    // Param cell: use varnames index
+                    fixedmap[cellIndex] = varIndex;
+                }
+                else
+                {
+                    // Non-param cell: use nlocals + position among non-param cells
+                    fixedmap[cellIndex] = nlocals + nonParamCellCount;
+                    nonParamCellCount++;
+                }
             }
 
-            // Free vars: SharpPy index = freeIndex (0 to nfreevars-1)
+            // Free vars: use nlocals + num_nonparam_cells + freeIndex
             for (int freeIndex = 0; freeIndex < nfreevars; freeIndex++)
             {
-                fixedmap[ncellvars + freeIndex] = freeIndex;
+                fixedmap[ncellvars + freeIndex] = nlocals + nonParamCellCount + freeIndex;
             }
 
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] FixCellOffsets (SharpPy direct): ncellvars={ncellvars}, nfreevars={nfreevars}");
+            Console.WriteLine($"🔷 [CFG] FixCellOffsets: nlocals={nlocals}, ncellvars={ncellvars}, nfreevars={nfreevars}, nonParamCells={nonParamCellCount}");
+            Console.WriteLine($"   varNames: [{string.Join(", ", varNames)}]");
             for (int i = 0; i < ncellvars; i++)
             {
-                Console.WriteLine($"   cellvar[{i}] '{cellVars[i]}' → Cells[{fixedmap[i]}]");
+                Console.WriteLine($"   cellvar[{i}] '{cellVars[i]}' → localsplus[{fixedmap[i]}]");
             }
             for (int i = 0; i < nfreevars; i++)
             {
-                Console.WriteLine($"   freevar[{i}] '{freeVars[i]}' → Cells[{fixedmap[ncellvars + i]}]");
+                Console.WriteLine($"   freevar[{i}] '{freeVars[i]}' → localsplus[{fixedmap[ncellvars + i]}]");
             }
 #endif
 
-            // Remap all cell/deref instructions to SharpPy Cells index
+            // CPython compile.c:7609-7629: Remap all cell/deref instructions
+            // The compiler emits cell index (0 to ncellvars-1) for cell vars
+            // and ncellvars + freeIndex for free vars
+            // We remap cell indices to localsplus offset (varnames index for param cells,
+            // or nlocals + position for non-param cells)
             foreach (var block in AllBlocks)
             {
                 for (int i = 0; i < block.Instructions.Count; i++)
@@ -501,7 +517,7 @@ namespace SharpPy
                             {
                                 int newoffset = fixedmap[oldoffset];
 #if DEBUG_COMPILER_LOG
-                                Console.WriteLine($"   Remapping {instr.OpCode}: arg {oldoffset} → Cells[{newoffset}]");
+                                Console.WriteLine($"   Remapping {instr.OpCode}: arg {oldoffset} → {newoffset}");
 #endif
                                 block.Instructions[i] = new ByteCodeInstruction(
                                     instr.OpCode,
