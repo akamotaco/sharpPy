@@ -545,7 +545,6 @@ namespace SharpPy
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         private int _comprehensionNestingDepth = 0; // Track nesting depth for dict comprehensions
         private bool _isInteractive = false; // CPython 3.12: Track if we're in interactive mode ('single' mode)
-        private bool _isEval = false; // CPython 3.12: Track if we're in eval mode (expression returns value)
 
         // CPython 3.12: Python/compile.c:2281-2361 (compiler_class)
         // Track if we're compiling inside a class body (not a method, just the class body itself)
@@ -1171,11 +1170,6 @@ namespace SharpPy
             // Python/pythonrun.c:266 - REPL uses Py_single_input
             // Include/compile.h:8 - Py_single_input = 256
             _isInteractive = (mode == CompileMode.Single);
-
-            // CPython 3.12: Set eval mode flag
-            // Python/bltinmodule.c:776-781 - eval() uses Py_eval_input
-            // Include/compile.h:10 - Py_eval_input = 258
-            _isEval = (mode == CompileMode.Eval);
 
             // CPython 3.12: Build symbol table first
             var symbolTableBuilder = new SymbolTableBuilder();
@@ -2549,18 +2543,7 @@ namespace SharpPy
                     
                 case ExpressionStatement expr:
                     // CPython 3.12: compiler_stmt_expr (Python/compile.c line 3915)
-                    if (_isEval && !_isInFunction)
-                    {
-                        // Eval mode: expression result becomes return value
-                        // CPython: eval() expects single expression and returns its value
-                        #if SHARPPY_DEBUG_LOG
-                        Console.WriteLine($"🎯 Eval mode: Compiling expression statement with RETURN_VALUE");
-                        Console.WriteLine($"   Expression type: {expr.Expression.GetType().Name}");
-                        #endif
-                        CompileExpression(expr.Expression);
-                        EmitInstruction(ByteCodeOp.RETURN_VALUE);
-                    }
-                    else if (_isInteractive && !_isInFunction)
+                    if (_isInteractive && !_isInFunction)
                     {
                         // Interactive mode: print expression result
                         // CPython: if (c->c_interactive && c->c_nestlevel <= 1)
@@ -3155,10 +3138,17 @@ namespace SharpPy
                             #endif
 
                             // Check if it's a local variable (LOAD_FAST) or free variable (LOAD_DEREF) in function scope
+                            // CPython 3.12 PEP 709: Comprehensions are inlined but have their own scope
+                            // For inlined comprehensions, also check parent scope if not found in current scope
                             bool isHandled = false;
-                            if (_currentSymbolTable != null && _isInFunction)
+                            if (_currentSymbolTable != null && (_isInFunction || _isInComprehension))
                             {
                                 var symbol = _currentSymbolTable.Lookup(funcName.Name);
+                                // CPython 3.12 PEP 709: If not found in comprehension scope, check parent scope
+                                if (symbol == null && _isInComprehension && _currentSymbolTable.GetParent() != null)
+                                {
+                                    symbol = _currentSymbolTable.GetParent().Lookup(funcName.Name);
+                                }
                                 if (symbol != null)
                                 {
                                     if (symbol.Scope == SymbolScope.Local)
@@ -3218,7 +3208,8 @@ namespace SharpPy
                                 }
                                 else
                                 {
-                                    // Module scope: CPython 3.12 uses PUSH_NULL + LOAD_NAME
+                                    // Module scope (including inlined comprehensions): CPython 3.12 uses PUSH_NULL + LOAD_NAME
+                                    // CPython 3.12 PEP 709: Comprehensions at module level use LOAD_NAME for outer variables
                                     #if SHARPPY_DEBUG_LOG
                                     Console.WriteLine($"   → Module scope, using PUSH_NULL + LOAD_NAME");
                                     #endif
@@ -4572,6 +4563,11 @@ namespace SharpPy
             if (_currentSymbolTable != null)
             {
                 var symbol = _currentSymbolTable.Lookup(name);
+                // CPython 3.12 PEP 709: If not found in comprehension scope, check parent scope
+                if (symbol == null && _isInComprehension && _currentSymbolTable.GetParent() != null)
+                {
+                    symbol = _currentSymbolTable.GetParent().Lookup(name);
+                }
                 if (symbol != null)
                 {
                     #if SHARPPY_DEBUG_COMPILER_LOG
@@ -4625,8 +4621,9 @@ namespace SharpPy
 
                         case SymbolScope.Local:
                             // Local variable: LOAD_FAST 사용
-                            // CPython 3.12: 모듈 레벨에서는 LOAD_NAME 사용 (comprehension 변수도 마찬가지)
-                            if (_isInFunction)
+                            // CPython 3.12: 모듈 레벨에서는 LOAD_NAME 사용
+                            // 단, comprehension 내부의 iteration 변수는 LOAD_FAST 사용 (PEP 709)
+                            if (_isInFunction || _isInComprehension)
                             {
                                 var localIndex = _varNames.IndexOf(name);
                                 if (localIndex >= 0)
@@ -5873,7 +5870,7 @@ namespace SharpPy
             // The class body receives 'x' as a free variable via closure.
             var classFreeVars = GetClassFreeVariables(cls.Name);
 
-            #if DEBUG_COMPILER_LOG
+            #if SHARPPY_DEBUG_COMPILER_LOG
             Console.WriteLine($"🔍 CompileRegularClass: {cls.Name} free variables: [{string.Join(", ", classFreeVars)}]");
             #endif
 
@@ -5883,7 +5880,7 @@ namespace SharpPy
             {
                 foreach (var freeVar in classFreeVars)
                 {
-                    #if DEBUG_COMPILER_LOG
+                    #if SHARPPY_DEBUG_COMPILER_LOG
                     Console.WriteLine($"   → LOAD_CLOSURE for class free var: {freeVar}");
                     #endif
                     EmitLoadClosure(freeVar);
@@ -6424,7 +6421,7 @@ namespace SharpPy
             // See CPython bytecode: Inner class starts with COPY_FREE_VARS 1
             if (_freeVars.Count > 0)
             {
-                #if DEBUG_COMPILER_LOG
+                #if SHARPPY_DEBUG_COMPILER_LOG
                 Console.WriteLine($"🔧 Class {className} has {_freeVars.Count} free variables: [{string.Join(", ", _freeVars)}]");
                 Console.WriteLine($"🔧 Emitting COPY_FREE_VARS {_freeVars.Count}");
                 #endif
@@ -6434,7 +6431,7 @@ namespace SharpPy
             // Check if class body contains super() calls and add __class__ cell variable if needed
             if (ContainsSuperCalls(body))
             {
-                #if SHARPPY_DEBUG_LOG
+                #if SHARPPY_DEBUG_COMPILER_LOG
                 Console.WriteLine($"🔍 Detected super() calls in class {className}, adding __class__ cell variable");
                 #endif
                 _cellVars.Add("__class__");
@@ -6442,7 +6439,7 @@ namespace SharpPy
                 // Generate MAKE_CELL instruction for __class__ cell variable
                 // CPython 3.12: __class__ cell variable uses index 0 (first cellVar)
                 var cellVarIndex = 0; // __class__ is always the first (index 0) cell variable
-                #if SHARPPY_DEBUG_LOG
+                #if SHARPPY_DEBUG_COMPILER_LOG
                 Console.WriteLine($"🔧 Generating MAKE_CELL for __class__ at cell index {cellVarIndex}");
                 #endif
                 EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
@@ -7989,7 +7986,7 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptionTarget, _currentLineNumber);
             // Push exception handler to compiler stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptionTarget);
-            #if SHARPPY_DEBUG
+            #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
             #endif
 
@@ -8014,7 +8011,7 @@ namespace SharpPy
             {
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
                 _exceptionHandlerStack.Push(exceptLabel);
-                #if SHARPPY_DEBUG
+                #if DEBUG
                 Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed inner except handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
                 #endif
             }
@@ -8038,7 +8035,7 @@ namespace SharpPy
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             // Pop exception handler from compiler stack
             _exceptionHandlerStack.Pop();
-            #if SHARPPY_DEBUG
+            #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped handler from stack. Stack count = {_exceptionHandlerStack.Count}");
             #endif
 
@@ -8046,7 +8043,7 @@ namespace SharpPy
             if (hasExceptHandlers && hasFinally)
             {
                 _exceptionHandlerStack.Pop();
-                #if SHARPPY_DEBUG
+                #if DEBUG
                 Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped inner except handler from stack. Stack count = {_exceptionHandlerStack.Count}");
                 #endif
             }
@@ -8359,7 +8356,7 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
             // Push exception handler to stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptLabel);
-            #if SHARPPY_DEBUG
+            #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Pushed inner except* handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
             #endif
 
@@ -8381,7 +8378,7 @@ namespace SharpPy
             if (_exceptionHandlerStack.Count > 0)
             {
                 _exceptionHandlerStack.Pop();
-                #if SHARPPY_DEBUG
+                #if DEBUG
                 Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Popped inner except* handler from stack. Stack count = {_exceptionHandlerStack.Count}");
                 #endif
             }
@@ -10526,6 +10523,18 @@ namespace SharpPy
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
+            // CPython 3.12 PEP 709: Inlined comprehensions use their own symbol table for iteration variables,
+            // but fall back to enclosing scope for outer variables (handled in EmitLoadName/CompileCallExpression)
+            var savedSymbolTable = _currentSymbolTable;
+            var compSymbolTable = _symbolTableBuilder.LookupSymbolTable(listComp);
+            if (compSymbolTable != null)
+            {
+                _currentSymbolTable = compSymbolTable;
+                #if SHARPPY_DEBUG_LOG
+                Console.WriteLine($"🔧 Switched to comprehension symbol table: {compSymbolTable.Name}");
+                #endif
+            }
+
             // 중첩 깊이 추적 시작 (리스트 컴프리헨션)
             _comprehensionNestingDepth++;
             #if SHARPPY_DEBUG_LOG
@@ -10750,6 +10759,7 @@ namespace SharpPy
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
+            _currentSymbolTable = savedSymbolTable;
 
             // 중첩 깊이 추적 종료 (리스트 컴프리헨션)
             _comprehensionNestingDepth--;
