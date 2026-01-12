@@ -11085,6 +11085,18 @@ namespace SharpPy
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
+            // CPython 3.12 PEP 709: Inlined comprehensions use their own symbol table for iteration variables,
+            // but fall back to enclosing scope for outer variables (handled in EmitLoadName/CompileCallExpression)
+            var savedSymbolTable = _currentSymbolTable;
+            var compSymbolTable = _symbolTableBuilder.LookupSymbolTable(dictComp);
+            if (compSymbolTable != null)
+            {
+                _currentSymbolTable = compSymbolTable;
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Switched to dict comprehension symbol table: {compSymbolTable.Name}");
+                #endif
+            }
+
             // 중첩 깊이 추적 시작
             _comprehensionNestingDepth++;
             #if DEBUG_LOG
@@ -11267,6 +11279,7 @@ namespace SharpPy
 
             // 9. 컨텍스트 종료 (CFG가 exception table 자동 관리)
             _isInComprehension = savedIsInComprehension;
+            _currentSymbolTable = savedSymbolTable;
             _comprehensionNestingDepth--;
 
             #if DEBUG_LOG
@@ -11409,6 +11422,18 @@ namespace SharpPy
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
+
+            // CPython 3.12 PEP 709: Inlined comprehensions use their own symbol table for iteration variables,
+            // but fall back to enclosing scope for outer variables (handled in EmitLoadName/CompileCallExpression)
+            var savedSymbolTable = _currentSymbolTable;
+            var compSymbolTable = _symbolTableBuilder.LookupSymbolTable(setComp);
+            if (compSymbolTable != null)
+            {
+                _currentSymbolTable = compSymbolTable;
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Switched to set comprehension symbol table: {compSymbolTable.Name}");
+                #endif
+            }
 
             // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리
             var comprehensionVars = new List<string>(); // Loop variables (for x in ...)
@@ -11559,12 +11584,13 @@ namespace SharpPy
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
+            _currentSymbolTable = savedSymbolTable;
 
             #if DEBUG_LOG
             Console.WriteLine($"✅ Set comprehension 바이트코드 인라인 완료 ({setComp.Generators.Count}개 중첩 generator)");
             #endif
         }
-        
+
         /// <summary>
         /// PEP 709 - Generator expression 바이트코드 인라인 최적화
         /// (expr for var in iterable if condition) → 제너레이터 함수 생성
