@@ -1120,6 +1120,52 @@ namespace SharpPy
 
         #endregion
 
+        #region In-Place Operations (CPython 3.12: Objects/abstract.c)
+
+        // CPython 3.12: In-place operations return result or null if not supported
+        // Returning null signals to fall back to regular binary operation
+
+        /// <summary>In-place addition (__iadd__)</summary>
+        public virtual PyObject? InplaceAdd(PyObject other) => null;
+
+        /// <summary>In-place subtraction (__isub__)</summary>
+        public virtual PyObject? InplaceSubtract(PyObject other) => null;
+
+        /// <summary>In-place multiplication (__imul__)</summary>
+        public virtual PyObject? InplaceMultiply(PyObject other) => null;
+
+        /// <summary>In-place true division (__itruediv__)</summary>
+        public virtual PyObject? InplaceDivide(PyObject other) => null;
+
+        /// <summary>In-place floor division (__ifloordiv__)</summary>
+        public virtual PyObject? InplaceFloorDivide(PyObject other) => null;
+
+        /// <summary>In-place modulo (__imod__)</summary>
+        public virtual PyObject? InplaceModulo(PyObject other) => null;
+
+        /// <summary>In-place power (__ipow__)</summary>
+        public virtual PyObject? InplacePower(PyObject other) => null;
+
+        /// <summary>In-place left shift (__ilshift__)</summary>
+        public virtual PyObject? InplaceLeftShift(PyObject other) => null;
+
+        /// <summary>In-place right shift (__irshift__)</summary>
+        public virtual PyObject? InplaceRightShift(PyObject other) => null;
+
+        /// <summary>In-place bitwise AND (__iand__)</summary>
+        public virtual PyObject? InplaceBitwiseAnd(PyObject other) => null;
+
+        /// <summary>In-place bitwise OR (__ior__)</summary>
+        public virtual PyObject? InplaceBitwiseOr(PyObject other) => null;
+
+        /// <summary>In-place bitwise XOR (__ixor__)</summary>
+        public virtual PyObject? InplaceBitwiseXor(PyObject other) => null;
+
+        /// <summary>In-place matrix multiplication (__imatmul__)</summary>
+        public virtual PyObject? InplaceMatrixMultiply(PyObject other) => null;
+
+        #endregion
+
         #region Iterator Protocol
 
         /// <summary>

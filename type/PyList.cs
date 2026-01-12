@@ -825,7 +825,7 @@ namespace SharpPy
         /// CPython: Objects/listobject.c:list_inplace_concat (lines 856-970)
         /// Modifies the list in-place by extending it with items from other
         /// </summary>
-        public virtual PyObject InplaceAdd(PyObject other)
+        public override PyObject? InplaceAdd(PyObject other)
         {
             // CPython: Objects/listobject.c:870-872 - Special cases: lists and tuples use fast path
             // Special cases:
@@ -876,7 +876,7 @@ namespace SharpPy
         /// CPython: Objects/listobject.c:list_inplace_repeat (lines 601-619)
         /// Modifies the list in-place by repeating its elements
         /// </summary>
-        public virtual PyObject InplaceMultiply(PyObject other)
+        public override PyObject? InplaceMultiply(PyObject other)
         {
             if (other is not PyInt pyInt)
                 return PyNotImplemented.Instance;

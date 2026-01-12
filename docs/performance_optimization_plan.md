@@ -592,9 +592,326 @@ Week 2+: 구현 (측정 결과에 따라)
 
 ---
 
-## 5. 참고 자료
+## 5. Boxing/Unboxing 개선 계획 (2026-01-12)
+
+### 5.1 현황 분석
+
+C# `object` 타입으로 인한 boxing/unboxing 발생 위치:
+
+| 파일 | 라인 | 패턴 | 빈도 | 영향 |
+|------|------|------|------|------|
+| `runtime/compile.cs` | 662, 668, 684 | `object? Datum` (FBlockInfo) | 낮음 | 컴파일 단계만 |
+| `runtime/PyVM.cs` | 6538 | `new object[] { right }` (Reflection) | 중간 | **Hot path** |
+| `core/PyType.cs` | 91 | `new object[] { mroType, name }` | 중간 | 속성 조회 |
+| `core/PyTypeConverter.cs` | 356, 379 | Reflection Invoke | 낮음 | C# interop |
+| `Parser/PyParserRuntime_Bridge.cs` | 821+ | `Dictionary<string, object>` | 낮음 | 파싱 단계만 |
+
+### 5.2 개선 대상
+
+#### ✅ Phase 5: Reflection 호출 제거 (runtime/PyVM.cs:6538)
+
+**현재 코드:**
+```csharp
+// 매 in-place 연산마다 Reflection + boxing!
+var csharpMethod = left.GetType().GetMethod(inplaceMethodName);
+if (csharpMethod != null)
+{
+    var result = csharpMethod.Invoke(left, new object[] { right }) as PyObject;
+    // ...
+}
+```
+
+**문제점:**
+- `GetMethod()`: 매번 Reflection 호출
+- `new object[] { right }`: PyObject를 object로 boxing
+- `Invoke()`: 느린 Reflection 호출
+
+**개선 방안:**
+```csharp
+// 옵션 1: Direct virtual method call
+public abstract class PyObject
+{
+    public virtual PyObject? InPlaceAdd(PyObject other) => null;
+    public virtual PyObject? InPlaceSub(PyObject other) => null;
+    // ...
+}
+
+// 사용 시:
+var result = operation switch
+{
+    BinaryOpType.INPLACE_ADD => left.InPlaceAdd(right),
+    BinaryOpType.INPLACE_SUBTRACT => left.InPlaceSub(right),
+    // ...
+    _ => null
+};
+if (result != null && result != PyNotImplemented.Instance)
+    return result;
+```
+
+**예상 효과:**
+- Reflection 호출 제거
+- Boxing 제거
+- JIT 인라이닝 가능
+
+#### ✅ Phase 6: compile.cs의 object? Datum 제거
+
+**현재 코드:**
+```csharp
+public class FBlockInfo
+{
+    public object? Datum { get; }  // 다양한 타입 저장
+}
+```
+
+**개선 방안:**
+```csharp
+// 옵션 1: 별도 필드로 분리
+public class FBlockInfo
+{
+    public List<Statement>? FinalBody { get; }      // FINALLY_TRY용
+    public string? ExceptionVarName { get; }        // HANDLER_CLEANUP용
+    public Statement? WithStatement { get; }        // WITH/ASYNC_WITH용
+}
+
+// 옵션 2: Union type 패턴
+public abstract record FBlockDatum;
+public record FinalBodyDatum(List<Statement> Statements) : FBlockDatum;
+public record ExceptionVarDatum(string Name) : FBlockDatum;
+public record WithStatementDatum(Statement Statement) : FBlockDatum;
+```
+
+**예상 효과:**
+- 타입 안전성 향상
+- Boxing 제거
+- 컴파일 단계라 런타임 영향 없음 (코드 품질 개선)
+
+#### ⚠️ 개선 불필요 (유지)
+
+| 위치 | 이유 |
+|------|------|
+| `core/PyTypeConverter.cs` | C# interop 필수, 피할 수 없음 |
+| `Parser/PyParserRuntime_Bridge.cs` | 파싱 단계만, 런타임 영향 없음 |
+| `core/PyType.cs:91` | MRO 순회 시에만, 빈도 낮음 |
+
+---
+
+## 6. Memory Pooling 개선 계획 (2026-01-12)
+
+### 6.1 현황 분석
+
+#### 이미 캐시된 객체 (잘 최적화됨)
+
+| 타입 | 캐시 위치 | 범위 |
+|------|----------|------|
+| PyInt | `cache/SmallIntCache.cs` | -5 ~ 256 (262개) |
+| PyFloat | `cache/FloatCache.cs` | 0, 1, -1, 0.5, 2 + 특수값 |
+| PyString | `cache/StringCache.cs` | 빈 문자열 + ASCII 0-127 |
+| PyTuple | `cache/TupleCache.cs` | 빈 튜플 + 자주 사용 |
+| PyBool | `type/PyBool.cs` | True, False (Singleton) |
+| PyNone | `type/PyNone.cs` | Instance (Singleton) |
+
+#### 핫스팟 (개선 필요)
+
+| 위치 | 할당 패턴 | 빈도 | 개선 가능 |
+|------|----------|------|----------|
+| `PyVM.cs:1954` | `new PyObject[callArgCount]` | 매우 높음 | ✅ ArrayPool |
+| `PyVM.cs:2005` | `new PyObject[callArgs.Length + 1]` | 매우 높음 | ✅ ArrayPool |
+| `PyVM.cs:2172+` | `new Dictionary<string, PyObject>()` (kwargs) | 높음 | ✅ Pool |
+| `PyVM.cs:3038+` | `new List<PyObject>()` (임시 컬렉션) | 중간 | ✅ Pool |
+
+### 6.2 개선 계획
+
+#### ✅ Phase 7: 함수 호출용 ArrayPool 적용
+
+**현재 코드:**
+```csharp
+// runtime/PyVM.cs - 매 함수 호출마다 배열 할당
+var callArgs = new PyObject[callArgCount];
+// ... 사용 ...
+// 사용 후 GC 대기
+```
+
+**개선 방안:**
+```csharp
+using System.Buffers;
+
+// ArrayPool 사용
+var callArgs = ArrayPool<PyObject>.Shared.Rent(callArgCount);
+try
+{
+    // ... 사용 ...
+}
+finally
+{
+    ArrayPool<PyObject>.Shared.Return(callArgs, clearArray: true);
+}
+```
+
+**적용 위치:**
+- `runtime/PyVM.cs:1954` - CALL 명령어
+- `runtime/PyVM.cs:2005` - 메서드 바인딩
+- `runtime/PyVM.cs:5244` - 리스트/튜플 생성
+- `runtime/PyVM.cs:5433` - 언팩 연산
+
+**예상 효과:**
+- GC 압력 20-30% 감소
+- 함수 호출 성능 개선
+
+#### ✅ Phase 8: kwargs용 Dictionary Pool
+
+**현재 코드:**
+```csharp
+// 매 함수 호출마다 Dictionary 할당
+var keywordArgs = new Dictionary<string, PyObject>();
+```
+
+**개선 방안:**
+```csharp
+// 옵션 1: ObjectPool<Dictionary<string, PyObject>> 사용
+private static readonly ObjectPool<Dictionary<string, PyObject>> _kwargsPool =
+    new DefaultObjectPool<Dictionary<string, PyObject>>(
+        new DictionaryPooledObjectPolicy());
+
+// 사용 시:
+var keywordArgs = _kwargsPool.Get();
+try
+{
+    // ... 사용 ...
+}
+finally
+{
+    keywordArgs.Clear();
+    _kwargsPool.Return(keywordArgs);
+}
+
+// 옵션 2: ThreadLocal 재사용
+[ThreadStatic]
+private static Dictionary<string, PyObject>? _cachedKwargs;
+
+private static Dictionary<string, PyObject> GetKwargsDict()
+{
+    var dict = _cachedKwargs;
+    if (dict != null)
+    {
+        _cachedKwargs = null;
+        dict.Clear();
+        return dict;
+    }
+    return new Dictionary<string, PyObject>();
+}
+
+private static void ReturnKwargsDict(Dictionary<string, PyObject> dict)
+{
+    dict.Clear();
+    _cachedKwargs = dict;
+}
+```
+
+**예상 효과:**
+- kwargs 사용 함수 호출 GC 감소
+- Dictionary 할당/해제 오버헤드 제거
+
+#### ✅ Phase 9: 임시 List<PyObject> Pool
+
+**현재 코드:**
+```csharp
+// 컨테이너 언팩, MATCH_KEYS 등에서 매번 할당
+var values = new List<PyObject>();
+```
+
+**개선 방안:**
+```csharp
+// ThreadLocal 재사용
+[ThreadStatic]
+private static List<PyObject>? _cachedList;
+
+private static List<PyObject> GetTempList()
+{
+    var list = _cachedList;
+    if (list != null)
+    {
+        _cachedList = null;
+        list.Clear();
+        return list;
+    }
+    return new List<PyObject>();
+}
+
+private static void ReturnTempList(List<PyObject> list)
+{
+    list.Clear();
+    _cachedList = list;
+}
+```
+
+**예상 효과:**
+- 임시 컬렉션 GC 감소
+
+### 6.3 Pooling 불가능 (유지)
+
+| 타입 | 이유 |
+|------|------|
+| PyInt/PyFloat/PyString | 불변(Immutable) 객체, 이미 캐시 적용됨 |
+| PyList/PyDict | Mutable, 참조 추적 필요, 위험함 |
+| PyFrame | 스택 프레임, 생명주기 복잡 |
+
+---
+
+## 7. 구현 우선순위
+
+### 🔴 HIGH (즉시 구현)
+
+| Phase | 작업 | 효과 | 난도 |
+|-------|------|------|------|
+| 7 | ArrayPool 적용 (함수 호출용 배열) | GC 20-30% 감소 | 낮음 |
+| 5 | Reflection 제거 (in-place 연산) | Hot path 개선 | 중간 |
+
+### 🟡 MEDIUM (다음 단계)
+
+| Phase | 작업 | 효과 | 난도 |
+|-------|------|------|------|
+| 8 | Dictionary Pool (kwargs) | GC 10-20% 감소 | 중간 |
+| 9 | List Pool (임시 컬렉션) | GC 5-10% 감소 | 낮음 |
+
+### 🟢 LOW (나중에)
+
+| Phase | 작업 | 효과 | 난도 |
+|-------|------|------|------|
+| 6 | compile.cs object? Datum 제거 | 코드 품질 | 중간 |
+
+---
+
+## 8. 검증 절차
+
+각 Phase 완료 후:
+
+1. **회귀 테스트**
+   ```bash
+   dotnet run -c Release test_nested_super.py
+   dotnet run -c Release test_global_variable.py
+   dotnet run -c Release test_comprehensive_python312.py
+   ```
+
+2. **벤치마크**
+   ```bash
+   dotnet run -c Release benchmark_sharppy.py
+   ```
+
+3. **GC 측정** (선택)
+   ```csharp
+   var before = GC.GetAllocatedBytesForCurrentThread();
+   // ... 테스트 실행 ...
+   var after = GC.GetAllocatedBytesForCurrentThread();
+   Console.WriteLine($"Allocated: {after - before} bytes");
+   ```
+
+---
+
+## 9. 참고 자료
 
 - [PEP 659 – Specializing Adaptive Interpreter](https://peps.python.org/pep-0659/)
 - [CPython 3.12 ceval.c](https://github.com/python/cpython/blob/3.12/Python/ceval.c)
 - [CPython 3.12 specialize.c](https://github.com/python/cpython/blob/3.12/Python/specialize.c)
 - [Faster CPython Ideas](https://github.com/faster-cpython/ideas)
+- [ArrayPool<T> Documentation](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.arraypool-1)
+- [ObjectPool<T> Documentation](https://docs.microsoft.com/en-us/aspnet/core/performance/objectpool)
