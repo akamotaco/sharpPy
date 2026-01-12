@@ -709,6 +709,9 @@ namespace SharpPy
         // CPython 3.12: Adaptive Specialization System (PEP 659)
         private readonly AdaptiveSpecializer _specializer;
 
+        // Performance: Cache for HasCustomGetAttribute check to avoid repeated Reflection calls
+        private static readonly Dictionary<Type, bool> _hasCustomGetAttributeCache = new();
+
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
 
@@ -2718,17 +2721,19 @@ namespace SharpPy
                             // CPython 3.12: Objects/object.c:1322-1326
                             // If object has custom tp_getattro (overrides GetAttribute), use simple GetAttr
                             // This returns 0 → push [NULL, attr]
-                            bool hasCustomGetAttribute = false;
+                            // Performance: Cache Reflection result per type to avoid repeated GetMethod calls
                             var objType = obj.GetType();
-                            var getAttrMethod = objType.GetMethod("GetAttribute",
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                            if (getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject))
+                            if (!_hasCustomGetAttributeCache.TryGetValue(objType, out bool hasCustomGetAttribute))
                             {
-                                hasCustomGetAttribute = true;
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
-                                #endif
+                                var getAttrMethod = objType.GetMethod("GetAttribute",
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                hasCustomGetAttribute = getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject);
+                                _hasCustomGetAttributeCache[objType] = hasCustomGetAttribute;
                             }
+                            #if DEBUG_LOG
+                            if (hasCustomGetAttribute)
+                                Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
+                            #endif
 
                             if (hasCustomGetAttribute)
                             {
@@ -3530,18 +3535,14 @@ namespace SharpPy
 
                 // CPython-style Container Building Opcodes (Phase 1)
                 case ByteCodeOp.BUILD_LIST:
+                    // Performance: Use array with reverse index instead of Insert(0, ...) which is O(n²)
                     var listSize = instruction.Argument;
-                    var listItems = new List<PyObject>();
-                    for (int i = 0; i < listSize; i++)
+                    var listItems = new PyObject[listSize];
+                    for (int i = listSize - 1; i >= 0; i--)
                     {
-                        listItems.Insert(0, frame.ValueStack.Pop()); // Reverse order
+                        listItems[i] = frame.ValueStack.Pop();
                     }
-                    var pyList = new PyList();
-                    foreach (var item in listItems)
-                    {
-                        // Use Append method instead of Add to avoid + operator
-                        pyList.Append(item);
-                    }
+                    var pyList = new PyList(listItems);
                     frame.ValueStack.Push(pyList);
                     break;
 
@@ -5166,23 +5167,16 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BUILD_STRING:
+                    // CPython 3.12: BUILD_STRING joins already-formatted PyString values
+                    // Performance: Use array with reverse index instead of Insert(0, ...) which is O(n²)
                     var stringCount = instruction.Argument;
-                    var stringParts = new List<string>();
-                    for (int i = 0; i < stringCount; i++)
+                    var stringParts = new string[stringCount];
+                    for (int i = stringCount - 1; i >= 0; i--)
                     {
                         var part = frame.ValueStack.Pop();
-                        // CPython 3.12: BUILD_STRING joins already-formatted PyString values
-                        // Use the string value directly, not ToString() which adds quotes
-                        if (part is PyString pyStr)
-                        {
-                            stringParts.Insert(0, pyStr.Value);
-                        }
-                        else
-                        {
-                            stringParts.Insert(0, part.ToStr().Value);
-                        }
+                        stringParts[i] = (part is PyString pyStr) ? pyStr.Value : part.ToStr().Value;
                     }
-                    var concatenatedString = new PyString(string.Join("", stringParts));
+                    var concatenatedString = new PyString(string.Concat(stringParts));
                     frame.ValueStack.Push(concatenatedString);
                     break;
 
