@@ -1144,17 +1144,43 @@ namespace SharpPy
             {
                 ResolveFreeVariablesRecursive(child);
 
-                // CPython 3.12 PEP 709: Inlined comprehensions do NOT propagate free variables
-                // Their "free" variables are actually locals from the enclosing function
-                // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still propagate free vars
+                // CPython 3.12 PEP 709: Inlined comprehensions handle free variables specially
+                // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still propagate free vars normally
                 var childName = child.GetName();
                 bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
                                                childName == "<dictcomp>";
                 if (isInlinedComprehension)
                 {
+                    // PEP 709: Inlined comprehension's free variables that are NOT local to the parent
+                    // function must still be propagated (they come from grandparent scopes)
+                    var childFreeVars = child.FindFreeVariables();
+                    foreach (var freeVar in childFreeVars)
+                    {
+                        // Check if this variable is LOCAL in the current (parent) scope
+                        var parentSymbol = table.Lookup(freeVar);
+                        if (parentSymbol == null || (parentSymbol.Scope != SymbolScope.Local && parentSymbol.Scope != SymbolScope.Cell))
+                        {
+                            // Not a local variable in parent - need to propagate as Free
+                            if (parentSymbol == null)
+                            {
+                                table.DefineSymbol(freeVar, SymbolFlags.None);
+                                parentSymbol = table.Lookup(freeVar);
+                            }
+                            if (parentSymbol != null && parentSymbol.Scope != SymbolScope.Free)
+                            {
+                                parentSymbol.Scope = SymbolScope.Free;
 #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"  ⏭️ Skipping free var propagation for PEP 709 inlined comprehension: {childName}");
+                                Console.WriteLine($"  🔄 PEP 709: Propagating '{freeVar}' from inlined comprehension as Free in {table.GetName()}");
 #endif
+                            }
+                        }
+#if DEBUG_COMPILER_LOG
+                        else
+                        {
+                            Console.WriteLine($"  ⏭️ PEP 709: Skipping '{freeVar}' - already local in {table.GetName()}");
+                        }
+#endif
+                    }
                     continue;
                 }
 

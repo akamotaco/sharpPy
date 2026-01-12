@@ -3202,6 +3202,17 @@ namespace SharpPy
                                                 EmitInstruction(ByteCodeOp.PUSH_NULL);
                                                 EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
                                             }
+                                            // PEP 709: Also check _cellVars - parent function's cell variables are accessible
+                                            if (!isHandled && _cellVars.Contains(funcName.Name))
+                                            {
+                                                var cellIndex = _cellVars.IndexOf(funcName.Name);
+                                                isHandled = true;
+                                                #if DEBUG_COMPILER_LOG
+                                                Console.WriteLine($"   → PEP 709: Free var '{funcName.Name}' found in _cellVars, using PUSH_NULL + LOAD_DEREF");
+                                                #endif
+                                                EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                                EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
+                                            }
                                         }
                                         // Free variable: use PUSH_NULL + LOAD_DEREF
                                         if (!isHandled && _freeVars.Contains(funcName.Name))
@@ -4640,6 +4651,16 @@ namespace SharpPy
                                     Console.WriteLine($"      → PEP 709: Free var '{name}' found in _varNames, using LOAD_FAST");
                                     #endif
                                     EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                    return;
+                                }
+                                // PEP 709: Also check _cellVars - parent function's cell variables are accessible
+                                if (_cellVars.Contains(name))
+                                {
+                                    var cellIndex = _cellVars.IndexOf(name);
+                                    #if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"      → PEP 709: Free var '{name}' found in _cellVars, using LOAD_DEREF");
+                                    #endif
+                                    EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
                                     return;
                                 }
                             }
