@@ -2955,11 +2955,25 @@ namespace SharpPy
                             }
                             else if (superAttr is PyMethod existingMethod)
                             {
-                                // Already bound, but we need to re-bind to current self
-                                finalAttr = new PyMethod(selfObj, existingMethod.Function);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
-                                #endif
+                                // CPython 3.12: Check if this is a classmethod-bound method
+                                // If Instance is already a class (PyType/PyClass), don't re-bind to instance
+                                // This preserves classmethod behavior where cls should be the class, not instance
+                                if (existingMethod.Instance is PyType || existingMethod.Instance is PyClass)
+                                {
+                                    // classmethod: Instance is already the class, keep as-is
+                                    finalAttr = existingMethod;
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: keeping classmethod {superAttrName} bound to class {existingMethod.Instance}");
+                                    #endif
+                                }
+                                else
+                                {
+                                    // Regular method: re-bind to current self
+                                    finalAttr = new PyMethod(selfObj, existingMethod.Function);
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
+                                    #endif
+                                }
                             }
                         }
                         else
