@@ -425,6 +425,21 @@ namespace SharpPy
         /// Replaces: FreeVars.Contains("__class__") || CellVars.Contains("__class__")
         /// </summary>
         public bool HasClassCell => ClassCellIndex >= 0;
+
+        /// <summary>
+        /// CPython 3.12: Cached name→index mappings for O(1) lookup
+        /// Replaces O(n) CellVars.IndexOf(), FreeVars.IndexOf(), VarNames.IndexOf() calls
+        /// Built once at construction time
+        /// </summary>
+        public Dictionary<string, int> CellVarIndexMap { get; private set; } = null!;
+        public Dictionary<string, int> FreeVarIndexMap { get; private set; } = null!;
+        public Dictionary<string, int> VarNameIndexMap { get; private set; } = null!;
+
+        /// <summary>
+        /// CPython 3.12: Fast set membership test for VarNames
+        /// Replaces O(n) VarNames.Contains() calls
+        /// </summary>
+        public HashSet<string> VarNameSet { get; private set; } = null!;
         
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
@@ -472,20 +487,53 @@ namespace SharpPy
             ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
             LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
 
-            // CPython 3.12: Cache __class__ cell index at compile time
-            // This avoids runtime IndexOf/Contains calls
+            // CPython 3.12: Build cached index maps for O(1) lookup at runtime
+            // This avoids runtime IndexOf/Contains calls which are O(n)
+            BuildIndexMaps();
             ComputeClassCellIndex();
+        }
+
+        /// <summary>
+        /// CPython 3.12: Build all cached index maps at construction time
+        /// This eliminates O(n) IndexOf/Contains calls at runtime
+        /// </summary>
+        private void BuildIndexMaps()
+        {
+            // Build CellVarIndexMap: name → index in CellVars
+            CellVarIndexMap = new Dictionary<string, int>(CellVars.Count);
+            for (int i = 0; i < CellVars.Count; i++)
+            {
+                CellVarIndexMap[CellVars[i]] = i;
+            }
+
+            // Build FreeVarIndexMap: name → index in FreeVars
+            FreeVarIndexMap = new Dictionary<string, int>(FreeVars.Count);
+            for (int i = 0; i < FreeVars.Count; i++)
+            {
+                FreeVarIndexMap[FreeVars[i]] = i;
+            }
+
+            // Build VarNameIndexMap: name → index in VarNames
+            VarNameIndexMap = new Dictionary<string, int>(VarNames.Count);
+            for (int i = 0; i < VarNames.Count; i++)
+            {
+                VarNameIndexMap[VarNames[i]] = i;
+            }
+
+            // Build VarNameSet for O(1) Contains() check
+            VarNameSet = new HashSet<string>(VarNames);
         }
 
         /// <summary>
         /// CPython 3.12: Compute cached index for __class__ in FreeVars/CellVars
         /// Called once at construction time, result stored in ClassCellIndex
+        /// Uses pre-built index maps for O(1) lookup
         /// </summary>
         private void ComputeClassCellIndex()
         {
             // First check FreeVars (more common case for methods using super())
-            int freeIndex = FreeVars.IndexOf(PyGlobalStrings.Id.__class__);
-            if (freeIndex >= 0)
+            // Use cached FreeVarIndexMap for O(1) lookup instead of O(n) IndexOf
+            if (FreeVarIndexMap.TryGetValue(PyGlobalStrings.Id.__class__, out int freeIndex))
             {
                 // __class__ found in FreeVars
                 // Combined index: CellVars.Count + freeIndex
@@ -494,8 +542,8 @@ namespace SharpPy
             }
 
             // Then check CellVars
-            int cellIndex = CellVars.IndexOf(PyGlobalStrings.Id.__class__);
-            if (cellIndex >= 0)
+            // Use cached CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+            if (CellVarIndexMap.TryGetValue(PyGlobalStrings.Id.__class__, out int cellIndex))
             {
                 ClassCellIndex = cellIndex;
                 return;
