@@ -5330,39 +5330,52 @@ namespace SharpPy
                         throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {itemsToUnpack.Length})");
                     }
 
-                    // CPython: unpack_iterable uses *--sp which pushes in REVERSE order
-                    // Python/ceval.c lines 1973-1982: for (; i < argcnt; i++) { *--sp = w; }
-                    // Python/ceval.c lines 2002-2004: *--sp = l;
-                    // Python/ceval.c lines 2013-2015: for (j = argcntafter; j > 0; j--) { *--sp = PyList_GET_ITEM(l, ll - j); }
+                    // CPython 3.12: Python/ceval.c unpack_iterable() lines 1950-2040
+                    //
+                    // STORE order determines required stack layout:
+                    //   STORE_NAME(before[0]), STORE_NAME(before[1]), ..., STORE_NAME(star), STORE_NAME(after[0]), ...
+                    // Each STORE pops from TOS, so stack must be (bottom→top):
+                    //   after[n-1], after[n-2], ..., after[0], star, before[n-1], ..., before[1], before[0]
+                    //
+                    // Example: a, *b, c = [1, 2, 3, 4, 5]
+                    //   countBefore=1 (a), countAfter=1 (c)
+                    //   before=[1], star=[2,3,4], after=[5]
+                    //   Stack (bottom→top): 5, [2,3,4], 1
+                    //   Pop order: 1(a), [2,3,4](b), 5(c) ✓
 
-                    // Get current stack position for insertion
-                    var stackList = frame.ValueStack.GetInternalList();
-                    int insertPosition = stackList.Count;
+                    // Performance optimization: Build array once, then AddRange (O(n) instead of O(n²) Insert)
+                    var totalElements = countAfter + 1 + countBefore;
+                    var elementsToAdd = new PyObject[totalElements];
+                    int elemIdx = 0;
 
-                    // Push before elements (lines 1973-1982)
-                    for (int i = 0; i < countBefore; i++)
+                    // After elements go at bottom of stack segment (popped last)
+                    // after[n-1] at bottom (first in array), after[0] closer to top
+                    // Example: after=[30,40] → stack bottom has 40, then 30
+                    for (int i = countAfter - 1; i >= 0; i--)
                     {
-                        // *--sp = items[i] → insert at current position (reverse order)
-                        stackList.Insert(insertPosition, itemsToUnpack[i]);
+                        // after[i] = itemsToUnpack[length - countAfter + i]
+                        elementsToAdd[elemIdx++] = itemsToUnpack[itemsToUnpack.Length - countAfter + i];
                     }
 
-                    // Extract and push star element (lines 2002-2004)
+                    // Star list in middle
                     var starCount = itemsToUnpack.Length - countBefore - countAfter;
                     var starItems = new PyObject[starCount];
                     for (int i = 0; i < starCount; i++)
                     {
                         starItems[i] = itemsToUnpack[countBefore + i];
                     }
-                    // *--sp = l
-                    stackList.Insert(insertPosition, new PyList(starItems));
+                    elementsToAdd[elemIdx++] = new PyList(starItems);
 
-                    // Push after elements (lines 2013-2015)
-                    // for (j = argcntafter; j > 0; j--) { *--sp = PyList_GET_ITEM(l, ll - j); }
-                    for (int j = countAfter; j > 0; j--)
+                    // Before elements go at top of stack segment (popped first)
+                    // before[0] at top, before[n-1] at bottom of before-section
+                    for (int i = countBefore - 1; i >= 0; i--)
                     {
-                        // *--sp = items[length - j]
-                        stackList.Insert(insertPosition, itemsToUnpack[itemsToUnpack.Length - j]);
+                        elementsToAdd[elemIdx++] = itemsToUnpack[i];
                     }
+
+                    // Add all elements at once - O(n) instead of O(n²)
+                    var stackList = frame.ValueStack.GetInternalList();
+                    stackList.AddRange(elementsToAdd);
                     break;
 
                 // CPython 3.12: BREAK_LOOP and CONTINUE_LOOP removed
