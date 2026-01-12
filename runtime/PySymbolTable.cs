@@ -37,6 +37,37 @@ namespace SharpPy
     }
 
     /// <summary>
+    /// CPython 3.12: _Py_comprehension_ty enum from pycore_symtable.h
+    /// Used to distinguish between different comprehension types for PEP 709 inlining
+    /// </summary>
+    public enum ComprehensionType
+    {
+        None = 0,           // Not a comprehension
+        ListComprehension = 1,
+        DictComprehension = 2,
+        SetComprehension = 3,
+        GeneratorExpression = 4
+    }
+
+    /// <summary>
+    /// Extension methods for ComprehensionType
+    /// </summary>
+    public static class ComprehensionTypeExtensions
+    {
+        /// <summary>
+        /// CPython 3.12 PEP 709: List, Dict, Set comprehensions are inlined.
+        /// Generator expressions are NOT inlined (they need closures).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsInlined(this ComprehensionType type)
+        {
+            return type == ComprehensionType.ListComprehension ||
+                   type == ComprehensionType.SetComprehension ||
+                   type == ComprehensionType.DictComprehension;
+        }
+    }
+
+    /// <summary>
     /// CPython 3.12 compatible Symbol class
     /// </summary>
     public class Symbol
@@ -76,7 +107,21 @@ namespace SharpPy
         // Set during symbol table analysis when yield/yield from/await are encountered
         public bool IsGenerator { get; set; }
         public bool IsCoroutine { get; set; }
-        public bool IsComprehension { get; set; }  // CPython 3.12: ste_comprehension flag
+
+        /// <summary>
+        /// CPython 3.12: ste_comprehension - comprehension type for PEP 709 inlining
+        /// </summary>
+        public ComprehensionType ComprehensionType { get; set; }
+
+        /// <summary>
+        /// Backward compatibility: true if this is any comprehension or generator expression
+        /// </summary>
+        public bool IsComprehension => ComprehensionType != ComprehensionType.None;
+
+        /// <summary>
+        /// CPython 3.12 PEP 709: true if this comprehension is inlined (list/set/dict, NOT genexpr)
+        /// </summary>
+        public bool IsInlinedComprehension => ComprehensionType.IsInlined();
 
         public SymbolTable(string name, SymbolTableType type, SymbolTable? parent = null)
         {
@@ -87,7 +132,7 @@ namespace SharpPy
             _children = new List<SymbolTable>();
             IsGenerator = false;
             IsCoroutine = false;
-            IsComprehension = false;
+            ComprehensionType = ComprehensionType.None;
         }
 
         public string GetName() => _name;
@@ -831,10 +876,8 @@ namespace SharpPy
 
                             // CPython 3.12 PEP 709: Inlined comprehensions do NOT create closures
                             // Check if current scope is an inlined comprehension
-                            // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still need closures
-                            var tableName = table.GetName();
-                            bool isInlinedComprehension = tableName == "<listcomp>" || tableName == "<setcomp>" ||
-                                                          tableName == "<dictcomp>";
+                            // NOTE: Generator expressions are NOT inlined - they still need closures
+                            bool isInlinedComprehension = table.IsInlinedComprehension;
 
                             // Mark the parent symbol as cell variable if it's assigned OR a parameter
                             // CPython 3.12: Python/symtable.c:732-770 (analyze_cells)
@@ -1145,11 +1188,8 @@ namespace SharpPy
                 ResolveFreeVariablesRecursive(child);
 
                 // CPython 3.12 PEP 709: Inlined comprehensions handle free variables specially
-                // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still propagate free vars normally
-                var childName = child.GetName();
-                bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
-                                               childName == "<dictcomp>";
-                if (isInlinedComprehension)
+                // NOTE: Generator expressions are NOT inlined - they still propagate free vars normally
+                if (child.IsInlinedComprehension)
                 {
                     // PEP 709: Inlined comprehension's free variables that are NOT local to the parent
                     // function must still be propagated (they come from grandparent scopes)
@@ -1236,19 +1276,15 @@ namespace SharpPy
 
                     // CPython 3.12 PEP 709: Inlined comprehensions do NOT create closures
                     // Skip comprehension scopes - their free variables should NOT cause parent locals to become cells
-                    // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still need cell promotion
-                    var childName = child.GetName();
-                    bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
-                                                   childName == "<dictcomp>";
-
+                    // NOTE: Generator expressions are NOT inlined - they still need cell promotion
 #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"    Checking child scope: {child.GetName()} (isInlinedComprehension={isInlinedComprehension})");
+                    Console.WriteLine($"    Checking child scope: {child.GetName()} (IsInlinedComprehension={child.IsInlinedComprehension})");
 #endif
                     // CPython 3.12 PEP 709: Skip cell promotion for inlined comprehensions
-                    if (isInlinedComprehension)
+                    if (child.IsInlinedComprehension)
                     {
 #if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"    → Skipping cell promotion for PEP 709 inlined comprehension: {childName}");
+                        Console.WriteLine($"    → Skipping cell promotion for PEP 709 inlined comprehension: {child.GetName()}");
 #endif
                         continue;
                     }
@@ -1912,8 +1948,8 @@ namespace SharpPy
         }
 
         // CPython 3.12: symtable.c:2530-2602 - symtable_handle_comprehension
-        private void AnalyzeComprehension(Expression expr, string scopeName, List<Comprehension> generators,
-            Expression element, Expression? keyOrValue = null, bool isGenerator = false)
+        private void AnalyzeComprehension(Expression expr, string scopeName, ComprehensionType compType,
+            List<Comprehension> generators, Expression element, Expression? keyOrValue = null)
         {
             if (generators.Count == 0)
                 return;
@@ -1936,14 +1972,15 @@ namespace SharpPy
             var savedTable = _currentTable;
             _currentTable = compTable;
 
-            // CPython 3.12: Mark as comprehension (symtable.c:2555)
-            _currentTable.IsComprehension = true;
+            // CPython 3.12: Mark comprehension type (symtable.c:2555)
+            _currentTable.ComprehensionType = compType;
 
             // CPython 3.12: Push onto scope stack (symtable.c:331)
             _scopeStack.Push(_currentTable);
 
             // CPython 3.12: Mark as generator if needed (line 2593)
-            if (isGenerator)
+            // Generator expressions are the only comprehension type that creates a generator
+            if (compType == ComprehensionType.GeneratorExpression)
             {
                 _currentTable.IsGenerator = true;
             }
@@ -1992,7 +2029,8 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: GeneratorExpression in scope '{_currentTable?.GetName()}'");
 #endif
-            AnalyzeComprehension(genExpr, "<genexpr>", genExpr.Generators, genExpr.Element, isGenerator: true);
+            AnalyzeComprehension(genExpr, "<genexpr>", ComprehensionType.GeneratorExpression,
+                genExpr.Generators, genExpr.Element);
         }
 
         // CPython 3.12: symtable.c:2612-2618
@@ -2001,7 +2039,8 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: ListComprehension in scope '{_currentTable?.GetName()}'");
 #endif
-            AnalyzeComprehension(listComp, "<listcomp>", listComp.Generators, listComp.Element, isGenerator: false);
+            AnalyzeComprehension(listComp, "<listcomp>", ComprehensionType.ListComprehension,
+                listComp.Generators, listComp.Element);
         }
 
         // CPython 3.12: symtable.c:2620-2626
@@ -2010,7 +2049,8 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: SetComprehension in scope '{_currentTable?.GetName()}'");
 #endif
-            AnalyzeComprehension(setComp, "<setcomp>", setComp.Generators, setComp.Element, isGenerator: false);
+            AnalyzeComprehension(setComp, "<setcomp>", ComprehensionType.SetComprehension,
+                setComp.Generators, setComp.Element);
         }
 
         // CPython 3.12: symtable.c:2628-2634
@@ -2019,7 +2059,8 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: DictComprehension in scope '{_currentTable?.GetName()}'");
 #endif
-            AnalyzeComprehension(dictComp, "<dictcomp>", dictComp.Generators, dictComp.Value, dictComp.Key, isGenerator: false);
+            AnalyzeComprehension(dictComp, "<dictcomp>", ComprehensionType.DictComprehension,
+                dictComp.Generators, dictComp.Value, dictComp.Key);
         }
 
         private void AnalyzeClass(ClassDefStatement cls)

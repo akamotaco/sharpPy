@@ -945,14 +945,11 @@ namespace SharpPy
             {
                 // CPython 3.12 PEP 709: Inlined comprehensions do NOT need closure variables
                 // Skip comprehension scopes - they're inlined and share the parent's locals
-                // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still need closure vars
-                var childName = child.GetName();
-                bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
-                                               childName == "<dictcomp>";
-                if (isInlinedComprehension)
+                // NOTE: Generator expressions are NOT inlined - they still need closure vars
+                if (child.IsInlinedComprehension)
                 {
 #if DEBUG_LOG
-                    Console.WriteLine($"    ⏭️ Skipping PEP 709 inlined comprehension: {childName}");
+                    Console.WriteLine($"    ⏭️ Skipping PEP 709 inlined comprehension: {child.GetName()}");
 #endif
                     continue;
                 }
