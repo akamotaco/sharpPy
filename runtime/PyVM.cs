@@ -5796,8 +5796,8 @@ namespace SharpPy
                     {
                         // It's a parameter that's also a cell
                         loadVarName = frame.Code.VarNames[loadLocalsPlusOffset];
-                        int cellVarIdx = frame.Code.CellVars.IndexOf(loadVarName);
-                        if (cellVarIdx < 0)
+                        // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+                        if (!frame.Code.CellVarIndexMap.TryGetValue(loadVarName, out int cellVarIdx))
                         {
                             throw new Exception($"LOAD_DEREF: varname '{loadVarName}' not found in cellvars");
                         }
@@ -5807,10 +5807,11 @@ namespace SharpPy
                     {
                         // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
                         // Build list of non-param cell names (cells NOT in varnames)
+                        // Optimized: Use VarNameSet for O(1) Contains instead of O(n)
                         var nonParamCellNames = new List<string>();
                         for (int i = 0; i < loadNcellvars; i++)
                         {
-                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
+                            if (!frame.Code.VarNameSet.Contains(frame.Code.CellVars[i]))
                                 nonParamCellNames.Add(frame.Code.CellVars[i]);
                         }
                         int loadNumNonParamCells = nonParamCellNames.Count;
@@ -5821,7 +5822,8 @@ namespace SharpPy
                             // It's a non-parameter cellvar
                             // Find which cell by name (non-param cells are sorted alphabetically)
                             loadVarName = nonParamCellNames[offsetAfterLocals];
-                            int cellVarIdx = frame.Code.CellVars.IndexOf(loadVarName);
+                            // Optimized: Use CellVarIndexMap - key exists since we just got it from CellVars
+                            int cellVarIdx = frame.Code.CellVarIndexMap[loadVarName];
                             loadCellIndex = loadNfreevars + cellVarIdx;
                         }
                         else
