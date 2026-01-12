@@ -4592,6 +4592,21 @@ namespace SharpPy
                                 return;
                             }
 
+                            // CPython 3.12 PEP 709: Inlined comprehensions share _varNames with enclosing scope
+                            // Check if this "free" variable is actually in _varNames (from outer comprehension)
+                            if (_isInComprehension)
+                            {
+                                var localIndex = _varNames.IndexOf(name);
+                                if (localIndex >= 0)
+                                {
+                                    #if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"      → PEP 709: Free var '{name}' found in _varNames, using LOAD_FAST");
+                                    #endif
+                                    EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                    return;
+                                }
+                            }
+
                             // Free/Cell variable: Use EmitLoadDeref which calculates correct localsplus offset
                             #if SHARPPY_DEBUG_COMPILER_LOG
                             Console.WriteLine($"      → Symbol is {symbol.Scope}. Calling EmitLoadDeref");
