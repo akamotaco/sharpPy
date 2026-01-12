@@ -829,18 +829,27 @@ namespace SharpPy
                             // Mark as free variable (needs closure)
                             symbol.Scope = SymbolScope.Free;
 
+                            // CPython 3.12 PEP 709: Inlined comprehensions do NOT create closures
+                            // Check if current scope is an inlined comprehension
+                            // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still need closures
+                            var tableName = table.GetName();
+                            bool isInlinedComprehension = tableName == "<listcomp>" || tableName == "<setcomp>" ||
+                                                          tableName == "<dictcomp>";
+
                             // Mark the parent symbol as cell variable if it's assigned OR a parameter
                             // CPython 3.12: Python/symtable.c:732-770 (analyze_cells)
                             // CRITICAL: Only LOCAL scope variables can become CELL variables
                             // Module-level (GLOBAL) variables should NEVER become CELL
-                            if ((foundInParent.IsAssigned() || foundInParent.IsParameter()) &&
+                            // PEP 709: Inlined comprehensions should NOT cause cell promotion
+                            if (!isInlinedComprehension &&
+                                (foundInParent.IsAssigned() || foundInParent.IsParameter()) &&
                                 foundInParent.Scope == SymbolScope.Local)
                             {
                                 foundInParent.Scope = SymbolScope.Cell;
                             }
 
 #if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
+                            Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name}, isInlinedComprehension={isInlinedComprehension})");
 #endif
                         }
                     }
@@ -1135,6 +1144,20 @@ namespace SharpPy
             {
                 ResolveFreeVariablesRecursive(child);
 
+                // CPython 3.12 PEP 709: Inlined comprehensions do NOT propagate free variables
+                // Their "free" variables are actually locals from the enclosing function
+                // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still propagate free vars
+                var childName = child.GetName();
+                bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
+                                               childName == "<dictcomp>";
+                if (isInlinedComprehension)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  ⏭️ Skipping free var propagation for PEP 709 inlined comprehension: {childName}");
+#endif
+                    continue;
+                }
+
                 // After child is resolved, propagate its free variables to current scope
                 PropagateChildFreeVariables(table, child);
             }
@@ -1185,9 +1208,25 @@ namespace SharpPy
                     // Skip class scopes for now - they have different rules
                     if (child.Type == SymbolTableType.Class) continue;
 
+                    // CPython 3.12 PEP 709: Inlined comprehensions do NOT create closures
+                    // Skip comprehension scopes - their free variables should NOT cause parent locals to become cells
+                    // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still need cell promotion
+                    var childName = child.GetName();
+                    bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
+                                                   childName == "<dictcomp>";
+
 #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"    Checking child scope: {child.GetName()}");
+                    Console.WriteLine($"    Checking child scope: {child.GetName()} (isInlinedComprehension={isInlinedComprehension})");
 #endif
+                    // CPython 3.12 PEP 709: Skip cell promotion for inlined comprehensions
+                    if (isInlinedComprehension)
+                    {
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"    → Skipping cell promotion for PEP 709 inlined comprehension: {childName}");
+#endif
+                        continue;
+                    }
+
                     foreach (var childSymbol in child.GetSymbols().Values)
                     {
 #if DEBUG_COMPILER_LOG

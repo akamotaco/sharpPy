@@ -943,6 +943,20 @@ namespace SharpPy
         {
             foreach (var child in table.GetChildren())
             {
+                // CPython 3.12 PEP 709: Inlined comprehensions do NOT need closure variables
+                // Skip comprehension scopes - they're inlined and share the parent's locals
+                // NOTE: Generator expressions (<genexpr>) are NOT inlined - they still need closure vars
+                var childName = child.GetName();
+                bool isInlinedComprehension = childName == "<listcomp>" || childName == "<setcomp>" ||
+                                               childName == "<dictcomp>";
+                if (isInlinedComprehension)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"    ⏭️ Skipping PEP 709 inlined comprehension: {childName}");
+#endif
+                    continue;
+                }
+
                 // 자식 함수의 자유 변수들 중 현재 함수에서 정의된 것들만 (현재 함수가 제공할 수 있는 변수들)
                 var childFreeVars = child.FindFreeVariables();
 #if DEBUG_LOG
@@ -1989,6 +2003,8 @@ namespace SharpPy
 
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"\n🔧 CompilerFunctionBody: {name}");
+            Console.WriteLine($"  _varNames after setup: [{string.Join(", ", _varNames)}]");
+            Console.WriteLine($"  localVarNames collected: [{string.Join(", ", localVarNames)}]");
             Console.WriteLine($"  Parameters: [{string.Join(", ", paramNames)}]");
             Console.WriteLine($"  Defaults: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
             Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
@@ -3151,9 +3167,15 @@ namespace SharpPy
                                 }
                                 if (symbol != null)
                                 {
+#if DEBUG_COMPILER_LOG
+                                    Console.WriteLine($"   → CompileCallExpression: symbol '{funcName.Name}' scope={symbol.Scope}, _varNames=[{string.Join(", ", _varNames)}]");
+#endif
                                     if (symbol.Scope == SymbolScope.Local)
                                     {
                                         var localIndex = _varNames.IndexOf(funcName.Name);
+#if DEBUG_COMPILER_LOG
+                                        Console.WriteLine($"   → Looking for '{funcName.Name}' in _varNames, localIndex={localIndex}");
+#endif
                                         if (localIndex >= 0)
                                         {
                                             isHandled = true;
@@ -3166,8 +3188,23 @@ namespace SharpPy
                                     }
                                     else if (symbol.Scope == SymbolScope.Free)
                                     {
+                                        // CPython 3.12 PEP 709: Inlined comprehensions share _varNames with enclosing function
+                                        // Check _varNames first for comprehension context
+                                        if (_isInComprehension)
+                                        {
+                                            var localIndex = _varNames.IndexOf(funcName.Name);
+                                            if (localIndex >= 0)
+                                            {
+                                                isHandled = true;
+                                                #if DEBUG_COMPILER_LOG
+                                                Console.WriteLine($"   → PEP 709: Free var '{funcName.Name}' found in _varNames, using PUSH_NULL + LOAD_FAST");
+                                                #endif
+                                                EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                                EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                            }
+                                        }
                                         // Free variable: use PUSH_NULL + LOAD_DEREF
-                                        if (_freeVars.Contains(funcName.Name))
+                                        if (!isHandled && _freeVars.Contains(funcName.Name))
                                         {
                                             var freeIndex = _freeVars.IndexOf(funcName.Name);
                                             isHandled = true;
