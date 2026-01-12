@@ -545,6 +545,7 @@ namespace SharpPy
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         private int _comprehensionNestingDepth = 0; // Track nesting depth for dict comprehensions
         private bool _isInteractive = false; // CPython 3.12: Track if we're in interactive mode ('single' mode)
+        private CompileMode _compileMode = CompileMode.File; // CPython 3.12: Track compile mode for add_return_at_end
 
         // CPython 3.12: Python/compile.c:2281-2361 (compiler_class)
         // Track if we're compiling inside a class body (not a method, just the class body itself)
@@ -1182,6 +1183,10 @@ namespace SharpPy
             // Include/compile.h:8 - Py_single_input = 256
             _isInteractive = (mode == CompileMode.Single);
 
+            // CPython 3.12: Store compile mode for add_return_at_end logic
+            // Python/compile.c:1749 - addNone = mod->kind != Expression_kind
+            _compileMode = mode;
+
             // CPython 3.12: Build symbol table first
             var symbolTableBuilder = new SymbolTableBuilder();
             _symbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
@@ -1289,10 +1294,18 @@ namespace SharpPy
             {
                 CompileStatement(optimizedStatements[i]);
             }
-            
-            // CPython 3.12: 모듈은 RETURN_CONST로 None 반환 (Exception Handler 이전에)
-            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
+
+            // CPython 3.12: add_return_at_end (Python/compile.c:7671-7681)
+            // addNone = mod->kind != Expression_kind
+            // - Eval mode (Expression_kind): RETURN_VALUE (return stack top, i.e., expression result)
+            // - Exec/Single mode: LOAD_CONST None + RETURN_VALUE
+            bool addNone = (_compileMode != CompileMode.Eval);
+            if (addNone)
+            {
+                var noneConstIndex = GetOrAddConstant(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            }
+            EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
             GeneratePendingExceptionHandlers();
@@ -2567,6 +2580,18 @@ namespace SharpPy
                         CompileExpression(expr.Expression);
                         EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_PRINT);
                         EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
+                    else if (_compileMode == CompileMode.Eval && !_isInFunction)
+                    {
+                        // CPython 3.12: Eval mode (Expression_kind) - keep result on stack for RETURN_VALUE
+                        // Python/compile.c: compiler_body() case Expression_kind just visits the expression
+                        // No POP_TOP - result stays on stack to be returned
+                        #if DEBUG_LOG
+                        Console.WriteLine($"📝 Eval mode: Compiling expression without POP_TOP (will return result)");
+                        Console.WriteLine($"   Expression type: {expr.Expression.GetType().Name}");
+                        #endif
+                        CompileExpression(expr.Expression);
+                        // No POP_TOP - result stays on stack for RETURN_VALUE
                     }
                     else
                     {
