@@ -12585,6 +12585,14 @@ namespace SharpPy
                     CollectAllComprehensionVars(binExpr.Right, comprehensionVars);
                     break;
 
+                case BoolOpExpression boolExpr:
+                    // CPython 3.12: BoolOp expressions (and/or) can contain walrus operators
+                    foreach (var val in boolExpr.Values)
+                    {
+                        CollectAllComprehensionVars(val, comprehensionVars);
+                    }
+                    break;
+
                 case UnaryOpExpression unaryExpr:
                     CollectAllComprehensionVars(unaryExpr.Operand, comprehensionVars);
                     break;
