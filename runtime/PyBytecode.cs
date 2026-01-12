@@ -414,6 +414,17 @@ namespace SharpPy
         // CPython 호환 클로저 지원 (Phase 2)
         public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
         public List<string> CellVars { get; set; } = new List<string>();   // co_cellvars - 셀 변수
+
+        // CPython 3.12: Cached index for __class__ cell variable
+        // Computed at compile time, used at runtime for fast lookup (avoids IndexOf)
+        // -1 means __class__ is not in FreeVars/CellVars
+        public int ClassCellIndex { get; private set; } = -1;
+
+        /// <summary>
+        /// CPython 3.12: Fast check if this code object has __class__ cell
+        /// Replaces: FreeVars.Contains("__class__") || CellVars.Contains("__class__")
+        /// </summary>
+        public bool HasClassCell => ClassCellIndex >= 0;
         
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
@@ -460,6 +471,38 @@ namespace SharpPy
             KwDefaults = kwDefaults ?? new List<PyObject>();
             ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
             LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
+
+            // CPython 3.12: Cache __class__ cell index at compile time
+            // This avoids runtime IndexOf/Contains calls
+            ComputeClassCellIndex();
+        }
+
+        /// <summary>
+        /// CPython 3.12: Compute cached index for __class__ in FreeVars/CellVars
+        /// Called once at construction time, result stored in ClassCellIndex
+        /// </summary>
+        private void ComputeClassCellIndex()
+        {
+            // First check FreeVars (more common case for methods using super())
+            int freeIndex = FreeVars.IndexOf(PyGlobalStrings.Id.__class__);
+            if (freeIndex >= 0)
+            {
+                // __class__ found in FreeVars
+                // Combined index: CellVars.Count + freeIndex
+                ClassCellIndex = CellVars.Count + freeIndex;
+                return;
+            }
+
+            // Then check CellVars
+            int cellIndex = CellVars.IndexOf(PyGlobalStrings.Id.__class__);
+            if (cellIndex >= 0)
+            {
+                ClassCellIndex = cellIndex;
+                return;
+            }
+
+            // Not found
+            ClassCellIndex = -1;
         }
         
         

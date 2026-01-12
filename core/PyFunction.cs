@@ -515,33 +515,34 @@ public partial class PyFunction : PyObject, IDescriptor
         }
             
         // CPython 3.12: Handle __class__ cell dynamic binding for metaclass methods
-        if (instance is PyClass metaclassInstance && CodeObject?.FreeVars?.Contains("__class__") == true)
+        // Optimized: Use cached HasClassCell instead of FreeVars.Contains("__class__")
+        if (instance is PyClass metaclassInstance && CodeObject?.HasClassCell == true)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔧 CPython 3.12: Metaclass method binding detected");
-            #endif
-            #if DEBUG_LOG
             Console.WriteLine($"   Method: {Name}");
-            #endif
-            #if DEBUG_LOG
             Console.WriteLine($"   Binding to metaclass: {metaclassInstance}");
             #endif
-            
+
             // Create a copy of this function with adjusted __class__ cell for the target metaclass
             if (Closure != null && Closure.Length > 0)
             {
                 var adjustedClosure = new PyCell[Closure.Length];
                 Array.Copy(Closure, adjustedClosure, Closure.Length);
-                
-                var classIndex = CodeObject.FreeVars.IndexOf("__class__");
-                if (classIndex >= 0 && classIndex < adjustedClosure.Length)
+
+                // Optimized: Use cached ClassCellIndex instead of FreeVars.IndexOf("__class__")
+                var classIndex = CodeObject.ClassCellIndex;
+                // Note: ClassCellIndex is combined index (CellVars.Count + freeIndex)
+                // For closure array, we need the index relative to FreeVars
+                var closureIndex = classIndex - CodeObject.CellVars.Count;
+                if (closureIndex >= 0 && closureIndex < adjustedClosure.Length)
                 {
                     #if DEBUG_LOG
-                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[classIndex]?.Value}");
+                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[closureIndex]?.Value}");
                     #endif
-                    adjustedClosure[classIndex] = new PyCell(metaclassInstance);
+                    adjustedClosure[closureIndex] = new PyCell(metaclassInstance);
                     #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ Updated __class__ cell[{classIndex}] to {metaclassInstance}");
+                    Console.WriteLine($"   ✅ Updated __class__ cell[{closureIndex}] to {metaclassInstance}");
                     #endif
                     
                     // Create a new function with the adjusted closure
