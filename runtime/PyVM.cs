@@ -709,30 +709,6 @@ namespace SharpPy
         // CPython 3.12: Adaptive Specialization System (PEP 659)
         private readonly AdaptiveSpecializer _specializer;
 
-        /// <summary>
-        /// SharpPy: Get variable name from Cells array index
-        /// SharpPy Cells layout: [freevars(0..nfreevars-1) | cellvars(nfreevars..)]
-        /// </summary>
-        private static string GetCellVarName(PyCodeObject code, int cellIndex)
-        {
-            int nfreevars = code.FreeVars.Count;
-            if (cellIndex < nfreevars)
-            {
-                // It's a free variable
-                return code.FreeVars[cellIndex];
-            }
-            else
-            {
-                // It's a cell variable
-                int cellVarIndex = cellIndex - nfreevars;
-                if (cellVarIndex < code.CellVars.Count)
-                {
-                    return code.CellVars[cellVarIndex];
-                }
-                return $"<unknown cell {cellIndex}>";
-            }
-        }
-
         // Performance: Cache for HasCustomGetAttribute check to avoid repeated Reflection calls
         private static readonly Dictionary<Type, bool> _hasCustomGetAttributeCache = new();
 
@@ -5801,21 +5777,79 @@ namespace SharpPy
 
                 // === Closure Support Bytecodes (CPython 호환) ===
                 case ByteCodeOp.LOAD_DEREF:
-                {
-                    // SharpPy: FixCellOffsets now emits direct Cells array index
-                    // No runtime conversion needed - just use argument directly
-                    int cellIndex = instruction.Argument;
+                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
+                    // Need to convert to SharpPy Cells index
+                    var loadLocalsPlusOffset = instruction.Argument;
+                    int loadNlocals = frame.Code.VarNames.Count;
+                    int loadNcellvars = frame.Code.CellVars.Count;
+                    int loadNfreevars = frame.Code.FreeVars.Count;
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_DEREF Cells[{cellIndex}]");
+                    Console.WriteLine($"🔍 LOAD_DEREF at localsplus offset {loadLocalsPlusOffset}");
                     #endif
 
-                    if (cellIndex >= frame.Cells.Length)
+                    // Convert CPython localsplus offset to SharpPy Cells index
+                    int loadCellIndex;
+                    string loadVarName;
+
+                    if (loadLocalsPlusOffset < loadNlocals)
                     {
-                        throw new Exception($"LOAD_DEREF: invalid cell index {cellIndex} (Cells.Length={frame.Cells.Length})");
+                        // It's a parameter that's also a cell
+                        loadVarName = frame.Code.VarNames[loadLocalsPlusOffset];
+                        int cellVarIdx = frame.Code.CellVars.IndexOf(loadVarName);
+                        if (cellVarIdx < 0)
+                        {
+                            throw new Exception($"LOAD_DEREF: varname '{loadVarName}' not found in cellvars");
+                        }
+                        loadCellIndex = loadNfreevars + cellVarIdx;
+                    }
+                    else
+                    {
+                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
+                        // Build list of non-param cell names (cells NOT in varnames)
+                        var nonParamCellNames = new List<string>();
+                        for (int i = 0; i < loadNcellvars; i++)
+                        {
+                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
+                                nonParamCellNames.Add(frame.Code.CellVars[i]);
+                        }
+                        int loadNumNonParamCells = nonParamCellNames.Count;
+
+                        int offsetAfterLocals = loadLocalsPlusOffset - loadNlocals;
+                        if (offsetAfterLocals < loadNumNonParamCells)
+                        {
+                            // It's a non-parameter cellvar
+                            // Find which cell by name (non-param cells are sorted alphabetically)
+                            loadVarName = nonParamCellNames[offsetAfterLocals];
+                            int cellVarIdx = frame.Code.CellVars.IndexOf(loadVarName);
+                            loadCellIndex = loadNfreevars + cellVarIdx;
+                        }
+                        else
+                        {
+                            // It's a freevar
+                            int freeVarIdx = offsetAfterLocals - loadNumNonParamCells;
+                            loadVarName = frame.Code.FreeVars[freeVarIdx];
+                            loadCellIndex = freeVarIdx;
+                        }
                     }
 
-                    var cell = frame.Cells[cellIndex];
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   Converting CPython localsplus[{loadLocalsPlusOffset}] → SharpPy Cells[{loadCellIndex}] for '{loadVarName}'");
+                    #endif
+
+                    // Access the cell
+                    PyCell cell;
+                    if (loadCellIndex < frame.Cells.Length)
+                    {
+                        cell = frame.Cells[loadCellIndex];
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Using Cells[{loadCellIndex}]: {(cell.HasValue ? cell.Value : "empty")}");
+                        #endif
+                    }
+                    else
+                    {
+                        throw new Exception($"LOAD_DEREF: invalid cell index {loadCellIndex} (Cells.Length={frame.Cells.Length})");
+                    }
 
                     if (cell.HasValue)
                     {
@@ -5826,63 +5860,168 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Get variable name for error message
-                        string varName = GetCellVarName(frame.Code, cellIndex);
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ❌ Cell is empty for '{varName}'");
+                        Console.WriteLine($"   ❌ Cell is empty! Cell: {cell}, HasValue: {cell?.HasValue}");
+                        Console.WriteLine($"   ❌ CPython 3.12 behavior: Throwing UnboundLocalError for '{loadVarName}'");
                         #endif
-                        throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+                        throw PyNameError.Create($"local variable '{loadVarName}' referenced before assignment");
                     }
                     break;
-                }
 
                 case ByteCodeOp.STORE_DEREF:
-                {
-                    // SharpPy: FixCellOffsets now emits direct Cells array index
-                    int cellIndex = instruction.Argument;
-                    var derefStoreValue = frame.ValueStack.Pop();
+                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
+                    var storeLocalsPlusOffset = instruction.Argument;
+                    var storeDerefValue = frame.ValueStack.Pop();
+                    int storeNlocals = frame.Code.VarNames.Count;
+                    int storeNcellvars = frame.Code.CellVars.Count;
+                    int storeNfreevars = frame.Code.FreeVars.Count;
 
-                    if (cellIndex < frame.Cells.Length)
+                    // Convert to SharpPy Cells index
+                    int storeCellIndex;
+                    if (storeLocalsPlusOffset < storeNlocals)
                     {
-                        frame.Cells[cellIndex].SetValue(derefStoreValue);
+                        string varName = frame.Code.VarNames[storeLocalsPlusOffset];
+                        storeCellIndex = storeNfreevars + frame.Code.CellVars.IndexOf(varName);
                     }
                     else
                     {
-                        throw new Exception($"STORE_DEREF: invalid cell index {cellIndex}");
+                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
+                        // Build list of non-param cell names (cells NOT in varnames)
+                        var nonParamCellNames = new List<string>();
+                        for (int i = 0; i < storeNcellvars; i++)
+                        {
+                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
+                                nonParamCellNames.Add(frame.Code.CellVars[i]);
+                        }
+                        int storeNumNonParamCells = nonParamCellNames.Count;
+
+                        int offsetAfterLocals = storeLocalsPlusOffset - storeNlocals;
+                        if (offsetAfterLocals < storeNumNonParamCells)
+                        {
+                            // Non-param cell: find by name
+                            string storeCellVarName = nonParamCellNames[offsetAfterLocals];
+                            int storeCellVarIdx = frame.Code.CellVars.IndexOf(storeCellVarName);
+                            storeCellIndex = storeNfreevars + storeCellVarIdx;
+                        }
+                        else
+                        {
+                            // Free var
+                            int freeVarIdx = offsetAfterLocals - storeNumNonParamCells;
+                            storeCellIndex = freeVarIdx;
+                        }
+                    }
+
+                    if (storeCellIndex < frame.Cells.Length)
+                    {
+                        frame.Cells[storeCellIndex].SetValue(storeDerefValue);
+                    }
+                    else
+                    {
+                        throw new Exception($"STORE_DEREF: invalid cell index {storeCellIndex}");
                     }
                     break;
-                }
 
                 case ByteCodeOp.DELETE_DEREF:
-                {
-                    // SharpPy: FixCellOffsets now emits direct Cells array index
-                    int cellIndex = instruction.Argument;
+                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
+                    var deleteLocalsPlusOffset = instruction.Argument;
+                    int deleteNlocals = frame.Code.VarNames.Count;
+                    int deleteNcellvars = frame.Code.CellVars.Count;
+                    int deleteNfreevars = frame.Code.FreeVars.Count;
 
-                    if (cellIndex < frame.Cells.Length)
+                    // Convert to SharpPy Cells index
+                    int deleteCellIndex;
+                    if (deleteLocalsPlusOffset < deleteNlocals)
                     {
-                        frame.Cells[cellIndex].Clear();
+                        string varName = frame.Code.VarNames[deleteLocalsPlusOffset];
+                        deleteCellIndex = deleteNfreevars + frame.Code.CellVars.IndexOf(varName);
+                    }
+                    else
+                    {
+                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
+                        var deleteNonParamCellNames = new List<string>();
+                        for (int i = 0; i < deleteNcellvars; i++)
+                        {
+                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
+                                deleteNonParamCellNames.Add(frame.Code.CellVars[i]);
+                        }
+                        int deleteNumNonParamCells = deleteNonParamCellNames.Count;
+
+                        int offsetAfterLocals = deleteLocalsPlusOffset - deleteNlocals;
+                        if (offsetAfterLocals < deleteNumNonParamCells)
+                        {
+                            // Non-param cell: find by name
+                            string deleteCellVarName = deleteNonParamCellNames[offsetAfterLocals];
+                            int deleteCellVarIdx = frame.Code.CellVars.IndexOf(deleteCellVarName);
+                            deleteCellIndex = deleteNfreevars + deleteCellVarIdx;
+                        }
+                        else
+                        {
+                            // Free var
+                            int freeVarIdx = offsetAfterLocals - deleteNumNonParamCells;
+                            deleteCellIndex = freeVarIdx;
+                        }
+                    }
+
+                    if (deleteCellIndex < frame.Cells.Length)
+                    {
+                        frame.Cells[deleteCellIndex].Clear();
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 DELETE_DEREF: cleared Cells[{cellIndex}]");
+                        Console.WriteLine($"🔧 DELETE_DEREF: cleared cell at index {deleteCellIndex} to NULL");
                         #endif
                     }
                     else
                     {
-                        throw new Exception($"DELETE_DEREF: invalid cell index {cellIndex}");
+                        throw new Exception($"DELETE_DEREF: invalid cell index {deleteCellIndex}");
                     }
                     break;
-                }
 
                 case ByteCodeOp.LOAD_CLOSURE:
-                {
-                    // SharpPy: FixCellOffsets now emits direct Cells array index
-                    int cellIndex = instruction.Argument;
+                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
+                    var closureLocalsPlusOffset = instruction.Argument;
+                    int closureNlocals = frame.Code.VarNames.Count;
+                    int closureNcellvars = frame.Code.CellVars.Count;
+                    int closureNfreevars = frame.Code.FreeVars.Count;
+
+                    // Convert to SharpPy Cells index
+                    int closureCellIndex;
+                    if (closureLocalsPlusOffset < closureNlocals)
+                    {
+                        string varName = frame.Code.VarNames[closureLocalsPlusOffset];
+                        closureCellIndex = closureNfreevars + frame.Code.CellVars.IndexOf(varName);
+                    }
+                    else
+                    {
+                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
+                        var closureNonParamCellNames = new List<string>();
+                        for (int i = 0; i < closureNcellvars; i++)
+                        {
+                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
+                                closureNonParamCellNames.Add(frame.Code.CellVars[i]);
+                        }
+                        int closureNumNonParamCells = closureNonParamCellNames.Count;
+
+                        int offsetAfterLocals = closureLocalsPlusOffset - closureNlocals;
+                        if (offsetAfterLocals < closureNumNonParamCells)
+                        {
+                            // Non-param cell: find by name
+                            string closureCellVarName = closureNonParamCellNames[offsetAfterLocals];
+                            int closureCellVarIdx = frame.Code.CellVars.IndexOf(closureCellVarName);
+                            closureCellIndex = closureNfreevars + closureCellVarIdx;
+                        }
+                        else
+                        {
+                            // Free var
+                            int freeVarIdx = offsetAfterLocals - closureNumNonParamCells;
+                            closureCellIndex = freeVarIdx;
+                        }
+                    }
 
                     PyCell closureCell;
-                    if (cellIndex < frame.Cells.Length)
+                    if (closureCellIndex < frame.Cells.Length)
                     {
-                        closureCell = frame.Cells[cellIndex];
+                        closureCell = frame.Cells[closureCellIndex];
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔐 LOAD_CLOSURE: Cells[{cellIndex}]");
+                        Console.WriteLine($"🔐 LOAD_CLOSURE: localsplus[{closureLocalsPlusOffset}] → Cells[{closureCellIndex}]");
                         #endif
                     }
                     else
@@ -5890,13 +6029,12 @@ namespace SharpPy
                         // Create new cell if needed (shouldn't happen in correct code)
                         closureCell = new PyCell();
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ⚠️  LOAD_CLOSURE: Creating new empty cell for index {cellIndex}");
+                        Console.WriteLine($"   ⚠️  LOAD_CLOSURE: Creating new empty cell for index {closureCellIndex}");
                         #endif
                     }
 
                     frame.ValueStack.Push(closureCell);
                     break;
-                }
 
                 case ByteCodeOp.COPY_FREE_VARS:
                     // CPython 3.12: COPY_FREE_VARS initializes free variable cells from closure
@@ -5935,21 +6073,80 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MAKE_CELL:
-                {
-                    // SharpPy: FixCellOffsets now emits direct Cells array index
-                    int cellIndex = instruction.Argument;
+                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
+                    // CPython localsplus layout: [varnames(0..nlocals-1) | cellvars(nlocals..nlocals+ncellvars-1) | freevars(...)]
+                    // SharpPy Cells layout: [freevars(0..nfreevars-1) | cellvars(nfreevars..nfreevars+ncellvars-1)]
+                    var localsPlusOffset = instruction.Argument;
+                    int nlocals = frame.Code.VarNames.Count;
+                    int ncellvars = frame.Code.CellVars.Count;
+                    int nfreevars = frame.Code.FreeVars.Count;
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 MAKE_CELL Cells[{cellIndex}]");
+                    Console.WriteLine($"🔧 MAKE_CELL at localsplus offset {localsPlusOffset} (nlocals={nlocals}, ncellvars={ncellvars}, nfreevars={nfreevars})");
                     #endif
 
-                    // Get variable name from cell index
-                    string cellVarName = GetCellVarName(frame.Code, cellIndex);
+                    // Convert CPython localsplus offset to SharpPy Cells index
+                    string cellVarName;
+                    int actualCellIndex;
 
+                    if (localsPlusOffset < nlocals)
+                    {
+                        // It's a parameter (in varnames) that's also a cell
+                        cellVarName = frame.Code.VarNames[localsPlusOffset];
+                        // Find it in cellvars to get the cell index
+                        int cellVarIdx = frame.Code.CellVars.IndexOf(cellVarName);
+                        if (cellVarIdx < 0)
+                        {
+                            throw new IndexOutOfRangeException($"MAKE_CELL: varname '{cellVarName}' not found in cellvars");
+                        }
+                        // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
+                        actualCellIndex = nfreevars + cellVarIdx;
+                    }
+                    else
+                    {
+                        // It's not a parameter - either cellvar or freevar
+                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
+                        var makeNonParamCellNames = new List<string>();
+                        for (int i = 0; i < ncellvars; i++)
+                        {
+                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
+                                makeNonParamCellNames.Add(frame.Code.CellVars[i]);
+                        }
+                        int numNonParamCells = makeNonParamCellNames.Count;
+
+                        int offsetAfterLocals = localsPlusOffset - nlocals;
+                        if (offsetAfterLocals < numNonParamCells)
+                        {
+                            // It's a cellvar (non-parameter) - find by name
+                            cellVarName = makeNonParamCellNames[offsetAfterLocals];
+                            int cellVarIdx = frame.Code.CellVars.IndexOf(cellVarName);
+                            // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
+                            actualCellIndex = nfreevars + cellVarIdx;
+                        }
+                        else
+                        {
+                            // It's a freevar
+                            int freeVarIdx = offsetAfterLocals - numNonParamCells;
+                            cellVarName = frame.Code.FreeVars[freeVarIdx];
+                            // SharpPy: freevars are at Cells[freeVarIdx]
+                            actualCellIndex = freeVarIdx;
+                        }
+                    }
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   Converting CPython localsplus[{localsPlusOffset}] → SharpPy Cells[{actualCellIndex}] for '{cellVarName}'");
+                    #endif
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
+                    #endif
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   FreeVars: [{string.Join(", ", frame.Code.FreeVars)}] (offset: {frame.Code.FreeVars.Count})");
+                    #endif
                     // CPython 3.12: Create cell variable (initially None for type parameters)
                     PyObject? cellValue = null;
                     // Find the variable in LocalsPlus by name
-                    if (frame.Code.VarNameIndexMap.TryGetValue(cellVarName, out int localIndex) && localIndex < frame.LocalsPlus.Length)
+                    int localIndex = frame.Code.VarNames.IndexOf(cellVarName);
+                    if (localIndex >= 0 && localIndex < frame.LocalsPlus.Length)
                     {
                         var localValue = frame.LocalsPlus[localIndex];
                         if (!PyNull.IsNull(localValue))
@@ -5961,29 +6158,37 @@ namespace SharpPy
                         }
                         else
                         {
+                            // Variable is PyNull (uninitialized), use None for cell
                             cellValue = PyNone.Instance;
                             #if DEBUG_LOG
-                            Console.WriteLine($"   Initializing '{cellVarName}' cell with None (uninitialized)");
+                            Console.WriteLine($"   Initializing '{cellVarName}' cell with None (uninitialized local)");
                             #endif
                         }
                     }
                     else
                     {
+                        // For Generic Parameters function, cells start as None
                         cellValue = PyNone.Instance;
                         #if DEBUG_LOG
                         Console.WriteLine($"   Initializing '{cellVarName}' cell with None (not in locals)");
                         #endif
                     }
 
-                    if (cellIndex < frame.Cells.Length)
+                    // CPython 3.12: Use actualCellIndex (offset by free var count) for cell access
+                    if (actualCellIndex < frame.Cells.Length)
                     {
-                        frame.Cells[cellIndex].SetValue(cellValue);
+                        frame.Cells[actualCellIndex].SetValue(cellValue);
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ Set Cells[{cellIndex}] '{cellVarName}' = {cellValue}");
+                        Console.WriteLine($"   ✅ Set cell[{actualCellIndex}] '{cellVarName}' = {cellValue}");
+                        #endif
+                    }
+                    else
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   ❌ Invalid actual cell index {actualCellIndex}, Cells.Length: {frame.Cells.Length}");
                         #endif
                     }
                     break;
-                }
 
                 // Generator Implementation
                 case ByteCodeOp.RETURN_GENERATOR:
