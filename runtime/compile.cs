@@ -8388,7 +8388,13 @@ namespace SharpPy
             }
 
             // 11. End label
+            // CRITICAL: Add NOP after endLabel to prevent EndsWithTerminator() from considering
+            // the try-except cleanup handler (ending with RERAISE) as the end of enclosing try body.
+            // This ensures that if try-except is the last statement in a parent try block,
+            // the parent try compiler will emit JUMP to skip its except handlers.
+            // Same pattern as CompileWithStatement (Python/compile.c:6063)
             _instructionSequence.UseLabel(endLabel);
+            _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
 
 #if SHARPPY_DEBUG_COMPILER_LOG
             Console.WriteLine($"✅ [CFG] CompileTryStatementCFG: Complete (SETUP_FINALLY pattern)");
