@@ -2919,7 +2919,21 @@ namespace SharpPy
 #endif
                                     break;
                                 case SymbolScope.Free:
-                                    // CPython 3.12: Free variables in generator expressions use STORE_DEREF
+                                    // CPython 3.12 PEP 709: In inlined comprehensions, walrus vars are stored
+                                    // as parent's local variables using STORE_FAST
+                                    if (_isInComprehension)
+                                    {
+                                        var localIndex = _varNames.IndexOf(nameTarget.Name);
+                                        if (localIndex >= 0)
+                                        {
+                                            EmitInstruction(ByteCodeOp.STORE_FAST, localIndex);
+#if DEBUG_COMPILER_LOG
+                                            Console.WriteLine($"      → PEP 709: Emitted STORE_FAST for walrus {nameTarget.Name} (Free in comp, local in parent)");
+#endif
+                                            break;
+                                        }
+                                    }
+                                    // Generator expressions: Free variables use STORE_DEREF
                                     EmitStoreDeref(nameTarget.Name);
 #if DEBUG_COMPILER_LOG
                                     Console.WriteLine($"      → Emitted STORE_DEREF for {nameTarget.Name} (FREE variable in genexpr)");
@@ -10626,7 +10640,16 @@ namespace SharpPy
             }
 
             // Walrus 변수 수집 (filter 조건 및 element 표현식에서)
-            CollectAllComprehensionVars(listComp, walrusVars);
+            // NOTE: CollectAllComprehensionVars for ListComprehension itself skips (for nested comps)
+            // So we need to manually traverse the comprehension's internal components
+            CollectAllComprehensionVars(listComp.Element, walrusVars);
+            foreach (var gen in listComp.Generators)
+            {
+                foreach (var ifExpr in gen.Ifs)
+                {
+                    CollectAllComprehensionVars(ifExpr, walrusVars);
+                }
+            }
 
             // Walrus 변수에서 loop 변수 제거 (loop 변수는 Local, walrus만 Global)
             for (int i = walrusVars.Count - 1; i >= 0; i--)
