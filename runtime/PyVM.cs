@@ -3912,6 +3912,30 @@ namespace SharpPy
                     frame.ValueStack.Push(constKeyDict);
                     break;
 
+                case ByteCodeOp.DICT_UPDATE:
+                    // CPython 3.12: Python/ceval.c DICT_UPDATE
+                    // TOS에 있는 dict의 내용을 stack[-(arg)]에 있는 dict에 병합
+                    // 주로 {**d} 딕셔너리 리터럴 언패킹에 사용됨
+                    // Stack: [..., target_dict, source_dict] → [..., target_dict] (target_dict 수정됨)
+                    var dictUpdateSource = frame.ValueStack.Pop();
+                    if (!(dictUpdateSource is PyDict dictUpdateSourceDict))
+                    {
+                        throw PyTypeError.Create($"'dict' object expected for ** unpacking, got '{dictUpdateSource?.GetTypeName() ?? "null"}'");
+                    }
+                    // stack[-(arg)]에 있는 dict를 가져옴 (arg=1이면 현재 TOS)
+                    var dictUpdateArg = instruction.Argument;
+                    var dictUpdateTarget = frame.ValueStack.PeekAt(dictUpdateArg - 1) as PyDict;
+                    if (dictUpdateTarget == null)
+                    {
+                        throw new InvalidOperationException($"DICT_UPDATE: target at position {dictUpdateArg} is not a dict");
+                    }
+                    // dictUpdateSourceDict의 모든 항목을 dictUpdateTarget에 추가
+                    foreach (var kvp in dictUpdateSourceDict.GetInternalDict())
+                    {
+                        dictUpdateTarget.SetItem(kvp.Key, kvp.Value);
+                    }
+                    break;
+
                 // CPython-style Iterator Opcodes
                 case ByteCodeOp.GET_ITER:
                     #if DEBUG_GET_ITER

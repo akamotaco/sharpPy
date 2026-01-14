@@ -3639,12 +3639,86 @@ namespace SharpPy
                     break;
                     
                 case DictExpression dict:
+                    // CPython 3.12: Python/compile.c compiler_dict
+                    // **unpacking이 있는지 확인
+                    bool hasUnpacking = false;
                     foreach (var kvp in dict.Items)
                     {
-                        CompileExpression(kvp.Key);
-                        CompileExpression(kvp.Value);
+                        if (kvp.Key == null)
+                        {
+                            hasUnpacking = true;
+                            break;
+                        }
                     }
-                    EmitInstruction(ByteCodeOp.BUILD_MAP, dict.Items.Count);
+
+                    if (!hasUnpacking)
+                    {
+                        // 단순 딕셔너리: 모든 키-값을 스택에 푸시 후 BUILD_MAP
+                        foreach (var kvp in dict.Items)
+                        {
+                            CompileExpression(kvp.Key);
+                            CompileExpression(kvp.Value);
+                        }
+                        EmitInstruction(ByteCodeOp.BUILD_MAP, dict.Items.Count);
+                    }
+                    else
+                    {
+                        // CPython 3.12: **unpacking이 있는 경우
+                        // Python/compile.c:compiler_dict 참조
+                        // 첫 번째 항목이 일반 키-값이면 BUILD_MAP 0 없이 시작
+                        // 첫 번째 항목이 **unpacking이면 BUILD_MAP 0으로 시작
+
+                        bool needsInitialEmptyMap = dict.Items.Count == 0 || dict.Items[0].Key == null;
+                        bool hasDictOnStack = false;
+
+                        if (needsInitialEmptyMap)
+                        {
+                            EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+                            hasDictOnStack = true;
+                        }
+
+                        int regularCount = 0;
+                        foreach (var kvp in dict.Items)
+                        {
+                            if (kvp.Key == null)
+                            {
+                                // 이전에 쌓인 일반 키-값들이 있으면 먼저 BUILD_MAP
+                                if (regularCount > 0)
+                                {
+                                    EmitInstruction(ByteCodeOp.BUILD_MAP, regularCount);
+                                    if (hasDictOnStack)
+                                    {
+                                        EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                                    }
+                                    else
+                                    {
+                                        hasDictOnStack = true;
+                                    }
+                                    regularCount = 0;
+                                }
+                                // **unpacking: 값을 로드하고 DICT_UPDATE
+                                CompileExpression(kvp.Value);
+                                EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                            }
+                            else
+                            {
+                                // 일반 키-값: 스택에 푸시
+                                CompileExpression(kvp.Key);
+                                CompileExpression(kvp.Value);
+                                regularCount++;
+                            }
+                        }
+
+                        // 남은 일반 키-값들 처리
+                        if (regularCount > 0)
+                        {
+                            EmitInstruction(ByteCodeOp.BUILD_MAP, regularCount);
+                            if (hasDictOnStack)
+                            {
+                                EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                            }
+                        }
+                    }
                     break;
                     
                 case LambdaExpression lambda:
