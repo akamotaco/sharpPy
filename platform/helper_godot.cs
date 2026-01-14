@@ -71,6 +71,14 @@ namespace Godot_IO
 
         public static bool DirExists(string path)
         {
+            // res://, user:// 경로는 DirAccess.Open으로 확인
+            if (IsGodotPath(path))
+            {
+                using (var dir = DirAccess.Open(path))
+                {
+                    return dir != null;
+                }
+            }
             return Godot.DirAccess.DirExistsAbsolute(path);
         }
         
