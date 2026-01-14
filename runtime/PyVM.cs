@@ -6552,27 +6552,30 @@ namespace SharpPy
                 }
             }
 
-            // Try C# method for built-in types (PyList, etc.)
-            var csharpMethod = left.GetType().GetMethod(inplaceMethodName);
-            if (csharpMethod != null)
+            // CPython 3.12: Try C# virtual method for built-in types (PyList, etc.)
+            // Performance: Direct virtual call instead of Reflection (no boxing, JIT inlinable)
+            var inplaceResult = inplaceMethodName switch
             {
-                try
-                {
-                    var result = csharpMethod.Invoke(left, new object[] { right }) as PyObject;
+                "InplaceAdd" => left.InplaceAdd(right),
+                "InplaceSubtract" => left.InplaceSubtract(right),
+                "InplaceMultiply" => left.InplaceMultiply(right),
+                "InplaceDivide" => left.InplaceDivide(right),
+                "InplaceFloorDivide" => left.InplaceFloorDivide(right),
+                "InplaceModulo" => left.InplaceModulo(right),
+                "InplacePower" => left.InplacePower(right),
+                "InplaceLeftShift" => left.InplaceLeftShift(right),
+                "InplaceRightShift" => left.InplaceRightShift(right),
+                "InplaceBitwiseAnd" => left.InplaceBitwiseAnd(right),
+                "InplaceBitwiseOr" => left.InplaceBitwiseOr(right),
+                "InplaceBitwiseXor" => left.InplaceBitwiseXor(right),
+                "InplaceMatrixMultiply" => left.InplaceMatrixMultiply(right),
+                _ => null
+            };
 
-                    // CPython: Objects/abstract.c:1171 - If not NotImplemented, use result
-                    if (result != null && result != PyNotImplemented.Instance)
-                    {
-                        return result;
-                    }
-                }
-                catch (System.Reflection.TargetInvocationException ex)
-                {
-                    // Re-throw the inner exception (Python exception from the method)
-                    if (ex.InnerException != null)
-                        throw ex.InnerException;
-                    throw;
-                }
+            // CPython: Objects/abstract.c:1171 - If not NotImplemented, use result
+            if (inplaceResult != null && inplaceResult != PyNotImplemented.Instance)
+            {
+                return inplaceResult;
             }
 
             // CPython: Objects/abstract.c:1179 - Fall back to regular operation

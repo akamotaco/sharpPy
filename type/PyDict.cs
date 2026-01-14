@@ -1061,7 +1061,7 @@ namespace SharpPy
         /// CPython 3.12: Objects/dictobject.c:dict_ior (lines 3172-3194)
         /// Merges other into self in-place and returns self
         /// </summary>
-        public virtual PyObject InplaceBitwiseOr(PyObject other)
+        public override PyObject? InplaceBitwiseOr(PyObject other)
         {
             // CPython: Objects/dictobject.c:3177-3180 - Type check
             if (other is not PyDict otherDict)
