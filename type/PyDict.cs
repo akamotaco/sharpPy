@@ -483,6 +483,19 @@ namespace SharpPy
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal Dictionary<PyObject, PyObject> InternalDict => _dict;
 
+        /// <summary>
+        /// CPython 3.12: Include/cpython/dictobject.h - 내부 딕셔너리 순회용
+        /// DICT_UPDATE/DICT_MERGE 명령어에서 사용
+        /// </summary>
+        public IEnumerable<KeyValuePair<PyObject, PyObject>> GetInternalDict()
+        {
+            // Python 3.7+: 삽입 순서 보장하여 반환
+            foreach (var key in _keys)
+            {
+                yield return new KeyValuePair<PyObject, PyObject>(key, _dict[key]);
+            }
+        }
+
         public PyDict()
         {
             _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
@@ -660,6 +673,15 @@ namespace SharpPy
         public override PyBool Contains(PyObject key)
         {
             return PyBool.FromBool(_dict.ContainsKey(key));
+        }
+
+        /// <summary>
+        /// CPython 3.12: PyDict_Contains - 키 포함 여부 확인 (bool 반환)
+        /// DICT_MERGE 명령어에서 중복 키 검사에 사용
+        /// </summary>
+        public bool ContainsKey(PyObject key)
+        {
+            return _dict.ContainsKey(key);
         }
 
         /// <summary>

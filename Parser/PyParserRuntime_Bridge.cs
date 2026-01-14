@@ -3306,6 +3306,7 @@ namespace SharpPy.Generated
         /// <summary>
         /// Convert parallel GeneratedSeq keys and values to List of tuples
         /// Replaces: Keys.Zip(Values, (k, v) => (Key: ..., Value: ...)).ToList()
+        /// CPython 3.12: key가 None인 경우 dict unpacking (**expr)을 나타냄
         /// </summary>
         private static List<(Expression Key, Expression Value)> ConvertDictPairs(GeneratedSeq keys, GeneratedSeq values)
         {
@@ -3315,9 +3316,17 @@ namespace SharpPy.Generated
                 int count = Math.Min(keys.Count, values.Count);
                 for (int i = 0; i < count; i++)
                 {
-                    if (keys[i] is GeneratedExpr k && values[i] is GeneratedExpr v)
+                    // CPython 3.12: key가 None이면 **unpacking (ex: {**d})
+                    // Python AST에서 Dict(keys=[None], values=[d]) 형태로 표현됨
+                    if (values[i] is GeneratedExpr v)
                     {
-                        result.Add((ConvertAnyExpression(k), ConvertAnyExpression(v)));
+                        Expression? keyExpr = null;
+                        if (keys[i] is GeneratedExpr k)
+                        {
+                            keyExpr = ConvertAnyExpression(k);
+                        }
+                        // key가 null이면 keyExpr은 null 유지 (dict unpacking 표시)
+                        result.Add((keyExpr!, ConvertAnyExpression(v)));
                     }
                 }
             }
