@@ -3128,22 +3128,27 @@ namespace SharpPy
                             EmitLoadConst(new PyTuple(new PyObject[0]));
                         }
 
-                        // Handle **kwargs
+                        // Handle kwargs (both **kwargs unpacking AND regular keyword arguments)
                         // CPython 3.12: Python/compile.c:5066-5103 (compiler_call_helper)
                         // CALL_FUNCTION_EX expects: [func, args_tuple, kwargs_dict]
-                        if (hasKwargUnpacking)
-                        {
-                            // CPython 3.12: First, create dict with regular keyword arguments using BUILD_MAP
-                            // Performance: Eliminated LINQ
-                            var regularKwargs = new List<KeywordExpression>();
-                            foreach (var kw in call.Keywords)
-                            {
-                                if (kw.Arg != null)
-                                {
-                                    regularKwargs.Add(kw);
-                                }
-                            }
+                        // CPython 3.12: When *args is used with keyword arguments (e.g., method(*args, key=value)),
+                        // kwargs must be passed as a dict even without **kwargs unpacking
 
+                        // Collect regular keyword arguments (kw.Arg != null)
+                        var regularKwargs = new List<KeywordExpression>();
+                        foreach (var kw in call.Keywords)
+                        {
+                            if (kw.Arg != null)
+                            {
+                                regularKwargs.Add(kw);
+                            }
+                        }
+
+                        // Check if we have any kwargs to pass (either **kwargs or regular keyword args)
+                        bool hasAnyKwargs = hasKwargUnpacking || regularKwargs.Count > 0;
+
+                        if (hasAnyKwargs)
+                        {
                             // CPython 3.12: BUILD_MAP with count of regular keyword args
                             // Stack: [key1, val1, key2, val2, ...] -> BUILD_MAP n -> [dict]
                             foreach (var kw in regularKwargs)
@@ -3154,7 +3159,6 @@ namespace SharpPy
                             EmitInstruction(ByteCodeOp.BUILD_MAP, regularKwargs.Count);
 
                             // CPython 3.12: Then merge each **kwargs dict using DICT_MERGE
-                            // Performance: Eliminated LINQ
                             foreach (var kwarg in call.Keywords)
                             {
                                 if (kwarg.Arg == null)
