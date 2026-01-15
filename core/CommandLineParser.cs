@@ -59,6 +59,14 @@ namespace SharpPy.Core
                         options["--use-peg-parser"] = "true";
                         break;
 
+                    case "--test-generator-kwargs":
+                        options["--test-generator-kwargs"] = "true";
+                        break;
+
+                    case "--test-pymethod-kwargs":
+                        options["--test-pymethod-kwargs"] = "true";
+                        break;
+
                     case "-c":
                         if (i + 1 < args.Length)
                         {

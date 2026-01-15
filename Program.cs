@@ -3,6 +3,7 @@ using SharpPy.Core;
 using SharpPy.Tools;
 using SharpPy.Modules;
 using SharpPy.Generated;
+using SharpPy.Tests;
 
 namespace SharpPy
 {
@@ -48,6 +49,16 @@ namespace SharpPy
                 if (parsedArgs.ContainsKey("--compile"))
                 {
                     compileOnly = true;
+                }
+                if (parsedArgs.ContainsKey("--test-generator-kwargs"))
+                {
+                    GeneratorKwargsTest.RunAllTests();
+                    return;
+                }
+                if (parsedArgs.ContainsKey("--test-pymethod-kwargs"))
+                {
+                    PyMethodKwargsTest.RunAllTests();
+                    return;
                 }
 
                 // else if (parsedArgs.ContainsKey("--compare-parsers"))
