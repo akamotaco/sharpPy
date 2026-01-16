@@ -3502,25 +3502,125 @@ namespace SharpPy
 
         /// <summary>
         /// __import__(name, globals=None, locals=None, fromlist=(), level=0)
-        /// 동적 import 기능
+        /// CPython 3.12: Python/bltinmodule.c:246-278
         /// </summary>
         private static PyObject CallImport(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 5)
-                throw PyTypeError.Create($"__import__ expected 1 to 5 arguments ({args.Length} given)");
+            // CPython 3.12: __import__(name, globals=None, locals=None, fromlist=(), level=0)
+            // Signature has 5 parameters: name (required), globals, locals, fromlist, level
 
-            var name = args[0].AsString();
-            // globals, locals, fromlist, level 매개변수는 일단 무시하고 기본 동작만 구현
-            
-            try
+            // Extract parameters from positional args and kwargs
+            string name = null;
+            Dictionary<string, PyObject> globals = null;
+            // locals is unused in CPython (kept for backwards compatibility)
+            string[] fromlist = null;
+            int level = 0;
+
+            // Process positional arguments
+            if (args.Length >= 1)
             {
-                var module = PyImportSystem.Import(name);
-                return module;
+                name = args[0].AsString();
             }
-            catch (System.Exception ex)
+            if (args.Length >= 2 && args[1] != null && args[1] is not PyNone)
             {
-                throw PyImportError.Create($"No module named '{name}': {ex.Message}");
+                // globals parameter - convert to Dictionary for PyImportSystem
+                if (args[1] is PyDict globalsDict)
+                {
+                    globals = new Dictionary<string, PyObject>();
+                    foreach (var kvp in globalsDict.InternalDict)
+                    {
+                        if (kvp.Key is PyString keyStr)
+                            globals[keyStr.Value] = kvp.Value;
+                    }
+                }
             }
+            // args[2] = locals (unused)
+            if (args.Length >= 4 && args[3] != null && args[3] is not PyNone)
+            {
+                fromlist = ExtractFromlist(args[3]);
+            }
+            if (args.Length >= 5 && args[4] != null && args[4] is not PyNone)
+            {
+                if (args[4] is PyInt levelInt)
+                    level = (int)levelInt.Value;
+            }
+
+            // Process keyword arguments (override positional if present)
+            if (kwargs != null)
+            {
+                foreach (var kvp in kwargs.InternalDict)
+                {
+                    if (kvp.Key is PyString keyStr)
+                    {
+                        switch (keyStr.Value)
+                        {
+                            case "name":
+                                name = kvp.Value.AsString();
+                                break;
+                            case "globals":
+                                if (kvp.Value is PyDict gDict && kvp.Value is not PyNone)
+                                {
+                                    globals = new Dictionary<string, PyObject>();
+                                    foreach (var g in gDict.InternalDict)
+                                    {
+                                        if (g.Key is PyString gKeyStr)
+                                            globals[gKeyStr.Value] = g.Value;
+                                    }
+                                }
+                                break;
+                            case "locals":
+                                // Unused in CPython
+                                break;
+                            case "fromlist":
+                                if (kvp.Value is not PyNone)
+                                    fromlist = ExtractFromlist(kvp.Value);
+                                break;
+                            case "level":
+                                if (kvp.Value is PyInt lvl)
+                                    level = (int)lvl.Value;
+                                break;
+                        }
+                    }
+                }
+            }
+
+            if (name == null)
+                throw PyTypeError.Create("__import__() missing required argument: 'name' (pos 1)");
+
+            // CPython 3.12: Python/bltinmodule.c:276-277
+            // return PyImport_ImportModuleLevelObject(name, globals, locals, fromlist, level);
+            return PyImportSystem.Import(name, level, fromlist, globals);
+        }
+
+        /// <summary>
+        /// Extract fromlist from PyObject (tuple or list)
+        /// </summary>
+        private static string[] ExtractFromlist(PyObject fromlistObj)
+        {
+            if (fromlistObj is PyTuple tuple)
+            {
+                if (tuple.Items.Length == 0)
+                    return null; // Empty tuple = no fromlist
+                var result = new string[tuple.Items.Length];
+                for (int i = 0; i < tuple.Items.Length; i++)
+                {
+                    result[i] = tuple.Items[i] is PyString s ? s.Value : tuple.Items[i].AsString();
+                }
+                return result;
+            }
+            else if (fromlistObj is PyList list)
+            {
+                var items = list.Items;
+                if (items.Length == 0)
+                    return null; // Empty list = no fromlist
+                var result = new string[items.Length];
+                for (int i = 0; i < items.Length; i++)
+                {
+                    result[i] = items[i] is PyString s ? s.Value : items[i].AsString();
+                }
+                return result;
+            }
+            return null;
         }
 
         // PEP 695: Support generic type subscripts for builtin types like tuple[T, T], list[T]
