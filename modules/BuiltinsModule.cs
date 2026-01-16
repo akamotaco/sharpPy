@@ -125,25 +125,11 @@ namespace SharpPy.Modules
             module.ModuleDict["getattr"] = new PyBuiltinFunction("getattr", GetAttr);
             module.ModuleDict["setattr"] = new PyBuiltinFunction("setattr", SetAttr);
 
-            // CPython 3.12: Python/bltinmodule.c:246-277
-            // builtin___import__ - dynamic module import
-            module.ModuleDict["__import__"] = new PyBuiltinFunction("__import__",
-                (args) => {
-                    // CPython signature: __import__(name, globals=None, locals=None, fromlist=(), level=0)
-                    if (args.Length == 0)
-                        throw PyTypeError.Create("__import__() missing required argument: 'name' (pos 1)");
-
-                    var name = args[0].ToStr().Value;
-
-                    // globals, locals는 현재 SharpPy에서 사용하지 않음 (CPython 호환용)
-                    // fromlist: from X import Y에서 Y 리스트
-                    // level: 0=absolute, >0=relative import
-
-                    // 단순히 PyImportSystem에 위임 (CPython 패턴)
-                    // CPython: Python/bltinmodule.c:276-277
-                    // return PyImport_ImportModuleLevelObject(name, globals, locals, fromlist, level);
-                    return PyImportSystem.Import(name);
-                });
+            // CPython 3.12: Python/bltinmodule.c:246-278
+            // __import__ is registered without explicit implementation here.
+            // It uses the fallback lookup in PyBuiltinFunction._builtinImplementations["__import__"]
+            // which properly handles all parameters: name, globals, locals, fromlist, level
+            module.ModuleDict["__import__"] = new PyBuiltinFunction("__import__");
 
             // Add property, classmethod, staticmethod (required by enum module)
             // CPython 3.12: These should be TYPE objects, not functions
