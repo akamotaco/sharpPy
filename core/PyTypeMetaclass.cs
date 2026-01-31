@@ -570,19 +570,6 @@ namespace SharpPy
                         {
                             // CPython 3.12: Objects/typeobject.c:3751 - values preserved as-is
                             classDict[keyStr.Value] = tuple.Items[1];
-
-                            // Debug: Track _generate_next_value_
-                            if (keyStr.Value == "_generate_next_value_")
-                            {
-                                Console.WriteLine($"[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']");
-                                Console.WriteLine($"[TYPE_NEW DEBUG]   Value: {tuple.Items[1]}");
-                                Console.WriteLine($"[TYPE_NEW DEBUG]   Type: {tuple.Items[1].GetTypeName()}");
-                                if (tuple.Items[1] is PyStaticmethod sm)
-                                {
-                                    Console.WriteLine($"[TYPE_NEW DEBUG]   It's a staticmethod!");
-                                    Console.WriteLine($"[TYPE_NEW DEBUG]   Callable: {sm.Callable}");
-                                }
-                            }
                         }
                     }
                 }
@@ -775,13 +762,6 @@ namespace SharpPy
                 // CPython 3.12: Use the winner metaclass (could be custom metaclass)
                 newClass.Metaclass = winner ?? Instance;
 
-                // Debug: Check ClassDict after PyClass creation
-                if (classDict.ContainsKey("_generate_next_value_"))
-                {
-                    Console.WriteLine($"[TYPE_NEW DEBUG] After PyClass creation for {nameStr.Value}:");
-                    Console.WriteLine($"[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: {classDict["_generate_next_value_"].GetTypeName()}");
-                    Console.WriteLine($"[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: {newClass.ClassDict["_generate_next_value_"].GetTypeName()}");
-                }
             }
 
             #if DEBUG_LOG

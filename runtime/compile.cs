@@ -8173,9 +8173,6 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptionTarget, _currentLineNumber);
             // Push exception handler to compiler stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptionTarget);
-            #if DEBUG
-            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
-            #endif
 
             // 1.5. Push FINALLY_TRY fblock if finally clause exists
             // CPython compile.c:3239-3330 compiler_try_finally() pattern
@@ -8198,9 +8195,6 @@ namespace SharpPy
             {
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
                 _exceptionHandlerStack.Push(exceptLabel);
-                #if DEBUG
-                Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed inner except handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
-                #endif
             }
 
             // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
@@ -8222,17 +8216,11 @@ namespace SharpPy
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             // Pop exception handler from compiler stack
             _exceptionHandlerStack.Pop();
-            #if DEBUG
-            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped handler from stack. Stack count = {_exceptionHandlerStack.Count}");
-            #endif
 
             // 3.5. If inner except handler exists, pop it too
             if (hasExceptHandlers && hasFinally)
             {
                 _exceptionHandlerStack.Pop();
-                #if DEBUG
-                Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped inner except handler from stack. Stack count = {_exceptionHandlerStack.Count}");
-                #endif
             }
 
             // 4. Else clause (only runs if no exception)
@@ -8549,9 +8537,6 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
             // Push exception handler to stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptLabel);
-            #if DEBUG
-            Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Pushed inner except* handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
-            #endif
 
             // USE_LABEL body (line 3565)
             _instructionSequence.UseLabel(bodyLabel);
@@ -8571,9 +8556,6 @@ namespace SharpPy
             if (_exceptionHandlerStack.Count > 0)
             {
                 _exceptionHandlerStack.Pop();
-                #if DEBUG
-                Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Popped inner except* handler from stack. Stack count = {_exceptionHandlerStack.Count}");
-                #endif
             }
             _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, _currentLineNumber);
 
@@ -10549,58 +10531,6 @@ namespace SharpPy
         private void EmitLoadAttribute(string attrName) => EmitLoadAttr(attrName);
         private void EmitStoreAttribute(string attrName) => EmitStoreAttr(attrName);
         
-
-        // ========== LEGACY CODE (Replaced by unified FBlock system) ==========
-        // The following LoopContext code has been replaced by the CPython 3.12 style
-        // unified FBlock system. Keeping for reference during transition period.
-        // TODO: Remove after verifying all tests pass with new system.
-
-        /*
-        /// <summary>
-        /// Loop context management for break/continue
-        /// Uses unified FBlock system (FBlockInfo with FOR_LOOP/WHILE_LOOP types)
-        /// </summary>
-        private class LoopContext
-        {
-            public SharpPy.Label? NewBreakLabel { get; }
-            public SharpPy.Label? NewContinueLabel { get; }
-            public int ForIterInstruction { get; set; } = -1;
-            public int EndForPosition { get; set; } = -1;
-
-            public LoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel)
-            {
-                NewBreakLabel = breakLabel;
-                NewContinueLabel = continueLabel;
-            }
-        }
-
-        private Stack<LoopContext> _loopStack = new();
-
-        private void PushLoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel, int forIterInstruction = -1)
-        {
-            var context = new LoopContext(breakLabel, continueLabel);
-            if (forIterInstruction >= 0)
-            {
-                context.ForIterInstruction = forIterInstruction;
-            }
-            _loopStack.Push(context);
-        }
-
-        private void PopLoopContext()
-        {
-            if (_loopStack.Count > 0)
-            {
-                _loopStack.Pop();
-            }
-        }
-
-        private LoopContext? GetCurrentLoop()
-        {
-            return _loopStack.Count > 0 ? _loopStack.Peek() : null;
-        }
-        */
-
-        // ========== END OF LEGACY CODE ==========
 
         /// <summary>
         /// Pattern matching context - corresponds to CPython's pattern_context

@@ -973,15 +973,6 @@ namespace SharpPy
             var obj = args[0];
             var classinfo = args[1];
 
-            // [TEMP LOG] isinstance 호출 추적
-            Console.WriteLine($"[isinstance] obj={obj?.GetType().Name}, classinfo={classinfo?.GetType().Name}");
-            Console.WriteLine($"[isinstance] classinfo is PyType? {classinfo is PyType}");
-            Console.WriteLine($"[isinstance] classinfo is PyTuple? {classinfo is PyTuple}");
-            if (classinfo != null)
-            {
-                Console.WriteLine($"[isinstance] classinfo.GetTypeName()={classinfo.GetTypeName()}");
-            }
-
             if (classinfo is PyType type)
             {
                 return PyBool.FromBool(IsInstanceExtended(obj, type));
