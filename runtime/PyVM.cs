@@ -43,8 +43,6 @@ namespace SharpPy
         // When executing class body, STORE_NAME writes to this dict instead of scope
         public PyObject? ClassLocalsDict { get; set; }
 
-        // CPython-style exception handling support
-        public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
         public PyBaseException? LastException { get; set; }
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
         public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
@@ -475,20 +473,6 @@ namespace SharpPy
         }
 
 
-        /// <summary>
-        /// CPython-style exception handler management
-        /// </summary>
-        public void PushExceptionHandler(int handlerOffset)
-        {
-            ExceptionHandlers.Push(handlerOffset);
-        }
-
-        public void PopExceptionHandler()
-        {
-            if (ExceptionHandlers.Count > 0)
-                ExceptionHandlers.Pop();
-        }
-
         public int? GetExceptionHandler()
         {
             // Prevent infinite loop in exception handling
@@ -520,9 +504,6 @@ namespace SharpPy
                     #endif
                 }
             }
-            #if DEBUG_LOG
-            Console.WriteLine($"   Legacy handlers: {ExceptionHandlers.Count}");
-            #endif
 
             // CPython 3.12: Use Exception Table instead of SETUP_EXCEPT stack
             if (Code.ExceptionTable.Count > 0)
@@ -534,12 +515,7 @@ namespace SharpPy
                 return result;
             }
 
-            // Fallback to legacy SETUP_EXCEPT stack for compatibility
-            var legacyResult = ExceptionHandlers.Count > 0 ? (int?)ExceptionHandlers.Peek() : null;
-            #if DEBUG_LOG
-            Console.WriteLine($"   Legacy handler result: {legacyResult}");
-            #endif
-            return legacyResult;
+            return null;
         }
 
         // CPython 3.12 Exception Table lookup
@@ -4267,9 +4243,6 @@ namespace SharpPy
                     var invertValue = frame.ValueStack.Pop();
                     frame.ValueStack.Push(invertValue.BitwiseNot());
                     break;
-
-                // CPython 3.12: SETUP_EXCEPT removed - using Exception Table instead
-                // case ByteCodeOp.SETUP_EXCEPT: // Legacy - no longer used in CPython 3.12
 
                  case ByteCodeOp.POP_EXCEPT:
                     // CPython 3.12: POP_EXCEPT pops the prev_exc value left by PUSH_EXC_INFO
