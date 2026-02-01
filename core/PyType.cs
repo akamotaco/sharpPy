@@ -298,7 +298,7 @@ namespace SharpPy
         public static readonly PyType ResourceWarningType = new PyType("ResourceWarning", new[] { WarningType });
 
         // Typing system types (PEP 484, 585, 612, 646, 695)
-        public static readonly PyType UnionType = new PyType("Union", new[] { ObjectType });
+        public static readonly PyType UnionType = new PyType("types.UnionType", new[] { ObjectType });
         public static readonly PyType TypeVarType = new PyType("TypeVar", new[] { ObjectType });
         public static readonly PyType ParamSpecType = new PyType("ParamSpec", new[] { ObjectType }); // PEP 612
         public static readonly PyType TypeVarTupleType = new PyType("TypeVarTuple", new[] { ObjectType }); // PEP 646
@@ -2742,6 +2742,12 @@ namespace SharpPy
             else if (other is PyBuiltinType builtinType)
             {
                 return new PyUnionType(new PyObject[] { this, builtinType });
+            }
+            // CPython 3.10+: type | None → Union[type, NoneType]
+            // CPython Objects/typeobject.c: type_or() converts None to type(None)
+            else if (other is PyNone)
+            {
+                return new PyUnionType(new PyObject[] { this, PyType.NoneType });
             }
 
             // Fall back to base implementation for non-type objects

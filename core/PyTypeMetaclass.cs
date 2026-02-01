@@ -761,6 +761,8 @@ namespace SharpPy
                 newClass = new PyClass(nameStr.Value, baseTypes, classDict);
                 // CPython 3.12: Use the winner metaclass (could be custom metaclass)
                 newClass.Metaclass = winner ?? Instance;
+
+
             }
 
             #if DEBUG_LOG

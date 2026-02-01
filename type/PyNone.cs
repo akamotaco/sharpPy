@@ -120,6 +120,38 @@ namespace SharpPy
 
         #endregion
 
+        #region Union Type Support (PEP 604)
+
+        /// <summary>
+        /// CPython 3.10+: None | type → Union[NoneType, type]
+        /// CPython Objects/typeobject.c: type_or() - None is treated as type(None)
+        /// </summary>
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            if (other is PyType otherType)
+            {
+                return new PyUnionType(new PyObject[] { PyType.NoneType, otherType });
+            }
+            else if (other is PyUnionType unionType)
+            {
+                var newTypes = new PyObject[1 + unionType.Args.Length];
+                newTypes[0] = PyType.NoneType;
+                for (int i = 0; i < unionType.Args.Length; i++)
+                {
+                    newTypes[i + 1] = unionType.Args[i];
+                }
+                return new PyUnionType(newTypes);
+            }
+            else if (other is PyNone)
+            {
+                return new PyUnionType(new PyObject[] { PyType.NoneType, PyType.NoneType });
+            }
+
+            return base.BitwiseOr(other);
+        }
+
+        #endregion
+
         #region Custom Methods
 
         /// <summary>

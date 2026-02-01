@@ -20,13 +20,44 @@ namespace SharpPy
 
         public override string ToString()
         {
-            // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray
+            // CPython Objects/unionobject.c: union_repr()
+            // Each arg is formatted as its __qualname__, except NoneType → "None"
             var argStrings = new string[Args.Length];
             for (int i = 0; i < Args.Length; i++)
             {
-                argStrings[i] = Args[i].ToString();
+                argStrings[i] = FormatUnionArg(Args[i]);
             }
             return string.Join(" | ", argStrings);
+        }
+
+        /// <summary>
+        /// CPython Objects/unionobject.c: union_repr() formatting
+        /// NoneType is displayed as "None", other types use __qualname__
+        /// </summary>
+        private static string FormatUnionArg(PyObject arg)
+        {
+            if (arg is PyType pyType)
+            {
+                // CPython: NoneType → "None" in union repr
+                if (pyType == PyType.NoneType)
+                    return "None";
+                return pyType.Name;
+            }
+            if (arg is PyBuiltinType builtinType)
+                return builtinType.Name;
+            return arg.ToString();
+        }
+
+        // CPython Objects/unionobject.c: union_repr() → __repr__
+        public override PyString ToRepr()
+        {
+            return new PyString(ToString());
+        }
+
+        // CPython Objects/unionobject.c: union_repr() → __str__
+        public override PyString ToStr()
+        {
+            return new PyString(ToString());
         }
 
         /// <summary>
@@ -59,6 +90,18 @@ namespace SharpPy
                     combinedArgs[i] = Args[i];
                 }
                 combinedArgs[Args.Length] = other;
+                return new PyUnionType(combinedArgs);
+            }
+            // CPython 3.10+: Union | None → extend union with NoneType
+            // CPython Objects/typeobject.c: type_or() converts None to type(None)
+            else if (other is PyNone)
+            {
+                var combinedArgs = new PyObject[Args.Length + 1];
+                for (int i = 0; i < Args.Length; i++)
+                {
+                    combinedArgs[i] = Args[i];
+                }
+                combinedArgs[Args.Length] = PyType.NoneType;
                 return new PyUnionType(combinedArgs);
             }
 

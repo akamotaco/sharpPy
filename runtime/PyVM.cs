@@ -505,6 +505,7 @@ namespace SharpPy
                 }
             }
 
+
             // CPython 3.12: Use Exception Table instead of SETUP_EXCEPT stack
             if (Code.ExceptionTable.Count > 0)
             {
