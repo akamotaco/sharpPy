@@ -2743,6 +2743,12 @@ namespace SharpPy
             {
                 return new PyUnionType(new PyObject[] { this, builtinType });
             }
+            // CPython 3.10+: type | None → Union[type, NoneType]
+            // CPython Objects/typeobject.c: type_or() converts None to type(None)
+            else if (other is PyNone)
+            {
+                return new PyUnionType(new PyObject[] { this, PyType.NoneType });
+            }
 
             // Fall back to base implementation for non-type objects
             return base.BitwiseOr(other);

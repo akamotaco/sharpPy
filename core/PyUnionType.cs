@@ -61,6 +61,18 @@ namespace SharpPy
                 combinedArgs[Args.Length] = other;
                 return new PyUnionType(combinedArgs);
             }
+            // CPython 3.10+: Union | None → extend union with NoneType
+            // CPython Objects/typeobject.c: type_or() converts None to type(None)
+            else if (other is PyNone)
+            {
+                var combinedArgs = new PyObject[Args.Length + 1];
+                for (int i = 0; i < Args.Length; i++)
+                {
+                    combinedArgs[i] = Args[i];
+                }
+                combinedArgs[Args.Length] = PyType.NoneType;
+                return new PyUnionType(combinedArgs);
+            }
 
             return base.BitwiseOr(other);
         }
