@@ -12,7 +12,7 @@ namespace SharpPy
         public PyCodeObject Code { get; }
         public PyStack ValueStack { get; }
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
-        public PyObject[] LocalsPlus { get; }  // CPython 3.12 style: Direct array for local variables
+        public PyValue[] LocalsPlus { get; }  // CPython 3.12 style: PyValue array for local variables
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking
@@ -114,10 +114,11 @@ namespace SharpPy
 
             // CPython 3.12: Initialize LocalsPlus array for fast local variable access
             int nlocals = code.VarNames.Count;
-            LocalsPlus = new PyObject[nlocals];
-            // Optimized: Use Array.Fill instead of manual loop for bulk initialization
+            LocalsPlus = new PyValue[nlocals];
+            // PyValue default is {Tag=0, RawBits=0, ObjRef=null} which is Tag.Object + null.
+            // We need Tag=5 (NULL) to indicate uninitialized.
             if (nlocals > 0)
-                Array.Fill(LocalsPlus, PyNull.Instance);
+                Array.Fill(LocalsPlus, PyValue.Null);
 
             InstructionPointer = 0;
 
@@ -265,7 +266,7 @@ namespace SharpPy
                 if (posArgIndex < positionalArgs.Length)
                 {
                     // Bind positional argument
-                    LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
+                    LocalsPlus[paramIndex] = PyValue.FromObject(positionalArgs[posArgIndex]);
                     ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
@@ -299,7 +300,7 @@ namespace SharpPy
 
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
-                    LocalsPlus[paramIndex] = keywordValue;
+                    LocalsPlus[paramIndex] = PyValue.FromObject(keywordValue);
                     ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
@@ -324,7 +325,7 @@ namespace SharpPy
                     if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
                     {
                         var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
-                        LocalsPlus[paramIndex] = defaultValue;
+                        LocalsPlus[paramIndex] = PyValue.FromObject(defaultValue);
                         ScopeChain.AssignVariable(paramName, defaultValue);
 
 #if DEBUG_LOG
@@ -350,7 +351,7 @@ namespace SharpPy
                 if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
                 {
                     var keywordValue = keywordArgs[paramName];
-                    LocalsPlus[paramIndex] = keywordValue;
+                    LocalsPlus[paramIndex] = PyValue.FromObject(keywordValue);
                     ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
@@ -397,7 +398,7 @@ namespace SharpPy
 
                     if (hasDefault)
                     {
-                        LocalsPlus[paramIndex] = defaultValue;
+                        LocalsPlus[paramIndex] = PyValue.FromObject(defaultValue);
                         ScopeChain.AssignVariable(paramName, defaultValue);
                     }
                     else
@@ -422,7 +423,7 @@ namespace SharpPy
                 }
                 var argsTuple = new PyTuple(extraArgs);
 
-                LocalsPlus[varargsIndex] = argsTuple;
+                LocalsPlus[varargsIndex] = PyValue.FromObject(argsTuple);
                 ScopeChain.AssignVariable(varargsName, argsTuple);
 
 #if DEBUG_LOG
@@ -446,7 +447,7 @@ namespace SharpPy
                     }
                 }
 
-                LocalsPlus[varkwargsIndex] = kwargsDict;
+                LocalsPlus[varkwargsIndex] = PyValue.FromObject(kwargsDict);
                 ScopeChain.AssignVariable(varkwargsName, kwargsDict);
 
 #if DEBUG_LOG
@@ -630,9 +631,9 @@ namespace SharpPy
             for (int i = 0; i < LocalsPlus.Length && i < Code.VarNames.Count; i++)
             {
                 var value = LocalsPlus[i];
-                if (value != null && value != PyNull.Instance)
+                if (!value.IsNull)
                 {
-                    localsDict[Code.VarNames[i]] = value;
+                    localsDict[Code.VarNames[i]] = value.ToObject();
                 }
             }
 
@@ -657,7 +658,7 @@ namespace SharpPy
             // Clear LocalsPlus array
             for (int i = 0; i < LocalsPlus.Length; i++)
             {
-                LocalsPlus[i] = PyNull.Instance;
+                LocalsPlus[i] = PyValue.Null;
             }
 
             // Clear cells
@@ -962,10 +963,10 @@ namespace SharpPy
             {
                 var value = frame.LocalsPlus[i];
                 // Skip uninitialized variables (PyNull)
-                if (!PyNull.IsNull(value))
+                if (!value.IsNull)
                 {
                     var varName = frame.Code.VarNames[i];
-                    classNamespace[varName] = value;
+                    classNamespace[varName] = value.ToObject();
                 }
             }
 
@@ -1185,6 +1186,66 @@ namespace SharpPy
                     // When Enabled=false, this call returns immediately without any work
                     _specializer.TrySpecialize(frame, frame.InstructionPointer, instruction.OpCode);
 
+                    // ===== INLINE FAST PATH =====
+                    // Handle top-frequency safe opcodes directly in the loop
+                    // to avoid ExecuteInstruction method call + switch dispatch overhead.
+                    // These opcodes cannot throw Python exceptions in their normal path.
+                    if (frame.PendingException == null)
+                    {
+                        var inlineOp = instruction.OpCode;
+                        if (inlineOp == ByteCodeOp.LOAD_FAST)
+                        {
+                            var lfIdx = instruction.Argument;
+                            if (lfIdx < frame.LocalsPlus.Length)
+                            {
+                                var lfVal = frame.LocalsPlus[lfIdx];
+                                if (!lfVal.IsNull)
+                                {
+                                    frame.ValueStack.PushValue(lfVal);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            // Uninitialized or out-of-range: fall through to regular path
+                        }
+                        else if (inlineOp == ByteCodeOp.STORE_FAST)
+                        {
+                            var sfIdx = instruction.Argument;
+                            if (sfIdx < frame.LocalsPlus.Length)
+                            {
+                                frame.LocalsPlus[sfIdx] = frame.ValueStack.PopValue();
+                                frame.InstructionPointer++;
+                                continue;
+                            }
+                        }
+                        else if (inlineOp == ByteCodeOp.LOAD_CONST)
+                        {
+                            frame.ValueStack.PushValue(frame.Code.ConstantsAsValues[instruction.Argument]);
+                            frame.InstructionPointer++;
+                            continue;
+                        }
+                        else if (inlineOp == ByteCodeOp.POP_TOP)
+                        {
+                            frame.ValueStack.PopValue();
+                            frame.InstructionPointer++;
+                            continue;
+                        }
+                        else if (inlineOp == ByteCodeOp.RETURN_VALUE)
+                        {
+                            var inlineRetVal = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
+                            if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
+                            {
+                                if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_"))
+                                {
+                                    frame.ClassBodyVariables = new Dictionary<string, PyObject>(frame.ScopeChain.CurrentScope.Variables);
+                                }
+                                frame.ScopeChain.PopScope();
+                            }
+                            return inlineRetVal;
+                        }
+                    }
+                    // ===== END INLINE FAST PATH =====
+
                     try
                     {
                         // CPython 3.12: Check for pending exception from generator.throw()
@@ -1401,7 +1462,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.POP_TOP:
-                    frame.ValueStack.Pop();
+                    frame.ValueStack.PopValue(); // PyValue: no ToObject() conversion needed
                     break;
 
                 // CPython 3.12: DUP_TOP removed, use COPY 1
@@ -1475,8 +1536,8 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_CONST:
-                    var constant = frame.Code.Constants[instruction.Argument];
                     #if DEBUG_LOG
+                    var constant = frame.Code.Constants[instruction.Argument];
                     Console.WriteLine($"🔍 LOAD_CONST: 인덱스 {instruction.Argument}, 값 {constant} (타입: {constant?.GetType().Name})");
                     // Performance: Eliminated LINQ - manual constant array formatting
                     var constPairs = new string[frame.Code.Constants.Count];
@@ -1486,7 +1547,7 @@ namespace SharpPy
                     }
                     Console.WriteLine($"🔍 Constants 배열 전체: [{string.Join(", ", constPairs)}]");
                     #endif
-                    frame.ValueStack.Push(constant);
+                    frame.ValueStack.PushValue(frame.Code.ConstantsAsValues[instruction.Argument]);
                     break;
 
                 case ByteCodeOp.LOAD_NAME:
@@ -1545,12 +1606,12 @@ namespace SharpPy
                     {
                         var fastValue = frame.LocalsPlus[argIndex];
                         // CPython 3.12: PyNull indicates uninitialized variable
-                        if (PyNull.IsNull(fastValue))
+                        if (fastValue.IsNull)
                         {
                             var varName = frame.Code.VarNames[argIndex];
                             throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
                         }
-                        frame.ValueStack.Push(fastValue);
+                        frame.ValueStack.PushValue(fastValue);
                     }
                     else
                     {
@@ -1564,9 +1625,9 @@ namespace SharpPy
                     if (clearArgIndex < frame.LocalsPlus.Length)
                     {
                         var clearValue = frame.LocalsPlus[clearArgIndex];
-                        frame.ValueStack.Push(clearValue);  // Push even if PyNull
+                        frame.ValueStack.PushValue(clearValue);  // Push even if PyNull
                         // Clear the variable (set to PyNull)
-                        frame.LocalsPlus[clearArgIndex] = PyNull.Instance;
+                        frame.LocalsPlus[clearArgIndex] = PyValue.Null;
                     }
                     else
                     {
@@ -1580,12 +1641,12 @@ namespace SharpPy
                     if (checkIndex < frame.LocalsPlus.Length)
                     {
                         var checkValue = frame.LocalsPlus[checkIndex];
-                        if (PyNull.IsNull(checkValue))
+                        if (checkValue.IsNull)
                         {
                             var checkVarName = frame.Code.VarNames[checkIndex];
                             throw PyNameError.Create($"local variable '{checkVarName}' referenced before assignment");
                         }
-                        frame.ValueStack.Push(checkValue);
+                        frame.ValueStack.PushValue(checkValue);
                     }
                     else
                     {
@@ -1608,7 +1669,7 @@ namespace SharpPy
                     if (storeIndex < frame.LocalsPlus.Length)
                     {
                         var storeVal = frame.ValueStack.Pop();
-                        frame.LocalsPlus[storeIndex] = storeVal;
+                        frame.LocalsPlus[storeIndex] = PyValue.FromObject(storeVal);
                     }
                     else
                     {
@@ -1622,7 +1683,7 @@ namespace SharpPy
                     if (deleteFastIndex < frame.LocalsPlus.Length)
                     {
                         // Set to PyNull to mark as deleted/uninitialized
-                        frame.LocalsPlus[deleteFastIndex] = PyNull.Instance;
+                        frame.LocalsPlus[deleteFastIndex] = PyValue.Null;
                     }
                     else
                     {
@@ -1868,28 +1929,230 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BINARY_OP:
+                {
                     // CPython 3.12+ unified binary operation
-                    var operation = (BinaryOpType)instruction.Argument;
-                    var right = frame.ValueStack.Pop();
-                    var left = frame.ValueStack.Pop();
+                    var binOp = (BinaryOpType)instruction.Argument;
 
-                    var result = ExecuteBinaryOpType(left, right, operation);
-                    frame.ValueStack.Push(result);
-                    break;
+                    // PyValue fast path for int/float arithmetic (zero allocation)
+                    var rvBin = frame.ValueStack.PopValue();
+                    var lvBin = frame.ValueStack.PopValue();
+
+                    if (lvBin.IsIntLike && rvBin.IsIntLike)
+                    {
+                        long la = lvBin.AsInt64, ra = rvBin.AsInt64;
+                        switch (binOp)
+                        {
+                            case BinaryOpType.ADD:
+                            case BinaryOpType.INPLACE_ADD:
+                            {
+                                long sum = unchecked(la + ra);
+                                if (((la ^ sum) & (ra ^ sum)) < 0)
+                                    frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
+                                else
+                                    frame.ValueStack.PushInt64(sum);
+                                break;
+                            }
+                            case BinaryOpType.SUBTRACT:
+                            case BinaryOpType.INPLACE_SUBTRACT:
+                            {
+                                long diff = unchecked(la - ra);
+                                if (((la ^ ra) & (la ^ diff)) < 0)
+                                    frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
+                                else
+                                    frame.ValueStack.PushInt64(diff);
+                                break;
+                            }
+                            case BinaryOpType.MULTIPLY:
+                            case BinaryOpType.INPLACE_MULTIPLY:
+                            {
+                                if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
+                                {
+                                    frame.ValueStack.PushInt64(la * ra);
+                                }
+                                else
+                                {
+                                    var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
+                                    if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
+                                        frame.ValueStack.PushInt64((long)bigResult);
+                                    else
+                                        frame.ValueStack.Push(new PyInt(bigResult));
+                                }
+                                break;
+                            }
+                            case BinaryOpType.MODULO:
+                            case BinaryOpType.INPLACE_MODULO:
+                            {
+                                if (ra == 0)
+                                    throw PyZeroDivisionError.Create("integer modulo by zero");
+                                // Python modulo: result has same sign as divisor
+                                long mod = la % ra;
+                                if (mod != 0 && (mod ^ ra) < 0)
+                                    mod += ra;
+                                frame.ValueStack.PushInt64(mod);
+                                break;
+                            }
+                            case BinaryOpType.FLOOR_DIVIDE:
+                            case BinaryOpType.INPLACE_FLOOR_DIVIDE:
+                            {
+                                if (ra == 0)
+                                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                                // Python floor division
+                                long div = la / ra;
+                                if ((la ^ ra) < 0 && div * ra != la)
+                                    div--;
+                                frame.ValueStack.PushInt64(div);
+                                break;
+                            }
+                            default:
+                                // Bitwise, shift, power etc. fall through to PyObject path
+                                goto binop_pyobject;
+                        }
+                        break;
+                    }
+
+                    if (lvBin.IsFloat64 && rvBin.IsFloat64)
+                    {
+                        double ld = lvBin.AsFloat64, rd = rvBin.AsFloat64;
+                        switch (binOp)
+                        {
+                            case BinaryOpType.ADD:
+                            case BinaryOpType.INPLACE_ADD:
+                                frame.ValueStack.PushFloat64(ld + rd);
+                                break;
+                            case BinaryOpType.SUBTRACT:
+                            case BinaryOpType.INPLACE_SUBTRACT:
+                                frame.ValueStack.PushFloat64(ld - rd);
+                                break;
+                            case BinaryOpType.MULTIPLY:
+                            case BinaryOpType.INPLACE_MULTIPLY:
+                                frame.ValueStack.PushFloat64(ld * rd);
+                                break;
+                            case BinaryOpType.TRUE_DIVIDE:
+                            case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                                if (rd == 0.0)
+                                    throw PyZeroDivisionError.Create("float division by zero");
+                                frame.ValueStack.PushFloat64(ld / rd);
+                                break;
+                            case BinaryOpType.FLOOR_DIVIDE:
+                            case BinaryOpType.INPLACE_FLOOR_DIVIDE:
+                                if (rd == 0.0)
+                                    throw PyZeroDivisionError.Create("float floor division by zero");
+                                frame.ValueStack.PushFloat64(Math.Floor(ld / rd));
+                                break;
+                            case BinaryOpType.MODULO:
+                            case BinaryOpType.INPLACE_MODULO:
+                                if (rd == 0.0)
+                                    throw PyZeroDivisionError.Create("float modulo");
+                                frame.ValueStack.PushFloat64(ld - Math.Floor(ld / rd) * rd);
+                                break;
+                            default:
+                                goto binop_pyobject;
+                        }
+                        break;
+                    }
+
+                    // int + float mixed: promote int to float
+                    if (lvBin.IsIntLike && rvBin.IsFloat64)
+                    {
+                        double ld = (double)lvBin.AsInt64, rd = rvBin.AsFloat64;
+                        switch (binOp)
+                        {
+                            case BinaryOpType.ADD:
+                            case BinaryOpType.INPLACE_ADD:
+                                frame.ValueStack.PushFloat64(ld + rd);
+                                break;
+                            case BinaryOpType.SUBTRACT:
+                            case BinaryOpType.INPLACE_SUBTRACT:
+                                frame.ValueStack.PushFloat64(ld - rd);
+                                break;
+                            case BinaryOpType.MULTIPLY:
+                            case BinaryOpType.INPLACE_MULTIPLY:
+                                frame.ValueStack.PushFloat64(ld * rd);
+                                break;
+                            case BinaryOpType.TRUE_DIVIDE:
+                            case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                                if (rd == 0.0)
+                                    throw PyZeroDivisionError.Create("float division by zero");
+                                frame.ValueStack.PushFloat64(ld / rd);
+                                break;
+                            default:
+                                goto binop_pyobject;
+                        }
+                        break;
+                    }
+
+                    if (lvBin.IsFloat64 && rvBin.IsIntLike)
+                    {
+                        double ld = lvBin.AsFloat64, rd = (double)rvBin.AsInt64;
+                        switch (binOp)
+                        {
+                            case BinaryOpType.ADD:
+                            case BinaryOpType.INPLACE_ADD:
+                                frame.ValueStack.PushFloat64(ld + rd);
+                                break;
+                            case BinaryOpType.SUBTRACT:
+                            case BinaryOpType.INPLACE_SUBTRACT:
+                                frame.ValueStack.PushFloat64(ld - rd);
+                                break;
+                            case BinaryOpType.MULTIPLY:
+                            case BinaryOpType.INPLACE_MULTIPLY:
+                                frame.ValueStack.PushFloat64(ld * rd);
+                                break;
+                            case BinaryOpType.TRUE_DIVIDE:
+                            case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                                if (rd == 0.0)
+                                    throw PyZeroDivisionError.Create("float division by zero");
+                                frame.ValueStack.PushFloat64(ld / rd);
+                                break;
+                            default:
+                                goto binop_pyobject;
+                        }
+                        break;
+                    }
+
+                    binop_pyobject:
+                    {
+                        // Fall back to PyObject virtual dispatch
+                        var binResult = ExecuteBinaryOpType(lvBin.ToObject(), rvBin.ToObject(), binOp);
+                        frame.ValueStack.Push(binResult);
+                        break;
+                    }
+                }
 
                 // CPython 3.12: Python/bytecodes.c:400-450 - Specialized Binary Operations
                 // Specialized Binary Operations - CPython 3.12 Adaptive Specialization
                 case ByteCodeOp.BINARY_ADD_INT:
-                    var rightInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    var leftInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(SmallIntCache.GetOrCreate((long)(leftInt + rightInt)));
+                {
+                    // PyValue fast path: avoid PyObject allocation entirely
+                    var rv = frame.ValueStack.PopValue();
+                    var lv = frame.ValueStack.PopValue();
+                    if (lv.IsIntLike && rv.IsIntLike)
+                    {
+                        long la = lv.AsInt64, ra = rv.AsInt64;
+                        long sum = unchecked(la + ra);
+                        // Overflow check: signs same and result sign differs
+                        if (((la ^ sum) & (ra ^ sum)) < 0)
+                            frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
+                        else
+                            frame.ValueStack.PushInt64(sum);
+                    }
+                    else
+                    {
+                        frame.ValueStack.Push(lv.ToObject().Add(rv.ToObject()));
+                    }
                     break;
+                }
 
                 case ByteCodeOp.BINARY_ADD_FLOAT:
-                    var rightFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    var leftFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(FloatCache.GetOrCreate(leftFloat + rightFloat));
+                {
+                    var rv = frame.ValueStack.PopValue();
+                    var lv = frame.ValueStack.PopValue();
+                    if (lv.IsFloat64 && rv.IsFloat64)
+                        frame.ValueStack.PushFloat64(lv.AsFloat64 + rv.AsFloat64);
+                    else
+                        frame.ValueStack.Push(lv.ToObject().Add(rv.ToObject()));
                     break;
+                }
 
                 case ByteCodeOp.BINARY_ADD_UNICODE:
                     var rightStr = ((PyString)frame.ValueStack.Pop()).Value;
@@ -1898,16 +2161,44 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BINARY_MULTIPLY_INT:
-                    var rightMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    var leftMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(SmallIntCache.GetOrCreate((long)(leftMulInt * rightMulInt)));
+                {
+                    var rv = frame.ValueStack.PopValue();
+                    var lv = frame.ValueStack.PopValue();
+                    if (lv.IsIntLike && rv.IsIntLike)
+                    {
+                        long la = lv.AsInt64, ra = rv.AsInt64;
+                        // Overflow detection for multiplication
+                        // If both fit in int32, result fits in int64
+                        if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
+                        {
+                            frame.ValueStack.PushInt64(la * ra);
+                        }
+                        else
+                        {
+                            var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
+                            if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
+                                frame.ValueStack.PushInt64((long)bigResult);
+                            else
+                                frame.ValueStack.Push(new PyInt(bigResult));
+                        }
+                    }
+                    else
+                    {
+                        frame.ValueStack.Push(lv.ToObject().Multiply(rv.ToObject()));
+                    }
                     break;
+                }
 
                 case ByteCodeOp.BINARY_MULTIPLY_FLOAT:
-                    var rightMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    var leftMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(FloatCache.GetOrCreate(leftMulFloat * rightMulFloat));
+                {
+                    var rv = frame.ValueStack.PopValue();
+                    var lv = frame.ValueStack.PopValue();
+                    if (lv.IsFloat64 && rv.IsFloat64)
+                        frame.ValueStack.PushFloat64(lv.AsFloat64 * rv.AsFloat64);
+                    else
+                        frame.ValueStack.Push(lv.ToObject().Multiply(rv.ToObject()));
                     break;
+                }
 
                 // ===============================================
                 // CPython 3.12: 모든 Binary Operations는 BINARY_OP로 통합됨
@@ -3249,8 +3540,8 @@ namespace SharpPy
                     return returnValue;
 
                 case ByteCodeOp.RETURN_CONST:
-                    // CPython 3.12: Return constant value directly
-                    var constValue = frame.Code.Constants[instruction.Argument];
+                    // CPython 3.12: Return constant value directly (use PyValue cache)
+                    var constRetVal = frame.Code.ConstantsAsValues[instruction.Argument].ToObject();
                     // 🔧 함수 종료 시 scope cleanup
                     if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                     {
@@ -3259,7 +3550,7 @@ namespace SharpPy
                         #endif
                         frame.ScopeChain.PopScope();
                     }
-                    return constValue;
+                    return constRetVal;
 
                 case ByteCodeOp.GET_AWAITABLE:
                     // CPython 3.12 GET_AWAITABLE 구현
@@ -4111,11 +4402,58 @@ namespace SharpPy
 
                 // CPython-style Comparison Operations
                 case ByteCodeOp.COMPARE_OP:
-                    var compareRight = frame.ValueStack.Pop();
-                    var compareLeft = frame.ValueStack.Pop();
-                    var compareResult = CompareOperation(compareLeft, compareRight, instruction.Argument);
-                    frame.ValueStack.Push(compareResult);
+                {
+                    var crv = frame.ValueStack.PopValue();
+                    var clv = frame.ValueStack.PopValue();
+                    var cmpOp = (CompareOp)instruction.Argument;
+
+                    // PyValue fast path: int-int comparison (zero allocation)
+                    if (clv.IsIntLike && crv.IsIntLike)
+                    {
+                        long cl = clv.AsInt64, cr = crv.AsInt64;
+                        bool cmpResult = cmpOp switch
+                        {
+                            CompareOp.LT => cl < cr,
+                            CompareOp.LE => cl <= cr,
+                            CompareOp.EQ => cl == cr,
+                            CompareOp.NE => cl != cr,
+                            CompareOp.GT => cl > cr,
+                            CompareOp.GE => cl >= cr,
+                            _ => throw new InvalidOperationException("unreachable") // handled below
+                        };
+                        if (cmpOp != CompareOp.IS_NOT && cmpOp != CompareOp.EXC_MATCH)
+                        {
+                            frame.ValueStack.PushBool(cmpResult);
+                            break;
+                        }
+                    }
+
+                    // PyValue fast path: float-float comparison
+                    if (clv.IsFloat64 && crv.IsFloat64)
+                    {
+                        double cld = clv.AsFloat64, crd = crv.AsFloat64;
+                        bool cmpResult = cmpOp switch
+                        {
+                            CompareOp.LT => cld < crd,
+                            CompareOp.LE => cld <= crd,
+                            CompareOp.EQ => cld == crd,
+                            CompareOp.NE => cld != crd,
+                            CompareOp.GT => cld > crd,
+                            CompareOp.GE => cld >= crd,
+                            _ => throw new InvalidOperationException("unreachable")
+                        };
+                        if (cmpOp != CompareOp.IS_NOT && cmpOp != CompareOp.EXC_MATCH)
+                        {
+                            frame.ValueStack.PushBool(cmpResult);
+                            break;
+                        }
+                    }
+
+                    // Fallback to full PyObject comparison
+                    var compareResultObj = CompareOperation(clv.ToObject(), crv.ToObject(), instruction.Argument);
+                    frame.ValueStack.Push(compareResultObj);
                     break;
+                }
 
                 case ByteCodeOp.CONTAINS_OP:
                     var containsRight = frame.ValueStack.Pop();
@@ -4131,15 +4469,32 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.UNARY_NEGATIVE:
-                    var negValue = frame.ValueStack.Pop();
-                    frame.ValueStack.Push(negValue.Negative());
+                {
+                    var uv = frame.ValueStack.PopValue();
+                    if (uv.IsInt64)
+                    {
+                        long negV = uv.AsInt64;
+                        if (negV == long.MinValue)
+                            frame.ValueStack.Push(new PyInt(-new System.Numerics.BigInteger(negV)));
+                        else
+                            frame.ValueStack.PushInt64(-negV);
+                    }
+                    else if (uv.IsFloat64)
+                        frame.ValueStack.PushFloat64(-uv.AsFloat64);
+                    else if (uv.IsBool)
+                        frame.ValueStack.PushInt64(-uv.AsInt64); // -True == -1, -False == 0
+                    else
+                        frame.ValueStack.Push(uv.ToObject().Negative());
                     break;
+                }
 
                 case ByteCodeOp.UNARY_NOT:
-                    var notValue = frame.ValueStack.Pop();
-                    var boolResult = notValue.PyBoolValue() ? PyBool.False : PyBool.True;
-                    frame.ValueStack.Push(boolResult);
+                {
+                    var uv = frame.ValueStack.PopValue();
+                    // PyValue.IsTrue() handles int/float/bool/none inline
+                    frame.ValueStack.PushBool(!uv.IsTrue());
                     break;
+                }
 
                 case ByteCodeOp.UNARY_INVERT:
                     var invertValue = frame.ValueStack.Pop();
@@ -6041,9 +6396,9 @@ namespace SharpPy
                     if (localIndex >= 0 && localIndex < frame.LocalsPlus.Length)
                     {
                         var localValue = frame.LocalsPlus[localIndex];
-                        if (!PyNull.IsNull(localValue))
+                        if (!localValue.IsNull)
                         {
-                            cellValue = localValue;
+                            cellValue = localValue.ToObject();
                             #if DEBUG_LOG
                             Console.WriteLine($"   Found value for '{cellVarName}': {cellValue}");
                             #endif
@@ -8498,7 +8853,7 @@ namespace SharpPy
                 if (posArgIndex < positionalArgs.Length)
                 {
                     // Bind positional argument
-                    frame.LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
+                    frame.LocalsPlus[paramIndex] = PyValue.FromObject(positionalArgs[posArgIndex]);
                     frame.ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
@@ -8510,7 +8865,7 @@ namespace SharpPy
                 {
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
-                    frame.LocalsPlus[paramIndex] = keywordValue;
+                    frame.LocalsPlus[paramIndex] = PyValue.FromObject(keywordValue);
                     frame.ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
@@ -8525,7 +8880,7 @@ namespace SharpPy
                     if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
                     {
                         var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
-                        frame.LocalsPlus[paramIndex] = defaultValue;
+                        frame.LocalsPlus[paramIndex] = PyValue.FromObject(defaultValue);
                         frame.ScopeChain.AssignVariable(paramName, defaultValue);
 
 #if DEBUG_LOG
@@ -8556,7 +8911,7 @@ namespace SharpPy
                 var argsArray = new PyObject[remainingPositionalArgs.Count];
                 remainingPositionalArgs.CopyTo(argsArray, 0);
                 var argsTuple = new PyTuple(argsArray);
-                frame.LocalsPlus[argsParamIndex] = argsTuple;
+                frame.LocalsPlus[argsParamIndex] = PyValue.FromObject(argsTuple);
                 frame.ScopeChain.AssignVariable(argsParamName, argsTuple);
 
 #if DEBUG_LOG
@@ -8586,7 +8941,7 @@ namespace SharpPy
                     kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
                 }
 
-                frame.LocalsPlus[kwargsIndex] = kwargsDict;
+                frame.LocalsPlus[kwargsIndex] = PyValue.FromObject(kwargsDict);
                 frame.ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
 
 #if DEBUG_LOG

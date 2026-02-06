@@ -442,6 +442,12 @@ namespace SharpPy
         public HashSet<string> VarNameSet { get; private set; } = null!;
 
         /// <summary>
+        /// PyValue cache for Constants. Built once at construction time.
+        /// Eliminates per-LOAD_CONST PyValue.FromObject() conversion.
+        /// </summary>
+        public PyValue[] ConstantsAsValues { get; private set; } = null!;
+
+        /// <summary>
         /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
         /// localsplus layout: [varnames | non-param cells | freevars]
         /// Built once at construction time. Eliminates repeated list building in
@@ -498,6 +504,7 @@ namespace SharpPy
             // CPython 3.12: Build cached index maps for O(1) lookup at runtime
             BuildIndexMaps();
             ComputeClassCellIndex();
+            BuildConstantsCache();
         }
 
         /// <summary>
@@ -568,8 +575,20 @@ namespace SharpPy
             // Not found
             ClassCellIndex = -1;
         }
-        
-        
+
+        /// <summary>
+        /// Build PyValue[] cache for Constants list.
+        /// Called once at construction time, eliminates per-LOAD_CONST conversion.
+        /// </summary>
+        private void BuildConstantsCache()
+        {
+            ConstantsAsValues = new PyValue[Constants.Count];
+            for (int i = 0; i < Constants.Count; i++)
+            {
+                ConstantsAsValues[i] = PyValue.FromObject(Constants[i]);
+            }
+        }
+
         public override string GetTypeName() => "code";
 
         // CPython 3.12 호환: co_* 속성들 지원

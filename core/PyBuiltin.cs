@@ -3808,9 +3808,9 @@ namespace SharpPy
                                 {
                                     // CPython bytecode: LOAD_FAST 0 - get first parameter by index
                                     var firstValue = currentFrame.LocalsPlus[0];
-                                    if (!PyNull.IsNull(firstValue))
+                                    if (!firstValue.IsNull)
                                     {
-                                        instance = firstValue;
+                                        instance = firstValue.ToObject();
                                         #if DEBUG_LOG
                                         var firstParam = currentFrame.Code.VarNames[0];
                                         Console.WriteLine($"🔍 Found first parameter '{firstParam}': {instance}");
