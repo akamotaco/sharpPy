@@ -55,15 +55,13 @@ namespace SharpPy
                     if (_savedStack != null)
                     {
                         _frame.ValueStack.Clear();
-                        // Restore stack in reverse order to maintain original stack order
-                        var tempStack = new Stack<PyObject>();
-                        foreach (var item in _savedStack)
+                        // Optimized: Direct iteration via GetInternalList() avoids intermediate Stack<T> allocation.
+                        // PyStack stores items bottom-to-top internally (TOS at end).
+                        // Iterating forward and Push()ing restores the original stack order.
+                        var items = _savedStack.GetInternalList();
+                        for (int i = 0; i < items.Count; i++)
                         {
-                            tempStack.Push(item);
-                        }
-                        foreach (var item in tempStack)
-                        {
-                            _frame.ValueStack.Push(item);
+                            _frame.ValueStack.Push(items[i]);
                         }
 #if DEBUG_VM_LOG
                         Console.WriteLine($"🔄 Generator: Resumed with stack size {_frame.ValueStack.Count} at instruction {_lastInstructionPointer}");

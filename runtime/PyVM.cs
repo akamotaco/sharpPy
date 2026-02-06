@@ -115,11 +115,9 @@ namespace SharpPy
             // CPython 3.12: Initialize LocalsPlus array for fast local variable access
             int nlocals = code.VarNames.Count;
             LocalsPlus = new PyObject[nlocals];
-            // Initialize all to PyNull (uninitialized marker)
-            for (int i = 0; i < nlocals; i++)
-            {
-                LocalsPlus[i] = PyNull.Instance;
-            }
+            // Optimized: Use Array.Fill instead of manual loop for bulk initialization
+            if (nlocals > 0)
+                Array.Fill(LocalsPlus, PyNull.Instance);
 
             InstructionPointer = 0;
 
@@ -5802,14 +5800,8 @@ namespace SharpPy
                     else
                     {
                         // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        // Build list of non-param cell names (cells NOT in varnames)
-                        // Optimized: Use VarNameSet for O(1) Contains instead of O(n)
-                        var nonParamCellNames = new List<string>();
-                        for (int i = 0; i < loadNcellvars; i++)
-                        {
-                            if (!frame.Code.VarNameSet.Contains(frame.Code.CellVars[i]))
-                                nonParamCellNames.Add(frame.Code.CellVars[i]);
-                        }
+                        // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
+                        var nonParamCellNames = frame.Code.NonParamCellNames;
                         int loadNumNonParamCells = nonParamCellNames.Count;
 
                         int offsetAfterLocals = loadLocalsPlusOffset - loadNlocals;
@@ -5879,18 +5871,17 @@ namespace SharpPy
                     if (storeLocalsPlusOffset < storeNlocals)
                     {
                         string varName = frame.Code.VarNames[storeLocalsPlusOffset];
-                        storeCellIndex = storeNfreevars + frame.Code.CellVars.IndexOf(varName);
+                        // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+                        if (frame.Code.CellVarIndexMap.TryGetValue(varName, out int storeCellVarIdx))
+                            storeCellIndex = storeNfreevars + storeCellVarIdx;
+                        else
+                            storeCellIndex = storeNfreevars - 1; // Not found - preserve original IndexOf(-1) behavior
                     }
                     else
                     {
                         // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        // Build list of non-param cell names (cells NOT in varnames)
-                        var nonParamCellNames = new List<string>();
-                        for (int i = 0; i < storeNcellvars; i++)
-                        {
-                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
-                                nonParamCellNames.Add(frame.Code.CellVars[i]);
-                        }
+                        // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
+                        var nonParamCellNames = frame.Code.NonParamCellNames;
                         int storeNumNonParamCells = nonParamCellNames.Count;
 
                         int offsetAfterLocals = storeLocalsPlusOffset - storeNlocals;
@@ -5898,7 +5889,8 @@ namespace SharpPy
                         {
                             // Non-param cell: find by name
                             string storeCellVarName = nonParamCellNames[offsetAfterLocals];
-                            int storeCellVarIdx = frame.Code.CellVars.IndexOf(storeCellVarName);
+                            // Optimized: Use CellVarIndexMap for O(1) lookup
+                            int storeCellVarIdx = frame.Code.CellVarIndexMap[storeCellVarName];
                             storeCellIndex = storeNfreevars + storeCellVarIdx;
                         }
                         else
@@ -5931,17 +5923,17 @@ namespace SharpPy
                     if (deleteLocalsPlusOffset < deleteNlocals)
                     {
                         string varName = frame.Code.VarNames[deleteLocalsPlusOffset];
-                        deleteCellIndex = deleteNfreevars + frame.Code.CellVars.IndexOf(varName);
+                        // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+                        if (frame.Code.CellVarIndexMap.TryGetValue(varName, out int deleteCellVarIdx))
+                            deleteCellIndex = deleteNfreevars + deleteCellVarIdx;
+                        else
+                            deleteCellIndex = deleteNfreevars - 1; // Not found - preserve original IndexOf(-1) behavior
                     }
                     else
                     {
                         // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        var deleteNonParamCellNames = new List<string>();
-                        for (int i = 0; i < deleteNcellvars; i++)
-                        {
-                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
-                                deleteNonParamCellNames.Add(frame.Code.CellVars[i]);
-                        }
+                        // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
+                        var deleteNonParamCellNames = frame.Code.NonParamCellNames;
                         int deleteNumNonParamCells = deleteNonParamCellNames.Count;
 
                         int offsetAfterLocals = deleteLocalsPlusOffset - deleteNlocals;
@@ -5949,7 +5941,8 @@ namespace SharpPy
                         {
                             // Non-param cell: find by name
                             string deleteCellVarName = deleteNonParamCellNames[offsetAfterLocals];
-                            int deleteCellVarIdx = frame.Code.CellVars.IndexOf(deleteCellVarName);
+                            // Optimized: Use CellVarIndexMap for O(1) lookup
+                            int deleteCellVarIdx = frame.Code.CellVarIndexMap[deleteCellVarName];
                             deleteCellIndex = deleteNfreevars + deleteCellVarIdx;
                         }
                         else
@@ -5985,17 +5978,17 @@ namespace SharpPy
                     if (closureLocalsPlusOffset < closureNlocals)
                     {
                         string varName = frame.Code.VarNames[closureLocalsPlusOffset];
-                        closureCellIndex = closureNfreevars + frame.Code.CellVars.IndexOf(varName);
+                        // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+                        if (frame.Code.CellVarIndexMap.TryGetValue(varName, out int closureCellVarIdx))
+                            closureCellIndex = closureNfreevars + closureCellVarIdx;
+                        else
+                            closureCellIndex = closureNfreevars - 1; // Not found - preserve original IndexOf(-1) behavior
                     }
                     else
                     {
                         // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        var closureNonParamCellNames = new List<string>();
-                        for (int i = 0; i < closureNcellvars; i++)
-                        {
-                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
-                                closureNonParamCellNames.Add(frame.Code.CellVars[i]);
-                        }
+                        // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
+                        var closureNonParamCellNames = frame.Code.NonParamCellNames;
                         int closureNumNonParamCells = closureNonParamCellNames.Count;
 
                         int offsetAfterLocals = closureLocalsPlusOffset - closureNlocals;
@@ -6003,7 +5996,8 @@ namespace SharpPy
                         {
                             // Non-param cell: find by name
                             string closureCellVarName = closureNonParamCellNames[offsetAfterLocals];
-                            int closureCellVarIdx = frame.Code.CellVars.IndexOf(closureCellVarName);
+                            // Optimized: Use CellVarIndexMap for O(1) lookup
+                            int closureCellVarIdx = frame.Code.CellVarIndexMap[closureCellVarName];
                             closureCellIndex = closureNfreevars + closureCellVarIdx;
                         }
                         else
@@ -6091,9 +6085,8 @@ namespace SharpPy
                     {
                         // It's a parameter (in varnames) that's also a cell
                         cellVarName = frame.Code.VarNames[localsPlusOffset];
-                        // Find it in cellvars to get the cell index
-                        int cellVarIdx = frame.Code.CellVars.IndexOf(cellVarName);
-                        if (cellVarIdx < 0)
+                        // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+                        if (!frame.Code.CellVarIndexMap.TryGetValue(cellVarName, out int cellVarIdx))
                         {
                             throw new IndexOutOfRangeException($"MAKE_CELL: varname '{cellVarName}' not found in cellvars");
                         }
@@ -6104,12 +6097,8 @@ namespace SharpPy
                     {
                         // It's not a parameter - either cellvar or freevar
                         // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        var makeNonParamCellNames = new List<string>();
-                        for (int i = 0; i < ncellvars; i++)
-                        {
-                            if (!frame.Code.VarNames.Contains(frame.Code.CellVars[i]))
-                                makeNonParamCellNames.Add(frame.Code.CellVars[i]);
-                        }
+                        // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
+                        var makeNonParamCellNames = frame.Code.NonParamCellNames;
                         int numNonParamCells = makeNonParamCellNames.Count;
 
                         int offsetAfterLocals = localsPlusOffset - nlocals;
@@ -6117,7 +6106,8 @@ namespace SharpPy
                         {
                             // It's a cellvar (non-parameter) - find by name
                             cellVarName = makeNonParamCellNames[offsetAfterLocals];
-                            int cellVarIdx = frame.Code.CellVars.IndexOf(cellVarName);
+                            // Optimized: Use CellVarIndexMap for O(1) lookup
+                            int cellVarIdx = frame.Code.CellVarIndexMap[cellVarName];
                             // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
                             actualCellIndex = nfreevars + cellVarIdx;
                         }
@@ -6143,7 +6133,8 @@ namespace SharpPy
                     // CPython 3.12: Create cell variable (initially None for type parameters)
                     PyObject? cellValue = null;
                     // Find the variable in LocalsPlus by name
-                    int localIndex = frame.Code.VarNames.IndexOf(cellVarName);
+                    // Optimized: Use VarNameIndexMap for O(1) lookup instead of O(n) IndexOf
+                    int localIndex = frame.Code.VarNameIndexMap.TryGetValue(cellVarName, out int mappedIdx) ? mappedIdx : -1;
                     if (localIndex >= 0 && localIndex < frame.LocalsPlus.Length)
                     {
                         var localValue = frame.LocalsPlus[localIndex];
@@ -8092,8 +8083,9 @@ namespace SharpPy
                         Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
                         #endif
 
-                        // Use the function's captured globals (CPython 3.12 compatible)
-                        functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                        // Optimized: Use cached global scope to avoid PyScope + __builtins__ recreation
+                        functionScope = pyFunc.CreateCachedScopeChain()
+                            ?? new PyScopeChain(pyFunc.GlobalsDict, "<function>");
                     }
                     else
                     {
@@ -8105,18 +8097,11 @@ namespace SharpPy
                     }
 
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    // CPython 3.12: Get defaults from func.__defaults__ attribute
-                    PyTuple defaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                    {
-                        defaults = defaultsTuple;
-                    }
-                    // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
-                    PyDict kwdefaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                    {
-                        kwdefaults = kwdefaultsDict;
-                    }
+                    // Optimized: Inline defaults/kwdefaults extraction
+                    PyTuple defaults = pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple
+                        ? defaultsTuple : null;
+                    PyDict kwdefaults = pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict
+                        ? kwdefaultsDict : null;
                     var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);
                 }
@@ -8512,25 +8497,20 @@ namespace SharpPy
                 PyScopeChain functionScope;
                 if (pyFunc.GlobalsDict != null)
                 {
-                    functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                    // Optimized: Use cached global scope
+                    functionScope = pyFunc.CreateCachedScopeChain()
+                        ?? new PyScopeChain(pyFunc.GlobalsDict, "<function>");
                 }
                 else
                 {
                     functionScope = pyFunc.ParentScope ?? parentScope;
                 }
 
-                // CPython 3.12: Get defaults and kwdefaults from function attributes
-                PyTuple defaults = null;
-                if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                {
-                    defaults = defaultsTuple;
-                }
-
-                PyDict kwdefaults = null;
-                if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                {
-                    kwdefaults = kwdefaultsDict;
-                }
+                // Optimized: Inline defaults/kwdefaults extraction
+                PyTuple defaults = pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple
+                    ? defaultsTuple : null;
+                PyDict kwdefaults = pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict
+                    ? kwdefaultsDict : null;
 
                 // CPython 3.12: Combine positional and keyword arguments into single array for frame
                 var allArgs = new PyObject[positionalArgs.Length + keywordArgs.Count];
