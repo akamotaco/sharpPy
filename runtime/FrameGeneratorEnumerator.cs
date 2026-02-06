@@ -50,12 +50,10 @@ namespace SharpPy
                     // 재개: FRAME_SUSPENDED → FRAME_EXECUTING with stack restoration
                     _frame.InstructionPointer = _lastInstructionPointer;
                     _frame.State = PyFrame.FrameState.Executing;
-                    
+
                     // Restore stack state from previous yield
                     if (_savedStack != null)
                     {
-                        // Optimized: Direct array copy via RestoreFrom() avoids
-                        // intermediate allocations. Single Array.Copy call.
                         _frame.ValueStack.RestoreFrom(_savedStack);
 #if DEBUG_VM_LOG
                         Console.WriteLine($"🔄 Generator: Resumed with stack size {_frame.ValueStack.Count} at instruction {_lastInstructionPointer}");
@@ -65,28 +63,28 @@ namespace SharpPy
 
                 // Frame을 부분적으로 실행 (yield까지 또는 끝까지)
                 var result = _vm.ExecuteFrame(_frame);
-                
+
+                // Optimized: Check for yield sentinel (no exception path)
+                if (result == PyFrame.YieldSentinel)
+                {
+                    // yield 지점에서 중단: FRAME_EXECUTING → FRAME_SUSPENDED
+                    _frame.State = PyFrame.FrameState.Suspended;
+                    _lastInstructionPointer = _frame.InstructionPointer;
+                    _savedStack = _frame.ValueStack.Clone();
+
+#if DEBUG_VM_LOG
+                    Console.WriteLine($"🔄 Generator: Yielded {_frame.YieldValue} at instruction {_lastInstructionPointer}, saved stack size {_savedStack.Count}");
+#endif
+                    _current = _frame.YieldValue ?? PyNone.Instance;
+                    _frame.YieldValue = null;
+                    return true;
+                }
+
                 // 정상 완료된 경우 (return 또는 end of function)
                 _frame.State = PyFrame.FrameState.Completed;
                 _finished = true;
                 _current = result ?? PyNone.Instance;
                 return false;
-            }
-            catch (PyYieldException yieldEx)
-            {
-                // yield 지점에서 중단: FRAME_EXECUTING → FRAME_SUSPENDED with stack preservation
-                _frame.State = PyFrame.FrameState.Suspended;
-                _lastInstructionPointer = _frame.InstructionPointer;
-                
-                // Save current stack state for restoration on resume
-                // O(n) optimized clone using List.AddRange
-                _savedStack = _frame.ValueStack.Clone();
-
-#if DEBUG_VM_LOG
-                Console.WriteLine($"🔄 Generator: Yielded {yieldEx.Value} at instruction {_lastInstructionPointer}, saved stack size {_savedStack.Count}");
-#endif
-                _current = yieldEx.Value ?? PyNone.Instance;
-                return true;
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {

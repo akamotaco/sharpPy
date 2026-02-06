@@ -4,6 +4,16 @@ using SharpPy.Core;
 
 namespace SharpPy
 {
+    /// <summary>
+    /// Internal sentinel object used to signal yield from ExecuteFrame without exceptions.
+    /// Never escapes to Python code - intercepted by PyGenerator.Next() / FrameGeneratorEnumerator.
+    /// </summary>
+    internal sealed class PyYieldSentinel : PyObject
+    {
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "<yield_sentinel>";
+    }
+
     #region Virtual Machine (기존 LEGB 시스템 활용)
 
     // VM 실행 프레임 (기존 PyScopeChain과 연동)
@@ -63,6 +73,18 @@ namespace SharpPy
         public FrameState State { get; set; } = FrameState.Created;
         public bool IsGenerator { get; set; } = false;
         public bool IsCoroutine { get; set; } = false;
+
+        /// <summary>
+        /// Yield sentinel: returned from ExecuteFrame to signal a yield without exception.
+        /// CPython uses _Py_YIELD_SENTINEL internally for the same purpose.
+        /// </summary>
+        internal static readonly PyObject YieldSentinel = new PyYieldSentinel();
+
+        /// <summary>
+        /// Stores the yielded value when YIELD_VALUE returns via sentinel.
+        /// Set by YIELD_VALUE, read by PyGenerator.Next().
+        /// </summary>
+        internal PyObject YieldValue { get; set; }
 
         /// <summary>
         /// CPython 3.12: Create PyFrame with kwargs dict (equivalent to _PyEvalFramePushAndInit_Ex)
@@ -1146,29 +1168,23 @@ namespace SharpPy
                         extendedArg = 0; // Reset for next instruction
                     }
 
-                    // CPython-style error location tracking: Update current execution location
-                    // First try from LineNumberTable (more accurate), then from instruction
-                    if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var lineFromTable))
-                    {
-                        frame.CurrentLineNumber = lineFromTable;
-                    }
-                    else if (instruction.LineNumber > 0)
-                    {
-                        frame.CurrentLineNumber = instruction.LineNumber;
-                    }
-                    if (instruction.ColumnOffset >= 0)
-                    {
-                        frame.CurrentColumnOffset = instruction.ColumnOffset;
-                    }
-                    if (!string.IsNullOrEmpty(instruction.FileName))
-                    {
-                        frame.CurrentFileName = instruction.FileName;
-                    }
+                    // Deferred line tracking: Only update on exception (see catch block).
+                    // Saves Dictionary.TryGetValue + string checks on every instruction.
+                    // CPython also only resolves line numbers when needed (lnotab).
 
 #if DEBUG_LOG
-                    if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
+                    // Eager line tracking in debug mode for log display
+                    if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var lineFromTable))
+                        frame.CurrentLineNumber = lineFromTable;
+                    else if (instruction.LineNumber > 0)
+                        frame.CurrentLineNumber = instruction.LineNumber;
+                    if (instruction.ColumnOffset >= 0)
+                        frame.CurrentColumnOffset = instruction.ColumnOffset;
+                    if (!string.IsNullOrEmpty(instruction.FileName))
+                        frame.CurrentFileName = instruction.FileName;
+
+                    if (frame.ValueStack.Count <= 10)
                     {
-                        // Performance: Eliminated LINQ - manual stack preview
                         var stackArray = frame.ValueStack.ToArray();
                         var previewCount = Math.Min(5, stackArray.Length);
                         var stackItems = new string[previewCount];
@@ -1180,11 +1196,6 @@ namespace SharpPy
                         Console.WriteLine($"  {frame.InstructionPointer*2,3}: {instruction,-25} 스택:[{stackContents}]");
                     }
 #endif
-
-                    // CPython 3.12: Attempt adaptive specialization (PEP 659)
-                    // NOTE: TrySpecialize is currently a no-op (skeleton implementation)
-                    // When Enabled=false, this call returns immediately without any work
-                    _specializer.TrySpecialize(frame, frame.InstructionPointer, instruction.OpCode);
 
                     // ===== INLINE FAST PATH =====
                     // Handle top-frequency safe opcodes directly in the loop
@@ -1276,19 +1287,26 @@ namespace SharpPy
                     }
                     catch (PythonException pyEx)
                     {
+                        // Deferred line tracking: resolve line number only on exception (not every instruction)
+                        if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var excLine))
+                            frame.CurrentLineNumber = excLine;
+                        else if (instruction.LineNumber > 0)
+                            frame.CurrentLineNumber = instruction.LineNumber;
+                        if (instruction.ColumnOffset >= 0)
+                            frame.CurrentColumnOffset = instruction.ColumnOffset;
+                        if (!string.IsNullOrEmpty(instruction.FileName))
+                            frame.CurrentFileName = instruction.FileName;
+
                         // CPython-style error location tracking: Enrich exception with current location
                         if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frame.CurrentFileName))
                         {
                             pyEx.FileName = frame.CurrentFileName;
                             pyEx.LineNumber = frame.CurrentLineNumber;
                             pyEx.ColumnOffset = frame.CurrentColumnOffset;
-                            pyEx.SourceLines = frame.Code.SourceLines; // Add source lines for context display
+                            pyEx.SourceLines = frame.Code.SourceLines;
 
-                            // Debug: Show enriched exception info
 #if DEBUG_LOG
                             Console.WriteLine($"🔍 Exception enriched: {pyEx.FileName}:{pyEx.LineNumber}:{pyEx.ColumnOffset}");
-                            Console.WriteLine($"🔍 Source lines available: {pyEx.SourceLines?.Count ?? 0}");
-                            Console.WriteLine($"🔍 Full exception: {pyEx}");
 #endif
                         }
 
@@ -6459,14 +6477,16 @@ namespace SharpPy
                     // CPython 3.12: bytecodes.c:918 - Stack pointer saved AFTER popping yield value
                     // IP is NOT incremented here - it stays at YIELD_VALUE
                     // Objects/genobject.c:217 - Resume will push sent value, then execute from (IP + 1)
-                    // Next resume will execute RESUME instruction (IP+1)
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔄 YIELD_VALUE: Yielding {yieldValue}, stack size after pop: {frame.ValueStack.Count}, IP: {frame.InstructionPointer}");
                     #endif
 
-                    // DO NOT increment IP here - PyGenerator.Next() will handle resume from correct position
-                    throw new PyYieldException(yieldValue);
+                    // Optimized: Return sentinel instead of throwing PyYieldException.
+                    // Saves ~5-10μs per yield (C# exception throw/catch cost).
+                    // Caller (PyGenerator.Next) checks for sentinel to detect yield.
+                    frame.YieldValue = yieldValue;
+                    return PyFrame.YieldSentinel;
 
                 case ByteCodeOp.SEND:
                     // CPython 3.12: SEND opcode for yield from

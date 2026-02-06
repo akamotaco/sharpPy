@@ -153,41 +153,38 @@ namespace SharpPy
                     // Resume generator execution:
                     // 1. Push sent value onto frame's value stack
                     // 2. Call _PyEval_EvalFrame to resume execution
-                    //
-                    // result = arg ? arg : Py_None;
-                    // _PyFrame_StackPush(frame, Py_NewRef(result));
 
                     #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Generator Resume: IP before adjustment: {_frame.InstructionPointer}, stack size: {_frame.ValueStack.Count}");
-                    var stackArray = _frame.ValueStack.ToArray();
-                    Array.Reverse(stackArray);
-                    for (int i = 0; i < stackArray.Length; i++)
-                    {
-                        Console.WriteLine($"    Stack[{i}]: {stackArray[i]?.GetType().Name} = {stackArray[i]}");
-                    }
                     #endif
 
                     // CPython pattern: YIELD_VALUE left IP pointing at itself
                     // We need to move to RESUME (next instruction) before executing
-                    // Python/bytecodes.c:911-927 - YIELD_VALUE does NOT increment IP
-                    // Objects/genobject.c:230 - Resume executes from saved IP, which will be incremented by main loop
                     _frame.InstructionPointer++;  // Move from YIELD_VALUE to RESUME
 
                     #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Generator Resume: IP after increment: {_frame.InstructionPointer}");
-                    Console.WriteLine($"    Pushing sentValue: {_sentValue}");
                     #endif
 
                     // Now push sent value for RESUME + POP_TOP pattern
                     _frame.ValueStack.Push(_sentValue);
-
-                    #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Generator Resume: After push, stack size: {_frame.ValueStack.Count}");
-                    #endif
                 }
 
                 // 프레임 실행 (yield까지 또는 끝까지)
                 var result = _vm.ExecuteFrame(_frame);
+
+                // Optimized: Check for yield sentinel (no exception path)
+                if (result == PyFrame.YieldSentinel)
+                {
+                    // yield 지점에서 중단 - 정상적인 제너레이터 동작
+                    #if DEBUG_GENERATOR_LOG
+                    Console.WriteLine($"🔄 Native Generator: Yielded {_frame.YieldValue} at instruction {_frame.InstructionPointer}");
+                    #endif
+                    _sentValue = PyNone.Instance;
+                    var yieldedValue = _frame.YieldValue ?? PyNone.Instance;
+                    _frame.YieldValue = null; // Clear for next yield
+                    return yieldedValue;
+                }
 
                 // 정상 완료된 경우 (return 또는 end of function)
                 // CPython: Generator의 return 값은 StopIteration.value로 전달됨
@@ -196,18 +193,6 @@ namespace SharpPy
                 Console.WriteLine($"🔄 Native Generator: Completed normally, return value: {result}");
                 #endif
                 throw PyStopIteration.Create(result);
-            }
-            catch (PyYieldException yieldEx)
-            {
-                // yield 지점에서 중단 - 이것이 정상적인 제너레이터 동작
-                #if DEBUG_GENERATOR_LOG
-                Console.WriteLine($"🔄 Native Generator: Yielded {yieldEx.Value} at instruction {_frame.InstructionPointer}");
-                #endif
-                
-                // sent value 초기화 (다음 호출까지 기본값)
-                _sentValue = PyNone.Instance;
-                
-                return yieldEx.Value ?? PyNone.Instance;
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
@@ -238,10 +223,34 @@ namespace SharpPy
                 // 다른 예외가 발생한 경우
                 #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🔴 PyGenerator.Next() Exception: {ex.GetType().Name}: {ex.Message}");
-                Console.WriteLine($"🔴 Stack trace: {ex.StackTrace}");
                 #endif
                 _finished = true;
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Optimized TryNext: avoids the base class try/catch wrapper around Next().
+        /// FOR_ITER calls TryNext() on every iteration - eliminating exception overhead
+        /// for both yield (sentinel-based) and StopIteration (caught here once).
+        /// </summary>
+        public override bool TryNext(out PyObject value)
+        {
+            if (_finished)
+            {
+                value = null;
+                return false;
+            }
+
+            try
+            {
+                value = Next();
+                return true;
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                value = null;
+                return false;
             }
         }
 
