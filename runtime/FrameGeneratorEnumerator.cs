@@ -54,15 +54,9 @@ namespace SharpPy
                     // Restore stack state from previous yield
                     if (_savedStack != null)
                     {
-                        _frame.ValueStack.Clear();
-                        // Optimized: Direct iteration via GetInternalList() avoids intermediate Stack<T> allocation.
-                        // PyStack stores items bottom-to-top internally (TOS at end).
-                        // Iterating forward and Push()ing restores the original stack order.
-                        var items = _savedStack.GetInternalList();
-                        for (int i = 0; i < items.Count; i++)
-                        {
-                            _frame.ValueStack.Push(items[i]);
-                        }
+                        // Optimized: Direct array copy via RestoreFrom() avoids
+                        // intermediate allocations. Single Array.Copy call.
+                        _frame.ValueStack.RestoreFrom(_savedStack);
 #if DEBUG_VM_LOG
                         Console.WriteLine($"🔄 Generator: Resumed with stack size {_frame.ValueStack.Count} at instruction {_lastInstructionPointer}");
 #endif

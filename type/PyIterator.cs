@@ -150,6 +150,21 @@ namespace SharpPy
             return item;
         }
 
+        /// <summary>
+        /// 예외 없이 다음 값을 시도 (FOR_ITER 최적화용)
+        /// </summary>
+        public override bool TryNext(out PyObject value)
+        {
+            if (_index >= _list.Length())
+            {
+                value = null;
+                return false;
+            }
+            value = _list.GetItem(_index);
+            _index++;
+            return true;
+        }
+
         public override PyString ToRepr() => new PyString($"<list_iterator object>");
     }
 
@@ -189,6 +204,20 @@ namespace SharpPy
             return result;
         }
 
+        /// <summary>
+        /// 예외 없이 다음 값을 시도 (FOR_ITER 최적화용)
+        /// </summary>
+        public override bool TryNext(out PyObject value)
+        {
+            if (_index >= _tuple.Length())
+            {
+                value = null;
+                return false;
+            }
+            value = _tuple.Items[_index++];
+            return true;
+        }
+
         public override PyString ToRepr() => new PyString($"<tuple_iterator object>");
     }
 
@@ -210,8 +239,22 @@ namespace SharpPy
         {
             if (_index >= _string.Length)
                 throw PyStopIteration.Create();
-            
+
             return new PyString(_string[_index++].ToString());
+        }
+
+        /// <summary>
+        /// 예외 없이 다음 값을 시도 (FOR_ITER 최적화용)
+        /// </summary>
+        public override bool TryNext(out PyObject value)
+        {
+            if (_index >= _string.Length)
+            {
+                value = null;
+                return false;
+            }
+            value = new PyString(_string[_index++].ToString());
+            return true;
         }
 
         public override PyString ToRepr() => new PyString($"<str_iterator object>");
@@ -239,10 +282,25 @@ namespace SharpPy
         {
             if (_step > 0 ? _current >= _stop : _current <= _stop)
                 throw PyStopIteration.Create();
-            
-            var result = new PyInt(_current);
+
+            var result = SmallIntCache.GetOrCreate(_current);
             _current += _step;
             return result;
+        }
+
+        /// <summary>
+        /// 예외 없이 다음 값을 시도 (FOR_ITER 최적화용)
+        /// </summary>
+        public override bool TryNext(out PyObject value)
+        {
+            if (_step > 0 ? _current >= _stop : _current <= _stop)
+            {
+                value = null;
+                return false;
+            }
+            value = SmallIntCache.GetOrCreate(_current);
+            _current += _step;
+            return true;
         }
 
         public override PyString ToRepr() => new PyString($"<range_iterator object>");
@@ -271,8 +329,22 @@ namespace SharpPy
         {
             if (!_enumerator.MoveNext())
                 throw PyStopIteration.Create();
-            
+
             return _enumerator.Current;
+        }
+
+        /// <summary>
+        /// 예외 없이 다음 값을 시도 (FOR_ITER 최적화용)
+        /// </summary>
+        public override bool TryNext(out PyObject value)
+        {
+            if (!_enumerator.MoveNext())
+            {
+                value = null;
+                return false;
+            }
+            value = _enumerator.Current;
+            return true;
         }
 
         public override PyString ToRepr() => new PyString($"<set_iterator object>");
@@ -308,6 +380,17 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
+        public override bool TryNext(out PyObject value)
+        {
+            if (!_enumerator.MoveNext())
+            {
+                value = null;
+                return false;
+            }
+            value = _enumerator.Current;
+            return true;
+        }
+
         public override PyString ToRepr() => new PyString($"<dict_keyiterator object>");
 
         protected override void Dispose(bool disposing)
@@ -337,8 +420,19 @@ namespace SharpPy
         {
             if (!_enumerator.MoveNext())
                 throw PyStopIteration.Create();
-            
+
             return _enumerator.Current;
+        }
+
+        public override bool TryNext(out PyObject value)
+        {
+            if (!_enumerator.MoveNext())
+            {
+                value = null;
+                return false;
+            }
+            value = _enumerator.Current;
+            return true;
         }
 
         public override PyString ToRepr() => new PyString($"<dict_valueiterator object>");
@@ -370,8 +464,19 @@ namespace SharpPy
         {
             if (!_enumerator.MoveNext())
                 throw PyStopIteration.Create();
-            
+
             return _enumerator.Current;
+        }
+
+        public override bool TryNext(out PyObject value)
+        {
+            if (!_enumerator.MoveNext())
+            {
+                value = null;
+                return false;
+            }
+            value = _enumerator.Current;
+            return true;
         }
 
         public override PyString ToRepr() => new PyString($"<dict_itemiterator object>");

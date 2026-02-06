@@ -1,29 +1,22 @@
 using System;
 using System.Collections.Generic;
-// Performance: Eliminated LINQ
 
 namespace SharpPy
 {
     /// <summary>
-    /// List 기반 스택 구조체. CPython의 C 배열 스택 포인터 방식을 C#으로 구현.
-    /// Stack<T>와 달리 O(1) 인덱스 접근을 지원하여 SWAP, COPY 등의 연산 최적화.
+    /// 배열 기반 스택. CPython의 C 배열 스택 포인터 방식을 C#으로 구현.
+    /// List{T} 대신 직접 배열 관리로 Push/Pop/Peek 오버헤드 최소화.
     /// </summary>
     public class PyStack : IEnumerable<PyObject>
     {
-        private readonly List<PyObject> _items;
+        private PyObject[] _items;
+        private int _top;  // 다음 Push 위치 (= 현재 요소 수)
+        private const int DefaultCapacity = 16;
 
         public PyStack()
         {
-            _items = new List<PyObject>();
-        }
-
-        /// <summary>
-        /// Get internal list for direct manipulation (for UNPACK_EX)
-        /// CPython uses *--sp pointer manipulation, we use List.Insert
-        /// </summary>
-        public List<PyObject> GetInternalList()
-        {
-            return _items;
+            _items = new PyObject[DefaultCapacity];
+            _top = 0;
         }
 
         /// <summary>
@@ -31,7 +24,21 @@ namespace SharpPy
         /// </summary>
         public void Push(PyObject obj)
         {
-            _items.Add(obj);
+            if (_top == _items.Length)
+                Grow();
+            _items[_top++] = obj;
+        }
+
+        /// <summary>
+        /// 여러 요소를 한번에 Push (UNPACK_EX 등)
+        /// </summary>
+        public void PushRange(PyObject[] elements, int startIndex, int count)
+        {
+            int required = _top + count;
+            if (required > _items.Length)
+                Grow(required);
+            Array.Copy(elements, startIndex, _items, _top, count);
+            _top += count;
         }
 
         /// <summary>
@@ -39,13 +46,10 @@ namespace SharpPy
         /// </summary>
         public PyObject Pop()
         {
-            if (_items.Count == 0)
-            {
+            if (_top == 0)
                 throw new InvalidOperationException("Stack is empty");
-            }
-            var lastIndex = _items.Count - 1;
-            var item = _items[lastIndex];
-            _items.RemoveAt(lastIndex);
+            var item = _items[--_top];
+            _items[_top] = null; // GC 참조 해제
             return item;
         }
 
@@ -54,11 +58,9 @@ namespace SharpPy
         /// </summary>
         public PyObject Peek()
         {
-            if (_items.Count == 0)
-            {
+            if (_top == 0)
                 throw new InvalidOperationException("Stack is empty");
-            }
-            return _items[^1]; // C# 8.0+ index from end
+            return _items[_top - 1];
         }
 
         /// <summary>
@@ -67,12 +69,12 @@ namespace SharpPy
         /// </summary>
         public PyObject PeekAt(int depth)
         {
-            if (depth < 0 || depth >= _items.Count)
+            if (depth < 0 || depth >= _top)
             {
                 throw new ArgumentOutOfRangeException(nameof(depth),
-                    $"Invalid stack depth {depth} (stack size: {_items.Count})");
+                    $"Invalid stack depth {depth} (stack size: {_top})");
             }
-            return _items[_items.Count - 1 - depth];
+            return _items[_top - 1 - depth];
         }
 
         /// <summary>
@@ -84,33 +86,29 @@ namespace SharpPy
         public void Swap(int distance)
         {
             if (distance < 1)
-            {
                 throw new ArgumentException($"SWAP distance must be >= 1, got {distance}");
-            }
-            if (_items.Count < distance)
-            {
+            if (_top < distance)
                 throw new InvalidOperationException(
-                    $"SWAP({distance}): Not enough items on stack (need {distance}, got {_items.Count})");
-            }
+                    $"SWAP({distance}): Not enough items on stack (need {distance}, got {_top})");
 
-            int topIdx = _items.Count - 1;
+            int topIdx = _top - 1;
             int otherIdx = topIdx - distance + 1;
-
-            // C# tuple swap (O(1) 연산)
             (_items[topIdx], _items[otherIdx]) = (_items[otherIdx], _items[topIdx]);
         }
 
         /// <summary>
         /// 스택의 현재 크기
         /// </summary>
-        public int Count => _items.Count;
+        public int Count => _top;
 
         /// <summary>
         /// 스택의 모든 요소 제거
         /// </summary>
         public void Clear()
         {
-            _items.Clear();
+            // GC 참조 해제: 사용된 슬롯만 null로 설정
+            Array.Clear(_items, 0, _top);
+            _top = 0;
         }
 
         /// <summary>
@@ -118,9 +116,11 @@ namespace SharpPy
         /// </summary>
         public PyObject[] ToArray()
         {
-            // Performance: Eliminated LINQ - ToArray() is not LINQ but List<T> method (keep as-is)
-            var array = _items.ToArray();
-            Array.Reverse(array); // TOS가 [0]이 되도록 역순
+            var array = new PyObject[_top];
+            for (int i = 0; i < _top; i++)
+            {
+                array[_top - 1 - i] = _items[i]; // TOS가 [0]이 되도록 역순 복사
+            }
             return array;
         }
 
@@ -129,15 +129,14 @@ namespace SharpPy
         /// </summary>
         public IEnumerable<PyObject> Take(int count)
         {
-            // Performance: Eliminated LINQ - replaced Enumerable.Empty<T>() with empty array
-            if (count <= 0) return new PyObject[0];
+            if (count <= 0) return Array.Empty<PyObject>();
 
-            int actualCount = Math.Min(count, _items.Count);
+            int actualCount = Math.Min(count, _top);
             var result = new PyObject[actualCount];
 
             for (int i = 0; i < actualCount; i++)
             {
-                result[i] = _items[_items.Count - 1 - i]; // TOS부터
+                result[i] = _items[_top - 1 - i]; // TOS부터
             }
 
             return result;
@@ -148,7 +147,7 @@ namespace SharpPy
         /// </summary>
         public IEnumerable<PyObject> Reverse()
         {
-            for (int i = _items.Count - 1; i >= 0; i--)
+            for (int i = _top - 1; i >= 0; i--)
             {
                 yield return _items[i];
             }
@@ -161,22 +160,72 @@ namespace SharpPy
         public PyStack Clone()
         {
             var clone = new PyStack();
-            clone._items.AddRange(_items); // List.AddRange는 최적화된 bulk copy
+            if (_top > clone._items.Length)
+                clone._items = new PyObject[_top];
+            Array.Copy(_items, 0, clone._items, 0, _top);
+            clone._top = _top;
             return clone;
         }
 
         /// <summary>
+        /// 다른 스택의 내용을 이 스택으로 복원 (Generator resume용)
+        /// Clear() 후 source의 요소들을 복사하여 Push
+        /// </summary>
+        public void RestoreFrom(PyStack source)
+        {
+            Array.Clear(_items, 0, _top);
+            _top = 0;
+            if (source._top > _items.Length)
+                _items = new PyObject[source._top];
+            Array.Copy(source._items, 0, _items, 0, source._top);
+            _top = source._top;
+        }
+
+        /// <summary>
+        /// 내부 배열에 직접 접근 (읽기 전용 목적)
+        /// count와 함께 사용: items[0..count-1]이 유효한 요소 (bottom-to-top)
+        /// </summary>
+        public PyObject[] GetInternalArray(out int count)
+        {
+            count = _top;
+            return _items;
+        }
+
+        // Legacy compatibility for UNPACK_EX
+        // Returns a temporary List view - ONLY for non-hot-path operations
+        public List<PyObject> GetInternalList()
+        {
+            var list = new List<PyObject>(_top);
+            for (int i = 0; i < _top; i++)
+                list.Add(_items[i]);
+            return list;
+        }
+
+        /// <summary>
         /// 내부 List를 bottom-to-top 순서로 열거 (IEnumerable 인터페이스)
-        /// 주의: TOS가 마지막에 나옴. 대부분의 경우 Reverse()나 ToArray() 사용 권장
         /// </summary>
         public IEnumerator<PyObject> GetEnumerator()
         {
-            return _items.GetEnumerator();
+            for (int i = 0; i < _top; i++)
+                yield return _items[i];
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private void Grow()
+        {
+            Grow(_items.Length * 2);
+        }
+
+        private void Grow(int minCapacity)
+        {
+            int newCapacity = Math.Max(_items.Length * 2, minCapacity);
+            var newItems = new PyObject[newCapacity];
+            Array.Copy(_items, 0, newItems, 0, _top);
+            _items = newItems;
         }
     }
 }

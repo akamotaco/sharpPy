@@ -2265,16 +2265,16 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
                     #endif
+                    #if DEBUG_LOG
                     if (frame.ValueStack.Count > 0)
                     {
                         var debugStackItems = frame.ValueStack.ToArray();
                         for (int i = 0; i < Math.Min(debugStackItems.Length, 5); i++)
                         {
-                            #if DEBUG_LOG
                             Console.WriteLine($"   Stack[{i}]: {debugStackItems[i]?.GetType().Name} = {debugStackItems[i]}");
-                            #endif
                         }
                     }
+                    #endif
 
                     // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
                     // 0x01 - HAS_DEFAULTS: function has positional default parameters
@@ -3970,10 +3970,8 @@ namespace SharpPy
                     // CPython 3.12 compatible FOR_ITER implementation
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 FOR_ITER: Stack.Count before Peek = {frame.ValueStack.Count}, IP={frame.InstructionPointer}");
-                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
-                        // Performance: Eliminated LINQ - manual stack preview
                         var stackArray = frame.ValueStack.ToArray();
                         var previewCount = Math.Min(5, stackArray.Length);
                         var stackItems = new string[previewCount];
@@ -3981,148 +3979,74 @@ namespace SharpPy
                         {
                             stackItems[i] = $"[{i}]={stackArray[i].GetType().Name}";
                         }
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack items: {string.Join(", ", stackItems)}");
-                        #endif
                     }
+                    #endif
                     var iter = frame.ValueStack.Peek(); // Keep iterator on stack for inspection
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"    Iterator type: {iter.GetType().Name}, value: {iter}");
                     #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 FOR_ITER: iterator type = {iter.GetType().Name}, calling Next()...");
-                    Console.WriteLine($"    InstructionPointer = {frame.InstructionPointer}");
-                    #endif
-                    try
+                    // Optimized: Use TryNext() instead of exception-based Next() + catch StopIteration.
+                    // Built-in iterators (list, tuple, range, dict, set, string) override TryNext()
+                    // for O(1) termination detection. Other iterators fall back to try/catch in base class.
+                    if (iter.TryNext(out var forIterNext))
                     {
-                        var nextItem = iter.Next();
-                        frame.ValueStack.Push(nextItem); // Push next item on top of iterator
+                        frame.ValueStack.Push(forIterNext); // Push next item on top of iterator
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    ✅ FOR_ITER: got next item, Stack.Count after push = {frame.ValueStack.Count}");
                         #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔄 FOR_ITER: got next item {nextItem} from iterator");
-                        #endif
                         // Continue normal execution (don't jump)
                     }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    else
                     {
                         #if DEBUG_VM_LOG
-                        Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished, Stack.Count before pop = {frame.ValueStack.Count}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
-                        Console.WriteLine($"    스택 상태 (pop 전): count={frame.ValueStack.Count}");
-                        var stackContents = frame.ValueStack.ToArray();
-                        for (int i = 0; i < stackContents.Length; i++)
-                        {
-                            Console.WriteLine($"      스택[{i}] = {stackContents[i]} ({stackContents[i].GetType().Name})");
-                        }
+                        Console.WriteLine($"🔚 FOR_ITER: iterator exhausted, Stack.Count before pop = {frame.ValueStack.Count}");
                         #endif
                         // FOR_ITER 스택 구조: [..., value, iterator] (CPython 호환)
                         // StopIteration 시: iterator를 제거하고 value를 유지
-                        var removedIterator = frame.ValueStack.Pop(); // iterator 제거 (TOS)
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    ✅ FOR_ITER: Popped iterator, Stack.Count after pop = {frame.ValueStack.Count}");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    제거된 객체: {removedIterator} ({removedIterator.GetType().Name})");
-                        Console.WriteLine($"    스택 상태 (pop 후): count={frame.ValueStack.Count}");
-                        var stackContentsAfter = frame.ValueStack.ToArray();
-                        for (int i = 0; i < stackContentsAfter.Length; i++)
-                        {
-                            Console.WriteLine($"      스택[{i}] = {stackContentsAfter[i]} ({stackContentsAfter[i].GetType().Name})");
-                        }
-                        #endif
+                        frame.ValueStack.Pop(); // iterator 제거 (TOS)
 
                         // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
                         if (frame.Code is PyQuickenedCodeObject quickenedCode)
                         {
-                            // Quickened Code: instruction offset 사용
                             int forIterQuickenedTarget = quickenedCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
-
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterQuickenedTarget} (QuickenedCode)");
-                            #endif
                             frame.InstructionPointer = forIterQuickenedTarget - 1; // main loop will increment
                         }
                         else if (!frame.Code.IsOptimized)
                         {
-                            // CPython 3.12 호환: FOR_ITER StopIteration 점프
-                            // bytecodes.c:2341: JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1)
-                            // INLINE_CACHE_ENTRIES_FOR_ITER = 1 (one CACHE instruction)
-                            // Jump amount = 1 + oparg + 1 = oparg + 2 instruction indices
-                            // Main loop will ++, so set to: current + oparg + 2 - 1 = current + oparg + 1
                             int targetIndex = frame.InstructionPointer + instruction.Argument + 1;
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"    🔚 FOR_ITER: Jumping from IP={frame.InstructionPointer} to IP={targetIndex + 1} (no-optimize, arg={instruction.Argument})");
-                            #endif
                             frame.InstructionPointer = targetIndex; // main loop will increment
                         }
                         else
                         {
-                            // CPython 3.12 호환: FOR_ITER arg → current_instruction + arg + 1 위치로 점프
-                            // 메인 루프에서 +1하므로 실제로는 current + arg로 설정
                             int forIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
-
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (CPython 3.12 compatible)");
-                            #endif
                             frame.InstructionPointer = forIterTargetInstrPos; // main loop will increment to correct position
                         }
-
-                        // DON'T return null - continue execution
-                    }
-                    catch (Exception ex)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"💥 FOR_ITER error: {ex.Message}");
-                        #endif
-                        throw;
                     }
                     break;
 
                 // Specialized Loop Operations - CPython 3.12 Adaptive Specialization
                 case ByteCodeOp.FOR_ITER_LIST:
-                    // 리스트 전용 최적화된 iteration
+                    // 리스트 전용 최적화된 iteration - TryNext 사용
                     var listIter = frame.ValueStack.Peek();
                     if (listIter is PyListIterator listIterator)
                     {
-                        try
+                        if (listIterator.TryNext(out var nextListItem))
                         {
-                            var nextListItem = listIterator.Next();
                             frame.ValueStack.Push(nextListItem);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🚀 FOR_ITER_LIST: got next item {nextListItem} (optimized)");
-                            #endif
                         }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        else
                         {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER_LIST: StopIteration - loop finished (optimized)");
-                            #endif
                             frame.ValueStack.Pop(); // Remove exhausted iterator
-
-                            // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
                             if (frame.Code is PyQuickenedCodeObject quickenedListCode)
                             {
-                                // Quickened Code: instruction offset 사용
                                 int listQuickenedTarget = quickenedListCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listQuickenedTarget} (QuickenedCode)");
-                                #endif
                                 frame.InstructionPointer = listQuickenedTarget - 1;
                             }
                             else
                             {
-                                // CPython 3.12 호환: FOR_ITER_LIST arg → current_instruction + arg + 1 위치로 점프
                                 int listIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listIterTargetInstrPos} (CPython 3.12 compatible)");
-                                #endif
-                                frame.InstructionPointer = listIterTargetInstrPos; // main loop will increment to correct position
+                                frame.InstructionPointer = listIterTargetInstrPos;
                             }
                         }
                     }
@@ -4134,45 +4058,26 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.FOR_ITER_TUPLE:
-                    // 튜플 전용 최적화된 iteration
+                    // 튜플 전용 최적화된 iteration - TryNext 사용
                     var tupleIter = frame.ValueStack.Peek();
                     if (tupleIter is PyTupleIterator tupleIterator)
                     {
-                        try
+                        if (tupleIterator.TryNext(out var nextTupleItem))
                         {
-                            var nextTupleItem = tupleIterator.Next();
                             frame.ValueStack.Push(nextTupleItem);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🚀 FOR_ITER_TUPLE: got next item {nextTupleItem} (optimized)");
-                            #endif
                         }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        else
                         {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER_TUPLE: StopIteration - loop finished (optimized)");
-                            #endif
                             frame.ValueStack.Pop();
-
-                            // CPython 3.12: QuickenedCodeObject 방식으로 점프 계산
                             if (frame.Code is PyQuickenedCodeObject quickenedTupleCode)
                             {
-                                // Quickened Code: instruction offset 사용
                                 int tupleQuickenedTarget = quickenedTupleCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleQuickenedTarget} (QuickenedCode)");
-                                #endif
                                 frame.InstructionPointer = tupleQuickenedTarget - 1;
                             }
                             else
                             {
-                                // CPython 3.12 호환: FOR_ITER_TUPLE arg → current_instruction + arg + 1 위치로 점프
                                 int tupleIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleIterTargetInstrPos} (CPython 3.12 compatible)");
-                                #endif
-                                frame.InstructionPointer = tupleIterTargetInstrPos; // main loop will increment to correct position
+                                frame.InstructionPointer = tupleIterTargetInstrPos;
                             }
                         }
                     }
@@ -4575,13 +4480,13 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 WITH_EXCEPT_START 완료 후 스택 크기: {frame.ValueStack.Count}");
                     #endif
+                    #if DEBUG_LOG
                     for (int i = 0; i < Math.Min(frame.ValueStack.Count, 5); i++)
                     {
                         var debugItem = frame.ValueStack.ToArray()[frame.ValueStack.Count - 1 - i];
-                        #if DEBUG_LOG
                         Console.WriteLine($"  Stack[{frame.ValueStack.Count - 1 - i}]: {debugItem}");
-                        #endif
                     }
+                    #endif
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
                     #endif
@@ -5381,9 +5286,8 @@ namespace SharpPy
                         elementsToAdd[elemIdx++] = itemsToUnpack[i];
                     }
 
-                    // Add all elements at once - O(n) instead of O(n²)
-                    var stackList = frame.ValueStack.GetInternalList();
-                    stackList.AddRange(elementsToAdd);
+                    // Add all elements at once - O(n) using PushRange
+                    frame.ValueStack.PushRange(elementsToAdd, 0, elementsToAdd.Length);
                     break;
 
                 // CPython 3.12: BREAK_LOOP and CONTINUE_LOOP removed
@@ -5595,9 +5499,9 @@ namespace SharpPy
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔧 LIST_APPEND {instruction.Argument}: Stack before pop = {frame.ValueStack.Count}");
                     #endif
+                    #if DEBUG_VM_LOG
                     if (frame.ValueStack.Count > 0)
                     {
-                        // Performance: Eliminated LINQ - manual stack preview
                         var stackArray = frame.ValueStack.ToArray();
                         var previewCount = Math.Min(5, stackArray.Length);
                         var stackBefore = new string[previewCount];
@@ -5605,10 +5509,9 @@ namespace SharpPy
                         {
                             stackBefore[i] = $"[{i}]={stackArray[i].GetType().Name}";
                         }
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack: {string.Join(", ", stackBefore)}");
-                        #endif
                     }
+                    #endif
 
                     var itemToAppend = frame.ValueStack.Pop();
                     #if DEBUG_VM_LOG
@@ -6847,6 +6750,45 @@ namespace SharpPy
             // Special handling for IS_NOT (identity comparison)
             if (operation == CompareOp.IS_NOT)
                 return IsNotOperation(left, right);
+
+            // Optimized fast paths: avoid virtual dispatch for common type pairs
+            // CPython 3.12 adaptive specialization equivalent (COMPARE_OP_INT, COMPARE_OP_FLOAT)
+            if (left is PyInt li && right is PyInt ri)
+            {
+                var lv = li.Value;
+                var rv = ri.Value;
+                return PyBool.FromBool(operation switch
+                {
+                    CompareOp.LT => lv < rv,
+                    CompareOp.LE => lv <= rv,
+                    CompareOp.EQ => lv == rv,
+                    CompareOp.NE => lv != rv,
+                    CompareOp.GT => lv > rv,
+                    CompareOp.GE => lv >= rv,
+                    _ => throw PyNotImplementedError.Create($"Compare operation {compareOp} not implemented for int")
+                });
+            }
+
+            if (left is PyFloat lf && right is PyFloat rf)
+            {
+                var lfv = lf.Value;
+                var rfv = rf.Value;
+                return PyBool.FromBool(operation switch
+                {
+                    CompareOp.LT => lfv < rfv,
+                    CompareOp.LE => lfv <= rfv,
+                    CompareOp.EQ => lfv == rfv,
+                    CompareOp.NE => lfv != rfv,
+                    CompareOp.GT => lfv > rfv,
+                    CompareOp.GE => lfv >= rfv,
+                    _ => throw PyNotImplementedError.Create($"Compare operation {compareOp} not implemented for float")
+                });
+            }
+
+            if (left is PyString ls && right is PyString rs && operation == CompareOp.EQ)
+            {
+                return PyBool.FromBool(ls.Value == rs.Value);
+            }
 
             // CPython 3.12: Objects/object.c:813-878 - PyObject_RichCompare
             // Try left operand's comparison method
