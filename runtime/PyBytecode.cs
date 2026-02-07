@@ -441,6 +441,20 @@ namespace SharpPy
         /// </summary>
         public HashSet<string> VarNameSet { get; private set; } = null!;
 
+        /// <summary>
+        /// PyValue cache for Constants. Built once at construction time.
+        /// Eliminates per-LOAD_CONST PyValue.FromObject() conversion.
+        /// </summary>
+        public PyValue[] ConstantsAsValues { get; private set; } = null!;
+
+        /// <summary>
+        /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
+        /// localsplus layout: [varnames | non-param cells | freevars]
+        /// Built once at construction time. Eliminates repeated list building in
+        /// LOAD_DEREF, STORE_DEREF, DELETE_DEREF, LOAD_CLOSURE, MAKE_CELL handlers.
+        /// </summary>
+        public List<string> NonParamCellNames { get; private set; } = null!;
+
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
         public const int CO_NEWLOCALS = 0x0002;         // 새로운 지역 변수 네임스페이스
@@ -490,6 +504,7 @@ namespace SharpPy
             // CPython 3.12: Build cached index maps for O(1) lookup at runtime
             BuildIndexMaps();
             ComputeClassCellIndex();
+            BuildConstantsCache();
         }
 
         /// <summary>
@@ -521,6 +536,15 @@ namespace SharpPy
 
             // Build VarNameSet for O(1) Contains() check
             VarNameSet = new HashSet<string>(VarNames);
+
+            // Build NonParamCellNames: cell variables that are NOT in VarNames (not parameters)
+            // CPython 3.12 localsplus layout: [varnames | non-param cells | freevars]
+            NonParamCellNames = new List<string>();
+            for (int i = 0; i < CellVars.Count; i++)
+            {
+                if (!VarNameSet.Contains(CellVars[i]))
+                    NonParamCellNames.Add(CellVars[i]);
+            }
         }
 
         /// <summary>
@@ -551,8 +575,20 @@ namespace SharpPy
             // Not found
             ClassCellIndex = -1;
         }
-        
-        
+
+        /// <summary>
+        /// Build PyValue[] cache for Constants list.
+        /// Called once at construction time, eliminates per-LOAD_CONST conversion.
+        /// </summary>
+        private void BuildConstantsCache()
+        {
+            ConstantsAsValues = new PyValue[Constants.Count];
+            for (int i = 0; i < Constants.Count; i++)
+            {
+                ConstantsAsValues[i] = PyValue.FromObject(Constants[i]);
+            }
+        }
+
         public override string GetTypeName() => "code";
 
         // CPython 3.12 호환: co_* 속성들 지원

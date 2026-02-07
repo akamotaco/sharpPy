@@ -1184,6 +1184,25 @@ namespace SharpPy
             throw PyStopIteration.Create();
         }
 
+        /// <summary>
+        /// 예외 없이 다음 값을 시도하는 최적화된 메서드.
+        /// FOR_ITER에서 StopIteration 예외 대신 이 메서드를 사용하여 성능 향상.
+        /// 파생 클래스에서 override하면 예외 없이 O(1)로 종료 감지 가능.
+        /// </summary>
+        public virtual bool TryNext(out PyObject value)
+        {
+            try
+            {
+                value = Next();
+                return true;
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                value = null;
+                return false;
+            }
+        }
+
         #endregion
 
         #region Buffer Protocol (PEP 688)

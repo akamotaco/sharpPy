@@ -28,7 +28,9 @@ namespace SharpPy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsNegativeZero(double value)
         {
-            return value == 0.0 && double.IsNegativeInfinity(1.0 / value);
+            // Optimized: Bitwise comparison instead of division.
+            // +0.0 has all bits zero, -0.0 has only sign bit set (0x8000000000000000).
+            return value == 0.0 && BitConverter.DoubleToInt64Bits(value) != 0;
         }
 
         /// <summary>

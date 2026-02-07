@@ -109,7 +109,10 @@ namespace SharpPy
         /// </summary>
         public static bool IsNull(PyObject obj)
         {
-            return obj is PyNull;
+            // Optimized: Also handle C# null (uninitialized array elements).
+            // This allows skipping the LocalsPlus initialization loop in PyFrame constructor,
+            // since new PyObject[] elements are already null.
+            return obj == null || obj is PyNull;
         }
 
         /// <summary>

@@ -29,6 +29,30 @@ public partial class PyFunction : PyObject, IDescriptor
     private PyDict? _dictCache = null;
     private PyDict? _globalsCache = null;
 
+    // Performance: Cached global PyScope for function calls.
+    // Avoids creating new PyScopeChain + PyScope + __builtins__ check on every call.
+    // CPython 3.12: f_globals is captured at function definition time and reused.
+    private PyScope? _cachedGlobalScope = null;
+
+    /// <summary>
+    /// Get or create a PyScopeChain using a cached global scope.
+    /// The global scope is created once and reused across all calls to this function.
+    /// </summary>
+    internal PyScopeChain CreateCachedScopeChain()
+    {
+        if (_cachedGlobalScope == null && GlobalsDict != null)
+        {
+            _cachedGlobalScope = new PyScope(ScopeType.Global, GlobalsDict, null, CodeObject?.Name ?? "<function>");
+            if (!GlobalsDict.ContainsKey("__builtins__"))
+            {
+                _cachedGlobalScope.SetVariable("__builtins__", PyBuiltinsModule.Instance);
+            }
+        }
+        if (_cachedGlobalScope != null)
+            return new PyScopeChain(_cachedGlobalScope);
+        return null;
+    }
+
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
         Name = name;
@@ -273,8 +297,9 @@ public partial class PyFunction : PyObject, IDescriptor
             PyScopeChain functionScopeChain;
             if (GlobalsDict != null)
             {
-                // Use the globals captured at function definition time (CPython equivalent: frame->f_globals)
-                functionScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
+                // Optimized: Use cached global scope to avoid recreation on every call
+                functionScopeChain = CreateCachedScopeChain()
+                    ?? new PyScopeChain(GlobalsDict, CodeObject.Name);
 
                 #if DEBUG_LOG
                 // Log for enum-related functions

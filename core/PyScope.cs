@@ -416,6 +416,17 @@ namespace SharpPy
         // 일반 스코프들만 리스트로 관리 (G, E, L)
         private readonly List<PyScope> _normalScopes;
 
+        /// <summary>
+        /// Optimized constructor for function calls: reuses a pre-built global PyScope.
+        /// Avoids recreating PyScope and checking __builtins__ on every function call.
+        /// CPython 3.12: f_globals is set at function definition time, reused across calls.
+        /// </summary>
+        internal PyScopeChain(PyScope cachedGlobalScope)
+        {
+            _builtinModule = PyBuiltinsModule.Instance;
+            _normalScopes = new List<PyScope>(2) { cachedGlobalScope };
+        }
+
         // Builtin은 전역 싱글톤 모듈로 특별 관리!
         private readonly PyBuiltinsModule _builtinModule;
 
