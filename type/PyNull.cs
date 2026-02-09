@@ -76,7 +76,7 @@ namespace SharpPy
             throw PyTypeError.Create("Cannot convert NULL to int");
         }
 
-        public override double ToFloat()
+        public override float ToFloat()
         {
             throw PyTypeError.Create("Cannot convert NULL to float");
         }

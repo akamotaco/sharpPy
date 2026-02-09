@@ -727,9 +727,9 @@ namespace SharpPy
         /// <summary>
         /// CPython PyFloat_AsDouble 호환: PyFloat에서 C# double 값 추출
         /// </summary>
-        public override double ToFloat()
+        public override float ToFloat()
         {
-            return Value;
+            return (float)Value;
         }
 
         public override double ToDouble()

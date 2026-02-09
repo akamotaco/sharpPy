@@ -51,7 +51,7 @@ namespace SharpPy
             throw PyTypeError.Create("int() argument must be a string, a bytes-like object or a number, not 'ellipsis'");
         }
 
-        public override double ToFloat()
+        public override float ToFloat()
         {
             throw PyTypeError.Create("float() argument must be a string or a number, not 'ellipsis'");
         }

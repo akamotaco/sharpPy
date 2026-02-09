@@ -121,7 +121,7 @@ namespace SharpPy.Modules
             }
             else
             {
-                mean = xbar.ToFloat();
+                mean = xbar.ToDouble();
             }
 
             // Calculate variance (sample variance, using n-1)
@@ -151,14 +151,14 @@ namespace SharpPy.Modules
             {
                 foreach (var item in list.Items)
                 {
-                    values.Add(item.ToFloat());
+                    values.Add(item.ToDouble());
                 }
             }
             else if (data is PyTuple tuple)
             {
                 foreach (var item in tuple.Items)
                 {
-                    values.Add(item.ToFloat());
+                    values.Add(item.ToDouble());
                 }
             }
             else if (data is PyRange range)
@@ -168,7 +168,7 @@ namespace SharpPy.Modules
                 PyObject? item;
                 while ((item = iter.Next()) != null)
                 {
-                    values.Add(item.ToFloat());
+                    values.Add(item.ToDouble());
                 }
             }
             else
@@ -180,7 +180,7 @@ namespace SharpPy.Modules
                     PyObject? item;
                     while ((item = iter.Next()) != null)
                     {
-                        values.Add(item.ToFloat());
+                        values.Add(item.ToDouble());
                     }
                 }
                 catch

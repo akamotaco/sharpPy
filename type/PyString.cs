@@ -2462,7 +2462,7 @@ namespace SharpPy
         /// </summary>
         // CPython 3.12: Objects/floatobject.c:165-202 (float_from_string_inner)
         // CPython 3.12: Python/pystrtod.c:27-57 (_Py_parse_inf_or_nan)
-        public override double ToFloat()
+        public override float ToFloat()
         {
             var trimmed = Value.Trim();
 
@@ -2490,12 +2490,12 @@ namespace SharpPy
                     // Check if it's "infinity"
                     if (s.Length >= 8 && s.Substring(0, 8).ToLowerInvariant() == "infinity")
                     {
-                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
+                        return negate ? float.NegativeInfinity : float.PositiveInfinity;
                     }
                     // Just "inf"
                     else if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
                     {
-                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
+                        return negate ? float.NegativeInfinity : float.PositiveInfinity;
                     }
                 }
                 // Check for "nan" (case insensitive)
@@ -2503,13 +2503,13 @@ namespace SharpPy
                 {
                     if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
                     {
-                        return double.NaN;
+                        return float.NaN;
                     }
                 }
             }
 
             // Standard numeric parsing
-            if (double.TryParse(trimmed, out double result))
+            if (float.TryParse(trimmed, out float result))
                 return result;
 
             throw PyValueError.Create($"could not convert string to float: '{Value}'");

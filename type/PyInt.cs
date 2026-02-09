@@ -496,15 +496,6 @@ namespace SharpPy
             return (long)Value;
         }
 
-        /// <summary>
-        /// Convert BigInteger to double
-        /// CPython 3.12: Objects/longobject.c:3329-3360 - PyLong_AsDouble
-        /// </summary>
-        public double ToDouble()
-        {
-            return (double)Value;
-        }
-
 
         /// <summary>
         /// Convert BigInteger to decimal
@@ -1102,7 +1093,7 @@ namespace SharpPy
         /// CPython PyLong_AsDouble 호환: PyInt에서 C# double 값 추출
         /// Reference: Objects/longobject.c::PyLong_AsDouble
         /// </summary>
-        public override double ToFloat() => (double)Value;
+        public override float ToFloat() => (float)Value;
         public override double ToDouble() => (double)Value;
 
         /// <summary>

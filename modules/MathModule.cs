@@ -502,7 +502,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"lgamma() takes exactly one argument ({args.Length} given)");
 
-            double x = args[0].ToFloat();
+            double x = args[0].ToDouble();
 
             // lgamma(x) = log(abs(gamma(x)))
             // Using Stirling's approximation for large values

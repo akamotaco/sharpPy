@@ -692,7 +692,7 @@ namespace SharpPy
         /// <summary>
         /// CPython PyFloat_AsDouble 호환: PyList는 일반적으로 float로 변환될 수 없음
         /// </summary>
-        public override double ToFloat()
+        public override float ToFloat()
         {
             throw PyTypeError.Create($"float() argument must be a string or a number, not 'list'");
         }
