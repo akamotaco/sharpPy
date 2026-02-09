@@ -2514,7 +2514,46 @@ namespace SharpPy
 
             throw PyValueError.Create($"could not convert string to float: '{Value}'");
         }
-        
+
+        public override double ToDouble()
+        {
+            var trimmed = Value.Trim();
+
+            if (trimmed.Length > 0)
+            {
+                bool negate = false;
+                string s = trimmed;
+
+                if (s[0] == '-')
+                {
+                    negate = true;
+                    s = s.Substring(1).TrimStart();
+                }
+                else if (s[0] == '+')
+                {
+                    s = s.Substring(1).TrimStart();
+                }
+
+                if (s.Length >= 3 && s.Substring(0, 3).ToLowerInvariant() == "inf")
+                {
+                    if (s.Length >= 8 && s.Substring(0, 8).ToLowerInvariant() == "infinity")
+                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
+                    else if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
+                        return negate ? double.NegativeInfinity : double.PositiveInfinity;
+                }
+                else if (s.Length >= 3 && s.Substring(0, 3).ToLowerInvariant() == "nan")
+                {
+                    if (s.Length == 3 || !char.IsLetterOrDigit(s[3]))
+                        return double.NaN;
+                }
+            }
+
+            if (double.TryParse(trimmed, out double result))
+                return result;
+
+            throw PyValueError.Create($"could not convert string to double: '{Value}'");
+        }
+
         // === As* Methods: Type Conversion (PyString → PyObject types) ===
         
         /// <summary>

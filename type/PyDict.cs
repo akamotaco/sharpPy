@@ -986,8 +986,13 @@ namespace SharpPy
         {
             throw PyTypeError.Create($"float() argument must be a string or a number, not 'dict'");
         }
-        
-        
+
+        public override double ToDouble()
+        {
+            throw PyTypeError.Create($"double() argument must be a string or a number, not 'dict'");
+        }
+
+
         // === As* Methods: Type Conversion (PyDict → PyObject types) ===
         
         /// <summary>

@@ -732,6 +732,11 @@ namespace SharpPy
             return Value;
         }
 
+        public override double ToDouble()
+        {
+            return Value;
+        }
+
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyFloat에서 C# bool 값 추출
         /// </summary>

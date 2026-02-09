@@ -1103,7 +1103,8 @@ namespace SharpPy
         /// Reference: Objects/longobject.c::PyLong_AsDouble
         /// </summary>
         public override double ToFloat() => (double)Value;
-        
+        public override double ToDouble() => (double)Value;
+
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyInt에서 C# bool 값 추출
         /// </summary>

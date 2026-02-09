@@ -779,6 +779,14 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// PyObject에서 C# double 값 추출 (64-bit)
+        /// </summary>
+        public virtual double ToDouble()
+        {
+            throw PyTypeError.Create($"double() argument must be a string or a number, not '{GetTypeName()}'");
+        }
+
+        /// <summary>
         /// CPython PyObject_IsTrue 호환: PyObject에서 C# bool 값 추출
         /// </summary>
         public virtual bool ToBool() => PyBoolValue();

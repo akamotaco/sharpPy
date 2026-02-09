@@ -303,7 +303,8 @@ namespace SharpPy
         /// CPython PyFloat_AsDouble 호환: PyBool에서 C# double 값 추출  
         /// </summary>
         public override double ToFloat() => Value ? 1.0 : 0.0;
-        
+        public override double ToDouble() => Value ? 1.0 : 0.0;
+
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyBool에서 C# bool 값 추출
         /// </summary>

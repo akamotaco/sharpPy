@@ -81,6 +81,11 @@ namespace SharpPy
             throw PyTypeError.Create("Cannot convert NULL to float");
         }
 
+        public override double ToDouble()
+        {
+            throw PyTypeError.Create("Cannot convert NULL to double");
+        }
+
         #endregion
 
         #region Length (NULL은 길이 없음)

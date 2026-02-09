@@ -56,6 +56,11 @@ namespace SharpPy
             throw PyTypeError.Create("float() argument must be a string or a number, not 'ellipsis'");
         }
 
+        public override double ToDouble()
+        {
+            throw PyTypeError.Create("double() argument must be a string or a number, not 'ellipsis'");
+        }
+
         #endregion
 
         #region Length (Ellipsis는 길이 없음)

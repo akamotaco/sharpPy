@@ -99,6 +99,11 @@ namespace SharpPy
             throw PyTypeError.Create("float() argument must be a string or a number, not 'NoneType'");
         }
 
+        public override double ToDouble()
+        {
+            throw PyTypeError.Create("double() argument must be a string or a number, not 'NoneType'");
+        }
+
         #endregion
 
         #region Length (None은 길이 없음)
