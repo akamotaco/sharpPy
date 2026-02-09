@@ -94,9 +94,14 @@ namespace SharpPy
             throw PyTypeError.Create("int() argument must be a string, a bytes-like object or a number, not 'NoneType'");
         }
 
-        public override double ToFloat()
+        public override float ToFloat()
         {
             throw PyTypeError.Create("float() argument must be a string or a number, not 'NoneType'");
+        }
+
+        public override double ToDouble()
+        {
+            throw PyTypeError.Create("double() argument must be a string or a number, not 'NoneType'");
         }
 
         #endregion

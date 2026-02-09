@@ -771,11 +771,19 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython PyFloat_AsDouble 호환: PyObject에서 C# double 값 추출
+        /// CPython PyFloat_AsDouble 호환: PyObject에서 C# float (32-bit) 값 추출
         /// </summary>
-        public virtual double ToFloat()
+        public virtual float ToFloat()
         {
             throw PyTypeError.Create($"float() argument must be a string or a number, not '{GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// PyObject에서 C# double 값 추출 (64-bit)
+        /// </summary>
+        public virtual double ToDouble()
+        {
+            throw PyTypeError.Create($"double() argument must be a string or a number, not '{GetTypeName()}'");
         }
 
         /// <summary>
