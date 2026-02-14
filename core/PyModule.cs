@@ -779,11 +779,14 @@ public class PyModule : PyObject
                     // but we need to ensure it's in the module dict
                     module.ModuleDict[itemName] = subModule;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // If import fails, the item might be a regular attribute
                     // CPython 3.12: Silently ignore if it's not a submodule
                     // The IMPORT_FROM instruction will handle the error
+                    //
+                    // Store the exception so IMPORT_FROM can include root cause in error message
+                    module.ModuleDict[$"__import_error:{itemName}"] = new PyString(ex.Message);
                 }
             }
         }

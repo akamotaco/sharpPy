@@ -5858,6 +5858,22 @@ namespace SharpPy
                             }
                             catch { }
 
+                            // Check if HandleFromList stored an import error for this item
+                            string rootCause = null;
+                            if (module is PyModule errModule &&
+                                errModule.ModuleDict.TryGetValue($"__import_error:{itemName}", out var errObj) &&
+                                errObj is PyString errStr)
+                            {
+                                rootCause = errStr.Value;
+                                errModule.ModuleDict.Remove($"__import_error:{itemName}");
+                            }
+
+                            if (rootCause != null)
+                            {
+                                throw PyImportError.Create(
+                                    $"cannot import name '{itemName}' from '{pkgModuleName}' (import error: {rootCause})");
+                            }
+
                             throw PyAttributeError.Create($"module '{pkgModuleName}' has no attribute '{itemName}'");
                         }
 
