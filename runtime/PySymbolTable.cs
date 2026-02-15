@@ -2173,12 +2173,19 @@ namespace SharpPy
 
         private void AnalyzeAugAssignment(AugAssignStatement augAssign)
         {
-            // For compound assignments like "current += step * value"
-            // The target is already defined (as nonlocal in this case)
-            // We need to analyze the right-hand side expression to find variable references
-            if (augAssign.Target != null)
+            // CPython 3.12: Use TargetExpr (Expression) for proper scope analysis.
+            // The legacy Target (string) property returns ToString() for non-name targets,
+            // producing incorrect symbol names like "Subscript(...)".
+            if (augAssign.TargetExpr != null)
             {
-                _currentTable?.DefineSymbol(augAssign.Target, SymbolFlags.Assigned);
+                // For name targets (x += 1), mark as Assigned (creates local variable)
+                if (augAssign.TargetExpr is NameExpression nameExpr)
+                {
+                    _currentTable?.DefineSymbol(nameExpr.Name, SymbolFlags.Assigned);
+                }
+                // Analyze the full target expression to register used variables
+                // (e.g., for state["count"] += 1, this registers "state" as Used)
+                AnalyzeExpression(augAssign.TargetExpr);
             }
             AnalyzeExpression(augAssign.Value);
         }
@@ -2350,6 +2357,12 @@ namespace SharpPy
                     PreCollectAssignmentTarget(augAssign.Target);
                     break;
 
+                case AugAssignStatement augAssign2:
+                    // Use TargetExpr (Expression) for proper target analysis
+                    if (augAssign2.TargetExpr != null)
+                        PreCollectAssignmentTarget(augAssign2.TargetExpr);
+                    break;
+
                 case AnnAssignStatement annAssign:
                     _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
                     break;
@@ -2427,9 +2440,22 @@ namespace SharpPy
                     }
                     break;
 
-                // FunctionDefStatement and AsyncFunctionDefStatement are NOT recursed into
-                // because they create their own scope
-                // LambdaExpression is also not recursed into
+                // CPython 3.12: Function/class definitions are assignments of the name
+                // in the enclosing scope. We must pre-collect these names so that
+                // earlier sibling nested functions can reference later-defined siblings
+                // as free variables (forward references within the same scope).
+                // Without this, ResolveFreeVariables marks them as GLOBAL instead of FREE.
+                case FunctionDefStatement funcDef:
+                    _currentTable?.DefineSymbol(funcDef.Name, SymbolFlags.Assigned);
+                    break;
+
+                case AsyncFunctionDefStatement asyncFuncDef:
+                    _currentTable?.DefineSymbol(asyncFuncDef.Name, SymbolFlags.Assigned);
+                    break;
+
+                case ClassDefStatement classDef:
+                    _currentTable?.DefineSymbol(classDef.Name, SymbolFlags.Assigned);
+                    break;
 
                 default:
                     // Other statements don't define local variables

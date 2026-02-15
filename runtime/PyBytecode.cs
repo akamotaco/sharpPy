@@ -809,10 +809,9 @@ namespace SharpPy
             throw new NotImplementedException("PyCodeObject.Evaluate() - 나중에 구현예정");
         }
 
-        // CPython 3.12: Convert instruction index to byte offset, accounting for inline cache
-        // CPython uses byte offsets in exception table, but SharpPy uses instruction indices internally
-        // CRITICAL: Must calculate actual byte offset by summing instruction word counts (including inline cache)
-        // Reference: docs/offset_vs_index_analysis.md
+        // CPython 3.12: Convert instruction index to byte offset.
+        // The Instructions array already contains CACHE entries as separate items,
+        // so each entry is exactly 1 word (2 bytes). Simple multiplication suffices.
         public int InstructionIndexToByteOffset(int instructionIndex)
         {
             if (instructionIndex < 0 || instructionIndex >= Instructions.Count)
@@ -821,21 +820,7 @@ namespace SharpPy
                     $"Instruction index {instructionIndex} out of range [0, {Instructions.Count})");
             }
 
-            int byteOffset = 0;
-            for (int i = 0; i < instructionIndex; i++)
-            {
-                // CPython 3.12: Include/internal/pycore_opcode.h - _PyOpcode_Caches table
-                // Each instruction word is 2 bytes
-                // Instruction word count = 1 (opcode + arg) + EXTENDED_ARG + inline cache size
-                // BUG FIX: Must include inline cache size!
-                // CPython 3.12: Python/assemble.c uses word count INCLUDING cache
-                int instrWords = PyAssemble.CountInstructionWords(Instructions[i]);
-                int cacheWords = PyAssemble.GetInlineCacheSize(Instructions[i].OpCode);
-                int wordCount = instrWords + cacheWords;
-                byteOffset += wordCount * INSTRUCTION_WORD_SIZE;
-            }
-
-            return byteOffset;
+            return instructionIndex * INSTRUCTION_WORD_SIZE;
         }
 
         // CPython 3.12: Convert byte offset to instruction index, accounting for inline cache

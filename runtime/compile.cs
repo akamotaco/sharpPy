@@ -166,18 +166,21 @@ namespace SharpPy
             }
             
             // Cell variables: analyze nested functions to see what they reference
+            // Pass all defined vars (not just parameters) so nested functions can
+            // find sibling function names and other local variables as free variables
+            var allDefinedVarsList = new List<string>(_definedVars);
             var cellVars = new List<string>();
             foreach (var statement in func.Body)
             {
                 if (statement is FunctionDefStatement nestedFunc)
                 {
                     var nestedAnalyzer = new FreeVariableAnalyzer();
-                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeNestedFunction(nestedFunc, func.Parameters);
-                    
-                    // Any of our parameters that nested functions use as free variables become cells
+                    var (nestedFreeVars, _) = nestedAnalyzer.AnalyzeNestedFunction(nestedFunc, allDefinedVarsList);
+
+                    // Any of our local variables that nested functions use as free variables become cells
                     foreach (var nestedFreeVar in nestedFreeVars)
                     {
-                        if (func.Parameters.Contains(nestedFreeVar) && !cellVars.Contains(nestedFreeVar))
+                        if (_definedVars.Contains(nestedFreeVar) && !cellVars.Contains(nestedFreeVar))
                         {
                             cellVars.Add(nestedFreeVar);
                         }
@@ -300,7 +303,18 @@ namespace SharpPy
                     }
                     break;
 
-                // TODO: 다른 statement 타입들 추가 가능
+                case FunctionDefStatement funcDef:
+                    // Function definition assigns the function name in current scope
+                    _definedVars.Add(funcDef.Name);
+                    break;
+
+                case AsyncFunctionDefStatement asyncFuncDef:
+                    _definedVars.Add(asyncFuncDef.Name);
+                    break;
+
+                case ClassDefStatement classDef:
+                    _definedVars.Add(classDef.Name);
+                    break;
             }
         }
         
@@ -4200,7 +4214,7 @@ namespace SharpPy
             // CPython 3.12: 내부 함수의 nonlocal 선언을 고려한 추가 cell 분석
             var additionalCellVars = new List<string>(cellVars);
             var allFreeVars = new HashSet<string>();
-            
+
             // 함수 본문에서 지역 변수들을 먼저 수집
             var localVarNames = new List<string>(func.Parameters);
             CollectLocalVariables(func.Body, localVarNames);
