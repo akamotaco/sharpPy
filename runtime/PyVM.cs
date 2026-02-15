@@ -1318,38 +1318,14 @@ namespace SharpPy
                         var (handlerOffset, exceptionEntry) = frame.GetExceptionHandlerFromTableWithEntry();
                         if (handlerOffset.HasValue && exceptionEntry != null)
                         {
-                            // CPython 3.12: Finally handlers (depth=0) need clean stack
-                            if (exceptionEntry.Depth == 0)
+                            // CPython 3.12 ceval.c: Unwind stack to handler's expected depth
+                            // while (stack_depth > handler->h_stacklevel) { POP(); }
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 Unwinding stack from {frame.ValueStack.Count} to depth {exceptionEntry.Depth}");
+                            #endif
+                            while (frame.ValueStack.Count > exceptionEntry.Depth)
                             {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 Finally handler detected (depth=0): cleaning stack");
-                                Console.WriteLine($"🔧 Stack before cleanup: {frame.ValueStack.Count} items");
-                                #endif
-
-                                // For finally handlers, clean up any stale ExceptionInfo objects
-                                var cleanStack = new Stack<PyObject>();
-                                var itemsToKeep = Math.Min(3, frame.ValueStack.Count); // Keep at most 3 recent items
-                                var tempList = new List<PyObject>();
-
-                                // Pop recent items but avoid ExceptionInfo
-                                for (int i = 0; i < itemsToKeep && frame.ValueStack.Count > 0; i++)
-                                {
-                                    var item = frame.ValueStack.Pop();
-                                    if (!(item is PyExceptionInfo))
-                                    {
-                                        tempList.Add(item);
-                                    }
-                                }
-
-                                // Push back non-ExceptionInfo items
-                                for (int i = tempList.Count - 1; i >= 0; i--)
-                                {
-                                    frame.ValueStack.Push(tempList[i]);
-                                }
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 Stack after cleanup: {frame.ValueStack.Count} items");
-                                #endif
+                                frame.ValueStack.Pop();
                             }
 
                             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)

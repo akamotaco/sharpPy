@@ -668,41 +668,59 @@ namespace SharpPy
             FromReraise = fromReraise;
         }
 
-        public override string ToString()
+        /// <summary>
+        /// Format full traceback from __traceback__ chain (CPython 3.12 compatible).
+        /// Returns multi-line string suitable for logging.
+        /// </summary>
+        public string FormatTraceback()
         {
-            var baseStr = PyException.ToRepr().Value;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Traceback (most recent call last):");
 
-            // CPython-style location information with source context
-            if (!string.IsNullOrEmpty(FileName) && LineNumber > 0)
+            var tb = PyException.__traceback__;
+            if (tb != null)
             {
-                var result = new System.Text.StringBuilder();
-                result.AppendLine("Traceback (most recent call last):");
-
-                // File location info
-                var locationStr = $"  File \"{FileName}\", line {LineNumber}, in <module>";
-                result.AppendLine(locationStr);
-
-                // Source code context (if available)
-                if (SourceLines != null && LineNumber > 0 && LineNumber <= SourceLines.Count)
+                while (tb != null)
                 {
-                    var sourceLine = SourceLines[LineNumber - 1]; // Convert to 0-based index
-                    result.AppendLine($"    {sourceLine}");
+                    var frame = tb.Frame;
+                    var fileName = frame.CurrentFileName ?? "<string>";
+                    var functionName = frame.Code?.Name ?? "<module>";
+                    var lineNumber = tb.LineNo;
 
-                    // Add position marker if column offset is available
-                    if (ColumnOffset >= 0 && ColumnOffset < sourceLine.Length)
+                    sb.AppendLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
+
+                    // Try to show source line
+                    if (!string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<") && lineNumber > 0)
                     {
-                        var spaces = new string(' ', 4 + ColumnOffset); // 4 spaces for indentation + column offset
-                        result.AppendLine($"{spaces}^");
+                        try
+                        {
+                            var lines = System.IO.File.ReadAllLines(fileName);
+                            if (lineNumber <= lines.Length)
+                                sb.AppendLine($"    {lines[lineNumber - 1].TrimStart()}");
+                        }
+                        catch { /* file not readable */ }
                     }
+
+                    tb = tb.Next;
                 }
-
-                // Exception type and message
-                result.Append($"{PyException.GetTypeName()}: {PyException.ToStr().Value}");
-
-                return result.ToString();
+            }
+            else if (!string.IsNullOrEmpty(FileName) && LineNumber > 0)
+            {
+                // Fallback: single frame
+                sb.AppendLine($"  File \"{FileName}\", line {LineNumber}, in <module>");
+                if (SourceLines != null && LineNumber > 0 && LineNumber <= SourceLines.Count)
+                    sb.AppendLine($"    {SourceLines[LineNumber - 1].TrimStart()}");
             }
 
-            return baseStr;
+            sb.Append($"{PyException.GetTypeName()}: {PyException.ToStr().Value}");
+            return sb.ToString();
+        }
+
+        public override string ToString()
+        {
+            if (PyException.__traceback__ != null || (!string.IsNullOrEmpty(FileName) && LineNumber > 0))
+                return FormatTraceback();
+            return PyException.ToRepr().Value;
         }
     }
 
