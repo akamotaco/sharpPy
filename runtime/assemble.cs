@@ -707,10 +707,11 @@ namespace SharpPy
                 }
 
                 // CPython 3.12: Python/flowgraph.c:498 - bsize += isize
-                // Count instruction size INCLUDING inline cache
-                int instrWords = CountInstructionWords(instr);
-                int cacheWords = GetInlineCacheSize(instr.OpCode);
-                currentByteOffset += (instrWords + cacheWords) * PyCodeObject.INSTRUCTION_WORD_SIZE;
+                // Each entry in the emitted instruction list is exactly 1 word (2 bytes).
+                // EXTENDED_ARG and CACHE entries are already separate items in the list,
+                // so we only count 1 word per non-CACHE instruction here.
+                // (CACHE entries are counted at the skip block above.)
+                currentByteOffset += PyCodeObject.INSTRUCTION_WORD_SIZE;
             }
 
             // Emit final range

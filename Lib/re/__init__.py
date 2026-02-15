@@ -138,6 +138,7 @@ __all__ = [
 
 __version__ = "2.2.1"
 
+
 @enum.global_enum
 @enum._simple_enum(enum.IntFlag, boundary=enum.KEEP)
 class RegexFlag:
@@ -276,7 +277,6 @@ _cache2 = {}  # FIFO
 _MAXCACHE = 512
 _MAXCACHE2 = 256
 assert _MAXCACHE2 < _MAXCACHE
-
 def _compile(pattern, flags):
     # internal: compile pattern
     if isinstance(flags, RegexFlag):
@@ -383,3 +383,4 @@ class Scanner:
                 append(action)
             i = j
         return result, string[i:]
+
