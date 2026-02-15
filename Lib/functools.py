@@ -115,31 +115,50 @@ def lru_cache(maxsize=128, typed=False):
     can grow without bound.
 
     Arguments to the cached function must be hashable.
+
+    Can be used with or without parentheses:
+        @lru_cache
+        @lru_cache(maxsize=256)
     """
+    # CPython 3.12: functools.py:478-487
+    # Support @lru_cache without parentheses — maxsize is the function itself
+    if callable(maxsize) and isinstance(typed, bool):
+        user_function, maxsize = maxsize, 128
+        return _lru_cache_impl(user_function, maxsize)
+
+    if maxsize is not None and not isinstance(maxsize, int):
+        raise TypeError(
+            'Expected first argument to be an integer, a callable, or None')
+
     def decorating_function(user_function):
-        cache = {}
-
-        def wrapper(*args, **kwds):
-            # Create cache key from arguments
-            key = str(args) + str(sorted(kwds.items()) if kwds else '')
-
-            if key in cache:
-                return cache[key]
-
-            result = user_function(*args, **kwds)
-
-            # Simple cache without LRU eviction for now
-            if maxsize is None or len(cache) < maxsize:
-                cache[key] = result
-
-            return result
-
-        wrapper.cache_info = lambda: f"CacheInfo(size={len(cache)})"
-        wrapper.cache_clear = lambda: cache.clear()
-
-        return update_wrapper(wrapper, user_function)
+        return _lru_cache_impl(user_function, maxsize)
 
     return decorating_function
+
+
+def _lru_cache_impl(user_function, maxsize):
+    """Internal: create a cached wrapper for user_function."""
+    cache = {}
+
+    def wrapper(*args, **kwds):
+        # Create cache key from arguments
+        key = str(args) + str(sorted(kwds.items()) if kwds else '')
+
+        if key in cache:
+            return cache[key]
+
+        result = user_function(*args, **kwds)
+
+        # Simple cache without LRU eviction for now
+        if maxsize is None or len(cache) < maxsize:
+            cache[key] = result
+
+        return result
+
+    wrapper.cache_info = lambda: f"CacheInfo(size={len(cache)})"
+    wrapper.cache_clear = lambda: cache.clear()
+
+    return update_wrapper(wrapper, user_function)
 
 # Simple cache decorator (just lru_cache with no size limit)
 def cache(user_function):

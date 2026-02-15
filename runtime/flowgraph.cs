@@ -256,6 +256,12 @@ namespace SharpPy
             // Track real instruction count to update block offsets
             int realInstructionCount = 0;
 
+            // CPython 3.12: Python/flowgraph.c:stackdepth()
+            // Track operand stack depth to correctly set ExceptionDepth.
+            // The exception table's depth field = stack depth at the SETUP instruction,
+            // so exception dispatch can unwind to that level (preserving e.g. for-loop iterators).
+            int operandDepth = 0;
+
             for (int i = 0; i < sortedStarts.Count; i++)
             {
                 int start = sortedStarts[i];
@@ -320,19 +326,21 @@ namespace SharpPy
                                 // Now push the handler to the current block's stack (after copying)
                                 exceptStack.Push(handlerBlock);
 
-                                // CPython 3.12 exception table semantics:
-                                // - SETUP_FINALLY: depth=0 (pop all), lasti=false (don't preserve)
-                                // - SETUP_CLEANUP: depth=1 (keep exception), lasti=true (preserve for reraise)
-                                // - SETUP_WITH: depth=1, lasti=true
+                                // CPython 3.12: Python/flowgraph.c:stackdepth()
+                                // ExceptionDepth = operand stack depth at the SETUP instruction.
+                                // This ensures exception dispatch preserves stack items below
+                                // the try block (e.g. for-loop iterators).
+                                // PreserveLasti: SETUP_CLEANUP/WITH preserve last instruction
+                                // for reraise; SETUP_FINALLY does not.
                                 if (instr.OpCode == ByteCodeOp.SETUP_CLEANUP || instr.OpCode == ByteCodeOp.SETUP_WITH)
                                 {
                                     handlerBlock.PreserveLasti = true;
-                                    handlerBlock.ExceptionDepth = 1;
+                                    handlerBlock.ExceptionDepth = operandDepth;
                                 }
                                 else // SETUP_FINALLY
                                 {
                                     handlerBlock.PreserveLasti = false;
-                                    handlerBlock.ExceptionDepth = 0;
+                                    handlerBlock.ExceptionDepth = operandDepth;
                                 }
                             }
                         }
@@ -357,6 +365,15 @@ namespace SharpPy
                     {
                         blockRealStart = realInstructionCount;
                         block.Offset = realInstructionCount;
+                    }
+
+                    // CPython 3.12: Python/flowgraph.c:stackdepth()
+                    // Track operand stack depth for exception table depth calculation.
+                    // Uses fall-through stack effects (normal execution path).
+                    {
+                        var (pop, push) = StackEffectAnalyzer.GetStackEffect(instr.OpCode, instr.Arg ?? 0);
+                        operandDepth += (push - pop);
+                        if (operandDepth < 0) operandDepth = 0; // safety clamp
                     }
 
                     // Get current exception handler from stack

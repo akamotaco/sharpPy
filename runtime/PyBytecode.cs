@@ -1201,11 +1201,23 @@ namespace SharpPy
             // 이터레이션
             { ByteCodeOp.GET_ITER, (1, 1) },
             { ByteCodeOp.FOR_ITER, (1, 2) }, // iter -> iter, value (성공시) 또는 iter -> (실패시)
-            
+            { ByteCodeOp.END_FOR, (2, 0) }, // CPython 3.12: pop value + iterator
+
+            // 컨테이너 확장 (CPython 3.12)
+            { ByteCodeOp.LIST_EXTEND, (1, 0) }, // pop iterable, extend list at stack[arg]
+            { ByteCodeOp.SET_UPDATE, (1, 0) },  // pop iterable, update set at stack[arg]
+            { ByteCodeOp.DICT_MERGE, (1, 0) },  // pop mapping, merge into dict at stack[arg]
+            { ByteCodeOp.DICT_UPDATE, (1, 0) }, // pop mapping, update dict at stack[arg]
+
             // CPython 3.12 새로운 호출 시스템
             { ByteCodeOp.PUSH_NULL, (0, 1) },
             { ByteCodeOp.RESUME, (0, 0) },
-            
+
+            // 예외 처리 (추가)
+            { ByteCodeOp.CHECK_EXC_MATCH, (2, 1) }, // exception, type -> bool
+            { ByteCodeOp.NOP, (0, 0) },
+            { ByteCodeOp.CACHE, (0, 0) },
+
             // CPython 3.12: 예외 그룹 처리
             { ByteCodeOp.CHECK_EG_MATCH, (2, 2) }, // exception_group, match_type -> matched, remainder
         };
