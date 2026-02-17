@@ -297,15 +297,14 @@ namespace SharpPy
                 {
                     if (def is ConstantExpression constExpr)
                     {
-                        // PyBool before PyInt — PyBool inherits PyInt
                         if (constExpr.Value is PyString pyStr)
                             defaultStrs.Add($"Constant(value='{pyStr.Value}')");
-                        else if (constExpr.Value is PyBool pyBool)
-                            defaultStrs.Add($"Constant(value={(pyBool.Value ? "True" : "False")})");
                         else if (constExpr.Value is PyInt pyInt)
                             defaultStrs.Add($"Constant(value={pyInt.Value})");
                         else if (constExpr.Value is PyFloat pyFloat)
                             defaultStrs.Add($"Constant(value={pyFloat.Value})");
+                        else if (constExpr.Value is PyBool pyBool)
+                            defaultStrs.Add($"Constant(value={(pyBool.Value ? "True" : "False")})");
                         else if (constExpr.Value is PyNone)
                             defaultStrs.Add("Constant(value=None)");
                         else

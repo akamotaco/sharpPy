@@ -373,7 +373,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value == otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(Value == (double)otherInt.Value),
-
+                PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1.0 : 0.0)),
                 _ => PyBool.False
             };
         }
@@ -389,7 +389,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value < otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(Value < (double)otherInt.Value),
-
+                PyBool otherBool => PyBool.FromBool(Value < (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'<' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -401,7 +401,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value <= otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(Value <= (double)otherInt.Value),
-
+                PyBool otherBool => PyBool.FromBool(Value <= (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'<=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -413,7 +413,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value > otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(Value > (double)otherInt.Value),
-
+                PyBool otherBool => PyBool.FromBool(Value > (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'>' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -425,7 +425,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value >= otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(Value >= (double)otherInt.Value),
-
+                PyBool otherBool => PyBool.FromBool(Value >= (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'>=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -441,7 +441,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => new PyFloat(Value + otherFloat.Value),
                 PyInt otherInt => new PyFloat(Value + (double)otherInt.Value),
-
+                PyBool otherBool => new PyFloat(Value + (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -454,7 +454,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => new PyFloat(Value - otherFloat.Value),
                 PyInt otherInt => new PyFloat(Value - (double)otherInt.Value),
-
+                PyBool otherBool => new PyFloat(Value - (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -467,7 +467,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => new PyFloat(Value * otherFloat.Value),
                 PyInt otherInt => new PyFloat(Value * (double)otherInt.Value),
-
+                PyBool otherBool => new PyFloat(Value * (otherBool.Value ? 1.0 : 0.0)),
                 PyComplex otherComplex => new PyComplex(Value * otherComplex.Real, Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -479,7 +479,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => otherFloat.Value,
                 PyInt otherInt => (double)otherInt.Value,
-
+                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for /: 'float' and '{other.GetTypeName()}'")
             };
 
@@ -543,7 +543,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => otherFloat.Value,
                 PyInt otherInt => (double)otherInt.Value,
-
+                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for //: 'float' and '{other.GetTypeName()}'")
             };
 
@@ -561,7 +561,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => otherFloat.Value,
                 PyInt otherInt => (double)otherInt.Value,
-
+                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for %: 'float' and '{other.GetTypeName()}'")
             };
 
@@ -586,8 +586,11 @@ namespace SharpPy
                 case PyFloat otherFloat:
                     otherValue = otherFloat.Value;
                     break;
-                case PyInt otherInt:  // PyBool is PyInt
+                case PyInt otherInt:
                     otherValue = (double)otherInt.Value;
+                    break;
+                case PyBool otherBool:
+                    otherValue = otherBool.Value ? 1.0 : 0.0;
                     break;
                 default:
                     return PyNotImplemented.Instance;
@@ -664,7 +667,7 @@ namespace SharpPy
             {
                 PyFloat otherFloat => otherFloat.Value,
                 PyInt otherInt => (double)otherInt.Value,
-
+                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'float' and '{other.GetTypeName()}'")
             };
 
@@ -879,7 +882,7 @@ namespace SharpPy
             {
                 PyFloat pyFloat => pyFloat,
                 PyInt pyInt => new PyFloat((double)pyInt.Value),
-
+                PyBool pyBool => new PyFloat(pyBool.Value ? 1.0 : 0.0),
                 _ => throw PyTypeError.Create($"float() argument must be a string or a number, not '{obj.GetTypeName()}'")
             };
         }

@@ -973,16 +973,14 @@ namespace SharpPy
                     var obj = args[1];
 
                     // Convert object to string
-                    // PyBool must be checked before PyInt (bool inherits int)
-                    // str(True) → "True", not "1"
                     if (obj is PyString pyStr)
                         return pyStr;
-                    else if (obj is PyBool pyBool)
-                        return new PyString(pyBool.Value ? "True" : "False");
                     else if (obj is PyInt pyInt)
                         return new PyString(pyInt.Value.ToString());
                     else if (obj is PyFloat pyFloat)
                         return new PyString(pyFloat.Value.ToString());
+                    else if (obj is PyBool pyBool)
+                        return new PyString(pyBool.Value ? "True" : "False");
                     else if (obj is PyNone)
                         return new PyString("None");
                     else
@@ -1033,16 +1031,14 @@ namespace SharpPy
                     }
 
                     // Convert x to int
-                    // PyBool must be checked before PyInt (bool inherits int)
-                    // int(True) → 1 (type=int, not bool)
-                    if (x is PyBool pyBool)
-                        return pyBool.AsInt();
-                    else if (x is PyInt pyInt)
+                    if (x is PyInt pyInt)
                         return pyInt;
                     else if (x is PyString pyStr)
                         return PyInt.FromString(pyStr.Value, baseValue);
                     else if (x is PyFloat pyFloat)
                         return new PyInt((long)pyFloat.Value);
+                    else if (x is PyBool pyBool)
+                        return new PyInt(pyBool.Value ? 1 : 0);
                     else
                         throw PyTypeError.Create($"int() argument must be a string or a number, not '{x.GetTypeName()}'");
                 }
