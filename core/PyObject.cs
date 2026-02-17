@@ -114,11 +114,11 @@ namespace SharpPy
         /// <returns>PyInt if successful, null if __index__ not found</returns>
         public static PyInt? TryGetIndex(PyObject obj)
         {
-            // Fast path for int and bool
-            if (obj is PyInt pyInt)
-                return pyInt;
+            // Fast path for int and bool — PyBool before PyInt (PyBool inherits PyInt)
             if (obj is PyBool pyBool)
                 return new PyInt(pyBool.IsTrue() ? 1 : 0);
+            if (obj is PyInt pyInt)
+                return pyInt;
 
             // Try __index__ method
             try
