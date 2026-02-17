@@ -1346,7 +1346,7 @@ namespace SharpPy
             double imag = 0;
             bool gotFromComplex = false;
 
-            if (firstArg is PyInt pyInt)  // PyBool is PyInt
+            if (firstArg is PyInt pyInt)
                 real = (double)pyInt.Value;
             else if (firstArg is PyFloat pyFloat)
                 real = pyFloat.Value;
@@ -1356,6 +1356,8 @@ namespace SharpPy
                     throw PyTypeError.Create("complex() second arg can't be used when first arg is complex");
                 return pyComplex;  // Return as-is
             }
+            else if (firstArg is PyBool pyBool)
+                real = pyBool.Value ? 1 : 0;
             else
             {
                 // Try __complex__ protocol
@@ -1398,10 +1400,12 @@ namespace SharpPy
             if (args.Length == 2)
             {
                 var secondArg = args[1];
-                if (secondArg is PyInt pyInt2)  // PyBool is PyInt
+                if (secondArg is PyInt pyInt2)
                     imag = (double)pyInt2.Value;
                 else if (secondArg is PyFloat pyFloat2)
                     imag = pyFloat2.Value;
+                else if (secondArg is PyBool pyBool2)
+                    imag = pyBool2.Value ? 1 : 0;
                 else if (secondArg is PyComplex)
                     throw PyTypeError.Create("complex() second arg can't be complex");
                 else
@@ -4429,9 +4433,13 @@ namespace SharpPy
             // CPython 3.12: Python/bltinmodule.c:1803-1825 - builtin_hex
             // CPython: PyNumber_Index() is called first
             PyInt intValue;
-            if (obj is PyInt pyInt)  // PyBool is PyInt
+            if (obj is PyInt pyInt)
             {
                 intValue = pyInt;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
             }
             else
             {
@@ -4472,9 +4480,13 @@ namespace SharpPy
 
             // CPython 3.12: Python/bltinmodule.c:2069-2091 - builtin_oct
             PyInt intValue;
-            if (obj is PyInt pyInt)  // PyBool is PyInt
+            if (obj is PyInt pyInt)
             {
                 intValue = pyInt;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
             }
             else
             {
@@ -4514,9 +4526,13 @@ namespace SharpPy
 
             // CPython 3.12: Python/bltinmodule.c:541-563 - builtin_bin
             PyInt intValue;
-            if (obj is PyInt pyInt)  // PyBool is PyInt
+            if (obj is PyInt pyInt)
             {
                 intValue = pyInt;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
             }
             else
             {

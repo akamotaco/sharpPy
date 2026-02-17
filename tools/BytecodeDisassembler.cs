@@ -186,9 +186,6 @@ namespace SharpPy.Tools
                     // 문자열은 따옴표로 감싸기 (CPython 3.12 스타일)
                     return $"'{pyStr.Value}'";
 
-                case PyBool pyBool:  // PyBool before PyInt (bool inherits int)
-                    return pyBool.Value ? "True" : "False";
-
                 case PyInt pyInt:
                     return pyInt.Value.ToString();
 
@@ -199,6 +196,9 @@ namespace SharpPy.Tools
                     if (!floatStr.Contains('.') && !floatStr.Contains('e') && !floatStr.Contains('E'))
                         return floatStr + ".0";
                     return floatStr;
+
+                case PyBool pyBool:
+                    return pyBool.Value ? "True" : "False";
 
                 case PyNone:
                     return "None";

@@ -126,7 +126,9 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(
                     Imag == 0.0 && Real == otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(
-                    Imag == 0.0 && Real == (double)otherInt.Value),  // PyBool is PyInt
+                    Imag == 0.0 && Real == (double)otherInt.Value),
+                PyBool otherBool => PyBool.FromBool(
+                    Imag == 0.0 && Real == (otherBool.Value ? 1.0 : 0.0)),
                 _ => PyBool.False
             };
         }
@@ -146,7 +148,9 @@ namespace SharpPy
                 PyFloat otherFloat => new PyComplex(
                     Real + otherFloat.Value, Imag),
                 PyInt otherInt => new PyComplex(
-                    Real + (double)otherInt.Value, Imag),  // PyBool is PyInt
+                    Real + (double)otherInt.Value, Imag),
+                PyBool otherBool => new PyComplex(
+                    Real + (otherBool.Value ? 1.0 : 0.0), Imag),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for +: 'complex' and '{other.GetTypeName()}'")
             };
         }
@@ -162,7 +166,9 @@ namespace SharpPy
                 PyFloat otherFloat => new PyComplex(
                     Real - otherFloat.Value, Imag),
                 PyInt otherInt => new PyComplex(
-                    Real - (double)otherInt.Value, Imag),  // PyBool is PyInt
+                    Real - (double)otherInt.Value, Imag),
+                PyBool otherBool => new PyComplex(
+                    Real - (otherBool.Value ? 1.0 : 0.0), Imag),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for -: 'complex' and '{other.GetTypeName()}'")
             };
         }
@@ -178,7 +184,8 @@ namespace SharpPy
                 PyFloat otherFloat => new PyComplex(
                     Real * otherFloat.Value, Imag * otherFloat.Value),
                 PyInt otherInt => new PyComplex(
-                    Real * (double)otherInt.Value, Imag * (double)otherInt.Value),  // PyBool is PyInt
+                    Real * (double)otherInt.Value, Imag * (double)otherInt.Value),
+                PyBool otherBool => otherBool.Value ? this : new PyComplex(0, 0),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for *: 'complex' and '{other.GetTypeName()}'")
             };
         }
@@ -194,7 +201,9 @@ namespace SharpPy
                     throw PyZeroDivisionError.Create("complex division by zero"),
                 PyInt otherInt => CheckZeroDivision((double)otherInt.Value) ?
                     new PyComplex(Real / (double)otherInt.Value, Imag / (double)otherInt.Value) :
-                    throw PyZeroDivisionError.Create("complex division by zero"),  // PyBool is PyInt
+                    throw PyZeroDivisionError.Create("complex division by zero"),
+                PyBool otherBool => otherBool.Value ?
+                    this : throw PyZeroDivisionError.Create("complex division by zero"),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for /: 'complex' and '{other.GetTypeName()}'")
             };
         }
@@ -221,7 +230,8 @@ namespace SharpPy
             {
                 PyComplex otherComplex => PowerComplex(otherComplex),
                 PyFloat otherFloat => PowerComplex(new PyComplex(otherFloat.Value)),
-                PyInt otherInt => PowerComplex(new PyComplex((double)otherInt.Value)),  // PyBool is PyInt
+                PyInt otherInt => PowerComplex(new PyComplex((double)otherInt.Value)),
+                PyBool otherBool => PowerComplex(new PyComplex(otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for **: 'complex' and '{other.GetTypeName()}'")
             };
         }
