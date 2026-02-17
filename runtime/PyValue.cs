@@ -156,6 +156,10 @@ namespace SharpPy
             if (obj == null || obj is PyNull)
                 return Null;
 
+            // PyBool before PyInt — PyBool inherits PyInt, so check subclass first
+            if (obj is PyBool pb)
+                return new PyValue { Tag = TAG_BOOL, RawBits = pb == PyBool.True ? 1L : 0L };
+
             if (obj is PyInt pi)
             {
                 // Only inline if value fits in long (99.99% of cases)
@@ -165,9 +169,6 @@ namespace SharpPy
                 // BigInteger that doesn't fit → keep as object
                 return new PyValue { Tag = TAG_OBJECT, ObjRef = obj };
             }
-
-            if (obj is PyBool pb)
-                return new PyValue { Tag = TAG_BOOL, RawBits = pb == PyBool.True ? 1L : 0L };
 
             if (obj is PyFloat pf)
                 return new PyValue { Tag = TAG_FLOAT64, RawBits = BitConverter.DoubleToInt64Bits(pf.Value) };
