@@ -116,8 +116,6 @@ namespace SharpPy
                 otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue < otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
             else
                 throw PyTypeError.Create($"'<' not supported between instances of 'int' and '{other.GetTypeName()}'");
 
@@ -137,8 +135,6 @@ namespace SharpPy
                 otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue <= otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
             else
                 throw PyTypeError.Create($"'<=' not supported between instances of 'int' and '{other.GetTypeName()}'");
 
@@ -158,8 +154,6 @@ namespace SharpPy
                 otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue > otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
             else
                 throw PyTypeError.Create($"'>' not supported between instances of 'int' and '{other.GetTypeName()}'");
 
@@ -179,8 +173,6 @@ namespace SharpPy
                 otherValue = (long)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 return thisValue >= otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
             else
                 throw PyTypeError.Create($"'>=' not supported between instances of 'int' and '{other.GetTypeName()}'");
 

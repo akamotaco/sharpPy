@@ -631,13 +631,9 @@ namespace SharpPy.Modules
             // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
             // BigInteger support for arbitrary precision integers
             PyInt intValue;
-            if (obj is PyInt pyInt)
+            if (obj is PyInt pyInt)  // PyBool is PyInt
             {
                 intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.Value ? 1 : 0);
             }
             else
             {
@@ -676,13 +672,9 @@ namespace SharpPy.Modules
             // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
             // BigInteger support for arbitrary precision integers
             PyInt intValue;
-            if (obj is PyInt pyInt)
+            if (obj is PyInt pyInt)  // PyBool is PyInt
             {
                 intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.Value ? 1 : 0);
             }
             else
             {
@@ -721,13 +713,9 @@ namespace SharpPy.Modules
             // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
             // BigInteger support for arbitrary precision integers
             PyInt intValue;
-            if (obj is PyInt pyInt)
+            if (obj is PyInt pyInt)  // PyBool is PyInt
             {
                 intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.Value ? 1 : 0);
             }
             else
             {

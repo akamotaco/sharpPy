@@ -741,8 +741,7 @@ namespace SharpPy.Modules
             return obj switch
             {
                 PyFloat f => f.Value,
-                PyInt i => (double)i.Value,
-                PyBool b => b.Value ? 1.0 : 0.0,
+                PyInt i => (double)i.Value,  // PyBool is PyInt
                 _ => throw PyTypeError.Create("a float is required")
             };
         }

@@ -253,9 +253,9 @@ namespace SharpPy.Modules
             var obj = args[0];
             int size = obj switch
             {
+                PyBool => 16,  // PyBool before PyInt (bool inherits int)
                 PyInt => 32,
                 PyFloat => 32,
-                PyBool => 16,
                 PyString str => 48 + str.Value.Length * 2,
                 PyList list => 64 + list.Items.Length * 8,
                 PyDict dict => 128 + dict.Length() * 16,
