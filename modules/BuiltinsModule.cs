@@ -552,6 +552,9 @@ namespace SharpPy.Modules
             return PyBool.False;
         }
 
+        // CPython 3.12: Python/bltinmodule.c builtin_hasattr_impl
+        // Uses _PyObject_LookupAttr() which only suppresses AttributeError.
+        // Non-AttributeError exceptions are propagated.
         private static PyObject HasAttr(PyObject[] args)
         {
             if (args.Length != 2)
@@ -568,12 +571,15 @@ namespace SharpPy.Modules
                 obj.GetAttribute(nameStr.Value);
                 return PyBool.True;
             }
-            catch
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
                 return PyBool.False;
             }
         }
 
+        // CPython 3.12: Python/bltinmodule.c builtin_getattr
+        // With default: uses _PyObject_LookupAttr() which only suppresses AttributeError.
+        // Without default: uses PyObject_GetAttr() which propagates all exceptions.
         private static PyObject GetAttr(PyObject[] args)
         {
             if (args.Length < 2 || args.Length > 3)
@@ -590,7 +596,7 @@ namespace SharpPy.Modules
             {
                 return obj.GetAttribute(nameStr.Value);
             }
-            catch
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
                 if (defaultValue != null)
                     return defaultValue;
