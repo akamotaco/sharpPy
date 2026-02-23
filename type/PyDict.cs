@@ -644,6 +644,26 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// C# indexer for PyObject keys.
+        /// CPython 3.12: Objects/dictobject.c:2488-2530 (dict_subscript / dict_ass_sub)
+        /// </summary>
+        public PyObject this[PyObject key]
+        {
+            get => GetItem(key);
+            set => SetItem(key, value);
+        }
+
+        /// <summary>
+        /// C# indexer for string keys (convenience).
+        /// CPython 3.12: Objects/dictobject.c:3891-3927 (PyDict_GetItemString / PyDict_SetItemString)
+        /// </summary>
+        public PyObject this[string key]
+        {
+            get => GetItem(new PyString(key));
+            set => SetItem(new PyString(key), value);
+        }
+
+        /// <summary>
         /// 키 삭제 del dict[key]
         /// Python 3.7+: 삽입 순서 유지 (_keys에서도 제거)
         /// </summary>
