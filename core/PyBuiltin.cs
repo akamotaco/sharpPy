@@ -825,92 +825,105 @@ namespace SharpPy
             return result;
         }
 
-        private static PyObject CallMin(PyObject[] args, PyDict kwargs = null)
+        // CPython 3.12 bltinmodule.c:1745 min_max()
+        // min() = MinMax(args, kwargs, CompareOp.LT, "min")
+        // max() = MinMax(args, kwargs, CompareOp.GT, "max")
+        private static PyObject MinMax(PyObject[] args, PyDict kwargs, PyObject.CompareOp op, string name)
         {
             if (args.Length == 0)
-                throw PyTypeError.Create("min expected at least 1 argument (0 given)");
+                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
 
-            if (args.Length == 1)
+            // kwargs에서 key, default 추출
+            // CPython bltinmodule.c:1749 kwlist[] = {"key", "default", NULL}
+            PyObject keyfunc = null;
+            PyObject defaultval = null;
+            if (kwargs != null)
             {
-                // 이터러블에서 최소값 찾기
-                var iterable = args[0];
-                var iterator = iterable.GetIterator();
-                PyObject min = null;
+                try { keyfunc = kwargs.GetItem(new PyString("key")); } catch { }
+                try { defaultval = kwargs.GetItem(new PyString("default")); } catch { }
+            }
 
-                try
-                {
-                    min = iterator.Next();
-                    while (true)
-                    {
-                        var item = iterator.Next();
-                        if (((PyBool)item.RichCompare(min, PyObject.CompareOp.LT)).Value)
-                            min = item;
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    // 정상 종료
-                }
+            // CPython: key=None이면 key 없는 것과 동일
+            if (keyfunc is PyNone)
+                keyfunc = null;
 
-                if (min == null)
-                    throw PyValueError.Create("min() arg is an empty sequence");
-                return min;
+            bool positional = args.Length > 1;
+
+            // CPython: multi-arg에서는 default 사용 불가
+            if (positional && defaultval != null)
+                throw PyTypeError.Create($"Cannot specify a default for {name}() with multiple positional arguments");
+
+            // CPython: positional이면 args 자체를 iterable로 사용, 아니면 args[0]
+            PyObject v;
+            if (positional)
+            {
+                v = new PyList(args);  // args tuple → iterable
             }
             else
             {
-                // 인수들 중 최소값
-                var min = args[0];
-                for (int i = 1; i < args.Length; i++)
-                {
-                    if (((PyBool)args[i].RichCompare(min, PyObject.CompareOp.LT)).Value)
-                        min = args[i];
-                }
-                return min;
+                v = args[0];
             }
+
+            var iterator = v.GetIterator();
+
+            // CPython: maxitem = 반환할 원본, maxval = 비교용 key 결과
+            PyObject maxitem = null;
+            PyObject maxval = null;
+
+            try
+            {
+                while (true)
+                {
+                    var item = iterator.Next();
+
+                    // CPython bltinmodule.c:1794-1802
+                    PyObject val;
+                    if (keyfunc != null)
+                        val = keyfunc.Call(new PyObject[] { item }, null);
+                    else
+                        val = item;
+
+                    if (maxval == null)
+                    {
+                        // 첫 번째 아이템 — 초기값 설정
+                        maxitem = item;
+                        maxval = val;
+                    }
+                    else
+                    {
+                        // CPython bltinmodule.c:1811 — val끼리 비교 (원본 객체 비교 아님)
+                        if (((PyBool)val.RichCompare(maxval, op)).Value)
+                        {
+                            maxval = val;
+                            maxitem = item;
+                        }
+                    }
+                }
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                // 정상 종료
+            }
+
+            // CPython bltinmodule.c:1828-1835
+            if (maxitem == null)
+            {
+                if (defaultval != null)
+                    return defaultval;
+                throw PyValueError.Create($"{name}() iterable argument is empty");
+            }
+
+            return maxitem;
+        }
+
+        private static PyObject CallMin(PyObject[] args, PyDict kwargs = null)
+        {
+            return MinMax(args, kwargs, PyObject.CompareOp.LT, "min");
         }
 
         private static PyObject CallMax(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("max expected at least 1 argument (0 given)");
-
-            if (args.Length == 1)
-            {
-                // 이터러블에서 최대값 찾기
-                var iterable = args[0];
-                var iterator = iterable.GetIterator();
-                PyObject max = null;
-
-                try
-                {
-                    max = iterator.Next();
-                    while (true)
-                    {
-                        var item = iterator.Next();
-                        if (((PyBool)item.RichCompare(max, PyObject.CompareOp.GT)).Value)
-                            max = item;
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    // 정상 종료
-                }
-
-                if (max == null)
-                    throw PyValueError.Create("max() arg is an empty sequence");
-                return max;
-            }
-            else
-            {
-                // 인수들 중 최대값
-                var max = args[0];
-                for (int i = 1; i < args.Length; i++)
-                {
-                    if (((PyBool)args[i].RichCompare(max, PyObject.CompareOp.GT)).Value)
-                        max = args[i];
-                }
-                return max;
-            }
+            return MinMax(args, kwargs, PyObject.CompareOp.GT, "max");
         }
 
         private static PyObject CallAny(PyObject[] args, PyDict kwargs = null)
