@@ -1227,10 +1227,13 @@ namespace SharpPy
             InstanceDict = new Dictionary<string, PyObject>();
             ConstructorArgs = new PyObject[0]; // Default empty args
 
-            // __getattr__ 메서드가 있는지 확인
-            if (instanceType.ClassDict.ContainsKey("__getattr__"))
+            // CPython 3.12: _PyType_Lookup(tp, &_Py_ID(__getattr__))
+            // Objects/typeobject.c:8855 — MRO 전체를 탐색하여 __getattr__ 찾기
+            // ClassDict만 확인하면 상속된 __getattr__를 놓침
+            var getAttrMethod = instanceType.LookupInMRO("__getattr__");
+            if (getAttrMethod is PyFunction getAttrFunc)
             {
-                _customGetAttr = instanceType.ClassDict["__getattr__"] as PyFunction;
+                _customGetAttr = getAttrFunc;
             }
 
             // CPython 3.12: If this is a dict subclass, create internal dict storage
