@@ -7091,7 +7091,8 @@ namespace SharpPy
             {
                 // Handle "module as alias" format
                 string actualModule, alias;
-                if (moduleName.Contains(" as "))
+                bool hasAlias = moduleName.Contains(" as ");
+                if (hasAlias)
                 {
                     var parts = moduleName.Split(new[] { " as " }, StringSplitOptions.RemoveEmptyEntries);
                     actualModule = parts[0].Trim();
@@ -7115,9 +7116,22 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
 
-                // Store the imported module in the correct variable name
-                // CPython 3.12: Use STORE_FAST in functions, STORE_NAME at module level
-                EmitStoreVariable(alias);
+                // CPython 3.12: Python/compile.c - compiler_import()
+                // For "import X.Y as Z": IMPORT_NAME X.Y → IMPORT_FROM Y → STORE_NAME Z → POP_TOP
+                // IMPORT_NAME returns the top-level package X; IMPORT_FROM extracts submodule Y from it
+                // For "import X.Y" (no alias): IMPORT_NAME X.Y → STORE_NAME X (top-level only)
+                if (hasAlias && actualModule.Contains('.'))
+                {
+                    var lastPart = actualModule.Substring(actualModule.LastIndexOf('.') + 1);
+                    var lastPartIndex = GetOrAddConstant(new PyString(lastPart));
+                    EmitInstruction(ByteCodeOp.IMPORT_FROM, lastPartIndex);
+                    EmitStoreVariable(alias);
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                }
+                else
+                {
+                    EmitStoreVariable(alias);
+                }
             }
         }
         private void CompileImportFrom(ImportFromStatement importFrom)
