@@ -90,12 +90,12 @@ namespace SharpPy.Core
             _enumerator = enumerator ?? throw new ArgumentNullException(nameof(enumerator));
             _finished = false;
             Name = name;
-            Qualname = new PyString(name);
+            Qualname = new PyStr(name);
         }
 
         #region String Representation
 
-        public override PyString ToRepr() => new PyString($"<async_generator object {Name}>");
+        public override PyStr ToRepr() => new PyStr($"<async_generator object {Name}>");
 
         #endregion
 
@@ -390,8 +390,8 @@ namespace SharpPy.Core
         public override string GetTypeName() => "async_generator_wrapped_value";
         public override PyType GetPyType() => PyType.ObjectType; // Internal type, no public PyType
 
-        public override PyString ToRepr() => new PyString($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
-        public override PyString ToStr() => Value.ToStr();
+        public override PyStr ToRepr() => new PyStr($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
+        public override PyStr ToStr() => Value.ToStr();
 
         public override bool Equals(object obj)
         {

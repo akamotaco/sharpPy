@@ -73,7 +73,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "file";
-        public override PyString ToRepr() => new PyString($"<_io.TextIOWrapper name='{_filename}' mode='{_mode}'>");
+        public override PyStr ToRepr() => new PyStr($"<_io.TextIOWrapper name='{_filename}' mode='{_mode}'>");
 
         public override PyObject Enter()
         {
@@ -183,7 +183,7 @@ namespace SharpPy
             try
             {
                 var content = _reader.ReadToEnd();
-                return new PyString(content);
+                return new PyStr(content);
             }
             catch (Exception ex)
             {
@@ -220,7 +220,7 @@ namespace SharpPy
                 string? line;
                 while ((line = _reader.ReadLine()) != null)
                 {
-                    lines.Add(new PyString(line + "\n"));
+                    lines.Add(new PyStr(line + "\n"));
                 }
                 return new PyList(lines.ToArray());
             }
@@ -284,7 +284,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "test_context_manager";
-        public override PyString ToRepr() => new PyString($"<TestContextManager '{_name}'>");
+        public override PyStr ToRepr() => new PyStr($"<TestContextManager '{_name}'>");
 
         public override PyObject Enter()
         {

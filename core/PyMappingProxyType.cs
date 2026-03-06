@@ -44,7 +44,7 @@ namespace SharpPy
 
         public override PyObject GetItem(PyObject key)
         {
-            if (key is PyString keyStr)
+            if (key is PyStr keyStr)
             {
 #if DEBUG
                 // Debug: Track _generate_next_value_ access from __prepare__
@@ -72,7 +72,7 @@ namespace SharpPy
         // CPython 3.12: __contains__ method for 'in' operator
         public override PyBool Contains(PyObject item)
         {
-            if (item is PyString keyStr)
+            if (item is PyStr keyStr)
             {
                 return PyBool.FromBool(_mapping.ContainsKey(keyStr.Value));
             }
@@ -88,7 +88,7 @@ namespace SharpPy
 
         #region String representation
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             // Performance: Eliminated LINQ - manual loop instead of Select
             var items = new string[_mapping.Count];
@@ -97,10 +97,10 @@ namespace SharpPy
             {
                 items[index++] = $"'{kv.Key}': {kv.Value.ToRepr().Value}";
             }
-            return new PyString("{" + string.Join(", ", items) + "}");
+            return new PyStr("{" + string.Join(", ", items) + "}");
         }
 
-        public override PyString ToRepr() => ToStr();
+        public override PyStr ToRepr() => ToStr();
 
         #endregion
 
@@ -119,7 +119,7 @@ namespace SharpPy
                     var keysList = new List<PyObject>(mappingProxy._mapping.Keys.Count);
                     foreach (var key in mappingProxy._mapping.Keys)
                     {
-                        keysList.Add(new PyString(key));
+                        keysList.Add(new PyStr(key));
                     }
                     return new PyList(keysList);
                 })),
@@ -140,7 +140,7 @@ namespace SharpPy
                     var items = new List<PyObject>(mappingProxy._mapping.Count);
                     foreach (var kv in mappingProxy._mapping)
                     {
-                        items.Add(new PyTuple(new PyObject[] { new PyString(kv.Key), kv.Value }));
+                        items.Add(new PyTuple(new PyObject[] { new PyStr(kv.Key), kv.Value }));
                     }
                     return new PyList(items);
                 })),
@@ -150,7 +150,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"get() takes 1 or 2 arguments ({args.Length} given)");
 
                     var mappingProxy = self as PyMappingProxy;
-                    if (args[0] is PyString keyStr)
+                    if (args[0] is PyStr keyStr)
                     {
                         if (mappingProxy._mapping.TryGetValue(keyStr.Value, out var value))
                             return value;

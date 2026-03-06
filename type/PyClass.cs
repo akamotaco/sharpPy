@@ -1159,7 +1159,7 @@ namespace SharpPy
                 // CPython 3.12: Sort method names and format error message
                 // Reference: Objects/typeobject.c:5471-5502
                 var methodNames = frozenSet.Items
-                    .Select(item => ((PyString)item).Value)
+                    .Select(item => ((PyStr)item).Value)
                     .OrderBy(name => name)
                     .ToList();
 
@@ -1182,7 +1182,7 @@ namespace SharpPy
 
                 // Same logic for PySet
                 var methodNames = set.Items
-                    .Select(item => ((PyString)item).Value)
+                    .Select(item => ((PyStr)item).Value)
                     .OrderBy(name => name)
                     .ToList();
 
@@ -1303,7 +1303,7 @@ namespace SharpPy
         public override PyObject GetItem(PyObject key)
         {
             #if DEBUG
-            var keyStr = key is PyString ps ? ps.Value : key?.ToString() ?? "null";
+            var keyStr = key is PyStr ps ? ps.Value : key?.ToString() ?? "null";
             if (InstanceType.Name == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
             {
                 Console.WriteLine($"[DEBUG-GETITEM] _EnumDict.GetItem('{keyStr}') called, _dictStorage != null: {_dictStorage != null}");
@@ -1719,7 +1719,7 @@ namespace SharpPy
         {
             if (_customGetAttr != null)
             {
-                return _customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
+                return _customGetAttr.Call(new PyObject[] { this, new PyStr(name) }, null);
             }
             return null;
         }
@@ -2035,7 +2035,7 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   🔍 calling custom __getattribute__");
                 #endif
-                return customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
+                return customGetAttr.Call(new PyObject[] { this, new PyStr(name) }, null);
             }
 
             // Use GetAttributeGeneric for standard attribute lookup
@@ -2057,7 +2057,7 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   → found user __setattr__, calling it");
                 #endif
-                setattr.Call(new PyObject[] { new PyString(name), value }, null);
+                setattr.Call(new PyObject[] { new PyStr(name), value }, null);
                 return;
             }
 
@@ -2154,7 +2154,7 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   → found user __delattr__, calling it");
                 #endif
-                delattr.Call(new PyObject[] { new PyString(name) }, null);
+                delattr.Call(new PyObject[] { new PyStr(name) }, null);
                 return;
             }
 
@@ -2225,7 +2225,7 @@ namespace SharpPy
             }
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             // CPython 3.12: Try to call __repr__ method if user defined it
             // Check instance dict and class hierarchy (not object's default)
@@ -2236,7 +2236,7 @@ namespace SharpPy
                 {
                     var reprMethod = InstanceDict["__repr__"];
                     var result = reprMethod.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
+                    if (result is PyStr pyStr)
                     {
                         return pyStr;
                     }
@@ -2253,7 +2253,7 @@ namespace SharpPy
                             // Bind to instance
                             var boundMethod = new PyMethod(this, func);
                             var result = boundMethod.Call(new PyObject[0], null);
-                            if (result is PyString pyStr)
+                            if (result is PyStr pyStr)
                             {
                                 return pyStr;
                             }
@@ -2273,10 +2273,10 @@ namespace SharpPy
             }
 
             // Default representation
-            return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
+            return new PyStr($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             // CPython 3.12: Try to call __str__ method if user defined it
             try
@@ -2286,7 +2286,7 @@ namespace SharpPy
                 {
                     var strMethod = InstanceDict["__str__"];
                     var result = strMethod.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
+                    if (result is PyStr pyStr)
                     {
                         return pyStr;
                     }
@@ -2302,7 +2302,7 @@ namespace SharpPy
                         if (method is PyBuiltinFunction builtinFunc)
                         {
                             var result = builtinFunc.Call(new PyObject[] { this }, null);
-                            if (result is PyString pyStr)
+                            if (result is PyStr pyStr)
                             {
                                 return pyStr;
                             }
@@ -2318,7 +2318,7 @@ namespace SharpPy
                             // Bind to instance
                             var boundMethod = new PyMethod(this, func);
                             var result = boundMethod.Call(new PyObject[0], null);
-                            if (result is PyString pyStr)
+                            if (result is PyStr pyStr)
                             {
                                 return pyStr;
                             }

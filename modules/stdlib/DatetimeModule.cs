@@ -157,7 +157,7 @@ namespace SharpPy.Modules.Stdlib
                 // Python strftime format을 .NET format으로 변환
                 var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
                 var result = _dateTime.ToString(dotnetFormat, CultureInfo.InvariantCulture);
-                return new PyString(result);
+                return new PyStr(result);
             }
             catch (Exception ex)
             {
@@ -189,7 +189,7 @@ namespace SharpPy.Modules.Stdlib
         {
             var sep = args.Length > 0 ? args[0].ToStr()?.Value ?? "T" : "T";
             var result = _dateTime.ToString($"yyyy-MM-dd{sep}HH:mm:ss.ffffff");
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         private PyObject GetDate(PyObject[] args)
@@ -396,13 +396,13 @@ namespace SharpPy.Modules.Stdlib
             var format = args[0].ToStr();
             var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
             var result = _date.ToString(dotnetFormat, CultureInfo.InvariantCulture);
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         private PyObject IsoFormat(PyObject[] args)
         {
             var result = _date.ToString("yyyy-MM-dd");
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         private PyObject Replace(PyObject[] args)
@@ -510,13 +510,13 @@ namespace SharpPy.Modules.Stdlib
             var baseDate = new DateTime(1900, 1, 1).Add(_time);
             var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
             var result = baseDate.ToString(dotnetFormat, CultureInfo.InvariantCulture);
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         private PyObject IsoFormat(PyObject[] args)
         {
             var result = _time.ToString(@"hh\:mm\:ss\.ffffff");
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         private PyObject Replace(PyObject[] args)
@@ -697,7 +697,7 @@ namespace SharpPy.Modules.Stdlib
 
         private PyObject TzName(PyObject[] args)
         {
-            return new PyString(_timeZoneInfo.StandardName);
+            return new PyStr(_timeZoneInfo.StandardName);
         }
 
         public override string ToString()
@@ -874,7 +874,7 @@ namespace SharpPy.Modules.Stdlib
                 // 키워드 인자 처리
                 for (int i = 0; i < numKwArgs; i++)
                 {
-                    var kwName = ((PyString)kwNames.Items[i]).Value;
+                    var kwName = ((PyStr)kwNames.Items[i]).Value;
                     var kwValue = args[numPosArgs + i];
                     
                     if (kwValue is PyInt intVal)

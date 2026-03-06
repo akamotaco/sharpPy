@@ -31,7 +31,7 @@ namespace SharpPy.Modules
             module.ModuleDict["str"] = PyType.StrType;
 
             // Initialize str type descriptors (join, split, etc.)
-            PyString.InitializeStringDescriptors();
+            PyStr.InitializeStringDescriptors();
 
             // Initialize dict type descriptors (get, keys, values, items, etc.)
             PyDict.InitializeDictDescriptors();
@@ -188,8 +188,8 @@ namespace SharpPy.Modules
             module.ModuleDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
 
             // Python 3.12 special attributes
-            module.ModuleDict["__name__"] = new PyString("builtins");
-            module.ModuleDict["__doc__"] = new PyString("Built-in functions, exceptions, and other objects.");
+            module.ModuleDict["__name__"] = new PyStr("builtins");
+            module.ModuleDict["__doc__"] = new PyStr("Built-in functions, exceptions, and other objects.");
 
             return module;
         }
@@ -563,7 +563,7 @@ namespace SharpPy.Modules
             var obj = args[0];
             var name = args[1];
 
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("hasattr(): attribute name must be string");
 
             try
@@ -589,7 +589,7 @@ namespace SharpPy.Modules
             var name = args[1];
             var defaultValue = args.Length > 2 ? args[2] : null;
 
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("getattr(): attribute name must be string");
 
             try
@@ -613,7 +613,7 @@ namespace SharpPy.Modules
             var name = args[1];
             var value = args[2];
 
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("setattr(): attribute name must be string");
 
             obj.SetAttribute(nameStr.Value, value);
@@ -765,7 +765,7 @@ namespace SharpPy.Modules
 
             // Get repr() of the object
             var reprStr = obj.ToRepr();
-            if (reprStr is not PyString pyStr)
+            if (reprStr is not PyStr pyStr)
             {
                 throw PyTypeError.Create($"__repr__ returned non-string (type {reprStr.GetTypeName()})");
             }
@@ -792,7 +792,7 @@ namespace SharpPy.Modules
                 }
             }
 
-            return new PyString(result.ToString());
+            return new PyStr(result.ToString());
         }
 
         // CPython 3.12: Python/bltinmodule.c:3079 - builtin_vars
@@ -835,10 +835,10 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
 
             var value = args[0];
-            var formatSpec = args.Length == 2 ? args[1] : new PyString("");
+            var formatSpec = args.Length == 2 ? args[1] : new PyStr("");
 
             // format_spec must be a string
-            if (formatSpec is not PyString formatStr)
+            if (formatSpec is not PyStr formatStr)
             {
                 throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
             }
@@ -853,7 +853,7 @@ namespace SharpPy.Modules
                     var result = formatMethod.Call(new PyObject[] { formatStr }, null);
 
                     // Result must be a string
-                    if (result is not PyString)
+                    if (result is not PyStr)
                     {
                         throw PyTypeError.Create($"__format__ must return a str, not {result.GetTypeName()}");
                     }

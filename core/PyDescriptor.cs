@@ -123,7 +123,7 @@ namespace SharpPy
                 case "__func__":
                     return MethodDescriptor;
                 case "__name__":
-                    return new PyString(MethodDescriptor.Name);
+                    return new PyStr(MethodDescriptor.Name);
                 default:
                     return base.GetAttribute(name);
             }
@@ -349,7 +349,7 @@ namespace SharpPy
                 case "__func__":
                     return WrapperDescriptor;
                 case "__name__":
-                    return new PyString(WrapperDescriptor.Name);
+                    return new PyStr(WrapperDescriptor.Name);
                 default:
                     return base.GetAttribute(name);
             }

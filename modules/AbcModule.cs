@@ -199,10 +199,10 @@ namespace SharpPy.Modules
                 return PyNone.Instance;
 
             var result = new PyDict();
-            result.SetItem(new PyString("_abc_registry"), (PyObject)abcData.Registry ?? PyNone.Instance);
-            result.SetItem(new PyString("_abc_cache"), (PyObject)abcData.Cache ?? PyNone.Instance);
-            result.SetItem(new PyString("_abc_negative_cache"), (PyObject)abcData.NegativeCache ?? PyNone.Instance);
-            result.SetItem(new PyString("_abc_negative_cache_version"), new PyInt((long)abcData.NegativeCacheVersion));
+            result.SetItem(new PyStr("_abc_registry"), (PyObject)abcData.Registry ?? PyNone.Instance);
+            result.SetItem(new PyStr("_abc_cache"), (PyObject)abcData.Cache ?? PyNone.Instance);
+            result.SetItem(new PyStr("_abc_negative_cache"), (PyObject)abcData.NegativeCache ?? PyNone.Instance);
+            result.SetItem(new PyStr("_abc_negative_cache_version"), new PyInt((long)abcData.NegativeCacheVersion));
 
             return result;
         }
@@ -277,7 +277,7 @@ namespace SharpPy.Modules
                         var isAbstract = value.GetAttribute("__isabstractmethod__");
                         if (isAbstract != null && isAbstract.PyBoolValue())
                         {
-                            abstractMethods.Add(new PyString(name));
+                            abstractMethods.Add(new PyStr(name));
                         }
                     }
                     catch
@@ -314,7 +314,7 @@ namespace SharpPy.Modules
                                     try
                                     {
                                         var methodName = iterator.Next();
-                                        var methodNameStr = ((PyString)methodName).Value;
+                                        var methodNameStr = ((PyStr)methodName).Value;
 #if DEBUG
                                         Console.WriteLine($"[ComputeAbstractMethods] Checking method '{methodNameStr}' from base");
 #endif

@@ -1163,7 +1163,7 @@ namespace SharpPy
 
             // CPython: if (e->kind == Constant_kind && PyUnicode_CheckExact(e->v.Constant.value))
             if (exprStmt.Expression is ConstantExpression constExpr &&
-                constExpr.Value is PyString pyStr)
+                constExpr.Value is PyStr pyStr)
             {
                 return pyStr.Value;
             }
@@ -1291,7 +1291,7 @@ namespace SharpPy
                 {
                     // CPython: VISIT(c, expr, st->v.Expr.value);
                     // Load docstring constant
-                    var docConstIndex = GetOrAddConstant(new PyString(docstring));
+                    var docConstIndex = GetOrAddConstant(new PyStr(docstring));
                     EmitInstruction(ByteCodeOp.LOAD_CONST, docConstIndex);
 
                     // CPython: compiler_nameop(c, NO_LOCATION, &_Py_ID(__doc__), Store);
@@ -1875,7 +1875,7 @@ namespace SharpPy
                               .Replace("\\'", "'")
                               .Replace("\\\"", "\"")
                               .Replace("\\\\", "\\");
-                return new PyString(content);
+                return new PyStr(content);
             }
             
             // 인용부호 없는 문자열 (파서에서 따옴표가 제거된 경우)
@@ -1884,7 +1884,7 @@ namespace SharpPy
                 !defaultValueStr.Contains("[") && !defaultValueStr.Contains("{") &&
                 defaultValueStr.All(c => char.IsLetterOrDigit(c) || c == '_'))
             {
-                return new PyString(defaultValueStr);
+                return new PyStr(defaultValueStr);
             }
             
             // None 처리
@@ -2289,7 +2289,7 @@ namespace SharpPy
             // CPython 3.12 pattern: ('key', type_obj, 'key2', type_obj2, ...)
             foreach (var annotation in annotations)
             {
-                EmitLoadConst(new PyString(annotation.Key));
+                EmitLoadConst(new PyStr(annotation.Key));
                 CompileExpression(annotation.Value);
             }
 
@@ -3167,7 +3167,7 @@ namespace SharpPy
                             // Stack: [key1, val1, key2, val2, ...] -> BUILD_MAP n -> [dict]
                             foreach (var kw in regularKwargs)
                             {
-                                EmitLoadConst(new PyString(kw.Arg));  // key
+                                EmitLoadConst(new PyStr(kw.Arg));  // key
                                 CompileExpression(kw.Value);         // value
                             }
                             EmitInstruction(ByteCodeOp.BUILD_MAP, regularKwargs.Count);
@@ -3792,17 +3792,17 @@ namespace SharpPy
                     
                 // Python 3.12 Type Parameters
                 case TypeVarExpression typeVar:
-                    EmitLoadConst(new PyString(typeVar.Name));
+                    EmitLoadConst(new PyStr(typeVar.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
                     break;
                     
                 case ParamSpecExpression paramSpec:
-                    EmitLoadConst(new PyString(paramSpec.Name));
+                    EmitLoadConst(new PyStr(paramSpec.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_PARAMSPEC);
                     break;
                     
                 case TypeVarTupleExpression typeVarTuple:
-                    EmitLoadConst(new PyString(typeVarTuple.Name));
+                    EmitLoadConst(new PyStr(typeVarTuple.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVARTUPLE);
                     break;
                     
@@ -5288,7 +5288,7 @@ namespace SharpPy
             {
                 if (ReferenceEquals(_constants[i], value) ||
                     (value is PyInt intConst && _constants[i] is PyInt existingInt && intConst.Value == existingInt.Value) ||
-                    (value is PyString strConst && _constants[i] is PyString existingStr && strConst.Value == existingStr.Value) ||
+                    (value is PyStr strConst && _constants[i] is PyStr existingStr && strConst.Value == existingStr.Value) ||
                     (value is PyTuple tupleConst && _constants[i] is PyTuple existingTuple && TupleEquals(tupleConst, existingTuple)))
                 {
                     return i;
@@ -5300,7 +5300,7 @@ namespace SharpPy
             var valueDesc = value switch
             {
                 PyCodeObject code => $"<code:{code.Name}>",
-                PyString str => $"\"{str.Value}\"",
+                PyStr str => $"\"{str.Value}\"",
                 PyTuple tuple => $"tuple[{tuple.Items.Length}]",
                 _ => value.ToString()
             };
@@ -5323,7 +5323,7 @@ namespace SharpPy
                 {
                     if (elem1 is PyInt int1 && elem2 is PyInt int2 && int1.Value == int2.Value)
                         continue;
-                    if (elem1 is PyString str1 && elem2 is PyString str2 && str1.Value == str2.Value)
+                    if (elem1 is PyStr str1 && elem2 is PyStr str2 && str1.Value == str2.Value)
                         continue;
                     return false;
                 }
@@ -5650,7 +5650,7 @@ namespace SharpPy
             EmitLoadName("__annotations__");
 
             // Load variable name as string key
-            EmitLoadConst(new PyString(annAssign.VariableName));
+            EmitLoadConst(new PyStr(annAssign.VariableName));
 
             // Store annotation: __annotations__[var_name] = annotation
             EmitInstruction(ByteCodeOp.STORE_SUBSCR);
@@ -5739,7 +5739,7 @@ namespace SharpPy
             {
                 foreach (var annotation in annotations)
                 {
-                    EmitLoadConst(new PyString(annotation.Key));   // parameter name
+                    EmitLoadConst(new PyStr(annotation.Key));   // parameter name
                     CompileExpression(annotation.Value);            // CPython 3.12: Compile annotation expression
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
@@ -5873,7 +5873,7 @@ namespace SharpPy
                 // Create TYPEVAR for each type parameter
                 foreach (var typeParam in typeParams)
                 {
-                    EmitLoadConst(new PyString(typeParam.Name));
+                    EmitLoadConst(new PyStr(typeParam.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
                     EmitInstruction(ByteCodeOp.COPY, 1);
 
@@ -5929,7 +5929,7 @@ namespace SharpPy
                 // Add parameter annotations
                 foreach (var paramName in paramNames)
                 {
-                    EmitLoadConst(new PyString(paramName)); // parameter name
+                    EmitLoadConst(new PyStr(paramName)); // parameter name
                     annotationCount++;
 
                     // Add type annotation (simplified: use first type param for now)
@@ -5941,7 +5941,7 @@ namespace SharpPy
                 // Add return type annotation if exists
                 if (func.Parameters.Count > 0) // Simple heuristic: if has params, likely has return type
                 {
-                    EmitLoadConst(new PyString("return"));
+                    EmitLoadConst(new PyStr("return"));
                     annotationCount++;
 
                     int typeVarIndex = _varNames.IndexOf(typeParams[0].Name);
@@ -6097,7 +6097,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
 
             // Load class name
-            EmitLoadConst(new PyString(cls.Name));
+            EmitLoadConst(new PyStr(cls.Name));
             
             // Load base classes
             #if DEBUG_LOG
@@ -6123,7 +6123,7 @@ namespace SharpPy
                 totalArgs += 1;  // metaclass value
 
                 // CPython 3.12: Use KW_NAMES to specify 'metaclass' keyword argument
-                var kwNamesTuple = new PyTuple(new PyObject[] { new PyString("metaclass") });
+                var kwNamesTuple = new PyTuple(new PyObject[] { new PyStr("metaclass") });
                 var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
                 EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
             }
@@ -6457,7 +6457,7 @@ namespace SharpPy
                 // 3. Create type parameters and store in cells
                 foreach (var typeParam in typeParams)
                 {
-                    EmitLoadConst(new PyString(typeParam.Name));
+                    EmitLoadConst(new PyStr(typeParam.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
                     EmitInstruction(ByteCodeOp.COPY, 1);
                     EmitStoreDeref(typeParam.Name);
@@ -6483,7 +6483,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 8); // 8 = closure flag
                 
                 // 8. Load class name  
-                EmitLoadConst(new PyString(className));
+                EmitLoadConst(new PyStr(className));
                 
                 // 9. Create generic base using INTRINSIC_SUBSCRIPT_GENERIC
                 EmitLoadDeref(".type_params");
@@ -6659,7 +6659,7 @@ namespace SharpPy
                 // CPython 3.12: Setup __qualname__ attribute in class body
                 var actualClassName = className.Contains("<class_body_") ?
                     className.Replace("<class_body_", "").TrimEnd('>') : className;
-                EmitLoadConst(new PyString(actualClassName));  // Load class name
+                EmitLoadConst(new PyStr(actualClassName));  // Load class name
                 EmitStoreName("__qualname__");  // Store as __qualname__ in class dict
 
                 // CPython 3.12: Check if class body has annotations
@@ -6690,7 +6690,7 @@ namespace SharpPy
                 {
                     // CPython: VISIT(c, expr, st->v.Expr.value);
                     // Load docstring constant
-                    var docConstIndex = GetOrAddConstant(new PyString(docstring));
+                    var docConstIndex = GetOrAddConstant(new PyStr(docstring));
                     EmitInstruction(ByteCodeOp.LOAD_CONST, docConstIndex);
 
                     // CPython: compiler_nameop(c, NO_LOCATION, &_Py_ID(__doc__), Store);
@@ -7073,7 +7073,7 @@ namespace SharpPy
             foreach (var typeParam in typeAlias.TypeParams)
             {
                 // Create type parameter objects and bind them to variables
-                EmitLoadConst(new PyString(typeParam.Name)); // Type parameter name as placeholder
+                EmitLoadConst(new PyStr(typeParam.Name)); // Type parameter name as placeholder
                 EmitStoreName(typeParam.Name); // Bind to current scope
             }
             
@@ -7110,7 +7110,7 @@ namespace SharpPy
                 // CPython 3.12 pattern: LOAD_CONST(0), LOAD_CONST(None), IMPORT_NAME
                 var levelIndex = GetOrAddConstant(new PyInt(0));  // fromlist level
                 var fromlistIndex = GetOrAddConstant(PyNone.Instance);  // fromlist
-                var moduleIndex = GetOrAddConstant(new PyString(actualModule));
+                var moduleIndex = GetOrAddConstant(new PyStr(actualModule));
 
                 EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
                 EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
@@ -7123,7 +7123,7 @@ namespace SharpPy
                 if (hasAlias && actualModule.Contains('.'))
                 {
                     var lastPart = actualModule.Substring(actualModule.LastIndexOf('.') + 1);
-                    var lastPartIndex = GetOrAddConstant(new PyString(lastPart));
+                    var lastPartIndex = GetOrAddConstant(new PyStr(lastPart));
                     EmitInstruction(ByteCodeOp.IMPORT_FROM, lastPartIndex);
                     EmitStoreVariable(alias);
                     EmitInstruction(ByteCodeOp.POP_TOP);
@@ -7146,14 +7146,14 @@ namespace SharpPy
             var fromlistItems = new PyObject[importFrom.Names.Count];
             for (int i = 0; i < importFrom.Names.Count; i++)
             {
-                fromlistItems[i] = new PyString(importFrom.Names[i].Name);
+                fromlistItems[i] = new PyStr(importFrom.Names[i].Name);
             }
             var fromlist = new PyTuple(fromlistItems);
             var fromlistIndex = GetOrAddConstant(fromlist);
             EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
 
             // 3. IMPORT_NAME - module name
-            var moduleIndex = GetOrAddConstant(new PyString(importFrom.Module ?? ""));
+            var moduleIndex = GetOrAddConstant(new PyStr(importFrom.Module ?? ""));
             EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
 
             // 4. For each imported name, emit IMPORT_FROM and STORE
@@ -7173,7 +7173,7 @@ namespace SharpPy
                 string alias = importAlias.AsName ?? importAlias.Name;
 
                 // Emit IMPORT_FROM bytecode
-                var itemIndex = GetOrAddConstant(new PyString(actualItem));
+                var itemIndex = GetOrAddConstant(new PyStr(actualItem));
                 EmitInstruction(ByteCodeOp.IMPORT_FROM, itemIndex);
 
                 // Store the imported item in the correct variable name
@@ -8117,7 +8117,7 @@ namespace SharpPy
             else
             {
                 // 일반 메서드 호출 사용
-                EmitLoadConst(new PyString(inlinedCall.MethodName));
+                EmitLoadConst(new PyStr(inlinedCall.MethodName));
                 EmitInstruction(ByteCodeOp.CALL, inlinedCall.Arguments.Count);
             }
         }
@@ -9648,7 +9648,7 @@ namespace SharpPy
             var keysArray = new PyObject[keysList.Count];
             for (int i = 0; i < keysList.Count; i++)
             {
-                keysArray[i] = new PyString(keysList[i]);
+                keysArray[i] = new PyStr(keysList[i]);
             }
             var keysTuple = new PyTuple(keysArray);
             EmitLoadConst(keysTuple);
@@ -9718,7 +9718,7 @@ namespace SharpPy
                 {
                     // Load the key to delete and delete it from subject_copy
                     EmitInstruction(ByteCodeOp.COPY, 1); // Copy subject_copy
-                    CompileExpression(new ConstantExpression(new PyString(key)));
+                    CompileExpression(new ConstantExpression(new PyStr(key)));
                     EmitInstruction(ByteCodeOp.DELETE_SUBSCR);
                     // Stack: [subject, subject_copy_without_key]
                 }
@@ -10454,7 +10454,7 @@ namespace SharpPy
             if (values == null || values.Count == 0)
             {
                 // Empty f-string becomes empty string
-                EmitLoadConst(new PyString(""));
+                EmitLoadConst(new PyStr(""));
                 return;
             }
 
@@ -10486,7 +10486,7 @@ namespace SharpPy
             if (!string.IsNullOrEmpty(formatted.FormatSpec))
             {
                 // 포맷 지정자를 상수로 스택에 푸시
-                EmitLoadConst(new PyString(formatted.FormatSpec));
+                EmitLoadConst(new PyStr(formatted.FormatSpec));
                 
                 // FORMAT_VALUE_WITH_SPEC 명령어 (또는 기본 FORMAT_VALUE)
                 // CPython에서는 FORMAT_VALUE 명령어가 포맷 옵션을 받음
@@ -13166,7 +13166,7 @@ namespace SharpPy
             var attrNames = new PyObject[matchCls.KwdAttrs.Count];
             for (int i = 0; i < matchCls.KwdAttrs.Count; i++)
             {
-                attrNames[i] = new PyString(matchCls.KwdAttrs[i]);
+                attrNames[i] = new PyStr(matchCls.KwdAttrs[i]);
             }
             EmitLoadConst(new PyTuple(attrNames));
 
@@ -13270,7 +13270,7 @@ namespace SharpPy
             var attrNames = new PyObject[callExpr.Keywords.Count];
             for (int i = 0; i < callExpr.Keywords.Count; i++)
             {
-                attrNames[i] = new PyString(callExpr.Keywords[i].Arg ?? "");
+                attrNames[i] = new PyStr(callExpr.Keywords[i].Arg ?? "");
             }
             EmitLoadConst(new PyTuple(attrNames));
 

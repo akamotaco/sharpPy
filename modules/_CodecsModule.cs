@@ -94,7 +94,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"lookup() takes exactly 1 argument ({args.Length} given)");
 
-            if (!(args[0] is PyString encodingStr))
+            if (!(args[0] is PyStr encodingStr))
                 throw PyTypeError.Create("encoding must be a string");
 
             string encoding = encodingStr.Value.ToLowerInvariant().Replace("-", "").Replace("_", "");
@@ -124,10 +124,10 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"encode() takes 1 or 2 arguments ({args.Length} given)");
 
             var obj = args[0];
-            string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
+            string encoding = args.Length > 1 && args[1] is PyStr encStr ? encStr.Value : "utf-8";
 
             // For now, simple UTF-8 encoding
-            if (obj is PyString pyStr)
+            if (obj is PyStr pyStr)
             {
                 byte[] bytes = Encoding.UTF8.GetBytes(pyStr.Value);
                 return new PyBytes(bytes);
@@ -143,13 +143,13 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"decode() takes 1 or 2 arguments ({args.Length} given)");
 
             var obj = args[0];
-            string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
+            string encoding = args.Length > 1 && args[1] is PyStr encStr ? encStr.Value : "utf-8";
 
             // For now, simple UTF-8 decoding
             if (obj is PyBytes pyBytes)
             {
                 string str = Encoding.UTF8.GetString(pyBytes.Value);
-                return new PyString(str);
+                return new PyStr(str);
             }
 
             throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
@@ -161,7 +161,7 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"register_error() takes exactly 2 arguments ({args.Length} given)");
 
-            if (!(args[0] is PyString nameStr))
+            if (!(args[0] is PyStr nameStr))
                 throw PyTypeError.Create("first argument must be a string");
 
             var handler = args[1];
@@ -178,7 +178,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"lookup_error() takes exactly 1 argument ({args.Length} given)");
 
-            if (!(args[0] is PyString nameStr))
+            if (!(args[0] is PyStr nameStr))
                 throw PyTypeError.Create("argument must be a string");
 
             if (_errors.TryGetValue(nameStr.Value, out var handler))
@@ -202,32 +202,32 @@ namespace SharpPy.Modules
             _errors["ignore"] = new PyBuiltinFunction("ignore_errors", args =>
             {
                 // Return empty replacement and position to skip
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
+                return new PyTuple(new PyObject[] { new PyStr(""), new PyInt(0) });
             });
 
             // replace handler
             _errors["replace"] = new PyBuiltinFunction("replace_errors", args =>
             {
                 // Return replacement character and position
-                return new PyTuple(new PyObject[] { new PyString("?"), new PyInt(0) });
+                return new PyTuple(new PyObject[] { new PyStr("?"), new PyInt(0) });
             });
 
             // xmlcharrefreplace handler
             _errors["xmlcharrefreplace"] = new PyBuiltinFunction("xmlcharrefreplace_errors", args =>
             {
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
+                return new PyTuple(new PyObject[] { new PyStr(""), new PyInt(0) });
             });
 
             // backslashreplace handler
             _errors["backslashreplace"] = new PyBuiltinFunction("backslashreplace_errors", args =>
             {
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
+                return new PyTuple(new PyObject[] { new PyStr(""), new PyInt(0) });
             });
 
             // namereplace handler
             _errors["namereplace"] = new PyBuiltinFunction("namereplace_errors", args =>
             {
-                return new PyTuple(new PyObject[] { new PyString(""), new PyInt(0) });
+                return new PyTuple(new PyObject[] { new PyStr(""), new PyInt(0) });
             });
         }
 
@@ -237,7 +237,7 @@ namespace SharpPy.Modules
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"utf_8_encode() takes 1 or 2 arguments ({args.Length} given)");
 
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("utf_8_encode() argument must be str");
 
             byte[] bytes = Encoding.UTF8.GetBytes(pyStr.Value);
@@ -256,13 +256,13 @@ namespace SharpPy.Modules
 
             string str = Encoding.UTF8.GetString(pyBytes.Value);
             int length = pyBytes.Value.Length;
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(length) });
         }
 
         // UTF-16 encoding
         private static PyObject PyUtf16Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.Unicode.GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -273,12 +273,12 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.Unicode.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         private static PyObject PyUtf16LeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.Unicode.GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -289,12 +289,12 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.Unicode.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         private static PyObject PyUtf16BeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.BigEndianUnicode.GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -305,7 +305,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.BigEndianUnicode.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         private static PyObject PyUtf16ExDecode(PyObject[] args, PyDict kwargs = null)
@@ -317,7 +317,7 @@ namespace SharpPy.Modules
         // UTF-32 encoding
         private static PyObject PyUtf32Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.UTF32.GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -328,7 +328,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.UTF32.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         private static PyObject PyUtf32LeEncode(PyObject[] args, PyDict kwargs = null)
@@ -343,7 +343,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32BeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.GetEncoding("utf-32BE").GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -354,7 +354,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.GetEncoding("utf-32BE").GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         private static PyObject PyUtf32ExDecode(PyObject[] args, PyDict kwargs = null)
@@ -365,7 +365,7 @@ namespace SharpPy.Modules
         // ASCII encoding
         private static PyObject PyAsciiEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.ASCII.GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -376,13 +376,13 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.ASCII.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         // Latin-1 encoding
         private static PyObject PyLatin1Encode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyString pyStr))
+            if (!(args[0] is PyStr pyStr))
                 throw PyTypeError.Create("argument must be str");
             byte[] bytes = Encoding.GetEncoding("iso-8859-1").GetBytes(pyStr.Value);
             return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
@@ -393,7 +393,7 @@ namespace SharpPy.Modules
             if (!(args[0] is PyBytes pyBytes))
                 throw PyTypeError.Create("argument must be bytes");
             string str = Encoding.GetEncoding("iso-8859-1").GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return new PyTuple(new PyObject[] { new PyStr(str), new PyInt(pyBytes.Value.Length) });
         }
 
         // Charmap encoding - stub implementations

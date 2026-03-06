@@ -90,8 +90,8 @@ result = next(gen)
 
                 if (result is PyDict resultDict)
                 {
-                    var keyValue = resultDict.GetItem(new PyString("key"));
-                    if (keyValue is PyString keyStr && keyStr.Value == "value")
+                    var keyValue = resultDict.GetItem(new PyStr("key"));
+                    if (keyValue is PyStr keyStr && keyStr.Value == "value")
                     {
                         Console.WriteLine("  PASS");
                         return true;
@@ -146,8 +146,8 @@ result = next(gen)
 
                 if (result is PyDict resultDict)
                 {
-                    var keyValue = resultDict.GetItem(new PyString("key"));
-                    if (keyValue is PyString keyStr && keyStr.Value == "direct")
+                    var keyValue = resultDict.GetItem(new PyStr("key"));
+                    if (keyValue is PyStr keyStr && keyStr.Value == "direct")
                     {
                         Console.WriteLine("  PASS");
                         return true;
@@ -209,8 +209,8 @@ result = next(gen)
 
                 if (result is PyDict resultDict)
                 {
-                    var keyValue = resultDict.GetItem(new PyString("key"));
-                    if (keyValue is PyString keyStr && keyStr.Value == "closure")
+                    var keyValue = resultDict.GetItem(new PyStr("key"));
+                    if (keyValue is PyStr keyStr && keyStr.Value == "closure")
                     {
                         Console.WriteLine("  PASS");
                         return true;
@@ -283,8 +283,8 @@ print(f'result={result}')
 
                 if (result is PyDict resultDict)
                 {
-                    var keyValue = resultDict.GetItem(new PyString("key"));
-                    if (keyValue is PyString keyStr && keyStr.Value == "morld")
+                    var keyValue = resultDict.GetItem(new PyStr("key"));
+                    if (keyValue is PyStr keyStr && keyStr.Value == "morld")
                     {
                         Console.WriteLine("  PASS");
                         return true;
@@ -339,8 +339,8 @@ result = method(equipment={'key': 'normal'})
 
                 if (result is PyDict resultDict)
                 {
-                    var keyValue = resultDict.GetItem(new PyString("key"));
-                    if (keyValue is PyString keyStr && keyStr.Value == "normal")
+                    var keyValue = resultDict.GetItem(new PyStr("key"));
+                    if (keyValue is PyStr keyStr && keyStr.Value == "normal")
                     {
                         Console.WriteLine("  PASS");
                         return true;

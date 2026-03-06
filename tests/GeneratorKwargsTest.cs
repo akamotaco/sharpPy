@@ -75,9 +75,9 @@ def gen_func(a, b=None):
 
                 // 키워드 인자와 함께 호출
                 var kwargs = new PyDict();
-                kwargs.SetItem(new PyString("b"), new PyString("test_value"));
+                kwargs.SetItem(new PyStr("b"), new PyStr("test_value"));
 
-                var generator = genFunc.Call(new PyObject[] { new PyString("hello") }, kwargs);
+                var generator = genFunc.Call(new PyObject[] { new PyStr("hello") }, kwargs);
 
                 if (generator is not PyGenerator gen)
                 {
@@ -94,8 +94,8 @@ def gen_func(a, b=None):
                     return false;
                 }
 
-                var bValue = resultDict.GetItem(new PyString("b"));
-                if (bValue is PyString bStr && bStr.Value == "test_value")
+                var bValue = resultDict.GetItem(new PyStr("b"));
+                if (bValue is PyStr bStr && bStr.Value == "test_value")
                 {
                     Console.WriteLine("  PASS");
                     return true;
@@ -148,9 +148,9 @@ class TestClass:
                 // 키워드 인자 준비
                 var kwargs = new PyDict();
                 var equipmentDict = new PyDict();
-                equipmentDict.SetItem(new PyString("item_id"), new PyInt(54));
-                equipmentDict.SetItem(new PyString("name"), new PyString("axe"));
-                kwargs.SetItem(new PyString("equipment"), equipmentDict);
+                equipmentDict.SetItem(new PyStr("item_id"), new PyInt(54));
+                equipmentDict.SetItem(new PyStr("name"), new PyStr("axe"));
+                kwargs.SetItem(new PyStr("equipment"), equipmentDict);
 
                 // 메서드 호출 (self는 이미 바인딩됨)
                 var generator = method.Call(new PyObject[0], kwargs);
@@ -166,7 +166,7 @@ class TestClass:
 
                 if (result is PyDict resultEquipment)
                 {
-                    var itemId = resultEquipment.GetItem(new PyString("item_id"));
+                    var itemId = resultEquipment.GetItem(new PyStr("item_id"));
                     if (itemId is PyInt itemIdInt && itemIdInt.ToLong() == 54)
                     {
                         Console.WriteLine("  PASS");
@@ -238,7 +238,7 @@ test_equipment = {'item_id': 54, 'unique_id': 'axe'}
 
                 if (result is PyDict resultDict)
                 {
-                    var itemId = resultDict.GetItem(new PyString("item_id"));
+                    var itemId = resultDict.GetItem(new PyStr("item_id"));
                     if (itemId is PyInt itemIdInt && itemIdInt.ToLong() == 54)
                     {
                         Console.WriteLine("  PASS");
@@ -296,15 +296,15 @@ def process_data(data=None, config=None):
                 var kwargs = new PyDict();
 
                 var dataDict = new PyDict();
-                dataDict.SetItem(new PyString("id"), new PyInt(100));
-                dataDict.SetItem(new PyString("name"), new PyString("test"));
+                dataDict.SetItem(new PyStr("id"), new PyInt(100));
+                dataDict.SetItem(new PyStr("name"), new PyStr("test"));
 
                 var configDict = new PyDict();
-                configDict.SetItem(new PyString("enabled"), PyBool.True);
-                configDict.SetItem(new PyString("level"), new PyInt(5));
+                configDict.SetItem(new PyStr("enabled"), PyBool.True);
+                configDict.SetItem(new PyStr("level"), new PyInt(5));
 
-                kwargs.SetItem(new PyString("data"), dataDict);
-                kwargs.SetItem(new PyString("config"), configDict);
+                kwargs.SetItem(new PyStr("data"), dataDict);
+                kwargs.SetItem(new PyStr("config"), configDict);
 
                 var generator = func.Call(new PyObject[0], kwargs);
 
@@ -318,8 +318,8 @@ def process_data(data=None, config=None):
 
                 if (result is PyDict resultDict)
                 {
-                    var data = resultDict.GetItem(new PyString("data"));
-                    var config = resultDict.GetItem(new PyString("config"));
+                    var data = resultDict.GetItem(new PyStr("data"));
+                    var config = resultDict.GetItem(new PyStr("config"));
 
                     if (data is PyDict && config is PyDict)
                     {

@@ -31,17 +31,17 @@ namespace SharpPy.Modules
             module.ModuleDict["modules"] = PyImportSystem.SysModules;
 
             // 플랫폼 정보
-            module.ModuleDict["platform"] = new PyString(GetPlatformName());
-            module.ModuleDict["version"] = new PyString(GetPythonVersion());
+            module.ModuleDict["platform"] = new PyStr(GetPlatformName());
+            module.ModuleDict["version"] = new PyStr(GetPythonVersion());
             module.ModuleDict["version_info"] = CreateVersionInfo();
             
             // 실행 경로
-            module.ModuleDict["executable"] = new PyString(GetExecutablePath());
-            module.ModuleDict["prefix"] = new PyString(GetPrefixPath());
-            module.ModuleDict["exec_prefix"] = new PyString(GetPrefixPath());
+            module.ModuleDict["executable"] = new PyStr(GetExecutablePath());
+            module.ModuleDict["prefix"] = new PyStr(GetPrefixPath());
+            module.ModuleDict["exec_prefix"] = new PyStr(GetPrefixPath());
 
             // 바이트 순서
-            module.ModuleDict["byteorder"] = new PyString(BitConverter.IsLittleEndian ? "little" : "big");
+            module.ModuleDict["byteorder"] = new PyStr(BitConverter.IsLittleEndian ? "little" : "big");
 
             // 최대 정수 크기 (int 범위로 제한)
             module.ModuleDict["maxsize"] = new PyInt(int.MaxValue);
@@ -90,16 +90,16 @@ namespace SharpPy.Modules
             // SharpPy: Names of C# modules in _builtinModules
             var names = new List<PyObject>
             {
-                new PyString("sys"),
-                new PyString("builtins"),
-                new PyString("math"),
-                new PyString("time"),
-                new PyString("itertools"),
-                new PyString("_collections"),
-                new PyString("_functools"),
-                new PyString("_random"),
-                new PyString("nt"),       // OS interface (Windows/Linux/Mac)
-                new PyString("posix"),    // Alias for nt in SharpPy
+                new PyStr("sys"),
+                new PyStr("builtins"),
+                new PyStr("math"),
+                new PyStr("time"),
+                new PyStr("itertools"),
+                new PyStr("_collections"),
+                new PyStr("_functools"),
+                new PyStr("_random"),
+                new PyStr("nt"),       // OS interface (Windows/Linux/Mac)
+                new PyStr("posix"),    // Alias for nt in SharpPy
             };
             return new PyTuple(names.ToArray());
         }
@@ -110,10 +110,10 @@ namespace SharpPy.Modules
             // sys.implementation is a SimpleNamespace object with interpreter details
             // Created via _PyNamespace_New(impl_info) in CPython
             var kwargs = new PyDict();
-            kwargs.SetItem(new PyString("name"), new PyString("sharppy"));
-            kwargs.SetItem(new PyString("version"), CreateVersionInfo());
-            kwargs.SetItem(new PyString("hexversion"), new PyInt(0x030c0000)); // 3.12.0
-            kwargs.SetItem(new PyString("cache_tag"), new PyString("sharppy-312"));
+            kwargs.SetItem(new PyStr("name"), new PyStr("sharppy"));
+            kwargs.SetItem(new PyStr("version"), CreateVersionInfo());
+            kwargs.SetItem(new PyStr("hexversion"), new PyInt(0x030c0000)); // 3.12.0
+            kwargs.SetItem(new PyStr("cache_tag"), new PyStr("sharppy-312"));
 
             return new PySimpleNamespace(kwargs);
         }
@@ -123,7 +123,7 @@ namespace SharpPy.Modules
             var pathList = new List<PyObject>();
 
             // 1. 현재 디렉토리
-            pathList.Add(new PyString("."));
+            pathList.Add(new PyStr("."));
 
             // 2. 실행 파일 디렉토리
             var exeDir = IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
@@ -133,13 +133,13 @@ namespace SharpPy.Modules
 
             // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
             // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
+            pathList.Add(new PyStr(IOHelper.CombinePath(projectRoot, "Lib")));
 
             // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
+            pathList.Add(new PyStr(IOHelper.CombinePath(projectRoot, "modules")));
 
             // 4순위: 실행 파일 디렉토리
-            pathList.Add(new PyString(exeDir));
+            pathList.Add(new PyStr(exeDir));
 
             // 4. 환경 변수 PYTHONPATH
             var pythonPath = Environment.GetEnvironmentVariable("PYTHONPATH");
@@ -148,7 +148,7 @@ namespace SharpPy.Modules
                 var paths = pythonPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var path in paths)
                 {
-                    pathList.Add(new PyString(path.Trim()));
+                    pathList.Add(new PyStr(path.Trim()));
                 }
             }
 
@@ -177,7 +177,7 @@ namespace SharpPy.Modules
                 new PyInt(3),      // major
                 new PyInt(12),     // minor  
                 new PyInt(0),      // micro
-                new PyString("final"), // releaselevel
+                new PyStr("final"), // releaselevel
                 new PyInt(0)       // serial
             );
         }
@@ -222,7 +222,7 @@ namespace SharpPy.Modules
             if (args.Length != 0)
                 throw PyTypeError.Create($"getdefaultencoding() takes no arguments ({args.Length} given)");
             
-            return new PyString("utf-8");
+            return new PyStr("utf-8");
         }
 
         private PyObject CallGetFilesystemEncoding(PyObject[] args)
@@ -230,7 +230,7 @@ namespace SharpPy.Modules
             if (args.Length != 0)
                 throw PyTypeError.Create($"getfilesystemencoding() takes no arguments ({args.Length} given)");
             
-            return new PyString("utf-8");
+            return new PyStr("utf-8");
         }
 
         private PyObject CallExit(PyObject[] args)
@@ -256,7 +256,7 @@ namespace SharpPy.Modules
                 PyInt => 32,
                 PyFloat => 32,
                 PyBool => 16,
-                PyString str => 48 + str.Value.Length * 2,
+                PyStr str => 48 + str.Value.Length * 2,
                 PyList list => 64 + list.Items.Length * 8,
                 PyDict dict => 128 + dict.Length() * 16,
                 PyTuple tuple => 48 + tuple.Items.Length * 8,
@@ -451,7 +451,7 @@ namespace SharpPy.Modules
         }
 
         public override string GetTypeName() => "TextIOWrapper";
-        public override PyString ToRepr() => new PyString($"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>");
+        public override PyStr ToRepr() => new PyStr($"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>");
         public override string ToString() => $"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>";
     }
 }

@@ -165,7 +165,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<list_iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<list_iterator object>");
     }
 
     /// <summary>
@@ -218,18 +218,18 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<tuple_iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<tuple_iterator object>");
     }
 
     /// <summary>
     /// 문자열 이터레이터 구현
     /// </summary>
-    public class PyStringIterator : PyIterator
+    public class PyStrIterator : PyIterator
     {
         private readonly string _string;
         private int _index;
 
-        public PyStringIterator(PyString pyString)
+        public PyStrIterator(PyStr pyString)
         {
             _string = pyString?.Value ?? throw new ArgumentNullException(nameof(pyString));
             _index = 0;
@@ -240,7 +240,7 @@ namespace SharpPy
             if (_index >= _string.Length)
                 throw PyStopIteration.Create();
 
-            return new PyString(_string[_index++].ToString());
+            return new PyStr(_string[_index++].ToString());
         }
 
         /// <summary>
@@ -253,11 +253,11 @@ namespace SharpPy
                 value = null;
                 return false;
             }
-            value = new PyString(_string[_index++].ToString());
+            value = new PyStr(_string[_index++].ToString());
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<str_iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<str_iterator object>");
     }
 
     /// <summary>
@@ -303,7 +303,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<range_iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<range_iterator object>");
     }
 
     /// <summary>
@@ -347,7 +347,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<set_iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<set_iterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -391,7 +391,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<dict_keyiterator object>");
+        public override PyStr ToRepr() => new PyStr($"<dict_keyiterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -435,7 +435,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<dict_valueiterator object>");
+        public override PyStr ToRepr() => new PyStr($"<dict_valueiterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -479,7 +479,7 @@ namespace SharpPy
             return true;
         }
 
-        public override PyString ToRepr() => new PyString($"<dict_itemiterator object>");
+        public override PyStr ToRepr() => new PyStr($"<dict_itemiterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -544,7 +544,7 @@ namespace SharpPy
             }
         }
 
-        public override PyString ToRepr() => new PyString($"<iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<iterator object>");
     }
 
     /// <summary>
@@ -561,7 +561,7 @@ namespace SharpPy
             throw PyStopIteration.Create();
         }
 
-        public override PyString ToRepr() => new PyString($"<empty_iterator object>");
+        public override PyStr ToRepr() => new PyStr($"<empty_iterator object>");
     }
 
     /// <summary>
@@ -588,7 +588,7 @@ namespace SharpPy
             return result;
         }
 
-        public override PyString ToRepr() => new PyString("<enumerate object>");
+        public override PyStr ToRepr() => new PyStr("<enumerate object>");
 
         protected override void Dispose(bool disposing)
         {

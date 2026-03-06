@@ -91,7 +91,7 @@ namespace SharpPy
                     // C# doesn't have a direct equivalent to Python's float.hex()
                     // Simplified implementation using BitConverter
                     long bits = BitConverter.DoubleToInt64Bits(floatObj.Value);
-                    return new PyString($"0x{bits:x}");
+                    return new PyStr($"0x{bits:x}");
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -107,7 +107,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"fromhex() takes exactly one argument ({args.Length} given)");
 
-                    if (args[0] is not PyString hexStr)
+                    if (args[0] is not PyStr hexStr)
                         throw PyTypeError.Create($"fromhex() argument must be a string, not '{args[0].GetTypeName()}'");
 
                     string s = hexStr.Value.Trim();
@@ -272,10 +272,10 @@ namespace SharpPy
                         throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
                     if (self is not PyFloat floatObj)
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'float' object but received a '{self.GetTypeName()}'");
-                    if (args[0] is not PyString specStr)
+                    if (args[0] is not PyStr specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
-                    return new PyString(FormatFloat(floatObj.Value, specStr.Value));
+                    return new PyStr(FormatFloat(floatObj.Value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -317,7 +317,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             // CPython 호환: 원본 문자열이 있으면 우선 사용
             if (!string.IsNullOrEmpty(OriginalString))
@@ -325,23 +325,23 @@ namespace SharpPy
                 // 원본 문자열이 유효한 표현인지 확인
                 if (double.TryParse(OriginalString, out double parsed) && Math.Abs(parsed - Value) < 1e-15)
                 {
-                    return new PyString(OriginalString);
+                    return new PyStr(OriginalString);
                 }
             }
 
             // Python처럼 필요시에만 소수점 표시
             if (Value == Math.Floor(Value) && !double.IsInfinity(Value) && !double.IsNaN(Value))
             {
-                return new PyString(Value.ToString("0.0"));
+                return new PyStr(Value.ToString("0.0"));
             }
-            return new PyString(Value.ToString("G")); // CPython 호환: shortest round-trip representation
+            return new PyStr(Value.ToString("G")); // CPython 호환: shortest round-trip representation
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            if (double.IsPositiveInfinity(Value)) return new PyString("inf");
-            if (double.IsNegativeInfinity(Value)) return new PyString("-inf");
-            if (double.IsNaN(Value)) return new PyString("nan");
+            if (double.IsPositiveInfinity(Value)) return new PyStr("inf");
+            if (double.IsNegativeInfinity(Value)) return new PyStr("-inf");
+            if (double.IsNaN(Value)) return new PyStr("nan");
             return ToStr();
         }
 
@@ -772,7 +772,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyFloat를 PyString으로 변환
+        /// CPython 호환: PyFloat를 PyStr으로 변환
         /// </summary>
         public override string AsString()
         {
@@ -826,16 +826,16 @@ namespace SharpPy
         /// <summary>
         /// float.hex() - 16진수 문자열로 변환
         /// </summary>
-        public PyString Hex()
+        public PyStr Hex()
         {
-            if (double.IsNaN(Value)) return new PyString("nan");
-            if (double.IsPositiveInfinity(Value)) return new PyString("inf");
-            if (double.IsNegativeInfinity(Value)) return new PyString("-inf");
+            if (double.IsNaN(Value)) return new PyStr("nan");
+            if (double.IsPositiveInfinity(Value)) return new PyStr("inf");
+            if (double.IsNegativeInfinity(Value)) return new PyStr("-inf");
             
             // C#의 BitConverter를 사용하여 IEEE 754 표현으로 변환
             var bytes = BitConverter.GetBytes(Value);
             var hex = BitConverter.ToString(bytes).Replace("-", "").ToLower();
-            return new PyString($"0x{hex}p+0"); // 간단한 구현
+            return new PyStr($"0x{hex}p+0"); // 간단한 구현
         }
 
         #endregion

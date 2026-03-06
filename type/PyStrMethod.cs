@@ -5,13 +5,13 @@ namespace SharpPy
     /// <summary>
     /// Python 문자열 메서드를 나타내는 바인드된 메서드 객체
     /// </summary>
-    public class PyStringMethod : PyObject
+    public class PyStrMethod : PyObject
     {
-        private readonly PyString _instance;
+        private readonly PyStr _instance;
         private readonly string _methodName;
         private readonly Func<PyObject[], PyObject> _method;
 
-        public PyStringMethod(PyString instance, string methodName, Func<PyObject[], PyObject> method)
+        public PyStrMethod(PyStr instance, string methodName, Func<PyObject[], PyObject> method)
         {
             _instance = instance;
             _methodName = methodName;
@@ -22,7 +22,7 @@ namespace SharpPy
 
         public override string ToString() => $"<built-in method {_methodName} of str object at {GetHashCode():x8}>";
 
-        public override PyString ToRepr() => new PyString(ToString());
+        public override PyStr ToRepr() => new PyStr(ToString());
 
         /// <summary>
         /// 메서드 호출 구현

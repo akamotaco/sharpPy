@@ -120,12 +120,12 @@ namespace SharpPy.Modules
             base.SetAttribute(name, value);
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             var factoryRepr = DefaultFactory?.ToRepr().Value ?? "None";
 
             if (_dict.Count == 0)
-                return new PyString($"defaultdict({factoryRepr}, {{}})");
+                return new PyStr($"defaultdict({factoryRepr}, {{}})");
 
             // Performance: Eliminated LINQ
             var pairs = new List<string>();
@@ -133,7 +133,7 @@ namespace SharpPy.Modules
             {
                 pairs.Add($"{kv.Key.ToRepr().Value}: {kv.Value.ToRepr().Value}");
             }
-            return new PyString($"defaultdict({factoryRepr}, {{{string.Join(", ", pairs)}}})");
+            return new PyStr($"defaultdict({factoryRepr}, {{{string.Join(", ", pairs)}}})");
         }
     }
 
@@ -157,7 +157,7 @@ namespace SharpPy.Modules
                 iterable = args[0];
 
             // Check for maxlen keyword argument
-            if (kwargs != null && kwargs.InternalDict.TryGetValue(new PyString("maxlen"), out var maxlenObj))
+            if (kwargs != null && kwargs.InternalDict.TryGetValue(new PyStr("maxlen"), out var maxlenObj))
             {
                 if (maxlenObj is PyInt maxlenInt)
                     maxlen = (int)maxlenInt.Value;
@@ -357,13 +357,13 @@ namespace SharpPy.Modules
             return new PyDequeIterator(itemsList);
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_items.Count == 0)
             {
                 if (_maxlen.HasValue)
-                    return new PyString($"deque([], maxlen={_maxlen.Value})");
-                return new PyString("deque([])");
+                    return new PyStr($"deque([], maxlen={_maxlen.Value})");
+                return new PyStr("deque([])");
             }
 
             // Performance: Eliminated LINQ
@@ -374,8 +374,8 @@ namespace SharpPy.Modules
             }
             var items = string.Join(", ", itemRepr);
             if (_maxlen.HasValue)
-                return new PyString($"deque([{items}], maxlen={_maxlen.Value})");
-            return new PyString($"deque([{items}])");
+                return new PyStr($"deque([{items}], maxlen={_maxlen.Value})");
+            return new PyStr($"deque([{items}])");
         }
     }
 

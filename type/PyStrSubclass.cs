@@ -12,13 +12,13 @@ namespace SharpPy
     /// 2. ob_type이 서브클래스 타입을 가리킴
     /// 3. __dict__ 슬롯에 추가 속성 저장
     ///
-    /// SharpPy에서는 PyString의 모든 동작을 위임하면서 추가 속성을 지원
+    /// SharpPy에서는 PyStr의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
     public class PyStrSubclass : PyObject, IInstanceDictAccessor
     {
         // CPython: Objects/unicodeobject.c:14744 - self = type->tp_alloc(type, 0);
         // Objects/unicodeobject.c:14751-14764 - copy unicode data from original
-        private readonly PyString _strValue;
+        private readonly PyStr _strValue;
 
         // CPython: 서브클래스 인스턴스는 __dict__ 슬롯을 가짐
         public Dictionary<string, PyObject> InstanceDict { get; }
@@ -29,11 +29,11 @@ namespace SharpPy
         public PyStrSubclass(PyClass cls, string value)
         {
             _class = cls;
-            _strValue = new PyString(value);
+            _strValue = new PyStr(value);
             InstanceDict = new Dictionary<string, PyObject>();
         }
 
-        public PyStrSubclass(PyClass cls, PyString strValue)
+        public PyStrSubclass(PyClass cls, PyStr strValue)
         {
             _class = cls;
             _strValue = strValue;
@@ -47,7 +47,7 @@ namespace SharpPy
         // CPython: str 서브클래스는 str의 모든 연산을 지원
         // Objects/unicodeobject.c의 문자열 연산들
 
-        #region String Operations - Delegate to PyString
+        #region String Operations - Delegate to PyStr
 
         public override PyObject Add(PyObject other)
         {
@@ -62,13 +62,13 @@ namespace SharpPy
 
         #endregion
 
-        #region Comparison Operations - Delegate to PyString
+        #region Comparison Operations - Delegate to PyStr
 
         protected override PyObject PyEquals(PyObject other)
         {
             if (other is PyStrSubclass otherSub)
                 other = otherSub._strValue;
-            // Delegate to PyString's Equals which calls PyEquals internally
+            // Delegate to PyStr's Equals which calls PyEquals internally
             return _strValue.Equals(other) ? PyBool.True : PyBool.False;
         }
 
@@ -77,7 +77,7 @@ namespace SharpPy
             if (other is PyStrSubclass otherSub)
                 other = otherSub._strValue;
             // Use string comparison operators
-            var otherStr = other as PyString;
+            var otherStr = other as PyStr;
             if (otherStr == null)
                 throw PyTypeError.Create($"'<' not supported between instances of 'str' and '{other.GetTypeName()}'");
             return string.CompareOrdinal(_strValue.Value, otherStr.Value) < 0 ? PyBool.True : PyBool.False;
@@ -87,7 +87,7 @@ namespace SharpPy
         {
             if (other is PyStrSubclass otherSub)
                 other = otherSub._strValue;
-            var otherStr = other as PyString;
+            var otherStr = other as PyStr;
             if (otherStr == null)
                 throw PyTypeError.Create($"'<=' not supported between instances of 'str' and '{other.GetTypeName()}'");
             return string.CompareOrdinal(_strValue.Value, otherStr.Value) <= 0 ? PyBool.True : PyBool.False;
@@ -97,7 +97,7 @@ namespace SharpPy
         {
             if (other is PyStrSubclass otherSub)
                 other = otherSub._strValue;
-            var otherStr = other as PyString;
+            var otherStr = other as PyStr;
             if (otherStr == null)
                 throw PyTypeError.Create($"'>' not supported between instances of 'str' and '{other.GetTypeName()}'");
             return string.CompareOrdinal(_strValue.Value, otherStr.Value) > 0 ? PyBool.True : PyBool.False;
@@ -107,7 +107,7 @@ namespace SharpPy
         {
             if (other is PyStrSubclass otherSub)
                 other = otherSub._strValue;
-            var otherStr = other as PyString;
+            var otherStr = other as PyStr;
             if (otherStr == null)
                 throw PyTypeError.Create($"'>=' not supported between instances of 'str' and '{other.GetTypeName()}'");
             return string.CompareOrdinal(_strValue.Value, otherStr.Value) >= 0 ? PyBool.True : PyBool.False;
@@ -115,10 +115,10 @@ namespace SharpPy
 
         #endregion
 
-        #region Type Conversion - Delegate to PyString
+        #region Type Conversion - Delegate to PyStr
 
-        public override PyString ToStr() => _strValue;
-        public override PyString ToRepr() => new PyString($"'{_strValue.Value}'");
+        public override PyStr ToStr() => _strValue;
+        public override PyStr ToRepr() => new PyStr($"'{_strValue.Value}'");
         public override int ToHash() => _strValue.ToHash();
         public override bool PyBoolValue() => _strValue.PyBoolValue();
 
@@ -131,7 +131,7 @@ namespace SharpPy
             // CPython 3.12: Objects/object.c:1227-1304 (PyObject_GenericGetAttr)
             //
             // IMPORTANT: Do NOT delegate to _strValue.GetAttribute()!
-            // _strValue is a plain PyString without custom type, so its MRO is just [str, object].
+            // _strValue is a plain PyStr without custom type, so its MRO is just [str, object].
             //
             // We delegate to base.GetAttribute() which calls GenericGetAttribute().
             // GenericGetAttribute() will:
@@ -166,9 +166,9 @@ namespace SharpPy
         #region Get Underlying String Value
 
         /// <summary>
-        /// 내부 PyString 값 반환 (enum._value_ 접근 등에 사용)
+        /// 내부 PyStr 값 반환 (enum._value_ 접근 등에 사용)
         /// </summary>
-        public PyString GetStrValue() => _strValue;
+        public PyStr GetStrValue() => _strValue;
 
         /// <summary>
         /// 내부 문자열 값 반환

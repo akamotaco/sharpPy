@@ -764,8 +764,8 @@ namespace SharpPy.Modules
         {
             return name switch
             {
-                "__name__" => new PyString(Name),
-                "__module__" => new PyString("math"),
+                "__name__" => new PyStr(Name),
+                "__module__" => new PyStr("math"),
                 _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
             };
         }

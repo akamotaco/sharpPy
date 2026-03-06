@@ -196,9 +196,9 @@ namespace SharpPy.Interop
                             yield return new PyInt(i);
                         break;
                         
-                    case SharpPy.PyString str:
+                    case SharpPy.PyStr str:
                         for (int i = 0; i < str.Value.Length; i++)
-                            yield return new SharpPy.PyString(str.Value[i].ToString());
+                            yield return new SharpPy.PyStr(str.Value[i].ToString());
                         break;
                         
                     case PyGenerator generator:
@@ -277,7 +277,7 @@ namespace SharpPy.Interop
         /// <summary>
         /// C# 문자열 보간을 Python f-string 스타일로 사용
         /// </summary>
-        public static class PyString
+        public static class PyStr
         {
             // f"Hello {name}!" -> $"Hello {name}!"
             public static string F(FormattableString formattable)
@@ -514,7 +514,7 @@ namespace SharpPy.Interop
             Console.WriteLine("2. C# 문자열 보간을 f-string 스타일로:");
             var name = "Python";
             var version = 3.12;
-            var formatted = CSharpPythonInterop.PyString.F($"Hello {name} {version}!");
+            var formatted = CSharpPythonInterop.PyStr.F($"Hello {name} {version}!");
             Console.WriteLine($"   f\"Hello {{name}} {{version}}!\" = {formatted}\n");
             
             // 3. Python range() 사용

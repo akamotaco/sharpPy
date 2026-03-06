@@ -69,7 +69,7 @@ namespace SharpPy.Modules
             {
                 foreach (var kvp in kwargs.InternalDict)
                 {
-                    var key = kvp.Key is PyString ps ? ps.Value : kvp.Key.ToString();
+                    var key = kvp.Key is PyStr ps ? ps.Value : kvp.Key.ToString();
                     _attrs[key] = kvp.Value;
                 }
             }
@@ -92,7 +92,7 @@ namespace SharpPy.Modules
             {
                 var dictItems = new Dictionary<PyObject, PyObject>();
                 foreach (var kvp in _attrs)
-                    dictItems[new PyString(kvp.Key)] = kvp.Value;
+                    dictItems[new PyStr(kvp.Key)] = kvp.Value;
                 return new PyDict(dictItems);
             }
             if (name == "__class__")
@@ -128,15 +128,15 @@ namespace SharpPy.Modules
             {
                 // Get repr string value properly
                 var reprStr = kvp.Value.ToRepr();
-                var reprValue = reprStr is PyString ps ? ps.Value : reprStr.ToString();
+                var reprValue = reprStr is PyStr ps ? ps.Value : reprStr.ToString();
                 parts.Add($"{kvp.Key}={reprValue}");
             }
             return $"namespace({string.Join(", ", parts)})";
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            return new PyString(ToString());
+            return new PyStr(ToString());
         }
 
         /// <summary>

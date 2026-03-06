@@ -113,7 +113,7 @@ namespace SharpPy
             InitializeConstants();
 
             // 모듈 문서
-            SetAttribute("__doc__", new PyString("Time module - CPython 3.12 compatible implementation"));
+            SetAttribute("__doc__", new PyStr("Time module - CPython 3.12 compatible implementation"));
         }
 
         private void InitializeFunctions()
@@ -315,7 +315,7 @@ namespace SharpPy
                     throw PyTypeError.Create("asctime() takes at most 1 argument");
                 }
 
-                return new PyString(FormatAsctime(structTime));
+                return new PyStr(FormatAsctime(structTime));
             }));
 
             // time.ctime([seconds]) - Convert seconds to string
@@ -338,7 +338,7 @@ namespace SharpPy
                 }
 
                 var structTime = PyStructTime.FromDateTime(dt);
-                return new PyString(FormatAsctime(structTime));
+                return new PyStr(FormatAsctime(structTime));
             }));
 
             // time.strftime(format, tuple) - Format struct_time to string
@@ -347,7 +347,7 @@ namespace SharpPy
                 if (args.Length < 1 || args.Length > 2)
                     throw PyTypeError.Create($"strftime() takes 1 or 2 arguments ({args.Length} given)");
 
-                if (args[0] is not PyString formatStr)
+                if (args[0] is not PyStr formatStr)
                     throw PyTypeError.Create("strftime() argument 1 must be str");
 
                 PyStructTime structTime;
@@ -362,7 +362,7 @@ namespace SharpPy
 
                 var dt = structTime.ToDateTime();
                 var result = FormatStrftime(formatStr.Value, dt, structTime);
-                return new PyString(result);
+                return new PyStr(result);
             }));
 
             // time.strptime(string, format) - Parse string to struct_time
@@ -371,10 +371,10 @@ namespace SharpPy
                 if (args.Length != 2)
                     throw PyTypeError.Create($"strptime() takes exactly 2 arguments ({args.Length} given)");
 
-                if (args[0] is not PyString timeStr)
+                if (args[0] is not PyStr timeStr)
                     throw PyTypeError.Create("strptime() argument 1 must be str");
 
-                if (args[1] is not PyString formatStr)
+                if (args[1] is not PyStr formatStr)
                     throw PyTypeError.Create("strptime() argument 2 must be str");
 
                 try
@@ -397,7 +397,7 @@ namespace SharpPy
                 if (args.Length != 1)
                     throw PyTypeError.Create($"get_clock_info() takes exactly 1 argument ({args.Length} given)");
 
-                if (args[0] is not PyString name)
+                if (args[0] is not PyStr name)
                     throw PyTypeError.Create("get_clock_info() argument must be str");
 
                 return GetClockInfo(name.Value);
@@ -436,8 +436,8 @@ namespace SharpPy
             var daylightName = tz.DaylightName;
             var tznameTuple = new PyTuple(new PyObject[]
             {
-                new PyString(standardName),
-                new PyString(daylightName)
+                new PyStr(standardName),
+                new PyStr(daylightName)
             });
             SetAttribute("tzname", tznameTuple);
         }
@@ -579,32 +579,32 @@ namespace SharpPy
             switch (name)
             {
                 case "time":
-                    info.SetItem(new PyString("implementation"), new PyString("DateTime.UtcNow"));
-                    info.SetItem(new PyString("monotonic"), PyBool.False);
-                    info.SetItem(new PyString("resolution"), new PyFloat(1.0 / TimeSpan.TicksPerSecond));
-                    info.SetItem(new PyString("adjustable"), PyBool.True);
+                    info.SetItem(new PyStr("implementation"), new PyStr("DateTime.UtcNow"));
+                    info.SetItem(new PyStr("monotonic"), PyBool.False);
+                    info.SetItem(new PyStr("resolution"), new PyFloat(1.0 / TimeSpan.TicksPerSecond));
+                    info.SetItem(new PyStr("adjustable"), PyBool.True);
                     break;
 
                 case "monotonic":
-                    info.SetItem(new PyString("implementation"), new PyString("Environment.TickCount64"));
-                    info.SetItem(new PyString("monotonic"), PyBool.True);
-                    info.SetItem(new PyString("resolution"), new PyFloat(0.001)); // 1ms
-                    info.SetItem(new PyString("adjustable"), PyBool.False);
+                    info.SetItem(new PyStr("implementation"), new PyStr("Environment.TickCount64"));
+                    info.SetItem(new PyStr("monotonic"), PyBool.True);
+                    info.SetItem(new PyStr("resolution"), new PyFloat(0.001)); // 1ms
+                    info.SetItem(new PyStr("adjustable"), PyBool.False);
                     break;
 
                 case "perf_counter":
-                    info.SetItem(new PyString("implementation"), new PyString("Stopwatch"));
-                    info.SetItem(new PyString("monotonic"), PyBool.True);
-                    info.SetItem(new PyString("resolution"), new PyFloat(1.0 / Stopwatch.Frequency));
-                    info.SetItem(new PyString("adjustable"), PyBool.False);
+                    info.SetItem(new PyStr("implementation"), new PyStr("Stopwatch"));
+                    info.SetItem(new PyStr("monotonic"), PyBool.True);
+                    info.SetItem(new PyStr("resolution"), new PyFloat(1.0 / Stopwatch.Frequency));
+                    info.SetItem(new PyStr("adjustable"), PyBool.False);
                     break;
 
                 case "process_time":
                 case "thread_time":
-                    info.SetItem(new PyString("implementation"), new PyString("Process.TotalProcessorTime"));
-                    info.SetItem(new PyString("monotonic"), PyBool.True);
-                    info.SetItem(new PyString("resolution"), new PyFloat(1.0 / TimeSpan.TicksPerSecond));
-                    info.SetItem(new PyString("adjustable"), PyBool.False);
+                    info.SetItem(new PyStr("implementation"), new PyStr("Process.TotalProcessorTime"));
+                    info.SetItem(new PyStr("monotonic"), PyBool.True);
+                    info.SetItem(new PyStr("resolution"), new PyFloat(1.0 / TimeSpan.TicksPerSecond));
+                    info.SetItem(new PyStr("adjustable"), PyBool.False);
                     break;
 
                 default:

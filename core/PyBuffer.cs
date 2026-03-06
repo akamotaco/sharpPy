@@ -88,7 +88,7 @@ namespace SharpPy
         }
 
         public override string ToString() => $"<buffer at 0x{GetHashCode():X}>";
-        public override PyString ToRepr() => new PyString(ToString());
+        public override PyStr ToRepr() => new PyStr(ToString());
     }
 
     /// <summary>
@@ -194,6 +194,6 @@ namespace SharpPy
         public override int Length() => _data.Length;
 
         public override string ToString() => $"<memory at 0x{GetHashCode():X}>";
-        public override PyString ToRepr() => new PyString(ToString());
+        public override PyStr ToRepr() => new PyStr(ToString());
     }
 }

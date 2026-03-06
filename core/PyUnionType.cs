@@ -49,15 +49,15 @@ namespace SharpPy
         }
 
         // CPython Objects/unionobject.c: union_repr() → __repr__
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            return new PyString(ToString());
+            return new PyStr(ToString());
         }
 
         // CPython Objects/unionobject.c: union_repr() → __str__
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
-            return new PyString(ToString());
+            return new PyStr(ToString());
         }
 
         /// <summary>

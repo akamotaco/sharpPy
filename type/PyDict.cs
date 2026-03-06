@@ -318,7 +318,7 @@ namespace SharpPy
                         if (dictStorage != null)
                         {
                             #if DEBUG
-                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
+                            var keyStr = args[0] is PyStr ps ? ps.Value : args[0]?.ToString() ?? "null";
                             if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                             {
                                 Console.WriteLine($"[DEBUG-DICT-GETITEM] dict.__getitem__ for _EnumDict['{keyStr}']:");
@@ -400,7 +400,7 @@ namespace SharpPy
                         if (dictStorage != null)
                         {
                             #if DEBUG
-                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
+                            var keyStr = args[0] is PyStr ps ? ps.Value : args[0]?.ToString() ?? "null";
                             if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                             {
                                 Console.WriteLine($"[DEBUG-DICT-SETITEM] dict.__setitem__ for _EnumDict['{keyStr}'] = {args[1]}, type={args[1]?.GetType().Name}");
@@ -508,7 +508,7 @@ namespace SharpPy
             _keys = new List<PyObject>();
             foreach (var kv in items)
             {
-                var key = new PyString(kv.Key);
+                var key = new PyStr(kv.Key);
                 _dict[key] = kv.Value;
                 _keys.Add(key);
             }
@@ -531,9 +531,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => ToRepr();
+        public override PyStr ToStr() => ToRepr();
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_dict.Count == 0) return StringCache.GetOrCreate("{}");
 
@@ -659,8 +659,8 @@ namespace SharpPy
         /// </summary>
         public PyObject this[string key]
         {
-            get => GetItem(new PyString(key));
-            set => SetItem(new PyString(key), value);
+            get => GetItem(new PyStr(key));
+            set => SetItem(new PyStr(key), value);
         }
 
         /// <summary>
@@ -792,7 +792,7 @@ namespace SharpPy
                 // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
                 foreach (var key in mappingProxy.Keys)
                 {
-                    var pyKey = new PyString(key);
+                    var pyKey = new PyStr(key);
                     var value = mappingProxy.GetItem(pyKey);
 
                     #if DEBUG
@@ -920,11 +920,11 @@ namespace SharpPy
                     dict.SetItem(key, defaultValue);
                 }
             }
-            else if (keys is PyString str)
+            else if (keys is PyStr str)
             {
                 foreach (char c in str.Value)
                 {
-                    dict.SetItem(new PyString(c.ToString()), defaultValue);
+                    dict.SetItem(new PyStr(c.ToString()), defaultValue);
                 }
             }
             else
@@ -1058,7 +1058,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyDict를 PyString으로 변환 (str() 호출과 동일)
+        /// CPython 호환: PyDict를 PyStr으로 변환 (str() 호출과 동일)
         /// </summary>
         public override string AsString()
         {
@@ -1160,7 +1160,7 @@ namespace SharpPy
             // Initialize with current global variables
             foreach (var kv in globalScopeVariables)
             {
-                base.SetItem(new PyString(kv.Key), kv.Value);
+                base.SetItem(new PyStr(kv.Key), kv.Value);
             }
         }
 
@@ -1170,7 +1170,7 @@ namespace SharpPy
             base.SetItem(key, value);
 
             // Sync back to global scope
-            if (key is PyString strKey)
+            if (key is PyStr strKey)
             {
                 _globalScopeVariables[strKey.Value] = value;
             }
@@ -1185,7 +1185,7 @@ namespace SharpPy
             // Note: base.Update modifies _dict directly, so we need to sync everything
             foreach (var key in _keys)
             {
-                if (key is PyString strKey)
+                if (key is PyStr strKey)
                 {
                     _globalScopeVariables[strKey.Value] = _dict[key];
                 }

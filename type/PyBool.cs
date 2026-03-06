@@ -30,8 +30,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString(Value ? "True" : "False");
-        public override PyString ToRepr() => new PyString(Value ? "True" : "False");
+        public override PyStr ToStr() => new PyStr(Value ? "True" : "False");
+        public override PyStr ToRepr() => new PyStr(Value ? "True" : "False");
         public override string ToString() => Value ? "True" : "False";
 
         #endregion
@@ -337,7 +337,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyBool을 PyString으로 변환
+        /// CPython 호환: PyBool을 PyStr으로 변환
         /// </summary>
         public override string AsString()
         {

@@ -142,7 +142,7 @@ namespace SharpPy
             {
                 PyInt _ => PyTypeInfo.Int,
                 PyFloat _ => PyTypeInfo.Float,
-                PyString _ => PyTypeInfo.String,
+                PyStr _ => PyTypeInfo.String,
                 PyBool _ => PyTypeInfo.Bool,
                 PyNone _ => PyTypeInfo.None,
                 PyList _ => PyTypeInfo.List,

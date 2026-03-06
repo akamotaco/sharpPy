@@ -152,7 +152,7 @@ namespace SharpPy.Core
         {
             if (_finished)
             {
-                throw PyStopIteration.Create(new PyString("coroutine already finished"));
+                throw PyStopIteration.Create(new PyStr("coroutine already finished"));
             }
             
             try

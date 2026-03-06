@@ -169,8 +169,8 @@ namespace SharpPy
 
                     if (kwargs != null)
                     {
-                        var keyStr = new PyString("key");
-                        var reverseStr = new PyString("reverse");
+                        var keyStr = new PyStr("key");
+                        var reverseStr = new PyStr("reverse");
 
                         if (kwargs.Contains(keyStr).Value)
                             key = kwargs.GetItem(keyStr);
@@ -333,7 +333,7 @@ namespace SharpPy
             return new string(chars);
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("[]");
 
@@ -738,7 +738,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyList를 PyString으로 변환 (str() 호출과 동일)
+        /// CPython 호환: PyList를 PyStr으로 변환 (str() 호출과 동일)
         /// </summary>
         public override string AsString()
         {
