@@ -10,15 +10,15 @@ namespace SharpPy
     public static class StringCache
     {
         // 자주 사용되는 문자열 상수들
-        public static readonly PyString Empty = new PyString("");
-        public static readonly PyString Space = new PyString(" ");
-        public static readonly PyString Newline = new PyString("\n");
-        public static readonly PyString Tab = new PyString("\t");
-        public static readonly PyString CarriageReturn = new PyString("\r");
+        public static readonly PyStr Empty = new PyStr("");
+        public static readonly PyStr Space = new PyStr(" ");
+        public static readonly PyStr Newline = new PyStr("\n");
+        public static readonly PyStr Tab = new PyStr("\t");
+        public static readonly PyStr CarriageReturn = new PyStr("\r");
 
         // ASCII 단일 문자 캐시 (0-127)
         // 단일 문자 문자열은 매우 자주 사용되므로 모두 캐싱
-        private static readonly PyString[] _asciiCache = new PyString[128];
+        private static readonly PyStr[] _asciiCache = new PyStr[128];
 
         /// <summary>
         /// Static constructor - ASCII 캐시 초기화
@@ -28,18 +28,18 @@ namespace SharpPy
             // ASCII 0-127 범위의 모든 단일 문자 문자열을 미리 생성
             for (int i = 0; i < 128; i++)
             {
-                _asciiCache[i] = new PyString(((char)i).ToString());
+                _asciiCache[i] = new PyStr(((char)i).ToString());
             }
         }
 
         /// <summary>
-        /// 문자열 값에 대한 PyString 객체를 가져오거나 생성합니다.
+        /// 문자열 값에 대한 PyStr 객체를 가져오거나 생성합니다.
         /// 자주 사용되는 문자열은 캐시된 객체를 반환합니다.
         /// </summary>
         /// <param name="value">문자열 값</param>
-        /// <returns>PyString 객체</returns>
+        /// <returns>PyStr 객체</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static PyString GetOrCreate(string value)
+        public static PyStr GetOrCreate(string value)
         {
             // null이거나 빈 문자열
             if (value == null || value.Length == 0)
@@ -58,7 +58,7 @@ namespace SharpPy
             // (이미 단일 문자 체크를 했으므로 길이가 1인 경우는 제외됨)
 
             // 캐시에 없는 문자열은 새로 생성
-            return new PyString(value);
+            return new PyStr(value);
         }
 
         /// <summary>

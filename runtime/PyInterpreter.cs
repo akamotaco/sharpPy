@@ -46,7 +46,7 @@ namespace SharpPy
             // CPython 3.12: Python/pythonrun.c:408 - PyImport_AddModule("__main__")
             // Create __main__ module and register in sys.modules
             var mainModule = new PyModule("__main__", "<main>");
-            mainModule.ModuleDict["__name__"] = new PyString("__main__");
+            mainModule.ModuleDict["__name__"] = new PyStr("__main__");
             mainModule.ModuleDict["__doc__"] = PyNone.Instance;
             mainModule.ModuleDict["__package__"] = PyNone.Instance;
             mainModule.ModuleDict["__loader__"] = PyNone.Instance;

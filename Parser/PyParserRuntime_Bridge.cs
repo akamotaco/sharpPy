@@ -2280,7 +2280,7 @@ namespace SharpPy.Generated
             #endif
 
             // Return a simple constant for now
-            return new ConstantExpression(new PyString("expr"));
+            return new ConstantExpression(new PyStr("expr"));
         }
 
         /// <summary>
@@ -2634,7 +2634,7 @@ namespace SharpPy.Generated
         // NOTE: This function was removed as it was dead code.
         // String literal processing (including escape sequences) is now handled by:
         // - PyParserRuntime_ActionHelpers.DecodeStringLiteral() for quote removal and escape processing
-        // - Converted to PyString via GeneratedPyConstantString at line 2895
+        // - Converted to PyStr via GeneratedPyConstantString at line 2895
         //
         // TODO (Future work, not related to escape sequences):
         // - Bytes literal escape handling (currently uses UTF-8 encoding)
@@ -2696,7 +2696,7 @@ namespace SharpPy.Generated
                             // Extract the actual C# value from PyObject
                             if (pyObj is PyInt pyInt) rawValue = pyInt.Value;
                             else if (pyObj is PyFloat pyFloat) rawValue = pyFloat.Value;
-                            else if (pyObj is PyString pyStr) rawValue = pyStr.Value;
+                            else if (pyObj is PyStr pyStr) rawValue = pyStr.Value;
                             else if (pyObj is PyBool pyBool) rawValue = pyBool.Value;
                             else rawValue = pyObj.ToString();
                         }
@@ -2822,7 +2822,7 @@ namespace SharpPy.Generated
                 GeneratedPyConstantBool b => b.Value ? PyBool.True : PyBool.False,
                 GeneratedPyConstantInt i => new PyInt(i.Value),
                 GeneratedPyConstantFloat f => new PyFloat(f.Value),
-                GeneratedPyConstantString s => new PyString(s.Value),
+                GeneratedPyConstantString s => new PyStr(s.Value),
                 GeneratedPyConstantBytes bytes => new PyBytes(bytes.Value),
                 GeneratedPyConstantComplex c => new PyComplex(c.Real, c.Imag),  // CPython 3.12: Parser/action_helpers.c:785
                 GeneratedPyConstantEllipsis => PyEllipsis.Instance,  // CPython 3.12: Objects/sliceobject.c - _PyEllipsis_Type
@@ -2837,7 +2837,7 @@ namespace SharpPy.Generated
         private static PyObject ParseConstantValue(PyObject value, string? kind)
         {
             // If already a PyObject (not string), return as-is
-            if (value is not PyString strValue)
+            if (value is not PyStr strValue)
                 return value;
 
             string str = strValue.Value;
@@ -2855,7 +2855,7 @@ namespace SharpPy.Generated
             }
             else if (kind == "string")
             {
-                return new PyString(str);
+                return new PyStr(str);
             }
 
             // Fallback: keep as string
@@ -2882,13 +2882,13 @@ namespace SharpPy.Generated
             return value switch
             {
                 PyObject pyObj => pyObj,
-                string str => new PyString(str),
+                string str => new PyStr(str),
                 int i => new PyInt(i),
                 long l => new PyInt((int)l),
                 double d => new PyFloat(d),
                 bool b => b ? PyBool.True : PyBool.False,
                 null => PyNone.Instance,
-                _ => new PyString(value.ToString() ?? "")
+                _ => new PyStr(value.ToString() ?? "")
             };
         }
 
@@ -2903,14 +2903,14 @@ namespace SharpPy.Generated
             return value switch
             {
                 PyObject pyObj => pyObj,
-                string str => new PyString(str),
+                string str => new PyStr(str),
                 int i => new PyInt(i),
                 long l => new PyInt((int)l), // Cast long to int (may overflow for large values)
                 double d => new PyFloat(d),
                 float f => new PyFloat(f),
                 bool b => b ? PyBool.True : PyBool.False,
                 byte[] bytes => new PyBytesObject(bytes),
-                _ => new PyString(value.ToString() ?? "")
+                _ => new PyStr(value.ToString() ?? "")
             };
         }
 

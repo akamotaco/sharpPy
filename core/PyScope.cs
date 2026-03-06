@@ -190,7 +190,7 @@ namespace SharpPy
             switch (name)
             {
                 case "__name__":
-                    return new PyString(Name);
+                    return new PyStr(Name);
 
                 case "__new__":
                     // CPython 3.12: All built-in types have __new__

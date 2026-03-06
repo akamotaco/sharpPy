@@ -597,16 +597,16 @@ namespace SharpPy
             return name switch
             {
                 "co_flags" => new PyInt(Flags),
-                "co_name" => new PyString(Name),
+                "co_name" => new PyStr(Name),
                 "co_argcount" => new PyInt(ArgCount),
                 "co_posonlyargcount" => new PyInt(PosonlyArgCount),
                 "co_kwonlyargcount" => new PyInt(KwonlyArgCount),
-                "co_varnames" => new PyTuple(VarNames.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_names" => new PyTuple(Names.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_varnames" => new PyTuple(VarNames.Select(n => new PyStr(n) as PyObject).ToArray()),
+                "co_names" => new PyTuple(Names.Select(n => new PyStr(n) as PyObject).ToArray()),
                 "co_consts" => new PyTuple(Constants.ToArray()),
-                "co_freevars" => new PyTuple(FreeVars.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_cellvars" => new PyTuple(CellVars.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_filename" => new PyString(FileName ?? "<unknown>"),
+                "co_freevars" => new PyTuple(FreeVars.Select(n => new PyStr(n) as PyObject).ToArray()),
+                "co_cellvars" => new PyTuple(CellVars.Select(n => new PyStr(n) as PyObject).ToArray()),
+                "co_filename" => new PyStr(FileName ?? "<unknown>"),
                 "co_firstlineno" => new PyInt(GetFirstLineNo()),
                 "co_nlocals" => new PyInt(VarNames.Count),
                 "co_stacksize" => new PyInt(64), // Placeholder - actual stack size calculation needed
@@ -741,7 +741,7 @@ namespace SharpPy
 
             switch (constant)
             {
-                case PyString pyStr:
+                case PyStr pyStr:
                     // 문자열은 따옴표로 감싸기 (CPython 3.12 스타일)
                     return $"'{pyStr.Value}'";
 

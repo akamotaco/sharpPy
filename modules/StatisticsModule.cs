@@ -94,7 +94,7 @@ namespace SharpPy.Modules
             // If xbar not provided in positional args, check kwargs
             if (xbar == null && kwargs != null)
             {
-                var xbarValue = kwargs.GetItem(new PyString("xbar"));
+                var xbarValue = kwargs.GetItem(new PyStr("xbar"));
                 if (xbarValue != null && xbarValue is not PyNone)
                 {
                     xbar = xbarValue;

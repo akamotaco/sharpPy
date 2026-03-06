@@ -99,7 +99,7 @@ namespace SharpPy
         /// <summary>
         /// CPython repr(): TypeVar('T'), TypeVar('T', bound=int), etc.
         /// </summary>
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             // Build repr string based on CPython format
             var parts = new System.Collections.Generic.List<string> { $"'{Name}'" };
@@ -127,18 +127,18 @@ namespace SharpPy
                 parts.Add("contravariant=True");
             }
 
-            return new PyString($"TypeVar({string.Join(", ", parts)})");
+            return new PyStr($"TypeVar({string.Join(", ", parts)})");
         }
 
         /// <summary>
         /// CPython str(): ~T (for simple TypeVars)
         /// </summary>
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             // CPython 3.12: Simple TypeVars from PEP 695 show as ~T
             if (Bound == null && Constraints.Items.Length == 0 && !Covariant && !Contravariant)
             {
-                return new PyString($"~{Name}");
+                return new PyStr($"~{Name}");
             }
 
             // Otherwise, use repr()
@@ -174,7 +174,7 @@ namespace SharpPy
         {
             return name switch
             {
-                "__name__" => new PyString(Name),
+                "__name__" => new PyStr(Name),
                 "__bound__" => Bound ?? PyNone.Instance,
                 "__constraints__" => Constraints,
                 "__covariant__" => PyBool.FromBool(Covariant),
@@ -203,8 +203,8 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ParamSpecType;
         public override string GetTypeName() => "ParamSpec";
 
-        public override PyString ToRepr() => new PyString($"ParamSpec('{Name}')");
-        public override PyString ToStr() => new PyString($"~{Name}");
+        public override PyStr ToRepr() => new PyStr($"ParamSpec('{Name}')");
+        public override PyStr ToStr() => new PyStr($"~{Name}");
 
         public override int ToHash()
         {
@@ -220,7 +220,7 @@ namespace SharpPy
         {
             return name switch
             {
-                "__name__" => new PyString(Name),
+                "__name__" => new PyStr(Name),
                 _ => base.GetAttribute(name)
             };
         }
@@ -243,8 +243,8 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.TypeVarTupleType;
         public override string GetTypeName() => "TypeVarTuple";
 
-        public override PyString ToRepr() => new PyString($"TypeVarTuple('{Name}')");
-        public override PyString ToStr() => new PyString($"~{Name}");
+        public override PyStr ToRepr() => new PyStr($"TypeVarTuple('{Name}')");
+        public override PyStr ToStr() => new PyStr($"~{Name}");
 
         public override int ToHash()
         {
@@ -260,7 +260,7 @@ namespace SharpPy
         {
             return name switch
             {
-                "__name__" => new PyString(Name),
+                "__name__" => new PyStr(Name),
                 _ => base.GetAttribute(name)
             };
         }

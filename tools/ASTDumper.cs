@@ -260,7 +260,7 @@ namespace SharpPy.Tools
             // PyObject 처리
             if (value is PyObject pyObj)
             {
-                if (pyObj is PyString pyStr)
+                if (pyObj is PyStr pyStr)
                     return $"'{pyStr.Value}'";
                 if (pyObj is PyInt pyInt)
                     return pyInt.Value.ToString();
@@ -368,7 +368,7 @@ namespace SharpPy.Tools
             // PyObject 처리 (CPython repr() 스타일)
             if (value is PyObject pyObj)
             {
-                if (pyObj is PyString pyStr)
+                if (pyObj is PyStr pyStr)
                     return $"'{pyStr.Value}'";
                 if (pyObj is PyInt pyInt)
                     return pyInt.Value.ToString();

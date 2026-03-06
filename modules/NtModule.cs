@@ -65,7 +65,7 @@ namespace SharpPy.Modules
 
             try
             {
-                return new PyString(Directory.GetCurrentDirectory());
+                return new PyStr(Directory.GetCurrentDirectory());
             }
             catch (Exception ex)
             {
@@ -108,7 +108,7 @@ namespace SharpPy.Modules
                 var result = new List<PyObject>();
                 foreach (var entry in entries)
                 {
-                    result.Add(new PyString(IOHelper.GetFileName(entry)));
+                    result.Add(new PyStr(IOHelper.GetFileName(entry)));
                 }
                 return new PyList(result);
             }
@@ -306,7 +306,7 @@ namespace SharpPy.Modules
             if (value == null)
                 return args.Length > 1 ? args[1] : PyNone.Instance;
 
-            return new PyString(value);
+            return new PyStr(value);
         }
 
         // putenv(key, value)
@@ -331,7 +331,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"fspath() takes exactly 1 argument ({args.Length} given)");
 
             // For now, just convert to string (proper implementation would check __fspath__)
-            return new PyString(args[0].ToStr().Value);
+            return new PyStr(args[0].ToStr().Value);
         }
 
         #endregion
@@ -343,7 +343,7 @@ namespace SharpPy.Modules
             var environ = new PyDict();
             foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
             {
-                environ.SetItem(new PyString((string)entry.Key), new PyString((string)entry.Value));
+                environ.SetItem(new PyStr((string)entry.Key), new PyStr((string)entry.Value));
             }
             return environ;
         }
@@ -429,11 +429,11 @@ namespace SharpPy.Modules
             return (dt.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             var mode = (_info is DirectoryInfo) ? 0x4000 | 0x1ED : 0x8000 | 0x1A4;
             var size = _info is FileInfo fi ? fi.Length : 0;
-            return new PyString($"os.stat_result(st_mode={mode}, st_ino=0, st_dev=0, st_nlink=1, st_uid=0, st_gid=0, st_size={size}, st_atime={ToUnixTime(_info.LastAccessTime)}, st_mtime={ToUnixTime(_info.LastWriteTime)}, st_ctime={ToUnixTime(_info.CreationTime)})");
+            return new PyStr($"os.stat_result(st_mode={mode}, st_ino=0, st_dev=0, st_nlink=1, st_uid=0, st_gid=0, st_size={size}, st_atime={ToUnixTime(_info.LastAccessTime)}, st_mtime={ToUnixTime(_info.LastWriteTime)}, st_ctime={ToUnixTime(_info.CreationTime)})");
         }
 
         public override string ToString() => ToRepr().Value;

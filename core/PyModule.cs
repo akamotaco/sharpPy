@@ -24,13 +24,13 @@ public class PyNamespaceModule : PyModule
         var pathList = new PyObject[namespaceDirs.Count];
         for (int i = 0; i < namespaceDirs.Count; i++)
         {
-            pathList[i] = new PyString(namespaceDirs[i]);
+            pathList[i] = new PyStr(namespaceDirs[i]);
         }
         ModuleDict["__path__"] = new PyList(pathList);
 
         // 네임스페이스 패키지 표시
         ModuleDict["__file__"] = PyNone.Instance; // 네임스페이스 패키지는 __file__이 None
-        ModuleDict["__doc__"] = new PyString($"Namespace package {Name}");
+        ModuleDict["__doc__"] = new PyStr($"Namespace package {Name}");
     }
     
     /// <summary>
@@ -117,9 +117,9 @@ public class PyModule : PyObject
     
     private void InitializeBuiltinAttributes()
     {
-        ModuleDict["__name__"] = new PyString(Name);
-        ModuleDict["__file__"] = new PyString(FileName);
-        ModuleDict["__doc__"] = new PyString($"Module {Name}");
+        ModuleDict["__name__"] = new PyStr(Name);
+        ModuleDict["__file__"] = new PyStr(FileName);
+        ModuleDict["__doc__"] = new PyStr($"Module {Name}");
 
         // CPython 3.12: Set __package__
         // For packages (__init__.py): __package__ = __name__
@@ -129,7 +129,7 @@ public class PyModule : PyObject
         if (isPackage)
         {
             // Package: __package__ == __name__
-            ModuleDict["__package__"] = new PyString(Name);
+            ModuleDict["__package__"] = new PyStr(Name);
         }
         else
         {
@@ -138,7 +138,7 @@ public class PyModule : PyObject
             string packageName = lastDot >= 0 ? Name.Substring(0, lastDot) : "";
             ModuleDict["__package__"] = string.IsNullOrEmpty(packageName)
                 ? PyNone.Instance
-                : new PyString(packageName);
+                : new PyStr(packageName);
         }
     }
     
@@ -263,7 +263,7 @@ public class PyModule : PyObject
             if (int.TryParse(valueStr, out int intVal))
                 value = new PyInt(intVal);
             else
-                value = new PyString(valueStr);
+                value = new PyStr(valueStr);
 
             SetAttribute(varName, value);
 #if DEBUG_MODULE_LOG
@@ -323,7 +323,7 @@ public class PyModule : PyObject
         // CPython uses PyUnicode_FromString + PyDict_GetItem pattern
         public static bool TryGetModule(string name, out PyModule module)
         {
-            var key = new PyString(name);
+            var key = new PyStr(name);
             if (SysModules.InternalDict.TryGetValue(key, out var value) && value is PyModule pyModule)
             {
                 module = pyModule;
@@ -336,19 +336,19 @@ public class PyModule : PyObject
         public static void SetModule(string name, PyModule module)
         {
             // CPython 3.12: Python/import.c:630 - PyDict_SetItemString
-            SysModules.SetItem(new PyString(name), module);
+            SysModules.SetItem(new PyStr(name), module);
         }
 
         public static void RemoveModule(string name)
         {
             // CPython 3.12: Python/import.c - PyDict_DelItemString
-            var key = new PyString(name);
+            var key = new PyStr(name);
             SysModules.InternalDict.Remove(key);
         }
 
         public static bool ContainsModule(string name)
         {
-            var key = new PyString(name);
+            var key = new PyStr(name);
             return SysModules.InternalDict.ContainsKey(key);
         }
 
@@ -595,7 +595,7 @@ public class PyModule : PyObject
 
             foreach (var pathObj in sysPath.Items)
             {
-                if (!(pathObj is PyString pathStr)) continue;
+                if (!(pathObj is PyStr pathStr)) continue;
                 var searchPath = pathStr.Value;
 
                 // .py 파일 검색
@@ -654,7 +654,7 @@ public class PyModule : PyObject
             var pathList = new List<PyObject>();
 
             // 현재 디렉토리 (사용자 모듈)
-            pathList.Add(new PyString("."));
+            pathList.Add(new PyStr("."));
 
             // 실행 파일 디렉토리 기준 경로
             var exeDir = IOHelper.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
@@ -663,13 +663,13 @@ public class PyModule : PyObject
             var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
 
             // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
+            pathList.Add(new PyStr(IOHelper.CombinePath(projectRoot, "Lib")));
 
             // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
+            pathList.Add(new PyStr(IOHelper.CombinePath(projectRoot, "modules")));
 
             // 3순위: 실행 파일 디렉토리
-            pathList.Add(new PyString(exeDir));
+            pathList.Add(new PyStr(exeDir));
 
             // Performance: Eliminated LINQ - direct array conversion
             return new PyList(pathList.ToArray());
@@ -688,7 +688,7 @@ public class PyModule : PyObject
                 // This must happen before exec_module() so that the module code can see __path__
                 if (packageDir != null)
                 {
-                    module.ModuleDict["__path__"] = new PyList(new[] { new PyString(packageDir) });
+                    module.ModuleDict["__path__"] = new PyList(new[] { new PyStr(packageDir) });
                 }
 
                 // CPython 3.12: Register in sys.modules (prevents circular import)
@@ -786,7 +786,7 @@ public class PyModule : PyObject
                     // The IMPORT_FROM instruction will handle the error
                     //
                     // Store the exception so IMPORT_FROM can include root cause in error message
-                    module.ModuleDict[$"__import_error:{itemName}"] = new PyString(ex.Message);
+                    module.ModuleDict[$"__import_error:{itemName}"] = new PyStr(ex.Message);
                 }
             }
         }
@@ -808,7 +808,7 @@ public class PyModule : PyObject
             // 1. Try __package__
             string package = null;
             if (globals.TryGetValue("__package__", out PyObject pkgObj) &&
-                pkgObj != PyNone.Instance && pkgObj is PyString pkgStr)
+                pkgObj != PyNone.Instance && pkgObj is PyStr pkgStr)
             {
                 package = pkgStr.Value;
             }
@@ -826,7 +826,7 @@ public class PyModule : PyObject
             if (string.IsNullOrEmpty(package))
             {
                 if (!globals.TryGetValue("__name__", out PyObject nameObj) ||
-                    !(nameObj is PyString nameStr))
+                    !(nameObj is PyStr nameStr))
                 {
                     throw PyImportError.Create("'__name__' not in globals or not a string");
                 }

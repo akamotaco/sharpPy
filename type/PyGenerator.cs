@@ -82,7 +82,7 @@ namespace SharpPy
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
             Name = name;
-            Qualname = new PyString(name);
+            Qualname = new PyStr(name);
             
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
@@ -95,7 +95,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToRepr() => new PyString($"<generator object {Name}>");
+        public override PyStr ToRepr() => new PyStr($"<generator object {Name}>");
 
         #endregion
 

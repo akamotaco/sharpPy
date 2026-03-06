@@ -297,7 +297,7 @@ namespace SharpPy
                 {
                     if (def is ConstantExpression constExpr)
                     {
-                        if (constExpr.Value is PyString pyStr)
+                        if (constExpr.Value is PyStr pyStr)
                             defaultStrs.Add($"Constant(value='{pyStr.Value}')");
                         else if (constExpr.Value is PyInt pyInt)
                             defaultStrs.Add($"Constant(value={pyInt.Value})");

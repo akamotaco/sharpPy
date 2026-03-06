@@ -164,9 +164,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => ToRepr();
+        public override PyStr ToStr() => ToRepr();
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (Items.Length == 0) return StringCache.GetOrCreate("()");
 
@@ -569,7 +569,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyTuple을 PyString으로 변환 (str() 호출과 동일)
+        /// CPython 호환: PyTuple을 PyStr으로 변환 (str() 호출과 동일)
         /// </summary>
         public override string AsString()
         {

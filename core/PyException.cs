@@ -22,7 +22,7 @@ namespace SharpPy
         public PyBaseException(string message = "", params PyObject[] args)
         {
             Message = message ?? "";
-            Args = args.Length > 0 ? args : new PyObject[] { new PyString(Message) };
+            Args = args.Length > 0 ? args : new PyObject[] { new PyStr(Message) };
             __cause__ = null;
             __context__ = null;
             __suppress_context__ = false;
@@ -32,20 +32,20 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BaseExceptionType;
         public override string GetTypeName() => "BaseException";
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             if (Args.Length == 0)
-                return new PyString("");
-            if (Args.Length == 1 && Args[0] is PyString str)
-                return new PyString(str.Value);
-            return new PyString($"({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
+                return new PyStr("");
+            if (Args.Length == 1 && Args[0] is PyStr str)
+                return new PyStr(str.Value);
+            return new PyStr($"({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (Args.Length == 1)
-                return new PyString($"{GetTypeName()}({Args[0].ToRepr().Value})");
-            return new PyString($"{GetTypeName()}({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
+                return new PyStr($"{GetTypeName()}({Args[0].ToRepr().Value})");
+            return new PyStr($"{GetTypeName()}({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
         }
 
         public override string ToString()
@@ -149,7 +149,7 @@ namespace SharpPy
         // CPython 3.12: Objects/exceptions.c:79-105 (BaseException_str)
         // For user-defined exceptions, delegate ToStr() to OriginalInstance
         // This ensures BaseException.__str__ descriptor is properly invoked
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             // CPython 3.12: User-defined exception instances use __str__ method from class hierarchy
             if (OriginalInstance != null)
@@ -433,7 +433,7 @@ namespace SharpPy
             switch (name)
             {
                 case "name":
-                    return ModuleName != null ? new PyString(ModuleName) : PyNone.Instance;
+                    return ModuleName != null ? new PyStr(ModuleName) : PyNone.Instance;
                 default:
                     return base.GetAttribute(name);
             }
@@ -510,9 +510,9 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.SyntaxErrorType;
         public override string GetTypeName() => "SyntaxError";
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
-            return new PyString(LineNumber > 0 ? $"{Message} ({FileName}, line {LineNumber})" : Message);
+            return new PyStr(LineNumber > 0 ? $"{Message} ({FileName}, line {LineNumber})" : Message);
         }
 
         public override PyObject GetAttribute(string name)
@@ -520,7 +520,7 @@ namespace SharpPy
             switch (name)
             {
                 case "filename":
-                    return new PyString(FileName);
+                    return new PyStr(FileName);
                 case "lineno":
                     return new PyInt(LineNumber);
                 default:
@@ -1133,12 +1133,12 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "traceback";
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
-            return new PyString($"<traceback object at {GetHashCode():X}>");
+            return new PyStr($"<traceback object at {GetHashCode():X}>");
         }
 
-        public override PyString ToRepr() => ToStr();
+        public override PyStr ToRepr() => ToStr();
 
         public override PyObject GetAttribute(string name)
         {
@@ -1176,12 +1176,12 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "ExceptionInfo";
 
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
-            return new PyString($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
+            return new PyStr($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
         }
 
-        public override PyString ToRepr() => ToStr();
+        public override PyStr ToRepr() => ToStr();
     }
 
     #endregion

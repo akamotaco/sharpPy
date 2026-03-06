@@ -112,7 +112,7 @@ public partial class PyFunction : PyObject, IDescriptor
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return new PyString(func.Name);
+                    return new PyStr(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );
@@ -123,7 +123,7 @@ public partial class PyFunction : PyObject, IDescriptor
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : new PyString("__main__");
+                    return func.DefiningModule != null ? new PyStr(func.DefiningModule.Name) : new PyStr("__main__");
                 throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );
@@ -140,7 +140,7 @@ public partial class PyFunction : PyObject, IDescriptor
                     // CPython 3.12: docstring is first constant if it's a string
                     if (func.CodeObject != null &&
                         func.CodeObject.Constants.Count > 0 &&
-                        func.CodeObject.Constants[0] is PyString docString)
+                        func.CodeObject.Constants[0] is PyStr docString)
                     {
                         return docString;
                     }
@@ -718,7 +718,7 @@ public partial class PyFunction : PyObject, IDescriptor
             {
                 "__self__" => Instance,
                 "__func__" => Function,
-                "__name__" => new PyString(Function.Name),
+                "__name__" => new PyStr(Function.Name),
                 "__call__" => this, // 메서드 자체가 __call__
                 "__code__" => Function.GetAttribute("__code__"), // CPython 3.12: Delegate to underlying function
                 _ => base.GetAttribute(name)
@@ -766,7 +766,7 @@ public partial class PyFunction : PyObject, IDescriptor
             {
                 "__self__" => Instance,
                 "__func__" => BuiltinFunction,
-                "__name__" => new PyString(BuiltinFunction.Name),
+                "__name__" => new PyStr(BuiltinFunction.Name),
                 "__call__" => this,
                 _ => base.GetAttribute(name)
             };
@@ -825,7 +825,7 @@ public class PyFunctionSignature
             var extra = new List<string>();
             foreach (var kvp in kwargs.InternalDict)
             {
-                if (kvp.Key is PyString keyStr)
+                if (kvp.Key is PyStr keyStr)
                 {
                     string keyValue = keyStr.Value;
                     if (!typedDict.RequiredKeys.Contains(keyValue) && !typedDict.OptionalKeys.Contains(keyValue))
@@ -1228,14 +1228,14 @@ public class PyUnpackWrapper : PyObject
         // 필수 키가 모두 있는지 확인
         foreach (var requiredKey in requiredKeys)
         {
-            if (!kwargs.InternalDict.ContainsKey(new PyString(requiredKey)))
+            if (!kwargs.InternalDict.ContainsKey(new PyStr(requiredKey)))
                 return false;
         }
 
         // 추가 키가 허용되지 않는 키인지 확인
         foreach (var kvp in kwargs.InternalDict)
         {
-            if (kvp.Key is PyString keyStr)
+            if (kvp.Key is PyStr keyStr)
             {
                 if (!allKeys.Contains(keyStr.Value))
                     return false;

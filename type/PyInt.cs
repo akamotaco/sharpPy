@@ -50,7 +50,7 @@ namespace SharpPy
                             value = intArg.ToLong();
                         else if (args[0] is PyBool boolArg)
                             value = boolArg.Value ? 1 : 0;
-                        else if (args[0] is PyString strArg)
+                        else if (args[0] is PyStr strArg)
                             value = long.Parse(strArg.Value);
                         else
                             throw PyTypeError.Create($"int() argument must be a string or a number, not '{args[0].GetTypeName()}'");
@@ -158,7 +158,7 @@ namespace SharpPy
                     string byteorder = "big";
                     if (args.Length >= 2)
                     {
-                        if (args[1] is not PyString byteorderStr)
+                        if (args[1] is not PyStr byteorderStr)
                             throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
                         byteorder = byteorderStr.Value;
                     }
@@ -221,7 +221,7 @@ namespace SharpPy
                     string byteorder = "big";
                     if (args.Length >= 2)
                     {
-                        if (args[1] is not PyString byteorderStr)
+                        if (args[1] is not PyStr byteorderStr)
                             throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
                         byteorder = byteorderStr.Value;
                     }
@@ -355,7 +355,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
-                    if (args[0] is not PyString specStr)
+                    if (args[0] is not PyStr specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
                     // CPython 3.12: Objects/longobject.c:5555-5640 - long__format__
@@ -368,7 +368,7 @@ namespace SharpPy
                     else
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    return new PyString(FormatInt(value, specStr.Value));
+                    return new PyStr(FormatInt(value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -401,7 +401,7 @@ namespace SharpPy
                             value = (long)Math.Truncate(pyFloat.Value);
                         else if (args[1] is PyBool pyBool)
                             value = pyBool.Value ? 1 : 0;
-                        else if (args[1] is PyString pyStr)
+                        else if (args[1] is PyStr pyStr)
                         {
                             // Handle base parameter if present
                             int baseValue = 10;
@@ -518,8 +518,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString(Value.ToString());
-        public override PyString ToRepr() => new PyString(Value.ToString());
+        public override PyStr ToStr() => new PyStr(Value.ToString());
+        public override PyStr ToRepr() => new PyStr(Value.ToString());
 
         #endregion
 
@@ -1128,7 +1128,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyInt를 PyString으로 변환
+        /// CPython 호환: PyInt를 PyStr으로 변환
         /// </summary>
         public override string AsString()
         {
@@ -1143,41 +1143,41 @@ namespace SharpPy
         /// Convert BigInteger to binary string
         /// CPython 3.12: Objects/longobject.c:long_format_binary
         /// </summary>
-        public PyString Bin()
+        public PyStr Bin()
         {
-            if (Value == 0) return new PyString("0b0");
+            if (Value == 0) return new PyStr("0b0");
 
             var absValue = BigInteger.Abs(Value);
             var binaryStr = ConvertToBase(absValue, 2);
 
             return Value < 0
-                ? new PyString("-0b" + binaryStr)
-                : new PyString("0b" + binaryStr);
+                ? new PyStr("-0b" + binaryStr)
+                : new PyStr("0b" + binaryStr);
         }
 
         /// <summary>
         /// Convert BigInteger to octal string
         /// CPython 3.12: Objects/longobject.c:long_format
         /// </summary>
-        public PyString Oct()
+        public PyStr Oct()
         {
-            if (Value == 0) return new PyString("0o0");
+            if (Value == 0) return new PyStr("0o0");
 
             var absValue = BigInteger.Abs(Value);
             var octalStr = ConvertToBase(absValue, 8);
 
             return Value < 0
-                ? new PyString("-0o" + octalStr)
-                : new PyString("0o" + octalStr);
+                ? new PyStr("-0o" + octalStr)
+                : new PyStr("0o" + octalStr);
         }
 
         /// <summary>
         /// Convert BigInteger to hexadecimal string
         /// CPython 3.12: Objects/longobject.c:long_format
         /// </summary>
-        public PyString Hex()
+        public PyStr Hex()
         {
-            if (Value == 0) return new PyString("0x0");
+            if (Value == 0) return new PyStr("0x0");
 
             var absValue = BigInteger.Abs(Value);
             // BigInteger.ToString("x") provides lowercase hex without prefix
@@ -1186,8 +1186,8 @@ namespace SharpPy
             if (string.IsNullOrEmpty(hexStr)) hexStr = "0";
 
             return Value < 0
-                ? new PyString("-0x" + hexStr)
-                : new PyString("0x" + hexStr);
+                ? new PyStr("-0x" + hexStr)
+                : new PyStr("0x" + hexStr);
         }
 
         /// <summary>

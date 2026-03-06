@@ -38,8 +38,8 @@ namespace SharpPy
 
         #region String Representation
 
-        // Python repr() - returns PyString
-        public virtual PyString ToRepr()
+        // Python repr() - returns PyStr
+        public virtual PyStr ToRepr()
         {
             // CPython 3.12: Try to call __repr__ method if it exists
             try
@@ -48,7 +48,7 @@ namespace SharpPy
                 if (reprAttr != null && reprAttr != PyNone.Instance)
                 {
                     var result = reprAttr.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
+                    if (result is PyStr pyStr)
                     {
                         return pyStr;
                     }
@@ -60,11 +60,11 @@ namespace SharpPy
             }
 
             // Default representation
-            return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
+            return new PyStr($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
-        // Python str() - returns PyString
-        public virtual PyString ToStr()
+        // Python str() - returns PyStr
+        public virtual PyStr ToStr()
         {
             // CPython 3.12: Try to call __str__ method if it exists
             try
@@ -73,7 +73,7 @@ namespace SharpPy
                 if (strAttr != null && strAttr != PyNone.Instance)
                 {
                     var result = strAttr.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
+                    if (result is PyStr pyStr)
                     {
                         return pyStr;
                     }
@@ -1380,8 +1380,8 @@ namespace SharpPy
         private PyNotImplemented() { }
 
         public override string GetTypeName() => "NotImplementedType";
-        public override PyString ToStr() => new PyString("NotImplemented");
-        public override PyString ToRepr() => new PyString("NotImplemented");
+        public override PyStr ToStr() => new PyStr("NotImplemented");
+        public override PyStr ToRepr() => new PyStr("NotImplemented");
     }
 
     /// <summary>
@@ -1517,7 +1517,7 @@ namespace SharpPy
                     // object.__str__() delegates to __repr__
                     if (args.Length > 0)
                     {
-                        return new PyString(args[0].ToStr().Value);
+                        return new PyStr(args[0].ToStr().Value);
                     }
                     throw PyTypeError.Create("__str__() missing 1 required positional argument: 'self'");
                 }),
@@ -1525,7 +1525,7 @@ namespace SharpPy
                     // object.__repr__() returns default representation
                     if (args.Length > 0)
                     {
-                        return new PyString(args[0].ToRepr().Value);
+                        return new PyStr(args[0].ToRepr().Value);
                     }
                     throw PyTypeError.Create("__repr__() missing 1 required positional argument: 'self'");
                 }),

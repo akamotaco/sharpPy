@@ -29,7 +29,7 @@ namespace SharpPy
             // but sync all changes back to the underlying string-keyed dict
             foreach (var kv in underlyingDict)
             {
-                var pyKey = new PyString(kv.Key);
+                var pyKey = new PyStr(kv.Key);
                 _dict[pyKey] = kv.Value;
                 _keys.Add(pyKey);
             }
@@ -44,7 +44,7 @@ namespace SharpPy
             base.SetItem(key, value);
 
             // Sync to underlying dictionary
-            if (key is PyString strKey)
+            if (key is PyStr strKey)
             {
                 _underlyingDict[strKey.Value] = value;
             }
@@ -63,7 +63,7 @@ namespace SharpPy
             var result = base.DelItem(key);
 
             // Sync to underlying dictionary
-            if (key is PyString strKey)
+            if (key is PyStr strKey)
             {
                 _underlyingDict.Remove(strKey.Value);
             }
@@ -90,7 +90,7 @@ namespace SharpPy
                 // PyMappingProxy uses string keys
                 foreach (var key in mappingProxy.Keys)
                 {
-                    var pyKey = new PyString(key);
+                    var pyKey = new PyStr(key);
                     var value = mappingProxy.GetItem(pyKey);
                     SetItem(pyKey, value);  // SetItem handles sync
                 }
@@ -129,7 +129,7 @@ namespace SharpPy
                 _keys.Remove(key);
 
                 // Sync to underlying dictionary
-                if (key is PyString strKey)
+                if (key is PyStr strKey)
                 {
                     _underlyingDict.Remove(strKey.Value);
                 }
@@ -158,7 +158,7 @@ namespace SharpPy
             _keys.RemoveAt(_keys.Count - 1);
 
             // Sync to underlying dictionary
-            if (lastKey is PyString strKey)
+            if (lastKey is PyStr strKey)
             {
                 _underlyingDict.Remove(strKey.Value);
             }

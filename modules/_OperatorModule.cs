@@ -17,20 +17,20 @@ namespace SharpPy.Modules
             // Must match CPython's operator module exports
             var allList = new PyList(new PyObject[]
             {
-                new PyString("abs"), new PyString("add"), new PyString("and_"),
-                new PyString("attrgetter"), new PyString("concat"), new PyString("contains"),
-                new PyString("countOf"), new PyString("delitem"), new PyString("eq"),
-                new PyString("floordiv"), new PyString("ge"), new PyString("getitem"),
-                new PyString("gt"), new PyString("index"), new PyString("indexOf"),
-                new PyString("inv"), new PyString("invert"), new PyString("is_"),
-                new PyString("is_not"), new PyString("itemgetter"), new PyString("le"),
-                new PyString("length_hint"), new PyString("lshift"), new PyString("lt"),
-                new PyString("matmul"), new PyString("methodcaller"), new PyString("mod"),
-                new PyString("mul"), new PyString("ne"), new PyString("neg"),
-                new PyString("not_"), new PyString("or_"), new PyString("pos"),
-                new PyString("pow"), new PyString("rshift"), new PyString("setitem"),
-                new PyString("sub"), new PyString("truediv"), new PyString("truth"),
-                new PyString("xor")
+                new PyStr("abs"), new PyStr("add"), new PyStr("and_"),
+                new PyStr("attrgetter"), new PyStr("concat"), new PyStr("contains"),
+                new PyStr("countOf"), new PyStr("delitem"), new PyStr("eq"),
+                new PyStr("floordiv"), new PyStr("ge"), new PyStr("getitem"),
+                new PyStr("gt"), new PyStr("index"), new PyStr("indexOf"),
+                new PyStr("inv"), new PyStr("invert"), new PyStr("is_"),
+                new PyStr("is_not"), new PyStr("itemgetter"), new PyStr("le"),
+                new PyStr("length_hint"), new PyStr("lshift"), new PyStr("lt"),
+                new PyStr("matmul"), new PyStr("methodcaller"), new PyStr("mod"),
+                new PyStr("mul"), new PyStr("ne"), new PyStr("neg"),
+                new PyStr("not_"), new PyStr("or_"), new PyStr("pos"),
+                new PyStr("pow"), new PyStr("rshift"), new PyStr("setitem"),
+                new PyStr("sub"), new PyStr("truediv"), new PyStr("truth"),
+                new PyStr("xor")
             });
             module.ModuleDict["__all__"] = allList;
 
@@ -522,14 +522,14 @@ namespace SharpPy.Modules
                 }
             }
 
-            public override PyString ToRepr()
+            public override PyStr ToRepr()
             {
                 var itemReprs = new string[_items.Length];
                 for (int i = 0; i < _items.Length; i++)
                 {
                     itemReprs[i] = _items[i].ToRepr().Value;
                 }
-                return new PyString($"operator.itemgetter({string.Join(", ", itemReprs)})");
+                return new PyStr($"operator.itemgetter({string.Join(", ", itemReprs)})");
             }
         }
 

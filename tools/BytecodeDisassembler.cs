@@ -182,7 +182,7 @@ namespace SharpPy.Tools
 
             switch (constant)
             {
-                case PyString pyStr:
+                case PyStr pyStr:
                     // 문자열은 따옴표로 감싸기 (CPython 3.12 스타일)
                     return $"'{pyStr.Value}'";
 

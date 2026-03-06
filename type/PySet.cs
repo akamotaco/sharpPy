@@ -44,9 +44,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => ToRepr();
+        public override PyStr ToStr() => ToRepr();
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("set()");
 
@@ -408,7 +408,7 @@ namespace SharpPy
             {
                 PyList list => list.Items,
                 PyTuple tuple => tuple.Items,
-                PyString str => ConvertStringToCharArray(str.Value),
+                PyStr str => ConvertStringToCharArray(str.Value),
                 PySet set => set._items,
                 PyFrozenSet frozenSet => frozenSet.Items,
                 _ => throw PyTypeError.Create($"'{obj.GetTypeName()}' object is not iterable")
@@ -420,7 +420,7 @@ namespace SharpPy
             var result = new List<PyObject>(str.Length);
             for (int i = 0; i < str.Length; i++)
             {
-                result.Add(new PyString(str[i].ToString()));
+                result.Add(new PyStr(str[i].ToString()));
             }
             return result;
         }
@@ -500,9 +500,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => ToRepr();
+        public override PyStr ToStr() => ToRepr();
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("frozenset()");
 
