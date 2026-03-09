@@ -180,10 +180,7 @@ namespace SharpPy
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
             _builtinImplementations["any"] = (args, kwargs) => CallAny(args, kwargs);
             _builtinImplementations["all"] = (args, kwargs) => CallAll(args, kwargs);
-            _builtinImplementations["isinstance"] = (args, kwargs) => {
-                Console.WriteLine($"[BUILTIN isinstance] Called with {args.Length} args");
-                return CallIsInstance(args, kwargs);
-            };
+            _builtinImplementations["isinstance"] = (args, kwargs) => CallIsInstance(args, kwargs);
             _builtinImplementations["issubclass"] = (args, kwargs) => CallIsSubclass(args, kwargs);
             _builtinImplementations["hasattr"] = (args, kwargs) => CallHasAttr(args, kwargs);
             _builtinImplementations["getattr"] = (args, kwargs) => CallGetAttr(args, kwargs);
@@ -785,18 +782,58 @@ namespace SharpPy
                 throw PyTypeError.Create($"sum expected at most 2 arguments ({args.Length} given)");
 
             var iterable = args[0];
-            var start = args.Length > 1 ? args[1] : new PyInt(0);
-            var result = start;
+            var start = args.Length > 1 ? args[1] : SmallIntCache.Zero;
+
+            // Fast path: PyList of PyInt with int start → long accumulator
+            // CPython: bltinmodule.c:2614 (builtin_sum_impl) has _PyLong_Add fast path
+            if (iterable is PyList sumList && (start is PyInt startInt))
+            {
+                long acc = (long)startInt.Value;
+                bool overflow = false;
+                int listLen = sumList.Length();
+                for (int i = 0; i < listLen; i++)
+                {
+                    var elem = sumList.GetItem(i);
+                    if (elem is PyInt elemInt && elemInt.Value >= long.MinValue && elemInt.Value <= long.MaxValue)
+                    {
+                        long prev = acc;
+                        acc = unchecked(acc + (long)elemInt.Value);
+                        if (((prev ^ acc) & ((long)elemInt.Value ^ acc)) < 0)
+                        {
+                            overflow = true;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Non-int element or BigInteger, fall back to generic path
+                        var result = (PyObject)SmallIntCache.GetOrCreate(acc);
+                        for (int j = i; j < listLen; j++)
+                            result = result.Add(sumList.GetItem(j));
+                        return result;
+                    }
+                }
+                if (!overflow)
+                {
+                    if (acc >= -5 && acc <= 256)
+                        return SmallIntCache.GetOrCreate((int)acc);
+                    return new PyInt(acc);
+                }
+                // overflow: fall through to generic
+            }
+
+            var genericStart = start;
+            var genericResult = genericStart;
             var iterator = iterable.GetIterator();
 
             // Use TryNext() to avoid exception overhead for iteration termination.
             // CPython: bltinmodule.c:2614 (builtin_sum_impl) uses PyIter_Next which returns NULL.
             while (iterator.TryNext(out var item))
             {
-                result = result.Add(item);
+                genericResult = genericResult.Add(item);
             }
 
-            return result;
+            return genericResult;
         }
 
         // CPython 3.12 bltinmodule.c:1745 min_max()

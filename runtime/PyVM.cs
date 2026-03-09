@@ -2159,8 +2159,48 @@ namespace SharpPy
                                 frame.ValueStack.PushInt64(div);
                                 break;
                             }
+                            case BinaryOpType.POWER:
+                            case BinaryOpType.INPLACE_POWER:
+                            {
+                                // CPython 3.12: Objects/longobject.c long_pow()
+                                // Negative exponent → float result
+                                if (ra < 0)
+                                {
+                                    frame.ValueStack.PushFloat64(Math.Pow((double)la, (double)ra));
+                                }
+                                else if (ra == 0)
+                                {
+                                    frame.ValueStack.PushInt64(1);
+                                }
+                                else if (ra == 1)
+                                {
+                                    frame.ValueStack.PushInt64(la);
+                                }
+                                else if (ra == 2)
+                                {
+                                    // Common case: x ** 2 (squaring)
+                                    if (la >= -46340 && la <= 46340) // sqrt(int.MaxValue)
+                                        frame.ValueStack.PushInt64(la * la);
+                                    else
+                                        goto binop_pyobject; // overflow possible, use BigInteger path
+                                }
+                                else if (ra <= 62)
+                                {
+                                    // Small exponent: use Math.Pow with overflow check
+                                    double result = Math.Pow((double)la, (double)ra);
+                                    if (result >= long.MinValue && result <= long.MaxValue)
+                                        frame.ValueStack.PushInt64((long)result);
+                                    else
+                                        goto binop_pyobject; // overflow, use BigInteger
+                                }
+                                else
+                                {
+                                    goto binop_pyobject; // large exponent, use BigInteger
+                                }
+                                break;
+                            }
                             default:
-                                // Bitwise, shift, power etc. fall through to PyObject path
+                                // Bitwise, shift etc. fall through to PyObject path
                                 goto binop_pyobject;
                         }
                         break;
@@ -2201,6 +2241,11 @@ namespace SharpPy
                                     throw PyZeroDivisionError.Create("float modulo");
                                 frame.ValueStack.PushFloat64(ld - Math.Floor(ld / rd) * rd);
                                 break;
+                            case BinaryOpType.POWER:
+                            case BinaryOpType.INPLACE_POWER:
+                                // CPython 3.12: Objects/floatobject.c float_pow()
+                                frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
+                                break;
                             default:
                                 goto binop_pyobject;
                         }
@@ -2231,6 +2276,10 @@ namespace SharpPy
                                     throw PyZeroDivisionError.Create("float division by zero");
                                 frame.ValueStack.PushFloat64(ld / rd);
                                 break;
+                            case BinaryOpType.POWER:
+                            case BinaryOpType.INPLACE_POWER:
+                                frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
+                                break;
                             default:
                                 goto binop_pyobject;
                         }
@@ -2259,6 +2308,10 @@ namespace SharpPy
                                 if (rd == 0.0)
                                     throw PyZeroDivisionError.Create("float division by zero");
                                 frame.ValueStack.PushFloat64(ld / rd);
+                                break;
+                            case BinaryOpType.POWER:
+                            case BinaryOpType.INPLACE_POWER:
+                                frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
                                 break;
                             default:
                                 goto binop_pyobject;
@@ -3321,8 +3374,33 @@ namespace SharpPy
                     var setAttrName = frame.Code.Names[instruction.Argument];
                     var setObj = frame.ValueStack.Pop();
                     var setAttrValue = frame.ValueStack.Pop();
-                    // 기존 Attribute 시스템 사용!
-                    setObj.SetAttribute(setAttrName, setAttrValue);
+                    // Fast path: PyClassInstance without __setattr__ → skip virtual dispatch
+                    // CPython 3.12: Objects/typeobject.c slot_tp_setattro → _PyObject_GenericSetAttrWithDict
+                    if (setObj is PyClassInstance setInst
+                        && setInst.InstanceType.GetCachedMagicMethod("__setattr__") == null)
+                    {
+                        // Check for data descriptor in class hierarchy (rare but correct)
+                        // CPython: Objects/object.c:1563 _PyObject_GenericSetAttrWithDict
+                        bool usedDescriptor = false;
+                        foreach (var mroType in setInst.InstanceType.MRO)
+                        {
+                            if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(setAttrName, out PyObject classVal))
+                            {
+                                if (classVal is IDescriptor desc && desc.IsDataDescriptor())
+                                {
+                                    desc.Set(setInst, setAttrValue);
+                                    usedDescriptor = true;
+                                }
+                                break;
+                            }
+                        }
+                        if (!usedDescriptor)
+                            setInst.InstanceDict[setAttrName] = setAttrValue;
+                    }
+                    else
+                    {
+                        setObj.SetAttribute(setAttrName, setAttrValue);
+                    }
                     break;
 
                 case ByteCodeOp.DELETE_ATTR:
