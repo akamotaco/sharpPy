@@ -2257,8 +2257,10 @@ namespace SharpPy
                     var callArgs = callArgCount == 0 ? EmptyArgs : new PyObject[callArgCount];
 
                     // CPython 3.12: Save current scope depth before function call for proper restoration
-                    var savedScopeCount = frame.ScopeChain?.ScopeCount ?? 0;
-                    var savedCurrentScopeName = frame.ScopeChain?.CurrentScope?.Name;
+                    // Skip for CO_OPTIMIZED frames — they don't modify scope chains.
+                    bool needsScopeRestore = (frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0;
+                    var savedScopeCount = needsScopeRestore ? (frame.ScopeChain?.ScopeCount ?? 0) : 0;
+                    var savedCurrentScopeName = needsScopeRestore ? frame.ScopeChain?.CurrentScope?.Name : null;
 
                     // CPython 3.12: Check for keyword arguments from KW_NAMES
                     var kwNames = frame.KeywordNamesForNextCall;
@@ -2294,7 +2296,7 @@ namespace SharpPy
                     PyObject[] finalArgs;
                     PyObject actualCallable;
 
-                    if (nextElement == null || nextElement.Equals(PyNone.Instance))
+                    if (nextElement == null || nextElement is PyNone)
                     {
                         // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
                         actualCallable = callableFunc;
@@ -2353,7 +2355,7 @@ namespace SharpPy
                     frame.ValueStack.Push(newCallResult);
 
                     // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
-                    if (frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
+                    if (needsScopeRestore && frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
@@ -8505,9 +8507,13 @@ namespace SharpPy
                     }
 
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    // Optimized: Inline defaults/kwdefaults extraction
-                    PyTuple defaults = pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple
-                        ? defaultsTuple : null;
+                    // Runtime __defaults__ takes priority (can be set dynamically at runtime).
+                    // Fall back to CachedDefaultsTuple only if runtime attribute is not set.
+                    PyTuple defaults;
+                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                        defaults = defaultsTuple;
+                    else
+                        defaults = code.CachedDefaultsTuple;
                     PyDict kwdefaults = pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict
                         ? kwdefaultsDict : null;
                     var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);

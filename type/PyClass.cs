@@ -241,7 +241,11 @@ namespace SharpPy
                     var initArgs = new PyObject[args.Length + 1];
                     initArgs[0] = instance;
                     Array.Copy(args, 0, initArgs, 1, args.Length);
-                    function.Call(initArgs, kwargs);
+                    // Fast path for no-kwargs __init__ (most common case)
+                    if ((kwargs == null || kwargs.InternalDict.Count == 0) && function.CodeObject != null)
+                        function.CallSimple(initArgs);
+                    else
+                        function.Call(initArgs, kwargs);
                 }
                 else if (init is PyMethod method)
                 {
@@ -1671,6 +1675,9 @@ namespace SharpPy
             {
                 var buf = _unaryBuf ??= new PyObject[1];
                 buf[0] = this;
+                // Fast path: skip generator/coroutine/kwargs checks for dunder methods
+                if (func.CodeObject != null)
+                    return func.CallSimple(buf);
                 return func.Call(buf, null);
             }
             if (method is IDescriptor desc)
@@ -1705,6 +1712,9 @@ namespace SharpPy
                 var buf = _binaryBuf ??= new PyObject[2];
                 buf[0] = this;
                 buf[1] = arg;
+                // Fast path: skip generator/coroutine/kwargs checks for dunder methods
+                if (func.CodeObject != null)
+                    return func.CallSimple(buf);
                 return func.Call(buf, null);
             }
             if (method is IDescriptor desc)

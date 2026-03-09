@@ -276,6 +276,34 @@ public partial class PyFunction : PyObject, IDescriptor
     public override PyType GetPyType() => PyType.FunctionType;
     public override string GetTypeName() => "function";
 
+    /// <summary>
+    /// Fast path for simple function calls (no kwargs, no generators).
+    /// Used by dunder method dispatch to avoid generator/coroutine/kwargs checks.
+    /// Caller must ensure: CodeObject != null, not generator/coroutine, kwargs not needed.
+    /// </summary>
+    internal PyObject CallSimple(PyObject[] args)
+    {
+        PyScopeChain functionScopeChain;
+        if (GlobalsDict != null)
+        {
+            functionScopeChain = CreateCachedScopeChain()
+                ?? new PyScopeChain(GlobalsDict, CodeObject.Name);
+        }
+        else
+        {
+            functionScopeChain = ParentScope ?? new PyScopeChain();
+        }
+
+        // Runtime __defaults__ takes priority over CachedDefaultsTuple (can be set dynamically)
+        PyTuple defaults;
+        if (Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
+            defaults = dt;
+        else
+            defaults = CodeObject.CachedDefaultsTuple;
+        var frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
+        return PyVM.Instance.ExecuteFrame(frame);
+    }
+
     // CPython 3.12 호환: kwargs 지원 버전
     public override PyObject Call(PyObject[] args, PyDict kwargs)
     {
