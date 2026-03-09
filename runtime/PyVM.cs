@@ -1414,6 +1414,18 @@ namespace SharpPy
                             }
                             // Not in globals → fall through to check builtins via ExecuteInstruction
                         }
+                        else if (inlineOp == ByteCodeOp.JUMP_BACKWARD)
+                        {
+                            // Inline fast path: CPython 3.12 JUMPBY(-oparg)
+                            // target = (currentIP + 1) - oparg
+                            // Only for non-quickened code (most common case)
+                            if (!(frame.Code is PyQuickenedCodeObject))
+                            {
+                                frame.InstructionPointer = frame.InstructionPointer + 1 - instruction.Argument;
+                                continue;
+                            }
+                            // Quickened code → fall through to ExecuteInstruction
+                        }
                         else if (inlineOp == ByteCodeOp.POP_JUMP_IF_FALSE)
                         {
                             // Inline fast path for bool/int truthiness check + conditional jump
