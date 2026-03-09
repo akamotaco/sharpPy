@@ -809,17 +809,11 @@ namespace SharpPy
             var result = start;
             var iterator = iterable.GetIterator();
 
-            try
+            // Use TryNext() to avoid exception overhead for iteration termination.
+            // CPython: bltinmodule.c:2614 (builtin_sum_impl) uses PyIter_Next which returns NULL.
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    result = result.Add(item);
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                result = result.Add(item);
             }
 
             return result;

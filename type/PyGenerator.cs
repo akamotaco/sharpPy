@@ -230,9 +230,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Optimized TryNext: avoids the base class try/catch wrapper around Next().
-        /// FOR_ITER calls TryNext() on every iteration - eliminating exception overhead
-        /// for both yield (sentinel-based) and StopIteration (caught here once).
+        /// Optimized TryNext: inlines generator resume logic to avoid double try/catch.
+        /// FOR_ITER and sum() call TryNext() on every iteration.
+        /// Sentinel-based yield path has ZERO exception overhead.
+        /// StopIteration (generator completion) returns false without throwing.
         /// </summary>
         public override bool TryNext(out PyObject value)
         {
@@ -242,15 +243,67 @@ namespace SharpPy
                 return false;
             }
 
+            // Handle thrown exceptions (generator.throw() protocol)
+            if (_thrownException != null)
+            {
+                var exceptionToThrow = _thrownException;
+                _thrownException = null;
+                if (exceptionToThrow is PythonException pyEx)
+                    _frame.PendingException = pyEx;
+                else
+                    _frame.PendingException = new PythonException(new PyRuntimeError(exceptionToThrow.Message));
+            }
+
             try
             {
-                value = Next();
-                return true;
+                if (!_started)
+                {
+                    _frame.InstructionPointer = 0;
+                    _frame.ValueStack.Push(PyNone.Instance);
+                    _started = true;
+                }
+                else
+                {
+                    _frame.InstructionPointer++;
+                    _frame.ValueStack.Push(_sentValue);
+                }
+
+                var result = _vm.ExecuteFrame(_frame);
+
+                if (result == PyFrame.YieldSentinel)
+                {
+                    _sentValue = PyNone.Instance;
+                    value = _frame.YieldValue ?? PyNone.Instance;
+                    _frame.YieldValue = null;
+                    return true;
+                }
+
+                // Generator completed normally (return or end of function)
+                _finished = true;
+                value = null;
+                return false;
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
+                _finished = true;
                 value = null;
                 return false;
+            }
+            catch (PythonException)
+            {
+                _finished = true;
+                throw;
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
+            {
+                _finished = true;
+                value = null;
+                return false;
+            }
+            catch (Exception)
+            {
+                _finished = true;
+                throw;
             }
         }
 
