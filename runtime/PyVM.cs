@@ -1280,6 +1280,83 @@ namespace SharpPy
                             frame.InstructionPointer++;
                             continue;
                         }
+                        else if (inlineOp == ByteCodeOp.BINARY_OP)
+                        {
+                            // Inline fast path for int+int ADD (most common in dunder methods)
+                            var inlineBinOp = (BinaryOpType)instruction.Argument;
+                            if (inlineBinOp == BinaryOpType.ADD || inlineBinOp == BinaryOpType.INPLACE_ADD)
+                            {
+                                var irv = frame.ValueStack.PeekValueAt(0);
+                                var ilv = frame.ValueStack.PeekValueAt(1);
+                                if (ilv.IsIntLike && irv.IsIntLike)
+                                {
+                                    frame.ValueStack.PopValue();
+                                    frame.ValueStack.PopValue();
+                                    long la = ilv.AsInt64, ra = irv.AsInt64;
+                                    long sum = unchecked(la + ra);
+                                    if (((la ^ sum) & (ra ^ sum)) < 0)
+                                        frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
+                                    else
+                                        frame.ValueStack.PushInt64(sum);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            else if (inlineBinOp == BinaryOpType.MULTIPLY || inlineBinOp == BinaryOpType.INPLACE_MULTIPLY)
+                            {
+                                var irv = frame.ValueStack.PeekValueAt(0);
+                                var ilv = frame.ValueStack.PeekValueAt(1);
+                                if (ilv.IsIntLike && irv.IsIntLike)
+                                {
+                                    frame.ValueStack.PopValue();
+                                    frame.ValueStack.PopValue();
+                                    long la = ilv.AsInt64, ra = irv.AsInt64;
+                                    if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
+                                        frame.ValueStack.PushInt64(la * ra);
+                                    else
+                                    {
+                                        var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
+                                        if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
+                                            frame.ValueStack.PushInt64((long)bigResult);
+                                        else
+                                            frame.ValueStack.Push(new PyInt(bigResult));
+                                    }
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            // Non-int or other ops: fall through to ExecuteInstruction
+                        }
+                        else if (inlineOp == ByteCodeOp.COMPARE_OP)
+                        {
+                            // Inline fast path for int comparisons (hot in for loops + conditionals)
+                            var crv = frame.ValueStack.PeekValueAt(0);
+                            var clv = frame.ValueStack.PeekValueAt(1);
+                            if (clv.IsIntLike && crv.IsIntLike)
+                            {
+                                frame.ValueStack.PopValue();
+                                frame.ValueStack.PopValue();
+                                long la = clv.AsInt64, ra = crv.AsInt64;
+                                int cmpOp = instruction.Argument >> 4;  // CPython 3.12 encoding
+                                bool cmpResult = cmpOp switch
+                                {
+                                    0 => la < ra,   // LT
+                                    1 => la <= ra,  // LE
+                                    2 => la == ra,  // EQ
+                                    3 => la != ra,  // NE
+                                    4 => la > ra,   // GT
+                                    5 => la >= ra,  // GE
+                                    _ => false
+                                };
+                                if (cmpOp <= 5)
+                                {
+                                    frame.ValueStack.PushBool(cmpResult);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            // Non-int or IS/IS_NOT/IN/NOT_IN: fall through
+                        }
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
                             var inlineRetVal = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
