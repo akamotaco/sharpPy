@@ -1258,6 +1258,12 @@ namespace SharpPy
         public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
         private PyFunction _customGetAttr;
 
+        // ThreadStatic buffers for magic method dispatch — avoids per-call array allocation.
+        // Safe because args are consumed by BindArgumentsToParametersCPython312 (copied to LocalsPlus)
+        // before any user code (which could re-enter) executes.
+        [ThreadStatic] private static PyObject[] _unaryBuf;
+        [ThreadStatic] private static PyObject[] _binaryBuf;
+
         // CPython 3.12: Dict subclasses have internal dict storage
         private PyDict _dictStorage;
 
@@ -1662,11 +1668,19 @@ namespace SharpPy
             if (method == null) return null;
 
             if (method is PyFunction func)
-                return func.Call(new PyObject[] { this }, null);
+            {
+                var buf = _unaryBuf ??= new PyObject[1];
+                buf[0] = this;
+                return func.Call(buf, null);
+            }
             if (method is IDescriptor desc)
                 return desc.Get(this, InstanceType).Call(System.Array.Empty<PyObject>(), null);
             if (method.IsCallable())
-                return method.Call(new PyObject[] { this }, null);
+            {
+                var buf = _unaryBuf ??= new PyObject[1];
+                buf[0] = this;
+                return method.Call(buf, null);
+            }
             return null;
         }
 
@@ -1677,17 +1691,35 @@ namespace SharpPy
         private PyObject CallMagicMethodBinary(string methodName, PyObject arg)
         {
             if (InstanceDict.TryGetValue(methodName, out var instMethod))
-                return instMethod.Call(new PyObject[] { arg }, null);
+            {
+                var buf1 = _unaryBuf ??= new PyObject[1];
+                buf1[0] = arg;
+                return instMethod.Call(buf1, null);
+            }
 
             var method = InstanceType.GetCachedMagicMethod(methodName);
             if (method == null) return null;
 
             if (method is PyFunction func)
-                return func.Call(new PyObject[] { this, arg }, null);
+            {
+                var buf = _binaryBuf ??= new PyObject[2];
+                buf[0] = this;
+                buf[1] = arg;
+                return func.Call(buf, null);
+            }
             if (method is IDescriptor desc)
-                return desc.Get(this, InstanceType).Call(new PyObject[] { arg }, null);
+            {
+                var buf1 = _unaryBuf ??= new PyObject[1];
+                buf1[0] = arg;
+                return desc.Get(this, InstanceType).Call(buf1, null);
+            }
             if (method.IsCallable())
-                return method.Call(new PyObject[] { this, arg }, null);
+            {
+                var buf = _binaryBuf ??= new PyObject[2];
+                buf[0] = this;
+                buf[1] = arg;
+                return method.Call(buf, null);
+            }
             return null;
         }
 

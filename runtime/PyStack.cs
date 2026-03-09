@@ -15,10 +15,45 @@ namespace SharpPy
         private int _top;  // 다음 Push 위치 (= 현재 요소 수)
         private const int DefaultCapacity = 16;
 
+        // ThreadStatic pool to avoid allocating new PyValue[16] per frame.
+        // CPython reuses stack space via C call stack; we emulate with explicit pooling.
+        [ThreadStatic] private static PyStack[] _pool;
+        [ThreadStatic] private static int _poolCount;
+        private const int PoolMaxSize = 32;
+
         public PyStack()
         {
             _items = new PyValue[DefaultCapacity];
             _top = 0;
+        }
+
+        /// <summary>
+        /// Rent a PyStack from the thread-local pool (or create new).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static PyStack Rent()
+        {
+            if (_poolCount > 0)
+            {
+                var stack = _pool[--_poolCount];
+                _pool[_poolCount] = null;
+                return stack;
+            }
+            return new PyStack();
+        }
+
+        /// <summary>
+        /// Return a PyStack to the thread-local pool for reuse.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Return(PyStack stack)
+        {
+            stack.Clear();
+            if (_pool == null) _pool = new PyStack[PoolMaxSize];
+            if (_poolCount < PoolMaxSize)
+            {
+                _pool[_poolCount++] = stack;
+            }
         }
 
         #region Compatibility API (PyObject — auto-converts via PyValue)

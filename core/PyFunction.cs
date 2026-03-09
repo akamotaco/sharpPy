@@ -33,10 +33,13 @@ public partial class PyFunction : PyObject, IDescriptor
     // Avoids creating new PyScopeChain + PyScope + __builtins__ check on every call.
     // CPython 3.12: f_globals is captured at function definition time and reused.
     private PyScope? _cachedGlobalScope = null;
+    // Performance: Cached PyScopeChain for CO_OPTIMIZED functions.
+    // CO_OPTIMIZED functions never use PushScope/PopScope, so a single instance is safe.
+    private PyScopeChain? _cachedScopeChain = null;
 
     /// <summary>
     /// Get or create a PyScopeChain using a cached global scope.
-    /// The global scope is created once and reused across all calls to this function.
+    /// For CO_OPTIMIZED functions, the entire PyScopeChain is cached and reused.
     /// </summary>
     internal PyScopeChain CreateCachedScopeChain()
     {
@@ -48,9 +51,16 @@ public partial class PyFunction : PyObject, IDescriptor
                 _cachedGlobalScope.SetVariable("__builtins__", PyBuiltinsModule.Instance);
             }
         }
-        if (_cachedGlobalScope != null)
-            return new PyScopeChain(_cachedGlobalScope);
-        return null;
+        if (_cachedGlobalScope == null) return null;
+
+        // CO_OPTIMIZED functions: reuse the same PyScopeChain across calls
+        // Safe because LOAD_FAST/STORE_FAST don't modify ScopeChain
+        if (CodeObject != null && (CodeObject.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
+        {
+            return _cachedScopeChain ??= new PyScopeChain(_cachedGlobalScope);
+        }
+        // Non-optimized (class body, exec): create new PyScopeChain each time
+        return new PyScopeChain(_cachedGlobalScope);
     }
 
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)

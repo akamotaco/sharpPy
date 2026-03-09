@@ -130,7 +130,7 @@ namespace SharpPy
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
 #endif
             Code = code;
-            ValueStack = new PyStack();
+            ValueStack = PyStack.Rent();
             // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
             ScopeChain = parentScope ?? new PyScopeChain();
 
@@ -177,8 +177,10 @@ namespace SharpPy
                 Cells = Array.Empty<PyCell>();
             }
 
-            // 함수 스코프 생성 (모듈 실행인 경우 제외)
-            if (!IsModuleExecution(code.Name))
+            // 함수 스코프 생성 (모듈 실행 및 CO_OPTIMIZED 제외)
+            // CO_OPTIMIZED functions use LOAD_FAST/STORE_FAST only — ScopeChain is unused.
+            // Skipping PushScope is critical when PyScopeChain is cached (would accumulate scopes).
+            if (!IsModuleExecution(code.Name) && (code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
             {
                 ScopeChain.PushScope(ScopeType.Local, code.Name);
 #if DEBUG_LOG
@@ -188,7 +190,7 @@ namespace SharpPy
             else
             {
 #if DEBUG_LOG
-                Console.WriteLine($"📦 모듈 실행 감지: '{code.Name}' - Local 스코프 생성 생략");
+                Console.WriteLine($"📦 모듈/CO_OPTIMIZED 감지: '{code.Name}' - Local 스코프 생성 생략");
 #endif
             }
 
@@ -211,6 +213,43 @@ namespace SharpPy
         /// </summary>
         private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null, PyDict kwdefaults = null)
         {
+            // Fast path: simple function with exact positional args, no kwargs/varargs/defaults/kwonly/cells
+            // This covers the vast majority of dunder method calls (__add__(self, other), __init__(self), etc.)
+            if (parentFrame?.KeywordNamesForNextCall == null
+                && runtimeDefaults == null && kwdefaults == null
+                && args.Length == code.ArgCount
+                && code.KwonlyArgCount == 0
+                && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
+                && code.DefaultValues.Count == 0)
+            {
+                // Direct copy args → LocalsPlus (no keyword binding, no defaults, no *args/**kwargs)
+                for (int i = 0; i < args.Length; i++)
+                    LocalsPlus[i] = PyValue.FromObject(args[i]);
+
+                // CO_OPTIMIZED skip ScopeChain (already handled by caller guard)
+                if ((code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                {
+                    for (int i = 0; i < args.Length; i++)
+                        ScopeChain.AssignVariable(code.VarNames[i], args[i]);
+                }
+
+                // Handle cell variables that shadow parameters
+                if (code.CellVars != null && code.CellVars.Count > 0)
+                {
+                    for (int i = 0; i < code.CellVars.Count; i++)
+                    {
+                        var cellName = code.CellVars[i];
+                        if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
+                        {
+                            int cellIdx = (code.FreeVars?.Count ?? 0) + i;
+                            if (cellIdx < Cells.Length)
+                                Cells[cellIdx].Value = args[localIdx];
+                        }
+                    }
+                }
+                return;
+            }
+
             #if DEBUG_VM_LOG
             Console.WriteLine($"[BIND ARGS] BindArgumentsToParametersCPython312 for {code.Name}:");
             Console.WriteLine($"  runtimeDefaults is null: {runtimeDefaults == null}");
@@ -1439,6 +1478,12 @@ namespace SharpPy
             finally
             {
                 _frameStack.Pop();
+                // Don't pool stacks for generator/coroutine frames — they persist across yields.
+                // CPython: generator frames keep their stack alive between send()/next() calls.
+                if ((frame.Code.Flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) == 0)
+                {
+                    PyStack.Return(frame.ValueStack);
+                }
             }
         }
 
