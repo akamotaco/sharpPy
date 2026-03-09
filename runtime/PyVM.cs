@@ -1130,6 +1130,11 @@ namespace SharpPy
             // CPython 3.12: Extended argument accumulation for EXTENDED_ARG support
             int extendedArg = 0;
 
+            // Cache instructions array and length as locals to avoid
+            // List<T> indexer overhead (bounds check + indirection) per iteration.
+            var instructions = frame.Code.InstructionsArray;
+            var instructionCount2 = instructions.Length;
+
 #if DEBUG
             // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용)
             var startTime = DateTime.UtcNow;
@@ -1144,7 +1149,7 @@ namespace SharpPy
 
             try
             {
-                while (frame.InstructionPointer < frame.Code.Instructions.Count)
+                while (frame.InstructionPointer < instructionCount2)
                 {
 #if DEBUG
                     // 🛡️ 안전장치 검사 (DEBUG 모드 전용)
@@ -1170,7 +1175,7 @@ namespace SharpPy
                     }
 #endif
 
-                    var instruction = frame.Code.Instructions[frame.InstructionPointer];
+                    var instruction = instructions[frame.InstructionPointer];
 
 #if DEBUG
                     // DEBUG: Track instruction for debugging
@@ -8528,19 +8533,14 @@ namespace SharpPy
                         functionScope = pyFunc.ParentScope ?? parentScope;
                     }
 
-                    // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    // CPython 3.12: Get defaults from func.__defaults__ attribute
-                    PyTuple defaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                    {
-                        defaults = defaultsTuple;
-                    }
-                    // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
-                    PyDict kwdefaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                    {
-                        kwdefaults = kwdefaultsDict;
-                    }
+                    // Fast path: skip dict lookup when Attributes is empty (common case)
+                    var hasAttrs1 = pyFunc.Attributes.Count > 0;
+                    PyTuple defaults = (hasAttrs1
+                        && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                        ? defaultsTuple : null;
+                    PyDict kwdefaults = (hasAttrs1
+                        && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                        ? kwdefaultsDict : null;
                     var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);
                 }
@@ -8606,12 +8606,13 @@ namespace SharpPy
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
                     // Runtime __defaults__ takes priority (can be set dynamically at runtime).
                     // Fall back to CachedDefaultsTuple only if runtime attribute is not set.
-                    PyTuple defaults;
-                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                        defaults = defaultsTuple;
-                    else
-                        defaults = code.CachedDefaultsTuple;
-                    PyDict kwdefaults = pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict
+                    // Fast path: skip dict lookup when Attributes is empty (common case)
+                    var hasAttrs = pyFunc.Attributes.Count > 0;
+                    PyTuple defaults = (hasAttrs
+                        && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                        ? defaultsTuple : code.CachedDefaultsTuple;
+                    PyDict kwdefaults = (hasAttrs
+                        && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
                         ? kwdefaultsDict : null;
                     var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);

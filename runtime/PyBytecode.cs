@@ -448,6 +448,12 @@ namespace SharpPy
         public PyValue[] ConstantsAsValues { get; private set; } = null!;
 
         /// <summary>
+        /// Cached array view of Instructions. Built once at construction time.
+        /// Eliminates List indexer overhead (bounds check + indirection) in main loop.
+        /// </summary>
+        public ByteCodeInstruction[] InstructionsArray { get; private set; } = null!;
+
+        /// <summary>
         /// Cached PyTuple of default values. Built once at construction time.
         /// Eliminates per-call PyTuple allocation in BindArgumentsToParametersCPython312.
         /// </summary>
@@ -512,6 +518,7 @@ namespace SharpPy
             ComputeClassCellIndex();
             BuildConstantsCache();
             BuildDefaultsTupleCache();
+            InstructionsArray = Instructions.ToArray();
         }
 
         /// <summary>

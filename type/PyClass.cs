@@ -63,6 +63,11 @@ namespace SharpPy
         private Dictionary<string, PyObject> _magicMethodCache;
         private ulong _magicMethodCacheVersion;
 
+        // Cache for CheckAbstractMethods: avoid GetAttribute("__abstractmethods__") on every instantiation.
+        // -1 = unchecked, 0 = not abstract, 1 = abstract (needs full check)
+        private int _abstractCheckResult = -1;
+        private ulong _abstractCheckVersion;
+
         /// <summary>
         /// Cached magic method lookup: ClassDict-only MRO search with TypeVersionTag invalidation.
         /// O(1) on cache hit, O(MRO depth) on cache miss.
@@ -222,17 +227,10 @@ namespace SharpPy
 
             // Step 3: Call __init__ on the instance
             // CPython 3.12: Objects/typeobject.c:1677-1687
-            // __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
-            // Reference: Objects/typeobject.c:9028 (slot_tp_init -> lookup_method -> _PyType_Lookup)
-            var init = LookupInMRO("__init__");
+            // Use GetCachedMagicMethod for fast __init__ lookup (O(1) cache hit)
+            var init = GetCachedMagicMethod("__init__");
             if (init != null)
             {
-                // Apply descriptor protocol if needed
-                if (init is IDescriptor desc)
-                {
-                    init = desc.Get(instance, this);
-                }
-
                 // CPython 3.12: slot_tp_init calls __init__(self, *args, **kwargs) directly
                 // Avoid PyMethod allocation — prepend self to args and call function directly
                 if (init is PyFunction function)
@@ -246,6 +244,12 @@ namespace SharpPy
                         function.CallSimple(initArgs);
                     else
                         function.Call(initArgs, kwargs);
+                }
+                else if (init is IDescriptor desc)
+                {
+                    // Descriptor protocol: bind to instance
+                    var boundInit = desc.Get(instance, this);
+                    boundInit.Call(args, kwargs);
                 }
                 else if (init is PyMethod method)
                 {
@@ -1176,6 +1180,11 @@ namespace SharpPy
         /// </summary>
         private void CheckAbstractMethods()
         {
+            // Fast path: if we already checked and class is not abstract, skip entirely.
+            // Invalidated when TypeVersionTag changes (class modified).
+            if (_abstractCheckResult == 0 && _abstractCheckVersion == TypeVersionTag)
+                return;
+
             // CPython 3.12: Check __abstractmethods__ attribute directly
             // Reference: Objects/typeobject.c:5468 (type_abstractmethods)
             PyObject abstractMethodsAttr = null;
@@ -1188,12 +1197,16 @@ namespace SharpPy
             catch
             {
                 // No __abstractmethods__ attribute - class is not abstract
+                _abstractCheckResult = 0;
+                _abstractCheckVersion = TypeVersionTag;
                 return;
             }
 
             // Check if __abstractmethods__ is None or empty
             if (abstractMethodsAttr == null || abstractMethodsAttr == PyNone.Instance)
             {
+                _abstractCheckResult = 0;
+                _abstractCheckVersion = TypeVersionTag;
                 return;
             }
 
@@ -1695,7 +1708,7 @@ namespace SharpPy
         /// Zero-alloc binary magic method call (1 arg, e.g., __add__, __eq__, __getitem__)
         /// Avoids params array + inner array allocation.
         /// </summary>
-        private PyObject CallMagicMethodBinary(string methodName, PyObject arg)
+        internal PyObject CallMagicMethodBinary(string methodName, PyObject arg)
         {
             if (InstanceDict.TryGetValue(methodName, out var instMethod))
             {

@@ -295,11 +295,10 @@ public partial class PyFunction : PyObject, IDescriptor
         }
 
         // Runtime __defaults__ takes priority over CachedDefaultsTuple (can be set dynamically)
-        PyTuple defaults;
-        if (Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
-            defaults = dt;
-        else
-            defaults = CodeObject.CachedDefaultsTuple;
+        // Fast path: skip dict lookup when Attributes is empty (common for dunder methods)
+        PyTuple defaults = (Attributes.Count > 0
+            && Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
+            ? dt : CodeObject.CachedDefaultsTuple;
         var frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
         return PyVM.Instance.ExecuteFrame(frame);
     }
