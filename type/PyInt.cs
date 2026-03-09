@@ -519,8 +519,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyStr ToStr() => new PyStr(Value.ToString());
-        public override PyStr ToRepr() => new PyStr(Value.ToString());
+        public override PyStr ToStr() => new PyStr(AsString());
+        public override PyStr ToRepr() => new PyStr(AsString());
 
         #endregion
 
@@ -1133,6 +1133,10 @@ namespace SharpPy
         /// </summary>
         public override string AsString()
         {
+            // CPython 3.12: Objects/longobject.c long_to_decimal_string
+            // Fast path: small ints use long.ToString() instead of BigInteger.ToString()
+            if (Value >= long.MinValue && Value <= long.MaxValue)
+                return ((long)Value).ToString();
             return Value.ToString();
         }
 

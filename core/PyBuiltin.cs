@@ -822,17 +822,55 @@ namespace SharpPy
                 // overflow: fall through to generic
             }
 
-            var genericStart = start;
-            var genericResult = genericStart;
+            // Generic path: use long accumulator when possible
+            // CPython: bltinmodule.c:2614 (builtin_sum_impl) uses _PyLong_Add fast path
             var iterator = iterable.GetIterator();
+            if (start is PyInt genStartInt)
+            {
+                long acc = (long)genStartInt.Value;
+                bool useGenericFallback = false;
+                PyObject fallbackResult = null;
+                while (iterator.TryNext(out var item))
+                {
+                    if (item is PyInt itemInt && itemInt.Value >= long.MinValue && itemInt.Value <= long.MaxValue)
+                    {
+                        long prev = acc;
+                        acc = unchecked(acc + (long)itemInt.Value);
+                        if (((prev ^ acc) & ((long)itemInt.Value ^ acc)) < 0)
+                        {
+                            // Overflow: switch to PyObject path for remainder
+                            useGenericFallback = true;
+                            fallbackResult = new PyInt(new System.Numerics.BigInteger(prev) + itemInt.Value);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Non-int item: switch to PyObject path
+                        useGenericFallback = true;
+                        fallbackResult = (acc >= -5 && acc <= 256)
+                            ? ((PyObject)SmallIntCache.GetOrCreate((int)acc)).Add(item)
+                            : new PyInt(acc).Add(item);
+                        break;
+                    }
+                }
+                if (useGenericFallback)
+                {
+                    while (iterator.TryNext(out var item))
+                        fallbackResult = fallbackResult.Add(item);
+                    return fallbackResult;
+                }
+                if (acc >= -5 && acc <= 256)
+                    return SmallIntCache.GetOrCreate((int)acc);
+                return new PyInt(acc);
+            }
 
-            // Use TryNext() to avoid exception overhead for iteration termination.
-            // CPython: bltinmodule.c:2614 (builtin_sum_impl) uses PyIter_Next which returns NULL.
+            // Fully generic path
+            var genericResult = start;
             while (iterator.TryNext(out var item))
             {
                 genericResult = genericResult.Add(item);
             }
-
             return genericResult;
         }
 

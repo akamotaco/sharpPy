@@ -752,6 +752,10 @@ namespace SharpPy
         // so buffer overwrite by nested CALL doesn't affect already-extracted values.
         [ThreadStatic] private static PyObject[] _oneArgBuf;
         [ThreadStatic] private static PyObject[] _twoArgBuf;
+        // Method call self-prepend buffers (separate from callArgs to avoid aliasing)
+        [ThreadStatic] private static PyObject[] _methBuf1;  // [self]
+        [ThreadStatic] private static PyObject[] _methBuf2;  // [self, arg1]
+        [ThreadStatic] private static PyObject[] _methBuf3;  // [self, arg1, arg2]
 
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
@@ -2500,9 +2504,15 @@ namespace SharpPy
                         // Stack: [nextElement, callableFunc] where nextElement is NOT null
                         // Original logic: nextElement becomes callable, callableFunc becomes first arg
                         actualCallable = nextElement;
-                        finalArgs = new PyObject[callArgs.Length + 1];
+                        int totalArgs = callArgs.Length + 1;
+                        // Reuse ThreadStatic buffers for common method call sizes
+                        if (totalArgs == 1) { finalArgs = _methBuf1 ??= new PyObject[1]; }
+                        else if (totalArgs == 2) { finalArgs = _methBuf2 ??= new PyObject[2]; }
+                        else if (totalArgs == 3) { finalArgs = _methBuf3 ??= new PyObject[3]; }
+                        else { finalArgs = new PyObject[totalArgs]; }
                         finalArgs[0] = callableFunc;
-                        Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
+                        for (int i = 0; i < callArgs.Length; i++)
+                            finalArgs[i + 1] = callArgs[i];
                     }
 
                     // CPython 3.12: 키워드 인수 처리
