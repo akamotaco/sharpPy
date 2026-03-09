@@ -827,7 +827,6 @@ namespace SharpPy
             // 🔍 실제 VM에서 실행할 바이트코드 출력 (디버그용)
 #if DEBUG_LOG
             Console.WriteLine($"\n📋 VM에서 실제 실행할 바이트코드 ({codeObject.Instructions.Count}개 명령어):");
-#endif
             for (int i = 0; i < codeObject.Instructions.Count; i++)
             {
                 var instr = codeObject.Instructions[i];
@@ -856,16 +855,13 @@ namespace SharpPy
                     }
                 }
 
-#if DEBUG_LOG
                 Console.WriteLine(line);
-#endif
 
                 // List comprehension 관련 명령어만 출력 (너무 길어지지 않도록)
                 if (i > 20 && instr.OpCode != ByteCodeOp.FOR_ITER && instr.OpCode != ByteCodeOp.JUMP_BACKWARD &&
                     instr.OpCode != ByteCodeOp.LIST_APPEND && instr.OpCode != ByteCodeOp.END_FOR) continue;
                 if (i > 40) break;
             }
-#if DEBUG_LOG
             Console.WriteLine("📋 실제 바이트코드 출력 완료\n");
 #endif
             if (codeObject.ExceptionTable.Count > 0)
@@ -4019,23 +4015,22 @@ namespace SharpPy
                         #endif
                     }
 
+                    #if DEBUG_LOG
                     // Debug: Check what instruction will be executed at target
                     if (targetInstrPos >= 0 && targetInstrPos < frame.Code.Instructions.Count)
                     {
                         var targetInstruction = frame.Code.Instructions[targetInstrPos];
-                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Target instruction at {targetInstrPos}: {targetInstruction.OpCode} (arg: {targetInstruction.Argument})");
-                        #endif
 
                         // Verify this is a valid loop target (FOR_ITER for loops, various opcodes for WHILE loops)
-                        var invalidTargets = new[] { ByteCodeOp.RETURN_VALUE, ByteCodeOp.RETURN_CONST, ByteCodeOp.RAISE_VARARGS };
-                        if (invalidTargets.Contains(targetInstruction.OpCode))
+                        if (targetInstruction.OpCode == ByteCodeOp.RETURN_VALUE
+                            || targetInstruction.OpCode == ByteCodeOp.RETURN_CONST
+                            || targetInstruction.OpCode == ByteCodeOp.RAISE_VARARGS)
                         {
-                            #if DEBUG_LOG
                             Console.WriteLine($"⚠️ Warning: JUMP_BACKWARD targeting potentially invalid instruction {targetInstruction.OpCode}");
-                            #endif
                         }
                     }
+                    #endif
 
                     // CPython 3.12 호환: 점프 후 main loop가 ++하므로 -1 필요
                     // 하지만 FOR_ITER같은 경우는 target이 정확해야 함
