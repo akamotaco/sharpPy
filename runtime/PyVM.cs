@@ -1414,6 +1414,42 @@ namespace SharpPy
                             }
                             // Not in globals → fall through to check builtins via ExecuteInstruction
                         }
+                        else if (inlineOp == ByteCodeOp.POP_JUMP_IF_FALSE)
+                        {
+                            // Inline fast path for bool/int truthiness check + conditional jump
+                            // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from NEXT instruction
+                            var pjVal = frame.ValueStack.PopValue();
+                            bool isFalsy;
+                            if (pjVal.IsBool)
+                                isFalsy = !pjVal.AsBool;
+                            else if (pjVal.IsIntLike)
+                                isFalsy = pjVal.AsInt64 == 0;
+                            else
+                                isFalsy = !pjVal.ToObject().PyBoolValue();
+
+                            if (isFalsy)
+                                frame.InstructionPointer = frame.InstructionPointer + 1 + instruction.Argument;
+                            else
+                                frame.InstructionPointer++;
+                            continue;
+                        }
+                        else if (inlineOp == ByteCodeOp.POP_JUMP_IF_TRUE)
+                        {
+                            var pjVal = frame.ValueStack.PopValue();
+                            bool isTruthy;
+                            if (pjVal.IsBool)
+                                isTruthy = pjVal.AsBool;
+                            else if (pjVal.IsIntLike)
+                                isTruthy = pjVal.AsInt64 != 0;
+                            else
+                                isTruthy = pjVal.ToObject().PyBoolValue();
+
+                            if (isTruthy)
+                                frame.InstructionPointer = frame.InstructionPointer + 1 + instruction.Argument;
+                            else
+                                frame.InstructionPointer++;
+                            continue;
+                        }
                     }
                     // ===== END INLINE FAST PATH =====
 
