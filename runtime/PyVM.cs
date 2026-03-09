@@ -747,6 +747,12 @@ namespace SharpPy
         // Performance: Cached empty args array for zero-arg CALL
         private static readonly PyObject[] EmptyArgs = Array.Empty<PyObject>();
 
+        // Performance: ThreadStatic reusable arg buffers for 1/2 arg CALL
+        // Safe because: args[i] is extracted BEFORE any re-entrant Call,
+        // so buffer overwrite by nested CALL doesn't affect already-extracted values.
+        [ThreadStatic] private static PyObject[] _oneArgBuf;
+        [ThreadStatic] private static PyObject[] _twoArgBuf;
+
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
 
@@ -1376,6 +1382,19 @@ namespace SharpPy
                                 frame.ScopeChain.PopScope();
                             }
                             return inlineRetVal;
+                        }
+                        else if (inlineOp == ByteCodeOp.RESUME)
+                        {
+                            // RESUME is a no-op marker (Python 3.12)
+                            frame.InstructionPointer++;
+                            continue;
+                        }
+                        else if (inlineOp == ByteCodeOp.PUSH_NULL)
+                        {
+                            // PUSH_NULL for function call setup
+                            frame.ValueStack.Push(PyNone.Instance);
+                            frame.InstructionPointer++;
+                            continue;
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_GLOBAL)
                         {
@@ -2251,6 +2270,16 @@ namespace SharpPy
                         break;
                     }
 
+                    // Fast path for string concatenation (str + str)
+                    // CPython 3.12: Objects/unicodeobject.c unicode_concatenate
+                    if ((binOp == BinaryOpType.ADD || binOp == BinaryOpType.INPLACE_ADD)
+                        && lvBin.Tag == PyValue.TAG_OBJECT && rvBin.Tag == PyValue.TAG_OBJECT
+                        && lvBin.ObjRef is PyStr lvStr && rvBin.ObjRef is PyStr rvStr)
+                    {
+                        frame.ValueStack.Push(new PyStr(lvStr.Value + rvStr.Value));
+                        break;
+                    }
+
                     binop_pyobject:
                     {
                         // Fall back to PyObject virtual dispatch
@@ -2355,8 +2384,20 @@ namespace SharpPy
                 case ByteCodeOp.CALL:
                     // CPython 3.12 정확한 CALL 동작
                     var callArgCount = instruction.Argument;
-                    // Performance: Avoid allocation for zero-arg calls (most common)
-                    var callArgs = callArgCount == 0 ? EmptyArgs : new PyObject[callArgCount];
+                    // Performance: Reuse cached arg buffers for 0/1/2 arg calls
+                    PyObject[] callArgs;
+                    if (callArgCount == 0) callArgs = EmptyArgs;
+                    else if (callArgCount == 1)
+                    {
+                        if (_oneArgBuf == null) _oneArgBuf = new PyObject[1];
+                        callArgs = _oneArgBuf;
+                    }
+                    else if (callArgCount == 2)
+                    {
+                        if (_twoArgBuf == null) _twoArgBuf = new PyObject[2];
+                        callArgs = _twoArgBuf;
+                    }
+                    else callArgs = new PyObject[callArgCount];
 
                     // CPython 3.12: Save current scope depth before function call for proper restoration
                     // Skip for CO_OPTIMIZED frames — they don't modify scope chains.
@@ -2477,7 +2518,7 @@ namespace SharpPy
                     var appendArg = frame.ValueStack.Pop();
                     var appendList = (PyList)frame.ValueStack.Pop();
                     frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-                    appendList.Add(appendArg);
+                    appendList.Append(appendArg);
                     frame.ValueStack.Push(PyNone.Instance);
                     break;
 
@@ -4091,92 +4132,109 @@ namespace SharpPy
                 // Similar to STORE_SUBSCR, we need to lookup __getitem__ via MRO
                 // to support user-defined __getitem__ methods in subclasses
                 case ByteCodeOp.BINARY_SUBSCR:
-                    var subscriptKey = frame.ValueStack.Pop();
-                    var subscriptObj = frame.ValueStack.Pop();
+                    var subscriptKeyVal = frame.ValueStack.PopValue();
+                    var subscriptObjVal = frame.ValueStack.PopValue();
 
                     try
                     {
-                        // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
-                        // See Objects/typeobject.c:type_subscript
+                        // CPython 3.12: Objects/abstract.c:171-201 (PyObject_GetItem)
+                        // Fast path for built-in types: skip GetPyType()/LookupSpecial() MRO traversal
+                        // Use PyValue-level dispatch to avoid PyObject boxing
                         PyObject subscriptResult;
-                        if (subscriptObj is PyType typeObj)
+                        var subscriptObj = subscriptObjVal.Tag == PyValue.TAG_OBJECT ? subscriptObjVal.ObjRef : subscriptObjVal.ToObject();
+
+                        if (subscriptObj is PyList subscriptList)
                         {
-                            // Subscripting a type (e.g., dict[int], list[str]) - use __class_getitem__
+                            // Fast path: PyList[int] — avoid TryGetIndex/BigInteger conversion
+                            if (subscriptKeyVal.IsIntLike)
+                                subscriptResult = subscriptList.GetItem((int)subscriptKeyVal.AsInt64);
+                            else
+                                subscriptResult = subscriptList.GetItem(subscriptKeyVal.ToObject());
+                        }
+                        else if (subscriptObj is PyDict subscriptDict)
+                        {
+                            subscriptResult = subscriptDict.GetItem(subscriptKeyVal.ToObject());
+                        }
+                        else if (subscriptObj is PyStr subscriptStr)
+                        {
+                            // Fast path: PyStr[int]
+                            if (subscriptKeyVal.IsIntLike)
+                                subscriptResult = subscriptStr.GetItem((int)subscriptKeyVal.AsInt64);
+                            else
+                                subscriptResult = subscriptStr.GetItem(subscriptKeyVal.ToObject());
+                        }
+                        else if (subscriptObj is PyTuple subscriptTuple)
+                        {
+                            // Fast path: PyTuple[int]
+                            if (subscriptKeyVal.IsIntLike)
+                                subscriptResult = subscriptTuple.GetItem((int)subscriptKeyVal.AsInt64);
+                            else
+                                subscriptResult = subscriptTuple.GetItem(subscriptKeyVal.ToObject());
+                        }
+                        else if (subscriptObj is PyType typeObj)
+                        {
+                            // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
+                            // See Objects/typeobject.c:type_subscript
                             var classGetitemAttr = typeObj.LookupSpecial("__class_getitem__");
 
+                            var subscriptKey = subscriptKeyVal.ToObject();
                             if (classGetitemAttr != null && classGetitemAttr is PyBuiltinClassMethod classMethod)
                             {
-                                // Call __class_getitem__(cls, arg)
                                 subscriptResult = classMethod.Call(new[] { typeObj, subscriptKey }, null);
                             }
                             else if (classGetitemAttr != null && classGetitemAttr is IDescriptor descriptor)
                             {
-                                // Descriptor protocol: Get bound method
                                 var boundMethod = descriptor.Get(null, typeObj);
                                 subscriptResult = boundMethod.Call(new[] { subscriptKey }, null);
                             }
                             else if (classGetitemAttr != null)
                             {
-                                // Fallback: direct call
                                 subscriptResult = classGetitemAttr.Call(new[] { typeObj, subscriptKey }, null);
                             }
                             else
                             {
-                                // No __class_getitem__, fallback to regular __getitem__
                                 subscriptResult = subscriptObj.GetItem(subscriptKey);
                             }
                         }
                         else
                         {
-                            // Regular instance subscripting - use __getitem__
+                            // Regular instance subscripting - use __getitem__ via MRO
+                            var subscriptKey = subscriptKeyVal.ToObject();
                             var objType = subscriptObj.GetPyType();
                             var getitemAttr = objType.LookupSpecial("__getitem__");
 
                             if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
                             {
-                                // Found descriptor (user-defined or built-in)
-                                // Call __getitem__(self, key)
                                 subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
                             }
                             else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
                             {
-                                // Found unbound function (rare case)
                                 subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
                             }
                             else
                             {
-                                // No __getitem__ found, use built-in GetItem
                                 subscriptResult = subscriptObj.GetItem(subscriptKey);
                             }
                         }
 
                         frame.ValueStack.Push(subscriptResult);
                     }
-                    // CPython 3.12: Python exceptions (KeyError, IndexError, TypeError) should propagate
                     catch (Exception ex) when (ex is PythonException)
                     {
-                        // Re-throw Python exceptions (PythonException is the C# wrapper)
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 BINARY_SUBSCR: Re-throwing Python exception: {ex.GetType().Name} - {ex.Message}");
-                        #endif
                         throw;
                     }
                     catch (Exception ex)
                     {
-                        // Convert C# exceptions to appropriate Python exceptions (CPython 호환)
                         if (ex.Message.Contains("key") || ex.Message.Contains("Key"))
                         {
-                            // Key not found → KeyError (CPython 방식)
                             throw PyKeyError.Create(ex.Message.Replace("subscript error: ", ""));
                         }
                         else if (ex.Message.Contains("index") || ex.Message.Contains("range"))
                         {
-                            // Index out of range → IndexError (CPython 방식)
                             throw PyIndexError.Create(ex.Message.Replace("subscript error: ", ""));
                         }
                         else
                         {
-                            // Other subscript errors → TypeError
                             throw PyTypeError.Create($"subscript error: {ex.Message}");
                         }
                     }
@@ -4206,29 +4264,36 @@ namespace SharpPy
 
                     try
                     {
-                        // CPython 3.12: Lookup __setitem__ in type's MRO
-                        var objType = subscrStoreObj.GetPyType();
-                        var setitemAttr = objType.LookupSpecial("__setitem__");
-
-                        if (setitemAttr != null && setitemAttr is PyMethodDescriptor setitemDescriptor)
+                        // CPython 3.12: Objects/abstract.c:203-234 (PyObject_SetItem)
+                        // Fast path for built-in types: skip GetPyType()/LookupSpecial() MRO traversal
+                        if (subscrStoreObj is PyDict storeDict)
                         {
-                            // Found descriptor (user-defined or built-in)
-                            // Call __setitem__(self, key, value)
-                            setitemDescriptor.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                            storeDict.SetItem(subscrStoreKey, subscrStoreValue);
                         }
-                        else if (setitemAttr != null && setitemAttr is PyFunction setitemFunc)
+                        else if (subscrStoreObj is PyList storeList)
                         {
-                            // Found unbound function (rare case)
-                            setitemFunc.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                            storeList.SetItem(subscrStoreKey, subscrStoreValue);
                         }
                         else
                         {
-                            // No __setitem__ found, use built-in SetItem
-                            // This handles types without explicit __setitem__ descriptor
-                            subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
+                            // MRO path for user-defined types
+                            var objType = subscrStoreObj.GetPyType();
+                            var setitemAttr = objType.LookupSpecial("__setitem__");
+
+                            if (setitemAttr != null && setitemAttr is PyMethodDescriptor setitemDescriptor)
+                            {
+                                setitemDescriptor.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                            }
+                            else if (setitemAttr != null && setitemAttr is PyFunction setitemFunc)
+                            {
+                                setitemFunc.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                            }
+                            else
+                            {
+                                subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
+                            }
                         }
                     }
-                    // CPython 3.12: Python exceptions should propagate
                     catch (Exception ex) when (ex is PythonException)
                     {
                         throw;

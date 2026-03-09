@@ -1163,8 +1163,12 @@ namespace SharpPy
             var x = args[0];
 
             // CPython 3.12: encoding == NULL and errors == NULL → PyObject_Str(x)
+            // Fast path: avoid double wrapping (AsString → new PyStr) for built-in types
             if (args.Length == 1)
+            {
+                if (x is PyStr xStr) return xStr;
                 return new PyStr(x.AsString());
+            }
 
             // CPython 3.12: str(bytes, encoding, errors='strict') → PyUnicode_FromEncodedObject
             var encoding = args.Length > 1 ? args[1] : PyNone.Instance;
