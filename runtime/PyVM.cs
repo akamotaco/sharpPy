@@ -1360,7 +1360,9 @@ namespace SharpPy
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
                             var inlineRetVal = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
-                            if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
+                            // CO_OPTIMIZED: no PushScope was done, so no scope cleanup needed
+                            if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
+                                && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                             {
                                 if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_"))
                                 {
@@ -1369,6 +1371,24 @@ namespace SharpPy
                                 frame.ScopeChain.PopScope();
                             }
                             return inlineRetVal;
+                        }
+                        else if (inlineOp == ByteCodeOp.LOAD_GLOBAL)
+                        {
+                            // Inline fast path: direct Globals dict lookup (most common path)
+                            int lgOparg = instruction.Argument;
+                            bool lgPushNull = (lgOparg & 1) == 1;
+                            int lgNameIdx = lgOparg >> 1;
+                            var lgName = frame.Code.Names[lgNameIdx];
+
+                            if (frame.Globals.TryGetValue(lgName, out var lgVal))
+                            {
+                                if (lgPushNull)
+                                    frame.ValueStack.Push(PyNone.Instance);
+                                frame.ValueStack.Push(lgVal);
+                                frame.InstructionPointer++;
+                                continue;
+                            }
+                            // Not in globals → fall through to check builtins via ExecuteInstruction
                         }
                     }
                     // ===== END INLINE FAST PATH =====
