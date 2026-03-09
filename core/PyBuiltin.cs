@@ -535,16 +535,11 @@ namespace SharpPy
             var iterator = iterable.GetIterator();
             var result = new System.Collections.Generic.List<PyObject>();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    var mappedItem = func.Call(new PyObject[] { item }, null);
-                    result.Add(mappedItem);
-                }
+                var mappedItem = func.Call(new PyObject[] { item }, null);
+                result.Add(mappedItem);
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
                 // 정상 종료
             }
@@ -563,22 +558,14 @@ namespace SharpPy
             var iterator = iterable.GetIterator();
             var result = new System.Collections.Generic.List<PyObject>();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    var shouldInclude = func == PyNone.Instance 
-                        ? item.PyBoolValue() 
-                        : func.Call(new PyObject[] { item }, null).PyBoolValue();
-                    
-                    if (shouldInclude)
-                        result.Add(item);
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                var shouldInclude = func == PyNone.Instance
+                    ? item.PyBoolValue()
+                    : func.Call(new PyObject[] { item }, null).PyBoolValue();
+
+                if (shouldInclude)
+                    result.Add(item);
             }
 
             // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
@@ -628,16 +615,9 @@ namespace SharpPy
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var sortedItem))
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                items.Add(sortedItem);
             }
 
             // key 함수가 있으면 키 값과 함께 정렬
@@ -864,39 +844,30 @@ namespace SharpPy
             PyObject maxitem = null;
             PyObject maxval = null;
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
+                // CPython bltinmodule.c:1794-1802
+                PyObject val;
+                if (keyfunc != null)
+                    val = keyfunc.Call(new PyObject[] { item }, null);
+                else
+                    val = item;
+
+                if (maxval == null)
                 {
-                    var item = iterator.Next();
-
-                    // CPython bltinmodule.c:1794-1802
-                    PyObject val;
-                    if (keyfunc != null)
-                        val = keyfunc.Call(new PyObject[] { item }, null);
-                    else
-                        val = item;
-
-                    if (maxval == null)
+                    // 첫 번째 아이템 — 초기값 설정
+                    maxitem = item;
+                    maxval = val;
+                }
+                else
+                {
+                    // CPython bltinmodule.c:1811 — val끼리 비교 (원본 객체 비교 아님)
+                    if (((PyBool)val.RichCompare(maxval, op)).Value)
                     {
-                        // 첫 번째 아이템 — 초기값 설정
-                        maxitem = item;
                         maxval = val;
-                    }
-                    else
-                    {
-                        // CPython bltinmodule.c:1811 — val끼리 비교 (원본 객체 비교 아님)
-                        if (((PyBool)val.RichCompare(maxval, op)).Value)
-                        {
-                            maxval = val;
-                            maxitem = item;
-                        }
+                        maxitem = item;
                     }
                 }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
             }
 
             // CPython bltinmodule.c:1828-1835
@@ -928,18 +899,10 @@ namespace SharpPy
             var iterable = args[0];
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    if (item.PyBoolValue())
-                        return PyBool.True;
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 모두 False였음
+                if (item.PyBoolValue())
+                    return PyBool.True;
             }
 
             return PyBool.False;
@@ -953,18 +916,10 @@ namespace SharpPy
             var iterable = args[0];
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    if (!item.PyBoolValue())
-                        return PyBool.False;
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 모두 True였음
+                if (!item.PyBoolValue())
+                    return PyBool.False;
             }
 
             return PyBool.True;
@@ -1915,16 +1870,9 @@ namespace SharpPy
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var setItem))
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                items.Add(setItem);
             }
 
             return new PySet(items);
@@ -1942,16 +1890,9 @@ namespace SharpPy
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var frozenItem))
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                items.Add(frozenItem);
             }
 
             return new PyFrozenSet(items);
@@ -1975,16 +1916,12 @@ namespace SharpPy
             var iterator = args[0];
             var defaultValue = args.Length > 1 ? args[1] : null;
 
-            try
-            {
-                return iterator.Next();
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                if (defaultValue != null)
-                    return defaultValue;
-                throw;
-            }
+            if (iterator.TryNext(out var nextVal))
+                return nextVal;
+
+            if (defaultValue != null)
+                return defaultValue;
+            throw PyStopIteration.Create();
         }
 
         // === 수학 함수들 ===
