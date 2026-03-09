@@ -232,14 +232,18 @@ namespace SharpPy
                 {
                     init = desc.Get(instance, this);
                 }
-                else if (init is PyFunction function)
-                {
-                    // Convert function to bound method
-                    init = new PyMethod(instance, function);
-                }
 
-                // Call the bound init method
-                if (init is PyMethod method)
+                // CPython 3.12: slot_tp_init calls __init__(self, *args, **kwargs) directly
+                // Avoid PyMethod allocation — prepend self to args and call function directly
+                if (init is PyFunction function)
+                {
+                    // Direct call: function(instance, *args, **kwargs)
+                    var initArgs = new PyObject[args.Length + 1];
+                    initArgs[0] = instance;
+                    Array.Copy(args, 0, initArgs, 1, args.Length);
+                    function.Call(initArgs, kwargs);
+                }
+                else if (init is PyMethod method)
                 {
                     // PyMethod는 이미 self가 바인딩되어 있으므로 args만 전달
                     method.Call(args, kwargs);
@@ -1552,16 +1556,15 @@ namespace SharpPy
             }
 
             // Then check class hierarchy
+            // CPython 3.12: slot_tp_iternext calls __next__(self) directly, no PyMethod
             foreach (var mroType in InstanceType.MRO)
             {
-                if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__next__"))
+                if (mroType is PyClass customClass && customClass.ClassDict.TryGetValue("__next__", out var method))
                 {
-                    var method = customClass.ClassDict["__next__"];
                     if (method is PyFunction func)
                     {
-                        // Bind to instance
-                        var boundMethod = new PyMethod(this, func);
-                        return boundMethod.Call(new PyObject[0], null);
+                        // Direct call: func(self) — skip PyMethod allocation
+                        return func.Call(new PyObject[] { this }, null);
                     }
                     break;
                 }
@@ -1875,10 +1878,9 @@ namespace SharpPy
                     // Apply descriptor protocol to __get__ itself (it might be a function)
                     if (getMethod is PyFunction func)
                     {
-                        // Bind __get__ to the descriptor instance
-                        var boundGet = new PyMethod(descriptor, func);
-                        // Call: descriptor.__get__(instance, owner)
-                        return boundGet.Call(new PyObject[] { instanceArg, owner }, null);
+                        // CPython 3.12: Direct call — func(descriptor, instance, owner)
+                        // Skip PyMethod allocation
+                        return func.Call(new PyObject[] { descriptor, instanceArg, owner }, null);
                     }
                     else if (getMethod.IsCallable())
                     {
@@ -1917,10 +1919,9 @@ namespace SharpPy
                     // Apply descriptor protocol to __set__ itself (it might be a function)
                     if (setMethod is PyFunction func)
                     {
-                        // Bind __set__ to the descriptor instance
-                        var boundSet = new PyMethod(descriptor, func);
-                        // Call: descriptor.__set__(instance, value)
-                        boundSet.Call(new PyObject[] { instance, value }, null);
+                        // CPython 3.12: Direct call — func(descriptor, instance, value)
+                        // Skip PyMethod allocation
+                        func.Call(new PyObject[] { descriptor, instance, value }, null);
                         return;
                     }
                     else if (setMethod.IsCallable())
@@ -2181,11 +2182,6 @@ namespace SharpPy
 
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject method))
                 {
-                    // Found user-defined special method, bind it to self
-                    if (method is PyFunction func)
-                    {
-                        return new PyMethod(this, func);
-                    }
                     return method;
                 }
             }
@@ -2209,7 +2205,11 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   → found user __delattr__, calling it");
                 #endif
-                delattr.Call(new PyObject[] { new PyStr(name) }, null);
+                // CPython 3.12: slot_tp_setattro calls __delattr__(self, name) directly
+                if (delattr is PyFunction delattrFunc)
+                    delattrFunc.Call(new PyObject[] { this, new PyStr(name) }, null);
+                else
+                    delattr.Call(new PyObject[] { new PyStr(name) }, null);
                 return;
             }
 

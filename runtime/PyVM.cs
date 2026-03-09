@@ -40,11 +40,11 @@ namespace SharpPy
         public string? CurrentFileName { get; set; }
 
         // CPython-style closure support
-        public PyCell[] Cells { get; set; } = new PyCell[0];     // 클로저 셀들 (freevars + cellvars)
+        public PyCell[] Cells { get; set; } = Array.Empty<PyCell>();     // 클로저 셀들 (freevars + cellvars)
 
         // CPython 3.12: Keyword names for next CALL instruction
         public PyTuple? KeywordNamesForNextCall { get; set; }
-        public PyCell[] Closure { get; set; } = new PyCell[0];   // 부모로부터 받은 클로저 셀들
+        public PyCell[] Closure { get; set; } = Array.Empty<PyCell>();   // 부모로부터 받은 클로저 셀들
 
         // **NEW**: Storage for class body variables before scope cleanup
         public Dictionary<string, PyObject>? ClassBodyVariables { get; set; }
@@ -154,7 +154,7 @@ namespace SharpPy
             CurrentFileName = code.FileName;
 
             // 클로저 정보 설정
-            Closure = closure ?? new PyCell[0];
+            Closure = closure ?? Array.Empty<PyCell>();
 
             // CPython 3.12: Cells array includes both FreeVars (first) and CellVars (after)
             int freeVarCount = code.FreeVars?.Count ?? 0;
@@ -174,7 +174,7 @@ namespace SharpPy
             }
             else
             {
-                Cells = new PyCell[0];
+                Cells = Array.Empty<PyCell>();
             }
 
             // 함수 스코프 생성 (모듈 실행인 경우 제외)
@@ -276,6 +276,9 @@ namespace SharpPy
 
             bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
             bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
+            // CPython 3.12: CO_OPTIMIZED functions use LOAD_FAST/STORE_FAST (localsplus only)
+            // ScopeChain writes are only needed for class bodies/exec() which use LOAD_NAME/STORE_NAME
+            bool needsScopeChain = (code.Flags & PyCodeObject.CO_OPTIMIZED) == 0;
 
             // Phase 1: Bind positional arguments to regular parameters (NOT including keyword-only)
             // CPython 3.12: co_argcount does NOT include keyword-only parameters
@@ -289,7 +292,7 @@ namespace SharpPy
                 {
                     // Bind positional argument
                     LocalsPlus[paramIndex] = PyValue.FromObject(positionalArgs[posArgIndex]);
-                    ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
+                    if (needsScopeChain) ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
 #if DEBUG_LOG
@@ -323,7 +326,7 @@ namespace SharpPy
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
                     LocalsPlus[paramIndex] = PyValue.FromObject(keywordValue);
-                    ScopeChain.AssignVariable(paramName, keywordValue);
+                    if (needsScopeChain) ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -335,20 +338,14 @@ namespace SharpPy
                     // CPython 3.12: Check for default value from runtime defaults (captured from MAKE_FUNCTION)
                     // Priority: runtimeDefaults (from func.__defaults__) > code.DefaultValues (compile-time, legacy)
                     // Performance: Eliminated LINQ - check List directly
-                    PyTuple effectiveDefaults = runtimeDefaults;
-                    if (effectiveDefaults == null && code.DefaultValues.Count > 0)
-                    {
-                        var defaultsArray = new PyObject[code.DefaultValues.Count];
-                        code.DefaultValues.CopyTo(defaultsArray, 0);
-                        effectiveDefaults = new PyTuple(defaultsArray);
-                    }
+                    PyTuple effectiveDefaults = runtimeDefaults ?? code.CachedDefaultsTuple;
                     int numRequiredParams = regularArgCount - (effectiveDefaults?.Items.Length ?? 0);
 
                     if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
                     {
                         var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
                         LocalsPlus[paramIndex] = PyValue.FromObject(defaultValue);
-                        ScopeChain.AssignVariable(paramName, defaultValue);
+                        if (needsScopeChain) ScopeChain.AssignVariable(paramName, defaultValue);
 
 #if DEBUG_LOG
                         Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {paramIndex - numRequiredParams})");
@@ -374,7 +371,7 @@ namespace SharpPy
                 {
                     var keywordValue = keywordArgs[paramName];
                     LocalsPlus[paramIndex] = PyValue.FromObject(keywordValue);
-                    ScopeChain.AssignVariable(paramName, keywordValue);
+                    if (needsScopeChain) ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -421,7 +418,7 @@ namespace SharpPy
                     if (hasDefault)
                     {
                         LocalsPlus[paramIndex] = PyValue.FromObject(defaultValue);
-                        ScopeChain.AssignVariable(paramName, defaultValue);
+                        if (needsScopeChain) ScopeChain.AssignVariable(paramName, defaultValue);
                     }
                     else
                     {
@@ -446,7 +443,7 @@ namespace SharpPy
                 var argsTuple = new PyTuple(extraArgs);
 
                 LocalsPlus[varargsIndex] = PyValue.FromObject(argsTuple);
-                ScopeChain.AssignVariable(varargsName, argsTuple);
+                if (needsScopeChain) ScopeChain.AssignVariable(varargsName, argsTuple);
 
 #if DEBUG_LOG
                 Console.WriteLine($"  → {varargsName} = {argsTuple} (*args with {extraArgs.Length} items)");
@@ -470,7 +467,7 @@ namespace SharpPy
                 }
 
                 LocalsPlus[varkwargsIndex] = PyValue.FromObject(kwargsDict);
-                ScopeChain.AssignVariable(varkwargsName, kwargsDict);
+                if (needsScopeChain) ScopeChain.AssignVariable(varkwargsName, kwargsDict);
 
 #if DEBUG_LOG
                 var itemCount = keywordArgs?.Count ?? 0;
@@ -707,6 +704,9 @@ namespace SharpPy
 
         // Performance: Cache for HasCustomGetAttribute check to avoid repeated Reflection calls
         private static readonly Dictionary<Type, bool> _hasCustomGetAttributeCache = new();
+
+        // Performance: Cached empty args array for zero-arg CALL
+        private static readonly PyObject[] EmptyArgs = Array.Empty<PyObject>();
 
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
@@ -2208,7 +2208,8 @@ namespace SharpPy
                 case ByteCodeOp.CALL:
                     // CPython 3.12 정확한 CALL 동작
                     var callArgCount = instruction.Argument;
-                    var callArgs = new PyObject[callArgCount];
+                    // Performance: Avoid allocation for zero-arg calls (most common)
+                    var callArgs = callArgCount == 0 ? EmptyArgs : new PyObject[callArgCount];
 
                     // CPython 3.12: Save current scope depth before function call for proper restoration
                     var savedScopeCount = frame.ScopeChain?.ScopeCount ?? 0;
@@ -2257,10 +2258,11 @@ namespace SharpPy
                     else
                     {
                         // CPython 3.12: method != NULL
-                        // callable = method, args includes original callable as first arg
-                        actualCallable = nextElement;  // method becomes the callable!
+                        // Stack: [nextElement, callableFunc] where nextElement is NOT null
+                        // Original logic: nextElement becomes callable, callableFunc becomes first arg
+                        actualCallable = nextElement;
                         finalArgs = new PyObject[callArgs.Length + 1];
-                        finalArgs[0] = callableFunc;  // original callable becomes first arg
+                        finalArgs[0] = callableFunc;
                         Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
 
@@ -2623,7 +2625,7 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
                             #endif
-                            closure = new PyCell[0];
+                            closure = Array.Empty<PyCell>();
                         }
                     }
 
@@ -2971,17 +2973,36 @@ namespace SharpPy
 
                                 if (unboundFunc != null)
                                 {
-                                    // Fast path: skip GetAttribute's full MRO + descriptor protocol
-                                    // Still creates PyMethod but avoids ~3 MRO loops in GetAttributeGeneric
-                                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
-                                    frame.ValueStack.Push(new PyMethod(obj, (PyFunction)unboundFunc));
+                                    // CPython 3.12: _PyObject_GetMethod → bypass PyMethod allocation
+                                    // Push [meth, self] matching CPython's stack layout:
+                                    //   meth | self | arg1 | ... | argN
+                                    // CALL's swap: actualCallable=meth, finalArgs=[self, args]
+                                    frame.ValueStack.Push(unboundFunc);  // meth (unbound function) → PEEK(2)
+                                    frame.ValueStack.Push(obj);          // self (instance) → PEEK(1)
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   → Fast method path: pushed [NULL, bound_method]");
+                                    Console.WriteLine($"   → Fast method path: pushed [meth, self] (no PyMethod alloc)");
                                     #endif
                                     break;
                                 }
                                 // Not a simple PyFunction → fall through to GetAttribute
                             }
+                        }
+
+                        // CPython 3.12: LOAD_ATTR_INSTANCE_VALUE fast path
+                        // For non-method attribute access on PyClassInstance:
+                        // Check InstanceDict first (most common case), skip full GetAttribute MRO traversal
+                        if (!pushNullForMethod && obj is PyClassInstance attrInst)
+                        {
+                            if (attrInst.InstanceDict.TryGetValue(attrName, out var instVal))
+                            {
+                                frame.ValueStack.Push(instVal);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → LOAD_ATTR_INSTANCE_VALUE fast path: {attrName} = {instVal}");
+                                #endif
+                                break;
+                            }
+                            // Not in instance dict — check class dict for data descriptors and non-method attrs
+                            // Fall through to full GetAttribute for descriptor protocol
                         }
 
                         // Get attribute using existing system
@@ -3018,14 +3039,14 @@ namespace SharpPy
                                 Console.WriteLine($"   → Custom GetAttribute: pushed [NULL, attr]");
                                 #endif
                             }
-                            else if (attr is PyMethod)
+                            else if (attr is PyMethod boundMethod)
                             {
-                                // It's already a bound method: push [NULL, bound_method]
-                                // The method already has self bound, so we don't add it again
-                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
-                                frame.ValueStack.Push(attr); // bound method
+                                // CPython 3.12: Decompose PyMethod → push [meth, self]
+                                // Avoids passing PyMethod through stack; CALL's swap handles binding
+                                frame.ValueStack.Push(boundMethod.Function); // meth → PEEK(2)
+                                frame.ValueStack.Push(boundMethod.Instance); // self → PEEK(1)
                                 #if DEBUG_LOG
-                                Console.WriteLine($"   → Bound method: pushed [NULL, bound_method]");
+                                Console.WriteLine($"   → Bound method decomposed: pushed [meth, self]");
                                 #endif
                             }
                             else if (attr is PyFunction || attr is PyBuiltinFunction)
@@ -3079,12 +3100,13 @@ namespace SharpPy
                                 }
                                 else
                                 {
-                                    // Instance method (from class): push [self, unbound_method]
-                                    // CPython 3.12: Method binding - CALL will pass self as first argument
-                                    frame.ValueStack.Push(obj);  // self
-                                    frame.ValueStack.Push(attr); // unbound method
+                                    // CPython 3.12: _PyObject_GetMethod → push [meth, self]
+                                    // meth | self | arg1 | ... | argN
+                                    // CALL's swap: actualCallable=meth, finalArgs=[self, args]
+                                    frame.ValueStack.Push(attr); // meth (unbound function) → PEEK(2)
+                                    frame.ValueStack.Push(obj);  // self (instance) → PEEK(1)
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   → Instance method access: pushed [self, unbound_method]");
+                                    Console.WriteLine($"   → Instance method access: pushed [meth, self] (CPython pattern)");
                                     #endif
                                 }
                             }
@@ -8140,10 +8162,13 @@ namespace SharpPy
 
         private PyObject[] GetFunctionDefaults(PyFunction function)
         {
-            if (function.CodeObject?.DefaultValues == null)
-                return new PyObject[0];
+            if (function.CodeObject?.CachedDefaultsTuple != null)
+                return function.CodeObject.CachedDefaultsTuple.Items;
 
-            // Performance: Eliminated LINQ - manual List to array conversion
+            if (function.CodeObject?.DefaultValues == null || function.CodeObject.DefaultValues.Count == 0)
+                return Array.Empty<PyObject>();
+
+            // Fallback: manual List to array conversion
             var defaults = new PyObject[function.CodeObject.DefaultValues.Count];
             function.CodeObject.DefaultValues.CopyTo(defaults, 0);
             return defaults;

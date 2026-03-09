@@ -448,6 +448,12 @@ namespace SharpPy
         public PyValue[] ConstantsAsValues { get; private set; } = null!;
 
         /// <summary>
+        /// Cached PyTuple of default values. Built once at construction time.
+        /// Eliminates per-call PyTuple allocation in BindArgumentsToParametersCPython312.
+        /// </summary>
+        public PyTuple? CachedDefaultsTuple { get; private set; }
+
+        /// <summary>
         /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
         /// localsplus layout: [varnames | non-param cells | freevars]
         /// Built once at construction time. Eliminates repeated list building in
@@ -505,6 +511,7 @@ namespace SharpPy
             BuildIndexMaps();
             ComputeClassCellIndex();
             BuildConstantsCache();
+            BuildDefaultsTupleCache();
         }
 
         /// <summary>
@@ -586,6 +593,20 @@ namespace SharpPy
             for (int i = 0; i < Constants.Count; i++)
             {
                 ConstantsAsValues[i] = PyValue.FromObject(Constants[i]);
+            }
+        }
+
+        /// <summary>
+        /// Build cached PyTuple from DefaultValues list.
+        /// Called once at construction time, eliminates per-call tuple allocation in BindArguments.
+        /// </summary>
+        private void BuildDefaultsTupleCache()
+        {
+            if (DefaultValues.Count > 0)
+            {
+                var defaultsArray = new PyObject[DefaultValues.Count];
+                DefaultValues.CopyTo(defaultsArray, 0);
+                CachedDefaultsTuple = new PyTuple(defaultsArray);
             }
         }
 

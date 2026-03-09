@@ -21,23 +21,9 @@ namespace SharpPy
         private const int CACHE_SIZE = 4096;
         private readonly CacheEntry[] _cache = new CacheEntry[CACHE_SIZE];
 
-        // SearchMRO Reflection 정적 캐시: typeof(PyClass).GetMethod("GetTypeAttribute") 를
-        // 매 캐시 미스마다 호출하지 않고 1회만 resolve
+        // Direct static reference to PyClass.GetTypeAttribute
+        // Replaces previous MethodInfo.Invoke Reflection path (100-1000x slower)
         // CPython: Objects/typeobject.c — slot_tp_* 정적 슬롯 대응
-        private static readonly System.Func<PyType, string, PyObject> _getTypeAttributeFunc;
-
-        static TypeMethodCache()
-        {
-            var method = typeof(SharpPy.PyClass).GetMethod(
-                "GetTypeAttribute",
-                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
-            );
-            if (method != null)
-            {
-                _getTypeAttributeFunc = (type, name) =>
-                    (PyObject)method.Invoke(null, new object[] { type, name });
-            }
-        }
 
         /// <summary>
         /// Lookup method in cache with version tag validation
@@ -98,11 +84,10 @@ namespace SharpPy
                 // Fallback: Check hardcoded descriptors via GetTypeAttribute
                 // This handles cases like list.__delitem__ which are defined in PyClass but not in TypeDict
                 // CPython: Objects/typeobject.c — slot wrapper descriptors
-                if (_getTypeAttributeFunc != null)
                 {
                     try
                     {
-                        var result = _getTypeAttributeFunc(mroType, name);
+                        var result = PyClass.GetTypeAttribute(mroType, name);
                         if (result != null)
                             return result;
                     }
