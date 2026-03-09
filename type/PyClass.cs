@@ -57,6 +57,48 @@ namespace SharpPy
         // Note: Method lookups use global TypeMethodCache (CPython-style array cache)
         // See PyType.GlobalMethodCache and LookupInMRO() below
 
+        // Magic method cache: ClassDict-only MRO lookup cached per TypeVersionTag
+        // CPython: Objects/typeobject.c — type_modified() invalidates caches
+        // Lazy initialized, invalidated when TypeVersionTag changes
+        private Dictionary<string, PyObject> _magicMethodCache;
+        private ulong _magicMethodCacheVersion;
+
+        /// <summary>
+        /// Cached magic method lookup: ClassDict-only MRO search with TypeVersionTag invalidation.
+        /// O(1) on cache hit, O(MRO depth) on cache miss.
+        /// </summary>
+        internal PyObject GetCachedMagicMethod(string name)
+        {
+            // Version check: invalidate entire cache on type change
+            if (_magicMethodCache != null && _magicMethodCacheVersion == TypeVersionTag)
+            {
+                // Cache hit (including cached null = "method not found")
+                if (_magicMethodCache.TryGetValue(name, out var cached))
+                    return cached;
+            }
+            else
+            {
+                // Version mismatch: rebuild cache
+                _magicMethodCache = new Dictionary<string, PyObject>();
+                _magicMethodCacheVersion = TypeVersionTag;
+            }
+
+            // Cache miss: ClassDict-only MRO search (기존 동작 보존)
+            PyObject found = null;
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var method))
+                {
+                    found = method;
+                    break;
+                }
+            }
+
+            // Cache the result (null means "not found", also cached)
+            _magicMethodCache[name] = found;
+            return found;
+        }
+
         public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null)
             : this(name, baseTypes, classDict, typeParams, null)
         {
@@ -1314,24 +1356,14 @@ namespace SharpPy
             }
             #endif
 
-            // CPython 3.12: Check for user-defined __getitem__ in MRO
+            // CPython 3.12: Check for user-defined __getitem__ in MRO (cached)
             // Only check PyClass.ClassDict, NOT PyType.TypeDict
-            foreach (var mroType in InstanceType.MRO)
+            // CPython: Objects/abstract.c PyObject_GetItem → slot_mp_subscript
+            var getItemMethod = InstanceType.GetCachedMagicMethod("__getitem__");
+            if (getItemMethod != null)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getitem__", out PyObject getItemMethod))
-                {
-                    // Found user-defined __getitem__
-                    if (getItemMethod is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        return boundMethod.Call(new PyObject[] { key }, null);
-                    }
-                    else if (getItemMethod.IsCallable())
-                    {
-                        return getItemMethod.Call(new PyObject[] { this, key }, null);
-                    }
-                    break;
-                }
+                var result = InvokeMagicMethod(getItemMethod, new PyObject[] { key });
+                if (result != null) return result;
             }
 
             // CPython 3.12: Fall back to direct storage access
@@ -1382,25 +1414,15 @@ namespace SharpPy
             // This is critical for Lib/enum.py:509 where _EnumDict.__setitem__
             // processes auto() values before calling super().__setitem__()
 
-            // Check for user-defined __setitem__ in MRO
+            // Check for user-defined __setitem__ in MRO (cached)
             // Only check PyClass.ClassDict, NOT PyType.TypeDict
-            foreach (var mroType in InstanceType.MRO)
+            var setitemMethod = InstanceType.GetCachedMagicMethod("__setitem__");
+            if (setitemMethod != null)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__setitem__", out var setitemMethod))
-                {
-                    // Found user-defined __setitem__ - call it and return
-                    // Storage will be updated only if user code calls super().__setitem__()
-                    if (setitemMethod is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        boundMethod.Call(new PyObject[] { key, value }, null);
-                    }
-                    else if (setitemMethod.IsCallable())
-                    {
-                        setitemMethod.Call(new PyObject[] { this, key, value }, null);
-                    }
-                    return;  // User __setitem__ found and called, we're done
-                }
+                // Found user-defined __setitem__ - call it and return
+                // Storage will be updated only if user code calls super().__setitem__()
+                InvokeMagicMethod(setitemMethod, new PyObject[] { key, value });
+                return;  // User __setitem__ found and called, we're done
             }
 
             // No user-defined __setitem__ found
@@ -1419,23 +1441,13 @@ namespace SharpPy
         // Same pattern as SetItem - check user-defined __delitem__ first, then fall back to storage
         public override void DelItem(PyObject key)
         {
-            // Check for user-defined __delitem__ in MRO
-            foreach (var mroType in InstanceType.MRO)
+            // Check for user-defined __delitem__ in MRO (cached)
+            var delitemMethod = InstanceType.GetCachedMagicMethod("__delitem__");
+            if (delitemMethod != null)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__delitem__", out var delitemMethod))
-                {
-                    // Found user-defined __delitem__ - call it and return
-                    if (delitemMethod is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        boundMethod.Call(new PyObject[] { key }, null);
-                    }
-                    else if (delitemMethod.IsCallable())
-                    {
-                        delitemMethod.Call(new PyObject[] { this, key }, null);
-                    }
-                    return;
-                }
+                // Found user-defined __delitem__ - call it and return
+                InvokeMagicMethod(delitemMethod, new PyObject[] { key });
+                return;
             }
 
             // No user-defined __delitem__ found
@@ -1467,44 +1479,29 @@ namespace SharpPy
             // Try to call __iter__ method if it exists (takes precedence)
             try
             {
-                // Check instance dict first
-                if (InstanceDict.ContainsKey("__iter__"))
-                {
-                    var iterMethod = InstanceDict["__iter__"];
-                    return iterMethod.Call(new PyObject[0], null);
-                }
+                // Instance dict first (monkey-patching)
+                if (InstanceDict.TryGetValue("__iter__", out var instIter))
+                    return instIter.Call(new PyObject[0], null);
 
-                // Then check class hierarchy (both PyClass and PyType)
+                // ClassDict + TypeDict MRO (기존 동작 보존: GetIterator는 TypeDict도 검색)
+                // CPython: Objects/abstract.c PyObject_GetIter → slot_tp_iter
                 foreach (var mroType in InstanceType.MRO)
                 {
-                    // CPython 3.12: Check PyClass (user-defined classes)
-                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__iter__"))
+                    // PyClass.ClassDict (user-defined classes)
+                    if (mroType is PyClass customClass && customClass.ClassDict.TryGetValue("__iter__", out var classMethod))
                     {
-                        var method = customClass.ClassDict["__iter__"];
-                        if (method is PyFunction func)
-                        {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            return boundMethod.Call(new PyObject[0], null);
-                        }
+                        var result = InvokeMagicMethod(classMethod, new PyObject[0]);
+                        if (result != null) return result;
                         break;
                     }
-                    // CPython 3.12: Check PyType (builtin types like list, dict)
-                    // This is critical for list subclasses that inherit __iter__ from list
-                    else if (mroType.TypeDict.TryGetValue("__iter__", out var method))
+                    // PyType.TypeDict (builtin types like list, dict)
+                    // Critical for list subclasses that inherit __iter__ from list
+                    else if (mroType.TypeDict.TryGetValue("__iter__", out var typeMethod))
                     {
-                        // Handle PyMethodDescriptor from builtin types
-                        if (method is PyMethodDescriptor descriptor)
-                        {
-                            // Call the descriptor with self as first argument
+                        if (typeMethod is PyMethodDescriptor descriptor)
                             return descriptor.Call(new PyObject[] { this }, null);
-                        }
-                        else if (method is PyFunction func)
-                        {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            return boundMethod.Call(new PyObject[0], null);
-                        }
+                        var result = InvokeMagicMethod(typeMethod, new PyObject[0]);
+                        if (result != null) return result;
                         break;
                     }
                 }
@@ -1575,42 +1572,120 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: Helper to call a magic method if it exists
-        /// Searches instance dict first, then class MRO
+        /// CPython 3.12: Find a magic method in ClassDict-only MRO (not TypeDict).
+        /// Returns the raw unbound method (PyFunction, callable, etc.) or null.
+        /// Searches instance dict first, then class hierarchy (ClassDict only).
+        /// CPython: Objects/typeobject.c — _PyType_Lookup for special methods
+        /// </summary>
+        private PyObject FindMagicMethod(string methodName)
+        {
+            // 1. Instance dict first (monkey-patching support: obj.__add__ = ...)
+            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+                return instMethod;
+
+            // 2. ClassDict-only MRO search (기존 동작 보존: TypeDict 미검색)
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(methodName, out var method))
+                    return method;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Call a magic method bound to this instance.
+        /// Avoids PyMethod allocation by calling func directly with self prepended.
+        /// CPython: Objects/abstract.c — call_unbound_noarg, call_method
+        /// </summary>
+        private PyObject InvokeMagicMethod(PyObject method, PyObject[] args)
+        {
+            if (method is PyFunction func)
+            {
+                // PyMethod 할당 제거: func(self, *args) 직접 호출
+                if (args.Length == 0)
+                    return func.Call(new PyObject[] { this }, null);
+                if (args.Length == 1)
+                    return func.Call(new PyObject[] { this, args[0] }, null);
+                var fullArgs = new PyObject[args.Length + 1];
+                fullArgs[0] = this;
+                System.Array.Copy(args, 0, fullArgs, 1, args.Length);
+                return func.Call(fullArgs, null);
+            }
+            else if (method is IDescriptor desc)
+            {
+                var bound = desc.Get(this, InstanceType);
+                return bound.Call(args, null);
+            }
+            else if (method.IsCallable())
+            {
+                var fullArgs = new PyObject[args.Length + 1];
+                fullArgs[0] = this;
+                System.Array.Copy(args, 0, fullArgs, 1, args.Length);
+                return method.Call(fullArgs, null);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Helper to find and call a magic method.
+        /// Combines FindMagicMethod + InvokeMagicMethod.
+        /// Instance dict methods are called directly (no self prepend).
         /// </summary>
         private PyObject CallMagicMethod(string methodName, params PyObject[] args)
         {
-            // Check instance dict first
-            if (InstanceDict.ContainsKey(methodName))
-            {
-                var method = InstanceDict[methodName];
-                return method.Call(args, null);
-            }
+            // 1. Instance dict (monkey-patching: already bound, no self prepend)
+            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+                return instMethod.Call(args, null);
 
-            // Then check class hierarchy (MRO)
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(methodName, out PyObject method))
-                {
-                    // Bind method to this instance and call
-                    if (method is PyFunction func)
-                    {
-                        var boundMethod = new PyMethod(this, func);
-                        return boundMethod.Call(args, null);
-                    }
-                    else if (method.IsCallable())
-                    {
-                        // For non-function callables, pass self as first argument
-                        var argsWithSelf = new PyObject[args.Length + 1];
-                        argsWithSelf[0] = this;
-                        Array.Copy(args, 0, argsWithSelf, 1, args.Length);
-                        return method.Call(argsWithSelf, null);
-                    }
-                    break;
-                }
-            }
+            // 2. Cached ClassDict MRO search (O(1) on hit)
+            var method = InstanceType.GetCachedMagicMethod(methodName);
+            if (method != null)
+                return InvokeMagicMethod(method, args);
 
-            return null; // Method not found
+            return null;
+        }
+
+        /// <summary>
+        /// Zero-alloc unary magic method call (no args, e.g., __repr__, __str__, __iter__)
+        /// Avoids params array + inner array allocation.
+        /// </summary>
+        private PyObject CallMagicMethodUnary(string methodName)
+        {
+            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+                return instMethod.Call(System.Array.Empty<PyObject>(), null);
+
+            var method = InstanceType.GetCachedMagicMethod(methodName);
+            if (method == null) return null;
+
+            if (method is PyFunction func)
+                return func.Call(new PyObject[] { this }, null);
+            if (method is IDescriptor desc)
+                return desc.Get(this, InstanceType).Call(System.Array.Empty<PyObject>(), null);
+            if (method.IsCallable())
+                return method.Call(new PyObject[] { this }, null);
+            return null;
+        }
+
+        /// <summary>
+        /// Zero-alloc binary magic method call (1 arg, e.g., __add__, __eq__, __getitem__)
+        /// Avoids params array + inner array allocation.
+        /// </summary>
+        private PyObject CallMagicMethodBinary(string methodName, PyObject arg)
+        {
+            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+                return instMethod.Call(new PyObject[] { arg }, null);
+
+            var method = InstanceType.GetCachedMagicMethod(methodName);
+            if (method == null) return null;
+
+            if (method is PyFunction func)
+                return func.Call(new PyObject[] { this, arg }, null);
+            if (method is IDescriptor desc)
+                return desc.Get(this, InstanceType).Call(new PyObject[] { arg }, null);
+            if (method.IsCallable())
+                return method.Call(new PyObject[] { this, arg }, null);
+            return null;
         }
 
         /// <summary>
@@ -1620,7 +1695,7 @@ namespace SharpPy
         private PyObject BinaryOpWithMagicMethod(PyObject other, string methodName, string reflectedMethodName)
         {
             // Try left operand's method first (e.g., self.__add__(other))
-            var result = CallMagicMethod(methodName, other);
+            var result = CallMagicMethodBinary(methodName, other);
             if (result != null)
             {
                 return result;
@@ -1629,7 +1704,7 @@ namespace SharpPy
             // Try right operand's reflected method (e.g., other.__radd__(self))
             if (other is PyClassInstance otherInstance)
             {
-                result = otherInstance.CallMagicMethod(reflectedMethodName, this);
+                result = otherInstance.CallMagicMethodBinary(reflectedMethodName, this);
                 if (result != null)
                 {
                     return result;
@@ -2007,35 +2082,15 @@ namespace SharpPy
             Console.WriteLine($"🔍 PyClassInstance.GetAttribute: {InstanceType.Name} instance.{name}");
             #endif
 
-            // CPython 3.12: Check for custom __getattribute__ FIRST
+            // CPython 3.12: Check for custom __getattribute__ FIRST (cached)
             // (typeobject.c:8867 - _Py_slot_tp_getattr_hook)
-            PyObject customGetAttr = null;
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getattribute__", out customGetAttr))
-                {
-                    break;
-                }
-                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__getattribute__", out customGetAttr))
-                {
-                    // Check if it's NOT the default object.__getattribute__
-                    // (CPython: check if d_wrapped == PyObject_GenericGetAttr)
-                    if (mroType == PyType.ObjectType)
-                    {
-                        // This is the default object.__getattribute__, continue with normal logic
-                        customGetAttr = null;
-                    }
-                    break;
-                }
-            }
-
-            // If custom __getattribute__ found, call it directly
+            var customGetAttr = InstanceType.GetCachedMagicMethod("__getattribute__");
             if (customGetAttr != null)
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"   🔍 calling custom __getattribute__");
                 #endif
-                return customGetAttr.Call(new PyObject[] { this, new PyStr(name) }, null);
+                return InvokeMagicMethod(customGetAttr, new PyObject[] { new PyStr(name) });
             }
 
             // Use GetAttributeGeneric for standard attribute lookup
@@ -2050,14 +2105,14 @@ namespace SharpPy
             #endif
 
             // CPython 3.12: Objects/typeobject.c:8893-8910 (slot_tp_setattro)
-            // First check for user-defined __setattr__ method
-            var setattr = LookupSpecialMethod("__setattr__");
+            // Check for user-defined __setattr__ method (cached, no PyMethod allocation)
+            var setattr = InstanceType.GetCachedMagicMethod("__setattr__");
             if (setattr != null)
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"   → found user __setattr__, calling it");
                 #endif
-                setattr.Call(new PyObject[] { new PyStr(name), value }, null);
+                InvokeMagicMethod(setattr, new PyObject[] { new PyStr(name), value });
                 return;
             }
 
@@ -2229,105 +2284,54 @@ namespace SharpPy
         {
             // CPython 3.12: Try to call __repr__ method if user defined it
             // Check instance dict and class hierarchy (not object's default)
+            // CPython: Objects/typeobject.c slot_tp_repr
             try
             {
-                // First check instance dict
-                if (InstanceDict.ContainsKey("__repr__"))
-                {
-                    var reprMethod = InstanceDict["__repr__"];
-                    var result = reprMethod.Call(new PyObject[0], null);
-                    if (result is PyStr pyStr)
-                    {
-                        return pyStr;
-                    }
-                }
-
-                // Then check class hierarchy (but not object's __repr__)
-                foreach (var mroType in InstanceType.MRO)
-                {
-                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__repr__"))
-                    {
-                        var method = customClass.ClassDict["__repr__"];
-                        if (method is PyFunction func)
-                        {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            var result = boundMethod.Call(new PyObject[0], null);
-                            if (result is PyStr pyStr)
-                            {
-                                return pyStr;
-                            }
-                        }
-                        break;
-                    }
-                    // Stop before reaching object type to avoid default __repr__
-                    if (mroType.Name == "object")
-                    {
-                        break;
-                    }
-                }
+                // Zero-alloc unary call: InstanceDict → cached ClassDict MRO
+                var result = CallMagicMethodUnary("__repr__");
+                if (result is PyStr pyStr) return pyStr;
             }
             catch
             {
                 // If __repr__ fails, fall back to default
             }
 
-            // Default representation
             return new PyStr($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
         public override PyStr ToStr()
         {
             // CPython 3.12: Try to call __str__ method if user defined it
+            // CPython: Objects/typeobject.c slot_tp_str
             try
             {
-                // First check instance dict
-                if (InstanceDict.ContainsKey("__str__"))
+                // Instance dict first (monkey-patching)
+                if (InstanceDict.TryGetValue("__str__", out var instStr))
                 {
-                    var strMethod = InstanceDict["__str__"];
-                    var result = strMethod.Call(new PyObject[0], null);
-                    if (result is PyStr pyStr)
-                    {
-                        return pyStr;
-                    }
+                    var result = instStr.Call(new PyObject[0], null);
+                    if (result is PyStr pyStr) return pyStr;
                 }
 
-                // Then check class hierarchy (but not object's __str__)
+                // ClassDict + TypeDict MRO (기존 동작 보존: ToStr은 TypeDict도 검색)
                 foreach (var mroType in InstanceType.MRO)
                 {
-                    // Check PyType (builtin types like BaseException, Exception)
-                    if (mroType is PyType pyType && pyType.TypeDict.ContainsKey("__str__"))
+                    if (mroType.Name == "object") break;
+
+                    // Check PyType.TypeDict (builtin types like BaseException, Exception)
+                    if (mroType is PyType pyType && pyType.TypeDict.TryGetValue("__str__", out var typeMethod))
                     {
-                        var method = pyType.TypeDict["__str__"];
-                        if (method is PyBuiltinFunction builtinFunc)
+                        if (typeMethod is PyBuiltinFunction builtinFunc)
                         {
                             var result = builtinFunc.Call(new PyObject[] { this }, null);
-                            if (result is PyStr pyStr)
-                            {
-                                return pyStr;
-                            }
+                            if (result is PyStr pyStr) return pyStr;
                         }
                         break;
                     }
-                    // Check PyClass (user-defined classes)
-                    else if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
+                    // Check PyClass.ClassDict (user-defined classes)
+                    else if (mroType is PyClass customClass && customClass.ClassDict.TryGetValue("__str__", out var classMethod))
                     {
-                        var method = customClass.ClassDict["__str__"];
-                        if (method is PyFunction func)
-                        {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            var result = boundMethod.Call(new PyObject[0], null);
-                            if (result is PyStr pyStr)
-                            {
-                                return pyStr;
-                            }
-                        }
-                        break;
-                    }
-                    // Stop before reaching object type
-                    if (mroType.Name == "object")
-                    {
+                        var result = InvokeMagicMethod(classMethod, new PyObject[0]);
+                        if (result is PyStr pyStr) return pyStr;
                         break;
                     }
                 }
@@ -2358,44 +2362,11 @@ namespace SharpPy
             {
                 try
                 {
-                    // Look for comparison method in class MRO
-                    foreach (var mroType in InstanceType.MRO)
-                    {
-                        if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(methodName, out PyObject compareMethod))
-                        {
-                            // Found comparison method, call it with self and other
-                            if (compareMethod is PyFunction func)
-                            {
-                                var boundMethod = new PyMethod(this, func);
-                                var result = boundMethod.Call(new PyObject[] { other }, null);
-
-                                // CPython 3.12: If result is NotImplemented, fall back to default
-                                if (result == PyNotImplemented.Instance)
-                                {
-                                    break;
-                                }
-
-                                return result;
-                            }
-                            else if (compareMethod.IsCallable())
-                            {
-                                var result = compareMethod.Call(new PyObject[] { this, other }, null);
-
-                                if (result == PyNotImplemented.Instance)
-                                {
-                                    break;
-                                }
-
-                                return result;
-                            }
-                            break;
-                        }
-                        // Stop before reaching object type to avoid default comparison
-                        if (mroType.Name == "object")
-                        {
-                            break;
-                        }
-                    }
+                    // Zero-alloc binary call: InstanceDict → cached ClassDict MRO
+                    // CPython: Objects/typeobject.c slot_tp_richcompare
+                    var result = CallMagicMethodBinary(methodName, other);
+                    if (result != null && result != PyNotImplemented.Instance)
+                        return result;
                 }
                 catch (PythonException)
                 {

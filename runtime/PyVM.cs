@@ -1662,8 +1662,8 @@ namespace SharpPy
                     var storeIndex = instruction.Argument;
                     if (storeIndex < frame.LocalsPlus.Length)
                     {
-                        var storeVal = frame.ValueStack.Pop();
-                        frame.LocalsPlus[storeIndex] = PyValue.FromObject(storeVal);
+                        // PopValue(): PyValue 직접 복사 (Pop()+FromObject() 이중 변환 제거)
+                        frame.LocalsPlus[storeIndex] = frame.ValueStack.PopValue();
                     }
                     else
                     {
@@ -2946,25 +2946,41 @@ namespace SharpPy
                         }
                         #endif
 
-                        // CPython 3.12: Check for descriptor BEFORE calling GetAttribute
-                        // This allows us to distinguish staticmethod from regular methods
-                        bool isStaticMethod = false;
-                        if (obj is PyClassInstance instance && pushNullForMethod)
+                        // CPython 3.12: _PyObject_GetMethod fast path for PyClassInstance
+                        // Avoid GetAttribute() which creates PyMethod heap allocation
+                        // Instead, find unbound function and push [function, self] for CALL's swap logic
+                        if (pushNullForMethod && obj is PyClassInstance fastInst)
                         {
-                            // Check if this attribute is a staticmethod descriptor
-                            foreach (var mroType in instance.InstanceType.MRO)
+                            // Check instance dict first (monkey-patched methods are already bound)
+                            if (!fastInst.InstanceDict.ContainsKey(attrName))
                             {
-                                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out PyObject classValue))
+                                // Search ClassDict in MRO for unbound function
+                                PyObject unboundFunc = null;
+                                foreach (var mroType in fastInst.InstanceType.MRO)
                                 {
-                                    if (classValue is PyStaticmethod)
+                                    if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out var classVal))
                                     {
-                                        isStaticMethod = true;
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"   → Found staticmethod descriptor for '{attrName}'");
-                                        #endif
+                                        if (classVal is PyFunction)
+                                        {
+                                            unboundFunc = classVal;
+                                        }
+                                        // staticmethod, classmethod, descriptor, etc. → fall through
+                                        break;
                                     }
+                                }
+
+                                if (unboundFunc != null)
+                                {
+                                    // Fast path: skip GetAttribute's full MRO + descriptor protocol
+                                    // Still creates PyMethod but avoids ~3 MRO loops in GetAttributeGeneric
+                                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                    frame.ValueStack.Push(new PyMethod(obj, (PyFunction)unboundFunc));
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   → Fast method path: pushed [NULL, bound_method]");
+                                    #endif
                                     break;
                                 }
+                                // Not a simple PyFunction → fall through to GetAttribute
                             }
                         }
 
@@ -3033,9 +3049,22 @@ namespace SharpPy
                                 // CPython: Check if attribute is from instance __dict__ (not a method!)
                                 // Instance attributes that are functions are NOT bound as methods
                                 bool isInstanceAttribute = false;
+                                bool isStaticMethod = false;
                                 if (obj is PyClassInstance classInstance)
                                 {
                                     isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
+                                    // Lazy staticmethod check: only when it's not an instance attribute
+                                    if (!isInstanceAttribute)
+                                    {
+                                        foreach (var mroType in classInstance.InstanceType.MRO)
+                                        {
+                                            if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out PyObject classValue))
+                                            {
+                                                isStaticMethod = classValue is PyStaticmethod;
+                                                break;
+                                            }
+                                        }
+                                    }
                                 }
 
                                 if (isTypeOrClass || isModuleOrSuper || isStaticMethod || isInstanceAttribute)
