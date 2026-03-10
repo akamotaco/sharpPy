@@ -294,12 +294,29 @@ public partial class PyFunction : PyObject, IDescriptor
             functionScopeChain = ParentScope ?? new PyScopeChain();
         }
 
-        // Runtime __defaults__ takes priority over CachedDefaultsTuple (can be set dynamically)
-        // Fast path: skip dict lookup when Attributes is empty (common for dunder methods)
-        PyTuple defaults = (Attributes.Count > 0
-            && Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
-            ? dt : CodeObject.CachedDefaultsTuple;
-        var frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
+        // Fast path: CO_OPTIMIZED, exact args, no closures, no defaults → skip BindArgs entirely
+        var code = CodeObject;
+        PyFrame frame;
+        if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+            && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0
+            && args.Length == code.ArgCount
+            && code.KwonlyArgCount == 0
+            && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
+            && code.DefaultValues.Count == 0
+            && code.CachedDefaultsTuple == null
+            && Attributes.Count == 0)
+        {
+            frame = new PyFrame(code, args, functionScopeChain, null, true);
+        }
+        else
+        {
+            // Runtime __defaults__ takes priority over CachedDefaultsTuple (can be set dynamically)
+            // Fast path: skip dict lookup when Attributes is empty (common for dunder methods)
+            PyTuple defaults = (Attributes.Count > 0
+                && Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
+                ? dt : code.CachedDefaultsTuple;
+            frame = new PyFrame(code, args, functionScopeChain, Closure, null, defaults);
+        }
         return PyVM.Instance.ExecuteFrame(frame);
     }
 

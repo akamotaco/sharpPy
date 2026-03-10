@@ -19,6 +19,8 @@ namespace SharpPy
     // VM 실행 프레임 (기존 PyScopeChain과 연동)
     public class PyFrame : PyObject
     {
+        private static readonly Dictionary<string, PyObject> _emptyGlobals = new Dictionary<string, PyObject>();
+
         public PyCodeObject Code { get; }
         public PyStack ValueStack { get; }
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
@@ -152,7 +154,7 @@ namespace SharpPy
             ParentFrame = parentFrame;
 
             // CPython 3.12: Initialize f_globals from ScopeChain.GlobalScope
-            Globals = ScopeChain.GlobalScope?.Variables ?? new Dictionary<string, PyObject>();
+            Globals = ScopeChain.GlobalScope?.Variables ?? _emptyGlobals;
 
             // Initialize filename from code object
             CurrentFileName = code.FileName;
@@ -200,6 +202,34 @@ namespace SharpPy
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
             BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults);
+        }
+
+        /// <summary>
+        /// Fast constructor for CO_OPTIMIZED functions with no closures, exact args, no defaults.
+        /// Eliminates: closure checks, cell initialization, scope push, BindArgs dispatch.
+        /// CPython 3.12: _PyEvalFramePushAndInit fast path for simple functions.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyFrame parentFrame, bool fastPath)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = new PyValue[nlocals];
+
+            // Direct args binding — no defaults, no kwargs, no varargs check needed
+            for (int i = 0; i < args.Length; i++)
+                LocalsPlus[i] = PyValue.FromObject(args[i]);
+            if (nlocals > args.Length)
+                Array.Fill(LocalsPlus, PyValue.Null, args.Length, nlocals - args.Length);
+
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = Array.Empty<PyCell>();
+            Cells = Array.Empty<PyCell>();
         }
 
         /// <summary>
@@ -1254,7 +1284,7 @@ namespace SharpPy
                     // ===== INLINE FAST PATH =====
                     // Handle top-frequency safe opcodes directly in the loop
                     // to avoid ExecuteInstruction method call + switch dispatch overhead.
-                    // These opcodes cannot throw Python exceptions in their normal path.
+                    // Ordered by frequency: LOAD_FAST > STORE_FAST > LOAD_CONST > POP_TOP > BINARY_OP > ...
                     if (frame.PendingException == null)
                     {
                         var inlineOp = instruction.OpCode;
@@ -1271,7 +1301,6 @@ namespace SharpPy
                                     continue;
                                 }
                             }
-                            // Uninitialized or out-of-range: fall through to regular path
                         }
                         else if (inlineOp == ByteCodeOp.STORE_FAST)
                         {
@@ -1297,7 +1326,6 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.BINARY_OP)
                         {
-                            // Inline fast path for int+int ADD (most common in dunder methods)
                             var inlineBinOp = (BinaryOpType)instruction.Argument;
                             if (inlineBinOp == BinaryOpType.ADD || inlineBinOp == BinaryOpType.INPLACE_ADD)
                             {
@@ -1335,7 +1363,6 @@ namespace SharpPy
                                     frame.InstructionPointer++; continue;
                                 }
                                 // String concatenation fast path
-                                // CPython 3.12: Objects/unicodeobject.c:11172 (PyUnicode_Concat)
                                 {
                                     var lo = ilv.ToObject();
                                     var ro = irv.ToObject();
@@ -1429,7 +1456,6 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue();
                                         frame.ValueStack.PopValue();
-                                        // CPython floordiv: round toward negative infinity
                                         long q = la / ra;
                                         if ((la ^ ra) < 0 && q * ra != la) q--;
                                         frame.ValueStack.PushInt64(q);
@@ -1467,7 +1493,6 @@ namespace SharpPy
                             {
                                 var irv = frame.ValueStack.PeekValueAt(0);
                                 var ilv = frame.ValueStack.PeekValueAt(1);
-                                // float ** float or float ** int or int ** float
                                 if (ilv.IsFloat64 || irv.IsFloat64)
                                 {
                                     double ld = ilv.IsFloat64 ? ilv.AsFloat64 : (double)ilv.AsInt64;
@@ -1476,8 +1501,6 @@ namespace SharpPy
                                     frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
                                     frame.InstructionPointer++; continue;
                                 }
-                                // int ** small_positive_int (e.g., x ** 2)
-                                // CPython 3.12: Objects/longobject.c long_pow()
                                 if (ilv.IsIntLike && irv.IsIntLike)
                                 {
                                     long ra = irv.AsInt64;
@@ -1488,7 +1511,6 @@ namespace SharpPy
                                         bool overflow = false;
                                         for (long e = ra; e > 0; e--)
                                         {
-                                            // Check multiplication overflow
                                             if (result != 0 && (la > long.MaxValue / Math.Abs(result) || la < long.MinValue / Math.Abs(result)))
                                             { overflow = true; break; }
                                             result = unchecked(result * la);
@@ -1506,7 +1528,6 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.COMPARE_OP)
                         {
-                            // Inline fast path for int comparisons (hot in for loops + conditionals)
                             var crv = frame.ValueStack.PeekValueAt(0);
                             var clv = frame.ValueStack.PeekValueAt(1);
                             if (clv.IsIntLike && crv.IsIntLike)
@@ -1514,16 +1535,11 @@ namespace SharpPy
                                 frame.ValueStack.PopValue();
                                 frame.ValueStack.PopValue();
                                 long la = clv.AsInt64, ra = crv.AsInt64;
-                                int cmpOp = instruction.Argument >> 4;  // CPython 3.12 encoding
+                                int cmpOp = instruction.Argument >> 4;
                                 bool cmpResult = cmpOp switch
                                 {
-                                    0 => la < ra,   // LT
-                                    1 => la <= ra,  // LE
-                                    2 => la == ra,  // EQ
-                                    3 => la != ra,  // NE
-                                    4 => la > ra,   // GT
-                                    5 => la >= ra,  // GE
-                                    _ => false
+                                    0 => la < ra, 1 => la <= ra, 2 => la == ra,
+                                    3 => la != ra, 4 => la > ra, 5 => la >= ra, _ => false
                                 };
                                 if (cmpOp <= 5)
                                 {
@@ -1540,13 +1556,8 @@ namespace SharpPy
                                 int cmpOp = instruction.Argument >> 4;
                                 bool cmpResult = cmpOp switch
                                 {
-                                    0 => la < ra,   // LT
-                                    1 => la <= ra,  // LE
-                                    2 => la == ra,  // EQ
-                                    3 => la != ra,  // NE
-                                    4 => la > ra,   // GT
-                                    5 => la >= ra,  // GE
-                                    _ => false
+                                    0 => la < ra, 1 => la <= ra, 2 => la == ra,
+                                    3 => la != ra, 4 => la > ra, 5 => la >= ra, _ => false
                                 };
                                 if (cmpOp <= 5)
                                 {
@@ -1560,7 +1571,6 @@ namespace SharpPy
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
                             var inlineRetVal = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
-                            // CO_OPTIMIZED: no PushScope was done, so no scope cleanup needed
                             if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
                                 && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                             {
@@ -1572,23 +1582,30 @@ namespace SharpPy
                             }
                             return inlineRetVal;
                         }
+                        else if (inlineOp == ByteCodeOp.RETURN_CONST)
+                        {
+                            // CPython 3.12: Return constant value directly (e.g., return None in __init__)
+                            var rcVal = frame.Code.ConstantsAsValues[instruction.Argument].ToObject();
+                            if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
+                                && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
+                            {
+                                frame.ScopeChain.PopScope();
+                            }
+                            return rcVal;
+                        }
                         else if (inlineOp == ByteCodeOp.RESUME)
                         {
-                            // RESUME is a no-op marker (Python 3.12)
                             frame.InstructionPointer++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.PUSH_NULL)
                         {
-                            // PUSH_NULL for function call setup
                             frame.ValueStack.Push(PyNone.Instance);
                             frame.InstructionPointer++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_GLOBAL)
                         {
-                            // Inline fast path: Globals → Builtins lookup (avoids ExecuteInstruction switch)
-                            // CPython 3.12: LOAD_GLOBAL checks f_globals first, then f_builtins
                             int lgOparg = instruction.Argument;
                             bool lgPushNull = (lgOparg & 1) == 1;
                             int lgNameIdx = lgOparg >> 1;
@@ -1603,19 +1620,15 @@ namespace SharpPy
                                 frame.InstructionPointer++;
                                 continue;
                             }
-                            // Not found → fall through to ExecuteInstruction for error handling
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_ATTR)
                         {
-                            // Inline fast path: PyClassInstance attribute access (most common)
-                            // CPython 3.12: LOAD_ATTR_INSTANCE_VALUE specialization
                             int laOparg = instruction.Argument;
                             bool laPushNull = (laOparg & 1) == 1;
                             int laNameIdx = laOparg >> 1;
 
                             if (!laPushNull)
                             {
-                                // Simple attribute access (self.x, obj.val)
                                 var laObj = frame.ValueStack.Peek();
                                 if (laObj is PyClassInstance laInst
                                     && laInst.InstanceDict.TryGetValue(frame.Code.Names[laNameIdx], out var laVal))
@@ -1626,43 +1639,31 @@ namespace SharpPy
                                     continue;
                                 }
                             }
-                            // Method call or not in instance dict → fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.STORE_ATTR)
                         {
-                            // Inline fast path: PyClassInstance simple attribute store
-                            // CPython 3.12: STORE_ATTR_INSTANCE_VALUE specialization
                             var saAttrName = frame.Code.Names[instruction.Argument];
                             var saObj = frame.ValueStack.Peek();
                             if (saObj is PyClassInstance saInst
                                 && saInst.InstanceType.GetCachedMagicMethod("__setattr__") == null)
                             {
-                                // No __setattr__ and no data descriptor check needed for simple classes
-                                // (data descriptors are rare — skip MRO scan for speed)
                                 frame.ValueStack.Pop();
                                 var saValue = frame.ValueStack.Pop();
                                 saInst.InstanceDict[saAttrName] = saValue;
                                 frame.InstructionPointer++;
                                 continue;
                             }
-                            // Custom __setattr__ or non-instance → fall through
                         }
                         else if (inlineOp == ByteCodeOp.JUMP_BACKWARD)
                         {
-                            // Inline fast path: CPython 3.12 JUMPBY(-oparg)
-                            // target = (currentIP + 1) - oparg
-                            // Only for non-quickened code (most common case)
                             if (!(frame.Code is PyQuickenedCodeObject))
                             {
                                 frame.InstructionPointer = frame.InstructionPointer + 1 - instruction.Argument;
                                 continue;
                             }
-                            // Quickened code → fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.POP_JUMP_IF_FALSE)
                         {
-                            // Inline fast path for bool/int truthiness check + conditional jump
-                            // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from NEXT instruction
                             var pjVal = frame.ValueStack.PopValue();
                             bool isFalsy;
                             if (pjVal.IsBool)
@@ -1697,8 +1698,6 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.FOR_ITER)
                         {
-                            // Inline fast path: TryNext() on iterator — avoids ExecuteInstruction switch
-                            // CPython 3.12: Python/bytecodes.c FOR_ITER
                             var fiIter = frame.ValueStack.Peek();
                             if (fiIter.TryNext(out var fiNext))
                             {
@@ -1708,9 +1707,7 @@ namespace SharpPy
                             }
                             else
                             {
-                                frame.ValueStack.Pop(); // Remove exhausted iterator
-                                // Jump target calculation: inline continues (no IP++ from main loop)
-                                // Original handler sets IP then main loop does IP++, so we add 1 extra
+                                frame.ValueStack.Pop();
                                 if (frame.Code is PyQuickenedCodeObject fiQuickened)
                                 {
                                     frame.InstructionPointer = fiQuickened.CalculateForIterTarget(
@@ -9162,18 +9159,31 @@ namespace SharpPy
                         functionScope = pyFunc.ParentScope ?? parentScope;
                     }
 
-                    // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    // Runtime __defaults__ takes priority (can be set dynamically at runtime).
-                    // Fall back to CachedDefaultsTuple only if runtime attribute is not set.
-                    // Fast path: skip dict lookup when Attributes is empty (common case)
-                    var hasAttrs = pyFunc.Attributes.Count > 0;
-                    PyTuple defaults = (hasAttrs
-                        && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                        ? defaultsTuple : code.CachedDefaultsTuple;
-                    PyDict kwdefaults = (hasAttrs
-                        && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                        ? kwdefaultsDict : null;
-                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                    // Fast path: CO_OPTIMIZED, exact args, no defaults/kwargs/varargs → skip BindArgs entirely
+                    // This is the common case for simple functions (def f(a, b): return a + b)
+                    PyFrame frame;
+                    if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+                        && args.Length == code.ArgCount
+                        && code.KwonlyArgCount == 0
+                        && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
+                        && code.DefaultValues.Count == 0
+                        && code.CachedDefaultsTuple == null
+                        && pyFunc.Attributes.Count == 0)
+                    {
+                        frame = new PyFrame(code, args, functionScope, CurrentFrame, true);
+                    }
+                    else
+                    {
+                        // Standard path with defaults/kwargs support
+                        var hasAttrs = pyFunc.Attributes.Count > 0;
+                        PyTuple defaults = (hasAttrs
+                            && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                            ? defaultsTuple : code.CachedDefaultsTuple;
+                        PyDict kwdefaults = (hasAttrs
+                            && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                            ? kwdefaultsDict : null;
+                        frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                    }
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)

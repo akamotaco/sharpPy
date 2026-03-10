@@ -87,6 +87,13 @@ namespace SharpPy
         [ThreadStatic] private static PyObject[] _initBuf3; // [self, arg1, arg2]
         [ThreadStatic] private static PyObject[] _initBuf4; // [self, arg1, arg2, arg3]
 
+        // FastInit: bypass frame creation for simple __init__ methods
+        // Pattern: __init__(self, arg1, ...) that only does self.attr = arg assignments + return None
+        // -1 = unchecked, 0 = not fast-initable, 1 = fast-initable
+        private int _fastInitChecked = -1;
+        private string[] _fastInitAttrNames;   // attribute names in assignment order
+        private int[] _fastInitArgIndices;     // LocalsPlus index of each arg (1-based, 0=self)
+
         /// <summary>
         /// Cached magic method lookup: ClassDict-only MRO search with TypeVersionTag invalidation.
         /// O(1) on cache hit, O(MRO depth) on cache miss.
@@ -287,26 +294,38 @@ namespace SharpPy
             var init = GetCachedMagicMethod("__init__");
             if (init != null)
             {
-                // CPython 3.12: slot_tp_init calls __init__(self, *args, **kwargs) directly
+                // FastInit: bypass frame creation for simple __init__ (self.x = arg patterns)
+                // Saves ~2 frame allocations + ~8 instruction dispatches per instance creation
                 if (init is PyFunction function)
                 {
-                    // Direct call: function(instance, *args, **kwargs)
-                    // Use ThreadStatic buffers to avoid per-call array allocation
-                    int totalArgs = args.Length + 1;
-                    PyObject[] initArgs;
-                    if (totalArgs == 1) { initArgs = _initBuf1 ??= new PyObject[1]; }
-                    else if (totalArgs == 2) { initArgs = _initBuf2 ??= new PyObject[2]; }
-                    else if (totalArgs == 3) { initArgs = _initBuf3 ??= new PyObject[3]; }
-                    else if (totalArgs == 4) { initArgs = _initBuf4 ??= new PyObject[4]; }
-                    else { initArgs = new PyObject[totalArgs]; }
-                    initArgs[0] = instance;
-                    for (int i = 0; i < args.Length; i++) initArgs[i + 1] = args[i];
+                    if (_fastInitChecked == -1)
+                        AnalyzeFastInit(function);
 
-                    // Fast path for no-kwargs __init__ (most common case)
-                    if ((kwargs == null || kwargs.InternalDict.Count == 0) && function.CodeObject != null)
-                        function.CallSimple(initArgs);
+                    if (_fastInitChecked == 1 && (kwargs == null || kwargs.InternalDict.Count == 0)
+                        && instance is PyClassInstance fastInst && args.Length == function.CodeObject.ArgCount - 1)
+                    {
+                        // Direct attribute assignment without frame creation
+                        for (int i = 0; i < _fastInitAttrNames.Length; i++)
+                            fastInst.InstanceDict[_fastInitAttrNames[i]] = args[_fastInitArgIndices[i] - 1];
+                    }
                     else
-                        function.Call(initArgs, kwargs);
+                    {
+                        // Standard __init__ call path
+                        int totalArgs = args.Length + 1;
+                        PyObject[] initArgs;
+                        if (totalArgs == 1) { initArgs = _initBuf1 ??= new PyObject[1]; }
+                        else if (totalArgs == 2) { initArgs = _initBuf2 ??= new PyObject[2]; }
+                        else if (totalArgs == 3) { initArgs = _initBuf3 ??= new PyObject[3]; }
+                        else if (totalArgs == 4) { initArgs = _initBuf4 ??= new PyObject[4]; }
+                        else { initArgs = new PyObject[totalArgs]; }
+                        initArgs[0] = instance;
+                        for (int i = 0; i < args.Length; i++) initArgs[i + 1] = args[i];
+
+                        if ((kwargs == null || kwargs.InternalDict.Count == 0) && function.CodeObject != null)
+                            function.CallSimple(initArgs);
+                        else
+                            function.Call(initArgs, kwargs);
+                    }
                 }
                 else if (init is IDescriptor desc)
                 {
@@ -328,6 +347,72 @@ namespace SharpPy
             }
 
             return instance;
+        }
+
+        /// <summary>
+        /// Analyze __init__ bytecode to detect simple self.attr = arg patterns.
+        /// If the __init__ only does LOAD_FAST + STORE_ATTR pairs (no other logic),
+        /// we can skip frame creation and do direct dict assignment.
+        /// </summary>
+        private void AnalyzeFastInit(PyFunction initFunc)
+        {
+            _fastInitChecked = 0; // Default: not fast-initable
+
+            var code = initFunc.CodeObject;
+            if (code == null) return;
+
+            // Must have no closures, no generators, be CO_OPTIMIZED
+            if ((code.CellVars?.Count ?? 0) != 0 || (code.FreeVars?.Count ?? 0) != 0) return;
+            if (code.IsGenerator() || code.IsCoroutine()) return;
+
+            var instrs = code.InstructionsArray;
+            if (instrs == null || instrs.Length < 2) return;
+
+            // Pattern: RESUME, (LOAD_FAST argN, LOAD_FAST 0 (self), STORE_ATTR name, CACHE*)*, RETURN_CONST None
+            // CPython 3.12 bytecode for `self.x = val`:
+            //   LOAD_FAST 1 (val)   -- push value
+            //   LOAD_FAST 0 (self)  -- push self
+            //   STORE_ATTR 0 (x)    -- pop self, pop value, self.x = value
+            //   CACHE * 4           -- inline cache entries
+            int ip = 0;
+
+            // Skip RESUME
+            if (instrs[ip].OpCode == ByteCodeOp.RESUME) ip++;
+            if (ip >= instrs.Length) return;
+
+            var attrNames = new System.Collections.Generic.List<string>();
+            var argIndices = new System.Collections.Generic.List<int>();
+
+            while (ip + 2 < instrs.Length)
+            {
+                var loadVal = instrs[ip];
+                var loadSelf = instrs[ip + 1];
+                var storeAttr = instrs[ip + 2];
+
+                if (loadVal.OpCode != ByteCodeOp.LOAD_FAST) break;
+                if (loadSelf.OpCode != ByteCodeOp.LOAD_FAST || loadSelf.Argument != 0) break;
+                if (storeAttr.OpCode != ByteCodeOp.STORE_ATTR) break;
+
+                int valIdx = loadVal.Argument;
+                if (valIdx == 0) break; // Can't assign self to self
+
+                string attrName = code.Names[storeAttr.Argument];
+                attrNames.Add(attrName);
+                argIndices.Add(valIdx);
+                ip += 3;
+                // Skip CACHE entries after STORE_ATTR (4 inline cache slots in CPython 3.12)
+                while (ip < instrs.Length && instrs[ip].OpCode == ByteCodeOp.CACHE)
+                    ip++;
+            }
+
+            // Must end with RETURN_CONST (None)
+            if (ip < instrs.Length && instrs[ip].OpCode == ByteCodeOp.RETURN_CONST
+                && attrNames.Count > 0)
+            {
+                _fastInitChecked = 1;
+                _fastInitAttrNames = attrNames.ToArray();
+                _fastInitArgIndices = argIndices.ToArray();
+            }
         }
 
         /// <summary>
