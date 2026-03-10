@@ -1464,6 +1464,38 @@ namespace SharpPy
                                 frame.InstructionPointer++;
                             continue;
                         }
+                        else if (inlineOp == ByteCodeOp.FOR_ITER)
+                        {
+                            // Inline fast path: TryNext() on iterator — avoids ExecuteInstruction switch
+                            // CPython 3.12: Python/bytecodes.c FOR_ITER
+                            var fiIter = frame.ValueStack.Peek();
+                            if (fiIter.TryNext(out var fiNext))
+                            {
+                                frame.ValueStack.Push(fiNext);
+                                frame.InstructionPointer++;
+                                continue;
+                            }
+                            else
+                            {
+                                frame.ValueStack.Pop(); // Remove exhausted iterator
+                                // Jump target calculation: inline continues (no IP++ from main loop)
+                                // Original handler sets IP then main loop does IP++, so we add 1 extra
+                                if (frame.Code is PyQuickenedCodeObject fiQuickened)
+                                {
+                                    frame.InstructionPointer = fiQuickened.CalculateForIterTarget(
+                                        frame.InstructionPointer, instruction.Argument);
+                                }
+                                else if (!frame.Code.IsOptimized)
+                                {
+                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 2;
+                                }
+                                else
+                                {
+                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 1;
+                                }
+                                continue;
+                            }
+                        }
                     }
                     // ===== END INLINE FAST PATH =====
 
