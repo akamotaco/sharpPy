@@ -1336,6 +1336,44 @@ namespace SharpPy
                                     continue;
                                 }
                             }
+                            else if (inlineBinOp == BinaryOpType.SUBTRACT || inlineBinOp == BinaryOpType.INPLACE_SUBTRACT)
+                            {
+                                var irv = frame.ValueStack.PeekValueAt(0);
+                                var ilv = frame.ValueStack.PeekValueAt(1);
+                                if (ilv.IsIntLike && irv.IsIntLike)
+                                {
+                                    frame.ValueStack.PopValue();
+                                    frame.ValueStack.PopValue();
+                                    long la = ilv.AsInt64, ra = irv.AsInt64;
+                                    long diff = unchecked(la - ra);
+                                    if (((la ^ ra) & (la ^ diff)) < 0)
+                                        frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
+                                    else
+                                        frame.ValueStack.PushInt64(diff);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            else if (inlineBinOp == BinaryOpType.FLOOR_DIVIDE || inlineBinOp == BinaryOpType.INPLACE_FLOOR_DIVIDE)
+                            {
+                                var irv = frame.ValueStack.PeekValueAt(0);
+                                var ilv = frame.ValueStack.PeekValueAt(1);
+                                if (ilv.IsIntLike && irv.IsIntLike)
+                                {
+                                    long la = ilv.AsInt64, ra = irv.AsInt64;
+                                    if (ra != 0)
+                                    {
+                                        frame.ValueStack.PopValue();
+                                        frame.ValueStack.PopValue();
+                                        // CPython floordiv: round toward negative infinity
+                                        long q = la / ra;
+                                        if ((la ^ ra) < 0 && q * ra != la) q--;
+                                        frame.ValueStack.PushInt64(q);
+                                        frame.InstructionPointer++;
+                                        continue;
+                                    }
+                                }
+                            }
                             // Non-int or other ops: fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.COMPARE_OP)
@@ -4719,15 +4757,6 @@ namespace SharpPy
                         Console.WriteLine($"   Frame locals: {string.Join(", ", frame.Code.VarNames.Select((v, i) => $"{v}={frame.LocalsPlus[i]}"))}");
                     }
                     #endif
-                    if (iterable is PyTuple iterTuple)
-                    {
-                        for (int i = 0; i < iterTuple.Items.Length; i++)
-                        {
-                        }
-                    }
-                    else
-                    {
-                    }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);
                     #if DEBUG_VM_LOG
