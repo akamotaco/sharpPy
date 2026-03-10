@@ -1629,6 +1629,7 @@ namespace SharpPy
 
                             if (!laPushNull)
                             {
+                                // Simple attribute access: instance dict lookup
                                 var laObj = frame.ValueStack.Peek();
                                 if (laObj is PyClassInstance laInst
                                     && laInst.InstanceDict.TryGetValue(frame.Code.Names[laNameIdx], out var laVal))
@@ -1637,6 +1638,36 @@ namespace SharpPy
                                     frame.ValueStack.Push(laVal);
                                     frame.InstructionPointer++;
                                     continue;
+                                }
+                            }
+                            else
+                            {
+                                // Method call: check inline cache (monomorphic, type-version-guarded)
+                                // CPython 3.12: LOAD_ATTR_METHOD_WITH_VALUES specialization
+                                var laObj = frame.ValueStack.Peek();
+                                var laCache = frame.Code.LoadAttrCache;
+                                if (laCache != null)
+                                {
+                                    int laIp = frame.InstructionPointer;
+                                    ref var laCacheEntry = ref laCache[laIp];
+                                    if (laCacheEntry.CachedValue != null)
+                                    {
+                                        // Check type version for user classes, or C# type hash for builtins
+                                        bool cacheHit = false;
+                                        if (laObj is PyClassInstance laMethodInst)
+                                            cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
+                                        else
+                                            cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
+
+                                        if (cacheHit)
+                                        {
+                                            frame.ValueStack.Pop();
+                                            frame.ValueStack.Push(laCacheEntry.CachedValue);
+                                            frame.ValueStack.Push(laObj);
+                                            frame.InstructionPointer++;
+                                            continue;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3600,6 +3631,19 @@ namespace SharpPy
                         // Instead, find unbound function and push [function, self] for CALL's swap logic
                         if (pushNullForMethod && obj is PyClassInstance fastInst)
                         {
+                            // Check inline cache first
+                            // CPython 3.12: LOAD_ATTR_METHOD_WITH_VALUES specialization
+                            var attrCache = frame.Code.LoadAttrCache;
+                            int attrIp = frame.InstructionPointer;
+                            if (attrCache != null
+                                && attrCache[attrIp].TypeVersionTag == fastInst.InstanceType.TypeVersionTag
+                                && attrCache[attrIp].CachedValue != null)
+                            {
+                                frame.ValueStack.Push(attrCache[attrIp].CachedValue);
+                                frame.ValueStack.Push(obj);
+                                break;
+                            }
+
                             // Check instance dict first (monkey-patched methods are already bound)
                             if (!fastInst.InstanceDict.ContainsKey(attrName))
                             {
@@ -3620,12 +3664,18 @@ namespace SharpPy
 
                                 if (unboundFunc != null)
                                 {
-                                    // CPython 3.12: _PyObject_GetMethod → bypass PyMethod allocation
-                                    // Push [meth, self] matching CPython's stack layout:
-                                    //   meth | self | arg1 | ... | argN
-                                    // CALL's swap: actualCallable=meth, finalArgs=[self, args]
-                                    frame.ValueStack.Push(unboundFunc);  // meth (unbound function) → PEEK(2)
-                                    frame.ValueStack.Push(obj);          // self (instance) → PEEK(1)
+                                    // Populate inline cache
+                                    if (attrCache == null)
+                                    {
+                                        attrCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
+                                        frame.Code.LoadAttrCache = attrCache;
+                                    }
+                                    attrCache[attrIp].TypeVersionTag = fastInst.InstanceType.TypeVersionTag;
+                                    attrCache[attrIp].CachedValue = unboundFunc;
+                                    attrCache[attrIp].IsMethod = true;
+
+                                    frame.ValueStack.Push(unboundFunc);
+                                    frame.ValueStack.Push(obj);
                                     #if DEBUG_LOG
                                     Console.WriteLine($"   → Fast method path: pushed [meth, self] (no PyMethod alloc)");
                                     #endif
@@ -3652,10 +3702,23 @@ namespace SharpPy
                             // Fall through to full GetAttribute for descriptor protocol
                         }
 
-                        // Fast path: PyStr/PyList/PyDict method lookup — avoid PyStrMethod/etc. allocation
-                        // CPython 3.12: Objects/unicodeobject.c — str methods are method_descriptors
+                        // Fast path: PyStr/PyList/PyDict method lookup with inline cache
+                        // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT / LOAD_ATTR_SLOT specialization
                         if (pushNullForMethod)
                         {
+                            // Check inline cache for builtin type methods
+                            // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT — builtin types are monomorphic per-instruction
+                            var btCache = frame.Code.LoadAttrCache;
+                            int btIp = frame.InstructionPointer;
+                            if (btCache != null
+                                && btCache[btIp].CachedValue is PyMethodDescriptor cachedDesc
+                                && btCache[btIp].TypeVersionTag == (ulong)obj.GetType().GetHashCode())
+                            {
+                                frame.ValueStack.Push(cachedDesc);
+                                frame.ValueStack.Push(obj);
+                                break;
+                            }
+
                             PyType builtinType = null;
                             if (obj is PyStr) builtinType = PyType.StrType;
                             else if (obj is PyList) builtinType = PyType.ListType;
@@ -3664,7 +3727,15 @@ namespace SharpPy
                             if (builtinType != null && builtinType.TypeDict.TryGetValue(attrName, out var descriptor)
                                 && descriptor is PyMethodDescriptor)
                             {
-                                // Push [descriptor, self] for CALL to dispatch via descriptor protocol
+                                // Populate cache for builtin type methods
+                                if (btCache == null)
+                                {
+                                    btCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
+                                    frame.Code.LoadAttrCache = btCache;
+                                }
+                                btCache[btIp].TypeVersionTag = (ulong)obj.GetType().GetHashCode();
+                                btCache[btIp].CachedValue = descriptor;
+
                                 frame.ValueStack.Push(descriptor);
                                 frame.ValueStack.Push(obj);
                                 break;

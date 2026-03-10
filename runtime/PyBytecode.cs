@@ -344,6 +344,18 @@ namespace SharpPy
         INPLACE_XOR = 25               // ^=  (인플레이스 비트 XOR)
     }
 
+    /// <summary>
+    /// CPython 3.12 inline cache entry for LOAD_ATTR.
+    /// Monomorphic cache: stores type version + cached result for one receiver type.
+    /// CPython reference: Python/specialize.c — _Py_Specialize_LoadAttr
+    /// </summary>
+    internal struct LoadAttrCacheEntry
+    {
+        public ulong TypeVersionTag;   // Receiver type's version at cache time
+        public PyObject CachedValue;   // Cached attribute/method result
+        public bool IsMethod;          // True if cached for method call (pushNullForMethod=true)
+    }
+
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction
     // No intermediate ExceptHandlerInfo struct needed - use ExceptBlock reference directly
     public struct ByteCodeInstruction
@@ -452,6 +464,14 @@ namespace SharpPy
         /// Eliminates List indexer overhead (bounds check + indirection) in main loop.
         /// </summary>
         public ByteCodeInstruction[] InstructionsArray { get; private set; } = null!;
+
+        /// <summary>
+        /// CPython 3.12 inline cache for LOAD_ATTR instructions.
+        /// Stores per-instruction (typeVersionTag, cachedValue, isMethod) for monomorphic caching.
+        /// CPython reference: Python/specialize.c — _Py_Specialize_LoadAttr
+        /// Lazily allocated on first LOAD_ATTR cache miss. Indexed by instruction index.
+        /// </summary>
+        internal LoadAttrCacheEntry[] LoadAttrCache;
 
         /// <summary>
         /// Cached PyTuple of default values. Built once at construction time.
