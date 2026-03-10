@@ -1770,11 +1770,12 @@ namespace SharpPy
                             if (!laPushNull)
                             {
                                 // Simple attribute access: instance dict lookup
-                                var laObj = frame.ValueStack.Peek();
-                                if (laObj is PyClassInstance laInst
+                                // Use PeekValue to avoid double ToObject (Pop would do it again)
+                                var laObjVal = frame.ValueStack.PeekValue();
+                                if (laObjVal.IsObject && laObjVal.ObjRef is PyClassInstance laInst
                                     && laInst.InstanceDict.TryGetValue(frame.Code.Names[laNameIdx], out var laVal))
                                 {
-                                    frame.ValueStack.Pop();
+                                    frame.ValueStack.PopValue(); // Discard — skip ToObject
                                     frame.ValueStack.Push(laVal);
                                     frame.InstructionPointer++;
                                     continue;
@@ -1784,28 +1785,31 @@ namespace SharpPy
                             {
                                 // Method call: check inline cache (monomorphic, type-version-guarded)
                                 // CPython 3.12: LOAD_ATTR_METHOD_WITH_VALUES specialization
-                                var laObj = frame.ValueStack.Peek();
-                                var laCache = frame.Code.LoadAttrCache;
-                                if (laCache != null)
+                                var laObjVal = frame.ValueStack.PeekValue();
+                                if (laObjVal.IsObject)
                                 {
-                                    int laIp = frame.InstructionPointer;
-                                    ref var laCacheEntry = ref laCache[laIp];
-                                    if (laCacheEntry.CachedValue != null)
+                                    var laObj = laObjVal.ObjRef;
+                                    var laCache = frame.Code.LoadAttrCache;
+                                    if (laCache != null)
                                     {
-                                        // Check type version for user classes, or C# type hash for builtins
-                                        bool cacheHit = false;
-                                        if (laObj is PyClassInstance laMethodInst)
-                                            cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
-                                        else
-                                            cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
-
-                                        if (cacheHit)
+                                        int laIp = frame.InstructionPointer;
+                                        ref var laCacheEntry = ref laCache[laIp];
+                                        if (laCacheEntry.CachedValue != null)
                                         {
-                                            frame.ValueStack.Pop();
-                                            frame.ValueStack.Push(laCacheEntry.CachedValue);
-                                            frame.ValueStack.Push(laObj);
-                                            frame.InstructionPointer++;
-                                            continue;
+                                            bool cacheHit = false;
+                                            if (laObj is PyClassInstance laMethodInst)
+                                                cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
+                                            else
+                                                cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
+
+                                            if (cacheHit)
+                                            {
+                                                frame.ValueStack.PopValue(); // Discard — skip ToObject
+                                                frame.ValueStack.Push(laCacheEntry.CachedValue);
+                                                frame.ValueStack.Push(laObj);
+                                                frame.InstructionPointer++;
+                                                continue;
+                                            }
                                         }
                                     }
                                 }
@@ -1814,11 +1818,11 @@ namespace SharpPy
                         else if (inlineOp == ByteCodeOp.STORE_ATTR)
                         {
                             var saAttrName = frame.Code.Names[instruction.Argument];
-                            var saObj = frame.ValueStack.Peek();
-                            if (saObj is PyClassInstance saInst
+                            var saObjVal = frame.ValueStack.PeekValue();
+                            if (saObjVal.IsObject && saObjVal.ObjRef is PyClassInstance saInst
                                 && saInst.InstanceType.GetCachedMagicMethod("__setattr__") == null)
                             {
-                                frame.ValueStack.Pop();
+                                frame.ValueStack.PopValue(); // Skip ToObject
                                 var saValue = frame.ValueStack.Pop();
                                 saInst.InstanceDict[saAttrName] = saValue;
                                 frame.InstructionPointer++;
