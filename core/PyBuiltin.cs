@@ -420,7 +420,11 @@ namespace SharpPy
 
             try
             {
-                return new PyInt(args[0].Length());
+                int len = args[0].Length();
+                // CPython 3.12: bltinmodule.c:1734 — len() returns small int from cache
+                if (len >= -5 && len <= 256)
+                    return SmallIntCache.GetOrCreate(len);
+                return new PyInt(len);
             }
             catch (System.Exception)
             {

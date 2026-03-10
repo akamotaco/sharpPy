@@ -1334,6 +1334,18 @@ namespace SharpPy
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 + (double)irv.AsInt64);
                                     frame.InstructionPointer++; continue;
                                 }
+                                // String concatenation fast path
+                                // CPython 3.12: Objects/unicodeobject.c:11172 (PyUnicode_Concat)
+                                {
+                                    var lo = ilv.ToObject();
+                                    var ro = irv.ToObject();
+                                    if (lo is PyStr ls && ro is PyStr rs)
+                                    {
+                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                        frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
+                                        frame.InstructionPointer++; continue;
+                                    }
+                                }
                             }
                             else if (inlineBinOp == BinaryOpType.MULTIPLY || inlineBinOp == BinaryOpType.INPLACE_MULTIPLY)
                             {
@@ -2853,7 +2865,15 @@ namespace SharpPy
                             // 위치 인수만 있는 경우 - 기존 방식 사용
                             if (actualCallable is PyBuiltinFunction builtin)
                             {
-                                newCallResult = builtin.Call(finalArgs, null);
+                                // Inline fast path for hot builtins
+                                if (builtin.Name == "len" && finalArgs.Length == 1)
+                                {
+                                    int len = finalArgs[0].Length();
+                                    newCallResult = (len >= -5 && len <= 256)
+                                        ? SmallIntCache.GetOrCreate(len) : new PyInt(len);
+                                }
+                                else
+                                    newCallResult = builtin.Call(finalArgs, null);
                             }
                             else if (actualCallable is PyMethod method)
                             {
@@ -2862,6 +2882,13 @@ namespace SharpPy
                             else if (actualCallable is PyFunction func)
                             {
                                 newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                            }
+                            else if (actualCallable is PyClass callClass && callClass.Metaclass == null)
+                            {
+                                // Fast path: simple user class instantiation (non-metaclass)
+                                // Skip PyType.Call() type checks (TypeType, StaticMethodType, etc.)
+                                // CPython 3.12: Objects/typeobject.c:1664 — type_call → tp_new → tp_init
+                                newCallResult = callClass.CreateInstance(finalArgs, null);
                             }
                             else if (actualCallable is PyType callType && finalArgs.Length == 1)
                             {
