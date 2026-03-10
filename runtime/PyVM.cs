@@ -277,6 +277,69 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Fast constructor for CO_OPTIMIZED closures with exact args, no defaults.
+        /// Like the simple fast path but also initializes cells from closure.
+        /// Pre-copies FreeVars from closure to avoid wasted new PyCell() in full constructor.
+        /// CPython 3.12: _PyEvalFramePushAndInit with closure support.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyCell[] closure, PyFrame parentFrame, bool closureFastPath)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+
+            for (int i = 0; i < args.Length; i++)
+                LocalsPlus[i] = PyValue.FromObject(args[i]);
+            if (nlocals > args.Length)
+                Array.Fill(LocalsPlus, PyValue.Null, args.Length, nlocals - args.Length);
+
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = closure ?? Array.Empty<PyCell>();
+
+            // Pre-initialize cells: copy FreeVars from closure (shared ref), new cells for CellVars only
+            int freeVarCount = code.FreeVars?.Count ?? 0;
+            int cellVarCount = code.CellVars?.Count ?? 0;
+            int totalCellCount = freeVarCount + cellVarCount;
+
+            if (totalCellCount > 0)
+            {
+                Cells = new PyCell[totalCellCount];
+                // FreeVar cells: share parent's cell objects (COPY_FREE_VARS will be idempotent)
+                int copyCount = Math.Min(freeVarCount, Closure.Length);
+                for (int i = 0; i < copyCount; i++)
+                    Cells[i] = Closure[i];
+                // CellVar cells: create new (these are this function's own captured vars)
+                for (int i = freeVarCount; i < totalCellCount; i++)
+                    Cells[i] = new PyCell();
+
+                // Handle cell variables that shadow parameters
+                if (cellVarCount > 0)
+                {
+                    for (int i = 0; i < cellVarCount; i++)
+                    {
+                        var cellName = code.CellVars[i];
+                        if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
+                        {
+                            int cellIdx = freeVarCount + i;
+                            if (cellIdx < Cells.Length)
+                                Cells[cellIdx].Value = args[localIdx];
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Cells = Array.Empty<PyCell>();
+            }
+        }
+
+        /// <summary>
         /// Ultra-fast frame constructor: accepts PyValue args directly from stack.
         /// Eliminates PyValue→PyObject→PyValue roundtrip in function call hot path.
         /// CPython 3.12: _PyEvalFramePushAndInit direct copy pattern.
@@ -9264,19 +9327,21 @@ namespace SharpPy
                     functionScope = pyFunc.ParentScope ?? parentScope;
                 }
 
-                // Fast path: simple functions with no closures, exact args → skip BindArgs
+                // Fast path: simple functions with exact args → skip BindArgs
                 // IsSimpleCallTarget pre-computes code-level checks; only per-function check is Attributes
                 PyFrame frame;
                 if (code.IsSimpleCallTarget
-                    && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0
                     && args.Length == code.ArgCount
                     && pyFunc.Attributes.Count == 0)
                 {
-                    frame = new PyFrame(code, args, functionScope, CurrentFrame, true);
+                    if ((code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0)
+                        frame = new PyFrame(code, args, functionScope, CurrentFrame, true);
+                    else
+                        frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, closureFastPath: true);
                 }
                 else
                 {
-                    // Standard path: handles closures, defaults, kwargs, varargs
+                    // Standard path: handles defaults, kwargs, varargs
                     var hasAttrs = pyFunc.Attributes.Count > 0;
                     PyTuple defaults = (hasAttrs
                         && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
