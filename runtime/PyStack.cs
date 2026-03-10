@@ -78,7 +78,7 @@ namespace SharpPy
             if (_top == 0)
                 throw new InvalidOperationException("Stack is empty");
             var val = _items[--_top];
-            _items[_top] = default; // struct clear
+            _items[_top].ObjRef = null; // GC safety: only clear reference (8B vs 24B)
             return val.ToObject();
         }
 
@@ -144,7 +144,7 @@ namespace SharpPy
             if (_top == 0)
                 throw new InvalidOperationException("Stack is empty");
             var val = _items[--_top];
-            _items[_top] = default;
+            _items[_top].ObjRef = null; // GC safety: only clear reference
             return val;
         }
 
@@ -159,7 +159,7 @@ namespace SharpPy
             for (int i = count - 1; i >= 0; i--)
             {
                 buffer[i] = _items[--_top];
-                _items[_top] = default;
+                _items[_top].ObjRef = null; // GC safety: only clear reference
             }
         }
 
@@ -257,7 +257,9 @@ namespace SharpPy
         /// </summary>
         public void Clear()
         {
-            Array.Clear(_items, 0, _top);
+            // Only null ObjRef fields for GC safety (8B per slot vs 24B full clear)
+            for (int i = 0; i < _top; i++)
+                _items[i].ObjRef = null;
             _top = 0;
         }
 
