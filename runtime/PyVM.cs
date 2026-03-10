@@ -1727,6 +1727,21 @@ namespace SharpPy
                                 frame.InstructionPointer++;
                             continue;
                         }
+                        else if (inlineOp == ByteCodeOp.LIST_APPEND)
+                        {
+                            // CPython 3.12: LIST_APPEND i — append TOS to list at stack[-(i)]
+                            // Hot in list comprehension inner loops
+                            var laItem = frame.ValueStack.Pop();
+                            var laTarget = frame.ValueStack.PeekAt(instruction.Argument - 1);
+                            if (laTarget is PyList laList)
+                            {
+                                laList.Append(laItem);
+                                frame.InstructionPointer++;
+                                continue;
+                            }
+                            // Non-list target or PyNull → fall through to ExecuteInstruction
+                            frame.ValueStack.Push(laItem); // restore popped item
+                        }
                         else if (inlineOp == ByteCodeOp.FOR_ITER)
                         {
                             var fiIter = frame.ValueStack.Peek();
