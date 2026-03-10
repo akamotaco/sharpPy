@@ -464,8 +464,15 @@ namespace SharpPy
         {
             public bool Equals(PyObject x, PyObject y)
             {
-                if (x == null && y == null) return true;
+                if (ReferenceEquals(x, y)) return true;
                 if (x == null || y == null) return false;
+                // Fast path: string keys (most common Python dict key type)
+                // CPython 3.12: Objects/dictobject.c:216 unicode_get_hash (string-optimized dict)
+                if (x is PyStr xStr && y is PyStr yStr)
+                    return xStr.Value == yStr.Value;
+                // Fast path: int keys
+                if (x is PyInt xInt && y is PyInt yInt)
+                    return xInt.Value == yInt.Value;
                 return ((PyBool)x.RichCompare(y, CompareOp.EQ)).Value;
             }
 

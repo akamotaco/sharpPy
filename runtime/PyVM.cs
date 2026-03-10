@@ -2914,14 +2914,14 @@ namespace SharpPy
                                 else if (callType == PyType.IntType)
                                 {
                                     if (callTypeArg is PyInt) newCallResult = callTypeArg;
-                                    else if (callTypeArg is PyFloat pf) newCallResult = new PyInt((System.Numerics.BigInteger)(long)pf.Value);
+                                    else if (callTypeArg is PyFloat pf) newCallResult = new PyInt((long)pf.Value);
                                     else if (callTypeArg is PyBool pb) newCallResult = pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
                                     else newCallResult = callType.Call(finalArgs, null);
                                 }
                                 else if (callType == PyType.FloatType)
                                 {
                                     if (callTypeArg is PyFloat) newCallResult = callTypeArg;
-                                    else if (callTypeArg is PyInt pi) newCallResult = new PyFloat((double)pi.Value);
+                                    else if (callTypeArg is PyInt pi) newCallResult = new PyFloat(pi.FitsInLong ? (double)pi.CachedLong : (double)pi.Value);
                                     else newCallResult = callType.Call(finalArgs, null);
                                 }
                                 else

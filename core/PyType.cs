@@ -886,7 +886,7 @@ namespace SharpPy
                     {
                         var a = args[0];
                         if (a is PyInt pi) return pi;
-                        if (a is PyFloat pf) return new PyInt((System.Numerics.BigInteger)(long)pf.Value);
+                        if (a is PyFloat pf) return new PyInt((long)pf.Value);
                         if (a is PyBool pb) return pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
                         if (a is PyStr ps)
                         {

@@ -482,6 +482,19 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// Fast constructor for values known to fit in long.
+        /// Avoids BigInteger comparison in the hot path.
+        /// CPython 3.12: _PyLong_FromLong — small int creation
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PyInt(long value)
+        {
+            Value = value;
+            CachedLong = value;
+            FitsInLong = true;
+        }
+
         // CPython 3.12: Objects/object.c:350 - Py_TYPE(op) returns ob_type
         // Uses PyObject's GetPyType() which returns _customType ?? PyType.IntType
         public override PyType GetPyType() => _customType ?? PyType.IntType;
