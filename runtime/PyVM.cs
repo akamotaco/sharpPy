@@ -903,7 +903,9 @@ namespace SharpPy
     {
         public static PyVM Instance { get; } = new PyVM();
 
-        private readonly Stack<PyFrame> _frameStack;
+        // Replaced Stack<PyFrame> with simple field — frames chain via ParentFrame.
+        // Eliminates Stack.Push/Pop/Peek overhead on every function call.
+        private PyFrame? _currentFrame;
         private readonly PyScopeChain _globalScope;
 
         // CPython 3.12: Adaptive Specialization System (PEP 659)
@@ -929,7 +931,7 @@ namespace SharpPy
         [ThreadStatic] private static PyValue[] _callValBuf;
 
         // Current frame for zero-argument super() calls
-        public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
+        public static PyFrame? CurrentFrame => Instance._currentFrame;
 
         // CPython 3.12: Get current frame for sys.exc_info() and other introspection
         public static PyFrame? GetCurrentFrame() => CurrentFrame;
@@ -947,20 +949,20 @@ namespace SharpPy
             // {
             //     exc_info = exc_info->previous_item;
             // }
-            foreach (var frame in Instance._frameStack)
+            var f = Instance._currentFrame;
+            while (f != null)
             {
-                var exception = frame.CurrentException ?? frame.LastException;
+                var exception = f.CurrentException ?? f.LastException;
                 if (exception != null)
-                {
                     return exception;
-                }
+                f = f.ParentFrame;
             }
             return null;
         }
 
         private PyVM()
         {
-            _frameStack = new Stack<PyFrame>();
+            _currentFrame = null;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템 사용!
             _specializer = new AdaptiveSpecializer(); // CPython 3.12: PEP 659
         }
@@ -1112,9 +1114,9 @@ namespace SharpPy
             Dictionary<string, PyObject> originalGlobals = null;
             PyScopeChain parentScope = null;
 
-            if (_frameStack.Count > 0)
+            if (_currentFrame != null)
             {
-                parentScope = _frameStack.Peek().ScopeChain;
+                parentScope = _currentFrame.ScopeChain;
                 // Capture original global state
                 originalGlobals = new Dictionary<string, PyObject>(parentScope.GlobalScope.Variables);
             }
@@ -1298,7 +1300,8 @@ namespace SharpPy
 
         public PyObject ExecuteFrame(PyFrame frame)
         {
-            _frameStack.Push(frame);
+            var previousFrame = _currentFrame;
+            _currentFrame = frame;
 
 #if DEBUG_LOG
             Console.WriteLine($"\n🚀 VM 실행: {frame}");
@@ -2032,7 +2035,7 @@ namespace SharpPy
             }
             finally
             {
-                _frameStack.Pop();
+                _currentFrame = previousFrame;
                 // Don't pool stacks/locals for generator/coroutine frames — they persist across yields.
                 // CPython: generator frames keep their stack alive between send()/next() calls.
                 if ((frame.Code.Flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) == 0)
