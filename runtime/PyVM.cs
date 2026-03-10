@@ -1884,6 +1884,28 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.FOR_ITER)
                         {
+                            // Fast path: range iterator — zero-allocation int64 push
+                            // CPython 3.12: FOR_ITER_RANGE specialization
+                            var fiVal = frame.ValueStack.PeekValue();
+                            if (fiVal.IsObject && fiVal.ObjRef is PyRangeIterator fiRangeIter)
+                            {
+                                if (fiRangeIter.TryNextInt64(out long fiNextInt))
+                                {
+                                    frame.ValueStack.PushInt64(fiNextInt);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                                // Range exhausted — fall through to exhaustion handling below
+                                frame.ValueStack.PopValue();
+                                if (frame.Code is PyQuickenedCodeObject fiRangeQuickened)
+                                    frame.InstructionPointer = fiRangeQuickened.CalculateForIterTarget(
+                                        frame.InstructionPointer, instruction.Argument);
+                                else if (!frame.Code.IsOptimized)
+                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 2;
+                                else
+                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 1;
+                                continue;
+                            }
                             var fiIter = frame.ValueStack.Peek();
                             if (fiIter.TryNext(out var fiNext))
                             {

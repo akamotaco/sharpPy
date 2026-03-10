@@ -303,6 +303,24 @@ namespace SharpPy
             return true;
         }
 
+        /// <summary>
+        /// Zero-allocation next value for FOR_ITER inline fast path.
+        /// Skips SmallIntCache lookup and PyObject creation entirely.
+        /// CPython 3.12: FOR_ITER_RANGE specialization (Python/bytecodes.c)
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public bool TryNextInt64(out long value)
+        {
+            if (_step > 0 ? _current >= _stop : _current <= _stop)
+            {
+                value = 0;
+                return false;
+            }
+            value = _current;
+            _current += _step;
+            return true;
+        }
+
         public override PyStr ToRepr() => new PyStr($"<range_iterator object>");
     }
 
