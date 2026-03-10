@@ -68,6 +68,19 @@ namespace SharpPy
         private int _abstractCheckResult = -1;
         private ulong _abstractCheckVersion;
 
+        // Cache for __new__: if class inherits object.__new__, skip lookup+call and create PyClassInstance directly.
+        // CPython 3.12: Objects/typeobject.c:1627 (type_call) — most classes use object.__new__
+        // -1 = unchecked, 0 = uses custom __new__, 1 = uses default object.__new__
+        private int _usesDefaultNew = -1;
+        private ulong _usesDefaultNewVersion;
+
+        // ThreadStatic buffers for __init__ args (self + args) to avoid per-call allocation
+        // CPython 3.12: Objects/typeobject.c:1677 (slot_tp_init) — init args include self
+        [ThreadStatic] private static PyObject[] _initBuf1; // [self]
+        [ThreadStatic] private static PyObject[] _initBuf2; // [self, arg1]
+        [ThreadStatic] private static PyObject[] _initBuf3; // [self, arg1, arg2]
+        [ThreadStatic] private static PyObject[] _initBuf4; // [self, arg1, arg2, arg3]
+
         /// <summary>
         /// Cached magic method lookup: ClassDict-only MRO search with TypeVersionTag invalidation.
         /// O(1) on cache hit, O(MRO depth) on cache miss.
@@ -160,59 +173,61 @@ namespace SharpPy
 
             // Step 1: Call __new__ to create the object
             // CPython 3.12: Objects/typeobject.c:1667
-            var newMethod = LookupInMRO("__new__");
-
             PyObject instance;
-            if (newMethod != null)
-            {
-                // Call __new__ with (cls, *args, **kwargs)
-                var newArgs = new PyObject[args.Length + 1];
-                newArgs[0] = this;  // cls parameter
-                Array.Copy(args, 0, newArgs, 1, args.Length);
 
-                // CPython 3.12: __new__ can be a static method, class method, or builtin
-                if (newMethod is PyFunction func)
-                {
-                    // User-defined __new__ (should be staticmethod, but bound correctly)
-                    instance = func.Call(newArgs, kwargs);
-                }
-                else if (newMethod is PyStaticBuiltinMethod staticBuiltin)
-                {
-                    // Builtin static __new__ (e.g., int.__new__)
-                    instance = staticBuiltin.Call(newArgs, kwargs);
-                }
-                else if (newMethod is PyBuiltinMethod builtinMethod)
-                {
-                    // Builtin __new__ from base types (int.__new__, object.__new__, etc.)
-                    instance = builtinMethod.Call(newArgs, kwargs);
-                }
-                else if (newMethod is PyMethodDescriptor descriptor)
-                {
-                    // Builtin type's __new__ descriptor
-                    instance = descriptor.Call(newArgs, kwargs);
-                }
-                else if (newMethod.IsCallable())
-                {
-                    instance = newMethod.Call(newArgs, kwargs);
-                }
+            // Fast path: if class inherits object.__new__ (no custom __new__),
+            // skip lookup + args allocation + descriptor call — just create PyClassInstance directly.
+            // CPython 3.12: Objects/typeobject.c:1642-1665 — tp_new == object_new fast path
+            if (_usesDefaultNew == -1 || _usesDefaultNewVersion != TypeVersionTag)
+            {
+                var newMethod = LookupInMRO("__new__");
+                // Check if __new__ is object.__new__ (PyMethodDescriptor on ObjectType)
+                if (newMethod is PyMethodDescriptor md && md.OwnerType == PyType.ObjectType)
+                    _usesDefaultNew = 1;
                 else
-                {
-                    throw PyTypeError.Create($"__new__ is not callable");
-                }
+                    _usesDefaultNew = 0;
+                _usesDefaultNewVersion = TypeVersionTag;
+            }
+
+            if (_usesDefaultNew == 1 && (kwargs == null || kwargs.InternalDict.Count == 0))
+            {
+                // Default object.__new__: directly create instance (no args array, no descriptor call)
+                instance = new PyClassInstance(this);
             }
             else
             {
-                // No __new__ found - this should not happen for valid Python classes
-                // All classes inherit object.__new__ at minimum
-                throw PyTypeError.Create($"cannot create '{Name}' instances: no __new__ method");
-            }
+                // Custom __new__: full path
+                var newMethod = LookupInMRO("__new__");
+                if (newMethod != null)
+                {
+                    // Call __new__ with (cls, *args, **kwargs)
+                    var newArgs = new PyObject[args.Length + 1];
+                    newArgs[0] = this;  // cls parameter
+                    Array.Copy(args, 0, newArgs, 1, args.Length);
 
-            // Step 2: Check if returned object is an instance of this type
-            // CPython 3.12: Objects/typeobject.c:1672-1675
-            // If __new__ returned a different type, return it immediately (no __init__)
-            if (instance.GetPyType() != this)
-            {
-                return instance;
+                    // CPython 3.12: __new__ can be a static method, class method, or builtin
+                    if (newMethod is PyFunction func)
+                        instance = func.Call(newArgs, kwargs);
+                    else if (newMethod is PyStaticBuiltinMethod staticBuiltin)
+                        instance = staticBuiltin.Call(newArgs, kwargs);
+                    else if (newMethod is PyBuiltinMethod builtinMethod)
+                        instance = builtinMethod.Call(newArgs, kwargs);
+                    else if (newMethod is PyMethodDescriptor descriptor)
+                        instance = descriptor.Call(newArgs, kwargs);
+                    else if (newMethod.IsCallable())
+                        instance = newMethod.Call(newArgs, kwargs);
+                    else
+                        throw PyTypeError.Create($"__new__ is not callable");
+                }
+                else
+                {
+                    throw PyTypeError.Create($"cannot create '{Name}' instances: no __new__ method");
+                }
+
+                // Step 2: Check if returned object is an instance of this type
+                // CPython 3.12: Objects/typeobject.c:1672-1675
+                if (instance.GetPyType() != this)
+                    return instance;
             }
 
             // Store constructor arguments for toString() behavior
@@ -227,18 +242,24 @@ namespace SharpPy
 
             // Step 3: Call __init__ on the instance
             // CPython 3.12: Objects/typeobject.c:1677-1687
-            // Use GetCachedMagicMethod for fast __init__ lookup (O(1) cache hit)
             var init = GetCachedMagicMethod("__init__");
             if (init != null)
             {
                 // CPython 3.12: slot_tp_init calls __init__(self, *args, **kwargs) directly
-                // Avoid PyMethod allocation — prepend self to args and call function directly
                 if (init is PyFunction function)
                 {
                     // Direct call: function(instance, *args, **kwargs)
-                    var initArgs = new PyObject[args.Length + 1];
+                    // Use ThreadStatic buffers to avoid per-call array allocation
+                    int totalArgs = args.Length + 1;
+                    PyObject[] initArgs;
+                    if (totalArgs == 1) { initArgs = _initBuf1 ??= new PyObject[1]; }
+                    else if (totalArgs == 2) { initArgs = _initBuf2 ??= new PyObject[2]; }
+                    else if (totalArgs == 3) { initArgs = _initBuf3 ??= new PyObject[3]; }
+                    else if (totalArgs == 4) { initArgs = _initBuf4 ??= new PyObject[4]; }
+                    else { initArgs = new PyObject[totalArgs]; }
                     initArgs[0] = instance;
-                    Array.Copy(args, 0, initArgs, 1, args.Length);
+                    for (int i = 0; i < args.Length; i++) initArgs[i + 1] = args[i];
+
                     // Fast path for no-kwargs __init__ (most common case)
                     if ((kwargs == null || kwargs.InternalDict.Count == 0) && function.CodeObject != null)
                         function.CallSimple(initArgs);
@@ -247,23 +268,19 @@ namespace SharpPy
                 }
                 else if (init is IDescriptor desc)
                 {
-                    // Descriptor protocol: bind to instance
                     var boundInit = desc.Get(instance, this);
                     boundInit.Call(args, kwargs);
                 }
                 else if (init is PyMethod method)
                 {
-                    // PyMethod는 이미 self가 바인딩되어 있으므로 args만 전달
                     method.Call(args, kwargs);
                 }
                 else if (init is PyBuiltinMethod builtinMethod)
                 {
-                    // Builtin method도 이미 바인딩되어 있음
                     builtinMethod.Call(args, kwargs);
                 }
                 else
                 {
-                    // Fallback: callable object
                     init.Call(args, kwargs);
                 }
             }
@@ -1294,12 +1311,12 @@ namespace SharpPy
         {
             InstanceType = instanceType;
             InstanceDict = new Dictionary<string, PyObject>();
-            ConstructorArgs = new PyObject[0]; // Default empty args
+            ConstructorArgs = Array.Empty<PyObject>();
 
             // CPython 3.12: _PyType_Lookup(tp, &_Py_ID(__getattr__))
             // Objects/typeobject.c:8855 — MRO 전체를 탐색하여 __getattr__ 찾기
-            // ClassDict만 확인하면 상속된 __getattr__를 놓침
-            var getAttrMethod = instanceType.LookupInMRO("__getattr__");
+            // Use GetCachedMagicMethod (O(1) cache hit) instead of LookupInMRO (GlobalMethodCache lookup)
+            var getAttrMethod = instanceType.GetCachedMagicMethod("__getattr__");
             if (getAttrMethod is PyFunction getAttrFunc)
             {
                 _customGetAttr = getAttrFunc;

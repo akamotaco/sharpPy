@@ -1398,13 +1398,15 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_GLOBAL)
                         {
-                            // Inline fast path: direct Globals dict lookup (most common path)
+                            // Inline fast path: Globals → Builtins lookup (avoids ExecuteInstruction switch)
+                            // CPython 3.12: LOAD_GLOBAL checks f_globals first, then f_builtins
                             int lgOparg = instruction.Argument;
                             bool lgPushNull = (lgOparg & 1) == 1;
                             int lgNameIdx = lgOparg >> 1;
                             var lgName = frame.Code.Names[lgNameIdx];
 
-                            if (frame.Globals.TryGetValue(lgName, out var lgVal))
+                            if (frame.Globals.TryGetValue(lgName, out var lgVal)
+                                || (lgVal = frame.ScopeChain.BuiltinModule?.GetBuiltin(lgName)) != null)
                             {
                                 if (lgPushNull)
                                     frame.ValueStack.Push(PyNone.Instance);
@@ -1412,7 +1414,7 @@ namespace SharpPy
                                 frame.InstructionPointer++;
                                 continue;
                             }
-                            // Not in globals → fall through to check builtins via ExecuteInstruction
+                            // Not found → fall through to ExecuteInstruction for error handling
                         }
                         else if (inlineOp == ByteCodeOp.JUMP_BACKWARD)
                         {
@@ -1945,20 +1947,19 @@ namespace SharpPy
                     var globalName = frame.Code.Names[globalNameIndex];
 
                     // Special debugging for ReprEnum, Enum, Flag lookup
+#if DEBUG_VM_LOG
                     bool isEnumRelated = globalName == "ReprEnum" || globalName == "Enum" || globalName == "Flag";
+#endif
 
+#if DEBUG_VM_LOG
                     if (isEnumRelated)
                     {
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"\n[LOAD_GLOBAL] Looking for: {globalName}");
                         Console.WriteLine($"  Current function: {frame.Code.Name}");
                         Console.WriteLine($"  GlobalScope: {frame.ScopeChain.GlobalScope?.Name ?? "null"}");
-                        #endif
                         if (frame.ScopeChain.GlobalScope != null)
                         {
-                            #if DEBUG_VM_LOG
                             Console.WriteLine($"  GlobalScope variable count: {frame.ScopeChain.GlobalScope.Variables.Count}");
-                            // Performance: Eliminated LINQ - manual key preview
                             var keyCount = Math.Min(20, frame.ScopeChain.GlobalScope.Variables.Keys.Count);
                             var keys = new string[keyCount];
                             int keyIdx = 0;
@@ -1969,9 +1970,9 @@ namespace SharpPy
                             }
                             Console.WriteLine($"  GlobalScope keys: {string.Join(", ", keys)}");
                             Console.WriteLine($"  Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
-                            #endif
                         }
                     }
+#endif
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): pushNull={pushNull}, nameIndex={globalNameIndex}");
@@ -2002,21 +2003,16 @@ namespace SharpPy
                                     frame.ScopeChain.BuiltinModule.GetBuiltin(globalName);
                     if (globalValue == null)
                     {
+#if DEBUG_VM_LOG
                         if (isEnumRelated)
-                        {
-                            #if DEBUG_VM_LOG
                             Console.WriteLine($"[LOAD_GLOBAL] ❌ Failed to find '{globalName}'!");
-                            #endif
-                        }
+#endif
                         throw CreateNameErrorWithSuggestion(globalName, frame);
                     }
-
+#if DEBUG_VM_LOG
                     if (isEnumRelated)
-                    {
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"[LOAD_GLOBAL] ✅ Found '{globalName}': {globalValue?.GetType().Name}");
-                        #endif
-                    }
+#endif
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): loaded {globalValue?.GetType().Name ?? "null"} value = {globalValue}");
@@ -2383,8 +2379,36 @@ namespace SharpPy
 
                     binop_pyobject:
                     {
-                        // Fall back to PyObject virtual dispatch
-                        var binResult = ExecuteBinaryOpType(lvBin.ToObject(), rvBin.ToObject(), binOp);
+                        // Fast path: PyClassInstance dunder methods — skip ExecuteBinaryOpType overhead
+                        // CPython 3.12: Objects/abstract.c:947 (binary_op1) — try left.__op__ first
+                        var leftObj = lvBin.ToObject();
+                        var rightObj = rvBin.ToObject();
+                        if (leftObj is PyClassInstance leftInst)
+                        {
+                            string magicName = binOp switch
+                            {
+                                BinaryOpType.ADD or BinaryOpType.INPLACE_ADD => "__add__",
+                                BinaryOpType.MULTIPLY or BinaryOpType.INPLACE_MULTIPLY => "__mul__",
+                                BinaryOpType.SUBTRACT or BinaryOpType.INPLACE_SUBTRACT => "__sub__",
+                                BinaryOpType.TRUE_DIVIDE or BinaryOpType.INPLACE_TRUE_DIVIDE => "__truediv__",
+                                BinaryOpType.FLOOR_DIVIDE or BinaryOpType.INPLACE_FLOOR_DIVIDE => "__floordiv__",
+                                BinaryOpType.MODULO or BinaryOpType.INPLACE_MODULO => "__mod__",
+                                BinaryOpType.POWER or BinaryOpType.INPLACE_POWER => "__pow__",
+                                _ => null,
+                            };
+                            if (magicName != null)
+                            {
+                                var magicResult = leftInst.CallMagicMethodBinary(magicName, rightObj);
+                                if (magicResult != null && magicResult != PyNotImplemented.Instance)
+                                {
+                                    frame.ValueStack.Push(magicResult);
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Fall back to full PyObject virtual dispatch
+                        var binResult = ExecuteBinaryOpType(leftObj, rightObj, binOp);
                         frame.ValueStack.Push(binResult);
                         break;
                     }

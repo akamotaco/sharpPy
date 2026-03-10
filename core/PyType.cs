@@ -872,9 +872,58 @@ namespace SharpPy
                     throw PyTypeError.Create($"bytearray() takes at most 1 argument ({args.Length} given)");
             }
 
+            // Fast path for common type conversions — avoid PyBuiltinFunction allocation
+            // CPython 3.12: Objects/unicodeobject.c:14702 (str), longobject.c:5766 (int), floatobject.c:1744 (float)
+            switch (Name)
+            {
+                case "str":
+                    if (args.Length == 0) return new PyStr("");
+                    if (args.Length == 1) return args[0] is PyStr s ? s : new PyStr(args[0].AsString());
+                    break;
+                case "int":
+                    if (args.Length == 0) return SmallIntCache.Zero;
+                    if (args.Length == 1)
+                    {
+                        var a = args[0];
+                        if (a is PyInt pi) return pi;
+                        if (a is PyFloat pf) return new PyInt((System.Numerics.BigInteger)(long)pf.Value);
+                        if (a is PyBool pb) return pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
+                        if (a is PyStr ps)
+                        {
+                            if (System.Numerics.BigInteger.TryParse(ps.Value.Trim(), out var bv))
+                                return new PyInt(bv);
+                        }
+                    }
+                    break;
+                case "float":
+                    if (args.Length == 0) return new PyFloat(0.0);
+                    if (args.Length == 1)
+                    {
+                        var a = args[0];
+                        if (a is PyFloat pf) return pf;
+                        if (a is PyInt pi) return new PyFloat((double)pi.Value);
+                        if (a is PyBool pb) return new PyFloat(pb.Value ? 1.0 : 0.0);
+                    }
+                    break;
+                case "bool":
+                    if (args.Length == 0) return PyBool.False;
+                    if (args.Length == 1) return PyBool.FromBool(args[0].PyBoolValue());
+                    break;
+                case "list":
+                    if (args.Length == 0) return new PyList();
+                    break;
+                case "dict":
+                    if (args.Length == 0 && (kwargs == null || kwargs.InternalDict.Count == 0))
+                        return new PyDict();
+                    break;
+                case "tuple":
+                    if (args.Length == 0) return PyTuple.Empty;
+                    break;
+            }
+
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
             var builtinFunc = new PyBuiltinFunction(Name);
-            return builtinFunc.Call(args, null);
+            return builtinFunc.Call(args, kwargs);
         }
 
         // Special method lookup (MRO 기반) with method cache
