@@ -294,16 +294,12 @@ public partial class PyFunction : PyObject, IDescriptor
             functionScopeChain = ParentScope ?? new PyScopeChain();
         }
 
-        // Fast path: CO_OPTIMIZED, exact args, no closures, no defaults → skip BindArgs entirely
+        // Fast path: precomputed IsSimpleCallTarget + no closures + exact args → skip BindArgs
         var code = CodeObject;
         PyFrame frame;
-        if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+        if (code.IsSimpleCallTarget
             && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0
             && args.Length == code.ArgCount
-            && code.KwonlyArgCount == 0
-            && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
-            && code.DefaultValues.Count == 0
-            && code.CachedDefaultsTuple == null
             && Attributes.Count == 0)
         {
             frame = new PyFrame(code, args, functionScopeChain, null, true);
