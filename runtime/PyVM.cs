@@ -2612,6 +2612,22 @@ namespace SharpPy
                             {
                                 newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
                             }
+                            else if (actualCallable is PyMethodDescriptor mdesc && finalArgs.Length >= 1)
+                            {
+                                // Fast path: PyMethodDescriptor — call _implementation directly
+                                // Avoids inner args array allocation in PyMethodDescriptor.Call()
+                                // finalArgs = [self, arg1, ...], descriptor expects (self, args_without_self, kwargs)
+                                var mdSelf = finalArgs[0];
+                                int mdArgCount = finalArgs.Length - 1;
+                                PyObject[] mdArgs;
+                                if (mdArgCount == 0) mdArgs = EmptyArgs;
+                                else
+                                {
+                                    mdArgs = new PyObject[mdArgCount];
+                                    Array.Copy(finalArgs, 1, mdArgs, 0, mdArgCount);
+                                }
+                                newCallResult = mdesc._implementation(mdSelf, mdArgs, null);
+                            }
                             else
                             {
                                 newCallResult = actualCallable.Call(finalArgs, null);
@@ -3324,6 +3340,25 @@ namespace SharpPy
                             }
                             // Not in instance dict — check class dict for data descriptors and non-method attrs
                             // Fall through to full GetAttribute for descriptor protocol
+                        }
+
+                        // Fast path: PyStr/PyList/PyDict method lookup — avoid PyStrMethod/etc. allocation
+                        // CPython 3.12: Objects/unicodeobject.c — str methods are method_descriptors
+                        if (pushNullForMethod)
+                        {
+                            PyType builtinType = null;
+                            if (obj is PyStr) builtinType = PyType.StrType;
+                            else if (obj is PyList) builtinType = PyType.ListType;
+                            else if (obj is PyDict) builtinType = PyType.DictType;
+
+                            if (builtinType != null && builtinType.TypeDict.TryGetValue(attrName, out var descriptor)
+                                && descriptor is PyMethodDescriptor)
+                            {
+                                // Push [descriptor, self] for CALL to dispatch via descriptor protocol
+                                frame.ValueStack.Push(descriptor);
+                                frame.ValueStack.Push(obj);
+                                break;
+                            }
                         }
 
                         // Get attribute using existing system
