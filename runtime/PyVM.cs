@@ -2922,6 +2922,18 @@ namespace SharpPy
                                 int mdArgCount = finalArgs.Length - 1;
                                 PyObject[] mdArgs;
                                 if (mdArgCount == 0) mdArgs = EmptyArgs;
+                                else if (mdArgCount == 1)
+                                {
+                                    // ThreadStatic buffer for 1-arg method calls (e.g., list.append(x))
+                                    mdArgs = _oneArgBuf ??= new PyObject[1];
+                                    mdArgs[0] = finalArgs[1];
+                                }
+                                else if (mdArgCount == 2)
+                                {
+                                    mdArgs = _twoArgBuf ??= new PyObject[2];
+                                    mdArgs[0] = finalArgs[1];
+                                    mdArgs[1] = finalArgs[2];
+                                }
                                 else
                                 {
                                     mdArgs = new PyObject[mdArgCount];
