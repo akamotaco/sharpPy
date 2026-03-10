@@ -801,19 +801,20 @@ namespace SharpPy
 
             // Fast path: PyList of PyInt with int start → long accumulator
             // CPython: bltinmodule.c:2614 (builtin_sum_impl) has _PyLong_Add fast path
-            if (iterable is PyList sumList && (start is PyInt startInt))
+            if (iterable is PyList sumList && (start is PyInt startInt) && startInt.FitsInLong)
             {
-                long acc = (long)startInt.Value;
+                long acc = startInt.CachedLong;
                 bool overflow = false;
                 int listLen = sumList.Length();
                 for (int i = 0; i < listLen; i++)
                 {
                     var elem = sumList.GetItem(i);
-                    if (elem is PyInt elemInt && elemInt.Value >= long.MinValue && elemInt.Value <= long.MaxValue)
+                    if (elem is PyInt elemInt && elemInt.FitsInLong)
                     {
                         long prev = acc;
-                        acc = unchecked(acc + (long)elemInt.Value);
-                        if (((prev ^ acc) & ((long)elemInt.Value ^ acc)) < 0)
+                        long elemVal = elemInt.CachedLong;
+                        acc = unchecked(acc + elemVal);
+                        if (((prev ^ acc) & (elemVal ^ acc)) < 0)
                         {
                             overflow = true;
                             break;
@@ -840,18 +841,19 @@ namespace SharpPy
             // Generic path: use long accumulator when possible
             // CPython: bltinmodule.c:2614 (builtin_sum_impl) uses _PyLong_Add fast path
             var iterator = iterable.GetIterator();
-            if (start is PyInt genStartInt)
+            if (start is PyInt genStartInt && genStartInt.FitsInLong)
             {
-                long acc = (long)genStartInt.Value;
+                long acc = genStartInt.CachedLong;
                 bool useGenericFallback = false;
                 PyObject fallbackResult = null;
                 while (iterator.TryNext(out var item))
                 {
-                    if (item is PyInt itemInt && itemInt.Value >= long.MinValue && itemInt.Value <= long.MaxValue)
+                    if (item is PyInt itemInt && itemInt.FitsInLong)
                     {
                         long prev = acc;
-                        acc = unchecked(acc + (long)itemInt.Value);
-                        if (((prev ^ acc) & ((long)itemInt.Value ^ acc)) < 0)
+                        long itemVal = itemInt.CachedLong;
+                        acc = unchecked(acc + itemVal);
+                        if (((prev ^ acc) & (itemVal ^ acc)) < 0)
                         {
                             // Overflow: switch to PyObject path for remainder
                             useGenericFallback = true;

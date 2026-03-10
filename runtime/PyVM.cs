@@ -1215,7 +1215,7 @@ namespace SharpPy
                     }
 #endif
 
-                    var instruction = instructions[frame.InstructionPointer];
+                    ref var instruction = ref instructions[frame.InstructionPointer];
 
 #if DEBUG
                     // DEBUG: Track instruction for debugging
@@ -1820,10 +1820,6 @@ namespace SharpPy
                             pyEx.LineNumber = frame.CurrentLineNumber;
                             pyEx.ColumnOffset = frame.CurrentColumnOffset;
                             pyEx.SourceLines = frame.Code.SourceLines;
-
-#if DEBUG_LOG
-                            Console.WriteLine($"🔍 Exception enriched: {pyEx.FileName}:{pyEx.LineNumber}:{pyEx.ColumnOffset}");
-#endif
                         }
 
                         // CPython 3.12: Add current frame to traceback BEFORE unwinding
@@ -1835,91 +1831,38 @@ namespace SharpPy
                         if (handlerOffset.HasValue && exceptionEntry != null)
                         {
                             // CPython 3.12 ceval.c: Unwind stack to handler's expected depth
-                            // while (stack_depth > handler->h_stacklevel) { POP(); }
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Unwinding stack from {frame.ValueStack.Count} to depth {exceptionEntry.Depth}");
-                            #endif
                             while (frame.ValueStack.Count > exceptionEntry.Depth)
                             {
                                 frame.ValueStack.Pop();
                             }
 
                             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
-                            // CPython ceval.c:972-978
                             if (exceptionEntry.Lasti)
                             {
-                                // Push current instruction pointer as lasti (PyLong)
                                 var lastiValue = new PyInt(frame.InstructionPointer);
                                 frame.ValueStack.Push(lastiValue);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 Exception handled: pushed lasti={frame.InstructionPointer} to stack");
-                                #endif
                             }
 
                             // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
-                            // CPython ceval.c:985-986
-                            // PUSH_EXC_INFO will add prev_exc, transforming stack to: [..., lasti (if lasti=true), prev_exc, exc]
                             frame.ValueStack.Push(pyEx.PyException);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Exception handled: pushed exception instance to stack (depth={exceptionEntry.Depth}, lasti={exceptionEntry.Lasti})");
-                            #endif
 
                             frame.LastException = pyEx.PyException;
                             frame.CurrentException = pyEx.PyException;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Exception handled: jumping to handler at offset {handlerOffset.Value}");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Stack after exception push: {frame.ValueStack.Count} items");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Total instructions: {frame.Code.Instructions.Count}");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Handler offset {handlerOffset.Value} → instruction index: {handlerOffset.Value}");
-                            #endif
 
-                            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices, not byte offsets
+                            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices
                             var instructionIndex = handlerOffset.Value;
                             if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
                             {
                                 frame.InstructionPointer = instructionIndex;
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 Jumping to instruction {instructionIndex}: {frame.Code.Instructions[instructionIndex].OpCode}");
-                                #endif
                             }
                             else
                             {
-                                // Invalid handler index - provide detailed diagnostic information
-                                #if DEBUG_LOG
-                                Console.WriteLine($"❌ Invalid handler instruction index: {instructionIndex}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   Max valid index: {frame.Code.Instructions.Count - 1}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   Exception Table entries: {frame.Code.ExceptionTable.Count}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   Current IP: {frame.InstructionPointer}");
-                                #endif
-
-                                // Try to find a valid handler or fall back gracefully
                                 if (frame.Code.Instructions.Count > 0)
                                 {
-                                    // Jump to the last instruction as a safer fallback
-                                    int safeIndex = frame.Code.Instructions.Count - 1;
-                                    frame.InstructionPointer = safeIndex;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 Fallback: Jumping to safe instruction {safeIndex}");
-                                    #endif
+                                    frame.InstructionPointer = frame.Code.Instructions.Count - 1;
                                 }
                                 else
                                 {
-                                    // No instructions available - re-throw the original exception
-                                    #if DEBUG_LOG
-                                    Console.WriteLine("❌ No valid instructions to jump to - re-throwing exception");
-                                    #endif
                                     throw;
                                 }
                             }
@@ -1933,14 +1876,12 @@ namespace SharpPy
                     catch (LoopBreakException)
                     {
                         // Break: jump to end of current loop
-                        // For now, find the next loop end by looking for matching FOR_ITER
                         var loopEnd = FindLoopEnd(frame, frame.InstructionPointer);
                         frame.InstructionPointer = loopEnd;
                     }
                     catch (LoopContinueException)
                     {
                         // Continue: jump to beginning of current loop
-                        // For now, find the loop start by looking for matching loop instruction
                         var loopStart = FindLoopStart(frame, frame.InstructionPointer);
                         frame.InstructionPointer = loopStart;
                     }
@@ -1965,7 +1906,7 @@ namespace SharpPy
         }
 
         // 개별 명령어 실행 (기존 시스템과 연동)
-        private PyObject ExecuteInstruction(PyFrame frame, ByteCodeInstruction instruction)
+        private PyObject ExecuteInstruction(PyFrame frame, in ByteCodeInstruction instruction)
         {
             switch (instruction.OpCode)
             {

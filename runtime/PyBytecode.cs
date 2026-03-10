@@ -356,6 +356,7 @@ namespace SharpPy
         public bool IsMethod;          // True if cached for method call (pushNullForMethod=true)
     }
 
+
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction
     // No intermediate ExceptHandlerInfo struct needed - use ExceptBlock reference directly
     public struct ByteCodeInstruction
@@ -472,6 +473,7 @@ namespace SharpPy
         /// Lazily allocated on first LOAD_ATTR cache miss. Indexed by instruction index.
         /// </summary>
         internal LoadAttrCacheEntry[] LoadAttrCache;
+
 
         /// <summary>
         /// Cached PyTuple of default values. Built once at construction time.

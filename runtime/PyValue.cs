@@ -158,11 +158,11 @@ namespace SharpPy
 
             if (obj is PyInt pi)
             {
-                // Only inline if value fits in long (99.99% of cases)
-                BigInteger bigVal = pi.Value;
-                if (bigVal >= long.MinValue && bigVal <= long.MaxValue)
-                    return new PyValue { Tag = TAG_INT64, RawBits = (long)bigVal };
-                // BigInteger that doesn't fit → keep as object
+                // Fast path: use cached long value to avoid BigInteger comparison/cast
+                // CPython 3.12: ob_digit compact representation for small ints
+                if (pi.FitsInLong)
+                    return new PyValue { Tag = TAG_INT64, RawBits = pi.CachedLong };
+                // BigInteger that doesn't fit in long → keep as object
                 return new PyValue { Tag = TAG_OBJECT, ObjRef = obj };
             }
 

@@ -458,11 +458,24 @@ namespace SharpPy
 
         public Py_int_t Value { get; }
 
+        /// <summary>
+        /// Cached long representation for fast PyValue.FromObject conversion.
+        /// Avoids expensive BigInteger comparison/cast in hot paths (CALL arg passing).
+        /// CPython 3.12: ob_digit[0] stores compact value for small ints.
+        /// </summary>
+        internal readonly long CachedLong;
+        internal readonly bool FitsInLong;
+
         // CPython 3.12: Objects/longobject.c - PyLongObject inherits ob_type from PyObject
         // Constructor can optionally set custom type for subclasses (IntEnum, IntFlag)
         public PyInt(Py_int_t value, PyType? customType = null)
         {
             Value = value;
+            if (value >= long.MinValue && value <= long.MaxValue)
+            {
+                CachedLong = (long)value;
+                FitsInLong = true;
+            }
             if (customType != null)
             {
                 _customType = customType;  // Inherited from PyObject
