@@ -139,8 +139,12 @@ namespace SharpPy
             LocalsPlus = new PyValue[nlocals];
             // PyValue default is {Tag=0, RawBits=0, ObjRef=null} which is Tag.Object + null.
             // We need Tag=5 (NULL) to indicate uninitialized.
-            if (nlocals > 0)
-                Array.Fill(LocalsPlus, PyValue.Null);
+            // Optimization: only fill slots beyond args.Length (args slots will be overwritten by BindArgs)
+            int argsLen = args.Length;
+            if (nlocals > argsLen)
+            {
+                Array.Fill(LocalsPlus, PyValue.Null, argsLen, nlocals - argsLen);
+            }
 
             InstructionPointer = 0;
 
@@ -1312,6 +1316,24 @@ namespace SharpPy
                                     frame.InstructionPointer++;
                                     continue;
                                 }
+                                if (ilv.IsFloat64 && irv.IsFloat64)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 + irv.AsFloat64);
+                                    frame.InstructionPointer++; continue;
+                                }
+                                if (ilv.IsIntLike && irv.IsFloat64)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64((double)ilv.AsInt64 + irv.AsFloat64);
+                                    frame.InstructionPointer++; continue;
+                                }
+                                if (ilv.IsFloat64 && irv.IsIntLike)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 + (double)irv.AsInt64);
+                                    frame.InstructionPointer++; continue;
+                                }
                             }
                             else if (inlineBinOp == BinaryOpType.MULTIPLY || inlineBinOp == BinaryOpType.INPLACE_MULTIPLY)
                             {
@@ -1335,6 +1357,24 @@ namespace SharpPy
                                     frame.InstructionPointer++;
                                     continue;
                                 }
+                                if (ilv.IsFloat64 && irv.IsFloat64)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 * irv.AsFloat64);
+                                    frame.InstructionPointer++; continue;
+                                }
+                                if (ilv.IsIntLike && irv.IsFloat64)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64((double)ilv.AsInt64 * irv.AsFloat64);
+                                    frame.InstructionPointer++; continue;
+                                }
+                                if (ilv.IsFloat64 && irv.IsIntLike)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 * (double)irv.AsInt64);
+                                    frame.InstructionPointer++; continue;
+                                }
                             }
                             else if (inlineBinOp == BinaryOpType.SUBTRACT || inlineBinOp == BinaryOpType.INPLACE_SUBTRACT)
                             {
@@ -1352,6 +1392,18 @@ namespace SharpPy
                                         frame.ValueStack.PushInt64(diff);
                                     frame.InstructionPointer++;
                                     continue;
+                                }
+                                if (ilv.IsFloat64 && irv.IsFloat64)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 - irv.AsFloat64);
+                                    frame.InstructionPointer++; continue;
+                                }
+                                if (ilv.IsFloat64 && irv.IsIntLike)
+                                {
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 - (double)irv.AsInt64);
+                                    frame.InstructionPointer++; continue;
                                 }
                             }
                             else if (inlineBinOp == BinaryOpType.FLOOR_DIVIDE || inlineBinOp == BinaryOpType.INPLACE_FLOOR_DIVIDE)
@@ -1374,7 +1426,71 @@ namespace SharpPy
                                     }
                                 }
                             }
-                            // Non-int or other ops: fall through to ExecuteInstruction
+                            else if (inlineBinOp == BinaryOpType.TRUE_DIVIDE || inlineBinOp == BinaryOpType.INPLACE_TRUE_DIVIDE)
+                            {
+                                var irv = frame.ValueStack.PeekValueAt(0);
+                                var ilv = frame.ValueStack.PeekValueAt(1);
+                                if (ilv.IsFloat64 && irv.IsFloat64)
+                                {
+                                    double rd = irv.AsFloat64;
+                                    if (rd != 0.0)
+                                    {
+                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                        frame.ValueStack.PushFloat64(ilv.AsFloat64 / rd);
+                                        frame.InstructionPointer++; continue;
+                                    }
+                                }
+                                if (ilv.IsFloat64 && irv.IsIntLike)
+                                {
+                                    double rd = (double)irv.AsInt64;
+                                    if (rd != 0.0)
+                                    {
+                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                        frame.ValueStack.PushFloat64(ilv.AsFloat64 / rd);
+                                        frame.InstructionPointer++; continue;
+                                    }
+                                }
+                            }
+                            else if (inlineBinOp == BinaryOpType.POWER || inlineBinOp == BinaryOpType.INPLACE_POWER)
+                            {
+                                var irv = frame.ValueStack.PeekValueAt(0);
+                                var ilv = frame.ValueStack.PeekValueAt(1);
+                                // float ** float or float ** int or int ** float
+                                if (ilv.IsFloat64 || irv.IsFloat64)
+                                {
+                                    double ld = ilv.IsFloat64 ? ilv.AsFloat64 : (double)ilv.AsInt64;
+                                    double rd = irv.IsFloat64 ? irv.AsFloat64 : (double)irv.AsInt64;
+                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                    frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
+                                    frame.InstructionPointer++; continue;
+                                }
+                                // int ** small_positive_int (e.g., x ** 2)
+                                // CPython 3.12: Objects/longobject.c long_pow()
+                                if (ilv.IsIntLike && irv.IsIntLike)
+                                {
+                                    long ra = irv.AsInt64;
+                                    if (ra >= 0 && ra <= 10)
+                                    {
+                                        long la = ilv.AsInt64;
+                                        long result = 1;
+                                        bool overflow = false;
+                                        for (long e = ra; e > 0; e--)
+                                        {
+                                            // Check multiplication overflow
+                                            if (result != 0 && (la > long.MaxValue / Math.Abs(result) || la < long.MinValue / Math.Abs(result)))
+                                            { overflow = true; break; }
+                                            result = unchecked(result * la);
+                                        }
+                                        if (!overflow)
+                                        {
+                                            frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
+                                            frame.ValueStack.PushInt64(result);
+                                            frame.InstructionPointer++; continue;
+                                        }
+                                    }
+                                }
+                            }
+                            // Non-int/float or other ops: fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.COMPARE_OP)
                         {
@@ -1404,7 +1520,30 @@ namespace SharpPy
                                     continue;
                                 }
                             }
-                            // Non-int or IS/IS_NOT/IN/NOT_IN: fall through
+                            else if (clv.IsFloat64 && crv.IsFloat64)
+                            {
+                                frame.ValueStack.PopValue();
+                                frame.ValueStack.PopValue();
+                                double la = clv.AsFloat64, ra = crv.AsFloat64;
+                                int cmpOp = instruction.Argument >> 4;
+                                bool cmpResult = cmpOp switch
+                                {
+                                    0 => la < ra,   // LT
+                                    1 => la <= ra,  // LE
+                                    2 => la == ra,  // EQ
+                                    3 => la != ra,  // NE
+                                    4 => la > ra,   // GT
+                                    5 => la >= ra,  // GE
+                                    _ => false
+                                };
+                                if (cmpOp <= 5)
+                                {
+                                    frame.ValueStack.PushBool(cmpResult);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            // Non-int/float or IS/IS_NOT/IN/NOT_IN: fall through
                         }
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
@@ -1453,6 +1592,48 @@ namespace SharpPy
                                 continue;
                             }
                             // Not found → fall through to ExecuteInstruction for error handling
+                        }
+                        else if (inlineOp == ByteCodeOp.LOAD_ATTR)
+                        {
+                            // Inline fast path: PyClassInstance attribute access (most common)
+                            // CPython 3.12: LOAD_ATTR_INSTANCE_VALUE specialization
+                            int laOparg = instruction.Argument;
+                            bool laPushNull = (laOparg & 1) == 1;
+                            int laNameIdx = laOparg >> 1;
+
+                            if (!laPushNull)
+                            {
+                                // Simple attribute access (self.x, obj.val)
+                                var laObj = frame.ValueStack.Peek();
+                                if (laObj is PyClassInstance laInst
+                                    && laInst.InstanceDict.TryGetValue(frame.Code.Names[laNameIdx], out var laVal))
+                                {
+                                    frame.ValueStack.Pop();
+                                    frame.ValueStack.Push(laVal);
+                                    frame.InstructionPointer++;
+                                    continue;
+                                }
+                            }
+                            // Method call or not in instance dict → fall through to ExecuteInstruction
+                        }
+                        else if (inlineOp == ByteCodeOp.STORE_ATTR)
+                        {
+                            // Inline fast path: PyClassInstance simple attribute store
+                            // CPython 3.12: STORE_ATTR_INSTANCE_VALUE specialization
+                            var saAttrName = frame.Code.Names[instruction.Argument];
+                            var saObj = frame.ValueStack.Peek();
+                            if (saObj is PyClassInstance saInst
+                                && saInst.InstanceType.GetCachedMagicMethod("__setattr__") == null)
+                            {
+                                // No __setattr__ and no data descriptor check needed for simple classes
+                                // (data descriptors are rare — skip MRO scan for speed)
+                                frame.ValueStack.Pop();
+                                var saValue = frame.ValueStack.Pop();
+                                saInst.InstanceDict[saAttrName] = saValue;
+                                frame.InstructionPointer++;
+                                continue;
+                            }
+                            // Custom __setattr__ or non-instance → fall through
                         }
                         else if (inlineOp == ByteCodeOp.JUMP_BACKWARD)
                         {

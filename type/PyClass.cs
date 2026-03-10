@@ -74,6 +74,12 @@ namespace SharpPy
         private int _usesDefaultNew = -1;
         private ulong _usesDefaultNewVersion;
 
+        // Cached subclass flags — avoid MRO.Any() LINQ per instance creation
+        // CPython 3.12: Objects/typeobject.c — tp_flags (Py_TPFLAGS_DICT_SUBCLASS, etc.)
+        private int _isDictSubclass = -1; // -1=unchecked, 0=no, 1=yes
+        private int _isListSubclass = -1;
+        private int _hasGetattr = -1;     // -1=unchecked, 0=no, 1=yes
+
         // ThreadStatic buffers for __init__ args (self + args) to avoid per-call allocation
         // CPython 3.12: Objects/typeobject.c:1677 (slot_tp_init) — init args include self
         [ThreadStatic] private static PyObject[] _initBuf1; // [self]
@@ -115,6 +121,42 @@ namespace SharpPy
             // Cache the result (null means "not found", also cached)
             _magicMethodCache[name] = found;
             return found;
+        }
+
+        /// <summary>
+        /// Cached check: is this class a dict subclass?
+        /// CPython 3.12: tp_flags & Py_TPFLAGS_DICT_SUBCLASS
+        /// </summary>
+        internal bool IsDictSubclassType()
+        {
+            if (_isDictSubclass == -1)
+                _isDictSubclass = MRO.Any(bt => bt == PyType.DictType) ? 1 : 0;
+            return _isDictSubclass == 1;
+        }
+
+        /// <summary>
+        /// Cached check: is this class a list subclass?
+        /// CPython 3.12: tp_flags & Py_TPFLAGS_LIST_SUBCLASS
+        /// </summary>
+        internal bool IsListSubclassType()
+        {
+            if (_isListSubclass == -1)
+                _isListSubclass = MRO.Any(bt => bt == PyType.ListType) ? 1 : 0;
+            return _isListSubclass == 1;
+        }
+
+        /// <summary>
+        /// Cached check: does this class have __getattr__?
+        /// CPython 3.12: Objects/typeobject.c:8855
+        /// </summary>
+        internal bool HasGetAttrMethod()
+        {
+            if (_hasGetattr == -1)
+            {
+                var m = GetCachedMagicMethod("__getattr__");
+                _hasGetattr = (m is PyFunction) ? 1 : 0;
+            }
+            return _hasGetattr == 1;
         }
 
         public PyClass(string name, PyType[] baseTypes, Dictionary<string, PyObject> classDict = null, List<PyObject>? typeParams = null)
@@ -1314,22 +1356,19 @@ namespace SharpPy
             ConstructorArgs = Array.Empty<PyObject>();
 
             // CPython 3.12: _PyType_Lookup(tp, &_Py_ID(__getattr__))
-            // Objects/typeobject.c:8855 — MRO 전체를 탐색하여 __getattr__ 찾기
-            // Use GetCachedMagicMethod (O(1) cache hit) instead of LookupInMRO (GlobalMethodCache lookup)
-            var getAttrMethod = instanceType.GetCachedMagicMethod("__getattr__");
-            if (getAttrMethod is PyFunction getAttrFunc)
+            // Use cached flag on PyClass (O(1)) instead of per-instance MRO search
+            if (instanceType.HasGetAttrMethod())
             {
-                _customGetAttr = getAttrFunc;
+                _customGetAttr = (PyFunction)instanceType.GetCachedMagicMethod("__getattr__");
             }
 
-            // CPython 3.12: If this is a dict subclass, create internal dict storage
-            if (IsDictSubclass())
+            // CPython 3.12: Subclass storage — use cached flags on PyClass (O(1))
+            if (instanceType.IsDictSubclassType())
             {
                 _dictStorage = new PyDict();
             }
 
-            // CPython 3.12: If this is a list subclass, create internal list storage
-            if (IsListSubclass())
+            if (instanceType.IsListSubclassType())
             {
                 _listStorage = new PyList();
             }
@@ -1337,16 +1376,12 @@ namespace SharpPy
 
         public bool IsDictSubclass()
         {
-            // Check if dict is in MRO (not just direct base types)
-            // This handles multi-level inheritance like TracedOrderedDict -> OrderedDict -> dict
-            return InstanceType.MRO.Any(bt => bt == PyType.DictType);
+            return InstanceType.IsDictSubclassType();
         }
 
         public bool IsListSubclass()
         {
-            // Check if list is in MRO (not just direct base types)
-            // This handles multi-level inheritance
-            return InstanceType.MRO.Any(bt => bt == PyType.ListType);
+            return InstanceType.IsListSubclassType();
         }
 
         // CPython 3.12: Provide access to internal dict storage for dict subclasses

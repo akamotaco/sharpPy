@@ -149,6 +149,17 @@ namespace SharpPy
             _implementation = implementation;
         }
 
+        /// <summary>
+        /// Expose builtin implementation table for direct delegate wiring.
+        /// CPython: avoids dictionary fallback in Call() hot path.
+        /// </summary>
+        public static Func<PyObject[], PyDict, PyObject> GetBuiltinImpl(string name)
+        {
+            if (_builtinImplementations.TryGetValue(name, out var impl))
+                return impl;
+            return null;
+        }
+
         public override string GetTypeName() => "builtin_function_or_method";
 
         public override PyType GetPyType() => PyType.FunctionType;
