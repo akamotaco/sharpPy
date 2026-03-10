@@ -21,6 +21,51 @@ namespace SharpPy
     {
         private static readonly Dictionary<string, PyObject> _emptyGlobals = new Dictionary<string, PyObject>();
 
+        #region LocalsPlus Pool
+        // ThreadStatic per-size cache for LocalsPlus arrays (1-8 locals).
+        // Most Python functions have 1-8 locals; this avoids new PyValue[] per call.
+        // CPython reuses stack space via C frame; we emulate with explicit pooling.
+        [ThreadStatic] private static PyValue[]? _lp1, _lp2, _lp3, _lp4, _lp5, _lp6, _lp7, _lp8;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static PyValue[] RentLocals(int size)
+        {
+            PyValue[] arr;
+            switch (size)
+            {
+                case 1: arr = _lp1; if (arr != null) { _lp1 = null; return arr; } break;
+                case 2: arr = _lp2; if (arr != null) { _lp2 = null; return arr; } break;
+                case 3: arr = _lp3; if (arr != null) { _lp3 = null; return arr; } break;
+                case 4: arr = _lp4; if (arr != null) { _lp4 = null; return arr; } break;
+                case 5: arr = _lp5; if (arr != null) { _lp5 = null; return arr; } break;
+                case 6: arr = _lp6; if (arr != null) { _lp6 = null; return arr; } break;
+                case 7: arr = _lp7; if (arr != null) { _lp7 = null; return arr; } break;
+                case 8: arr = _lp8; if (arr != null) { _lp8 = null; return arr; } break;
+            }
+            return new PyValue[size];
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void ReturnLocals(PyValue[] arr)
+        {
+            int len = arr.Length;
+            // Clear ObjRef fields for GC safety
+            for (int i = 0; i < len; i++) arr[i].ObjRef = null;
+            switch (len)
+            {
+                case 1: _lp1 ??= arr; break;
+                case 2: _lp2 ??= arr; break;
+                case 3: _lp3 ??= arr; break;
+                case 4: _lp4 ??= arr; break;
+                case 5: _lp5 ??= arr; break;
+                case 6: _lp6 ??= arr; break;
+                case 7: _lp7 ??= arr; break;
+                case 8: _lp8 ??= arr; break;
+                // Sizes > 8: just let GC collect
+            }
+        }
+        #endregion
+
         public PyCodeObject Code { get; }
         public PyStack ValueStack { get; }
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
@@ -138,10 +183,9 @@ namespace SharpPy
 
             // CPython 3.12: Initialize LocalsPlus array for fast local variable access
             int nlocals = code.VarNames.Count;
-            LocalsPlus = new PyValue[nlocals];
-            // PyValue default is {Tag=0, RawBits=0, ObjRef=null} which is Tag.Object + null.
-            // We need Tag=5 (NULL) to indicate uninitialized.
-            // Optimization: only fill slots beyond args.Length (args slots will be overwritten by BindArgs)
+            LocalsPlus = RentLocals(nlocals);
+            // Pooled arrays may have stale data — fill all slots with Null (uninitialized).
+            // Slots 0..argsLen-1 will be overwritten by BindArgs.
             int argsLen = args.Length;
             if (nlocals > argsLen)
             {
@@ -217,7 +261,7 @@ namespace SharpPy
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = new PyValue[nlocals];
+            LocalsPlus = RentLocals(nlocals);
 
             // Direct args binding — no defaults, no kwargs, no varargs check needed
             for (int i = 0; i < args.Length; i++)
@@ -245,7 +289,7 @@ namespace SharpPy
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = new PyValue[nlocals];
+            LocalsPlus = RentLocals(nlocals);
 
             // Direct PyValue copy — no FromObject conversion needed
             Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
@@ -1926,11 +1970,12 @@ namespace SharpPy
             finally
             {
                 _frameStack.Pop();
-                // Don't pool stacks for generator/coroutine frames — they persist across yields.
+                // Don't pool stacks/locals for generator/coroutine frames — they persist across yields.
                 // CPython: generator frames keep their stack alive between send()/next() calls.
                 if ((frame.Code.Flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) == 0)
                 {
                     PyStack.Return(frame.ValueStack);
+                    PyFrame.ReturnLocals(frame.LocalsPlus);
                 }
             }
         }
