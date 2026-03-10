@@ -149,6 +149,21 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Bulk pop N values into a PyValue buffer (reverse order: TOS → buffer[count-1]).
+        /// Used by CALL opcode to avoid per-arg ToObject/FromObject roundtrip.
+        /// CPython 3.12: STACK_SHRINK(oparg) pattern.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void PopValues(PyValue[] buffer, int count)
+        {
+            for (int i = count - 1; i >= 0; i--)
+            {
+                buffer[i] = _items[--_top];
+                _items[_top] = default;
+            }
+        }
+
+        /// <summary>
         /// Peek at the top PyValue directly (no conversion).
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

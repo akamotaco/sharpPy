@@ -501,12 +501,11 @@ namespace SharpPy
         /// </summary>
         public long ToLong()
         {
-            // CPython: Check if value fits in long range
-            if (Value > long.MaxValue || Value < long.MinValue)
-            {
-                throw PyOverflowError.Create("int too large to convert to long");
-            }
-            return (long)Value;
+            // CPython 3.12: Objects/longobject.c:339-352 PyLong_AsLong
+            // Fast path: use cached long (avoids BigInteger comparison + cast)
+            if (FitsInLong)
+                return CachedLong;
+            throw PyOverflowError.Create("int too large to convert to long");
         }
 
 
@@ -1147,9 +1146,9 @@ namespace SharpPy
         public override string AsString()
         {
             // CPython 3.12: Objects/longobject.c long_to_decimal_string
-            // Fast path: small ints use long.ToString() instead of BigInteger.ToString()
-            if (Value >= long.MinValue && Value <= long.MaxValue)
-                return ((long)Value).ToString();
+            // Fast path: use cached long (avoids BigInteger comparison + cast)
+            if (FitsInLong)
+                return CachedLong.ToString();
             return Value.ToString();
         }
 

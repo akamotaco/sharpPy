@@ -482,6 +482,14 @@ namespace SharpPy
         public PyTuple? CachedDefaultsTuple { get; private set; }
 
         /// <summary>
+        /// Pre-computed flag: true if this code object qualifies for the fast call path
+        /// (CO_OPTIMIZED, no kwonly, no varargs/varkeywords, no defaults).
+        /// CPython 3.12: CALL_PY_EXACT_ARGS specialization equivalent.
+        /// Checked once at construction, avoids 6 condition checks per call in ExecuteFunctionCall.
+        /// </summary>
+        public bool IsSimpleCallTarget { get; private set; }
+
+        /// <summary>
         /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
         /// localsplus layout: [varnames | non-param cells | freevars]
         /// Built once at construction time. Eliminates repeated list building in
@@ -541,6 +549,13 @@ namespace SharpPy
             BuildConstantsCache();
             BuildDefaultsTupleCache();
             InstructionsArray = Instructions.ToArray();
+
+            // Pre-compute fast call eligibility (CPython 3.12: CALL_PY_EXACT_ARGS equivalent)
+            IsSimpleCallTarget = (Flags & CO_OPTIMIZED) != 0
+                && KwonlyArgCount == 0
+                && (Flags & (CO_VARARGS | CO_VARKEYWORDS)) == 0
+                && DefaultValues.Count == 0
+                && CachedDefaultsTuple == null;
         }
 
         /// <summary>

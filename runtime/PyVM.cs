@@ -233,6 +233,33 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Ultra-fast frame constructor: accepts PyValue args directly from stack.
+        /// Eliminates PyValue→PyObject→PyValue roundtrip in function call hot path.
+        /// CPython 3.12: _PyEvalFramePushAndInit direct copy pattern.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal PyFrame(PyCodeObject code, PyValue[] argValues, int argCount, PyScopeChain parentScope, PyFrame parentFrame)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = new PyValue[nlocals];
+
+            // Direct PyValue copy — no FromObject conversion needed
+            Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
+            if (nlocals > argCount)
+                Array.Fill(LocalsPlus, PyValue.Null, argCount, nlocals - argCount);
+
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = Array.Empty<PyCell>();
+            Cells = Array.Empty<PyCell>();
+        }
+
+        /// <summary>
         /// CPython 3.12 호환: 코드 이름으로 모듈 실행인지 판단
         /// 모듈 레벨 코드는 항상 "<module>"이어야 함
         /// </summary>
@@ -790,6 +817,9 @@ namespace SharpPy
         [ThreadStatic] private static PyObject[] _methBuf1;  // [self]
         [ThreadStatic] private static PyObject[] _methBuf2;  // [self, arg1]
         [ThreadStatic] private static PyObject[] _methBuf3;  // [self, arg1, arg2]
+
+        // PyValue arg buffer for CALL fast path — avoids PyValue→PyObject→PyValue roundtrip
+        [ThreadStatic] private static PyValue[] _callValBuf;
 
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
@@ -3833,23 +3863,31 @@ namespace SharpPy
                     if (setObj is PyClassInstance setInst
                         && setInst.InstanceType.GetCachedMagicMethod("__setattr__") == null)
                     {
-                        // Check for data descriptor in class hierarchy (rare but correct)
-                        // CPython: Objects/object.c:1563 _PyObject_GenericSetAttrWithDict
-                        bool usedDescriptor = false;
-                        foreach (var mroType in setInst.InstanceType.MRO)
+                        // CPython 3.12: Objects/object.c:1563 _PyObject_GenericSetAttrWithDict
+                        // Fast path: if MRO has no data descriptors, skip MRO walk entirely
+                        if (setInst.InstanceType.MroHasNoDataDescriptors)
                         {
-                            if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(setAttrName, out PyObject classVal))
-                            {
-                                if (classVal is IDescriptor desc && desc.IsDataDescriptor())
-                                {
-                                    desc.Set(setInst, setAttrValue);
-                                    usedDescriptor = true;
-                                }
-                                break;
-                            }
-                        }
-                        if (!usedDescriptor)
                             setInst.InstanceDict[setAttrName] = setAttrValue;
+                        }
+                        else
+                        {
+                            // Slow path: check for data descriptor in class hierarchy
+                            bool usedDescriptor = false;
+                            foreach (var mroType in setInst.InstanceType.MRO)
+                            {
+                                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(setAttrName, out PyObject classVal))
+                                {
+                                    if (classVal is IDescriptor desc && desc.IsDataDescriptor())
+                                    {
+                                        desc.Set(setInst, setAttrValue);
+                                        usedDescriptor = true;
+                                    }
+                                    break;
+                                }
+                            }
+                            if (!usedDescriptor)
+                                setInst.InstanceDict[setAttrName] = setAttrValue;
+                        }
                     }
                     else
                     {
@@ -9079,62 +9117,58 @@ namespace SharpPy
 
             var code = pyFunc.CodeObject;
 
-            // For simple functions with no complex features, use direct execution
-            if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 &&
-                !code.IsGenerator() && !code.IsCoroutine())
+            // Generators and coroutines need special handling
+            if (code.IsGenerator() || code.IsCoroutine())
             {
-                try
-                {
-                    // CPython 3.12: Use function's captured globals, not caller's scope
-                    PyScopeChain functionScope;
-                    if (pyFunc.GlobalsDict != null)
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
-                        Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
-                        // Performance: Eliminated LINQ - manual key preview
-                        var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
-                        var keys = new string[keyCount];
-                        int keyIdx = 0;
-                        foreach (var key in pyFunc.GlobalsDict.Keys)
-                        {
-                            if (keyIdx >= keyCount) break;
-                            keys[keyIdx++] = key;
-                        }
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
-                        #endif
-
-                        // Use the function's captured globals (CPython 3.12 compatible)
-                        functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
-                    }
-                    else
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
-                        #endif
-                        // Fallback to ParentScope for backward compatibility
-                        functionScope = pyFunc.ParentScope ?? parentScope;
-                    }
-
-                    // Fast path: skip dict lookup when Attributes is empty (common case)
-                    var hasAttrs1 = pyFunc.Attributes.Count > 0;
-                    PyTuple defaults = (hasAttrs1
-                        && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                        ? defaultsTuple : null;
-                    PyDict kwdefaults = (hasAttrs1
-                        && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                        ? kwdefaultsDict : null;
-                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
-                    return ExecuteFrame(frame);
-                }
-                catch (PyReturnException retEx)
-                {
-                    return retEx.Value;
-                }
+                return pyFunc.Call(argsWithSelf, null);
             }
 
-            // Fallback to full call for complex functions
-            return pyFunc.Call(argsWithSelf, null);
+            try
+            {
+                // CPython 3.12: Use function's captured globals, not caller's scope
+                PyScopeChain functionScope;
+                if (pyFunc.GlobalsDict != null)
+                {
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
+                    Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
+                    var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
+                    var keys = new string[keyCount];
+                    int keyIdx = 0;
+                    foreach (var key in pyFunc.GlobalsDict.Keys)
+                    {
+                        if (keyIdx >= keyCount) break;
+                        keys[keyIdx++] = key;
+                    }
+                    Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
+                    #endif
+
+                    // Use cached scope chain to avoid PyScopeChain recreation
+                    functionScope = pyFunc.CreateCachedScopeChain()
+                        ?? new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                }
+                else
+                {
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
+                    #endif
+                    functionScope = pyFunc.ParentScope ?? parentScope;
+                }
+
+                var hasAttrs1 = pyFunc.Attributes.Count > 0;
+                PyTuple defaults = (hasAttrs1
+                    && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                    ? defaultsTuple : code.CachedDefaultsTuple;
+                PyDict kwdefaults = (hasAttrs1
+                    && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                    ? kwdefaultsDict : null;
+                var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                return ExecuteFrame(frame);
+            }
+            catch (PyReturnException retEx)
+            {
+                return retEx.Value;
+            }
         }
 
         private PyObject ExecuteFunctionCall(PyFunction pyFunc, PyObject[] args, PyScopeChain parentScope)
@@ -9147,81 +9181,95 @@ namespace SharpPy
 
             var code = pyFunc.CodeObject;
 
-            // For simple functions with no complex features, use direct execution
-            if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 &&
-                !code.IsGenerator() && !code.IsCoroutine())
+            // Generators and coroutines need special handling (RETURN_GENERATOR creates the object)
+            if (code.IsGenerator() || code.IsCoroutine())
             {
-                try
-                {
-                    // CPython 3.12: Use function's captured globals, not caller's scope
-                    // func->f_globals is set at function definition time, not call time
-                    PyScopeChain functionScope;
-                    if (pyFunc.GlobalsDict != null)
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
-                        Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
-                        // Performance: Eliminated LINQ - manual key preview
-                        var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
-                        var keys = new string[keyCount];
-                        int keyIdx = 0;
-                        foreach (var key in pyFunc.GlobalsDict.Keys)
-                        {
-                            if (keyIdx >= keyCount) break;
-                            keys[keyIdx++] = key;
-                        }
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
-                        #endif
-
-                        // Optimized: Use cached global scope to avoid PyScope + __builtins__ recreation
-                        functionScope = pyFunc.CreateCachedScopeChain()
-                            ?? new PyScopeChain(pyFunc.GlobalsDict, "<function>");
-                    }
-                    else
-                    {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
-                        #endif
-                        // Fallback to ParentScope for backward compatibility
-                        functionScope = pyFunc.ParentScope ?? parentScope;
-                    }
-
-                    // Fast path: CO_OPTIMIZED, exact args, no defaults/kwargs/varargs → skip BindArgs entirely
-                    // This is the common case for simple functions (def f(a, b): return a + b)
-                    PyFrame frame;
-                    if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
-                        && args.Length == code.ArgCount
-                        && code.KwonlyArgCount == 0
-                        && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
-                        && code.DefaultValues.Count == 0
-                        && code.CachedDefaultsTuple == null
-                        && pyFunc.Attributes.Count == 0)
-                    {
-                        frame = new PyFrame(code, args, functionScope, CurrentFrame, true);
-                    }
-                    else
-                    {
-                        // Standard path with defaults/kwargs support
-                        var hasAttrs = pyFunc.Attributes.Count > 0;
-                        PyTuple defaults = (hasAttrs
-                            && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
-                            ? defaultsTuple : code.CachedDefaultsTuple;
-                        PyDict kwdefaults = (hasAttrs
-                            && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                            ? kwdefaultsDict : null;
-                        frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
-                    }
-                    return ExecuteFrame(frame);
-                }
-                catch (PyReturnException retEx)
-                {
-                    return retEx.Value;
-                }
-            }
-            else
-            {
-                // Complex functions fall back to standard path
                 return pyFunc.Call(args, null);
+            }
+
+            try
+            {
+                // CPython 3.12: Use function's captured globals, not caller's scope
+                // func->f_globals is set at function definition time, not call time
+                PyScopeChain functionScope;
+                if (pyFunc.GlobalsDict != null)
+                {
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
+                    Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
+                    var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
+                    var keys = new string[keyCount];
+                    int keyIdx = 0;
+                    foreach (var key in pyFunc.GlobalsDict.Keys)
+                    {
+                        if (keyIdx >= keyCount) break;
+                        keys[keyIdx++] = key;
+                    }
+                    Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
+                    #endif
+
+                    functionScope = pyFunc.CreateCachedScopeChain()
+                        ?? new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                }
+                else
+                {
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
+                    #endif
+                    functionScope = pyFunc.ParentScope ?? parentScope;
+                }
+
+                // Fast path: simple functions with no closures, exact args → skip BindArgs
+                // IsSimpleCallTarget pre-computes code-level checks; only per-function check is Attributes
+                PyFrame frame;
+                if (code.IsSimpleCallTarget
+                    && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0
+                    && args.Length == code.ArgCount
+                    && pyFunc.Attributes.Count == 0)
+                {
+                    frame = new PyFrame(code, args, functionScope, CurrentFrame, true);
+                }
+                else
+                {
+                    // Standard path: handles closures, defaults, kwargs, varargs
+                    var hasAttrs = pyFunc.Attributes.Count > 0;
+                    PyTuple defaults = (hasAttrs
+                        && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                        ? defaultsTuple : code.CachedDefaultsTuple;
+                    PyDict kwdefaults = (hasAttrs
+                        && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                        ? kwdefaultsDict : null;
+                    frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                }
+                return ExecuteFrame(frame);
+            }
+            catch (PyReturnException retEx)
+            {
+                return retEx.Value;
+            }
+        }
+
+        /// <summary>
+        /// Ultra-fast function call: accepts PyValue args directly, eliminating ToObject/FromObject roundtrip.
+        /// Only for simple CO_OPTIMIZED functions with exact arg count, no defaults/kwargs/varargs.
+        /// CPython 3.12: _PyEvalFramePushAndInit fast path.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private PyObject ExecuteFunctionCallDirect(PyFunction pyFunc, PyValue[] argValues, int argCount, PyScopeChain parentScope)
+        {
+            var code = pyFunc.CodeObject;
+            PyScopeChain functionScope = pyFunc.CreateCachedScopeChain()
+                ?? (pyFunc.GlobalsDict != null
+                    ? new PyScopeChain(pyFunc.GlobalsDict, "<function>")
+                    : pyFunc.ParentScope ?? parentScope);
+            try
+            {
+                var frame = new PyFrame(code, argValues, argCount, functionScope, CurrentFrame);
+                return ExecuteFrame(frame);
+            }
+            catch (PyReturnException retEx)
+            {
+                return retEx.Value;
             }
         }
 

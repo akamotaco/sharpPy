@@ -74,6 +74,44 @@ namespace SharpPy
         private int _usesDefaultNew = -1;
         private ulong _usesDefaultNewVersion;
 
+        // Cache: true if no data descriptors exist in MRO ClassDicts
+        // Eliminates MRO walk in STORE_ATTR for common classes (property-less)
+        // CPython 3.12: Objects/object.c:1563 _PyObject_GenericSetAttrWithDict
+        private bool _mroHasNoDataDescriptors;
+        private ulong _mroNoDataDescVersion;
+
+        /// <summary>
+        /// True if no class in this type's MRO defines a data descriptor in its ClassDict.
+        /// Cached per TypeVersionTag. Eliminates MRO walk in STORE_ATTR fast path.
+        /// </summary>
+        internal bool MroHasNoDataDescriptors
+        {
+            get
+            {
+                if (_mroNoDataDescVersion == TypeVersionTag)
+                    return _mroHasNoDataDescriptors;
+                _mroHasNoDataDescriptors = ComputeNoDataDescriptors();
+                _mroNoDataDescVersion = TypeVersionTag;
+                return _mroHasNoDataDescriptors;
+            }
+        }
+
+        private bool ComputeNoDataDescriptors()
+        {
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyClass cls)
+                {
+                    foreach (var val in cls.ClassDict.Values)
+                    {
+                        if (val is IDescriptor desc && desc.IsDataDescriptor())
+                            return false;
+                    }
+                }
+            }
+            return true;
+        }
+
         // Cached subclass flags — avoid MRO.Any() LINQ per instance creation
         // CPython 3.12: Objects/typeobject.c — tp_flags (Py_TPFLAGS_DICT_SUBCLASS, etc.)
         private int _isDictSubclass = -1; // -1=unchecked, 0=no, 1=yes
