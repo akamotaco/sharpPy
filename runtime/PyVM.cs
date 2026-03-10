@@ -2644,6 +2644,29 @@ namespace SharpPy
                             {
                                 newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
                             }
+                            else if (actualCallable is PyType callType && finalArgs.Length == 1)
+                            {
+                                // Fast path: str(x), int(x), etc. — skip PyType.Call() → CreateInstance() overhead
+                                // CPython 3.12: Objects/typeobject.c:1627 (type_call) for builtin types
+                                var callTypeArg = finalArgs[0];
+                                if (callType == PyType.StrType)
+                                    newCallResult = callTypeArg is PyStr ps ? ps : new PyStr(callTypeArg.AsString());
+                                else if (callType == PyType.IntType)
+                                {
+                                    if (callTypeArg is PyInt) newCallResult = callTypeArg;
+                                    else if (callTypeArg is PyFloat pf) newCallResult = new PyInt((System.Numerics.BigInteger)(long)pf.Value);
+                                    else if (callTypeArg is PyBool pb) newCallResult = pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
+                                    else newCallResult = callType.Call(finalArgs, null);
+                                }
+                                else if (callType == PyType.FloatType)
+                                {
+                                    if (callTypeArg is PyFloat) newCallResult = callTypeArg;
+                                    else if (callTypeArg is PyInt pi) newCallResult = new PyFloat((double)pi.Value);
+                                    else newCallResult = callType.Call(finalArgs, null);
+                                }
+                                else
+                                    newCallResult = callType.Call(finalArgs, null);
+                            }
                             else if (actualCallable is PyMethodDescriptor mdesc && finalArgs.Length >= 1)
                             {
                                 // Fast path: PyMethodDescriptor — call _implementation directly
