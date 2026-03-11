@@ -436,7 +436,13 @@ namespace SharpPy
             int cellVarCount = code.CellVars?.Count ?? 0;
             int totalCellCount = freeVarCount + cellVarCount;
 
-            if (totalCellCount > 0)
+            if (cellVarCount == 0)
+            {
+                // FreeVar-only: reuse closure array directly (zero allocation)
+                // CPython 3.12: COPY_FREE_VARS copies cell references, not values
+                Cells = Closure ?? Array.Empty<PyCell>();
+            }
+            else if (totalCellCount > 0)
             {
                 Cells = new PyCell[totalCellCount];
                 int copyCount = Math.Min(freeVarCount, Closure.Length);
@@ -445,17 +451,14 @@ namespace SharpPy
                 for (int i = freeVarCount; i < totalCellCount; i++)
                     Cells[i] = new PyCell();
 
-                if (cellVarCount > 0)
+                for (int i = 0; i < cellVarCount; i++)
                 {
-                    for (int i = 0; i < cellVarCount; i++)
+                    var cellName = code.CellVars[i];
+                    if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
                     {
-                        var cellName = code.CellVars[i];
-                        if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
-                        {
-                            int cellIdx = freeVarCount + i;
-                            if (cellIdx < Cells.Length)
-                                Cells[cellIdx].Value = args[localIdx];
-                        }
+                        int cellIdx = freeVarCount + i;
+                        if (cellIdx < Cells.Length)
+                            Cells[cellIdx].Value = args[localIdx];
                     }
                 }
             }
@@ -487,6 +490,69 @@ namespace SharpPy
             CurrentFileName = code.FileName;
             Closure = Array.Empty<PyCell>();
             Cells = Array.Empty<PyCell>();
+
+            CurrentLineNumber = -1;
+            CurrentColumnOffset = -1;
+            ExceptionHandlerCallCount = 0;
+            State = FrameState.Created;
+            IsGenerator = false;
+            IsCoroutine = false;
+            KeywordNamesForNextCall = null;
+            ClassBodyVariables = null;
+            ClassLocalsDict = null;
+            LastException = null;
+            CurrentException = null;
+            PendingException = null;
+            YieldValue = null!;
+        }
+
+        /// <summary>
+        /// Ultra-fast init: PyValue args directly from stack, with closure support.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void InitDirectClosure(PyCodeObject code, PyValue[] argValues, int argCount, PyScopeChain parentScope, PyCell[] closure, PyFrame parentFrame)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+            Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
+            if (nlocals > argCount)
+                Array.Fill(LocalsPlus, PyValue.Null, argCount, nlocals - argCount);
+
+            InstructionPointer = 0;
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = closure ?? Array.Empty<PyCell>();
+
+            // FreeVar-only: reuse closure array directly (zero allocation)
+            int cellVarCount = code.CellVars?.Count ?? 0;
+            if (cellVarCount == 0)
+                Cells = Closure;
+            else
+            {
+                int freeVarCount = code.FreeVars?.Count ?? 0;
+                int totalCellCount = freeVarCount + cellVarCount;
+                Cells = new PyCell[totalCellCount];
+                int copyCount = Math.Min(freeVarCount, Closure.Length);
+                for (int i = 0; i < copyCount; i++)
+                    Cells[i] = Closure[i];
+                for (int i = freeVarCount; i < totalCellCount; i++)
+                    Cells[i] = new PyCell();
+                for (int i = 0; i < cellVarCount; i++)
+                {
+                    var cellName = code.CellVars[i];
+                    if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < argCount)
+                    {
+                        int cellIdx = freeVarCount + i;
+                        if (cellIdx < Cells.Length)
+                            Cells[cellIdx].Value = argValues[localIdx].ToObject();
+                    }
+                }
+            }
 
             CurrentLineNumber = -1;
             CurrentColumnOffset = -1;
@@ -562,29 +628,28 @@ namespace SharpPy
             int cellVarCount = code.CellVars?.Count ?? 0;
             int totalCellCount = freeVarCount + cellVarCount;
 
-            if (totalCellCount > 0)
+            if (cellVarCount == 0)
+            {
+                // FreeVar-only: reuse closure array directly (zero allocation)
+                Cells = Closure ?? Array.Empty<PyCell>();
+            }
+            else if (totalCellCount > 0)
             {
                 Cells = new PyCell[totalCellCount];
-                // FreeVar cells: share parent's cell objects (COPY_FREE_VARS will be idempotent)
                 int copyCount = Math.Min(freeVarCount, Closure.Length);
                 for (int i = 0; i < copyCount; i++)
                     Cells[i] = Closure[i];
-                // CellVar cells: create new (these are this function's own captured vars)
                 for (int i = freeVarCount; i < totalCellCount; i++)
                     Cells[i] = new PyCell();
 
-                // Handle cell variables that shadow parameters
-                if (cellVarCount > 0)
+                for (int i = 0; i < cellVarCount; i++)
                 {
-                    for (int i = 0; i < cellVarCount; i++)
+                    var cellName = code.CellVars[i];
+                    if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
                     {
-                        var cellName = code.CellVars[i];
-                        if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
-                        {
-                            int cellIdx = freeVarCount + i;
-                            if (cellIdx < Cells.Length)
-                                Cells[cellIdx].Value = args[localIdx];
-                        }
+                        int cellIdx = freeVarCount + i;
+                        if (cellIdx < Cells.Length)
+                            Cells[cellIdx].Value = args[localIdx];
                     }
                 }
             }
@@ -2248,7 +2313,15 @@ namespace SharpPy
                         }
                         break;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        if (ra >= 0 && ra <= 10)
+                        if (ra == 2)
+                        {
+                            // Squaring fast path: la*la with overflow check
+                            if (la > -3037000499L && la < 3037000499L) // sqrt(long.MaxValue) ≈ 3.03e9
+                            { frame.ValueStack.PushInt64(la * la); return true; }
+                        }
+                        else if (ra == 0) { frame.ValueStack.PushInt64(1); return true; }
+                        else if (ra == 1) { frame.ValueStack.PushInt64(la); return true; }
+                        else if (ra >= 3 && ra <= 10)
                         {
                             long result = 1;
                             bool overflow = false;
@@ -3231,8 +3304,92 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private PyObject ExecuteCall(PyFrame frame, in ByteCodeInstruction instruction)
         {
-                            // CPython 3.12 정확한 CALL 동작
+                            // === PyValue Direct Call Fast Path ===
+                            // CPython 3.12 CALL stack layout: [..., nextElement, callableFunc, arg0, ..., argN-1]
+                            // PUSH_NULL pattern: nextElement=NULL, callableFunc=func
+                            // Method call: nextElement=func, callableFunc=self (swapped by CPython)
                             var callArgCount = instruction.Argument;
+                            if (frame.KeywordNamesForNextCall == null
+                                && frame.ValueStack.Count >= callArgCount + 2)
+                            {
+                                // nextElement: NULL (function call) or func (method call)
+                                var nextElemVal = frame.ValueStack.PeekValueAt(callArgCount + 1);
+                                // callableFunc: func (function call) or self (method call)
+                                var callFuncVal = frame.ValueStack.PeekValueAt(callArgCount);
+
+                                bool isNullPattern = nextElemVal.IsNull
+                                    || (nextElemVal.Tag == PyValue.TAG_OBJECT && nextElemVal.ObjRef is PyNone);
+
+                                // Determine actual callable: for PUSH_NULL it's callFuncVal, for method it's nextElemVal
+                                PyFunction func = null;
+                                if (isNullPattern)
+                                {
+                                    if (callFuncVal.Tag == PyValue.TAG_OBJECT && callFuncVal.ObjRef is PyFunction f1)
+                                        func = f1;
+                                }
+                                else
+                                {
+                                    if (nextElemVal.Tag == PyValue.TAG_OBJECT && nextElemVal.ObjRef is PyFunction f2)
+                                        func = f2;
+                                }
+
+                                if (func != null
+                                    && func.CodeObject is PyCodeObject code
+                                    && code.IsSimpleCallTarget
+                                    && func.Attributes.Count == 0
+                                    && !code.IsGenerator() && !code.IsCoroutine())
+                                {
+                                    int totalArgs = isNullPattern ? callArgCount : callArgCount + 1;
+                                    if (totalArgs == code.ArgCount)
+                                    {
+                                        // Pop args as PyValue directly (zero PyObject conversion)
+                                        if (_callValBuf == null || _callValBuf.Length < totalArgs)
+                                            _callValBuf = new PyValue[Math.Max(totalArgs, 4)];
+
+                                        if (isNullPattern)
+                                        {
+                                            // PUSH_NULL: stack = [..., NULL, func, arg0..argN-1]
+                                            for (int i = callArgCount - 1; i >= 0; i--)
+                                                _callValBuf[i] = frame.ValueStack.PopValue();
+                                            frame.ValueStack.PopValue(); // func
+                                            frame.ValueStack.PopValue(); // NULL
+                                        }
+                                        else
+                                        {
+                                            // Method: stack = [..., func, self, arg0..argN-1]
+                                            // CPython swap: actualCallable=func(nextElem), args=[self(callFunc), arg0..argN-1]
+                                            for (int i = callArgCount - 1; i >= 0; i--)
+                                                _callValBuf[i + 1] = frame.ValueStack.PopValue();
+                                            _callValBuf[0] = frame.ValueStack.PopValue(); // self (was callableFunc position)
+                                            frame.ValueStack.PopValue(); // func (was nextElement position)
+                                        }
+
+                                        PyScopeChain functionScope = func.CreateCachedScopeChain()
+                                            ?? (func.GlobalsDict != null
+                                                ? new PyScopeChain(func.GlobalsDict, "<function>")
+                                                : func.ParentScope ?? frame.ScopeChain);
+
+                                        PyObject directResult;
+                                        try
+                                        {
+                                            var directFrame = PyFrame.Rent();
+                                            bool hasCells = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                                            if (!hasCells)
+                                                directFrame.InitDirect(code, _callValBuf, totalArgs, functionScope, CurrentFrame);
+                                            else
+                                                directFrame.InitDirectClosure(code, _callValBuf, totalArgs, functionScope, func.Closure, CurrentFrame);
+                                            directResult = ExecuteFrame(directFrame);
+                                        }
+                                        catch (PyReturnException retEx) { directResult = retEx.Value; }
+                                        catch (PythonException pyEx) { PyTraceBack_Here(frame, pyEx); throw; }
+
+                                        frame.ValueStack.Push(directResult);
+                                        return null;
+                                    }
+                                }
+                            }
+
+                            // === Standard CALL Path ===
                             // Performance: Reuse cached arg buffers for 0/1/2 arg calls
                             PyObject[] callArgs;
                             if (callArgCount == 0) callArgs = EmptyArgs;

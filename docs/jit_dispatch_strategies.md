@@ -153,9 +153,40 @@ if (BinaryOpWarm(frame, binOp)) { ip++; continue; }
 
 ---
 
+### Phase C: CALL PyValue Direct Path + Closure Zero-alloc (2026-03-12)
+
+**목표**: 함수 호출 경로 최적화 — PyObject 변환 제거 + 클로저 할당 제거
+
+#### 변경 내용
+1. **CALL PyValue Direct Fast Path**: ExecuteCall에서 simple PyFunction (PUSH_NULL + method call 양쪽)에 대해
+   PyValue[] 직접 전달. PopValue()로 PyObject 변환 없이 callee의 LocalsPlus로 직접 복사.
+2. **Closure Cells = Closure**: cellVarCount == 0인 경우 FreeVar-only 클로저는 부모 closure 배열 직접 재사용.
+   `new PyCell[N]` 할당 제거.
+3. **Method call fast path**: CPython 3.12 스택 swap 패턴 (nextElement=func, callableFunc=self) 처리.
+   p.distance() 같은 메서드 호출도 PyValue 직접 경로 사용.
+4. **int\*\*2 squaring**: BinaryOpWarm에서 `la*la` 직접 계산 (루프 제거, overflow 체크 포함)
+
+#### 결과
+- **벤치마크**: Phase A+B 320ms → Phase C **315ms** (**-1.6%**)
+- 개선 폭이 작은 이유: **함수 호출 5μs 중 PyObject 변환은 ~20ns (0.4%)**
+- 진짜 병목은 frame 생성 + recursive ExecuteFrame (구조적 한계)
+
+#### 교훈
+- PyValue→PyObject→PyValue 라운드트립 비용은 ~10-20ns/arg — 전체 호출 비용의 1% 미만
+- 함수 호출 ~5μs 중 대부분은 frame init (20+ 필드 설정) + ExecuteFrame 재귀 호출
+- CPython은 동일 C 루프 내 frame pointer 조정으로 해결 (재귀 호출 없음)
+- 추가 함수 호출 최적화는 아키텍처 변경 (frame chaining/continuation) 필요
+
+---
+
 ## 다음 단계 (미실행)
 
+### 구조적 한계: 함수 호출 오버헤드
+- 현재: Python 함수 호출 → C# ExecuteFrame 재귀 호출 (~5μs/call)
+- CPython: 같은 C 루프 내 frame pointer 조정 (~100ns/call)
+- 해결: frame chaining (DISPATCH_INLINED 재시도) 또는 continuation-based dispatch
+- 주의: Phase 16에서 DISPATCH_INLINED 시도 → 5-16% 성능 저하로 리버트
+
 ### Strategy B/C/D 검토
-- Phase A/B 완료 후 프로파일링 결과에 따라 결정
-- 벤치마크 없이 도입 불가
-- 현재 17.1x ratio — 추가 최적화는 호출 경로/타입 디스패치 개선이 주효할 것으로 예상
+- 현재 ~17x ratio — 함수 호출 이외의 최적화 여지 탐색 필요
+- container operations (list/dict/string), generator, exception 등
