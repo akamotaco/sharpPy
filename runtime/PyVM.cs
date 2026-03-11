@@ -1172,6 +1172,17 @@ namespace SharpPy
         // Performance: Cached empty args array for zero-arg CALL
         private static readonly PyObject[] EmptyArgs = Array.Empty<PyObject>();
 
+        // DISPATCH_INLINED sentinel: returned by ExecuteInstruction when CALL switches to inlined frame.
+        // CPython 3.12: ceval_macros.h:106 — DISPATCH_INLINED macro uses goto start_frame.
+        // In C# we return this sentinel to signal the main loop to reload locals from the new frame.
+        // Uses a unique object instance — identity check via ReferenceEquals.
+        private sealed class DispatchInlinedSentinel : PyObject
+        {
+            public override PyType GetPyType() => PyType.ObjectType;
+            public override string GetTypeName() => "<dispatch_inlined>";
+        }
+        private static readonly PyObject _DISPATCH_INLINED = new DispatchInlinedSentinel();
+
         // Performance: ThreadStatic reusable arg buffers for 1/2 arg CALL
         // Safe because: args[i] is extracted BEFORE any re-entrant Call,
         // so buffer overwrite by nested CALL doesn't affect already-extracted values.
@@ -1557,40 +1568,46 @@ namespace SharpPy
         public PyObject ExecuteFrame(PyFrame frame)
         {
             var previousFrame = _currentFrame;
-            _currentFrame = frame;
+            // DISPATCH_INLINED: depth counter for inlined frames (0 = entry frame).
+            // Uses int instead of reference to minimize register pressure.
+            int inlineDepth = 0;
 
 #if DEBUG_LOG
             Console.WriteLine($"\n🚀 VM 실행: {frame}");
 #endif
 
-            // Cache instructions array and length as locals to avoid
-            // List<T> indexer overhead (bounds check + indirection) per iteration.
-            var instructions = frame.Code.InstructionsArray;
-            var instructionCount2 = instructions.Length;
-
-            // Compact instruction array: 8B per element (Op + Arg) vs 40B ByteCodeInstruction.
-            // Single fetch gives both opcode and argument with better L1 cache density.
-            var ci = frame.Code.CompactInstructions;
+            // Declare locals once at method scope (C# goto requires this).
+            ByteCodeInstruction[] instructions;
+            int instructionCount2;
+            CompactInstruction[] ci;
+            int ip;
 
 #if DEBUG
-            // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용)
+            // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용) — initialized once, not per-frame
             var startTime = DateTime.UtcNow;
             var maxInstructions = 50_000; // 최대 5만 명령어 (for debugging infinite loops)
             var maxTimeSeconds = 30; // 최대 30초
             var instructionCount = 0;
-
-            // DEBUG: Track last instructions for debugging infinite loops
             var lastInstructions = new System.Collections.Generic.Queue<string>();
-            const int maxLastInstructions = 100; // Increase to 100 for better analysis
+            const int maxLastInstructions = 100;
 #endif
-
-            // Local IP: keep instruction pointer in a register instead of heap field.
-            // Avoids 4+ heap reads/writes per instruction (loop check, instr fetch, opcode fetch, increment).
-            // CPython 3.12: uses C local variable `next_instr` for the same optimization.
-            int ip = frame.InstructionPointer;
 
             try
             {
+                // Initialize cached locals from entry frame.
+                // CPython 3.12: ceval.c:748 SET_LOCALS_FROM_FRAME()
+                // DISPATCH_INLINED reloads these inline (no goto needed).
+                _currentFrame = frame;
+
+                // Cache instructions array and length as locals for fast access.
+                instructions = frame.Code.InstructionsArray;
+                instructionCount2 = instructions.Length;
+                ci = frame.Code.CompactInstructions;
+
+                // Local IP: keep instruction pointer in a register instead of heap field.
+                // CPython 3.12: uses C local variable `next_instr` for the same optimization.
+                ip = frame.InstructionPointer;
+
                 while (ip < instructionCount2)
                 {
 #if DEBUG
@@ -1947,6 +1964,28 @@ namespace SharpPy
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
                             var inlineRetVal = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
+
+                            // DISPATCH_INLINED: inline return to parent frame without C# recursion unwind.
+                            // CPython 3.12: generated_cases.c.h:930 — RETURN_VALUE → goto resume_frame
+                            if (inlineDepth > 0)
+                            {
+                                inlineDepth--;
+                                var dying = frame;
+                                frame = dying.ParentFrame;
+                                PyStack.Return(dying.ValueStack);
+                                PyFrame.ReturnLocals(dying.LocalsPlus);
+                                PyFrame.Return(dying);
+                                frame.ValueStack.Push(inlineRetVal);
+                                frame.KeywordNamesForNextCall = null;
+                                _currentFrame = frame;
+                                ci = frame.Code.CompactInstructions;
+                                instructions = frame.Code.InstructionsArray;
+                                instructionCount2 = instructions.Length;
+                                ip = frame.InstructionPointer + 1;
+                                continue;
+                            }
+
+                            // Entry frame: original return path
                             if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
                                 && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                             {
@@ -1960,8 +1999,28 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.RETURN_CONST)
                         {
-                            // CPython 3.12: Return constant value directly (e.g., return None in __init__)
                             var rcVal = frame.Code.ConstantsAsValues[cip.Arg].ToObject();
+
+                            // DISPATCH_INLINED: inline return constant to parent frame
+                            if (inlineDepth > 0)
+                            {
+                                inlineDepth--;
+                                var dying = frame;
+                                frame = dying.ParentFrame;
+                                PyStack.Return(dying.ValueStack);
+                                PyFrame.ReturnLocals(dying.LocalsPlus);
+                                PyFrame.Return(dying);
+                                frame.ValueStack.Push(rcVal);
+                                frame.KeywordNamesForNextCall = null;
+                                _currentFrame = frame;
+                                ci = frame.Code.CompactInstructions;
+                                instructions = frame.Code.InstructionsArray;
+                                instructionCount2 = instructions.Length;
+                                ip = frame.InstructionPointer + 1;
+                                continue;
+                            }
+
+                            // Entry frame: original return path
                             if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
                                 && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                             {
@@ -2195,9 +2254,42 @@ namespace SharpPy
 
                         var result = ExecuteInstruction(frame, instruction);
 
-                        // RETURN_VALUE인 경우 함수 종료
+                        // Single null check: most instructions return null (no return/dispatch).
+                        // Sentinel and return values are both non-null.
                         if (result != null)
                         {
+                            // DISPATCH_INLINED: CALL switched frames → reload locals and continue loop.
+                            // Uses continue instead of goto to avoid JIT deoptimization from backward jumps.
+                            // CPython 3.12: ceval_macros.h:106 — DISPATCH_INLINED
+                            if (ReferenceEquals(result, _DISPATCH_INLINED))
+                            {
+                                inlineDepth++;
+                                frame = _currentFrame;
+                                instructions = frame.Code.InstructionsArray;
+                                instructionCount2 = instructions.Length;
+                                ci = frame.Code.CompactInstructions;
+                                ip = frame.InstructionPointer;
+                                continue;
+                            }
+
+                            // DISPATCH_INLINED: inline return for inlined frames
+                            if (inlineDepth > 0)
+                            {
+                                inlineDepth--;
+                                var dying = frame;
+                                frame = dying.ParentFrame;
+                                PyStack.Return(dying.ValueStack);
+                                PyFrame.ReturnLocals(dying.LocalsPlus);
+                                PyFrame.Return(dying);
+                                frame.ValueStack.Push(result);
+                                frame.KeywordNamesForNextCall = null;
+                                _currentFrame = frame;
+                                ci = frame.Code.CompactInstructions;
+                                instructions = frame.Code.InstructionsArray;
+                                instructionCount2 = instructions.Length;
+                                ip = frame.InstructionPointer + 1;
+                                continue;
+                            }
 #if DEBUG_LOG
                             Console.WriteLine($"✅ VM 완료: {result}");
 #endif
@@ -2209,76 +2301,88 @@ namespace SharpPy
                     }
                     catch (PythonException pyEx)
                     {
-                        // Deferred line tracking: resolve line number only on exception (not every instruction)
-                        if (frame.Code.LineNumberTable.TryGetValue(ip, out var excLine))
-                            frame.CurrentLineNumber = excLine;
-                        else if (instruction.LineNumber > 0)
-                            frame.CurrentLineNumber = instruction.LineNumber;
-                        if (instruction.ColumnOffset >= 0)
-                            frame.CurrentColumnOffset = instruction.ColumnOffset;
-                        if (!string.IsNullOrEmpty(instruction.FileName))
-                            frame.CurrentFileName = instruction.FileName;
-
-                        // CPython-style error location tracking: Enrich exception with current location
-                        if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frame.CurrentFileName))
+                        // DISPATCH_INLINED: unwind through inlined frames until handler found.
+                        // CPython 3.12: ceval.c exception handling unwinds frame chain via goto.
+                        while (true)
                         {
-                            pyEx.FileName = frame.CurrentFileName;
-                            pyEx.LineNumber = frame.CurrentLineNumber;
-                            pyEx.ColumnOffset = frame.CurrentColumnOffset;
-                            pyEx.SourceLines = frame.Code.SourceLines;
-                        }
+                            // Sync IP to frame for exception table lookup
+                            frame.InstructionPointer = ip;
 
-                        // CPython 3.12: Add current frame to traceback BEFORE unwinding
-                        // Corresponds to PyTraceBack_Here() in CPython ceval.c:941
-                        PyTraceBack_Here(frame, pyEx);
-
-                        // Handle Python exceptions with proper exception handler routing
-                        var (handlerOffset, exceptionEntry) = frame.GetExceptionHandlerFromTableWithEntry();
-                        if (handlerOffset.HasValue && exceptionEntry != null)
-                        {
-                            // CPython 3.12 ceval.c: Unwind stack to handler's expected depth
-                            while (frame.ValueStack.Count > exceptionEntry.Depth)
+                            // Deferred line tracking: resolve line number only on exception
+                            if (frame.Code.LineNumberTable.TryGetValue(ip, out var excLine))
+                                frame.CurrentLineNumber = excLine;
+                            else if (ip < instructions.Length && instructions[ip].LineNumber > 0)
+                                frame.CurrentLineNumber = instructions[ip].LineNumber;
+                            if (ip < instructions.Length)
                             {
-                                frame.ValueStack.Pop();
+                                if (instructions[ip].ColumnOffset >= 0)
+                                    frame.CurrentColumnOffset = instructions[ip].ColumnOffset;
+                                if (!string.IsNullOrEmpty(instructions[ip].FileName))
+                                    frame.CurrentFileName = instructions[ip].FileName;
                             }
 
-                            // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
-                            if (exceptionEntry.Lasti)
+                            // Enrich exception with location
+                            if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frame.CurrentFileName))
                             {
-                                var lastiValue = new PyInt(ip);
-                                frame.ValueStack.Push(lastiValue);
+                                pyEx.FileName = frame.CurrentFileName;
+                                pyEx.LineNumber = frame.CurrentLineNumber;
+                                pyEx.ColumnOffset = frame.CurrentColumnOffset;
+                                pyEx.SourceLines = frame.Code.SourceLines;
                             }
 
-                            // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
-                            frame.ValueStack.Push(pyEx.PyException);
+                            PyTraceBack_Here(frame, pyEx);
 
-                            frame.LastException = pyEx.PyException;
-                            frame.CurrentException = pyEx.PyException;
+                            // Check exception table for handler
+                            var (handlerOffset, exceptionEntry) = frame.GetExceptionHandlerFromTableWithEntry();
+                            if (handlerOffset.HasValue && exceptionEntry != null)
+                            {
+                                // Handler found: unwind stack to expected depth
+                                while (frame.ValueStack.Count > exceptionEntry.Depth)
+                                    frame.ValueStack.Pop();
 
-                            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices
-                            var instructionIndex = handlerOffset.Value;
-                            if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
-                            {
-                                ip = instructionIndex;
-                                frame.InstructionPointer = ip;
-                            }
-                            else
-                            {
-                                if (frame.Code.Instructions.Count > 0)
+                                if (exceptionEntry.Lasti)
+                                    frame.ValueStack.Push(new PyInt(ip));
+
+                                frame.ValueStack.Push(pyEx.PyException);
+                                frame.LastException = pyEx.PyException;
+                                frame.CurrentException = pyEx.PyException;
+
+                                var instructionIndex = handlerOffset.Value;
+                                if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
+                                {
+                                    ip = instructionIndex;
+                                    frame.InstructionPointer = ip;
+                                }
+                                else if (frame.Code.Instructions.Count > 0)
                                 {
                                     ip = frame.Code.Instructions.Count - 1;
                                     frame.InstructionPointer = ip;
                                 }
                                 else
-                                {
                                     throw;
-                                }
+
+                                // Reload cached locals (may have changed frame during unwinding)
+                                _currentFrame = frame;
+                                ci = frame.Code.CompactInstructions;
+                                instructions = frame.Code.InstructionsArray;
+                                instructionCount2 = instructions.Length;
+                                break; // exit catch loop, continue main while loop
                             }
-                        }
-                        else
-                        {
-                            // No handler - re-throw with location information
-                            throw;
+
+                            // No handler in this frame
+                            if (inlineDepth == 0)
+                                throw; // propagate to C# caller
+
+                            // DISPATCH_INLINED: unwind inlined frame to parent
+                            inlineDepth--;
+                            var dying = frame;
+                            frame = dying.ParentFrame;
+                            PyStack.Return(dying.ValueStack);
+                            PyFrame.ReturnLocals(dying.LocalsPlus);
+                            PyFrame.Return(dying);
+                            ip = frame.InstructionPointer;
+                            instructions = frame.Code.InstructionsArray;
+                            // Continue loop: check parent's exception table
                         }
                     }
                     catch (LoopBreakException)
@@ -2306,9 +2410,25 @@ namespace SharpPy
             finally
             {
                 _currentFrame = previousFrame;
-                // Don't pool stacks/locals for generator/coroutine frames — they persist across yields.
-                // CPython: generator frames keep their stack alive between send()/next() calls.
-                if ((frame.Code.Flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) == 0)
+                const int genFlags = PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR;
+
+                // DISPATCH_INLINED: clean up any remaining inlined frames on exception exit.
+                // Normal returns already cleaned up dying frames; this handles uncaught exceptions.
+                while (inlineDepth > 0)
+                {
+                    inlineDepth--;
+                    var parent = frame.ParentFrame;
+                    if ((frame.Code.Flags & genFlags) == 0)
+                    {
+                        PyStack.Return(frame.ValueStack);
+                        PyFrame.ReturnLocals(frame.LocalsPlus);
+                        PyFrame.Return(frame);
+                    }
+                    frame = parent;
+                }
+
+                // Clean up entry frame (frame is now the entry frame after unwinding)
+                if ((frame.Code.Flags & genFlags) == 0)
                 {
                     PyStack.Return(frame.ValueStack);
                     PyFrame.ReturnLocals(frame.LocalsPlus);
@@ -3273,6 +3393,36 @@ namespace SharpPy
                             }
                             else if (actualCallable is PyFunction func)
                             {
+                                // DISPATCH_INLINED: for simple CO_OPTIMIZED functions, switch frame without recursion.
+                                // CPython 3.12: generated_cases.c.h:3767 — DISPATCH_INLINED(new_frame)
+                                // Conditions: has code, not generator/coroutine, simple call target, exact args.
+                                // CO_OPTIMIZED callee never modifies caller's scope chain, so caller type doesn't matter.
+                                var funcCode = func.CodeObject;
+                                if (funcCode != null
+                                    && !funcCode.IsGenerator() && !funcCode.IsCoroutine()
+                                    && funcCode.IsSimpleCallTarget
+                                    && finalArgs.Length == funcCode.ArgCount
+                                    && func.Attributes.Count == 0)
+                                {
+                                    // Build function scope (same as ExecuteFunctionCall)
+                                    PyScopeChain funcScope = func.CreateCachedScopeChain()
+                                        ?? (func.GlobalsDict != null
+                                            ? new PyScopeChain(func.GlobalsDict, "<function>")
+                                            : func.ParentScope ?? frame.ScopeChain);
+
+                                    var newFrame = PyFrame.Rent();
+                                    if ((funcCode.CellVars?.Count ?? 0) == 0 && (funcCode.FreeVars?.Count ?? 0) == 0)
+                                        newFrame.InitFast(funcCode, finalArgs, funcScope, frame);
+                                    else
+                                        newFrame.InitClosure(funcCode, finalArgs, funcScope, func.Closure, frame);
+
+                                    // Signal main loop: frame switched, reload locals.
+                                    _currentFrame = newFrame;
+                                    frame.KeywordNamesForNextCall = null;
+                                    return _DISPATCH_INLINED;
+                                }
+
+                                // Fallback: complex calls (generator, kwargs, defaults, non-CO_OPTIMIZED caller)
                                 newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
                             }
                             else if (actualCallable is PyClass callClass && callClass.Metaclass == null)
