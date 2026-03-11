@@ -1702,247 +1702,77 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.BINARY_OP)
                         {
-                            var inlineBinOp = (BinaryOpType)cip.Arg;
-                            if (inlineBinOp == BinaryOpType.ADD || inlineBinOp == BinaryOpType.INPLACE_ADD)
+                            // Thin inline: only int+int ADD/SUB/MUL (hottest paths).
+                            // Float/string/power/divide → BinaryOpWarm helper (small, well-optimized)
+                            // before falling through to the massive ExecuteInstruction.
+                            var irv = frame.ValueStack.PeekValueAt(0);
+                            var ilv = frame.ValueStack.PeekValueAt(1);
+                            if (ilv.IsIntLike && irv.IsIntLike)
                             {
-                                var irv = frame.ValueStack.PeekValueAt(0);
-                                var ilv = frame.ValueStack.PeekValueAt(1);
-                                if (ilv.IsIntLike && irv.IsIntLike)
+                                var inlineBinOp = (BinaryOpType)cip.Arg;
+                                long la = ilv.AsInt64, ra = irv.AsInt64;
+                                if (inlineBinOp == BinaryOpType.ADD || inlineBinOp == BinaryOpType.INPLACE_ADD)
                                 {
-                                    frame.ValueStack.PopValue();
-                                    frame.ValueStack.PopValue();
-                                    long la = ilv.AsInt64, ra = irv.AsInt64;
                                     long sum = unchecked(la + ra);
-                                    if (((la ^ sum) & (ra ^ sum)) < 0)
-                                        frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
-                                    else
+                                    if (((la ^ sum) & (ra ^ sum)) >= 0)
+                                    {
+                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushInt64(sum);
-                                    ip++;
-                                    continue;
-                                }
-                                if (ilv.IsFloat64 && irv.IsFloat64)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 + irv.AsFloat64);
-                                    ip++; continue;
-                                }
-                                if (ilv.IsIntLike && irv.IsFloat64)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64((double)ilv.AsInt64 + irv.AsFloat64);
-                                    ip++; continue;
-                                }
-                                if (ilv.IsFloat64 && irv.IsIntLike)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 + (double)irv.AsInt64);
-                                    ip++; continue;
-                                }
-                                // String concatenation fast path
-                                {
-                                    var lo = ilv.ToObject();
-                                    var ro = irv.ToObject();
-                                    if (lo is PyStr ls && ro is PyStr rs)
-                                    {
-                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                        frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
                                         ip++; continue;
                                     }
                                 }
-                            }
-                            else if (inlineBinOp == BinaryOpType.MULTIPLY || inlineBinOp == BinaryOpType.INPLACE_MULTIPLY)
-                            {
-                                var irv = frame.ValueStack.PeekValueAt(0);
-                                var ilv = frame.ValueStack.PeekValueAt(1);
-                                if (ilv.IsIntLike && irv.IsIntLike)
+                                else if (inlineBinOp == BinaryOpType.SUBTRACT || inlineBinOp == BinaryOpType.INPLACE_SUBTRACT)
                                 {
-                                    frame.ValueStack.PopValue();
-                                    frame.ValueStack.PopValue();
-                                    long la = ilv.AsInt64, ra = irv.AsInt64;
-                                    if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
-                                        frame.ValueStack.PushInt64(la * ra);
-                                    else
-                                    {
-                                        var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
-                                        if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
-                                            frame.ValueStack.PushInt64((long)bigResult);
-                                        else
-                                            frame.ValueStack.Push(new PyInt(bigResult));
-                                    }
-                                    ip++;
-                                    continue;
-                                }
-                                if (ilv.IsFloat64 && irv.IsFloat64)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 * irv.AsFloat64);
-                                    ip++; continue;
-                                }
-                                if (ilv.IsIntLike && irv.IsFloat64)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64((double)ilv.AsInt64 * irv.AsFloat64);
-                                    ip++; continue;
-                                }
-                                if (ilv.IsFloat64 && irv.IsIntLike)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 * (double)irv.AsInt64);
-                                    ip++; continue;
-                                }
-                            }
-                            else if (inlineBinOp == BinaryOpType.SUBTRACT || inlineBinOp == BinaryOpType.INPLACE_SUBTRACT)
-                            {
-                                var irv = frame.ValueStack.PeekValueAt(0);
-                                var ilv = frame.ValueStack.PeekValueAt(1);
-                                if (ilv.IsIntLike && irv.IsIntLike)
-                                {
-                                    frame.ValueStack.PopValue();
-                                    frame.ValueStack.PopValue();
-                                    long la = ilv.AsInt64, ra = irv.AsInt64;
                                     long diff = unchecked(la - ra);
-                                    if (((la ^ ra) & (la ^ diff)) < 0)
-                                        frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
-                                    else
+                                    if (((la ^ ra) & (la ^ diff)) >= 0)
+                                    {
+                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushInt64(diff);
-                                    ip++;
-                                    continue;
-                                }
-                                if (ilv.IsFloat64 && irv.IsFloat64)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 - irv.AsFloat64);
-                                    ip++; continue;
-                                }
-                                if (ilv.IsFloat64 && irv.IsIntLike)
-                                {
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(ilv.AsFloat64 - (double)irv.AsInt64);
-                                    ip++; continue;
-                                }
-                            }
-                            else if (inlineBinOp == BinaryOpType.FLOOR_DIVIDE || inlineBinOp == BinaryOpType.INPLACE_FLOOR_DIVIDE)
-                            {
-                                var irv = frame.ValueStack.PeekValueAt(0);
-                                var ilv = frame.ValueStack.PeekValueAt(1);
-                                if (ilv.IsIntLike && irv.IsIntLike)
-                                {
-                                    long la = ilv.AsInt64, ra = irv.AsInt64;
-                                    if (ra != 0)
-                                    {
-                                        frame.ValueStack.PopValue();
-                                        frame.ValueStack.PopValue();
-                                        long q = la / ra;
-                                        if ((la ^ ra) < 0 && q * ra != la) q--;
-                                        frame.ValueStack.PushInt64(q);
-                                        ip++;
-                                        continue;
-                                    }
-                                }
-                            }
-                            else if (inlineBinOp == BinaryOpType.TRUE_DIVIDE || inlineBinOp == BinaryOpType.INPLACE_TRUE_DIVIDE)
-                            {
-                                var irv = frame.ValueStack.PeekValueAt(0);
-                                var ilv = frame.ValueStack.PeekValueAt(1);
-                                if (ilv.IsFloat64 && irv.IsFloat64)
-                                {
-                                    double rd = irv.AsFloat64;
-                                    if (rd != 0.0)
-                                    {
-                                        frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                        frame.ValueStack.PushFloat64(ilv.AsFloat64 / rd);
                                         ip++; continue;
                                     }
                                 }
-                                if (ilv.IsFloat64 && irv.IsIntLike)
+                                else if (inlineBinOp == BinaryOpType.MULTIPLY || inlineBinOp == BinaryOpType.INPLACE_MULTIPLY)
                                 {
-                                    double rd = (double)irv.AsInt64;
-                                    if (rd != 0.0)
+                                    if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                        frame.ValueStack.PushFloat64(ilv.AsFloat64 / rd);
+                                        frame.ValueStack.PushInt64(la * ra);
                                         ip++; continue;
                                     }
                                 }
                             }
-                            else if (inlineBinOp == BinaryOpType.POWER || inlineBinOp == BinaryOpType.INPLACE_POWER)
+                            // Warm path: float/string/int-overflow handled by small dedicated helper
+                            // (avoids falling through to 39KB ExecuteInstruction for common float ops)
+                            if (BinaryOpWarm(frame, (BinaryOpType)cip.Arg))
                             {
-                                var irv = frame.ValueStack.PeekValueAt(0);
-                                var ilv = frame.ValueStack.PeekValueAt(1);
-                                if (ilv.IsFloat64 || irv.IsFloat64)
-                                {
-                                    double ld = ilv.IsFloat64 ? ilv.AsFloat64 : (double)ilv.AsInt64;
-                                    double rd = irv.IsFloat64 ? irv.AsFloat64 : (double)irv.AsInt64;
-                                    frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                    frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
-                                    ip++; continue;
-                                }
-                                if (ilv.IsIntLike && irv.IsIntLike)
-                                {
-                                    long ra = irv.AsInt64;
-                                    if (ra >= 0 && ra <= 10)
-                                    {
-                                        long la = ilv.AsInt64;
-                                        long result = 1;
-                                        bool overflow = false;
-                                        for (long e = ra; e > 0; e--)
-                                        {
-                                            if (result != 0 && (la > long.MaxValue / Math.Abs(result) || la < long.MinValue / Math.Abs(result)))
-                                            { overflow = true; break; }
-                                            result = unchecked(result * la);
-                                        }
-                                        if (!overflow)
-                                        {
-                                            frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
-                                            frame.ValueStack.PushInt64(result);
-                                            ip++; continue;
-                                        }
-                                    }
-                                }
+                                ip++; continue;
                             }
-                            // Non-int/float or other ops: fall through to ExecuteInstruction
+                            // Truly cold ops (class dunder, etc.): fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.COMPARE_OP)
                         {
+                            // Thin inline: only int comparisons (hottest path)
                             var crv = frame.ValueStack.PeekValueAt(0);
                             var clv = frame.ValueStack.PeekValueAt(1);
                             if (clv.IsIntLike && crv.IsIntLike)
                             {
-                                frame.ValueStack.PopValue();
-                                frame.ValueStack.PopValue();
-                                long la = clv.AsInt64, ra = crv.AsInt64;
                                 int cmpOp = cip.Arg >> 4;
-                                bool cmpResult = cmpOp switch
-                                {
-                                    0 => la < ra, 1 => la <= ra, 2 => la == ra,
-                                    3 => la != ra, 4 => la > ra, 5 => la >= ra, _ => false
-                                };
                                 if (cmpOp <= 5)
                                 {
+                                    long la = clv.AsInt64, ra = crv.AsInt64;
+                                    bool cmpResult = cmpOp switch
+                                    {
+                                        0 => la < ra, 1 => la <= ra, 2 => la == ra,
+                                        3 => la != ra, 4 => la > ra, _ => la >= ra
+                                    };
+                                    frame.ValueStack.PopValue();
+                                    frame.ValueStack.PopValue();
                                     frame.ValueStack.PushBool(cmpResult);
                                     ip++;
                                     continue;
                                 }
                             }
-                            else if (clv.IsFloat64 && crv.IsFloat64)
-                            {
-                                frame.ValueStack.PopValue();
-                                frame.ValueStack.PopValue();
-                                double la = clv.AsFloat64, ra = crv.AsFloat64;
-                                int cmpOp = cip.Arg >> 4;
-                                bool cmpResult = cmpOp switch
-                                {
-                                    0 => la < ra, 1 => la <= ra, 2 => la == ra,
-                                    3 => la != ra, 4 => la > ra, 5 => la >= ra, _ => false
-                                };
-                                if (cmpOp <= 5)
-                                {
-                                    frame.ValueStack.PushBool(cmpResult);
-                                    ip++;
-                                    continue;
-                                }
-                            }
-                            // Non-int/float or IS/IS_NOT/IN/NOT_IN: fall through
+                            // Float, IS/IS_NOT/IN/NOT_IN: fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
@@ -2315,6 +2145,145 @@ namespace SharpPy
                     PyFrame.Return(frame);
                 }
             }
+        }
+
+        /// <summary>
+        /// Warm path for BINARY_OP: handles float/string/int-overflow cases.
+        /// Separated from ExecuteFrame to keep the hot loop small (L1i cache),
+        /// while avoiding the massive ExecuteInstruction (39KB) for common float ops.
+        /// Returns true if the operation was handled, false to fall through.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private bool BinaryOpWarm(PyFrame frame, BinaryOpType binOp)
+        {
+            var rv = frame.ValueStack.PopValue();
+            var lv = frame.ValueStack.PopValue();
+
+            // Float+float fast path
+            if (lv.IsFloat64 && rv.IsFloat64)
+            {
+                double ld = lv.AsFloat64, rd = rv.AsFloat64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.PushFloat64(ld + rd); return true;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.PushFloat64(ld - rd); return true;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                        frame.ValueStack.PushFloat64(ld * rd); return true;
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return true; }
+                        break;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return true;
+                    case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(Math.Floor(ld / rd)); return true; }
+                        break;
+                }
+            }
+            // Int+float / float+int mixed
+            else if (lv.IsIntLike && rv.IsFloat64)
+            {
+                double ld = (double)lv.AsInt64, rd = rv.AsFloat64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.PushFloat64(ld + rd); return true;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.PushFloat64(ld - rd); return true;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                        frame.ValueStack.PushFloat64(ld * rd); return true;
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return true; }
+                        break;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return true;
+                }
+            }
+            else if (lv.IsFloat64 && rv.IsIntLike)
+            {
+                double ld = lv.AsFloat64, rd = (double)rv.AsInt64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.PushFloat64(ld + rd); return true;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.PushFloat64(ld - rd); return true;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                        frame.ValueStack.PushFloat64(ld * rd); return true;
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return true; }
+                        break;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return true;
+                }
+            }
+            // Int overflow cases (ADD/SUB that overflowed in inline path)
+            else if (lv.IsIntLike && rv.IsIntLike)
+            {
+                long la = lv.AsInt64, ra = rv.AsInt64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
+                        return true;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
+                        return true;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                    {
+                        var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
+                        if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
+                            frame.ValueStack.PushInt64((long)bigResult);
+                        else
+                            frame.ValueStack.Push(new PyInt(bigResult));
+                        return true;
+                    }
+                    case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
+                        if (ra != 0) {
+                            long q = la / ra;
+                            if ((la ^ ra) < 0 && q * ra != la) q--;
+                            frame.ValueStack.PushInt64(q);
+                            return true;
+                        }
+                        break;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        if (ra >= 0 && ra <= 10)
+                        {
+                            long result = 1;
+                            bool overflow = false;
+                            for (long e = ra; e > 0; e--)
+                            {
+                                if (result != 0 && (la > long.MaxValue / Math.Abs(result) || la < long.MinValue / Math.Abs(result)))
+                                { overflow = true; break; }
+                                result = unchecked(result * la);
+                            }
+                            if (!overflow) { frame.ValueStack.PushInt64(result); return true; }
+                        }
+                        break;
+                }
+            }
+            // String concatenation
+            else
+            {
+                var lo = lv.ToObject();
+                var ro = rv.ToObject();
+                if ((binOp == BinaryOpType.ADD || binOp == BinaryOpType.INPLACE_ADD)
+                    && lo is PyStr ls && ro is PyStr rs)
+                {
+                    frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
+                    return true;
+                }
+                // Push back for ExecuteInstruction to handle (class dunder methods, etc.)
+                frame.ValueStack.Push(lo);
+                frame.ValueStack.Push(ro);
+                return false;
+            }
+
+            // Division by zero or unhandled op: push back for ExecuteInstruction
+            frame.ValueStack.PushValue(lv);
+            frame.ValueStack.PushValue(rv);
+            return false;
         }
 
         // 개별 명령어 실행 (기존 시스템과 연동)
