@@ -184,6 +184,17 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Drop N items from the stack (GC-safe: clears ObjRef).
+        /// CPython 3.12: STACK_SHRINK(n) pattern.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void DropN(int count)
+        {
+            for (int i = 0; i < count; i++)
+                _items[--_top].ObjRef = null;
+        }
+
+        /// <summary>
         /// Push an int64 value directly (zero allocation).
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1307,13 +1307,14 @@ namespace SharpPy
             Console.WriteLine($"\n🚀 VM 실행: {frame}");
 #endif
 
-            // CPython 3.12: Extended argument accumulation for EXTENDED_ARG support
-            int extendedArg = 0;
-
             // Cache instructions array and length as locals to avoid
             // List<T> indexer overhead (bounds check + indirection) per iteration.
             var instructions = frame.Code.InstructionsArray;
             var instructionCount2 = instructions.Length;
+
+            // Compact opcode array: 4B per element vs 40B ByteCodeInstruction.
+            // Better L1 cache density for opcode dispatch in the hot loop.
+            var opCodes = frame.Code.OpCodes;
 
 #if DEBUG
             // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용)
@@ -1327,9 +1328,14 @@ namespace SharpPy
             const int maxLastInstructions = 100; // Increase to 100 for better analysis
 #endif
 
+            // Local IP: keep instruction pointer in a register instead of heap field.
+            // Avoids 4+ heap reads/writes per instruction (loop check, instr fetch, opcode fetch, increment).
+            // CPython 3.12: uses C local variable `next_instr` for the same optimization.
+            int ip = frame.InstructionPointer;
+
             try
             {
-                while (frame.InstructionPointer < instructionCount2)
+                while (ip < instructionCount2)
                 {
 #if DEBUG
                     // 🛡️ 안전장치 검사 (DEBUG 모드 전용)
@@ -1349,48 +1355,21 @@ namespace SharpPy
                                 Console.WriteLine($"  {log}");
                             }
                             Console.WriteLine($"[DEBUG] Current frame: {frame.Code.Name}");
-                            Console.WriteLine($"[DEBUG] Current instruction pointer: {frame.InstructionPointer}");
+                            Console.WriteLine($"[DEBUG] Current instruction pointer: {ip}");
                             throw new PythonException(new PyRuntimeError($"Instruction limit exceeded: {instructionCount} instructions"));
                         }
                     }
 #endif
 
-                    ref var instruction = ref instructions[frame.InstructionPointer];
+                    ref var instruction = ref instructions[ip];
 
 #if DEBUG
                     // DEBUG: Track instruction for debugging
-                    var instructionLog = $"[{instructionCount}] IP={frame.InstructionPointer} {instruction.OpCode} arg={instruction.Argument} in {frame.Code.Name}";
+                    var instructionLog = $"[{instructionCount}] IP={ip} {instruction.OpCode} arg={instruction.Argument} in {frame.Code.Name}";
                     if (lastInstructions.Count >= maxLastInstructions)
                         lastInstructions.Dequeue();
                     lastInstructions.Enqueue(instructionLog);
 #endif
-
-                    // CPython 3.12: Handle EXTENDED_ARG by accumulating argument bits
-                    // EXTENDED_ARG shifts left by 8 bits and ORs with next instruction's arg
-                    // Pattern: oparg = (oparg << 8) | instruction.Argument
-                    if (instruction.OpCode == ByteCodeOp.EXTENDED_ARG)
-                    {
-                        extendedArg = (extendedArg << 8) | instruction.Argument;
-                        frame.InstructionPointer++;
-                        continue; // Skip to next instruction
-                    }
-
-                    // Apply accumulated extended argument to current instruction
-                    // Create modified instruction with combined argument
-                    if (extendedArg != 0)
-                    {
-                        int combinedArg = (extendedArg << 8) | instruction.Argument;
-                        instruction = new ByteCodeInstruction(
-                            instruction.OpCode,
-                            combinedArg,
-                            instruction.LineNumber,
-                            instruction.ColumnOffset,
-                            instruction.FileName,
-                            instruction.TargetBlock,
-                            instruction.ExceptBlock
-                        );
-                        extendedArg = 0; // Reset for next instruction
-                    }
 
                     // Deferred line tracking: Only update on exception (see catch block).
                     // Saves Dictionary.TryGetValue + string checks on every instruction.
@@ -1398,7 +1377,7 @@ namespace SharpPy
 
 #if DEBUG_LOG
                     // Eager line tracking in debug mode for log display
-                    if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var lineFromTable))
+                    if (frame.Code.LineNumberTable.TryGetValue(ip, out var lineFromTable))
                         frame.CurrentLineNumber = lineFromTable;
                     else if (instruction.LineNumber > 0)
                         frame.CurrentLineNumber = instruction.LineNumber;
@@ -1417,7 +1396,7 @@ namespace SharpPy
                             stackItems[i] = stackArray[stackArray.Length - 1 - i]?.ToString() ?? "null";
                         }
                         var stackContents = string.Join(", ", stackItems);
-                        Console.WriteLine($"  {frame.InstructionPointer*2,3}: {instruction,-25} 스택:[{stackContents}]");
+                        Console.WriteLine($"  {ip*2,3}: {instruction,-25} 스택:[{stackContents}]");
                     }
 #endif
 
@@ -1427,7 +1406,7 @@ namespace SharpPy
                     // Ordered by frequency: LOAD_FAST > STORE_FAST > LOAD_CONST > POP_TOP > BINARY_OP > ...
                     if (frame.PendingException == null)
                     {
-                        var inlineOp = instruction.OpCode;
+                        var inlineOp = opCodes[ip];
                         if (inlineOp == ByteCodeOp.LOAD_FAST)
                         {
                             var lfIdx = instruction.Argument;
@@ -1437,7 +1416,7 @@ namespace SharpPy
                                 if (!lfVal.IsNull)
                                 {
                                     frame.ValueStack.PushValue(lfVal);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                             }
@@ -1448,20 +1427,20 @@ namespace SharpPy
                             if (sfIdx < frame.LocalsPlus.Length)
                             {
                                 frame.LocalsPlus[sfIdx] = frame.ValueStack.PopValue();
-                                frame.InstructionPointer++;
+                                ip++;
                                 continue;
                             }
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_CONST)
                         {
                             frame.ValueStack.PushValue(frame.Code.ConstantsAsValues[instruction.Argument]);
-                            frame.InstructionPointer++;
+                            ip++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.POP_TOP)
                         {
                             frame.ValueStack.PopValue();
-                            frame.InstructionPointer++;
+                            ip++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.BINARY_OP)
@@ -1481,26 +1460,26 @@ namespace SharpPy
                                         frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
                                     else
                                         frame.ValueStack.PushInt64(sum);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                                 if (ilv.IsFloat64 && irv.IsFloat64)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 + irv.AsFloat64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 if (ilv.IsIntLike && irv.IsFloat64)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64((double)ilv.AsInt64 + irv.AsFloat64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 if (ilv.IsFloat64 && irv.IsIntLike)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 + (double)irv.AsInt64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 // String concatenation fast path
                                 {
@@ -1510,7 +1489,7 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
-                                        frame.InstructionPointer++; continue;
+                                        ip++; continue;
                                     }
                                 }
                             }
@@ -1533,26 +1512,26 @@ namespace SharpPy
                                         else
                                             frame.ValueStack.Push(new PyInt(bigResult));
                                     }
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                                 if (ilv.IsFloat64 && irv.IsFloat64)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 * irv.AsFloat64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 if (ilv.IsIntLike && irv.IsFloat64)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64((double)ilv.AsInt64 * irv.AsFloat64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 if (ilv.IsFloat64 && irv.IsIntLike)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 * (double)irv.AsInt64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                             }
                             else if (inlineBinOp == BinaryOpType.SUBTRACT || inlineBinOp == BinaryOpType.INPLACE_SUBTRACT)
@@ -1569,20 +1548,20 @@ namespace SharpPy
                                         frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
                                     else
                                         frame.ValueStack.PushInt64(diff);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                                 if (ilv.IsFloat64 && irv.IsFloat64)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 - irv.AsFloat64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 if (ilv.IsFloat64 && irv.IsIntLike)
                                 {
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(ilv.AsFloat64 - (double)irv.AsInt64);
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                             }
                             else if (inlineBinOp == BinaryOpType.FLOOR_DIVIDE || inlineBinOp == BinaryOpType.INPLACE_FLOOR_DIVIDE)
@@ -1599,7 +1578,7 @@ namespace SharpPy
                                         long q = la / ra;
                                         if ((la ^ ra) < 0 && q * ra != la) q--;
                                         frame.ValueStack.PushInt64(q);
-                                        frame.InstructionPointer++;
+                                        ip++;
                                         continue;
                                     }
                                 }
@@ -1615,7 +1594,7 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushFloat64(ilv.AsFloat64 / rd);
-                                        frame.InstructionPointer++; continue;
+                                        ip++; continue;
                                     }
                                 }
                                 if (ilv.IsFloat64 && irv.IsIntLike)
@@ -1625,7 +1604,7 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushFloat64(ilv.AsFloat64 / rd);
-                                        frame.InstructionPointer++; continue;
+                                        ip++; continue;
                                     }
                                 }
                             }
@@ -1639,7 +1618,7 @@ namespace SharpPy
                                     double rd = irv.IsFloat64 ? irv.AsFloat64 : (double)irv.AsInt64;
                                     frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                     frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
-                                    frame.InstructionPointer++; continue;
+                                    ip++; continue;
                                 }
                                 if (ilv.IsIntLike && irv.IsIntLike)
                                 {
@@ -1659,7 +1638,7 @@ namespace SharpPy
                                         {
                                             frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                             frame.ValueStack.PushInt64(result);
-                                            frame.InstructionPointer++; continue;
+                                            ip++; continue;
                                         }
                                     }
                                 }
@@ -1684,7 +1663,7 @@ namespace SharpPy
                                 if (cmpOp <= 5)
                                 {
                                     frame.ValueStack.PushBool(cmpResult);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                             }
@@ -1702,7 +1681,7 @@ namespace SharpPy
                                 if (cmpOp <= 5)
                                 {
                                     frame.ValueStack.PushBool(cmpResult);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                             }
@@ -1735,13 +1714,13 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.RESUME)
                         {
-                            frame.InstructionPointer++;
+                            ip++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.PUSH_NULL)
                         {
                             frame.ValueStack.Push(PyNone.Instance);
-                            frame.InstructionPointer++;
+                            ip++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_GLOBAL)
@@ -1757,7 +1736,7 @@ namespace SharpPy
                                 if (lgPushNull)
                                     frame.ValueStack.Push(PyNone.Instance);
                                 frame.ValueStack.Push(lgVal);
-                                frame.InstructionPointer++;
+                                ip++;
                                 continue;
                             }
                         }
@@ -1777,7 +1756,7 @@ namespace SharpPy
                                 {
                                     frame.ValueStack.PopValue(); // Discard — skip ToObject
                                     frame.ValueStack.Push(laVal);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                             }
@@ -1792,7 +1771,7 @@ namespace SharpPy
                                     var laCache = frame.Code.LoadAttrCache;
                                     if (laCache != null)
                                     {
-                                        int laIp = frame.InstructionPointer;
+                                        int laIp = ip;
                                         ref var laCacheEntry = ref laCache[laIp];
                                         if (laCacheEntry.CachedValue != null)
                                         {
@@ -1807,7 +1786,7 @@ namespace SharpPy
                                                 frame.ValueStack.PopValue(); // Discard — skip ToObject
                                                 frame.ValueStack.Push(laCacheEntry.CachedValue);
                                                 frame.ValueStack.Push(laObj);
-                                                frame.InstructionPointer++;
+                                                ip++;
                                                 continue;
                                             }
                                         }
@@ -1825,7 +1804,7 @@ namespace SharpPy
                                 frame.ValueStack.PopValue(); // Skip ToObject
                                 var saValue = frame.ValueStack.Pop();
                                 saInst.InstanceDict[saAttrName] = saValue;
-                                frame.InstructionPointer++;
+                                ip++;
                                 continue;
                             }
                         }
@@ -1833,7 +1812,7 @@ namespace SharpPy
                         {
                             if (!(frame.Code is PyQuickenedCodeObject))
                             {
-                                frame.InstructionPointer = frame.InstructionPointer + 1 - instruction.Argument;
+                                ip = ip + 1 - instruction.Argument;
                                 continue;
                             }
                         }
@@ -1849,9 +1828,9 @@ namespace SharpPy
                                 isFalsy = !pjVal.ToObject().PyBoolValue();
 
                             if (isFalsy)
-                                frame.InstructionPointer = frame.InstructionPointer + 1 + instruction.Argument;
+                                ip = ip + 1 + instruction.Argument;
                             else
-                                frame.InstructionPointer++;
+                                ip++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.POP_JUMP_IF_TRUE)
@@ -1866,9 +1845,9 @@ namespace SharpPy
                                 isTruthy = pjVal.ToObject().PyBoolValue();
 
                             if (isTruthy)
-                                frame.InstructionPointer = frame.InstructionPointer + 1 + instruction.Argument;
+                                ip = ip + 1 + instruction.Argument;
                             else
-                                frame.InstructionPointer++;
+                                ip++;
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.LIST_APPEND)
@@ -1880,7 +1859,7 @@ namespace SharpPy
                             if (laTarget is PyList laList)
                             {
                                 laList.Append(laItem);
-                                frame.InstructionPointer++;
+                                ip++;
                                 continue;
                             }
                             // Non-list target or PyNull → fall through to ExecuteInstruction
@@ -1896,25 +1875,25 @@ namespace SharpPy
                                 if (fiRangeIter.TryNextInt64(out long fiNextInt))
                                 {
                                     frame.ValueStack.PushInt64(fiNextInt);
-                                    frame.InstructionPointer++;
+                                    ip++;
                                     continue;
                                 }
                                 // Range exhausted — fall through to exhaustion handling below
                                 frame.ValueStack.PopValue();
                                 if (frame.Code is PyQuickenedCodeObject fiRangeQuickened)
-                                    frame.InstructionPointer = fiRangeQuickened.CalculateForIterTarget(
-                                        frame.InstructionPointer, instruction.Argument);
+                                    ip = fiRangeQuickened.CalculateForIterTarget(
+                                        ip, instruction.Argument);
                                 else if (!frame.Code.IsOptimized)
-                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 2;
+                                    ip = ip + instruction.Argument + 2;
                                 else
-                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 1;
+                                    ip = ip + instruction.Argument + 1;
                                 continue;
                             }
                             var fiIter = frame.ValueStack.Peek();
                             if (fiIter.TryNext(out var fiNext))
                             {
                                 frame.ValueStack.Push(fiNext);
-                                frame.InstructionPointer++;
+                                ip++;
                                 continue;
                             }
                             else
@@ -1922,22 +1901,25 @@ namespace SharpPy
                                 frame.ValueStack.Pop();
                                 if (frame.Code is PyQuickenedCodeObject fiQuickened)
                                 {
-                                    frame.InstructionPointer = fiQuickened.CalculateForIterTarget(
-                                        frame.InstructionPointer, instruction.Argument);
+                                    ip = fiQuickened.CalculateForIterTarget(
+                                        ip, instruction.Argument);
                                 }
                                 else if (!frame.Code.IsOptimized)
                                 {
-                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 2;
+                                    ip = ip + instruction.Argument + 2;
                                 }
                                 else
                                 {
-                                    frame.InstructionPointer = frame.InstructionPointer + instruction.Argument + 1;
+                                    ip = ip + instruction.Argument + 1;
                                 }
                                 continue;
                             }
                         }
                     }
                     // ===== END INLINE FAST PATH =====
+
+                    // Sync local IP to frame before slow path (ExecuteInstruction reads frame.InstructionPointer)
+                    frame.InstructionPointer = ip;
 
                     try
                     {
@@ -1965,12 +1947,13 @@ namespace SharpPy
                             return result;
                         }
 
-                        frame.InstructionPointer++;
+                        // Re-read IP from frame (ExecuteInstruction may have changed it for jumps)
+                        ip = frame.InstructionPointer + 1;
                     }
                     catch (PythonException pyEx)
                     {
                         // Deferred line tracking: resolve line number only on exception (not every instruction)
-                        if (frame.Code.LineNumberTable.TryGetValue(frame.InstructionPointer, out var excLine))
+                        if (frame.Code.LineNumberTable.TryGetValue(ip, out var excLine))
                             frame.CurrentLineNumber = excLine;
                         else if (instruction.LineNumber > 0)
                             frame.CurrentLineNumber = instruction.LineNumber;
@@ -2005,7 +1988,7 @@ namespace SharpPy
                             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
                             if (exceptionEntry.Lasti)
                             {
-                                var lastiValue = new PyInt(frame.InstructionPointer);
+                                var lastiValue = new PyInt(ip);
                                 frame.ValueStack.Push(lastiValue);
                             }
 
@@ -2019,13 +2002,15 @@ namespace SharpPy
                             var instructionIndex = handlerOffset.Value;
                             if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
                             {
-                                frame.InstructionPointer = instructionIndex;
+                                ip = instructionIndex;
+                                frame.InstructionPointer = ip;
                             }
                             else
                             {
                                 if (frame.Code.Instructions.Count > 0)
                                 {
-                                    frame.InstructionPointer = frame.Code.Instructions.Count - 1;
+                                    ip = frame.Code.Instructions.Count - 1;
+                                    frame.InstructionPointer = ip;
                                 }
                                 else
                                 {
@@ -2042,14 +2027,16 @@ namespace SharpPy
                     catch (LoopBreakException)
                     {
                         // Break: jump to end of current loop
-                        var loopEnd = FindLoopEnd(frame, frame.InstructionPointer);
-                        frame.InstructionPointer = loopEnd;
+                        var loopEnd = FindLoopEnd(frame, ip);
+                        ip = loopEnd;
+                        frame.InstructionPointer = ip;
                     }
                     catch (LoopContinueException)
                     {
                         // Continue: jump to beginning of current loop
-                        var loopStart = FindLoopStart(frame, frame.InstructionPointer);
-                        frame.InstructionPointer = loopStart;
+                        var loopStart = FindLoopStart(frame, ip);
+                        ip = loopStart;
+                        frame.InstructionPointer = ip;
                     }
                 }
 
@@ -2949,10 +2936,6 @@ namespace SharpPy
 #if DEBUG_LOG
                     Console.WriteLine($"🔧 CALL Debug: kwNames = {(kwNames == null ? "null" : $"length {kwNames.Items.Length}")}, callArgCount = {callArgCount}");
 #endif
-
-                    // 🔧 REMOVED HOTFIX: The malformed finally handler stack hotfix is no longer needed
-                    // The underlying issue was fixed in the compiler by properly generating exception tables
-                    // and ensuring finally blocks execute in both normal and exception paths
 
                     // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
                     for (int i = callArgCount - 1; i >= 0; i--)

@@ -467,6 +467,14 @@ namespace SharpPy
         public ByteCodeInstruction[] InstructionsArray { get; private set; } = null!;
 
         /// <summary>
+        /// Compact opcode array — hot path cache optimization.
+        /// Stores only OpCode (4B) per instruction for better L1 cache utilization.
+        /// Original ByteCodeInstruction is 40B; this array is 4B per element = 10x denser.
+        /// CPython 3.12: _Py_CODEUNIT stores opcode in 1 byte — similar density optimization.
+        /// </summary>
+        public ByteCodeOp[] OpCodes { get; private set; } = null!;
+
+        /// <summary>
         /// CPython 3.12 inline cache for LOAD_ATTR instructions.
         /// Stores per-instruction (typeVersionTag, cachedValue, isMethod) for monomorphic caching.
         /// CPython reference: Python/specialize.c — _Py_Specialize_LoadAttr
@@ -550,12 +558,60 @@ namespace SharpPy
             BuildDefaultsTupleCache();
             InstructionsArray = Instructions.ToArray();
 
+            // Pre-resolve EXTENDED_ARG: fold accumulated bits into next instruction's Argument.
+            // Eliminates 2 per-instruction checks (EXTENDED_ARG opcode + extendedArg accumulator)
+            // from the VM hot loop. EXTENDED_ARG entries become NOPs (opcode set to CACHE).
+            // CPython 3.12: wordcode format uses EXTENDED_ARG prefix for args > 255.
+            PreResolveExtendedArg();
+
+            // Build compact opcode array for L1 cache-friendly dispatch
+            int instrCount = InstructionsArray.Length;
+            OpCodes = new ByteCodeOp[instrCount];
+            for (int i = 0; i < instrCount; i++)
+                OpCodes[i] = InstructionsArray[i].OpCode;
+
             // Pre-compute fast call eligibility (CPython 3.12: CALL_PY_EXACT_ARGS equivalent)
             IsSimpleCallTarget = (Flags & CO_OPTIMIZED) != 0
                 && KwonlyArgCount == 0
                 && (Flags & (CO_VARARGS | CO_VARKEYWORDS)) == 0
                 && DefaultValues.Count == 0
                 && CachedDefaultsTuple == null;
+        }
+
+        /// <summary>
+        /// Pre-resolve EXTENDED_ARG sequences: fold accumulated argument bits into the
+        /// target instruction, then replace EXTENDED_ARG with CACHE (NOP).
+        /// This eliminates the EXTENDED_ARG check and accumulator from the VM hot loop.
+        /// CPython 3.12: wordcode uses (oparg << 8) | next_arg pattern.
+        /// </summary>
+        private void PreResolveExtendedArg()
+        {
+            var instrs = InstructionsArray;
+            int len = instrs.Length;
+            int extArg = 0;
+
+            for (int i = 0; i < len; i++)
+            {
+                ref var instr = ref instrs[i];
+                if (instr.OpCode == ByteCodeOp.EXTENDED_ARG)
+                {
+                    extArg = (extArg << 8) | instr.Argument;
+                    // Replace EXTENDED_ARG with CACHE (NOP in VM)
+                    instrs[i] = new ByteCodeInstruction(
+                        ByteCodeOp.CACHE, 0,
+                        instr.LineNumber, instr.ColumnOffset,
+                        instr.FileName, instr.TargetBlock, instr.ExceptBlock);
+                }
+                else if (extArg != 0)
+                {
+                    int combinedArg = (extArg << 8) | instr.Argument;
+                    instrs[i] = new ByteCodeInstruction(
+                        instr.OpCode, combinedArg,
+                        instr.LineNumber, instr.ColumnOffset,
+                        instr.FileName, instr.TargetBlock, instr.ExceptBlock);
+                    extArg = 0;
+                }
+            }
         }
 
         /// <summary>
