@@ -165,28 +165,46 @@ if (BinaryOpWarm(frame, binOp)) { ip++; continue; }
 3. **Method call fast path**: CPython 3.12 스택 swap 패턴 (nextElement=func, callableFunc=self) 처리.
    p.distance() 같은 메서드 호출도 PyValue 직접 경로 사용.
 4. **int\*\*2 squaring**: BinaryOpWarm에서 `la*la` 직접 계산 (루프 제거, overflow 체크 포함)
+5. **NOP/CACHE inline** (**최대 영향**): ExecuteFrame inline path에 NOP, CACHE 추가 (2줄)
 
 #### 결과
-- **벤치마크**: Phase A+B 320ms → Phase C **315ms** (**-1.6%**)
-- 개선 폭이 작은 이유: **함수 호출 5μs 중 PyObject 변환은 ~20ns (0.4%)**
-- 진짜 병목은 frame 생성 + recursive ExecuteFrame (구조적 한계)
+- **벤치마크**: Phase A+B 320ms → Phase C **206ms** (**-35.6%**)
+- **핵심 발견**: CACHE opcode가 매번 ExecuteInstruction을 호출하여 L1i 캐시 오염!
+  - CPython 3.12: CALL 뒤 3개, LOAD_ATTR 뒤 9개 등 매우 빈번한 opcode
+  - 이전: CACHE → inline miss → ExecuteInstruction (18KB) 호출 → L1i flush → inline loop 재로드
+  - 이후: CACHE → `ip++; continue;` (inline, 0 overhead)
+  - **비-inline opcode 1개당 L1i 오염 비용**: ~1000-1800ns (NOP 실험으로 측정)
+
+#### 주요 벤치마크 비교
+
+| Benchmark | Phase A+B (ms) | Phase C (ms) | 변화 | vs CPython |
+|---|---|---|---|---|
+| int_arithmetic | 7.2 | 1.65 | **-77%** | 2.0x |
+| float_arithmetic | 9.5 | 3.3 | **-65%** | 4.3x |
+| class_method | 43 | 20 | **-53%** | 17x |
+| string_ops | 25 | 10.9 | **-56%** | 13x |
+| list_ops | 22 | 7.9 | **-64%** | 13x |
+| attribute_access | 7.0 | 2.7 | **-61%** | 4.4x |
+| nested_loop | 1.5 | 1.07 | **-29%** | 1.9x |
+| **TOTAL** | **320** | **206** | **-35.6%** | **~11x** |
 
 #### 교훈
-- PyValue→PyObject→PyValue 라운드트립 비용은 ~10-20ns/arg — 전체 호출 비용의 1% 미만
-- 함수 호출 ~5μs 중 대부분은 frame init (20+ 필드 설정) + ExecuteFrame 재귀 호출
-- CPython은 동일 C 루프 내 frame pointer 조정으로 해결 (재귀 호출 없음)
-- 추가 함수 호출 최적화는 아키텍처 변경 (frame chaining/continuation) 필요
+1. **CACHE opcode는 반드시 inline**: CPython 3.12의 inline cache entry는 interpreter가 건너뛰어야 함
+2. **L1i 캐시 오염이 최대 병목**: 비-inline opcode 1개가 ~1000-1800ns 추가
+3. **모든 빈번한 opcode를 inline에 포함**: CACHE 2줄 추가로 전체 -36% (최고 단일 최적화)
+4. PyValue direct call, Cells=Closure 등 호출 경로 최적화는 ~1-3% (구조적 한계)
+5. 함수 호출 overhead: frame init + ExecuteFrame 재귀 ≈ ~2μs/call (CACHE 제거 후 재측정)
 
 ---
 
 ## 다음 단계 (미실행)
 
-### 구조적 한계: 함수 호출 오버헤드
-- 현재: Python 함수 호출 → C# ExecuteFrame 재귀 호출 (~5μs/call)
-- CPython: 같은 C 루프 내 frame pointer 조정 (~100ns/call)
-- 해결: frame chaining (DISPATCH_INLINED 재시도) 또는 continuation-based dispatch
-- 주의: Phase 16에서 DISPATCH_INLINED 시도 → 5-16% 성능 저하로 리버트
+### 남은 병목 영역 (~11x ratio)
+- **함수 호출**: function_call 20ms (30x), kwargs_call 22ms (30x), closure 27ms (43x)
+- **Container**: string_ops 11ms (13x), list_ops 8ms (13x), dict_ops 10ms (7x)
+- **Generator**: 불안정 (37-94ms, 시스템 부하 의존)
 
-### Strategy B/C/D 검토
-- 현재 ~17x ratio — 함수 호출 이외의 최적화 여지 탐색 필요
-- container operations (list/dict/string), generator, exception 등
+### 가능한 최적화 방향
+- container type dispatch: list.append/dict[key] 등을 CALL 없이 inline
+- kwargs 경량화: Dictionary 대신 Span 기반 kwarg 전달
+- generator frame reuse: yield/resume 시 frame 재사용

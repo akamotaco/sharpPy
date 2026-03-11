@@ -2067,6 +2067,11 @@ namespace SharpPy
                                 continue;
                             }
                         }
+                        else if (inlineOp == ByteCodeOp.NOP || inlineOp == ByteCodeOp.CACHE)
+                        {
+                            ip++;
+                            continue;
+                        }
                     }
                     // ===== END INLINE FAST PATH =====
 
