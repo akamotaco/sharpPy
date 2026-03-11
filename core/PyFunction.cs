@@ -302,7 +302,8 @@ public partial class PyFunction : PyObject, IDescriptor
             && args.Length == code.ArgCount
             && Attributes.Count == 0)
         {
-            frame = new PyFrame(code, args, functionScopeChain, null, true);
+            frame = PyFrame.Rent();
+            frame.InitFast(code, args, functionScopeChain, null);
         }
         else
         {
@@ -311,7 +312,8 @@ public partial class PyFunction : PyObject, IDescriptor
             PyTuple defaults = (Attributes.Count > 0
                 && Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
                 ? dt : code.CachedDefaultsTuple;
-            frame = new PyFrame(code, args, functionScopeChain, Closure, null, defaults);
+            frame = PyFrame.Rent();
+            frame.InitFull(code, args, functionScopeChain, Closure, null, defaults);
         }
         return PyVM.Instance.ExecuteFrame(frame);
     }
@@ -412,7 +414,8 @@ public partial class PyFunction : PyObject, IDescriptor
             }
             else
             {
-                frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
+                frame = PyFrame.Rent();
+                frame.InitFull(CodeObject, args, functionScopeChain, Closure, null, defaults);
             }
 
             var vm = PyVM.Instance;
@@ -453,7 +456,8 @@ public partial class PyFunction : PyObject, IDescriptor
         var defaults = GetDefaults();
 
         // async generator 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
+        var frame = PyFrame.Rent();
+        frame.InitFull(CodeObject, args, null, Closure, null, defaults);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // async generator enumerator 생성
@@ -480,7 +484,8 @@ public partial class PyFunction : PyObject, IDescriptor
         var defaults = GetDefaults();
 
         // 코루틴 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
+        var frame = PyFrame.Rent();
+        frame.InitFull(CodeObject, args, null, Closure, null, defaults);
         frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
 
         return new SharpPy.Core.PyCoroutine(frame, vm, Name);
@@ -547,7 +552,8 @@ public partial class PyFunction : PyObject, IDescriptor
         }
         else
         {
-            frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults);
+            frame = PyFrame.Rent();
+            frame.InitFull(CodeObject, args, generatorScopeChain, Closure, null, defaults);
         }
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
@@ -710,7 +716,8 @@ public partial class PyFunction : PyObject, IDescriptor
         // Create implementation that executes code object with closure support
         Func<PyObject[], PyObject> implementation = args =>
         {
-            var frame = new PyFrame(codeObject, args, parentScope, closure);
+            var frame = PyFrame.Rent();
+            frame.InitFull(codeObject, args, parentScope, closure);
             return PyVM.Instance.ExecuteFrame(frame);
         };
         

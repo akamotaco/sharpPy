@@ -1263,7 +1263,8 @@ namespace SharpPy
                     }
 
                     // Create and execute a frame for this function call
-                    var frame = new PyFrame(funcCode, args, scopeChain);
+                    var frame = PyFrame.Rent();
+                    frame.InitFull(funcCode, args, scopeChain);
                     return PyVM.Instance.ExecuteFrame(frame);
                 }, codeObject: funcCode);
             }

@@ -66,10 +66,57 @@ namespace SharpPy
         }
         #endregion
 
-        public PyCodeObject Code { get; }
-        public PyStack ValueStack { get; }
-        public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
-        public PyValue[] LocalsPlus { get; }  // CPython 3.12 style: PyValue array for local variables
+        #region Frame Pool
+        // ThreadStatic frame pool — eliminates GC heap allocation for most call depths.
+        // CPython uses datastack pointer bump (~2ns). C#/.NET has no stack alloc for
+        // managed objects, so ThreadStatic pooling is the idiomatic equivalent.
+        // Key insight: Return() does NOT clear fields. Init* overwrites everything.
+        // ThreadStatic guarantees sequential access: Return → caller reads frame → next Rent.
+        [ThreadStatic] private static PyFrame? _fp1, _fp2, _fp3, _fp4;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static PyFrame Rent()
+        {
+            PyFrame f;
+            f = _fp1; if (f != null) { _fp1 = null; return f; }
+            f = _fp2; if (f != null) { _fp2 = null; return f; }
+            f = _fp3; if (f != null) { _fp3 = null; return f; }
+            f = _fp4; if (f != null) { _fp4 = null; return f; }
+            return new PyFrame();
+        }
+
+        /// <summary>
+        /// Return frame to pool. Does NOT clear fields — Init* will overwrite everything
+        /// on next Rent. Caller may still read frame fields after this call (same thread,
+        /// sequential execution guarantees no Rent occurs until caller is done).
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static void Return(PyFrame f)
+        {
+            if (_fp1 == null) { _fp1 = f; return; }
+            if (_fp2 == null) { _fp2 = f; return; }
+            if (_fp3 == null) { _fp3 = f; return; }
+            _fp4 ??= f;
+        }
+
+        /// <summary>
+        /// Private parameterless constructor for pool cold path.
+        /// All fields set by Init* methods.
+        /// </summary>
+        private PyFrame()
+        {
+            Code = null!;
+            ValueStack = null!;
+            ScopeChain = null!;
+            LocalsPlus = null!;
+            Globals = _emptyGlobals;
+        }
+        #endregion
+
+        public PyCodeObject Code { get; internal set; }
+        public PyStack ValueStack { get; internal set; }
+        public PyScopeChain ScopeChain { get; internal set; }       // 기존 LEGB 시스템 활용!
+        public PyValue[] LocalsPlus { get; internal set; }  // CPython 3.12 style: PyValue array for local variables
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking
@@ -164,11 +211,14 @@ namespace SharpPy
             // This simulates CPython's approach where kwnames is passed through the call chain
             var dummyCode = new PyCodeObject("<kwargs_holder>", new List<ByteCodeInstruction>(),
                 new List<PyObject>(), new List<string>(), new List<string>());
-            var parentFrame = new PyFrame(dummyCode, new PyObject[0], parentScope);
+            var parentFrame = PyFrame.Rent();
+            parentFrame.InitFull(dummyCode, new PyObject[0], parentScope);
             parentFrame.KeywordNamesForNextCall = kwNames;
 
             // Create the actual frame with combined args
-            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, null);
+            var resultFrame = PyFrame.Rent();
+            resultFrame.InitFull(code, finalArgs, parentScope, closure, parentFrame, defaults, null);
+            return resultFrame;
         }
 
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
@@ -246,6 +296,211 @@ namespace SharpPy
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
             BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults);
+        }
+
+        /// <summary>
+        /// Full initialization for pooled frame. Mirrors the general constructor but works
+        /// on an existing (Rent'd) frame instance. Overwrites ALL fields unconditionally.
+        /// </summary>
+        internal void InitFull(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope ?? new PyScopeChain();
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+            int argsLen = args.Length;
+            if (nlocals > argsLen)
+                Array.Fill(LocalsPlus, PyValue.Null, argsLen, nlocals - argsLen);
+
+            InstructionPointer = 0;
+            ParentFrame = parentFrame;
+            Globals = ScopeChain.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = closure ?? Array.Empty<PyCell>();
+
+            // Reset all mutable state (may be stale from previous use)
+            CurrentLineNumber = -1;
+            CurrentColumnOffset = -1;
+            ExceptionHandlerCallCount = 0;
+            State = FrameState.Created;
+            IsGenerator = false;
+            IsCoroutine = false;
+            KeywordNamesForNextCall = null;
+            ClassBodyVariables = null;
+            ClassLocalsDict = null;
+            LastException = null;
+            CurrentException = null;
+            PendingException = null;
+            YieldValue = null!;
+
+            int freeVarCount = code.FreeVars?.Count ?? 0;
+            int cellVarCount = code.CellVars?.Count ?? 0;
+            int totalCellCount = freeVarCount + cellVarCount;
+
+            if (totalCellCount > 0)
+            {
+                Cells = new PyCell[totalCellCount];
+                for (int i = 0; i < Cells.Length; i++)
+                    Cells[i] = new PyCell();
+            }
+            else
+            {
+                Cells = Array.Empty<PyCell>();
+            }
+
+            if (!IsModuleExecution(code.Name) && (code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                ScopeChain.PushScope(ScopeType.Local, code.Name);
+
+            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults);
+        }
+
+        /// <summary>
+        /// Fast init for CO_OPTIMIZED, no closures, exact args, no defaults.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void InitFast(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyFrame parentFrame)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+            for (int i = 0; i < args.Length; i++)
+                LocalsPlus[i] = PyValue.FromObject(args[i]);
+            if (nlocals > args.Length)
+                Array.Fill(LocalsPlus, PyValue.Null, args.Length, nlocals - args.Length);
+
+            InstructionPointer = 0;
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = Array.Empty<PyCell>();
+            Cells = Array.Empty<PyCell>();
+
+            CurrentLineNumber = -1;
+            CurrentColumnOffset = -1;
+            ExceptionHandlerCallCount = 0;
+            State = FrameState.Created;
+            IsGenerator = false;
+            IsCoroutine = false;
+            KeywordNamesForNextCall = null;
+            ClassBodyVariables = null;
+            ClassLocalsDict = null;
+            LastException = null;
+            CurrentException = null;
+            PendingException = null;
+            YieldValue = null!;
+        }
+
+        /// <summary>
+        /// Fast init for CO_OPTIMIZED closures with exact args, no defaults.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void InitClosure(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyCell[] closure, PyFrame parentFrame)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+            for (int i = 0; i < args.Length; i++)
+                LocalsPlus[i] = PyValue.FromObject(args[i]);
+            if (nlocals > args.Length)
+                Array.Fill(LocalsPlus, PyValue.Null, args.Length, nlocals - args.Length);
+
+            InstructionPointer = 0;
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = closure ?? Array.Empty<PyCell>();
+
+            CurrentLineNumber = -1;
+            CurrentColumnOffset = -1;
+            ExceptionHandlerCallCount = 0;
+            State = FrameState.Created;
+            IsGenerator = false;
+            IsCoroutine = false;
+            KeywordNamesForNextCall = null;
+            ClassBodyVariables = null;
+            ClassLocalsDict = null;
+            LastException = null;
+            CurrentException = null;
+            PendingException = null;
+            YieldValue = null!;
+
+            int freeVarCount = code.FreeVars?.Count ?? 0;
+            int cellVarCount = code.CellVars?.Count ?? 0;
+            int totalCellCount = freeVarCount + cellVarCount;
+
+            if (totalCellCount > 0)
+            {
+                Cells = new PyCell[totalCellCount];
+                int copyCount = Math.Min(freeVarCount, Closure.Length);
+                for (int i = 0; i < copyCount; i++)
+                    Cells[i] = Closure[i];
+                for (int i = freeVarCount; i < totalCellCount; i++)
+                    Cells[i] = new PyCell();
+
+                if (cellVarCount > 0)
+                {
+                    for (int i = 0; i < cellVarCount; i++)
+                    {
+                        var cellName = code.CellVars[i];
+                        if (code.VarNameIndexMap.TryGetValue(cellName, out var localIdx) && localIdx < args.Length)
+                        {
+                            int cellIdx = freeVarCount + i;
+                            if (cellIdx < Cells.Length)
+                                Cells[cellIdx].Value = args[localIdx];
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Cells = Array.Empty<PyCell>();
+            }
+        }
+
+        /// <summary>
+        /// Ultra-fast init: PyValue args directly from stack, no conversion.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void InitDirect(PyCodeObject code, PyValue[] argValues, int argCount, PyScopeChain parentScope, PyFrame parentFrame)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = parentScope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+            Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
+            if (nlocals > argCount)
+                Array.Fill(LocalsPlus, PyValue.Null, argCount, nlocals - argCount);
+
+            InstructionPointer = 0;
+            ParentFrame = parentFrame;
+            Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
+            CurrentFileName = code.FileName;
+            Closure = Array.Empty<PyCell>();
+            Cells = Array.Empty<PyCell>();
+
+            CurrentLineNumber = -1;
+            CurrentColumnOffset = -1;
+            ExceptionHandlerCallCount = 0;
+            State = FrameState.Created;
+            IsGenerator = false;
+            IsCoroutine = false;
+            KeywordNamesForNextCall = null;
+            ClassBodyVariables = null;
+            ClassLocalsDict = null;
+            LastException = null;
+            CurrentException = null;
+            PendingException = null;
+            YieldValue = null!;
         }
 
         /// <summary>
@@ -987,7 +1242,8 @@ namespace SharpPy
                 }
             }
 
-            var frame = new PyFrame(codeObject, new PyObject[0], _globalScope);
+            var frame = PyFrame.Rent();
+            frame.InitFull(codeObject, new PyObject[0], _globalScope);
             return ExecuteFrame(frame);
         }
 
@@ -1055,7 +1311,8 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyFrame 생성 직전 codeObject.ExceptionTable.Count: {codeObject.ExceptionTable.Count}");
             #endif
-            var frame = new PyFrame(codeObject, new PyObject[0], scopeChain);
+            var frame = PyFrame.Rent();
+            frame.InitFull(codeObject, new PyObject[0], scopeChain);
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyFrame 생성 후 frame.Code.ExceptionTable.Count: {frame.Code.ExceptionTable.Count}");
             #endif
@@ -1122,9 +1379,8 @@ namespace SharpPy
             }
 
             // CPython 3.12: Create frame with closure if provided
-            var frame = closure != null
-                ? new PyFrame(classBody, new PyObject[0], parentScope, closure)
-                : new PyFrame(classBody, new PyObject[0], parentScope);
+            var frame = PyFrame.Rent();
+            frame.InitFull(classBody, new PyObject[0], parentScope, closure);
 
             // CPython 3.12: Check if __prepare__ returned a dict subclass
             // If so, use it as the LOCALS() dict for STORE_NAME operations
@@ -1312,9 +1568,9 @@ namespace SharpPy
             var instructions = frame.Code.InstructionsArray;
             var instructionCount2 = instructions.Length;
 
-            // Compact opcode array: 4B per element vs 40B ByteCodeInstruction.
-            // Better L1 cache density for opcode dispatch in the hot loop.
-            var opCodes = frame.Code.OpCodes;
+            // Compact instruction array: 8B per element (Op + Arg) vs 40B ByteCodeInstruction.
+            // Single fetch gives both opcode and argument with better L1 cache density.
+            var ci = frame.Code.CompactInstructions;
 
 #if DEBUG
             // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용)
@@ -1406,10 +1662,11 @@ namespace SharpPy
                     // Ordered by frequency: LOAD_FAST > STORE_FAST > LOAD_CONST > POP_TOP > BINARY_OP > ...
                     if (frame.PendingException == null)
                     {
-                        var inlineOp = opCodes[ip];
+                        ref var cip = ref ci[ip];
+                        var inlineOp = cip.Op;
                         if (inlineOp == ByteCodeOp.LOAD_FAST)
                         {
-                            var lfIdx = instruction.Argument;
+                            var lfIdx = cip.Arg;
                             if (lfIdx < frame.LocalsPlus.Length)
                             {
                                 var lfVal = frame.LocalsPlus[lfIdx];
@@ -1423,7 +1680,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.STORE_FAST)
                         {
-                            var sfIdx = instruction.Argument;
+                            var sfIdx = cip.Arg;
                             if (sfIdx < frame.LocalsPlus.Length)
                             {
                                 frame.LocalsPlus[sfIdx] = frame.ValueStack.PopValue();
@@ -1433,7 +1690,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_CONST)
                         {
-                            frame.ValueStack.PushValue(frame.Code.ConstantsAsValues[instruction.Argument]);
+                            frame.ValueStack.PushValue(frame.Code.ConstantsAsValues[cip.Arg]);
                             ip++;
                             continue;
                         }
@@ -1445,7 +1702,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.BINARY_OP)
                         {
-                            var inlineBinOp = (BinaryOpType)instruction.Argument;
+                            var inlineBinOp = (BinaryOpType)cip.Arg;
                             if (inlineBinOp == BinaryOpType.ADD || inlineBinOp == BinaryOpType.INPLACE_ADD)
                             {
                                 var irv = frame.ValueStack.PeekValueAt(0);
@@ -1654,7 +1911,7 @@ namespace SharpPy
                                 frame.ValueStack.PopValue();
                                 frame.ValueStack.PopValue();
                                 long la = clv.AsInt64, ra = crv.AsInt64;
-                                int cmpOp = instruction.Argument >> 4;
+                                int cmpOp = cip.Arg >> 4;
                                 bool cmpResult = cmpOp switch
                                 {
                                     0 => la < ra, 1 => la <= ra, 2 => la == ra,
@@ -1672,7 +1929,7 @@ namespace SharpPy
                                 frame.ValueStack.PopValue();
                                 frame.ValueStack.PopValue();
                                 double la = clv.AsFloat64, ra = crv.AsFloat64;
-                                int cmpOp = instruction.Argument >> 4;
+                                int cmpOp = cip.Arg >> 4;
                                 bool cmpResult = cmpOp switch
                                 {
                                     0 => la < ra, 1 => la <= ra, 2 => la == ra,
@@ -1704,7 +1961,7 @@ namespace SharpPy
                         else if (inlineOp == ByteCodeOp.RETURN_CONST)
                         {
                             // CPython 3.12: Return constant value directly (e.g., return None in __init__)
-                            var rcVal = frame.Code.ConstantsAsValues[instruction.Argument].ToObject();
+                            var rcVal = frame.Code.ConstantsAsValues[cip.Arg].ToObject();
                             if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
                                 && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                             {
@@ -1725,7 +1982,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_GLOBAL)
                         {
-                            int lgOparg = instruction.Argument;
+                            int lgOparg = cip.Arg;
                             bool lgPushNull = (lgOparg & 1) == 1;
                             int lgNameIdx = lgOparg >> 1;
                             var lgName = frame.Code.Names[lgNameIdx];
@@ -1742,7 +1999,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.LOAD_ATTR)
                         {
-                            int laOparg = instruction.Argument;
+                            int laOparg = cip.Arg;
                             bool laPushNull = (laOparg & 1) == 1;
                             int laNameIdx = laOparg >> 1;
 
@@ -1796,7 +2053,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.STORE_ATTR)
                         {
-                            var saAttrName = frame.Code.Names[instruction.Argument];
+                            var saAttrName = frame.Code.Names[cip.Arg];
                             var saObjVal = frame.ValueStack.PeekValue();
                             if (saObjVal.IsObject && saObjVal.ObjRef is PyClassInstance saInst
                                 && saInst.InstanceType.GetCachedMagicMethod("__setattr__") == null)
@@ -1812,7 +2069,7 @@ namespace SharpPy
                         {
                             if (!(frame.Code is PyQuickenedCodeObject))
                             {
-                                ip = ip + 1 - instruction.Argument;
+                                ip = ip + 1 - cip.Arg;
                                 continue;
                             }
                         }
@@ -1828,7 +2085,7 @@ namespace SharpPy
                                 isFalsy = !pjVal.ToObject().PyBoolValue();
 
                             if (isFalsy)
-                                ip = ip + 1 + instruction.Argument;
+                                ip = ip + 1 + cip.Arg;
                             else
                                 ip++;
                             continue;
@@ -1845,7 +2102,7 @@ namespace SharpPy
                                 isTruthy = pjVal.ToObject().PyBoolValue();
 
                             if (isTruthy)
-                                ip = ip + 1 + instruction.Argument;
+                                ip = ip + 1 + cip.Arg;
                             else
                                 ip++;
                             continue;
@@ -1855,7 +2112,7 @@ namespace SharpPy
                             // CPython 3.12: LIST_APPEND i — append TOS to list at stack[-(i)]
                             // Hot in list comprehension inner loops
                             var laItem = frame.ValueStack.Pop();
-                            var laTarget = frame.ValueStack.PeekAt(instruction.Argument - 1);
+                            var laTarget = frame.ValueStack.PeekAt(cip.Arg - 1);
                             if (laTarget is PyList laList)
                             {
                                 laList.Append(laItem);
@@ -1882,11 +2139,11 @@ namespace SharpPy
                                 frame.ValueStack.PopValue();
                                 if (frame.Code is PyQuickenedCodeObject fiRangeQuickened)
                                     ip = fiRangeQuickened.CalculateForIterTarget(
-                                        ip, instruction.Argument);
+                                        ip, cip.Arg);
                                 else if (!frame.Code.IsOptimized)
-                                    ip = ip + instruction.Argument + 2;
+                                    ip = ip + cip.Arg + 2;
                                 else
-                                    ip = ip + instruction.Argument + 1;
+                                    ip = ip + cip.Arg + 1;
                                 continue;
                             }
                             var fiIter = frame.ValueStack.Peek();
@@ -1902,15 +2159,15 @@ namespace SharpPy
                                 if (frame.Code is PyQuickenedCodeObject fiQuickened)
                                 {
                                     ip = fiQuickened.CalculateForIterTarget(
-                                        ip, instruction.Argument);
+                                        ip, cip.Arg);
                                 }
                                 else if (!frame.Code.IsOptimized)
                                 {
-                                    ip = ip + instruction.Argument + 2;
+                                    ip = ip + cip.Arg + 2;
                                 }
                                 else
                                 {
-                                    ip = ip + instruction.Argument + 1;
+                                    ip = ip + cip.Arg + 1;
                                 }
                                 continue;
                             }
@@ -2055,6 +2312,7 @@ namespace SharpPy
                 {
                     PyStack.Return(frame.ValueStack);
                     PyFrame.ReturnLocals(frame.LocalsPlus);
+                    PyFrame.Return(frame);
                 }
             }
         }
@@ -3504,9 +3762,8 @@ namespace SharpPy
                             // Async generator: 호출 시 PyAsyncGenerator 객체 반환
                             var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
                             {
-                                var asyncGenFrame = closure != null && closure.Length > 0
-                                    ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
-                                    : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
+                                var asyncGenFrame = PyFrame.Rent();
+                                asyncGenFrame.InitFull(pyCode, args, frame.ScopeChain, closure != null && closure.Length > 0 ? closure : null, frame);
 
                                 // Async generator 생성
                                 var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
@@ -3543,9 +3800,8 @@ namespace SharpPy
                             var asyncImpl = new Func<PyObject[], PyObject>(args =>
                             {
                                 var functionScopeChain = new PyScopeChain(globalsDict, "<async function>");
-                                var asyncFrame = closure != null && closure.Length > 0
-                                    ? new PyFrame(pyCode, args, functionScopeChain, closure, frame)
-                                    : new PyFrame(pyCode, args, functionScopeChain, null, frame);
+                                var asyncFrame = PyFrame.Rent();
+                                asyncFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame);
 
                                 // Native coroutine 생성
                                 return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
@@ -3665,9 +3921,8 @@ namespace SharpPy
                             Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
                             #endif
 
-                            var functionFrame = closure != null && closure.Length > 0
-                                ? new PyFrame(pyCode, args, functionScopeChain, closure, frame, capturedDefaults)
-                                : new PyFrame(pyCode, args, functionScopeChain, null, frame, capturedDefaults);
+                            var functionFrame = PyFrame.Rent();
+                            functionFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame, capturedDefaults);
                             return ExecuteFrame(functionFrame);
                         };
 
@@ -9282,7 +9537,8 @@ namespace SharpPy
                 PyDict kwdefaults = (hasAttrs1
                     && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
                     ? kwdefaultsDict : null;
-                var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                var frame = PyFrame.Rent();
+                frame.InitFull(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                 return ExecuteFrame(frame);
             }
             catch (PyReturnException retEx)
@@ -9347,9 +9603,15 @@ namespace SharpPy
                     && pyFunc.Attributes.Count == 0)
                 {
                     if ((code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0)
-                        frame = new PyFrame(code, args, functionScope, CurrentFrame, true);
+                    {
+                        frame = PyFrame.Rent();
+                        frame.InitFast(code, args, functionScope, CurrentFrame);
+                    }
                     else
-                        frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, closureFastPath: true);
+                    {
+                        frame = PyFrame.Rent();
+                        frame.InitClosure(code, args, functionScope, pyFunc.Closure, CurrentFrame);
+                    }
                 }
                 else
                 {
@@ -9361,7 +9623,8 @@ namespace SharpPy
                     PyDict kwdefaults = (hasAttrs
                         && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
                         ? kwdefaultsDict : null;
-                    frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                    frame = PyFrame.Rent();
+                    frame.InitFull(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                 }
                 return ExecuteFrame(frame);
             }
@@ -9386,7 +9649,8 @@ namespace SharpPy
                     : pyFunc.ParentScope ?? parentScope);
             try
             {
-                var frame = new PyFrame(code, argValues, argCount, functionScope, CurrentFrame);
+                var frame = PyFrame.Rent();
+                frame.InitDirect(code, argValues, argCount, functionScope, CurrentFrame);
                 return ExecuteFrame(frame);
             }
             catch (PyReturnException retEx)
@@ -9802,7 +10066,8 @@ namespace SharpPy
 
                 // Create frame with all arguments, defaults, and kwdefaults (CPython 3.12 compatible)
                 // Note: PyFrame constructor calls BindArgumentsToParametersCPython312, which handles kwdefaults
-                var frame = new PyFrame(code, allArgs, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
+                var frame = PyFrame.Rent();
+                frame.InitFull(code, allArgs, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
 
                 return ExecuteFrame(frame);
             }

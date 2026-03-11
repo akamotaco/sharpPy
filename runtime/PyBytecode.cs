@@ -357,6 +357,19 @@ namespace SharpPy
     }
 
 
+    /// <summary>
+    /// Compact 8-byte instruction for hot loop dispatch.
+    /// CPython 3.12: _Py_CODEUNIT packs opcode+arg in 2 bytes.
+    /// C# equivalent: struct with enum (4B) + int (4B) = 8B.
+    /// Replaces separate OpCodes[] array and provides both op + arg in one cache line fetch.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    public struct CompactInstruction
+    {
+        public ByteCodeOp Op;
+        public int Arg;
+    }
+
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction
     // No intermediate ExceptHandlerInfo struct needed - use ExceptBlock reference directly
     public struct ByteCodeInstruction
@@ -467,12 +480,12 @@ namespace SharpPy
         public ByteCodeInstruction[] InstructionsArray { get; private set; } = null!;
 
         /// <summary>
-        /// Compact opcode array — hot path cache optimization.
-        /// Stores only OpCode (4B) per instruction for better L1 cache utilization.
-        /// Original ByteCodeInstruction is 40B; this array is 4B per element = 10x denser.
-        /// CPython 3.12: _Py_CODEUNIT stores opcode in 1 byte — similar density optimization.
+        /// Compact instruction array: 8B per element (Op 4B + Arg 4B).
+        /// Replaces 40B ByteCodeInstruction stride in fast path with 8B stride.
+        /// Single fetch gives both opcode and argument with better L1 cache density.
+        /// CPython 3.12: _Py_CODEUNIT packs opcode+arg in 2 bytes — same idea.
         /// </summary>
-        public ByteCodeOp[] OpCodes { get; private set; } = null!;
+        public CompactInstruction[] CompactInstructions { get; private set; } = null!;
 
         /// <summary>
         /// CPython 3.12 inline cache for LOAD_ATTR instructions.
@@ -564,11 +577,14 @@ namespace SharpPy
             // CPython 3.12: wordcode format uses EXTENDED_ARG prefix for args > 255.
             PreResolveExtendedArg();
 
-            // Build compact opcode array for L1 cache-friendly dispatch
+            // Build compact instruction array for L1 cache-friendly dispatch
             int instrCount = InstructionsArray.Length;
-            OpCodes = new ByteCodeOp[instrCount];
+            CompactInstructions = new CompactInstruction[instrCount];
             for (int i = 0; i < instrCount; i++)
-                OpCodes[i] = InstructionsArray[i].OpCode;
+            {
+                CompactInstructions[i].Op = InstructionsArray[i].OpCode;
+                CompactInstructions[i].Arg = InstructionsArray[i].Argument;
+            }
 
             // Pre-compute fast call eligibility (CPython 3.12: CALL_PY_EXACT_ARGS equivalent)
             IsSimpleCallTarget = (Flags & CO_OPTIMIZED) != 0
