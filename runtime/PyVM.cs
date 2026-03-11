@@ -1,4 +1,4 @@
-// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
+﻿// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
 
 using SharpPy.Core;
 
@@ -2286,6 +2286,2572 @@ namespace SharpPy
             return false;
         }
 
+        #region Extracted Opcode Handlers
+        // Extracted from ExecuteInstruction to reduce IL size.
+        // Each method handles one large opcode case body.
+        // Returns null = continue execution, non-null = return from function.
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteMakeFunction(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12 compatible function creation with full flags support
+        var flags = instruction.Argument;
+
+        PyCell[] closure = null;
+        PyTuple defaults = null;
+        PyTuple kwDefaults = null;
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
+        #endif
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
+        #endif
+        #if DEBUG_LOG
+        if (frame.ValueStack.Count > 0)
+        {
+            var debugStackItems = frame.ValueStack.ToArray();
+            for (int i = 0; i < Math.Min(debugStackItems.Length, 5); i++)
+            {
+                Console.WriteLine($"   Stack[{i}]: {debugStackItems[i]?.GetType().Name} = {debugStackItems[i]}");
+            }
+        }
+        #endif
+
+        // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
+        // 0x01 - HAS_DEFAULTS: function has positional default parameters
+        // 0x02 - HAS_KW_DEFAULTS: function has keyword-only default parameters
+        // 0x04 - HAS_ANNOTATIONS: function has annotations
+        // 0x08 - HAS_CLOSURE: function uses closure variables
+        // 0x10 - HAS_QUALNAME: function has qualified name (not used in basic implementation)
+
+        // Process in correct stack order: code object first (TOS), then others as needed
+
+        // First, pop the code object (always at TOS)
+        var codeObject = frame.ValueStack.Pop();
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 Popped code object: {codeObject?.GetType().Name} = {codeObject}");
+        #endif
+
+        // Check for closure flag (8 = HAS_CLOSURE) - processed next if present
+        if ((flags & 8) != 0)
+        {
+            var closureTuple = frame.ValueStack.Pop();
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Processing closure: {closureTuple?.GetType().Name} = {closureTuple}");
+            #endif
+            if (closureTuple is PyTuple closureTupleObj)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   Closure tuple has {closureTupleObj.Items.Length} items:");
+                #endif
+                for (int i = 0; i < closureTupleObj.Items.Length; i++)
+                {
+                    var item = closureTupleObj.Items[i];
+                    #if DEBUG_LOG
+                    Console.WriteLine($"     Item[{i}]: {item?.GetType().Name} = {item}");
+                    #endif
+                }
+                try
+                {
+                    // Performance: Eliminated LINQ - manual cast to PyCell array
+                    closure = new PyCell[closureTupleObj.Items.Length];
+                    for (int i = 0; i < closureTupleObj.Items.Length; i++)
+                    {
+                        closure[i] = (PyCell)closureTupleObj.Items[i];
+                    }
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  → Function has closure: {closure.Length} cells");
+                    #endif
+                }
+                catch (InvalidCastException e)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  ❌ Closure casting error: {e.Message}");
+                    #endif
+                    #if DEBUG_LOG
+                    Console.WriteLine($"     Failed to cast items to PyCell");
+                    #endif
+                    throw;
+                }
+            }
+            else
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
+                #endif
+                closure = Array.Empty<PyCell>();
+            }
+        }
+
+        // Check for annotations flag (4 = HAS_ANNOTATIONS)
+        PyDict annotationsDict = null;
+        if ((flags & 4) != 0)
+        {
+            var annotationsTuple = frame.ValueStack.Pop();
+            if (annotationsTuple is PyTuple annTuple)
+            {
+                // CPython 3.12: Convert annotations tuple to dict
+                // Tuple format: ('key1', type1, 'key2', type2, ...)
+                // Dict format: {'key1': type1, 'key2': type2, ...}
+                annotationsDict = new PyDict();
+                for (int i = 0; i < annTuple.Items.Length; i += 2)
+                {
+                    if (i + 1 < annTuple.Items.Length)
+                    {
+                        var annKey = annTuple.Items[i];
+                        var annValue = annTuple.Items[i + 1];
+                        annotationsDict.SetItem(annKey, annValue);
+                    }
+                }
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Function has annotations: {annTuple.Items.Length / 2} items");
+                foreach (var kvp in annotationsDict.InternalDict)
+                {
+                    Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
+                }
+                #endif
+            }
+            else
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  ⚠️ Warning: Expected tuple for annotations, got {annotationsTuple?.GetType()}");
+                #endif
+                annotationsDict = new PyDict();
+            }
+        }
+
+        // Check for keyword-only defaults flag (2 = HAS_KW_DEFAULTS)
+        // CPython 3.12: kwdefaults is a dict (not a tuple)
+        PyDict kwDefaultsDict = null;
+        if ((flags & 2) != 0)
+        {
+            var kwDefaultsObj = frame.ValueStack.Pop();
+            if (kwDefaultsObj is PyDict kwDefDict)
+            {
+                kwDefaultsDict = kwDefDict;
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Function has keyword-only defaults: {kwDefDict.InternalDict.Count} items");
+                foreach (var kvp in kwDefDict.InternalDict)
+                {
+                    Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
+                }
+                #endif
+            }
+            else
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  ⚠️ Warning: Expected dict for kw-defaults, got {kwDefaultsObj?.GetType()}");
+                #endif
+                kwDefaultsDict = new PyDict();
+            }
+        }
+
+        // Check for positional defaults flag (1 = HAS_DEFAULTS)
+        if ((flags & 1) != 0)
+        {
+            var defaultsTuple = frame.ValueStack.Pop();
+            if (defaultsTuple is PyTuple defTuple)
+            {
+                defaults = defTuple;
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Function has positional defaults: {defTuple.Items.Length} parameters");
+                #endif
+            }
+            else
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
+                #endif
+                defaults = new PyTuple(new PyObject[0]);
+            }
+        }
+
+        if (codeObject is PyCodeObject pyCode)
+        {
+            // CPython 3.12: async def로 정의된 함수인지 확인
+            if (pyCode.IsAsyncGenerator())
+            {
+                // Async generator: 호출 시 PyAsyncGenerator 객체 반환
+                var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
+                {
+                    var asyncGenFrame = PyFrame.Rent();
+                    asyncGenFrame.InitFull(pyCode, args, frame.ScopeChain, closure != null && closure.Length > 0 ? closure : null, frame);
+
+                    // Async generator 생성
+                    var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
+                    return new SharpPy.Core.PyAsyncGenerator(enumerator, pyCode.Name);
+                });
+
+                var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
+
+                // Set CPython 3.12 compatible function attributes
+                if (defaults != null)
+                {
+                    asyncGenFunction.SetAttribute("__defaults__", defaults);
+                }
+                if (kwDefaultsDict != null)
+                {
+                    asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
+                }
+                if (annotationsDict != null)
+                {
+                    asyncGenFunction.SetAttribute("__annotations__", annotationsDict);
+                }
+
+                frame.ValueStack.Push(asyncGenFunction);
+                #if DEBUG_LOG
+                Console.WriteLine($"✅ Created async generator function: {pyCode.Name}");
+                #endif
+            }
+            else if (pyCode.IsCoroutine())
+            {
+                // CPython 3.12: Capture globals from current frame's GlobalScope
+                var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
+
+                // Async function: 호출 시 PyCoroutine 객체 반환
+                var asyncImpl = new Func<PyObject[], PyObject>(args =>
+                {
+                    var functionScopeChain = new PyScopeChain(globalsDict, "<async function>");
+                    var asyncFrame = PyFrame.Rent();
+                    asyncFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame);
+
+                    // Native coroutine 생성
+                    return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
+                });
+
+                var asyncFunction = new PyFunction(pyCode.Name, asyncImpl, null, null, closure, pyCode);
+                asyncFunction.GlobalsDict = globalsDict;
+
+                // Set CPython 3.12 compatible function attributes
+                if (defaults != null)
+                {
+                    asyncFunction.SetAttribute("__defaults__", defaults);
+                }
+                if (kwDefaultsDict != null)
+                {
+                    asyncFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
+                }
+                if (annotationsDict != null)
+                {
+                    asyncFunction.SetAttribute("__annotations__", annotationsDict);
+                }
+
+                frame.ValueStack.Push(asyncFunction);
+                #if DEBUG_LOG
+                Console.WriteLine($"✅ Created async function: {pyCode.Name}");
+                #endif
+            }
+            else
+            {
+                // Regular function
+                PyFunction functionObject;
+
+                // CPython 3.12: Capture globals from current frame's GlobalScope
+                // This is equivalent to CPython's GLOBALS() macro: frame->f_globals
+                var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
+
+                #if DEBUG_VM_LOG
+                Console.WriteLine($"[GLOBALS CAPTURE] MAKE_FUNCTION for {pyCode.Name}:");
+                Console.WriteLine($"  frame.ScopeChain.GlobalScope.Name: {frame.ScopeChain.GlobalScope?.Name}");
+                Console.WriteLine($"  globalsDict count: {globalsDict?.Count ?? 0}");
+                #endif
+                if (globalsDict != null)
+                {
+                    #if DEBUG_VM_LOG
+                    // Performance: Eliminated LINQ - manual key preview
+                    var keyCount = Math.Min(10, globalsDict.Keys.Count);
+                    var keys = new string[keyCount];
+                    int keyIdx = 0;
+                    foreach (var key in globalsDict.Keys)
+                    {
+                        if (keyIdx >= keyCount) break;
+                        keys[keyIdx++] = key;
+                    }
+                    Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
+                    Console.WriteLine($"  globalsDict reference hash: {globalsDict.GetHashCode()}");
+                    #endif
+                }
+
+                // Create function implementation with proper parameter binding
+                // CPython 3.12: Capture defaults at function definition time
+                var capturedDefaults = defaults; // Capture for closure
+                #if DEBUG_VM_LOG
+                Console.WriteLine($"[DEFAULTS CAPTURE] Capturing defaults for {pyCode.Name}:");
+                Console.WriteLine($"  defaults is null: {defaults == null}");
+                if (defaults != null)
+                {
+                    Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
+                    for (int i = 0; i < defaults.Items.Length; i++)
+                    {
+                        Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
+                    }
+                }
+                #endif
+                Func<PyObject[], PyObject> implementation = args =>
+                {
+                // CPython 3.12: Create new ScopeChain with captured globals
+                // The function's globals are fixed at function definition time
+                #if DEBUG_VM_LOG
+                Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
+                Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
+                Console.WriteLine($"  capturedDefaults is null: {capturedDefaults == null}");
+                if (capturedDefaults != null)
+                {
+                    Console.WriteLine($"  capturedDefaults.Items.Length: {capturedDefaults.Items.Length}");
+                    for (int i = 0; i < capturedDefaults.Items.Length; i++)
+                    {
+                        Console.WriteLine($"  capturedDefaults[{i}]: {capturedDefaults.Items[i]}");
+                    }
+                }
+                #endif
+                if (globalsDict != null)
+                {
+                    #if DEBUG_VM_LOG
+                    // Performance: Eliminated LINQ - manual key preview
+                    var keyCount = Math.Min(10, globalsDict.Keys.Count);
+                    var keys = new string[keyCount];
+                    int keyIdx = 0;
+                    foreach (var key in globalsDict.Keys)
+                    {
+                        if (keyIdx >= keyCount) break;
+                        keys[keyIdx++] = key;
+                    }
+                    Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", keys)}");
+                    Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
+                    #endif
+                }
+
+                if (globalsDict == null)
+                {
+                    throw new InvalidOperationException($"Function {pyCode.Name} has null globals!");
+                }
+
+                var functionScopeChain = new PyScopeChain(globalsDict, "<function>");
+
+                #if DEBUG_VM_LOG
+                Console.WriteLine($"  New ScopeChain GlobalScope count: {functionScopeChain.GlobalScope?.Variables.Count ?? 0}");
+                Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
+                #endif
+
+                var functionFrame = PyFrame.Rent();
+                functionFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame, capturedDefaults);
+                return ExecuteFrame(functionFrame);
+            };
+
+            if (closure != null && closure.Length > 0)
+            {
+                // Create function with closure
+                functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
+                // Override implementation to use our parameter binding
+                functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                functionObject.ParentScope = frame.ScopeChain;
+                functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
+            }
+            else
+            {
+                // Create regular function without closure
+                functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                functionObject.ParentScope = frame.ScopeChain;
+                functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
+            }
+
+                // Set CPython 3.12 compatible function attributes
+                if (defaults != null)
+                {
+                    functionObject.SetAttribute("__defaults__", defaults);
+                }
+                if (kwDefaultsDict != null)
+                {
+                    functionObject.SetAttribute("__kwdefaults__", kwDefaultsDict);
+                }
+                if (annotationsDict != null)
+                {
+                    functionObject.SetAttribute("__annotations__", annotationsDict);
+                }
+
+                frame.ValueStack.Push(functionObject);
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException($"MAKE_FUNCTION expected code object, got {codeObject?.GetType()}");
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteRaiseVarargs(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // instruction.Argument indicates the number of arguments to the raise statement
+        // 0: bare raise (reraise)
+        // 1: raise exc
+        // 2: raise exc from cause
+        if (instruction.Argument == 2)
+        {
+            // raise exc from cause - exception chaining
+            // Stack: TOS = cause, TOS1 = exc
+            var cause = frame.ValueStack.Pop();  // Pop TOS (cause)
+            var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
+
+            // Handle exc - could be a type or an instance
+            PyException excInstance;
+            if (exc is PyException pyExc2)
+            {
+                // Already a PyException instance
+                excInstance = pyExc2;
+            }
+            else if (exc is PyType pyType)
+            {
+                // Exception class (PyType) - instantiate it
+                var instance = pyType.Call(Array.Empty<PyObject>());
+                if (instance is PyException pyExcInst)
+                {
+                    excInstance = pyExcInst;
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else if (exc is PyBuiltinType builtinType)
+            {
+                // Builtin exception class - instantiate it
+                var instance = builtinType.Call(Array.Empty<PyObject>());
+                if (instance is PyException pyExcInst)
+                {
+                    excInstance = pyExcInst;
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else if (exc is PyClass userClass)
+            {
+                // User-defined exception class - instantiate it
+                var userException = userClass.Call(Array.Empty<PyObject>());
+                if (userException is PyException pyUserExInstance)
+                {
+                    excInstance = pyUserExInstance;
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else if (exc is PyObject customInstance)
+            {
+                // Instance of a user-defined exception (e.g., PyClassInstance)
+                if (IsExceptionLike(customInstance))
+                {
+                    // Create a PyException wrapper with class information and instance preserved
+                    if (customInstance is PyClassInstance classInst)
+                    {
+                        // CRITICAL: Store the original PyClassInstance so attributes are preserved
+                        excInstance = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
+                    }
+                    else
+                    {
+                        excInstance = new PyException(customInstance.ToString());
+                    }
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else
+            {
+                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+            }
+
+            // CPython 3.12: Implicit exception chaining - set __context__ before __cause__
+            // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
+            if (frame.CurrentException != null && frame.CurrentException != excInstance)
+            {
+                excInstance.__context__ = frame.CurrentException;
+            }
+
+            // Set __cause__ attribute (explicit chaining)
+            if (cause is PyException causeExc)
+            {
+                excInstance.__cause__ = causeExc;
+                excInstance.__suppress_context__ = true;
+            }
+            else if (cause is PyNone)
+            {
+                // raise exc from None - suppress context
+                excInstance.__cause__ = null;
+                excInstance.__suppress_context__ = true;
+            }
+            else
+            {
+                throw new PythonException(new PyTypeError($"exception cause must be None or derive from BaseException"));
+            }
+
+            frame.LastException = excInstance;
+
+            // CPython 3.12: Set traceback to current frame before throwing
+            // Corresponds to PyTraceBack_Here() in traceback.c:266
+            var pyExToThrow = new PythonException(excInstance);
+            PyTraceBack_Here(frame, pyExToThrow);
+            throw pyExToThrow;
+        }
+        else if (instruction.Argument == 1)
+        {
+            // raise exception_instance or exception_class
+            var raisedException = frame.ValueStack.Pop();
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 RAISE_VARARGS: raisedException type = {raisedException?.GetType().Name}, value = {raisedException}");
+            #endif
+            if (raisedException is PyException pyEx)
+            {
+                // CPython 3.12: Implicit exception chaining
+                // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
+                if (frame.CurrentException != null && frame.CurrentException != pyEx)
+                {
+                    pyEx.__context__ = frame.CurrentException;
+                }
+
+                // Already an exception instance
+                frame.LastException = pyEx;
+                // CPython 3.12: Set traceback to current frame before throwing
+                var pyExToThrow1 = new PythonException(pyEx);
+                PyTraceBack_Here(frame, pyExToThrow1);
+                throw pyExToThrow1;
+            }
+            else if (raisedException is PyType pyType)
+            {
+                // Exception class (PyType) - instantiate it
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 RAISE_VARARGS: Detected PyType exception class {pyType.Name}, instantiating it");
+                #endif
+
+                var instance = pyType.Call(Array.Empty<PyObject>());
+                if (instance is PyException instanceException)
+                {
+                    // CPython 3.12: Implicit exception chaining
+                    if (frame.CurrentException != null && frame.CurrentException != instanceException)
+                    {
+                        instanceException.__context__ = frame.CurrentException;
+                    }
+
+                    frame.LastException = instanceException;
+                    // CPython 3.12: Set traceback to current frame before throwing
+                    var pyExToThrow2 = new PythonException(instanceException);
+                    PyTraceBack_Here(frame, pyExToThrow2);
+                    throw pyExToThrow2;
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else if (raisedException is PyBuiltinType builtinType)
+            {
+                // Exception class - instantiate it
+                var builtinException = builtinType.Call(new PyObject[0], null);
+                if (builtinException == null)
+                {
+                    throw new PythonException(new PyTypeError($"exception class {builtinType} returned null when instantiated"));
+                }
+                else if (builtinException is PyException pyExInstance)
+                {
+                    // CPython 3.12: Implicit exception chaining
+                    if (frame.CurrentException != null && frame.CurrentException != pyExInstance)
+                    {
+                        pyExInstance.__context__ = frame.CurrentException;
+                    }
+
+                    frame.LastException = pyExInstance;
+                    // CPython 3.12: Set traceback to current frame before throwing
+                    var pyExToThrow3 = new PythonException(pyExInstance);
+                    PyTraceBack_Here(frame, pyExToThrow3);
+                    throw pyExToThrow3;
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException, got {builtinException.GetType().Name}"));
+                }
+            }
+            else if (raisedException is PyClass userClass)
+            {
+                // User-defined exception class - instantiate it
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 RAISE_VARARGS: User-defined class {userClass.Name}");
+                #endif
+                var userException = userClass.Call(new PyObject[0], null);
+                if (userException is PyException pyUserExInstance)
+                {
+                    // CPython 3.12: Implicit exception chaining
+                    if (frame.CurrentException != null && frame.CurrentException != pyUserExInstance)
+                    {
+                        pyUserExInstance.__context__ = frame.CurrentException;
+                    }
+
+                    frame.LastException = pyUserExInstance;
+                    // CPython 3.12: Set traceback to current frame before throwing
+                    var pyExToThrow4 = new PythonException(pyUserExInstance);
+                    PyTraceBack_Here(frame, pyExToThrow4);
+                    throw pyExToThrow4;
+                }
+                else
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 RAISE_VARARGS: User class instance is not PyException: {userException?.GetType().Name}");
+                    #endif
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else if (raisedException is PyObject customInstance)
+            {
+                // Could be an instance of a user-defined exception class
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 RAISE_VARARGS: Custom instance type = {customInstance.GetType().Name}, ToString = {customInstance.ToString()}");
+                #endif
+                // Check if it's derived from BaseException by checking its class hierarchy
+                // For now, treat as a PyException if it has the right properties
+                if (IsExceptionLike(customInstance))
+                {
+                    // Create a PyException wrapper with class information AND instance preserved
+                    PyException wrappedException;
+                    if (customInstance is PyClassInstance classInst)
+                    {
+                        // CRITICAL: Store the original PyClassInstance so attributes are preserved
+                        wrappedException = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 RAISE_VARARGS: Created PyException wrapper with OriginalClass={classInst.InstanceType.Name}, OriginalInstance preserved, message='{customInstance.ToString()}'");
+                        #endif
+                    }
+                    else
+                    {
+                        wrappedException = new PyException(customInstance.ToString());
+                    }
+
+                    // CPython 3.12: Implicit exception chaining
+                    if (frame.CurrentException != null && frame.CurrentException != wrappedException)
+                    {
+                        wrappedException.__context__ = frame.CurrentException;
+                    }
+
+                    frame.LastException = wrappedException;
+                    // CPython 3.12: Set traceback to current frame before throwing
+                    var pyExToThrow5 = new PythonException(wrappedException);
+                    PyTraceBack_Here(frame, pyExToThrow5);
+                    throw pyExToThrow5;
+                }
+                else
+                {
+                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                }
+            }
+            else
+            {
+                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+            }
+        }
+        else if (instruction.Argument == 0)
+        {
+            // bare raise - same as RERAISE
+            if (frame.LastException != null)
+                throw new PythonException(frame.LastException);
+            else
+                throw new PythonException(new PyRuntimeError("No active exception to re-raise"));
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteLoadAttr(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: LOAD_ATTR with flag encoding
+        // oparg encoding: (nameIndex << 1) | pushNull
+        // If pushNull=1: Push two values [self/NULL, method/attr] for method call optimization
+        // If pushNull=0: Push one value [attr] for simple attribute access
+        {
+            int attrOparg = instruction.Argument;
+            bool pushNullForMethod = (attrOparg & 1) == 1;
+            int attrNameIndex = attrOparg >> 1;
+
+            var attrName = frame.Code.Names[attrNameIndex];
+            var obj = frame.ValueStack.Pop();
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 LOAD_ATTR: attribute '{attrName}' from object type: {obj.GetType().Name}, PyType: {obj.GetTypeName()}, pushNull={pushNullForMethod}");
+            if (obj is PyClassInstance objClassInst)
+            {
+                Console.WriteLine($"   → PyClassInstance of class: {objClassInst.PyClass.Name}");
+            }
+            #endif
+
+            // CPython 3.12: _PyObject_GetMethod fast path for PyClassInstance
+            // Avoid GetAttribute() which creates PyMethod heap allocation
+            // Instead, find unbound function and push [function, self] for CALL's swap logic
+            if (pushNullForMethod && obj is PyClassInstance fastInst)
+            {
+                // Check inline cache first
+                // CPython 3.12: LOAD_ATTR_METHOD_WITH_VALUES specialization
+                var attrCache = frame.Code.LoadAttrCache;
+                int attrIp = frame.InstructionPointer;
+                if (attrCache != null
+                    && attrCache[attrIp].TypeVersionTag == fastInst.InstanceType.TypeVersionTag
+                    && attrCache[attrIp].CachedValue != null)
+                {
+                    frame.ValueStack.Push(attrCache[attrIp].CachedValue);
+                    frame.ValueStack.Push(obj);
+                    return null;
+                }
+
+                // Check instance dict first (monkey-patched methods are already bound)
+                if (!fastInst.InstanceDict.ContainsKey(attrName))
+                {
+                    // Search ClassDict in MRO for unbound function
+                    PyObject unboundFunc = null;
+                    foreach (var mroType in fastInst.InstanceType.MRO)
+                    {
+                        if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out var classVal))
+                        {
+                            if (classVal is PyFunction)
+                            {
+                                unboundFunc = classVal;
+                            }
+                            // staticmethod, classmethod, descriptor, etc. → fall through
+                            break;
+                        }
+                    }
+
+                    if (unboundFunc != null)
+                    {
+                        // Populate inline cache
+                        if (attrCache == null)
+                        {
+                            attrCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
+                            frame.Code.LoadAttrCache = attrCache;
+                        }
+                        attrCache[attrIp].TypeVersionTag = fastInst.InstanceType.TypeVersionTag;
+                        attrCache[attrIp].CachedValue = unboundFunc;
+                        attrCache[attrIp].IsMethod = true;
+
+                        frame.ValueStack.Push(unboundFunc);
+                        frame.ValueStack.Push(obj);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Fast method path: pushed [meth, self] (no PyMethod alloc)");
+                        #endif
+                        return null;
+                    }
+                    // Not a simple PyFunction → fall through to GetAttribute
+                }
+            }
+
+            // CPython 3.12: LOAD_ATTR_INSTANCE_VALUE fast path
+            // For non-method attribute access on PyClassInstance:
+            // Check InstanceDict first (most common case), skip full GetAttribute MRO traversal
+            if (!pushNullForMethod && obj is PyClassInstance attrInst)
+            {
+                if (attrInst.InstanceDict.TryGetValue(attrName, out var instVal))
+                {
+                    frame.ValueStack.Push(instVal);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → LOAD_ATTR_INSTANCE_VALUE fast path: {attrName} = {instVal}");
+                    #endif
+                    return null;
+                }
+                // Not in instance dict — check class dict for data descriptors and non-method attrs
+                // Fall through to full GetAttribute for descriptor protocol
+            }
+
+            // Fast path: PyStr/PyList/PyDict method lookup with inline cache
+            // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT / LOAD_ATTR_SLOT specialization
+            if (pushNullForMethod)
+            {
+                // Check inline cache for builtin type methods
+                // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT — builtin types are monomorphic per-instruction
+                var btCache = frame.Code.LoadAttrCache;
+                int btIp = frame.InstructionPointer;
+                if (btCache != null
+                    && btCache[btIp].CachedValue is PyMethodDescriptor cachedDesc
+                    && btCache[btIp].TypeVersionTag == (ulong)obj.GetType().GetHashCode())
+                {
+                    frame.ValueStack.Push(cachedDesc);
+                    frame.ValueStack.Push(obj);
+                    return null;
+                }
+
+                PyType builtinType = null;
+                if (obj is PyStr) builtinType = PyType.StrType;
+                else if (obj is PyList) builtinType = PyType.ListType;
+                else if (obj is PyDict) builtinType = PyType.DictType;
+
+                if (builtinType != null && builtinType.TypeDict.TryGetValue(attrName, out var descriptor)
+                    && descriptor is PyMethodDescriptor)
+                {
+                    // Populate cache for builtin type methods
+                    if (btCache == null)
+                    {
+                        btCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
+                        frame.Code.LoadAttrCache = btCache;
+                    }
+                    btCache[btIp].TypeVersionTag = (ulong)obj.GetType().GetHashCode();
+                    btCache[btIp].CachedValue = descriptor;
+
+                    frame.ValueStack.Push(descriptor);
+                    frame.ValueStack.Push(obj);
+                    return null;
+                }
+            }
+
+            // Get attribute using existing system
+            var attr = obj.GetAttribute(attrName);
+
+            if (pushNullForMethod)
+            {
+                // CPython 3.12: Objects/object.c:1310-1410 (_PyObject_GetMethod)
+                // Method call optimization logic
+
+                // CPython 3.12: Objects/object.c:1322-1326
+                // If object has custom tp_getattro (overrides GetAttribute), use simple GetAttr
+                // This returns 0 → push [NULL, attr]
+                // Performance: Cache Reflection result per type to avoid repeated GetMethod calls
+                var objType = obj.GetType();
+                if (!_hasCustomGetAttributeCache.TryGetValue(objType, out bool hasCustomGetAttribute))
+                {
+                    var getAttrMethod = objType.GetMethod("GetAttribute",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    hasCustomGetAttribute = getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject);
+                    _hasCustomGetAttributeCache[objType] = hasCustomGetAttribute;
+                }
+                #if DEBUG_LOG
+                if (hasCustomGetAttribute)
+                    Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
+                #endif
+
+                if (hasCustomGetAttribute)
+                {
+                    // CPython: Custom tp_getattro → push [NULL, attr]
+                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                    frame.ValueStack.Push(attr);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Custom GetAttribute: pushed [NULL, attr]");
+                    #endif
+                }
+                else if (attr is PyMethod boundMethod)
+                {
+                    // CPython 3.12: Decompose PyMethod → push [meth, self]
+                    // Avoids passing PyMethod through stack; CALL's swap handles binding
+                    frame.ValueStack.Push(boundMethod.Function); // meth → PEEK(2)
+                    frame.ValueStack.Push(boundMethod.Instance); // self → PEEK(1)
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Bound method decomposed: pushed [meth, self]");
+                    #endif
+                }
+                else if (attr is PyFunction || attr is PyBuiltinFunction)
+                {
+                    // CPython 3.12: Objects/descrobject.c:271-286 (func_descr_get)
+                    // Function descriptor protocol:
+                    // - Access from TYPE/CLASS → return unbound function
+                    // - Access from INSTANCE → return bound method (push [self, function])
+                    // - staticmethod → always return unbound function
+                    // - instance.__dict__ function → return unbound function (not a method!)
+
+                    // Check if obj is a type/class object
+                    // CPython: PyType_Check(obj) - checks if obj is type or class
+                    // CPython 3.12: Objects/funcobject.c:1228-1238 (sm_descr_get), 1058-1064 (cm_descr_get)
+                    // staticmethod/classmethod: __func__/__wrapped__ returns unbound callable
+                    bool isTypeOrClass = (obj is PyType) || (obj is PyClass) || (obj is PyStaticmethod) || (obj is PyClassmethod);
+
+                    // Check if obj is module or super (also return unbound)
+                    bool isModuleOrSuper = (obj is PyModule) || (obj is PySuper);
+
+                    // CPython: Check if attribute is from instance __dict__ (not a method!)
+                    // Instance attributes that are functions are NOT bound as methods
+                    bool isInstanceAttribute = false;
+                    bool isStaticMethod = false;
+                    if (obj is PyClassInstance classInstance)
+                    {
+                        isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
+                        // Lazy staticmethod check: only when it's not an instance attribute
+                        if (!isInstanceAttribute)
+                        {
+                            foreach (var mroType in classInstance.InstanceType.MRO)
+                            {
+                                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out PyObject classValue))
+                                {
+                                    isStaticMethod = classValue is PyStaticmethod;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (isTypeOrClass || isModuleOrSuper || isStaticMethod || isInstanceAttribute)
+                    {
+                        // Class/type access, staticmethod, or instance attribute: push [NULL, function]
+                        // CPython 3.12: No method binding - return function as-is
+                        frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                        frame.ValueStack.Push(attr); // unbound function
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Type/class/staticmethod/instance-attr access: pushed [NULL, function]");
+                        #endif
+                    }
+                    else
+                    {
+                        // CPython 3.12: _PyObject_GetMethod → push [meth, self]
+                        // meth | self | arg1 | ... | argN
+                        // CALL's swap: actualCallable=meth, finalArgs=[self, args]
+                        frame.ValueStack.Push(attr); // meth (unbound function) → PEEK(2)
+                        frame.ValueStack.Push(obj);  // self (instance) → PEEK(1)
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Instance method access: pushed [meth, self] (CPython pattern)");
+                        #endif
+                    }
+                }
+                else
+                {
+                    // It's a regular attribute or callable descriptor: push [NULL, attr]
+                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                    frame.ValueStack.Push(attr);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Regular attribute: pushed [NULL, attr]");
+                    #endif
+                }
+            }
+            else
+            {
+                // Simple attribute access: push [attr]
+                frame.ValueStack.Push(attr);
+                #if DEBUG_LOG
+                Console.WriteLine($"   → Simple access: pushed [attr]");
+                #endif
+            }
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteCall(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+                            // CPython 3.12 정확한 CALL 동작
+                            var callArgCount = instruction.Argument;
+                            // Performance: Reuse cached arg buffers for 0/1/2 arg calls
+                            PyObject[] callArgs;
+                            if (callArgCount == 0) callArgs = EmptyArgs;
+                            else if (callArgCount == 1)
+                            {
+                                if (_oneArgBuf == null) _oneArgBuf = new PyObject[1];
+                                callArgs = _oneArgBuf;
+                            }
+                            else if (callArgCount == 2)
+                            {
+                                if (_twoArgBuf == null) _twoArgBuf = new PyObject[2];
+                                callArgs = _twoArgBuf;
+                            }
+                            else callArgs = new PyObject[callArgCount];
+
+                            // CPython 3.12: Save current scope depth before function call for proper restoration
+                            // Skip for CO_OPTIMIZED frames — they don't modify scope chains.
+                            bool needsScopeRestore = (frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0;
+                            var savedScopeCount = needsScopeRestore ? (frame.ScopeChain?.ScopeCount ?? 0) : 0;
+                            var savedCurrentScopeName = needsScopeRestore ? frame.ScopeChain?.CurrentScope?.Name : null;
+
+                            // CPython 3.12: Check for keyword arguments from KW_NAMES
+                            var kwNames = frame.KeywordNamesForNextCall;
+        #if DEBUG_LOG
+                            Console.WriteLine($"🔧 CALL Debug: kwNames = {(kwNames == null ? "null" : $"length {kwNames.Items.Length}")}, callArgCount = {callArgCount}");
+        #endif
+
+                            // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
+                            for (int i = callArgCount - 1; i >= 0; i--)
+                            {
+                                callArgs[i] = frame.ValueStack.Pop();
+                            }
+
+                            // 함수 객체 팝 (callable) - 인수들 아래에 있음
+                            var callableFunc = frame.ValueStack.Pop();
+
+                            // CPython 3.12: Check if there's a NULL/self on the stack
+                            // If stack is empty or top is NULL, it's a simple call
+                            // Otherwise, it's a method call with self
+                            PyObject nextElement = null;
+                            if (frame.ValueStack.Count > 0)
+                            {
+                                nextElement = frame.ValueStack.Pop();
+                            }
+
+                            // CPython 3.12 호출 방식 결정
+                            // CPython: if (method != NULL) { callable = method; args--; total_args++; }
+                            PyObject newCallResult;
+                            PyObject[] finalArgs;
+                            PyObject actualCallable;
+
+                            if (nextElement == null || nextElement is PyNone)
+                            {
+                                // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
+                                actualCallable = callableFunc;
+                                finalArgs = callArgs;
+                            }
+                            else
+                            {
+                                // CPython 3.12: method != NULL
+                                // Stack: [nextElement, callableFunc] where nextElement is NOT null
+                                // Original logic: nextElement becomes callable, callableFunc becomes first arg
+                                actualCallable = nextElement;
+                                int totalArgs = callArgs.Length + 1;
+                                // Reuse ThreadStatic buffers for common method call sizes
+                                if (totalArgs == 1) { finalArgs = _methBuf1 ??= new PyObject[1]; }
+                                else if (totalArgs == 2) { finalArgs = _methBuf2 ??= new PyObject[2]; }
+                                else if (totalArgs == 3) { finalArgs = _methBuf3 ??= new PyObject[3]; }
+                                else { finalArgs = new PyObject[totalArgs]; }
+                                finalArgs[0] = callableFunc;
+                                for (int i = 0; i < callArgs.Length; i++)
+                                    finalArgs[i + 1] = callArgs[i];
+                            }
+
+                            // CPython 3.12: 키워드 인수 처리
+                            // CPython 3.12: Wrap function call in try-catch to add caller frame to traceback
+                            // This ensures the full call stack is recorded when exception propagates
+                            try
+                            {
+                                if (kwNames != null && kwNames.Items.Length > 0)
+                                {
+                                    // 키워드 인수가 있는 경우 - CallWithKeywords 사용
+                                    newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
+                                }
+                                else
+                                {
+                                    // 위치 인수만 있는 경우 - 기존 방식 사용
+                                    if (actualCallable is PyBuiltinFunction builtin)
+                                    {
+                                        // Inline fast path for hot builtins
+                                        if (builtin.Name == "len" && finalArgs.Length == 1)
+                                        {
+                                            int len = finalArgs[0].Length();
+                                            newCallResult = (len >= -5 && len <= 256)
+                                                ? SmallIntCache.GetOrCreate(len) : new PyInt(len);
+                                        }
+                                        else
+                                            newCallResult = builtin.Call(finalArgs, null);
+                                    }
+                                    else if (actualCallable is PyMethod method)
+                                    {
+                                        newCallResult = method.Call(finalArgs, null);
+                                    }
+                                    else if (actualCallable is PyFunction func)
+                                    {
+                                        newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                                    }
+                                    else if (actualCallable is PyClass callClass && callClass.Metaclass == null)
+                                    {
+                                        // Fast path: simple user class instantiation (non-metaclass)
+                                        // Skip PyType.Call() type checks (TypeType, StaticMethodType, etc.)
+                                        // CPython 3.12: Objects/typeobject.c:1664 — type_call → tp_new → tp_init
+                                        newCallResult = callClass.CreateInstance(finalArgs, null);
+                                    }
+                                    else if (actualCallable is PyType callType && finalArgs.Length == 1)
+                                    {
+                                        // Fast path: str(x), int(x), etc. — skip PyType.Call() → CreateInstance() overhead
+                                        // CPython 3.12: Objects/typeobject.c:1627 (type_call) for builtin types
+                                        var callTypeArg = finalArgs[0];
+                                        if (callType == PyType.StrType)
+                                            newCallResult = callTypeArg is PyStr ps ? ps : new PyStr(callTypeArg.AsString());
+                                        else if (callType == PyType.IntType)
+                                        {
+                                            if (callTypeArg is PyInt) newCallResult = callTypeArg;
+                                            else if (callTypeArg is PyFloat pf) newCallResult = new PyInt((long)pf.Value);
+                                            else if (callTypeArg is PyBool pb) newCallResult = pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
+                                            else newCallResult = callType.Call(finalArgs, null);
+                                        }
+                                        else if (callType == PyType.FloatType)
+                                        {
+                                            if (callTypeArg is PyFloat) newCallResult = callTypeArg;
+                                            else if (callTypeArg is PyInt pi) newCallResult = new PyFloat(pi.FitsInLong ? (double)pi.CachedLong : (double)pi.Value);
+                                            else newCallResult = callType.Call(finalArgs, null);
+                                        }
+                                        else
+                                            newCallResult = callType.Call(finalArgs, null);
+                                    }
+                                    else if (actualCallable is PyMethodDescriptor mdesc && finalArgs.Length >= 1)
+                                    {
+                                        // Fast path: PyMethodDescriptor — call _implementation directly
+                                        // Avoids inner args array allocation in PyMethodDescriptor.Call()
+                                        // finalArgs = [self, arg1, ...], descriptor expects (self, args_without_self, kwargs)
+                                        var mdSelf = finalArgs[0];
+                                        int mdArgCount = finalArgs.Length - 1;
+                                        PyObject[] mdArgs;
+                                        if (mdArgCount == 0) mdArgs = EmptyArgs;
+                                        else if (mdArgCount == 1)
+                                        {
+                                            // ThreadStatic buffer for 1-arg method calls (e.g., list.append(x))
+                                            mdArgs = _oneArgBuf ??= new PyObject[1];
+                                            mdArgs[0] = finalArgs[1];
+                                        }
+                                        else if (mdArgCount == 2)
+                                        {
+                                            mdArgs = _twoArgBuf ??= new PyObject[2];
+                                            mdArgs[0] = finalArgs[1];
+                                            mdArgs[1] = finalArgs[2];
+                                        }
+                                        else
+                                        {
+                                            mdArgs = new PyObject[mdArgCount];
+                                            Array.Copy(finalArgs, 1, mdArgs, 0, mdArgCount);
+                                        }
+                                        newCallResult = mdesc._implementation(mdSelf, mdArgs, null);
+                                    }
+                                    else
+                                    {
+                                        newCallResult = actualCallable.Call(finalArgs, null);
+                                    }
+                                }
+                            }
+                            catch (PythonException pyEx)
+                            {
+                                // CPython 3.12: Add caller frame to traceback when exception propagates
+                                // This matches CPython's PyTraceBack_Here() behavior in ceval.c
+                                PyTraceBack_Here(frame, pyEx);
+                                throw;
+                            }
+
+                            frame.ValueStack.Push(newCallResult);
+
+                            // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
+                            if (needsScopeRestore && frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
+                            {
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
+                                #endif
+                                frame.ScopeChain.RestoreScopeDepth(savedScopeCount);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"✅ Scope depth restored successfully to: {frame.ScopeChain.CurrentScope?.Name}");
+                                #endif
+                            }
+
+                            // CPython 3.12: Clear keyword names after call
+                            frame.KeywordNamesForNextCall = null;
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteImportFrom(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        var itemName = ((PyStr)frame.Code.Constants[instruction.Argument]).Value;
+        if (frame.ValueStack.Count == 0)
+        {
+            throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");
+        }
+        var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
+
+        // CPython 3.12: Handle "from module import *"
+        // When itemName is "*", import all public names from module
+        if (itemName == "*")
+        {
+            // Get __all__ attribute if it exists, otherwise use all non-private attributes
+            PyObject allAttr = null;
+            try
+            {
+                allAttr = module.GetAttribute("__all__");
+            }
+            catch
+            {
+                // __all__ doesn't exist, will use dir() instead
+            }
+
+            List<string> namesToImport = new List<string>();
+
+            if (allAttr != null)
+            {
+                // Use __all__ to determine what to import
+                if (allAttr is PyList allList)
+                {
+                    foreach (var item in allList.Items)
+                    {
+                        if (item is PyStr nameStr)
+                        {
+                            namesToImport.Add(nameStr.Value);
+                        }
+                    }
+                }
+                else if (allAttr is PyTuple allTuple)
+                {
+                    foreach (var item in allTuple.Items)
+                    {
+                        if (item is PyStr nameStr)
+                        {
+                            namesToImport.Add(nameStr.Value);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // No __all__, import all non-private names
+                if (module is PyModule pyModule)
+                {
+                    foreach (var key in pyModule.ModuleDict.Keys)
+                    {
+                        if (!key.StartsWith("_"))
+                        {
+                            namesToImport.Add(key);
+                        }
+                    }
+                }
+            }
+
+            // Import each name into the current scope
+            // CPython: This is handled by IMPORT_STAR bytecode, but we handle it here
+            foreach (var importName in namesToImport)
+            {
+                try
+                {
+                    var importValue = module.GetAttribute(importName);
+                    // Store in current frame's local scope
+                    if (frame.LocalScope != null)
+                    {
+                        frame.LocalScope.Variables[importName] = importValue;
+                    }
+                    else
+                    {
+                        // Fallback: use global scope
+                        frame.ScopeChain.GlobalScope.Variables[importName] = importValue;
+                    }
+                }
+                catch
+                {
+                    // Skip attributes that can't be imported
+                }
+            }
+
+            // Push a dummy value to satisfy stack expectations
+            // This will be handled by subsequent IMPORT_STAR or POP_TOP
+            frame.ValueStack.Push(PyNone.Instance);
+        }
+        else
+        {
+            // Normal case: import specific name
+            // CPython 3.12: Python/ceval.c:2530-2560 (import_from)
+            PyObject importedItem = null;
+
+            // Step 1: Try to get attribute from module object
+            // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
+            try
+            {
+                importedItem = module.GetAttribute(itemName);
+            }
+            catch
+            {
+                // Attribute not found, continue to fallback
+            }
+
+            if (importedItem == null)
+            {
+                // Step 2: Fallback for circular imports / submodule import
+                // CPython 3.12: Python/ceval.c:2538-2560
+                // Try to read submodule directly from sys.modules, or import it
+                try
+                {
+                    // Get package name from module.__name__
+                    // CPython 3.12: Python/ceval.c:2541
+                    var pkgName = module.GetAttribute("__name__");
+                    if (pkgName is PyStr pkgNameStr)
+                    {
+                        // Construct full module name: package.name
+                        // CPython 3.12: Python/ceval.c:2549
+                        string fullModuleName = $"{pkgNameStr.Value}.{itemName}";
+
+                        // Try to get from sys.modules ONLY
+                        // CPython 3.12: Python/ceval.c:2554 (PyImport_GetModule)
+                        // IMPORTANT: Do NOT import if not found - this is intentional!
+                        // The submodule should have been imported by IMPORT_NAME's fromlist handling.
+                        // If it's not in sys.modules, this is a circular import or the module doesn't exist.
+                        if (PyImportSystem.TryGetModule(fullModuleName, out var subModule))
+                        {
+                            importedItem = subModule;
+                        }
+                        // If not found in sys.modules, importedItem remains null
+                        // and we'll raise an error below
+                    }
+                }
+                catch
+                {
+                    // Fallback also failed
+                }
+            }
+
+            if (importedItem == null)
+            {
+                // Generate error message similar to CPython
+                // CPython 3.12: Python/ceval.c:2561-2579
+                string pkgModuleName = "unknown";
+                try
+                {
+                    var nameAttr = module.GetAttribute("__name__");
+                    if (nameAttr is PyStr nameStr)
+                    {
+                        pkgModuleName = nameStr.Value;
+                    }
+                }
+                catch { }
+
+                // Check if HandleFromList stored an import error for this item
+                string rootCause = null;
+                if (module is PyModule errModule &&
+                    errModule.ModuleDict.TryGetValue($"__import_error:{itemName}", out var errObj) &&
+                    errObj is PyStr errStr)
+                {
+                    rootCause = errStr.Value;
+                    errModule.ModuleDict.Remove($"__import_error:{itemName}");
+                }
+
+                if (rootCause != null)
+                {
+                    throw PyImportError.Create(
+                        $"cannot import name '{itemName}' from '{pkgModuleName}' (import error: {rootCause})");
+                }
+
+                throw PyAttributeError.Create($"module '{pkgModuleName}' has no attribute '{itemName}'");
+            }
+
+            frame.ValueStack.Push(importedItem);
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteLoadSuperAttr(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        #if DEBUG_LOG
+        Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
+        #endif
+        // CPython 3.12: super() attribute access
+        // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
+        // oparg format: (name_index << 1) | method_flag
+        int superOparg = instruction.Argument;
+        int superMethodFlag = superOparg & 1;  // Low bit: method flag
+        int superAttrIndex = superOparg >> 1;  // High bits: name index
+        var superAttrName = frame.Code.Names[superAttrIndex];
+        var selfObj = frame.ValueStack.Pop();         // self
+        var classObj = frame.ValueStack.Pop();        // __class__
+        var superFunc = frame.ValueStack.Pop();       // super function
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
+        #endif
+
+        // Call super(__class__, self) to create super proxy, then get attribute
+        try
+        {
+            // Create super proxy by calling super() with class and self
+            var superArgs = new PyObject[] { classObj, selfObj };
+            PyObject superProxy;
+
+            if (superFunc is PyBuiltinFunction builtinSuper)
+            {
+                superProxy = builtinSuper.Call(superArgs, null);
+            }
+            else if (superFunc is PyFunction userSuper)
+            {
+                superProxy = userSuper.Call(superArgs, null);
+            }
+            else
+            {
+                throw PyRuntimeError.Create($"super object must be callable, got {superFunc.GetType().Name}");
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: calling GetAttribute({superAttrName}) on super proxy");
+            #endif
+
+            var superAttr = superProxy.GetAttribute(superAttrName);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: found attribute type: {superAttr?.GetType().Name ?? "null"}");
+            #endif
+
+            // CPython 3.12: LOAD_SUPER_ATTR automatically binds methods to self
+            // IMPORTANT: class-mode super (selfObj is a type) should NOT auto-bind
+            PyObject finalAttr = superAttr;
+
+            // Check if this is class-mode super: selfObj is the class itself (PyType or PyClass)
+            bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: isClassModeSuper={isClassModeSuper}, selfObj type={selfObj.GetType().Name}");
+            #endif
+
+            if (!isClassModeSuper)
+            {
+                // Instance-mode super: auto-bind methods to instance
+                if (superAttr is PyFunction pyFunc)
+                {
+                    finalAttr = new PyMethod(selfObj, pyFunc);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
+                    #endif
+                }
+                else if (superAttr is PyBuiltinFunction builtinFunc)
+                {
+                    // Convert PyBuiltinFunction to PyFunction for proper binding
+                    var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
+                    finalAttr = new PyMethod(selfObj, func);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
+                    #endif
+                }
+                else if (superAttr is PyBuiltinMethod builtinMethod)
+                {
+                    // Convert PyBuiltinMethod to PyFunction for proper binding
+                    var func = new PyFunction(builtinMethod.Name, args => builtinMethod.Call(args, null));
+                    finalAttr = new PyMethod(selfObj, func);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
+                    #endif
+                }
+                else if (superAttr is PyMethod existingMethod)
+                {
+                    // CPython 3.12: Check if this is a classmethod-bound method
+                    // If Instance is already a class (PyType/PyClass), don't re-bind to instance
+                    // This preserves classmethod behavior where cls should be the class, not instance
+                    if (existingMethod.Instance is PyType || existingMethod.Instance is PyClass)
+                    {
+                        // classmethod: Instance is already the class, keep as-is
+                        finalAttr = existingMethod;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: keeping classmethod {superAttrName} bound to class {existingMethod.Instance}");
+                        #endif
+                    }
+                    else
+                    {
+                        // Regular method: re-bind to current self
+                        finalAttr = new PyMethod(selfObj, existingMethod.Function);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
+                        #endif
+                    }
+                }
+            }
+            else
+            {
+                // Class-mode super: do NOT auto-bind, return as-is
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: class-mode super, NOT binding {superAttrName}");
+                #endif
+            }
+
+            // CPython 3.12: Push result based on method flag
+            if (superMethodFlag == 1)
+            {
+                // Method call: push [NULL, bound_method] for CALL optimization
+                frame.ValueStack.Push(PyNone.Instance);  // NULL marker
+                frame.ValueStack.Push(finalAttr);
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (method call): pushed [NULL, {finalAttr.GetType().Name}]");
+                #endif
+            }
+            else
+            {
+                // Value access: push [attr_value]
+                frame.ValueStack.Push(finalAttr);
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (value access): pushed [{finalAttr.GetType().Name}]");
+                #endif
+            }
+        }
+        catch (Exception ex)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 LOAD_SUPER_ATTR failed: {ex.Message}");
+            #endif
+            throw;
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteWithExceptStart(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: WITH_EXCEPT_START implementation
+        // Stack: [..., __exit__, exception, exc_type, exc_value, exc_traceback, lasti]
+        // Goal: Call __exit__(exc_type, exc_value, exc_traceback) and push result
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 WITH_EXCEPT_START: stack size = {frame.ValueStack.Count}");
+        #endif
+
+        // Debug: Print current stack contents from top to bottom
+        // Use PyStack.Reverse() for efficient iteration
+        int debugIdx = 0;
+        foreach (var item in frame.ValueStack.Reverse())
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 Stack[{debugIdx}]: {item}");
+            debugIdx++;
+            #endif
+        }
+
+        // CPython 3.12: Dynamic stack validation - check for required objects by type
+        if (frame.ValueStack.Count == 0)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"❌ WITH_EXCEPT_START: Empty stack");
+            #endif
+            frame.ValueStack.Push(PyBool.False);
+            return null;
+        }
+
+        // CPython 3.12: Stack layout (CPython bytecodes.c:2523-2549)
+        // TOS: val (exception instance)
+        // TOS-1: unused (previous exception)
+        // TOS-2: lasti (instruction index as PyLong)
+        // TOS-3: exit_func (__exit__ method)
+
+        // Pop stack in reverse order
+        var val = frame.ValueStack.Pop();      // TOS
+        var unused = frame.ValueStack.Pop();   // TOS-1
+        var lasti = frame.ValueStack.Pop();    // TOS-2
+        var exit_func = frame.ValueStack.Pop(); // TOS-3
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 WITH_EXCEPT_START: Extracted from stack:");
+        Console.WriteLine($"   val (exc) = {val}");
+        Console.WriteLine($"   unused (prev_exc) = {unused}");
+        Console.WriteLine($"   lasti = {lasti}");
+        Console.WriteLine($"   exit_func = {exit_func}");
+        #endif
+
+        // Validate val is an exception
+        if (!(val is PyException pyExcVal))
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"❌ WITH_EXCEPT_START: val is not PyException, got {val?.GetType().Name}");
+            #endif
+            // Restore stack and return False
+            frame.ValueStack.Push(exit_func);
+            frame.ValueStack.Push(lasti);
+            frame.ValueStack.Push(unused);
+            frame.ValueStack.Push(val);
+            frame.ValueStack.Push(PyBool.False);
+            return null;
+        }
+
+        // CPython bytecodes.c:2535: exc = PyExceptionInstance_Class(val)
+        var exc_type = pyExcVal.GetPyType();
+
+        // CPython bytecodes.c:2536-2542: tb = PyException_GetTraceback(val)
+        PyObject exc_tb;
+        try
+        {
+            var tb_attr = pyExcVal.GetAttribute("__traceback__");
+            exc_tb = (tb_attr == PyNone.Instance) ? PyNone.Instance : tb_attr;
+        }
+        catch
+        {
+            exc_tb = PyNone.Instance;
+        }
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 WITH_EXCEPT_START: Calling exit_func(exc_type={exc_type}, val={val}, tb={exc_tb})");
+        #endif
+
+        // CPython bytecodes.c:2545-2546: Call __exit__(exc_type, val, tb)
+        bool suppressException = false;
+        if (exit_func?.IsCallable() == true)
+        {
+            try
+            {
+                var exitResult = exit_func.Call(new PyObject[] {
+                    exc_type,
+                    val,
+                    exc_tb
+                }, null);
+
+                // Convert result to boolean
+                suppressException = exitResult.AsBool() == PyBool.True;
+
+                #if DEBUG_LOG
+                Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult} (suppress={suppressException})");
+                #endif
+            }
+            catch (Exception exitException)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"❌ WITH_EXCEPT_START: __exit__ threw exception: {exitException.Message}");
+                #endif
+                // Re-throw the new exception from __exit__
+                var newPyException = ConvertToPythonException(exitException);
+                throw new PythonException(newPyException);
+            }
+        }
+        else
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"❌ WITH_EXCEPT_START: exit_func not callable: {exit_func?.GetType().Name}");
+            #endif
+        }
+
+        // CPython bytecodes.c: Restore stack and push result
+        // Stack after: [..., exit_func, lasti, unused, val, res]
+        frame.ValueStack.Push(exit_func);
+        frame.ValueStack.Push(lasti);
+        frame.ValueStack.Push(unused);
+        frame.ValueStack.Push(val);
+        frame.ValueStack.Push(PyBool.FromBool(suppressException));
+
+        // DEBUG: 스택 상태 확인
+        #if DEBUG_LOG
+        Console.WriteLine($"🔍 WITH_EXCEPT_START 완료 후 스택 크기: {frame.ValueStack.Count}");
+        #endif
+        #if DEBUG_LOG
+        for (int i = 0; i < Math.Min(frame.ValueStack.Count, 5); i++)
+        {
+            var debugItem = frame.ValueStack.ToArray()[frame.ValueStack.Count - 1 - i];
+            Console.WriteLine($"  Stack[{frame.ValueStack.Count - 1 - i}]: {debugItem}");
+        }
+        #endif
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
+        #endif
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteCheckExcMatch(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: Check if the exception on stack matches the expected type
+        // Stack effect: (left, right -- left, b)
+        // Pops type (right), keeps exception (left), pushes boolean result
+        var expectedType = frame.ValueStack.Pop(); // right (exception type)
+        var exceptionInstance = frame.ValueStack.Peek(); // left (exception instance) - keep on stack
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 CHECK_EXC_MATCH: expectedType={expectedType?.GetType().Name}={expectedType}");
+        Console.WriteLine($"🔧 CHECK_EXC_MATCH: exceptionInstance={exceptionInstance?.GetType().Name}={exceptionInstance}");
+        #endif
+
+        if (expectedType == null)
+        {
+            throw PyRuntimeError.Create("CHECK_EXC_MATCH: expectedType is null");
+        }
+
+        bool matches = false;
+
+        // Match exception instance against expected type
+        if (exceptionInstance is PyException pyException)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyException with OriginalClass={pyException.OriginalClass?.Name ?? "null"}");
+            #endif
+
+            // Check against user-defined class
+            if (expectedType is PyClass userClass && pyException.OriginalClass != null)
+            {
+                matches = pyException.OriginalClass == userClass ||
+                         pyException.OriginalClass.Name == userClass.Name;
+            }
+            // Check against built-in type
+            else if (expectedType is PyBuiltinType builtinType)
+            {
+                matches = IsExceptionInstanceOf(pyException, builtinType.Name);
+            }
+            else if (expectedType is PyType pyType)
+            {
+                matches = IsExceptionInstanceOf(pyException, pyType.Name);
+            }
+            // Check against tuple of exception types: except (ValueError, TypeError)
+            else if (expectedType is PyTuple exceptionTuple)
+            {
+                foreach (var excType in exceptionTuple.Items)
+                {
+                    if (excType is PyBuiltinType tupleBuiltin)
+                    {
+                        if (IsExceptionInstanceOf(pyException, tupleBuiltin.Name))
+                        {
+                            matches = true;
+                            break;
+                        }
+                    }
+                    else if (excType is PyType tuplePyType)
+                    {
+                        if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
+                        {
+                            matches = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        else if (exceptionInstance is PyBaseException builtinException)
+        {
+            // CPython 3.12: Python/errors.c:350-354
+            // Direct builtin exception (PyValueError, PyTypeError, etc.)
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyBaseException {builtinException.GetType().Name}");
+            #endif
+
+            // CPython: Get exception class from instance
+            var actualType = builtinException.GetType();
+
+            if (expectedType is PyType pyType)
+            {
+                // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
+                var expectedCSharpType = GetExceptionTypeByName(pyType.Name);
+                if (expectedCSharpType != null)
+                {
+                    matches = expectedCSharpType.IsAssignableFrom(actualType);
+                }
+                else
+                {
+                    // Fall back to name matching for unknown types
+                    string simpleName = actualType.Name.StartsWith("Py")
+                        ? actualType.Name.Substring(2)
+                        : actualType.Name;
+                    matches = pyType.Name == simpleName;
+                }
+            }
+            else if (expectedType is PyBuiltinType builtinType)
+            {
+                // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
+                var expectedCSharpType = GetExceptionTypeByName(builtinType.Name);
+                if (expectedCSharpType != null)
+                {
+                    matches = expectedCSharpType.IsAssignableFrom(actualType);
+                }
+                else
+                {
+                    // Fall back to name matching for unknown types
+                    string simpleName = actualType.Name.StartsWith("Py")
+                        ? actualType.Name.Substring(2)
+                        : actualType.Name;
+                    matches = builtinType.Name == simpleName;
+                }
+            }
+        }
+        else if (exceptionInstance is PyClassInstance classInstance)
+        {
+            // User-defined exception instance
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance from {classInstance.InstanceType.Name}");
+            #endif
+
+            if (expectedType is PyClass userClass)
+            {
+                matches = classInstance.InstanceType == userClass ||
+                         classInstance.InstanceType.Name == userClass.Name;
+            }
+            else if (expectedType is PyType pyType)
+            {
+                // Check if custom instance is compatible with Exception/BaseException
+                matches = pyType.Name == "Exception" || pyType.Name == "BaseException";
+            }
+        }
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 CHECK_EXC_MATCH: Result = {matches}");
+        #endif
+
+        frame.ValueStack.Push(matches ? PyBool.True : PyBool.False);
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteMatchClass(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: Python/bytecodes.c:2230-2243 - MATCH_CLASS opcode
+        // CPython 3.12: Python/ceval.c:406-428 - match_class_attr helper
+        // CPython 3.12: Python/ceval.c:430-533 - match_class helper
+        // Match class pattern - structural pattern matching (PEP 634)
+        var classKwNames = frame.ValueStack.Pop(); // keyword names tuple (unused for now)
+        var classToMatch = frame.ValueStack.Pop(); // class to match against
+        var classSubject = frame.ValueStack.Pop(); // subject to match
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔍 MATCH_CLASS: subject={classSubject?.GetType().Name}, classToMatch={classToMatch?.GetType().Name}");
+        #endif
+
+        try
+        {
+            // Check isinstance(subject, classToMatch) - supports both built-in and custom types
+            bool isInstance = false;
+
+            // Handle custom classes FIRST (PyClass inherits from PyType, so check this first)
+            if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 MATCH_CLASS: Checking custom class {targetClass.Name}");
+                #endif
+                isInstance = (instance.InstanceType == targetClass);
+            }
+            // Handle built-in types (int, str, list, etc.)
+            else if (classToMatch is PyType builtinType)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔍 MATCH_CLASS: Checking built-in type {builtinType.Name}");
+                #endif
+
+                if (builtinType.Name == "int" && classSubject is PyInt)
+                    isInstance = true;
+                else if (builtinType.Name == "str" && classSubject is PyStr)
+                    isInstance = true;
+                else if (builtinType.Name == "list" && classSubject is PyList)
+                    isInstance = true;
+                else if (builtinType.Name == "dict" && classSubject is PyDict)
+                    isInstance = true;
+                else if (builtinType.Name == "tuple" && classSubject is PyTuple)
+                    isInstance = true;
+                else if (builtinType.Name == "float" && classSubject is PyFloat)
+                    isInstance = true;
+                else if (builtinType.Name == "bool" && classSubject is PyBool)
+                    isInstance = true;
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 MATCH_CLASS: isInstance = {isInstance}");
+            #endif
+
+            if (isInstance)
+            {
+                var positionalCount = instruction.Argument;
+
+                // CPython 3.12 behavior: Extract attribute values based on keyword names tuple
+                if (classKwNames is PyTuple classKwNamesTuple && classKwNamesTuple.Items.Length > 0 &&
+                    classSubject is PyClassInstance classSubjectInstance)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 MATCH_CLASS: Extracting {classKwNamesTuple.Items.Length} attributes");
+                    #endif
+
+                    // Extract attribute values in the order specified by keyword names
+                    var attrs = new List<PyObject>();
+                    for (int i = 0; i < classKwNamesTuple.Items.Length; i++)
+                    {
+                        var classAttrName = classKwNamesTuple.Items[i].ToStr().Value;
+                        var classAttrValue = classSubjectInstance.GetAttribute(classAttrName);
+                        attrs.Add(classAttrValue ?? PyNone.Instance);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 MATCH_CLASS: Extracted {classAttrName} = {classAttrValue}");
+                        #endif
+                    }
+
+                    // Performance: Eliminated LINQ - manual List to array + Cache
+                    var attrsArray = new PyObject[attrs.Count];
+                    attrs.CopyTo(attrsArray, 0);
+                    frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
+                }
+                else if (classToMatch is PyClass cls && positionalCount > 0 &&
+                         cls.GetAttribute("__match_args__") is PyTuple matchArgs)
+                {
+                    // Extract positional attributes for custom classes
+                    var attrs = new List<PyObject>();
+
+                    for (int i = 0; i < Math.Min(positionalCount, matchArgs.Items.Length); i++)
+                    {
+                        var matchArgName = matchArgs.Items[i].ToStr().Value;
+
+                        if (classSubject is PyClassInstance matchSubjectInstance)
+                        {
+                            var matchAttrValue = matchSubjectInstance.GetAttribute(matchArgName);
+                            attrs.Add(matchAttrValue ?? PyNone.Instance);
+                        }
+                    }
+
+                    // Performance: Eliminated LINQ - manual List to array + Cache
+                    var attrsArray = new PyObject[attrs.Count];
+                    attrs.CopyTo(attrsArray, 0);
+                    frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
+                }
+                else
+                {
+                    // CPython 3.12: Python/ceval.c:515-523
+                    // For built-in types (int, str, etc.) with positional patterns like case int(x):
+                    // Return tuple containing the subject if positionalCount > 0
+                    // This allows unpacking: case int(x): captures x=5 from match 5
+                    if (positionalCount > 0)
+                    {
+                        frame.ValueStack.Push(new PyTuple(new[] { classSubject }));
+                    }
+                    else
+                    {
+                        // No attributes to extract, return empty tuple
+                        frame.ValueStack.Push(new PyTuple(new PyObject[0]));
+                    }
+                }
+            }
+            else
+            {
+                frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: None on failure
+            }
+        }
+        catch (Exception ex)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🚨 MATCH_CLASS error: {ex.Message}");
+            #endif
+            frame.ValueStack.Push(PyNone.Instance);
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteCallFunctionEx(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: Extended function call with *args and **kwargs
+        var hasKwargs = (instruction.Argument & 1) != 0;
+
+        #if DEBUG_LOG
+        Console.WriteLine($"[CALL_FUNCTION_EX] hasKwargs={hasKwargs}, stack size={frame.ValueStack.Count}, frame={frame.Code.Name}");
+        #endif
+
+        PyObject kwargsDict = null;
+        if (hasKwargs)
+        {
+            if (frame.ValueStack.Count == 0)
+            {
+                throw new InvalidOperationException($"[CALL_FUNCTION_EX] Stack is empty when trying to pop kwargs. Frame={frame.Code.Name}, IP={frame.InstructionPointer}");
+            }
+            kwargsDict = frame.ValueStack.Pop(); // kwargs dictionary
+        }
+
+        if (frame.ValueStack.Count < 3)
+        {
+            throw new InvalidOperationException($"[CALL_FUNCTION_EX] Stack has only {frame.ValueStack.Count} items, need at least 3. Frame={frame.Code.Name}, IP={frame.InstructionPointer}");
+        }
+
+        var argsIterable = frame.ValueStack.Pop(); // args iterable
+        var functionToCall = frame.ValueStack.Pop(); // function
+        frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
+
+        // Convert args iterable to list
+        var argsList = new List<PyObject>();
+        if (argsIterable is PyTuple argsTuple)
+        {
+            argsList.AddRange(argsTuple.Items);
+        }
+        else if (argsIterable is PyList argsListObj)
+        {
+            for (int i = 0; i < argsListObj.Length(); i++)
+            {
+                argsList.Add(argsListObj.GetItem(i));
+            }
+        }
+        else
+        {
+            throw PyTypeError.Create("argument after * must be an iterable");
+        }
+
+        // Convert kwargs dict to keyword arguments
+        var keywordArgs = new List<(string name, PyObject value)>();
+        if (hasKwargs && kwargsDict is PyDict kwargsPyDict)
+        {
+            foreach (var kvp in kwargsPyDict.InternalDict)
+            {
+                if (kvp.Key is PyStr keyStr)
+                {
+                    keywordArgs.Add((keyStr.Value, kvp.Value));
+                }
+                else
+                {
+                    throw PyTypeError.Create("keywords must be strings");
+                }
+            }
+        }
+
+        // Call function with unpacked arguments
+        PyObject unpackedResult;
+
+        if (functionToCall is PyFunction function)
+        {
+            var kwDict = new Dictionary<string, PyObject>();
+            foreach (var kw in keywordArgs)
+            {
+                kwDict[kw.name] = kw.value;
+            }
+            // Performance: Eliminated LINQ - manual List to array conversion
+            var argsArray = new PyObject[argsList.Count];
+            argsList.CopyTo(argsArray, 0);
+            unpackedResult = ExecuteFunctionCallWithKeywords(function, argsArray, kwDict, frame.ScopeChain);
+        }
+        else if (functionToCall is PyBuiltinFunction builtinFunc)
+        {
+            // Convert keyword arguments to PyDict
+            PyDict? kwDict = null;
+            if (keywordArgs.Count > 0)
+            {
+                kwDict = new PyDict();
+                foreach (var kw in keywordArgs)
+                {
+                    kwDict.SetItem(new PyStr(kw.name), kw.value);
+                }
+            }
+            // Performance: Eliminated LINQ - manual List to array conversion
+            var argsArray = new PyObject[argsList.Count];
+            argsList.CopyTo(argsArray, 0);
+            unpackedResult = builtinFunc.Call(argsArray, kwDict);
+        }
+        else if (functionToCall is PyMethod method)
+        {
+            // Convert keyword arguments to PyDict
+            PyDict? kwDict = null;
+            if (keywordArgs.Count > 0)
+            {
+                kwDict = new PyDict();
+                foreach (var kw in keywordArgs)
+                {
+                    kwDict.SetItem(new PyStr(kw.name), kw.value);
+                }
+            }
+            // Performance: Eliminated LINQ - manual List to array conversion
+            var argsArray = new PyObject[argsList.Count];
+            argsList.CopyTo(argsArray, 0);
+            unpackedResult = method.Call(argsArray, kwDict);
+        }
+        else
+        {
+            // Generic callable with kwargs
+            PyDict? kwDict = null;
+            if (keywordArgs.Count > 0)
+            {
+                kwDict = new PyDict();
+                foreach (var kw in keywordArgs)
+                {
+                    kwDict.SetItem(new PyStr(kw.name), kw.value);
+                }
+            }
+            // Performance: Eliminated LINQ - manual List to array conversion
+            var argsArray = new PyObject[argsList.Count];
+            argsList.CopyTo(argsArray, 0);
+            unpackedResult = functionToCall.Call(argsArray, kwDict);
+        }
+
+        frame.ValueStack.Push(unpackedResult);
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteBinarySubscr(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        var subscriptKeyVal = frame.ValueStack.PopValue();
+        var subscriptObjVal = frame.ValueStack.PopValue();
+
+        try
+        {
+            // CPython 3.12: Objects/abstract.c:171-201 (PyObject_GetItem)
+            // Fast path for built-in types: skip GetPyType()/LookupSpecial() MRO traversal
+            // Use PyValue-level dispatch to avoid PyObject boxing
+            PyObject subscriptResult;
+            var subscriptObj = subscriptObjVal.Tag == PyValue.TAG_OBJECT ? subscriptObjVal.ObjRef : subscriptObjVal.ToObject();
+
+            if (subscriptObj is PyList subscriptList)
+            {
+                // Fast path: PyList[int] — avoid TryGetIndex/BigInteger conversion
+                if (subscriptKeyVal.IsIntLike)
+                    subscriptResult = subscriptList.GetItem((int)subscriptKeyVal.AsInt64);
+                else
+                    subscriptResult = subscriptList.GetItem(subscriptKeyVal.ToObject());
+            }
+            else if (subscriptObj is PyDict subscriptDict)
+            {
+                subscriptResult = subscriptDict.GetItem(subscriptKeyVal.ToObject());
+            }
+            else if (subscriptObj is PyStr subscriptStr)
+            {
+                // Fast path: PyStr[int]
+                if (subscriptKeyVal.IsIntLike)
+                    subscriptResult = subscriptStr.GetItem((int)subscriptKeyVal.AsInt64);
+                else
+                    subscriptResult = subscriptStr.GetItem(subscriptKeyVal.ToObject());
+            }
+            else if (subscriptObj is PyTuple subscriptTuple)
+            {
+                // Fast path: PyTuple[int]
+                if (subscriptKeyVal.IsIntLike)
+                    subscriptResult = subscriptTuple.GetItem((int)subscriptKeyVal.AsInt64);
+                else
+                    subscriptResult = subscriptTuple.GetItem(subscriptKeyVal.ToObject());
+            }
+            else if (subscriptObj is PyType typeObj)
+            {
+                // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
+                // See Objects/typeobject.c:type_subscript
+                var classGetitemAttr = typeObj.LookupSpecial("__class_getitem__");
+
+                var subscriptKey = subscriptKeyVal.ToObject();
+                if (classGetitemAttr != null && classGetitemAttr is PyBuiltinClassMethod classMethod)
+                {
+                    subscriptResult = classMethod.Call(new[] { typeObj, subscriptKey }, null);
+                }
+                else if (classGetitemAttr != null && classGetitemAttr is IDescriptor descriptor)
+                {
+                    var boundMethod = descriptor.Get(null, typeObj);
+                    subscriptResult = boundMethod.Call(new[] { subscriptKey }, null);
+                }
+                else if (classGetitemAttr != null)
+                {
+                    subscriptResult = classGetitemAttr.Call(new[] { typeObj, subscriptKey }, null);
+                }
+                else
+                {
+                    subscriptResult = subscriptObj.GetItem(subscriptKey);
+                }
+            }
+            else
+            {
+                // Regular instance subscripting - use __getitem__ via MRO
+                var subscriptKey = subscriptKeyVal.ToObject();
+                var objType = subscriptObj.GetPyType();
+                var getitemAttr = objType.LookupSpecial("__getitem__");
+
+                if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
+                {
+                    subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
+                }
+                else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
+                {
+                    subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
+                }
+                else
+                {
+                    subscriptResult = subscriptObj.GetItem(subscriptKey);
+                }
+            }
+
+            frame.ValueStack.Push(subscriptResult);
+        }
+        catch (Exception ex) when (ex is PythonException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("key") || ex.Message.Contains("Key"))
+            {
+                throw PyKeyError.Create(ex.Message.Replace("subscript error: ", ""));
+            }
+            else if (ex.Message.Contains("index") || ex.Message.Contains("range"))
+            {
+                throw PyIndexError.Create(ex.Message.Replace("subscript error: ", ""));
+            }
+            else
+            {
+                throw PyTypeError.Create($"subscript error: {ex.Message}");
+            }
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteMakeCell(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
+        // CPython localsplus layout: [varnames(0..nlocals-1) | cellvars(nlocals..nlocals+ncellvars-1) | freevars(...)]
+        // SharpPy Cells layout: [freevars(0..nfreevars-1) | cellvars(nfreevars..nfreevars+ncellvars-1)]
+        var localsPlusOffset = instruction.Argument;
+        int nlocals = frame.Code.VarNames.Count;
+        int ncellvars = frame.Code.CellVars.Count;
+        int nfreevars = frame.Code.FreeVars.Count;
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 MAKE_CELL at localsplus offset {localsPlusOffset} (nlocals={nlocals}, ncellvars={ncellvars}, nfreevars={nfreevars})");
+        #endif
+
+        // Convert CPython localsplus offset to SharpPy Cells index
+        string cellVarName;
+        int actualCellIndex;
+
+        if (localsPlusOffset < nlocals)
+        {
+            // It's a parameter (in varnames) that's also a cell
+            cellVarName = frame.Code.VarNames[localsPlusOffset];
+            // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
+            if (!frame.Code.CellVarIndexMap.TryGetValue(cellVarName, out int cellVarIdx))
+            {
+                throw new IndexOutOfRangeException($"MAKE_CELL: varname '{cellVarName}' not found in cellvars");
+            }
+            // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
+            actualCellIndex = nfreevars + cellVarIdx;
+        }
+        else
+        {
+            // It's not a parameter - either cellvar or freevar
+            // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
+            // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
+            var makeNonParamCellNames = frame.Code.NonParamCellNames;
+            int numNonParamCells = makeNonParamCellNames.Count;
+
+            int offsetAfterLocals = localsPlusOffset - nlocals;
+            if (offsetAfterLocals < numNonParamCells)
+            {
+                // It's a cellvar (non-parameter) - find by name
+                cellVarName = makeNonParamCellNames[offsetAfterLocals];
+                // Optimized: Use CellVarIndexMap for O(1) lookup
+                int cellVarIdx = frame.Code.CellVarIndexMap[cellVarName];
+                // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
+                actualCellIndex = nfreevars + cellVarIdx;
+            }
+            else
+            {
+                // It's a freevar
+                int freeVarIdx = offsetAfterLocals - numNonParamCells;
+                cellVarName = frame.Code.FreeVars[freeVarIdx];
+                // SharpPy: freevars are at Cells[freeVarIdx]
+                actualCellIndex = freeVarIdx;
+            }
+        }
+
+        #if DEBUG_LOG
+        Console.WriteLine($"   Converting CPython localsplus[{localsPlusOffset}] → SharpPy Cells[{actualCellIndex}] for '{cellVarName}'");
+        #endif
+        #if DEBUG_LOG
+        Console.WriteLine($"   CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
+        #endif
+        #if DEBUG_LOG
+        Console.WriteLine($"   FreeVars: [{string.Join(", ", frame.Code.FreeVars)}] (offset: {frame.Code.FreeVars.Count})");
+        #endif
+        // CPython 3.12: Create cell variable (initially None for type parameters)
+        PyObject? cellValue = null;
+        // Find the variable in LocalsPlus by name
+        // Optimized: Use VarNameIndexMap for O(1) lookup instead of O(n) IndexOf
+        int localIndex = frame.Code.VarNameIndexMap.TryGetValue(cellVarName, out int mappedIdx) ? mappedIdx : -1;
+        if (localIndex >= 0 && localIndex < frame.LocalsPlus.Length)
+        {
+            var localValue = frame.LocalsPlus[localIndex];
+            if (!localValue.IsNull)
+            {
+                cellValue = localValue.ToObject();
+                #if DEBUG_LOG
+                Console.WriteLine($"   Found value for '{cellVarName}': {cellValue}");
+                #endif
+            }
+            else
+            {
+                // Variable is PyNull (uninitialized), use None for cell
+                cellValue = PyNone.Instance;
+                #if DEBUG_LOG
+                Console.WriteLine($"   Initializing '{cellVarName}' cell with None (uninitialized local)");
+                #endif
+            }
+        }
+        else
+        {
+            // For Generic Parameters function, cells start as None
+            cellValue = PyNone.Instance;
+            #if DEBUG_LOG
+            Console.WriteLine($"   Initializing '{cellVarName}' cell with None (not in locals)");
+            #endif
+        }
+
+        // CPython 3.12: Use actualCellIndex (offset by free var count) for cell access
+        if (actualCellIndex < frame.Cells.Length)
+        {
+            frame.Cells[actualCellIndex].SetValue(cellValue);
+            #if DEBUG_LOG
+            Console.WriteLine($"   ✅ Set cell[{actualCellIndex}] '{cellVarName}' = {cellValue}");
+            #endif
+        }
+        else
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"   ❌ Invalid actual cell index {actualCellIndex}, Cells.Length: {frame.Cells.Length}");
+            #endif
+        }
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteUnpackEx(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: Python/ceval.c lines 1105-1112 (bytecodes.c)
+        // CPython 3.12: Python/ceval.c lines 1950-2040 (unpack_iterable function)
+        // Argument encodes: lower 8 bits = count before star, upper 8 bits = count after star
+        var countBefore = instruction.Argument & 0xFF;
+        var countAfter = (instruction.Argument >> 8) & 0xFF;
+
+        var unpackExSequence = frame.ValueStack.Pop();
+
+        // CPython 3.12: Python/ceval.c:1960-1970 - Convert iterable to list first
+        PyObject[] itemsToUnpack;
+        if (unpackExSequence is PyList unpackExList)
+        {
+            itemsToUnpack = unpackExList.Items;
+        }
+        else if (unpackExSequence is PyTuple unpackExTuple)
+        {
+            itemsToUnpack = unpackExTuple.Items;
+        }
+        else if (unpackExSequence is PyRange unpackExRange)
+        {
+            // CPython 3.12: Convert range to list for unpacking
+            itemsToUnpack = unpackExRange.ToList().Items;
+        }
+        else if (unpackExSequence is PyStr unpackExStr)
+        {
+            // Convert string to array of single-character strings
+            itemsToUnpack = unpackExStr.Value.Select(c => (PyObject)new PyStr(c.ToString())).ToArray();
+        }
+        else
+        {
+            // CPython 3.12: Try to iterate using __iter__
+            try
+            {
+                var unpackIterator = unpackExSequence.GetIterator();
+                var unpackItems = new System.Collections.Generic.List<PyObject>();
+                while (true)
+                {
+                    try
+                    {
+                        unpackItems.Add(unpackIterator.Next());
+                    }
+                    catch (Exception ex) when (ex is PyStopIteration || ex.Message.Contains("StopIteration"))
+                    {
+                        break;
+                    }
+                }
+                itemsToUnpack = unpackItems.ToArray();
+            }
+            catch (Exception)
+            {
+                throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
+            }
+        }
+
+        if (itemsToUnpack.Length < countBefore + countAfter)
+        {
+            throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {itemsToUnpack.Length})");
+        }
+
+        // CPython 3.12: Python/ceval.c unpack_iterable() lines 1950-2040
+        //
+        // STORE order determines required stack layout:
+        //   STORE_NAME(before[0]), STORE_NAME(before[1]), ..., STORE_NAME(star), STORE_NAME(after[0]), ...
+        // Each STORE pops from TOS, so stack must be (bottom→top):
+        //   after[n-1], after[n-2], ..., after[0], star, before[n-1], ..., before[1], before[0]
+        //
+        // Example: a, *b, c = [1, 2, 3, 4, 5]
+        //   countBefore=1 (a), countAfter=1 (c)
+        //   before=[1], star=[2,3,4], after=[5]
+        //   Stack (bottom→top): 5, [2,3,4], 1
+        //   Pop order: 1(a), [2,3,4](b), 5(c) ✓
+
+        // Performance optimization: Build array once, then AddRange (O(n) instead of O(n²) Insert)
+        var totalElements = countAfter + 1 + countBefore;
+        var elementsToAdd = new PyObject[totalElements];
+        int elemIdx = 0;
+
+        // After elements go at bottom of stack segment (popped last)
+        // after[n-1] at bottom (first in array), after[0] closer to top
+        // Example: after=[30,40] → stack bottom has 40, then 30
+        for (int i = countAfter - 1; i >= 0; i--)
+        {
+            // after[i] = itemsToUnpack[length - countAfter + i]
+            elementsToAdd[elemIdx++] = itemsToUnpack[itemsToUnpack.Length - countAfter + i];
+        }
+
+        // Star list in middle
+        var starCount = itemsToUnpack.Length - countBefore - countAfter;
+        var starItems = new PyObject[starCount];
+        for (int i = 0; i < starCount; i++)
+        {
+            starItems[i] = itemsToUnpack[countBefore + i];
+        }
+        elementsToAdd[elemIdx++] = new PyList(starItems);
+
+        // Before elements go at top of stack segment (popped first)
+        // before[0] at top, before[n-1] at bottom of before-section
+        for (int i = countBefore - 1; i >= 0; i--)
+        {
+            elementsToAdd[elemIdx++] = itemsToUnpack[i];
+        }
+
+        // Add all elements at once - O(n) using PushRange
+        frame.ValueStack.PushRange(elementsToAdd, 0, elementsToAdd.Length);
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteReraise(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: RERAISE stack layout: (values[oparg], exc -- values[oparg])
+        // - exc: exception to reraise (top of stack)
+        // - values[oparg]: oparg values below exc (e.g., lasti for cleanup)
+        // - After reraise: exc is popped and raised, values are left on stack if oparg > 0
+        var reraiseArg = instruction.Argument;
+
+        #if DEBUG_LOG
+        Console.WriteLine($"🔧 RERAISE: arg={reraiseArg}, stack size={frame.ValueStack.Count}");
+        #endif
+
+        // CPython 3.12: For RERAISE 0 in finally handlers, only reraise if there's an active exception
+        // If exception was handled normally, don't reraise
+        if (reraiseArg == 0 && frame.CurrentException == null && frame.LastException == null)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 RERAISE: No active exception to reraise, continuing normally");
+            #endif
+
+            // Still need to clean up the stack if there's an ExceptionInfo
+            if (frame.ValueStack.Count > 0 && frame.ValueStack.Peek() is PyExceptionInfo)
+            {
+                frame.ValueStack.Pop(); // Remove the ExceptionInfo
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 RERAISE: Cleaned up ExceptionInfo from stack");
+                #endif
+            }
+            return null; // Continue normally without raising
+        }
+
+        // CPython 3.12: Pop exception from top of stack (this is what we reraise)
+        PyBaseException exceptionToReraise = null;
+        if (frame.ValueStack.Count > 0)
+        {
+            var exceptionOnStack = frame.ValueStack.Pop();
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 RERAISE: Popped exception from stack (TOS): {exceptionOnStack}");
+            #endif
+
+            // If it's a PyExceptionInfo, extract the actual exception
+            if (exceptionOnStack is PyExceptionInfo reraiseExcInfo)
+            {
+                exceptionToReraise = reraiseExcInfo.ExcValue as PyBaseException;
+            }
+            else if (exceptionOnStack is PyBaseException directException)
+            {
+                exceptionToReraise = directException;
+            }
+        }
+
+        // CPython 3.12: If oparg > 0, pop additional values from stack (but don't use them)
+        // These are typically lasti values used for traceback reconstruction
+        if (reraiseArg > 0)
+        {
+            for (int i = 0; i < reraiseArg; i++)
+            {
+                if (frame.ValueStack.Count > 0)
+                {
+                    var additionalValue = frame.ValueStack.Pop();
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 RERAISE: Popped additional value[{i}]: {additionalValue}");
+                    #endif
+                }
+            }
+        }
+
+        // Reraise the exception
+        if (exceptionToReraise != null)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 RERAISE: Reraising exception: {exceptionToReraise}");
+            #endif
+            // CPython 3.12: RERAISE preserves existing traceback, don't add new frames
+            throw new PythonException(exceptionToReraise, fromReraise: true);
+        }
+
+        // Fallback: use LastException if no exception on stack
+        if (frame.LastException != null)
+            throw new PythonException(frame.LastException, fromReraise: true);
+            return null;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject ExecuteSend(PyFrame frame, in ByteCodeInstruction instruction)
+        {
+        // CPython 3.12: SEND opcode for yield from
+        // Stack: TOS = value to send, TOS1 = receiver (iterator/generator)
+        // bytecodes.c:825-872
+        #if DEBUG_VM_LOG
+        Console.WriteLine($"🔍 SEND: IP={frame.InstructionPointer}, Stack.Count = {frame.ValueStack.Count}, Arg={instruction.Argument}");
+        #endif
+        var sendValue = frame.ValueStack.Pop();
+        var receiver = frame.ValueStack.Peek(); // Keep receiver on stack
+
+        try
+        {
+            PyObject sendResult;
+
+            // CPython pattern: if (Py_IsNone(v) && PyIter_Check(receiver))
+            // If value is None and receiver is iterator, call next
+            if (sendValue is PyNone && receiver is PyIterator receiverIter)
+            {
+                sendResult = receiverIter.Next();
+            }
+            // If receiver is a generator, send value to it
+            else if (receiver is PyGenerator gen)
+            {
+                sendResult = gen.Send(sendValue);
+            }
+            else
+            {
+                // Try to call .send() method using GetAttribute
+                // CPython: retval = PyObject_CallMethodOneArg(receiver, &_Py_ID(send), v);
+                try
+                {
+                    var sendMethod = receiver.GetAttribute("send");
+                    sendResult = sendMethod.Call(new PyObject[] { sendValue }, null);
+                }
+                catch (PythonException pyEx) when (pyEx.PyException is PyAttributeError)
+                {
+                    // Fallback to iterator protocol
+                    if (receiver is PyIterator receiverIterFallback)
+                    {
+                        sendResult = receiverIterFallback.Next();
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"SEND: receiver {receiver.GetType().Name} is not a generator or iterator");
+                    }
+                }
+            }
+
+            // CPython: Push result to stack (receiver stays on stack)
+            frame.ValueStack.Push(sendResult);
+            #if DEBUG_VM_LOG
+            Console.WriteLine($"    ✅ SEND: Got result {sendResult}, continuing to next instruction");
+            #endif
+        }
+        catch (PythonException pyEx) when (pyEx.PyException is PyStopIteration stopIter)
+        {
+            // CPython 3.12: Python/bytecodes.c:858-865
+            // if (_PyGen_FetchStopIterationValue(&retval) == 0) { JUMPBY(oparg); }
+            // StopIteration raised - extract value and jump
+            //
+            // CPython 3.12: Python/bytecodes.c:843 - JUMPBY(oparg)
+            // In CPython, next_instr is already past SEND instruction and points to CACHE
+            // JUMPBY(oparg) means: next_instr += oparg (instruction words)
+            // oparg is the relative offset from the position AFTER SEND+CACHE
+            //
+            // CPython 3.12: Include/internal/pycore_opcode.h:120
+            // SEND has INLINE_CACHE_ENTRIES_SEND = 1 (one CACHE instruction)
+            //
+            // In SharpPy:
+            // - IP is currently at SEND instruction (index 36 in example)
+            // - SEND has 1 CACHE entry at index 37
+            // - oparg is relative to position AFTER SEND+CACHE (index 38 in example)
+            // - Main loop will do IP++ after we return
+            // - To reach target: IP = current + 1 (SEND) + 1 (CACHE) + oparg - 1 (main loop++)
+            // - Simplify: IP += (1 + INLINE_CACHE_ENTRIES_SEND + oparg - 1)
+            // - Final: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
+            #if DEBUG_VM_LOG
+            Console.WriteLine($"    🛑 SEND: StopIteration raised, value={stopIter.Value}");
+            Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by oparg={instruction.Argument}");
+            #endif
+
+            // Push StopIteration value to stack (receiver stays on stack for END_SEND)
+            frame.ValueStack.Push(stopIter.Value ?? PyNone.Instance);
+
+            // CPython 3.12: SEND has 1 CACHE entry (Include/internal/pycore_opcode.h:120)
+            const int INLINE_CACHE_ENTRIES_SEND = 1;
+
+            // Jump forward: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
+            // Example: IP=36 + (1 + 4) = 41, main loop IP++ → 42 (END_SEND)
+            frame.InstructionPointer += INLINE_CACHE_ENTRIES_SEND + instruction.Argument;
+
+            #if DEBUG_VM_LOG
+            Console.WriteLine($"    🛑 SEND: After jump, IP={frame.InstructionPointer} (will become {frame.InstructionPointer + 1} after main loop increment)");
+            #endif
+        }
+            return null;
+        }
+
+        #endregion
+
         // 개별 명령어 실행 (기존 시스템과 연동)
         private PyObject ExecuteInstruction(PyFrame frame, in ByteCodeInstruction instruction)
         {
@@ -3135,204 +5701,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.CALL:
-                    // CPython 3.12 정확한 CALL 동작
-                    var callArgCount = instruction.Argument;
-                    // Performance: Reuse cached arg buffers for 0/1/2 arg calls
-                    PyObject[] callArgs;
-                    if (callArgCount == 0) callArgs = EmptyArgs;
-                    else if (callArgCount == 1)
-                    {
-                        if (_oneArgBuf == null) _oneArgBuf = new PyObject[1];
-                        callArgs = _oneArgBuf;
-                    }
-                    else if (callArgCount == 2)
-                    {
-                        if (_twoArgBuf == null) _twoArgBuf = new PyObject[2];
-                        callArgs = _twoArgBuf;
-                    }
-                    else callArgs = new PyObject[callArgCount];
-
-                    // CPython 3.12: Save current scope depth before function call for proper restoration
-                    // Skip for CO_OPTIMIZED frames — they don't modify scope chains.
-                    bool needsScopeRestore = (frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0;
-                    var savedScopeCount = needsScopeRestore ? (frame.ScopeChain?.ScopeCount ?? 0) : 0;
-                    var savedCurrentScopeName = needsScopeRestore ? frame.ScopeChain?.CurrentScope?.Name : null;
-
-                    // CPython 3.12: Check for keyword arguments from KW_NAMES
-                    var kwNames = frame.KeywordNamesForNextCall;
-#if DEBUG_LOG
-                    Console.WriteLine($"🔧 CALL Debug: kwNames = {(kwNames == null ? "null" : $"length {kwNames.Items.Length}")}, callArgCount = {callArgCount}");
-#endif
-
-                    // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
-                    for (int i = callArgCount - 1; i >= 0; i--)
-                    {
-                        callArgs[i] = frame.ValueStack.Pop();
-                    }
-
-                    // 함수 객체 팝 (callable) - 인수들 아래에 있음
-                    var callableFunc = frame.ValueStack.Pop();
-
-                    // CPython 3.12: Check if there's a NULL/self on the stack
-                    // If stack is empty or top is NULL, it's a simple call
-                    // Otherwise, it's a method call with self
-                    PyObject nextElement = null;
-                    if (frame.ValueStack.Count > 0)
-                    {
-                        nextElement = frame.ValueStack.Pop();
-                    }
-
-                    // CPython 3.12 호출 방식 결정
-                    // CPython: if (method != NULL) { callable = method; args--; total_args++; }
-                    PyObject newCallResult;
-                    PyObject[] finalArgs;
-                    PyObject actualCallable;
-
-                    if (nextElement == null || nextElement is PyNone)
-                    {
-                        // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
-                        actualCallable = callableFunc;
-                        finalArgs = callArgs;
-                    }
-                    else
-                    {
-                        // CPython 3.12: method != NULL
-                        // Stack: [nextElement, callableFunc] where nextElement is NOT null
-                        // Original logic: nextElement becomes callable, callableFunc becomes first arg
-                        actualCallable = nextElement;
-                        int totalArgs = callArgs.Length + 1;
-                        // Reuse ThreadStatic buffers for common method call sizes
-                        if (totalArgs == 1) { finalArgs = _methBuf1 ??= new PyObject[1]; }
-                        else if (totalArgs == 2) { finalArgs = _methBuf2 ??= new PyObject[2]; }
-                        else if (totalArgs == 3) { finalArgs = _methBuf3 ??= new PyObject[3]; }
-                        else { finalArgs = new PyObject[totalArgs]; }
-                        finalArgs[0] = callableFunc;
-                        for (int i = 0; i < callArgs.Length; i++)
-                            finalArgs[i + 1] = callArgs[i];
-                    }
-
-                    // CPython 3.12: 키워드 인수 처리
-                    // CPython 3.12: Wrap function call in try-catch to add caller frame to traceback
-                    // This ensures the full call stack is recorded when exception propagates
-                    try
-                    {
-                        if (kwNames != null && kwNames.Items.Length > 0)
-                        {
-                            // 키워드 인수가 있는 경우 - CallWithKeywords 사용
-                            newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
-                        }
-                        else
-                        {
-                            // 위치 인수만 있는 경우 - 기존 방식 사용
-                            if (actualCallable is PyBuiltinFunction builtin)
-                            {
-                                // Inline fast path for hot builtins
-                                if (builtin.Name == "len" && finalArgs.Length == 1)
-                                {
-                                    int len = finalArgs[0].Length();
-                                    newCallResult = (len >= -5 && len <= 256)
-                                        ? SmallIntCache.GetOrCreate(len) : new PyInt(len);
-                                }
-                                else
-                                    newCallResult = builtin.Call(finalArgs, null);
-                            }
-                            else if (actualCallable is PyMethod method)
-                            {
-                                newCallResult = method.Call(finalArgs, null);
-                            }
-                            else if (actualCallable is PyFunction func)
-                            {
-                                newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
-                            }
-                            else if (actualCallable is PyClass callClass && callClass.Metaclass == null)
-                            {
-                                // Fast path: simple user class instantiation (non-metaclass)
-                                // Skip PyType.Call() type checks (TypeType, StaticMethodType, etc.)
-                                // CPython 3.12: Objects/typeobject.c:1664 — type_call → tp_new → tp_init
-                                newCallResult = callClass.CreateInstance(finalArgs, null);
-                            }
-                            else if (actualCallable is PyType callType && finalArgs.Length == 1)
-                            {
-                                // Fast path: str(x), int(x), etc. — skip PyType.Call() → CreateInstance() overhead
-                                // CPython 3.12: Objects/typeobject.c:1627 (type_call) for builtin types
-                                var callTypeArg = finalArgs[0];
-                                if (callType == PyType.StrType)
-                                    newCallResult = callTypeArg is PyStr ps ? ps : new PyStr(callTypeArg.AsString());
-                                else if (callType == PyType.IntType)
-                                {
-                                    if (callTypeArg is PyInt) newCallResult = callTypeArg;
-                                    else if (callTypeArg is PyFloat pf) newCallResult = new PyInt((long)pf.Value);
-                                    else if (callTypeArg is PyBool pb) newCallResult = pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
-                                    else newCallResult = callType.Call(finalArgs, null);
-                                }
-                                else if (callType == PyType.FloatType)
-                                {
-                                    if (callTypeArg is PyFloat) newCallResult = callTypeArg;
-                                    else if (callTypeArg is PyInt pi) newCallResult = new PyFloat(pi.FitsInLong ? (double)pi.CachedLong : (double)pi.Value);
-                                    else newCallResult = callType.Call(finalArgs, null);
-                                }
-                                else
-                                    newCallResult = callType.Call(finalArgs, null);
-                            }
-                            else if (actualCallable is PyMethodDescriptor mdesc && finalArgs.Length >= 1)
-                            {
-                                // Fast path: PyMethodDescriptor — call _implementation directly
-                                // Avoids inner args array allocation in PyMethodDescriptor.Call()
-                                // finalArgs = [self, arg1, ...], descriptor expects (self, args_without_self, kwargs)
-                                var mdSelf = finalArgs[0];
-                                int mdArgCount = finalArgs.Length - 1;
-                                PyObject[] mdArgs;
-                                if (mdArgCount == 0) mdArgs = EmptyArgs;
-                                else if (mdArgCount == 1)
-                                {
-                                    // ThreadStatic buffer for 1-arg method calls (e.g., list.append(x))
-                                    mdArgs = _oneArgBuf ??= new PyObject[1];
-                                    mdArgs[0] = finalArgs[1];
-                                }
-                                else if (mdArgCount == 2)
-                                {
-                                    mdArgs = _twoArgBuf ??= new PyObject[2];
-                                    mdArgs[0] = finalArgs[1];
-                                    mdArgs[1] = finalArgs[2];
-                                }
-                                else
-                                {
-                                    mdArgs = new PyObject[mdArgCount];
-                                    Array.Copy(finalArgs, 1, mdArgs, 0, mdArgCount);
-                                }
-                                newCallResult = mdesc._implementation(mdSelf, mdArgs, null);
-                            }
-                            else
-                            {
-                                newCallResult = actualCallable.Call(finalArgs, null);
-                            }
-                        }
-                    }
-                    catch (PythonException pyEx)
-                    {
-                        // CPython 3.12: Add caller frame to traceback when exception propagates
-                        // This matches CPython's PyTraceBack_Here() behavior in ceval.c
-                        PyTraceBack_Here(frame, pyEx);
-                        throw;
-                    }
-
-                    frame.ValueStack.Push(newCallResult);
-
-                    // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
-                    if (needsScopeRestore && frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
-                        #endif
-                        frame.ScopeChain.RestoreScopeDepth(savedScopeCount);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"✅ Scope depth restored successfully to: {frame.ScopeChain.CurrentScope?.Name}");
-                        #endif
-                    }
-
-                    // CPython 3.12: Clear keyword names after call
-                    frame.KeywordNamesForNextCall = null;
-                    break;
+                    return ExecuteCall(frame, instruction);
 
                 // Specialized Method Calls - CPython 3.12 Adaptive Specialization
                 case ByteCodeOp.CALL_LIST_APPEND:
@@ -3377,136 +5746,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.CALL_FUNCTION_EX:
-                    // CPython 3.12: Extended function call with *args and **kwargs
-                    var hasKwargs = (instruction.Argument & 1) != 0;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"[CALL_FUNCTION_EX] hasKwargs={hasKwargs}, stack size={frame.ValueStack.Count}, frame={frame.Code.Name}");
-                    #endif
-
-                    PyObject kwargsDict = null;
-                    if (hasKwargs)
-                    {
-                        if (frame.ValueStack.Count == 0)
-                        {
-                            throw new InvalidOperationException($"[CALL_FUNCTION_EX] Stack is empty when trying to pop kwargs. Frame={frame.Code.Name}, IP={frame.InstructionPointer}");
-                        }
-                        kwargsDict = frame.ValueStack.Pop(); // kwargs dictionary
-                    }
-
-                    if (frame.ValueStack.Count < 3)
-                    {
-                        throw new InvalidOperationException($"[CALL_FUNCTION_EX] Stack has only {frame.ValueStack.Count} items, need at least 3. Frame={frame.Code.Name}, IP={frame.InstructionPointer}");
-                    }
-
-                    var argsIterable = frame.ValueStack.Pop(); // args iterable
-                    var functionToCall = frame.ValueStack.Pop(); // function
-                    frame.ValueStack.Pop(); // Pop the null (PUSH_NULL)
-
-                    // Convert args iterable to list
-                    var argsList = new List<PyObject>();
-                    if (argsIterable is PyTuple argsTuple)
-                    {
-                        argsList.AddRange(argsTuple.Items);
-                    }
-                    else if (argsIterable is PyList argsListObj)
-                    {
-                        for (int i = 0; i < argsListObj.Length(); i++)
-                        {
-                            argsList.Add(argsListObj.GetItem(i));
-                        }
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create("argument after * must be an iterable");
-                    }
-
-                    // Convert kwargs dict to keyword arguments
-                    var keywordArgs = new List<(string name, PyObject value)>();
-                    if (hasKwargs && kwargsDict is PyDict kwargsPyDict)
-                    {
-                        foreach (var kvp in kwargsPyDict.InternalDict)
-                        {
-                            if (kvp.Key is PyStr keyStr)
-                            {
-                                keywordArgs.Add((keyStr.Value, kvp.Value));
-                            }
-                            else
-                            {
-                                throw PyTypeError.Create("keywords must be strings");
-                            }
-                        }
-                    }
-
-                    // Call function with unpacked arguments
-                    PyObject unpackedResult;
-
-                    if (functionToCall is PyFunction function)
-                    {
-                        var kwDict = new Dictionary<string, PyObject>();
-                        foreach (var kw in keywordArgs)
-                        {
-                            kwDict[kw.name] = kw.value;
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = ExecuteFunctionCallWithKeywords(function, argsArray, kwDict, frame.ScopeChain);
-                    }
-                    else if (functionToCall is PyBuiltinFunction builtinFunc)
-                    {
-                        // Convert keyword arguments to PyDict
-                        PyDict? kwDict = null;
-                        if (keywordArgs.Count > 0)
-                        {
-                            kwDict = new PyDict();
-                            foreach (var kw in keywordArgs)
-                            {
-                                kwDict.SetItem(new PyStr(kw.name), kw.value);
-                            }
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = builtinFunc.Call(argsArray, kwDict);
-                    }
-                    else if (functionToCall is PyMethod method)
-                    {
-                        // Convert keyword arguments to PyDict
-                        PyDict? kwDict = null;
-                        if (keywordArgs.Count > 0)
-                        {
-                            kwDict = new PyDict();
-                            foreach (var kw in keywordArgs)
-                            {
-                                kwDict.SetItem(new PyStr(kw.name), kw.value);
-                            }
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = method.Call(argsArray, kwDict);
-                    }
-                    else
-                    {
-                        // Generic callable with kwargs
-                        PyDict? kwDict = null;
-                        if (keywordArgs.Count > 0)
-                        {
-                            kwDict = new PyDict();
-                            foreach (var kw in keywordArgs)
-                            {
-                                kwDict.SetItem(new PyStr(kw.name), kw.value);
-                            }
-                        }
-                        // Performance: Eliminated LINQ - manual List to array conversion
-                        var argsArray = new PyObject[argsList.Count];
-                        argsList.CopyTo(argsArray, 0);
-                        unpackedResult = functionToCall.Call(argsArray, kwDict);
-                    }
-
-                    frame.ValueStack.Push(unpackedResult);
-                    break;
+                    return ExecuteCallFunctionEx(frame, instruction);
 
                 case ByteCodeOp.DICT_MERGE:
                     // CPython 3.12: Merge dictionaries for **kwargs unpacking
@@ -3550,653 +5790,10 @@ namespace SharpPy
                 // Duplicate CALL case removed (was CALL_FUNCTION_KW)
 
                 case ByteCodeOp.MAKE_FUNCTION:
-                    // CPython 3.12 compatible function creation with full flags support
-                    var flags = instruction.Argument;
-
-                    PyCell[] closure = null;
-                    PyTuple defaults = null;
-                    PyTuple kwDefaults = null;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
-                    #endif
-                    #if DEBUG_LOG
-                    if (frame.ValueStack.Count > 0)
-                    {
-                        var debugStackItems = frame.ValueStack.ToArray();
-                        for (int i = 0; i < Math.Min(debugStackItems.Length, 5); i++)
-                        {
-                            Console.WriteLine($"   Stack[{i}]: {debugStackItems[i]?.GetType().Name} = {debugStackItems[i]}");
-                        }
-                    }
-                    #endif
-
-                    // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
-                    // 0x01 - HAS_DEFAULTS: function has positional default parameters
-                    // 0x02 - HAS_KW_DEFAULTS: function has keyword-only default parameters
-                    // 0x04 - HAS_ANNOTATIONS: function has annotations
-                    // 0x08 - HAS_CLOSURE: function uses closure variables
-                    // 0x10 - HAS_QUALNAME: function has qualified name (not used in basic implementation)
-
-                    // Process in correct stack order: code object first (TOS), then others as needed
-
-                    // First, pop the code object (always at TOS)
-                    var codeObject = frame.ValueStack.Pop();
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Popped code object: {codeObject?.GetType().Name} = {codeObject}");
-                    #endif
-
-                    // Check for closure flag (8 = HAS_CLOSURE) - processed next if present
-                    if ((flags & 8) != 0)
-                    {
-                        var closureTuple = frame.ValueStack.Pop();
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 Processing closure: {closureTuple?.GetType().Name} = {closureTuple}");
-                        #endif
-                        if (closureTuple is PyTuple closureTupleObj)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   Closure tuple has {closureTupleObj.Items.Length} items:");
-                            #endif
-                            for (int i = 0; i < closureTupleObj.Items.Length; i++)
-                            {
-                                var item = closureTupleObj.Items[i];
-                                #if DEBUG_LOG
-                                Console.WriteLine($"     Item[{i}]: {item?.GetType().Name} = {item}");
-                                #endif
-                            }
-                            try
-                            {
-                                // Performance: Eliminated LINQ - manual cast to PyCell array
-                                closure = new PyCell[closureTupleObj.Items.Length];
-                                for (int i = 0; i < closureTupleObj.Items.Length; i++)
-                                {
-                                    closure[i] = (PyCell)closureTupleObj.Items[i];
-                                }
-                                #if DEBUG_LOG
-                                Console.WriteLine($"  → Function has closure: {closure.Length} cells");
-                                #endif
-                            }
-                            catch (InvalidCastException e)
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"  ❌ Closure casting error: {e.Message}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"     Failed to cast items to PyCell");
-                                #endif
-                                throw;
-                            }
-                        }
-                        else
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for closure, got {closureTuple?.GetType()}");
-                            #endif
-                            closure = Array.Empty<PyCell>();
-                        }
-                    }
-
-                    // Check for annotations flag (4 = HAS_ANNOTATIONS)
-                    PyDict annotationsDict = null;
-                    if ((flags & 4) != 0)
-                    {
-                        var annotationsTuple = frame.ValueStack.Pop();
-                        if (annotationsTuple is PyTuple annTuple)
-                        {
-                            // CPython 3.12: Convert annotations tuple to dict
-                            // Tuple format: ('key1', type1, 'key2', type2, ...)
-                            // Dict format: {'key1': type1, 'key2': type2, ...}
-                            annotationsDict = new PyDict();
-                            for (int i = 0; i < annTuple.Items.Length; i += 2)
-                            {
-                                if (i + 1 < annTuple.Items.Length)
-                                {
-                                    var annKey = annTuple.Items[i];
-                                    var annValue = annTuple.Items[i + 1];
-                                    annotationsDict.SetItem(annKey, annValue);
-                                }
-                            }
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  → Function has annotations: {annTuple.Items.Length / 2} items");
-                            foreach (var kvp in annotationsDict.InternalDict)
-                            {
-                                Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
-                            }
-                            #endif
-                        }
-                        else
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for annotations, got {annotationsTuple?.GetType()}");
-                            #endif
-                            annotationsDict = new PyDict();
-                        }
-                    }
-
-                    // Check for keyword-only defaults flag (2 = HAS_KW_DEFAULTS)
-                    // CPython 3.12: kwdefaults is a dict (not a tuple)
-                    PyDict kwDefaultsDict = null;
-                    if ((flags & 2) != 0)
-                    {
-                        var kwDefaultsObj = frame.ValueStack.Pop();
-                        if (kwDefaultsObj is PyDict kwDefDict)
-                        {
-                            kwDefaultsDict = kwDefDict;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  → Function has keyword-only defaults: {kwDefDict.InternalDict.Count} items");
-                            foreach (var kvp in kwDefDict.InternalDict)
-                            {
-                                Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
-                            }
-                            #endif
-                        }
-                        else
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  ⚠️ Warning: Expected dict for kw-defaults, got {kwDefaultsObj?.GetType()}");
-                            #endif
-                            kwDefaultsDict = new PyDict();
-                        }
-                    }
-
-                    // Check for positional defaults flag (1 = HAS_DEFAULTS)
-                    if ((flags & 1) != 0)
-                    {
-                        var defaultsTuple = frame.ValueStack.Pop();
-                        if (defaultsTuple is PyTuple defTuple)
-                        {
-                            defaults = defTuple;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  → Function has positional defaults: {defTuple.Items.Length} parameters");
-                            #endif
-                        }
-                        else
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for defaults, got {defaultsTuple?.GetType()}");
-                            #endif
-                            defaults = new PyTuple(new PyObject[0]);
-                        }
-                    }
-
-                    if (codeObject is PyCodeObject pyCode)
-                    {
-                        // CPython 3.12: async def로 정의된 함수인지 확인
-                        if (pyCode.IsAsyncGenerator())
-                        {
-                            // Async generator: 호출 시 PyAsyncGenerator 객체 반환
-                            var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
-                            {
-                                var asyncGenFrame = PyFrame.Rent();
-                                asyncGenFrame.InitFull(pyCode, args, frame.ScopeChain, closure != null && closure.Length > 0 ? closure : null, frame);
-
-                                // Async generator 생성
-                                var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
-                                return new SharpPy.Core.PyAsyncGenerator(enumerator, pyCode.Name);
-                            });
-
-                            var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
-
-                            // Set CPython 3.12 compatible function attributes
-                            if (defaults != null)
-                            {
-                                asyncGenFunction.SetAttribute("__defaults__", defaults);
-                            }
-                            if (kwDefaultsDict != null)
-                            {
-                                asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
-                            }
-                            if (annotationsDict != null)
-                            {
-                                asyncGenFunction.SetAttribute("__annotations__", annotationsDict);
-                            }
-
-                            frame.ValueStack.Push(asyncGenFunction);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"✅ Created async generator function: {pyCode.Name}");
-                            #endif
-                        }
-                        else if (pyCode.IsCoroutine())
-                        {
-                            // CPython 3.12: Capture globals from current frame's GlobalScope
-                            var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
-
-                            // Async function: 호출 시 PyCoroutine 객체 반환
-                            var asyncImpl = new Func<PyObject[], PyObject>(args =>
-                            {
-                                var functionScopeChain = new PyScopeChain(globalsDict, "<async function>");
-                                var asyncFrame = PyFrame.Rent();
-                                asyncFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame);
-
-                                // Native coroutine 생성
-                                return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
-                            });
-
-                            var asyncFunction = new PyFunction(pyCode.Name, asyncImpl, null, null, closure, pyCode);
-                            asyncFunction.GlobalsDict = globalsDict;
-
-                            // Set CPython 3.12 compatible function attributes
-                            if (defaults != null)
-                            {
-                                asyncFunction.SetAttribute("__defaults__", defaults);
-                            }
-                            if (kwDefaultsDict != null)
-                            {
-                                asyncFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
-                            }
-                            if (annotationsDict != null)
-                            {
-                                asyncFunction.SetAttribute("__annotations__", annotationsDict);
-                            }
-
-                            frame.ValueStack.Push(asyncFunction);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"✅ Created async function: {pyCode.Name}");
-                            #endif
-                        }
-                        else
-                        {
-                            // Regular function
-                            PyFunction functionObject;
-
-                            // CPython 3.12: Capture globals from current frame's GlobalScope
-                            // This is equivalent to CPython's GLOBALS() macro: frame->f_globals
-                            var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
-
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"[GLOBALS CAPTURE] MAKE_FUNCTION for {pyCode.Name}:");
-                            Console.WriteLine($"  frame.ScopeChain.GlobalScope.Name: {frame.ScopeChain.GlobalScope?.Name}");
-                            Console.WriteLine($"  globalsDict count: {globalsDict?.Count ?? 0}");
-                            #endif
-                            if (globalsDict != null)
-                            {
-                                #if DEBUG_VM_LOG
-                                // Performance: Eliminated LINQ - manual key preview
-                                var keyCount = Math.Min(10, globalsDict.Keys.Count);
-                                var keys = new string[keyCount];
-                                int keyIdx = 0;
-                                foreach (var key in globalsDict.Keys)
-                                {
-                                    if (keyIdx >= keyCount) break;
-                                    keys[keyIdx++] = key;
-                                }
-                                Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
-                                Console.WriteLine($"  globalsDict reference hash: {globalsDict.GetHashCode()}");
-                                #endif
-                            }
-
-                            // Create function implementation with proper parameter binding
-                            // CPython 3.12: Capture defaults at function definition time
-                            var capturedDefaults = defaults; // Capture for closure
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"[DEFAULTS CAPTURE] Capturing defaults for {pyCode.Name}:");
-                            Console.WriteLine($"  defaults is null: {defaults == null}");
-                            if (defaults != null)
-                            {
-                                Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
-                                for (int i = 0; i < defaults.Items.Length; i++)
-                                {
-                                    Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
-                                }
-                            }
-                            #endif
-                            Func<PyObject[], PyObject> implementation = args =>
-                            {
-                            // CPython 3.12: Create new ScopeChain with captured globals
-                            // The function's globals are fixed at function definition time
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
-                            Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
-                            Console.WriteLine($"  capturedDefaults is null: {capturedDefaults == null}");
-                            if (capturedDefaults != null)
-                            {
-                                Console.WriteLine($"  capturedDefaults.Items.Length: {capturedDefaults.Items.Length}");
-                                for (int i = 0; i < capturedDefaults.Items.Length; i++)
-                                {
-                                    Console.WriteLine($"  capturedDefaults[{i}]: {capturedDefaults.Items[i]}");
-                                }
-                            }
-                            #endif
-                            if (globalsDict != null)
-                            {
-                                #if DEBUG_VM_LOG
-                                // Performance: Eliminated LINQ - manual key preview
-                                var keyCount = Math.Min(10, globalsDict.Keys.Count);
-                                var keys = new string[keyCount];
-                                int keyIdx = 0;
-                                foreach (var key in globalsDict.Keys)
-                                {
-                                    if (keyIdx >= keyCount) break;
-                                    keys[keyIdx++] = key;
-                                }
-                                Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", keys)}");
-                                Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
-                                #endif
-                            }
-
-                            if (globalsDict == null)
-                            {
-                                throw new InvalidOperationException($"Function {pyCode.Name} has null globals!");
-                            }
-
-                            var functionScopeChain = new PyScopeChain(globalsDict, "<function>");
-
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"  New ScopeChain GlobalScope count: {functionScopeChain.GlobalScope?.Variables.Count ?? 0}");
-                            Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
-                            #endif
-
-                            var functionFrame = PyFrame.Rent();
-                            functionFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame, capturedDefaults);
-                            return ExecuteFrame(functionFrame);
-                        };
-
-                        if (closure != null && closure.Length > 0)
-                        {
-                            // Create function with closure
-                            functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
-                            // Override implementation to use our parameter binding
-                            functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
-                            functionObject.ParentScope = frame.ScopeChain;
-                            functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
-                        }
-                        else
-                        {
-                            // Create regular function without closure
-                            functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
-                            functionObject.ParentScope = frame.ScopeChain;
-                            functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
-                        }
-
-                            // Set CPython 3.12 compatible function attributes
-                            if (defaults != null)
-                            {
-                                functionObject.SetAttribute("__defaults__", defaults);
-                            }
-                            if (kwDefaultsDict != null)
-                            {
-                                functionObject.SetAttribute("__kwdefaults__", kwDefaultsDict);
-                            }
-                            if (annotationsDict != null)
-                            {
-                                functionObject.SetAttribute("__annotations__", annotationsDict);
-                            }
-
-                            frame.ValueStack.Push(functionObject);
-                        }
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"MAKE_FUNCTION expected code object, got {codeObject?.GetType()}");
-                    }
-                    break;
+                    return ExecuteMakeFunction(frame, instruction);
 
                 case ByteCodeOp.LOAD_ATTR:
-                    // CPython 3.12: LOAD_ATTR with flag encoding
-                    // oparg encoding: (nameIndex << 1) | pushNull
-                    // If pushNull=1: Push two values [self/NULL, method/attr] for method call optimization
-                    // If pushNull=0: Push one value [attr] for simple attribute access
-                    {
-                        int attrOparg = instruction.Argument;
-                        bool pushNullForMethod = (attrOparg & 1) == 1;
-                        int attrNameIndex = attrOparg >> 1;
-
-                        var attrName = frame.Code.Names[attrNameIndex];
-                        var obj = frame.ValueStack.Pop();
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 LOAD_ATTR: attribute '{attrName}' from object type: {obj.GetType().Name}, PyType: {obj.GetTypeName()}, pushNull={pushNullForMethod}");
-                        if (obj is PyClassInstance objClassInst)
-                        {
-                            Console.WriteLine($"   → PyClassInstance of class: {objClassInst.PyClass.Name}");
-                        }
-                        #endif
-
-                        // CPython 3.12: _PyObject_GetMethod fast path for PyClassInstance
-                        // Avoid GetAttribute() which creates PyMethod heap allocation
-                        // Instead, find unbound function and push [function, self] for CALL's swap logic
-                        if (pushNullForMethod && obj is PyClassInstance fastInst)
-                        {
-                            // Check inline cache first
-                            // CPython 3.12: LOAD_ATTR_METHOD_WITH_VALUES specialization
-                            var attrCache = frame.Code.LoadAttrCache;
-                            int attrIp = frame.InstructionPointer;
-                            if (attrCache != null
-                                && attrCache[attrIp].TypeVersionTag == fastInst.InstanceType.TypeVersionTag
-                                && attrCache[attrIp].CachedValue != null)
-                            {
-                                frame.ValueStack.Push(attrCache[attrIp].CachedValue);
-                                frame.ValueStack.Push(obj);
-                                break;
-                            }
-
-                            // Check instance dict first (monkey-patched methods are already bound)
-                            if (!fastInst.InstanceDict.ContainsKey(attrName))
-                            {
-                                // Search ClassDict in MRO for unbound function
-                                PyObject unboundFunc = null;
-                                foreach (var mroType in fastInst.InstanceType.MRO)
-                                {
-                                    if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out var classVal))
-                                    {
-                                        if (classVal is PyFunction)
-                                        {
-                                            unboundFunc = classVal;
-                                        }
-                                        // staticmethod, classmethod, descriptor, etc. → fall through
-                                        break;
-                                    }
-                                }
-
-                                if (unboundFunc != null)
-                                {
-                                    // Populate inline cache
-                                    if (attrCache == null)
-                                    {
-                                        attrCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
-                                        frame.Code.LoadAttrCache = attrCache;
-                                    }
-                                    attrCache[attrIp].TypeVersionTag = fastInst.InstanceType.TypeVersionTag;
-                                    attrCache[attrIp].CachedValue = unboundFunc;
-                                    attrCache[attrIp].IsMethod = true;
-
-                                    frame.ValueStack.Push(unboundFunc);
-                                    frame.ValueStack.Push(obj);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Fast method path: pushed [meth, self] (no PyMethod alloc)");
-                                    #endif
-                                    break;
-                                }
-                                // Not a simple PyFunction → fall through to GetAttribute
-                            }
-                        }
-
-                        // CPython 3.12: LOAD_ATTR_INSTANCE_VALUE fast path
-                        // For non-method attribute access on PyClassInstance:
-                        // Check InstanceDict first (most common case), skip full GetAttribute MRO traversal
-                        if (!pushNullForMethod && obj is PyClassInstance attrInst)
-                        {
-                            if (attrInst.InstanceDict.TryGetValue(attrName, out var instVal))
-                            {
-                                frame.ValueStack.Push(instVal);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → LOAD_ATTR_INSTANCE_VALUE fast path: {attrName} = {instVal}");
-                                #endif
-                                break;
-                            }
-                            // Not in instance dict — check class dict for data descriptors and non-method attrs
-                            // Fall through to full GetAttribute for descriptor protocol
-                        }
-
-                        // Fast path: PyStr/PyList/PyDict method lookup with inline cache
-                        // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT / LOAD_ATTR_SLOT specialization
-                        if (pushNullForMethod)
-                        {
-                            // Check inline cache for builtin type methods
-                            // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT — builtin types are monomorphic per-instruction
-                            var btCache = frame.Code.LoadAttrCache;
-                            int btIp = frame.InstructionPointer;
-                            if (btCache != null
-                                && btCache[btIp].CachedValue is PyMethodDescriptor cachedDesc
-                                && btCache[btIp].TypeVersionTag == (ulong)obj.GetType().GetHashCode())
-                            {
-                                frame.ValueStack.Push(cachedDesc);
-                                frame.ValueStack.Push(obj);
-                                break;
-                            }
-
-                            PyType builtinType = null;
-                            if (obj is PyStr) builtinType = PyType.StrType;
-                            else if (obj is PyList) builtinType = PyType.ListType;
-                            else if (obj is PyDict) builtinType = PyType.DictType;
-
-                            if (builtinType != null && builtinType.TypeDict.TryGetValue(attrName, out var descriptor)
-                                && descriptor is PyMethodDescriptor)
-                            {
-                                // Populate cache for builtin type methods
-                                if (btCache == null)
-                                {
-                                    btCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
-                                    frame.Code.LoadAttrCache = btCache;
-                                }
-                                btCache[btIp].TypeVersionTag = (ulong)obj.GetType().GetHashCode();
-                                btCache[btIp].CachedValue = descriptor;
-
-                                frame.ValueStack.Push(descriptor);
-                                frame.ValueStack.Push(obj);
-                                break;
-                            }
-                        }
-
-                        // Get attribute using existing system
-                        var attr = obj.GetAttribute(attrName);
-
-                        if (pushNullForMethod)
-                        {
-                            // CPython 3.12: Objects/object.c:1310-1410 (_PyObject_GetMethod)
-                            // Method call optimization logic
-
-                            // CPython 3.12: Objects/object.c:1322-1326
-                            // If object has custom tp_getattro (overrides GetAttribute), use simple GetAttr
-                            // This returns 0 → push [NULL, attr]
-                            // Performance: Cache Reflection result per type to avoid repeated GetMethod calls
-                            var objType = obj.GetType();
-                            if (!_hasCustomGetAttributeCache.TryGetValue(objType, out bool hasCustomGetAttribute))
-                            {
-                                var getAttrMethod = objType.GetMethod("GetAttribute",
-                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                                hasCustomGetAttribute = getAttrMethod != null && getAttrMethod.DeclaringType != typeof(PyObject);
-                                _hasCustomGetAttributeCache[objType] = hasCustomGetAttribute;
-                            }
-                            #if DEBUG_LOG
-                            if (hasCustomGetAttribute)
-                                Console.WriteLine($"   → Object has custom GetAttribute override: {objType.Name}");
-                            #endif
-
-                            if (hasCustomGetAttribute)
-                            {
-                                // CPython: Custom tp_getattro → push [NULL, attr]
-                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
-                                frame.ValueStack.Push(attr);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Custom GetAttribute: pushed [NULL, attr]");
-                                #endif
-                            }
-                            else if (attr is PyMethod boundMethod)
-                            {
-                                // CPython 3.12: Decompose PyMethod → push [meth, self]
-                                // Avoids passing PyMethod through stack; CALL's swap handles binding
-                                frame.ValueStack.Push(boundMethod.Function); // meth → PEEK(2)
-                                frame.ValueStack.Push(boundMethod.Instance); // self → PEEK(1)
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Bound method decomposed: pushed [meth, self]");
-                                #endif
-                            }
-                            else if (attr is PyFunction || attr is PyBuiltinFunction)
-                            {
-                                // CPython 3.12: Objects/descrobject.c:271-286 (func_descr_get)
-                                // Function descriptor protocol:
-                                // - Access from TYPE/CLASS → return unbound function
-                                // - Access from INSTANCE → return bound method (push [self, function])
-                                // - staticmethod → always return unbound function
-                                // - instance.__dict__ function → return unbound function (not a method!)
-
-                                // Check if obj is a type/class object
-                                // CPython: PyType_Check(obj) - checks if obj is type or class
-                                // CPython 3.12: Objects/funcobject.c:1228-1238 (sm_descr_get), 1058-1064 (cm_descr_get)
-                                // staticmethod/classmethod: __func__/__wrapped__ returns unbound callable
-                                bool isTypeOrClass = (obj is PyType) || (obj is PyClass) || (obj is PyStaticmethod) || (obj is PyClassmethod);
-
-                                // Check if obj is module or super (also return unbound)
-                                bool isModuleOrSuper = (obj is PyModule) || (obj is PySuper);
-
-                                // CPython: Check if attribute is from instance __dict__ (not a method!)
-                                // Instance attributes that are functions are NOT bound as methods
-                                bool isInstanceAttribute = false;
-                                bool isStaticMethod = false;
-                                if (obj is PyClassInstance classInstance)
-                                {
-                                    isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
-                                    // Lazy staticmethod check: only when it's not an instance attribute
-                                    if (!isInstanceAttribute)
-                                    {
-                                        foreach (var mroType in classInstance.InstanceType.MRO)
-                                        {
-                                            if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out PyObject classValue))
-                                            {
-                                                isStaticMethod = classValue is PyStaticmethod;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (isTypeOrClass || isModuleOrSuper || isStaticMethod || isInstanceAttribute)
-                                {
-                                    // Class/type access, staticmethod, or instance attribute: push [NULL, function]
-                                    // CPython 3.12: No method binding - return function as-is
-                                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
-                                    frame.ValueStack.Push(attr); // unbound function
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Type/class/staticmethod/instance-attr access: pushed [NULL, function]");
-                                    #endif
-                                }
-                                else
-                                {
-                                    // CPython 3.12: _PyObject_GetMethod → push [meth, self]
-                                    // meth | self | arg1 | ... | argN
-                                    // CALL's swap: actualCallable=meth, finalArgs=[self, args]
-                                    frame.ValueStack.Push(attr); // meth (unbound function) → PEEK(2)
-                                    frame.ValueStack.Push(obj);  // self (instance) → PEEK(1)
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Instance method access: pushed [meth, self] (CPython pattern)");
-                                    #endif
-                                }
-                            }
-                            else
-                            {
-                                // It's a regular attribute or callable descriptor: push [NULL, attr]
-                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
-                                frame.ValueStack.Push(attr);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Regular attribute: pushed [NULL, attr]");
-                                #endif
-                            }
-                        }
-                        else
-                        {
-                            // Simple attribute access: push [attr]
-                            frame.ValueStack.Push(attr);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → Simple access: pushed [attr]");
-                            #endif
-                        }
-                    }
-                    break;
+                    return ExecuteLoadAttr(frame, instruction);
 
                 case ByteCodeOp.STORE_ATTR:
                     var setAttrName = frame.Code.Names[instruction.Argument];
@@ -4251,151 +5848,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_SUPER_ATTR:
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
-                    #endif
-                    // CPython 3.12: super() attribute access
-                    // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
-                    // oparg format: (name_index << 1) | method_flag
-                    int superOparg = instruction.Argument;
-                    int superMethodFlag = superOparg & 1;  // Low bit: method flag
-                    int superAttrIndex = superOparg >> 1;  // High bits: name index
-                    var superAttrName = frame.Code.Names[superAttrIndex];
-                    var selfObj = frame.ValueStack.Pop();         // self
-                    var classObj = frame.ValueStack.Pop();        // __class__
-                    var superFunc = frame.ValueStack.Pop();       // super function
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
-                    #endif
-
-                    // Call super(__class__, self) to create super proxy, then get attribute
-                    try
-                    {
-                        // Create super proxy by calling super() with class and self
-                        var superArgs = new PyObject[] { classObj, selfObj };
-                        PyObject superProxy;
-
-                        if (superFunc is PyBuiltinFunction builtinSuper)
-                        {
-                            superProxy = builtinSuper.Call(superArgs, null);
-                        }
-                        else if (superFunc is PyFunction userSuper)
-                        {
-                            superProxy = userSuper.Call(superArgs, null);
-                        }
-                        else
-                        {
-                            throw PyRuntimeError.Create($"super object must be callable, got {superFunc.GetType().Name}");
-                        }
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: calling GetAttribute({superAttrName}) on super proxy");
-                        #endif
-
-                        var superAttr = superProxy.GetAttribute(superAttrName);
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: found attribute type: {superAttr?.GetType().Name ?? "null"}");
-                        #endif
-
-                        // CPython 3.12: LOAD_SUPER_ATTR automatically binds methods to self
-                        // IMPORTANT: class-mode super (selfObj is a type) should NOT auto-bind
-                        PyObject finalAttr = superAttr;
-
-                        // Check if this is class-mode super: selfObj is the class itself (PyType or PyClass)
-                        bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: isClassModeSuper={isClassModeSuper}, selfObj type={selfObj.GetType().Name}");
-                        #endif
-
-                        if (!isClassModeSuper)
-                        {
-                            // Instance-mode super: auto-bind methods to instance
-                            if (superAttr is PyFunction pyFunc)
-                            {
-                                finalAttr = new PyMethod(selfObj, pyFunc);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
-                                #endif
-                            }
-                            else if (superAttr is PyBuiltinFunction builtinFunc)
-                            {
-                                // Convert PyBuiltinFunction to PyFunction for proper binding
-                                var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
-                                finalAttr = new PyMethod(selfObj, func);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
-                                #endif
-                            }
-                            else if (superAttr is PyBuiltinMethod builtinMethod)
-                            {
-                                // Convert PyBuiltinMethod to PyFunction for proper binding
-                                var func = new PyFunction(builtinMethod.Name, args => builtinMethod.Call(args, null));
-                                finalAttr = new PyMethod(selfObj, func);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
-                                #endif
-                            }
-                            else if (superAttr is PyMethod existingMethod)
-                            {
-                                // CPython 3.12: Check if this is a classmethod-bound method
-                                // If Instance is already a class (PyType/PyClass), don't re-bind to instance
-                                // This preserves classmethod behavior where cls should be the class, not instance
-                                if (existingMethod.Instance is PyType || existingMethod.Instance is PyClass)
-                                {
-                                    // classmethod: Instance is already the class, keep as-is
-                                    finalAttr = existingMethod;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: keeping classmethod {superAttrName} bound to class {existingMethod.Instance}");
-                                    #endif
-                                }
-                                else
-                                {
-                                    // Regular method: re-bind to current self
-                                    finalAttr = new PyMethod(selfObj, existingMethod.Function);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
-                                    #endif
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Class-mode super: do NOT auto-bind, return as-is
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: class-mode super, NOT binding {superAttrName}");
-                            #endif
-                        }
-
-                        // CPython 3.12: Push result based on method flag
-                        if (superMethodFlag == 1)
-                        {
-                            // Method call: push [NULL, bound_method] for CALL optimization
-                            frame.ValueStack.Push(PyNone.Instance);  // NULL marker
-                            frame.ValueStack.Push(finalAttr);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (method call): pushed [NULL, {finalAttr.GetType().Name}]");
-                            #endif
-                        }
-                        else
-                        {
-                            // Value access: push [attr_value]
-                            frame.ValueStack.Push(finalAttr);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (value access): pushed [{finalAttr.GetType().Name}]");
-                            #endif
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR failed: {ex.Message}");
-                        #endif
-                        throw;
-                    }
-                    break;
+                    return ExecuteLoadSuperAttr(frame, instruction);
 
                 // CPython 3.12: Pattern matching opcodes
                 case ByteCodeOp.MATCH_MAPPING:
@@ -4528,139 +5981,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MATCH_CLASS:
-                    // CPython 3.12: Python/bytecodes.c:2230-2243 - MATCH_CLASS opcode
-                    // CPython 3.12: Python/ceval.c:406-428 - match_class_attr helper
-                    // CPython 3.12: Python/ceval.c:430-533 - match_class helper
-                    // Match class pattern - structural pattern matching (PEP 634)
-                    var classKwNames = frame.ValueStack.Pop(); // keyword names tuple (unused for now)
-                    var classToMatch = frame.ValueStack.Pop(); // class to match against
-                    var classSubject = frame.ValueStack.Pop(); // subject to match
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 MATCH_CLASS: subject={classSubject?.GetType().Name}, classToMatch={classToMatch?.GetType().Name}");
-                    #endif
-
-                    try
-                    {
-                        // Check isinstance(subject, classToMatch) - supports both built-in and custom types
-                        bool isInstance = false;
-
-                        // Handle custom classes FIRST (PyClass inherits from PyType, so check this first)
-                        if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 MATCH_CLASS: Checking custom class {targetClass.Name}");
-                            #endif
-                            isInstance = (instance.InstanceType == targetClass);
-                        }
-                        // Handle built-in types (int, str, list, etc.)
-                        else if (classToMatch is PyType builtinType)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 MATCH_CLASS: Checking built-in type {builtinType.Name}");
-                            #endif
-
-                            if (builtinType.Name == "int" && classSubject is PyInt)
-                                isInstance = true;
-                            else if (builtinType.Name == "str" && classSubject is PyStr)
-                                isInstance = true;
-                            else if (builtinType.Name == "list" && classSubject is PyList)
-                                isInstance = true;
-                            else if (builtinType.Name == "dict" && classSubject is PyDict)
-                                isInstance = true;
-                            else if (builtinType.Name == "tuple" && classSubject is PyTuple)
-                                isInstance = true;
-                            else if (builtinType.Name == "float" && classSubject is PyFloat)
-                                isInstance = true;
-                            else if (builtinType.Name == "bool" && classSubject is PyBool)
-                                isInstance = true;
-                        }
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 MATCH_CLASS: isInstance = {isInstance}");
-                        #endif
-
-                        if (isInstance)
-                        {
-                            var positionalCount = instruction.Argument;
-
-                            // CPython 3.12 behavior: Extract attribute values based on keyword names tuple
-                            if (classKwNames is PyTuple classKwNamesTuple && classKwNamesTuple.Items.Length > 0 &&
-                                classSubject is PyClassInstance classSubjectInstance)
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔍 MATCH_CLASS: Extracting {classKwNamesTuple.Items.Length} attributes");
-                                #endif
-
-                                // Extract attribute values in the order specified by keyword names
-                                var attrs = new List<PyObject>();
-                                for (int i = 0; i < classKwNamesTuple.Items.Length; i++)
-                                {
-                                    var classAttrName = classKwNamesTuple.Items[i].ToStr().Value;
-                                    var classAttrValue = classSubjectInstance.GetAttribute(classAttrName);
-                                    attrs.Add(classAttrValue ?? PyNone.Instance);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔍 MATCH_CLASS: Extracted {classAttrName} = {classAttrValue}");
-                                    #endif
-                                }
-
-                                // Performance: Eliminated LINQ - manual List to array + Cache
-                                var attrsArray = new PyObject[attrs.Count];
-                                attrs.CopyTo(attrsArray, 0);
-                                frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
-                            }
-                            else if (classToMatch is PyClass cls && positionalCount > 0 &&
-                                     cls.GetAttribute("__match_args__") is PyTuple matchArgs)
-                            {
-                                // Extract positional attributes for custom classes
-                                var attrs = new List<PyObject>();
-
-                                for (int i = 0; i < Math.Min(positionalCount, matchArgs.Items.Length); i++)
-                                {
-                                    var matchArgName = matchArgs.Items[i].ToStr().Value;
-
-                                    if (classSubject is PyClassInstance matchSubjectInstance)
-                                    {
-                                        var matchAttrValue = matchSubjectInstance.GetAttribute(matchArgName);
-                                        attrs.Add(matchAttrValue ?? PyNone.Instance);
-                                    }
-                                }
-
-                                // Performance: Eliminated LINQ - manual List to array + Cache
-                                var attrsArray = new PyObject[attrs.Count];
-                                attrs.CopyTo(attrsArray, 0);
-                                frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
-                            }
-                            else
-                            {
-                                // CPython 3.12: Python/ceval.c:515-523
-                                // For built-in types (int, str, etc.) with positional patterns like case int(x):
-                                // Return tuple containing the subject if positionalCount > 0
-                                // This allows unpacking: case int(x): captures x=5 from match 5
-                                if (positionalCount > 0)
-                                {
-                                    frame.ValueStack.Push(new PyTuple(new[] { classSubject }));
-                                }
-                                else
-                                {
-                                    // No attributes to extract, return empty tuple
-                                    frame.ValueStack.Push(new PyTuple(new PyObject[0]));
-                                }
-                            }
-                        }
-                        else
-                        {
-                            frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: None on failure
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🚨 MATCH_CLASS error: {ex.Message}");
-                        #endif
-                        frame.ValueStack.Push(PyNone.Instance);
-                    }
-                    break;
+                    return ExecuteMatchClass(frame, instruction);
 
                 case ByteCodeOp.RETURN_VALUE:
                     var returnValue = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
@@ -5041,113 +6362,7 @@ namespace SharpPy
                 // Similar to STORE_SUBSCR, we need to lookup __getitem__ via MRO
                 // to support user-defined __getitem__ methods in subclasses
                 case ByteCodeOp.BINARY_SUBSCR:
-                    var subscriptKeyVal = frame.ValueStack.PopValue();
-                    var subscriptObjVal = frame.ValueStack.PopValue();
-
-                    try
-                    {
-                        // CPython 3.12: Objects/abstract.c:171-201 (PyObject_GetItem)
-                        // Fast path for built-in types: skip GetPyType()/LookupSpecial() MRO traversal
-                        // Use PyValue-level dispatch to avoid PyObject boxing
-                        PyObject subscriptResult;
-                        var subscriptObj = subscriptObjVal.Tag == PyValue.TAG_OBJECT ? subscriptObjVal.ObjRef : subscriptObjVal.ToObject();
-
-                        if (subscriptObj is PyList subscriptList)
-                        {
-                            // Fast path: PyList[int] — avoid TryGetIndex/BigInteger conversion
-                            if (subscriptKeyVal.IsIntLike)
-                                subscriptResult = subscriptList.GetItem((int)subscriptKeyVal.AsInt64);
-                            else
-                                subscriptResult = subscriptList.GetItem(subscriptKeyVal.ToObject());
-                        }
-                        else if (subscriptObj is PyDict subscriptDict)
-                        {
-                            subscriptResult = subscriptDict.GetItem(subscriptKeyVal.ToObject());
-                        }
-                        else if (subscriptObj is PyStr subscriptStr)
-                        {
-                            // Fast path: PyStr[int]
-                            if (subscriptKeyVal.IsIntLike)
-                                subscriptResult = subscriptStr.GetItem((int)subscriptKeyVal.AsInt64);
-                            else
-                                subscriptResult = subscriptStr.GetItem(subscriptKeyVal.ToObject());
-                        }
-                        else if (subscriptObj is PyTuple subscriptTuple)
-                        {
-                            // Fast path: PyTuple[int]
-                            if (subscriptKeyVal.IsIntLike)
-                                subscriptResult = subscriptTuple.GetItem((int)subscriptKeyVal.AsInt64);
-                            else
-                                subscriptResult = subscriptTuple.GetItem(subscriptKeyVal.ToObject());
-                        }
-                        else if (subscriptObj is PyType typeObj)
-                        {
-                            // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
-                            // See Objects/typeobject.c:type_subscript
-                            var classGetitemAttr = typeObj.LookupSpecial("__class_getitem__");
-
-                            var subscriptKey = subscriptKeyVal.ToObject();
-                            if (classGetitemAttr != null && classGetitemAttr is PyBuiltinClassMethod classMethod)
-                            {
-                                subscriptResult = classMethod.Call(new[] { typeObj, subscriptKey }, null);
-                            }
-                            else if (classGetitemAttr != null && classGetitemAttr is IDescriptor descriptor)
-                            {
-                                var boundMethod = descriptor.Get(null, typeObj);
-                                subscriptResult = boundMethod.Call(new[] { subscriptKey }, null);
-                            }
-                            else if (classGetitemAttr != null)
-                            {
-                                subscriptResult = classGetitemAttr.Call(new[] { typeObj, subscriptKey }, null);
-                            }
-                            else
-                            {
-                                subscriptResult = subscriptObj.GetItem(subscriptKey);
-                            }
-                        }
-                        else
-                        {
-                            // Regular instance subscripting - use __getitem__ via MRO
-                            var subscriptKey = subscriptKeyVal.ToObject();
-                            var objType = subscriptObj.GetPyType();
-                            var getitemAttr = objType.LookupSpecial("__getitem__");
-
-                            if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
-                            {
-                                subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
-                            }
-                            else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
-                            {
-                                subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
-                            }
-                            else
-                            {
-                                subscriptResult = subscriptObj.GetItem(subscriptKey);
-                            }
-                        }
-
-                        frame.ValueStack.Push(subscriptResult);
-                    }
-                    catch (Exception ex) when (ex is PythonException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        if (ex.Message.Contains("key") || ex.Message.Contains("Key"))
-                        {
-                            throw PyKeyError.Create(ex.Message.Replace("subscript error: ", ""));
-                        }
-                        else if (ex.Message.Contains("index") || ex.Message.Contains("range"))
-                        {
-                            throw PyIndexError.Create(ex.Message.Replace("subscript error: ", ""));
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"subscript error: {ex.Message}");
-                        }
-                    }
-                    break;
+                    return ExecuteBinarySubscr(frame, instruction);
 
                 // CPython 3.12: Python/bytecodes.c STORE_SUBSCR
                 // CPython 3.12: Objects/abstract.c:203-234 (PyObject_SetItem)
@@ -5863,148 +7078,7 @@ namespace SharpPy
 
 
                 case ByteCodeOp.WITH_EXCEPT_START:
-                    // CPython 3.12: WITH_EXCEPT_START implementation
-                    // Stack: [..., __exit__, exception, exc_type, exc_value, exc_traceback, lasti]
-                    // Goal: Call __exit__(exc_type, exc_value, exc_traceback) and push result
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: stack size = {frame.ValueStack.Count}");
-                    #endif
-
-                    // Debug: Print current stack contents from top to bottom
-                    // Use PyStack.Reverse() for efficient iteration
-                    int debugIdx = 0;
-                    foreach (var item in frame.ValueStack.Reverse())
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 Stack[{debugIdx}]: {item}");
-                        debugIdx++;
-                        #endif
-                    }
-
-                    // CPython 3.12: Dynamic stack validation - check for required objects by type
-                    if (frame.ValueStack.Count == 0)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Empty stack");
-                        #endif
-                        frame.ValueStack.Push(PyBool.False);
-                        break;
-                    }
-
-                    // CPython 3.12: Stack layout (CPython bytecodes.c:2523-2549)
-                    // TOS: val (exception instance)
-                    // TOS-1: unused (previous exception)
-                    // TOS-2: lasti (instruction index as PyLong)
-                    // TOS-3: exit_func (__exit__ method)
-
-                    // Pop stack in reverse order
-                    var val = frame.ValueStack.Pop();      // TOS
-                    var unused = frame.ValueStack.Pop();   // TOS-1
-                    var lasti = frame.ValueStack.Pop();    // TOS-2
-                    var exit_func = frame.ValueStack.Pop(); // TOS-3
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Extracted from stack:");
-                    Console.WriteLine($"   val (exc) = {val}");
-                    Console.WriteLine($"   unused (prev_exc) = {unused}");
-                    Console.WriteLine($"   lasti = {lasti}");
-                    Console.WriteLine($"   exit_func = {exit_func}");
-                    #endif
-
-                    // Validate val is an exception
-                    if (!(val is PyException pyExcVal))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: val is not PyException, got {val?.GetType().Name}");
-                        #endif
-                        // Restore stack and return False
-                        frame.ValueStack.Push(exit_func);
-                        frame.ValueStack.Push(lasti);
-                        frame.ValueStack.Push(unused);
-                        frame.ValueStack.Push(val);
-                        frame.ValueStack.Push(PyBool.False);
-                        break;
-                    }
-
-                    // CPython bytecodes.c:2535: exc = PyExceptionInstance_Class(val)
-                    var exc_type = pyExcVal.GetPyType();
-
-                    // CPython bytecodes.c:2536-2542: tb = PyException_GetTraceback(val)
-                    PyObject exc_tb;
-                    try
-                    {
-                        var tb_attr = pyExcVal.GetAttribute("__traceback__");
-                        exc_tb = (tb_attr == PyNone.Instance) ? PyNone.Instance : tb_attr;
-                    }
-                    catch
-                    {
-                        exc_tb = PyNone.Instance;
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Calling exit_func(exc_type={exc_type}, val={val}, tb={exc_tb})");
-                    #endif
-
-                    // CPython bytecodes.c:2545-2546: Call __exit__(exc_type, val, tb)
-                    bool suppressException = false;
-                    if (exit_func?.IsCallable() == true)
-                    {
-                        try
-                        {
-                            var exitResult = exit_func.Call(new PyObject[] {
-                                exc_type,
-                                val,
-                                exc_tb
-                            }, null);
-
-                            // Convert result to boolean
-                            suppressException = exitResult.AsBool() == PyBool.True;
-
-                            #if DEBUG_LOG
-                            Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult} (suppress={suppressException})");
-                            #endif
-                        }
-                        catch (Exception exitException)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"❌ WITH_EXCEPT_START: __exit__ threw exception: {exitException.Message}");
-                            #endif
-                            // Re-throw the new exception from __exit__
-                            var newPyException = ConvertToPythonException(exitException);
-                            throw new PythonException(newPyException);
-                        }
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: exit_func not callable: {exit_func?.GetType().Name}");
-                        #endif
-                    }
-
-                    // CPython bytecodes.c: Restore stack and push result
-                    // Stack after: [..., exit_func, lasti, unused, val, res]
-                    frame.ValueStack.Push(exit_func);
-                    frame.ValueStack.Push(lasti);
-                    frame.ValueStack.Push(unused);
-                    frame.ValueStack.Push(val);
-                    frame.ValueStack.Push(PyBool.FromBool(suppressException));
-
-                    // DEBUG: 스택 상태 확인
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 WITH_EXCEPT_START 완료 후 스택 크기: {frame.ValueStack.Count}");
-                    #endif
-                    #if DEBUG_LOG
-                    for (int i = 0; i < Math.Min(frame.ValueStack.Count, 5); i++)
-                    {
-                        var debugItem = frame.ValueStack.ToArray()[frame.ValueStack.Count - 1 - i];
-                        Console.WriteLine($"  Stack[{frame.ValueStack.Count - 1 - i}]: {debugItem}");
-                    }
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
-                    #endif
-                    break;
+                    return ExecuteWithExceptStart(frame, instruction);
 
                 // CPython 3.12: EXCEPT_MATCH removed, exception matching now uses IS_OP
 
@@ -6049,501 +7123,13 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RAISE_VARARGS:
-                    // instruction.Argument indicates the number of arguments to the raise statement
-                    // 0: bare raise (reraise)
-                    // 1: raise exc
-                    // 2: raise exc from cause
-                    if (instruction.Argument == 2)
-                    {
-                        // raise exc from cause - exception chaining
-                        // Stack: TOS = cause, TOS1 = exc
-                        var cause = frame.ValueStack.Pop();  // Pop TOS (cause)
-                        var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
-
-                        // Handle exc - could be a type or an instance
-                        PyException excInstance;
-                        if (exc is PyException pyExc2)
-                        {
-                            // Already a PyException instance
-                            excInstance = pyExc2;
-                        }
-                        else if (exc is PyType pyType)
-                        {
-                            // Exception class (PyType) - instantiate it
-                            var instance = pyType.Call(Array.Empty<PyObject>());
-                            if (instance is PyException pyExcInst)
-                            {
-                                excInstance = pyExcInst;
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else if (exc is PyBuiltinType builtinType)
-                        {
-                            // Builtin exception class - instantiate it
-                            var instance = builtinType.Call(Array.Empty<PyObject>());
-                            if (instance is PyException pyExcInst)
-                            {
-                                excInstance = pyExcInst;
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else if (exc is PyClass userClass)
-                        {
-                            // User-defined exception class - instantiate it
-                            var userException = userClass.Call(Array.Empty<PyObject>());
-                            if (userException is PyException pyUserExInstance)
-                            {
-                                excInstance = pyUserExInstance;
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else if (exc is PyObject customInstance)
-                        {
-                            // Instance of a user-defined exception (e.g., PyClassInstance)
-                            if (IsExceptionLike(customInstance))
-                            {
-                                // Create a PyException wrapper with class information and instance preserved
-                                if (customInstance is PyClassInstance classInst)
-                                {
-                                    // CRITICAL: Store the original PyClassInstance so attributes are preserved
-                                    excInstance = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
-                                }
-                                else
-                                {
-                                    excInstance = new PyException(customInstance.ToString());
-                                }
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else
-                        {
-                            throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                        }
-
-                        // CPython 3.12: Implicit exception chaining - set __context__ before __cause__
-                        // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
-                        if (frame.CurrentException != null && frame.CurrentException != excInstance)
-                        {
-                            excInstance.__context__ = frame.CurrentException;
-                        }
-
-                        // Set __cause__ attribute (explicit chaining)
-                        if (cause is PyException causeExc)
-                        {
-                            excInstance.__cause__ = causeExc;
-                            excInstance.__suppress_context__ = true;
-                        }
-                        else if (cause is PyNone)
-                        {
-                            // raise exc from None - suppress context
-                            excInstance.__cause__ = null;
-                            excInstance.__suppress_context__ = true;
-                        }
-                        else
-                        {
-                            throw new PythonException(new PyTypeError($"exception cause must be None or derive from BaseException"));
-                        }
-
-                        frame.LastException = excInstance;
-
-                        // CPython 3.12: Set traceback to current frame before throwing
-                        // Corresponds to PyTraceBack_Here() in traceback.c:266
-                        var pyExToThrow = new PythonException(excInstance);
-                        PyTraceBack_Here(frame, pyExToThrow);
-                        throw pyExToThrow;
-                    }
-                    else if (instruction.Argument == 1)
-                    {
-                        // raise exception_instance or exception_class
-                        var raisedException = frame.ValueStack.Pop();
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RAISE_VARARGS: raisedException type = {raisedException?.GetType().Name}, value = {raisedException}");
-                        #endif
-                        if (raisedException is PyException pyEx)
-                        {
-                            // CPython 3.12: Implicit exception chaining
-                            // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
-                            if (frame.CurrentException != null && frame.CurrentException != pyEx)
-                            {
-                                pyEx.__context__ = frame.CurrentException;
-                            }
-
-                            // Already an exception instance
-                            frame.LastException = pyEx;
-                            // CPython 3.12: Set traceback to current frame before throwing
-                            var pyExToThrow1 = new PythonException(pyEx);
-                            PyTraceBack_Here(frame, pyExToThrow1);
-                            throw pyExToThrow1;
-                        }
-                        else if (raisedException is PyType pyType)
-                        {
-                            // Exception class (PyType) - instantiate it
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RAISE_VARARGS: Detected PyType exception class {pyType.Name}, instantiating it");
-                            #endif
-
-                            var instance = pyType.Call(Array.Empty<PyObject>());
-                            if (instance is PyException instanceException)
-                            {
-                                // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != instanceException)
-                                {
-                                    instanceException.__context__ = frame.CurrentException;
-                                }
-
-                                frame.LastException = instanceException;
-                                // CPython 3.12: Set traceback to current frame before throwing
-                                var pyExToThrow2 = new PythonException(instanceException);
-                                PyTraceBack_Here(frame, pyExToThrow2);
-                                throw pyExToThrow2;
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else if (raisedException is PyBuiltinType builtinType)
-                        {
-                            // Exception class - instantiate it
-                            var builtinException = builtinType.Call(new PyObject[0], null);
-                            if (builtinException == null)
-                            {
-                                throw new PythonException(new PyTypeError($"exception class {builtinType} returned null when instantiated"));
-                            }
-                            else if (builtinException is PyException pyExInstance)
-                            {
-                                // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != pyExInstance)
-                                {
-                                    pyExInstance.__context__ = frame.CurrentException;
-                                }
-
-                                frame.LastException = pyExInstance;
-                                // CPython 3.12: Set traceback to current frame before throwing
-                                var pyExToThrow3 = new PythonException(pyExInstance);
-                                PyTraceBack_Here(frame, pyExToThrow3);
-                                throw pyExToThrow3;
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException, got {builtinException.GetType().Name}"));
-                            }
-                        }
-                        else if (raisedException is PyClass userClass)
-                        {
-                            // User-defined exception class - instantiate it
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RAISE_VARARGS: User-defined class {userClass.Name}");
-                            #endif
-                            var userException = userClass.Call(new PyObject[0], null);
-                            if (userException is PyException pyUserExInstance)
-                            {
-                                // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != pyUserExInstance)
-                                {
-                                    pyUserExInstance.__context__ = frame.CurrentException;
-                                }
-
-                                frame.LastException = pyUserExInstance;
-                                // CPython 3.12: Set traceback to current frame before throwing
-                                var pyExToThrow4 = new PythonException(pyUserExInstance);
-                                PyTraceBack_Here(frame, pyExToThrow4);
-                                throw pyExToThrow4;
-                            }
-                            else
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 RAISE_VARARGS: User class instance is not PyException: {userException?.GetType().Name}");
-                                #endif
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else if (raisedException is PyObject customInstance)
-                        {
-                            // Could be an instance of a user-defined exception class
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RAISE_VARARGS: Custom instance type = {customInstance.GetType().Name}, ToString = {customInstance.ToString()}");
-                            #endif
-                            // Check if it's derived from BaseException by checking its class hierarchy
-                            // For now, treat as a PyException if it has the right properties
-                            if (IsExceptionLike(customInstance))
-                            {
-                                // Create a PyException wrapper with class information AND instance preserved
-                                PyException wrappedException;
-                                if (customInstance is PyClassInstance classInst)
-                                {
-                                    // CRITICAL: Store the original PyClassInstance so attributes are preserved
-                                    wrappedException = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 RAISE_VARARGS: Created PyException wrapper with OriginalClass={classInst.InstanceType.Name}, OriginalInstance preserved, message='{customInstance.ToString()}'");
-                                    #endif
-                                }
-                                else
-                                {
-                                    wrappedException = new PyException(customInstance.ToString());
-                                }
-
-                                // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != wrappedException)
-                                {
-                                    wrappedException.__context__ = frame.CurrentException;
-                                }
-
-                                frame.LastException = wrappedException;
-                                // CPython 3.12: Set traceback to current frame before throwing
-                                var pyExToThrow5 = new PythonException(wrappedException);
-                                PyTraceBack_Here(frame, pyExToThrow5);
-                                throw pyExToThrow5;
-                            }
-                            else
-                            {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                            }
-                        }
-                        else
-                        {
-                            throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                        }
-                    }
-                    else if (instruction.Argument == 0)
-                    {
-                        // bare raise - same as RERAISE
-                        if (frame.LastException != null)
-                            throw new PythonException(frame.LastException);
-                        else
-                            throw new PythonException(new PyRuntimeError("No active exception to re-raise"));
-                    }
-                    break;
+                    return ExecuteRaiseVarargs(frame, instruction);
 
                 case ByteCodeOp.CHECK_EXC_MATCH:
-                    // CPython 3.12: Check if the exception on stack matches the expected type
-                    // Stack effect: (left, right -- left, b)
-                    // Pops type (right), keeps exception (left), pushes boolean result
-                    var expectedType = frame.ValueStack.Pop(); // right (exception type)
-                    var exceptionInstance = frame.ValueStack.Peek(); // left (exception instance) - keep on stack
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: expectedType={expectedType?.GetType().Name}={expectedType}");
-                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: exceptionInstance={exceptionInstance?.GetType().Name}={exceptionInstance}");
-                    #endif
-
-                    if (expectedType == null)
-                    {
-                        throw PyRuntimeError.Create("CHECK_EXC_MATCH: expectedType is null");
-                    }
-
-                    bool matches = false;
-
-                    // Match exception instance against expected type
-                    if (exceptionInstance is PyException pyException)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyException with OriginalClass={pyException.OriginalClass?.Name ?? "null"}");
-                        #endif
-
-                        // Check against user-defined class
-                        if (expectedType is PyClass userClass && pyException.OriginalClass != null)
-                        {
-                            matches = pyException.OriginalClass == userClass ||
-                                     pyException.OriginalClass.Name == userClass.Name;
-                        }
-                        // Check against built-in type
-                        else if (expectedType is PyBuiltinType builtinType)
-                        {
-                            matches = IsExceptionInstanceOf(pyException, builtinType.Name);
-                        }
-                        else if (expectedType is PyType pyType)
-                        {
-                            matches = IsExceptionInstanceOf(pyException, pyType.Name);
-                        }
-                        // Check against tuple of exception types: except (ValueError, TypeError)
-                        else if (expectedType is PyTuple exceptionTuple)
-                        {
-                            foreach (var excType in exceptionTuple.Items)
-                            {
-                                if (excType is PyBuiltinType tupleBuiltin)
-                                {
-                                    if (IsExceptionInstanceOf(pyException, tupleBuiltin.Name))
-                                    {
-                                        matches = true;
-                                        break;
-                                    }
-                                }
-                                else if (excType is PyType tuplePyType)
-                                {
-                                    if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
-                                    {
-                                        matches = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else if (exceptionInstance is PyBaseException builtinException)
-                    {
-                        // CPython 3.12: Python/errors.c:350-354
-                        // Direct builtin exception (PyValueError, PyTypeError, etc.)
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyBaseException {builtinException.GetType().Name}");
-                        #endif
-
-                        // CPython: Get exception class from instance
-                        var actualType = builtinException.GetType();
-
-                        if (expectedType is PyType pyType)
-                        {
-                            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
-                            var expectedCSharpType = GetExceptionTypeByName(pyType.Name);
-                            if (expectedCSharpType != null)
-                            {
-                                matches = expectedCSharpType.IsAssignableFrom(actualType);
-                            }
-                            else
-                            {
-                                // Fall back to name matching for unknown types
-                                string simpleName = actualType.Name.StartsWith("Py")
-                                    ? actualType.Name.Substring(2)
-                                    : actualType.Name;
-                                matches = pyType.Name == simpleName;
-                            }
-                        }
-                        else if (expectedType is PyBuiltinType builtinType)
-                        {
-                            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
-                            var expectedCSharpType = GetExceptionTypeByName(builtinType.Name);
-                            if (expectedCSharpType != null)
-                            {
-                                matches = expectedCSharpType.IsAssignableFrom(actualType);
-                            }
-                            else
-                            {
-                                // Fall back to name matching for unknown types
-                                string simpleName = actualType.Name.StartsWith("Py")
-                                    ? actualType.Name.Substring(2)
-                                    : actualType.Name;
-                                matches = builtinType.Name == simpleName;
-                            }
-                        }
-                    }
-                    else if (exceptionInstance is PyClassInstance classInstance)
-                    {
-                        // User-defined exception instance
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance from {classInstance.InstanceType.Name}");
-                        #endif
-
-                        if (expectedType is PyClass userClass)
-                        {
-                            matches = classInstance.InstanceType == userClass ||
-                                     classInstance.InstanceType.Name == userClass.Name;
-                        }
-                        else if (expectedType is PyType pyType)
-                        {
-                            // Check if custom instance is compatible with Exception/BaseException
-                            matches = pyType.Name == "Exception" || pyType.Name == "BaseException";
-                        }
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: Result = {matches}");
-                    #endif
-
-                    frame.ValueStack.Push(matches ? PyBool.True : PyBool.False);
-                    break;
+                    return ExecuteCheckExcMatch(frame, instruction);
 
                 case ByteCodeOp.RERAISE:
-                    // CPython 3.12: RERAISE stack layout: (values[oparg], exc -- values[oparg])
-                    // - exc: exception to reraise (top of stack)
-                    // - values[oparg]: oparg values below exc (e.g., lasti for cleanup)
-                    // - After reraise: exc is popped and raised, values are left on stack if oparg > 0
-                    var reraiseArg = instruction.Argument;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 RERAISE: arg={reraiseArg}, stack size={frame.ValueStack.Count}");
-                    #endif
-
-                    // CPython 3.12: For RERAISE 0 in finally handlers, only reraise if there's an active exception
-                    // If exception was handled normally, don't reraise
-                    if (reraiseArg == 0 && frame.CurrentException == null && frame.LastException == null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: No active exception to reraise, continuing normally");
-                        #endif
-
-                        // Still need to clean up the stack if there's an ExceptionInfo
-                        if (frame.ValueStack.Count > 0 && frame.ValueStack.Peek() is PyExceptionInfo)
-                        {
-                            frame.ValueStack.Pop(); // Remove the ExceptionInfo
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RERAISE: Cleaned up ExceptionInfo from stack");
-                            #endif
-                        }
-                        break; // Continue normally without raising
-                    }
-
-                    // CPython 3.12: Pop exception from top of stack (this is what we reraise)
-                    PyBaseException exceptionToReraise = null;
-                    if (frame.ValueStack.Count > 0)
-                    {
-                        var exceptionOnStack = frame.ValueStack.Pop();
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: Popped exception from stack (TOS): {exceptionOnStack}");
-                        #endif
-
-                        // If it's a PyExceptionInfo, extract the actual exception
-                        if (exceptionOnStack is PyExceptionInfo reraiseExcInfo)
-                        {
-                            exceptionToReraise = reraiseExcInfo.ExcValue as PyBaseException;
-                        }
-                        else if (exceptionOnStack is PyBaseException directException)
-                        {
-                            exceptionToReraise = directException;
-                        }
-                    }
-
-                    // CPython 3.12: If oparg > 0, pop additional values from stack (but don't use them)
-                    // These are typically lasti values used for traceback reconstruction
-                    if (reraiseArg > 0)
-                    {
-                        for (int i = 0; i < reraiseArg; i++)
-                        {
-                            if (frame.ValueStack.Count > 0)
-                            {
-                                var additionalValue = frame.ValueStack.Pop();
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 RERAISE: Popped additional value[{i}]: {additionalValue}");
-                                #endif
-                            }
-                        }
-                    }
-
-                    // Reraise the exception
-                    if (exceptionToReraise != null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: Reraising exception: {exceptionToReraise}");
-                        #endif
-                        // CPython 3.12: RERAISE preserves existing traceback, don't add new frames
-                        throw new PythonException(exceptionToReraise, fromReraise: true);
-                    }
-
-                    // Fallback: use LastException if no exception on stack
-                    if (frame.LastException != null)
-                        throw new PythonException(frame.LastException, fromReraise: true);
-                    break;
+                    return ExecuteReraise(frame, instruction);
 
                 // F-String Support (PEP 701)
                 case ByteCodeOp.FORMAT_VALUE:
@@ -6698,111 +7284,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.UNPACK_EX:
-                    // CPython 3.12: Python/ceval.c lines 1105-1112 (bytecodes.c)
-                    // CPython 3.12: Python/ceval.c lines 1950-2040 (unpack_iterable function)
-                    // Argument encodes: lower 8 bits = count before star, upper 8 bits = count after star
-                    var countBefore = instruction.Argument & 0xFF;
-                    var countAfter = (instruction.Argument >> 8) & 0xFF;
-
-                    var unpackExSequence = frame.ValueStack.Pop();
-
-                    // CPython 3.12: Python/ceval.c:1960-1970 - Convert iterable to list first
-                    PyObject[] itemsToUnpack;
-                    if (unpackExSequence is PyList unpackExList)
-                    {
-                        itemsToUnpack = unpackExList.Items;
-                    }
-                    else if (unpackExSequence is PyTuple unpackExTuple)
-                    {
-                        itemsToUnpack = unpackExTuple.Items;
-                    }
-                    else if (unpackExSequence is PyRange unpackExRange)
-                    {
-                        // CPython 3.12: Convert range to list for unpacking
-                        itemsToUnpack = unpackExRange.ToList().Items;
-                    }
-                    else if (unpackExSequence is PyStr unpackExStr)
-                    {
-                        // Convert string to array of single-character strings
-                        itemsToUnpack = unpackExStr.Value.Select(c => (PyObject)new PyStr(c.ToString())).ToArray();
-                    }
-                    else
-                    {
-                        // CPython 3.12: Try to iterate using __iter__
-                        try
-                        {
-                            var unpackIterator = unpackExSequence.GetIterator();
-                            var unpackItems = new System.Collections.Generic.List<PyObject>();
-                            while (true)
-                            {
-                                try
-                                {
-                                    unpackItems.Add(unpackIterator.Next());
-                                }
-                                catch (Exception ex) when (ex is PyStopIteration || ex.Message.Contains("StopIteration"))
-                                {
-                                    break;
-                                }
-                            }
-                            itemsToUnpack = unpackItems.ToArray();
-                        }
-                        catch (Exception)
-                        {
-                            throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
-                        }
-                    }
-
-                    if (itemsToUnpack.Length < countBefore + countAfter)
-                    {
-                        throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {itemsToUnpack.Length})");
-                    }
-
-                    // CPython 3.12: Python/ceval.c unpack_iterable() lines 1950-2040
-                    //
-                    // STORE order determines required stack layout:
-                    //   STORE_NAME(before[0]), STORE_NAME(before[1]), ..., STORE_NAME(star), STORE_NAME(after[0]), ...
-                    // Each STORE pops from TOS, so stack must be (bottom→top):
-                    //   after[n-1], after[n-2], ..., after[0], star, before[n-1], ..., before[1], before[0]
-                    //
-                    // Example: a, *b, c = [1, 2, 3, 4, 5]
-                    //   countBefore=1 (a), countAfter=1 (c)
-                    //   before=[1], star=[2,3,4], after=[5]
-                    //   Stack (bottom→top): 5, [2,3,4], 1
-                    //   Pop order: 1(a), [2,3,4](b), 5(c) ✓
-
-                    // Performance optimization: Build array once, then AddRange (O(n) instead of O(n²) Insert)
-                    var totalElements = countAfter + 1 + countBefore;
-                    var elementsToAdd = new PyObject[totalElements];
-                    int elemIdx = 0;
-
-                    // After elements go at bottom of stack segment (popped last)
-                    // after[n-1] at bottom (first in array), after[0] closer to top
-                    // Example: after=[30,40] → stack bottom has 40, then 30
-                    for (int i = countAfter - 1; i >= 0; i--)
-                    {
-                        // after[i] = itemsToUnpack[length - countAfter + i]
-                        elementsToAdd[elemIdx++] = itemsToUnpack[itemsToUnpack.Length - countAfter + i];
-                    }
-
-                    // Star list in middle
-                    var starCount = itemsToUnpack.Length - countBefore - countAfter;
-                    var starItems = new PyObject[starCount];
-                    for (int i = 0; i < starCount; i++)
-                    {
-                        starItems[i] = itemsToUnpack[countBefore + i];
-                    }
-                    elementsToAdd[elemIdx++] = new PyList(starItems);
-
-                    // Before elements go at top of stack segment (popped first)
-                    // before[0] at top, before[n-1] at bottom of before-section
-                    for (int i = countBefore - 1; i >= 0; i--)
-                    {
-                        elementsToAdd[elemIdx++] = itemsToUnpack[i];
-                    }
-
-                    // Add all elements at once - O(n) using PushRange
-                    frame.ValueStack.PushRange(elementsToAdd, 0, elementsToAdd.Length);
-                    break;
+                    return ExecuteUnpackEx(frame, instruction);
 
                 // CPython 3.12: BREAK_LOOP and CONTINUE_LOOP removed
                 // Loop control now uses structured JUMP_FORWARD/JUMP_BACKWARD
@@ -6841,186 +7323,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.IMPORT_FROM:
-                    var itemName = ((PyStr)frame.Code.Constants[instruction.Argument]).Value;
-                    if (frame.ValueStack.Count == 0)
-                    {
-                        throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");
-                    }
-                    var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
-
-                    // CPython 3.12: Handle "from module import *"
-                    // When itemName is "*", import all public names from module
-                    if (itemName == "*")
-                    {
-                        // Get __all__ attribute if it exists, otherwise use all non-private attributes
-                        PyObject allAttr = null;
-                        try
-                        {
-                            allAttr = module.GetAttribute("__all__");
-                        }
-                        catch
-                        {
-                            // __all__ doesn't exist, will use dir() instead
-                        }
-
-                        List<string> namesToImport = new List<string>();
-
-                        if (allAttr != null)
-                        {
-                            // Use __all__ to determine what to import
-                            if (allAttr is PyList allList)
-                            {
-                                foreach (var item in allList.Items)
-                                {
-                                    if (item is PyStr nameStr)
-                                    {
-                                        namesToImport.Add(nameStr.Value);
-                                    }
-                                }
-                            }
-                            else if (allAttr is PyTuple allTuple)
-                            {
-                                foreach (var item in allTuple.Items)
-                                {
-                                    if (item is PyStr nameStr)
-                                    {
-                                        namesToImport.Add(nameStr.Value);
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // No __all__, import all non-private names
-                            if (module is PyModule pyModule)
-                            {
-                                foreach (var key in pyModule.ModuleDict.Keys)
-                                {
-                                    if (!key.StartsWith("_"))
-                                    {
-                                        namesToImport.Add(key);
-                                    }
-                                }
-                            }
-                        }
-
-                        // Import each name into the current scope
-                        // CPython: This is handled by IMPORT_STAR bytecode, but we handle it here
-                        foreach (var importName in namesToImport)
-                        {
-                            try
-                            {
-                                var importValue = module.GetAttribute(importName);
-                                // Store in current frame's local scope
-                                if (frame.LocalScope != null)
-                                {
-                                    frame.LocalScope.Variables[importName] = importValue;
-                                }
-                                else
-                                {
-                                    // Fallback: use global scope
-                                    frame.ScopeChain.GlobalScope.Variables[importName] = importValue;
-                                }
-                            }
-                            catch
-                            {
-                                // Skip attributes that can't be imported
-                            }
-                        }
-
-                        // Push a dummy value to satisfy stack expectations
-                        // This will be handled by subsequent IMPORT_STAR or POP_TOP
-                        frame.ValueStack.Push(PyNone.Instance);
-                    }
-                    else
-                    {
-                        // Normal case: import specific name
-                        // CPython 3.12: Python/ceval.c:2530-2560 (import_from)
-                        PyObject importedItem = null;
-
-                        // Step 1: Try to get attribute from module object
-                        // CPython 3.12: Python/ceval.c:2535-2537 (_PyObject_LookupAttr)
-                        try
-                        {
-                            importedItem = module.GetAttribute(itemName);
-                        }
-                        catch
-                        {
-                            // Attribute not found, continue to fallback
-                        }
-
-                        if (importedItem == null)
-                        {
-                            // Step 2: Fallback for circular imports / submodule import
-                            // CPython 3.12: Python/ceval.c:2538-2560
-                            // Try to read submodule directly from sys.modules, or import it
-                            try
-                            {
-                                // Get package name from module.__name__
-                                // CPython 3.12: Python/ceval.c:2541
-                                var pkgName = module.GetAttribute("__name__");
-                                if (pkgName is PyStr pkgNameStr)
-                                {
-                                    // Construct full module name: package.name
-                                    // CPython 3.12: Python/ceval.c:2549
-                                    string fullModuleName = $"{pkgNameStr.Value}.{itemName}";
-
-                                    // Try to get from sys.modules ONLY
-                                    // CPython 3.12: Python/ceval.c:2554 (PyImport_GetModule)
-                                    // IMPORTANT: Do NOT import if not found - this is intentional!
-                                    // The submodule should have been imported by IMPORT_NAME's fromlist handling.
-                                    // If it's not in sys.modules, this is a circular import or the module doesn't exist.
-                                    if (PyImportSystem.TryGetModule(fullModuleName, out var subModule))
-                                    {
-                                        importedItem = subModule;
-                                    }
-                                    // If not found in sys.modules, importedItem remains null
-                                    // and we'll raise an error below
-                                }
-                            }
-                            catch
-                            {
-                                // Fallback also failed
-                            }
-                        }
-
-                        if (importedItem == null)
-                        {
-                            // Generate error message similar to CPython
-                            // CPython 3.12: Python/ceval.c:2561-2579
-                            string pkgModuleName = "unknown";
-                            try
-                            {
-                                var nameAttr = module.GetAttribute("__name__");
-                                if (nameAttr is PyStr nameStr)
-                                {
-                                    pkgModuleName = nameStr.Value;
-                                }
-                            }
-                            catch { }
-
-                            // Check if HandleFromList stored an import error for this item
-                            string rootCause = null;
-                            if (module is PyModule errModule &&
-                                errModule.ModuleDict.TryGetValue($"__import_error:{itemName}", out var errObj) &&
-                                errObj is PyStr errStr)
-                            {
-                                rootCause = errStr.Value;
-                                errModule.ModuleDict.Remove($"__import_error:{itemName}");
-                            }
-
-                            if (rootCause != null)
-                            {
-                                throw PyImportError.Create(
-                                    $"cannot import name '{itemName}' from '{pkgModuleName}' (import error: {rootCause})");
-                            }
-
-                            throw PyAttributeError.Create($"module '{pkgModuleName}' has no attribute '{itemName}'");
-                        }
-
-                        frame.ValueStack.Push(importedItem);
-                    }
-                    break;
+                    return ExecuteImportFrom(frame, instruction);
 
                 // PEP 709 Comprehension Optimization - VM 구현
                 case ByteCodeOp.LIST_APPEND:
@@ -7498,119 +7801,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MAKE_CELL:
-                    // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
-                    // CPython localsplus layout: [varnames(0..nlocals-1) | cellvars(nlocals..nlocals+ncellvars-1) | freevars(...)]
-                    // SharpPy Cells layout: [freevars(0..nfreevars-1) | cellvars(nfreevars..nfreevars+ncellvars-1)]
-                    var localsPlusOffset = instruction.Argument;
-                    int nlocals = frame.Code.VarNames.Count;
-                    int ncellvars = frame.Code.CellVars.Count;
-                    int nfreevars = frame.Code.FreeVars.Count;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 MAKE_CELL at localsplus offset {localsPlusOffset} (nlocals={nlocals}, ncellvars={ncellvars}, nfreevars={nfreevars})");
-                    #endif
-
-                    // Convert CPython localsplus offset to SharpPy Cells index
-                    string cellVarName;
-                    int actualCellIndex;
-
-                    if (localsPlusOffset < nlocals)
-                    {
-                        // It's a parameter (in varnames) that's also a cell
-                        cellVarName = frame.Code.VarNames[localsPlusOffset];
-                        // Optimized: Use CellVarIndexMap for O(1) lookup instead of O(n) IndexOf
-                        if (!frame.Code.CellVarIndexMap.TryGetValue(cellVarName, out int cellVarIdx))
-                        {
-                            throw new IndexOutOfRangeException($"MAKE_CELL: varname '{cellVarName}' not found in cellvars");
-                        }
-                        // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
-                        actualCellIndex = nfreevars + cellVarIdx;
-                    }
-                    else
-                    {
-                        // It's not a parameter - either cellvar or freevar
-                        // CPython 3.12: localsplus layout is [varnames | non-param cells | freevars]
-                        // Optimized: Use pre-computed NonParamCellNames from PyCodeObject
-                        var makeNonParamCellNames = frame.Code.NonParamCellNames;
-                        int numNonParamCells = makeNonParamCellNames.Count;
-
-                        int offsetAfterLocals = localsPlusOffset - nlocals;
-                        if (offsetAfterLocals < numNonParamCells)
-                        {
-                            // It's a cellvar (non-parameter) - find by name
-                            cellVarName = makeNonParamCellNames[offsetAfterLocals];
-                            // Optimized: Use CellVarIndexMap for O(1) lookup
-                            int cellVarIdx = frame.Code.CellVarIndexMap[cellVarName];
-                            // SharpPy: cellvars are at Cells[nfreevars + cellVarIdx]
-                            actualCellIndex = nfreevars + cellVarIdx;
-                        }
-                        else
-                        {
-                            // It's a freevar
-                            int freeVarIdx = offsetAfterLocals - numNonParamCells;
-                            cellVarName = frame.Code.FreeVars[freeVarIdx];
-                            // SharpPy: freevars are at Cells[freeVarIdx]
-                            actualCellIndex = freeVarIdx;
-                        }
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   Converting CPython localsplus[{localsPlusOffset}] → SharpPy Cells[{actualCellIndex}] for '{cellVarName}'");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   CellVars: [{string.Join(", ", frame.Code.CellVars)}]");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   FreeVars: [{string.Join(", ", frame.Code.FreeVars)}] (offset: {frame.Code.FreeVars.Count})");
-                    #endif
-                    // CPython 3.12: Create cell variable (initially None for type parameters)
-                    PyObject? cellValue = null;
-                    // Find the variable in LocalsPlus by name
-                    // Optimized: Use VarNameIndexMap for O(1) lookup instead of O(n) IndexOf
-                    int localIndex = frame.Code.VarNameIndexMap.TryGetValue(cellVarName, out int mappedIdx) ? mappedIdx : -1;
-                    if (localIndex >= 0 && localIndex < frame.LocalsPlus.Length)
-                    {
-                        var localValue = frame.LocalsPlus[localIndex];
-                        if (!localValue.IsNull)
-                        {
-                            cellValue = localValue.ToObject();
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   Found value for '{cellVarName}': {cellValue}");
-                            #endif
-                        }
-                        else
-                        {
-                            // Variable is PyNull (uninitialized), use None for cell
-                            cellValue = PyNone.Instance;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   Initializing '{cellVarName}' cell with None (uninitialized local)");
-                            #endif
-                        }
-                    }
-                    else
-                    {
-                        // For Generic Parameters function, cells start as None
-                        cellValue = PyNone.Instance;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   Initializing '{cellVarName}' cell with None (not in locals)");
-                        #endif
-                    }
-
-                    // CPython 3.12: Use actualCellIndex (offset by free var count) for cell access
-                    if (actualCellIndex < frame.Cells.Length)
-                    {
-                        frame.Cells[actualCellIndex].SetValue(cellValue);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ Set cell[{actualCellIndex}] '{cellVarName}' = {cellValue}");
-                        #endif
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ❌ Invalid actual cell index {actualCellIndex}, Cells.Length: {frame.Cells.Length}");
-                        #endif
-                    }
-                    break;
+                    return ExecuteMakeCell(frame, instruction);
 
                 // Generator Implementation
                 case ByteCodeOp.RETURN_GENERATOR:
@@ -7646,101 +7837,7 @@ namespace SharpPy
                     return PyFrame.YieldSentinel;
 
                 case ByteCodeOp.SEND:
-                    // CPython 3.12: SEND opcode for yield from
-                    // Stack: TOS = value to send, TOS1 = receiver (iterator/generator)
-                    // bytecodes.c:825-872
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔍 SEND: IP={frame.InstructionPointer}, Stack.Count = {frame.ValueStack.Count}, Arg={instruction.Argument}");
-                    #endif
-                    var sendValue = frame.ValueStack.Pop();
-                    var receiver = frame.ValueStack.Peek(); // Keep receiver on stack
-
-                    try
-                    {
-                        PyObject sendResult;
-
-                        // CPython pattern: if (Py_IsNone(v) && PyIter_Check(receiver))
-                        // If value is None and receiver is iterator, call next
-                        if (sendValue is PyNone && receiver is PyIterator receiverIter)
-                        {
-                            sendResult = receiverIter.Next();
-                        }
-                        // If receiver is a generator, send value to it
-                        else if (receiver is PyGenerator gen)
-                        {
-                            sendResult = gen.Send(sendValue);
-                        }
-                        else
-                        {
-                            // Try to call .send() method using GetAttribute
-                            // CPython: retval = PyObject_CallMethodOneArg(receiver, &_Py_ID(send), v);
-                            try
-                            {
-                                var sendMethod = receiver.GetAttribute("send");
-                                sendResult = sendMethod.Call(new PyObject[] { sendValue }, null);
-                            }
-                            catch (PythonException pyEx) when (pyEx.PyException is PyAttributeError)
-                            {
-                                // Fallback to iterator protocol
-                                if (receiver is PyIterator receiverIterFallback)
-                                {
-                                    sendResult = receiverIterFallback.Next();
-                                }
-                                else
-                                {
-                                    throw PyTypeError.Create($"SEND: receiver {receiver.GetType().Name} is not a generator or iterator");
-                                }
-                            }
-                        }
-
-                        // CPython: Push result to stack (receiver stays on stack)
-                        frame.ValueStack.Push(sendResult);
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    ✅ SEND: Got result {sendResult}, continuing to next instruction");
-                        #endif
-                    }
-                    catch (PythonException pyEx) when (pyEx.PyException is PyStopIteration stopIter)
-                    {
-                        // CPython 3.12: Python/bytecodes.c:858-865
-                        // if (_PyGen_FetchStopIterationValue(&retval) == 0) { JUMPBY(oparg); }
-                        // StopIteration raised - extract value and jump
-                        //
-                        // CPython 3.12: Python/bytecodes.c:843 - JUMPBY(oparg)
-                        // In CPython, next_instr is already past SEND instruction and points to CACHE
-                        // JUMPBY(oparg) means: next_instr += oparg (instruction words)
-                        // oparg is the relative offset from the position AFTER SEND+CACHE
-                        //
-                        // CPython 3.12: Include/internal/pycore_opcode.h:120
-                        // SEND has INLINE_CACHE_ENTRIES_SEND = 1 (one CACHE instruction)
-                        //
-                        // In SharpPy:
-                        // - IP is currently at SEND instruction (index 36 in example)
-                        // - SEND has 1 CACHE entry at index 37
-                        // - oparg is relative to position AFTER SEND+CACHE (index 38 in example)
-                        // - Main loop will do IP++ after we return
-                        // - To reach target: IP = current + 1 (SEND) + 1 (CACHE) + oparg - 1 (main loop++)
-                        // - Simplify: IP += (1 + INLINE_CACHE_ENTRIES_SEND + oparg - 1)
-                        // - Final: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    🛑 SEND: StopIteration raised, value={stopIter.Value}");
-                        Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by oparg={instruction.Argument}");
-                        #endif
-
-                        // Push StopIteration value to stack (receiver stays on stack for END_SEND)
-                        frame.ValueStack.Push(stopIter.Value ?? PyNone.Instance);
-
-                        // CPython 3.12: SEND has 1 CACHE entry (Include/internal/pycore_opcode.h:120)
-                        const int INLINE_CACHE_ENTRIES_SEND = 1;
-
-                        // Jump forward: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
-                        // Example: IP=36 + (1 + 4) = 41, main loop IP++ → 42 (END_SEND)
-                        frame.InstructionPointer += INLINE_CACHE_ENTRIES_SEND + instruction.Argument;
-
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    🛑 SEND: After jump, IP={frame.InstructionPointer} (will become {frame.InstructionPointer + 1} after main loop increment)");
-                        #endif
-                    }
-                    break;
+                    return ExecuteSend(frame, instruction);
 
                 case ByteCodeOp.END_SEND:
                     // CPython 3.12: END_SEND opcode
