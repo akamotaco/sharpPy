@@ -307,8 +307,8 @@ public partial class PyFunction : PyObject, IDescriptor
         else
         {
             // Runtime __defaults__ takes priority over CachedDefaultsTuple (can be set dynamically)
-            // Fast path: skip dict lookup when Attributes is empty (common for dunder methods)
-            PyTuple defaults = (Attributes.Count > 0
+            // Only check if __defaults__ was explicitly set (Count > 2 means beyond __type_params__ + __closure__)
+            PyTuple defaults = (Attributes.Count > 2
                 && Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
                 ? dt : code.CachedDefaultsTuple;
             frame = PyFrame.Rent();

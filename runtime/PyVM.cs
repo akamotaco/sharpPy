@@ -1927,10 +1927,14 @@ namespace SharpPy
                                     continue;
                                 }
                             }
-                            else if (LoadAttrMethodCacheHit(frame, ip))
+                            else
                             {
-                                ip++;
-                                continue;
+                                var laSkip = LoadAttrMethodCacheHit(frame, ip);
+                                if (laSkip > 0)
+                                {
+                                    ip += laSkip;
+                                    continue;
+                                }
                             }
                         }
                         else if (inlineOp == ByteCodeOp.STORE_ATTR)
@@ -2252,26 +2256,45 @@ namespace SharpPy
             PyFrame.Return(f);
         }
 
+        /// <summary>
+        /// LOAD_ATTR method cache hit check.
+        /// Returns 0 = cache miss, 1 = normal method hit (push [func, self]),
+        /// 14 = trivial getter hit (push result, skip LOAD_ATTR+9CACHE+CALL+3CACHE).
+        /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private bool LoadAttrMethodCacheHit(PyFrame frame, int ip)
+        private int LoadAttrMethodCacheHit(PyFrame frame, int ip)
         {
             var laObjVal = frame.ValueStack.PeekValue();
-            if (!laObjVal.IsObject) return false;
+            if (!laObjVal.IsObject) return 0;
             var laObj = laObjVal.ObjRef;
             var laCache = frame.Code.LoadAttrCache;
-            if (laCache == null) return false;
+            if (laCache == null) return 0;
             ref var laCacheEntry = ref laCache[ip];
-            if (laCacheEntry.CachedValue == null) return false;
+            if (laCacheEntry.CachedValue == null) return 0;
             bool cacheHit;
             if (laObj is PyClassInstance laMethodInst)
                 cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
             else
                 cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
-            if (!cacheHit) return false;
+            if (!cacheHit) return 0;
+
+            // Check for trivial getter: skip CALL entirely, resolve attr inline
+            if (laCacheEntry.CachedValue is PyFunction cachedFunc
+                && cachedFunc.CodeObject is PyCodeObject cachedCode
+                && cachedCode.TrivialGetterAttr != null
+                && laObj is PyClassInstance trivInst
+                && trivInst.InstanceDict.TryGetValue(cachedCode.TrivialGetterAttr, out var trivVal))
+            {
+                frame.ValueStack.PopValue(); // remove self from stack
+                frame.ValueStack.Push(trivVal);
+                // Skip: LOAD_ATTR(1) + 9 CACHE + CALL(1) + 3 CACHE = 14
+                return 14;
+            }
+
             frame.ValueStack.PopValue();
             frame.ValueStack.Push(laCacheEntry.CachedValue);
             frame.ValueStack.Push(laObj);
-            return true;
+            return 1;
         }
 
         /// <summary>
@@ -9856,11 +9879,13 @@ namespace SharpPy
                 else
                 {
                     // Standard path: handles defaults, kwargs, varargs
-                    var hasAttrs = pyFunc.Attributes.Count > 0;
-                    PyTuple defaults = (hasAttrs
+                    // Only check runtime __defaults__/__kwdefaults__ if Count > 2
+                    // (standard attrs: __type_params__ + __closure__)
+                    var hasRuntimeAttrs = pyFunc.Attributes.Count > 2;
+                    PyTuple defaults = (hasRuntimeAttrs
                         && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
                         ? defaultsTuple : code.CachedDefaultsTuple;
-                    PyDict kwdefaults = (hasAttrs
+                    PyDict kwdefaults = (hasRuntimeAttrs
                         && pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
                         ? kwdefaultsDict : null;
                     frame = PyFrame.Rent();
