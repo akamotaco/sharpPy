@@ -112,12 +112,41 @@ CPython, LuaJIT, V8 Ignition, HotSpot 모두 하나의 dispatch loop 안에서 f
 - **After Phase 1**: 171ms (-17%)
 - **After Phase 1+2**: 174ms (-15.5%, function_call 벤치: 18.2ms → 12.3ms)
 
+#### Phase 3: DISPATCH_INLINED 에뮬레이션 (-9%, v0.4.8)
+- **문제**: C# goto로 메서드 경계를 넘을 수 없어 CPython의 `goto start_frame` 불가
+- **해결**: sentinel return + frame swap loop 패턴
+  - ExecuteCall이 재귀 호출 대신 sentinel 반환 + `_pendingInlinedFrame` 설정
+  - Main eval loop가 sentinel 감지 시 frame 변수들을 swap하고 `continue`
+  - RETURN_VALUE/RETURN_CONST에서 `frame != entryFrame` 체크로 caller 복원
+  - 예외 catch block에서 inlined frame 언와인드 루프
+  - finally block에서 잔여 inlined frame 정리
+- **결과**: 186.9ms → 170.1ms (-9.0%)
+- **교훈**:
+  - C#에서 goto 없이도 DISPATCH_INLINED을 에뮬레이션 가능 (sentinel + continue)
+  - RestoreCallerAfterInlinedReturn은 반드시 NoInlining (AggressiveInlining 시 +20% 역효과)
+  - 중간 버퍼 제거 (LocalsPlus 직접 pop)는 ExecuteCall IL 증가로 역효과
+  - sentinel 체크는 `if (result != null)` 안에 넣어야 hot path에 영향 없음
+
+#### Phase 4: CurrentFileName 필드 제거
+- InitDirect 9개 변형에서 `CurrentFileName = code.FileName` 제거
+- 에러 핸들링에서 `frame.Code?.FileName` 직접 참조로 대체
+- 영향: 미미 (1 string write/frame 절약)
+
+### 실패한 실험 (Phase 3 추가)
+
+| 실험 | 위치 | IL 영향 | 결과 |
+|------|------|---------|------|
+| RestoreCallerAfterInlinedReturn AggressiveInlining | ExecuteFrame | +IL | +20% (JIT 역효과) |
+| LocalsPlus 직접 pop (중간 버퍼 제거) | ExecuteCall | +IL | -7% (IL 증가로 상쇄) |
+| PendingException RESUME 전용 | ExecuteFrame | -IL | 불가 (기존 guard와 충돌) |
+| CACHE skip after inlined CALL | RestoreCallerAfterInlinedReturn | ±0 | 측정 불가 (variance) |
+
 ## 7. 제약 사항
 
 - **Godot 타겟**: iOS/Web/Console → JIT 불가. Python bytecode를 native code로 컴파일할 수 없음
 - **ExecuteFrame IL 한계**: ~3.5KB. 코드 추가 시 RyuJIT 최적화 임계치 초과
 - **ExecuteInstruction IL**: 18KB → ~15KB (BINARY_OP 추출 후)
-- **C# 구조적 한계**: goto로 메서드 경계를 넘을 수 없음 → DISPATCH_INLINED 직접 구현 불가
+- **ExecuteCall IL 한계**: 코드 추가 시 역효과 (중간 버퍼 제거 실패)
 - **비선형 JIT 동작**: 단일 변경의 영향을 예측할 수 없음 — 항상 조합 테스트 필요
 
 ## 8. 향후 탐색 방향
@@ -125,4 +154,5 @@ CPython, LuaJIT, V8 Ignition, HotSpot 모두 하나의 dispatch loop 안에서 f
 - **통합 datastack**: frame+locals+stack을 단일 PyValue[]로 pointer bump 할당
 - **CO_OPTIMIZED ScopeChain 완전 제거**: Globals/Builtins를 PyFrame 필드로 직접 참조
 - **추가 ExecuteInstruction case 추출**: LOAD_DEREF/STORE_DEREF (88줄), UNPACK_SEQUENCE (90줄) 등
-- **PyFrame 필드 축소**: CurrentFileName 제거 (Code.FileName 사용), lazy init 패턴
+- **PyFrame 필드 축소**: lazy init 패턴 (ExceptionHandlerCallCount, ClassBodyVariables 등)
+- **CALL inline fast path**: ExecuteCall 호출 없이 직접 frame swap (IL 예산 확보 필요)
