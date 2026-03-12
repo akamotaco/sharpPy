@@ -2035,16 +2035,12 @@ namespace SharpPy
                     try
                     {
                         // CPython 3.12: Check for pending exception from generator.throw()
-                        // This must be inside the try block so it can be caught by exception handler
-                        // CPython reference: Objects/genobject.c:531-556 (gen_send_ex with exc_state handling)
+                        // Only runs when PendingException != null (skips inline fast path above).
                         if (frame.PendingException != null)
                         {
                             var pendingExc = frame.PendingException;
-                            frame.PendingException = null; // Clear before handling
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 PendingException detected: {pendingExc.PyException?.GetTypeName() ?? "unknown"}");
-                            #endif
-                            throw pendingExc; // This will be caught by the exception handler below
+                            frame.PendingException = null;
+                            throw pendingExc;
                         }
 
                         // Warm dispatch: CALL bypasses ExecuteInstruction switch.
