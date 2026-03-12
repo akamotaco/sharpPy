@@ -2020,7 +2020,11 @@ namespace SharpPy
                             throw pendingExc; // This will be caught by the exception handler below
                         }
 
-                        var result = ExecuteInstruction(frame, instruction);
+                        // Warm dispatch: CALL bypasses ExecuteInstruction switch.
+                        // Synergy with BINARY_OP extraction: both reduce L1i pressure together.
+                        var result = instruction.OpCode == ByteCodeOp.CALL
+                            ? ExecuteCall(frame, instruction)
+                            : ExecuteInstruction(frame, instruction);
 
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
@@ -2225,6 +2229,187 @@ namespace SharpPy
             if (frame.Code is PyQuickenedCodeObject q)
                 return q.CalculateForIterTarget(ip, arg);
             return !frame.Code.IsOptimized ? ip + arg + 2 : ip + arg + 1;
+        }
+
+        /// <summary>
+        /// Full BINARY_OP handler extracted from ExecuteInstruction switch to reduce its IL size (~280 lines → 2 lines).
+        /// Handles all type combinations: int, float, mixed, string, and PyObject fallback.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void ExecuteBinaryOpFull(PyFrame frame, BinaryOpType binOp)
+        {
+            var rvBin = frame.ValueStack.PopValue();
+            var lvBin = frame.ValueStack.PopValue();
+
+            if (lvBin.IsIntLike && rvBin.IsIntLike)
+            {
+                long la = lvBin.AsInt64, ra = rvBin.AsInt64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                    {
+                        long sum = unchecked(la + ra);
+                        if (((la ^ sum) & (ra ^ sum)) < 0)
+                            frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
+                        else
+                            frame.ValueStack.PushInt64(sum);
+                        return;
+                    }
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                    {
+                        long diff = unchecked(la - ra);
+                        if (((la ^ ra) & (la ^ diff)) < 0)
+                            frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
+                        else
+                            frame.ValueStack.PushInt64(diff);
+                        return;
+                    }
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                    {
+                        if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
+                            frame.ValueStack.PushInt64(la * ra);
+                        else
+                        {
+                            var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
+                            if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
+                                frame.ValueStack.PushInt64((long)bigResult);
+                            else
+                                frame.ValueStack.Push(new PyInt(bigResult));
+                        }
+                        return;
+                    }
+                    case BinaryOpType.MODULO: case BinaryOpType.INPLACE_MODULO:
+                    {
+                        if (ra == 0) throw PyZeroDivisionError.Create("integer modulo by zero");
+                        long mod = la % ra;
+                        if (mod != 0 && (mod ^ ra) < 0) mod += ra;
+                        frame.ValueStack.PushInt64(mod);
+                        return;
+                    }
+                    case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
+                    {
+                        if (ra == 0) throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                        long div = la / ra;
+                        if ((la ^ ra) < 0 && div * ra != la) div--;
+                        frame.ValueStack.PushInt64(div);
+                        return;
+                    }
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                    {
+                        if (ra < 0) { frame.ValueStack.PushFloat64(Math.Pow((double)la, (double)ra)); return; }
+                        if (ra == 0) { frame.ValueStack.PushInt64(1); return; }
+                        if (ra == 1) { frame.ValueStack.PushInt64(la); return; }
+                        if (ra == 2 && la >= -46340 && la <= 46340) { frame.ValueStack.PushInt64(la * la); return; }
+                        if (ra <= 62)
+                        {
+                            double result = Math.Pow((double)la, (double)ra);
+                            if (result >= long.MinValue && result <= long.MaxValue)
+                            { frame.ValueStack.PushInt64((long)result); return; }
+                        }
+                        break; // fall through to PyObject path
+                    }
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                    {
+                        if (ra == 0) throw PyZeroDivisionError.Create("division by zero");
+                        frame.ValueStack.PushFloat64((double)la / (double)ra);
+                        return;
+                    }
+                    default:
+                        break; // bitwise, shift → PyObject path
+                }
+            }
+            else if (lvBin.IsFloat64 && rvBin.IsFloat64)
+            {
+                double ld = lvBin.AsFloat64, rd = rvBin.AsFloat64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.PushFloat64(ld + rd); return;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.PushFloat64(ld - rd); return;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                        frame.ValueStack.PushFloat64(ld * rd); return;
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                        if (rd == 0.0) throw PyZeroDivisionError.Create("float division by zero");
+                        frame.ValueStack.PushFloat64(ld / rd); return;
+                    case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
+                        if (rd == 0.0) throw PyZeroDivisionError.Create("float floor division by zero");
+                        frame.ValueStack.PushFloat64(Math.Floor(ld / rd)); return;
+                    case BinaryOpType.MODULO: case BinaryOpType.INPLACE_MODULO:
+                        if (rd == 0.0) throw PyZeroDivisionError.Create("float modulo");
+                        frame.ValueStack.PushFloat64(ld - Math.Floor(ld / rd) * rd); return;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return;
+                }
+            }
+            else if (lvBin.IsIntLike && rvBin.IsFloat64)
+            {
+                double ld = (double)lvBin.AsInt64, rd = rvBin.AsFloat64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.PushFloat64(ld + rd); return;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.PushFloat64(ld - rd); return;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                        frame.ValueStack.PushFloat64(ld * rd); return;
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                        if (rd == 0.0) throw PyZeroDivisionError.Create("float division by zero");
+                        frame.ValueStack.PushFloat64(ld / rd); return;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return;
+                }
+            }
+            else if (lvBin.IsFloat64 && rvBin.IsIntLike)
+            {
+                double ld = lvBin.AsFloat64, rd = (double)rvBin.AsInt64;
+                switch (binOp)
+                {
+                    case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
+                        frame.ValueStack.PushFloat64(ld + rd); return;
+                    case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
+                        frame.ValueStack.PushFloat64(ld - rd); return;
+                    case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
+                        frame.ValueStack.PushFloat64(ld * rd); return;
+                    case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
+                        if (rd == 0.0) throw PyZeroDivisionError.Create("float division by zero");
+                        frame.ValueStack.PushFloat64(ld / rd); return;
+                    case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return;
+                }
+            }
+            else if ((binOp == BinaryOpType.ADD || binOp == BinaryOpType.INPLACE_ADD)
+                && lvBin.Tag == PyValue.TAG_OBJECT && rvBin.Tag == PyValue.TAG_OBJECT
+                && lvBin.ObjRef is PyStr lvStr && rvBin.ObjRef is PyStr rvStr)
+            {
+                frame.ValueStack.Push(new PyStr(lvStr.Value + rvStr.Value));
+                return;
+            }
+
+            // PyObject fallback
+            var leftObj = lvBin.ToObject();
+            var rightObj = rvBin.ToObject();
+            if (leftObj is PyClassInstance leftInst)
+            {
+                string magicName = binOp switch
+                {
+                    BinaryOpType.ADD or BinaryOpType.INPLACE_ADD => "__add__",
+                    BinaryOpType.MULTIPLY or BinaryOpType.INPLACE_MULTIPLY => "__mul__",
+                    BinaryOpType.SUBTRACT or BinaryOpType.INPLACE_SUBTRACT => "__sub__",
+                    BinaryOpType.TRUE_DIVIDE or BinaryOpType.INPLACE_TRUE_DIVIDE => "__truediv__",
+                    BinaryOpType.FLOOR_DIVIDE or BinaryOpType.INPLACE_FLOOR_DIVIDE => "__floordiv__",
+                    BinaryOpType.MODULO or BinaryOpType.INPLACE_MODULO => "__mod__",
+                    BinaryOpType.POWER or BinaryOpType.INPLACE_POWER => "__pow__",
+                    _ => null,
+                };
+                if (magicName != null)
+                {
+                    var magicResult = leftInst.CallMagicMethodBinary(magicName, rightObj);
+                    if (magicResult != null && magicResult != PyNotImplemented.Instance)
+                    { frame.ValueStack.Push(magicResult); return; }
+                }
+            }
+            frame.ValueStack.Push(ExecuteBinaryOpType(leftObj, rightObj, binOp));
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -5493,286 +5678,8 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BINARY_OP:
-                {
-                    // CPython 3.12+ unified binary operation
-                    var binOp = (BinaryOpType)instruction.Argument;
-
-                    // PyValue fast path for int/float arithmetic (zero allocation)
-                    var rvBin = frame.ValueStack.PopValue();
-                    var lvBin = frame.ValueStack.PopValue();
-
-                    if (lvBin.IsIntLike && rvBin.IsIntLike)
-                    {
-                        long la = lvBin.AsInt64, ra = rvBin.AsInt64;
-                        switch (binOp)
-                        {
-                            case BinaryOpType.ADD:
-                            case BinaryOpType.INPLACE_ADD:
-                            {
-                                long sum = unchecked(la + ra);
-                                if (((la ^ sum) & (ra ^ sum)) < 0)
-                                    frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
-                                else
-                                    frame.ValueStack.PushInt64(sum);
-                                break;
-                            }
-                            case BinaryOpType.SUBTRACT:
-                            case BinaryOpType.INPLACE_SUBTRACT:
-                            {
-                                long diff = unchecked(la - ra);
-                                if (((la ^ ra) & (la ^ diff)) < 0)
-                                    frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
-                                else
-                                    frame.ValueStack.PushInt64(diff);
-                                break;
-                            }
-                            case BinaryOpType.MULTIPLY:
-                            case BinaryOpType.INPLACE_MULTIPLY:
-                            {
-                                if (la >= int.MinValue && la <= int.MaxValue && ra >= int.MinValue && ra <= int.MaxValue)
-                                {
-                                    frame.ValueStack.PushInt64(la * ra);
-                                }
-                                else
-                                {
-                                    var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
-                                    if (bigResult >= long.MinValue && bigResult <= long.MaxValue)
-                                        frame.ValueStack.PushInt64((long)bigResult);
-                                    else
-                                        frame.ValueStack.Push(new PyInt(bigResult));
-                                }
-                                break;
-                            }
-                            case BinaryOpType.MODULO:
-                            case BinaryOpType.INPLACE_MODULO:
-                            {
-                                if (ra == 0)
-                                    throw PyZeroDivisionError.Create("integer modulo by zero");
-                                // Python modulo: result has same sign as divisor
-                                long mod = la % ra;
-                                if (mod != 0 && (mod ^ ra) < 0)
-                                    mod += ra;
-                                frame.ValueStack.PushInt64(mod);
-                                break;
-                            }
-                            case BinaryOpType.FLOOR_DIVIDE:
-                            case BinaryOpType.INPLACE_FLOOR_DIVIDE:
-                            {
-                                if (ra == 0)
-                                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                                // Python floor division
-                                long div = la / ra;
-                                if ((la ^ ra) < 0 && div * ra != la)
-                                    div--;
-                                frame.ValueStack.PushInt64(div);
-                                break;
-                            }
-                            case BinaryOpType.POWER:
-                            case BinaryOpType.INPLACE_POWER:
-                            {
-                                // CPython 3.12: Objects/longobject.c long_pow()
-                                // Negative exponent → float result
-                                if (ra < 0)
-                                {
-                                    frame.ValueStack.PushFloat64(Math.Pow((double)la, (double)ra));
-                                }
-                                else if (ra == 0)
-                                {
-                                    frame.ValueStack.PushInt64(1);
-                                }
-                                else if (ra == 1)
-                                {
-                                    frame.ValueStack.PushInt64(la);
-                                }
-                                else if (ra == 2)
-                                {
-                                    // Common case: x ** 2 (squaring)
-                                    if (la >= -46340 && la <= 46340) // sqrt(int.MaxValue)
-                                        frame.ValueStack.PushInt64(la * la);
-                                    else
-                                        goto binop_pyobject; // overflow possible, use BigInteger path
-                                }
-                                else if (ra <= 62)
-                                {
-                                    // Small exponent: use Math.Pow with overflow check
-                                    double result = Math.Pow((double)la, (double)ra);
-                                    if (result >= long.MinValue && result <= long.MaxValue)
-                                        frame.ValueStack.PushInt64((long)result);
-                                    else
-                                        goto binop_pyobject; // overflow, use BigInteger
-                                }
-                                else
-                                {
-                                    goto binop_pyobject; // large exponent, use BigInteger
-                                }
-                                break;
-                            }
-                            default:
-                                // Bitwise, shift etc. fall through to PyObject path
-                                goto binop_pyobject;
-                        }
-                        break;
-                    }
-
-                    if (lvBin.IsFloat64 && rvBin.IsFloat64)
-                    {
-                        double ld = lvBin.AsFloat64, rd = rvBin.AsFloat64;
-                        switch (binOp)
-                        {
-                            case BinaryOpType.ADD:
-                            case BinaryOpType.INPLACE_ADD:
-                                frame.ValueStack.PushFloat64(ld + rd);
-                                break;
-                            case BinaryOpType.SUBTRACT:
-                            case BinaryOpType.INPLACE_SUBTRACT:
-                                frame.ValueStack.PushFloat64(ld - rd);
-                                break;
-                            case BinaryOpType.MULTIPLY:
-                            case BinaryOpType.INPLACE_MULTIPLY:
-                                frame.ValueStack.PushFloat64(ld * rd);
-                                break;
-                            case BinaryOpType.TRUE_DIVIDE:
-                            case BinaryOpType.INPLACE_TRUE_DIVIDE:
-                                if (rd == 0.0)
-                                    throw PyZeroDivisionError.Create("float division by zero");
-                                frame.ValueStack.PushFloat64(ld / rd);
-                                break;
-                            case BinaryOpType.FLOOR_DIVIDE:
-                            case BinaryOpType.INPLACE_FLOOR_DIVIDE:
-                                if (rd == 0.0)
-                                    throw PyZeroDivisionError.Create("float floor division by zero");
-                                frame.ValueStack.PushFloat64(Math.Floor(ld / rd));
-                                break;
-                            case BinaryOpType.MODULO:
-                            case BinaryOpType.INPLACE_MODULO:
-                                if (rd == 0.0)
-                                    throw PyZeroDivisionError.Create("float modulo");
-                                frame.ValueStack.PushFloat64(ld - Math.Floor(ld / rd) * rd);
-                                break;
-                            case BinaryOpType.POWER:
-                            case BinaryOpType.INPLACE_POWER:
-                                // CPython 3.12: Objects/floatobject.c float_pow()
-                                frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
-                                break;
-                            default:
-                                goto binop_pyobject;
-                        }
-                        break;
-                    }
-
-                    // int + float mixed: promote int to float
-                    if (lvBin.IsIntLike && rvBin.IsFloat64)
-                    {
-                        double ld = (double)lvBin.AsInt64, rd = rvBin.AsFloat64;
-                        switch (binOp)
-                        {
-                            case BinaryOpType.ADD:
-                            case BinaryOpType.INPLACE_ADD:
-                                frame.ValueStack.PushFloat64(ld + rd);
-                                break;
-                            case BinaryOpType.SUBTRACT:
-                            case BinaryOpType.INPLACE_SUBTRACT:
-                                frame.ValueStack.PushFloat64(ld - rd);
-                                break;
-                            case BinaryOpType.MULTIPLY:
-                            case BinaryOpType.INPLACE_MULTIPLY:
-                                frame.ValueStack.PushFloat64(ld * rd);
-                                break;
-                            case BinaryOpType.TRUE_DIVIDE:
-                            case BinaryOpType.INPLACE_TRUE_DIVIDE:
-                                if (rd == 0.0)
-                                    throw PyZeroDivisionError.Create("float division by zero");
-                                frame.ValueStack.PushFloat64(ld / rd);
-                                break;
-                            case BinaryOpType.POWER:
-                            case BinaryOpType.INPLACE_POWER:
-                                frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
-                                break;
-                            default:
-                                goto binop_pyobject;
-                        }
-                        break;
-                    }
-
-                    if (lvBin.IsFloat64 && rvBin.IsIntLike)
-                    {
-                        double ld = lvBin.AsFloat64, rd = (double)rvBin.AsInt64;
-                        switch (binOp)
-                        {
-                            case BinaryOpType.ADD:
-                            case BinaryOpType.INPLACE_ADD:
-                                frame.ValueStack.PushFloat64(ld + rd);
-                                break;
-                            case BinaryOpType.SUBTRACT:
-                            case BinaryOpType.INPLACE_SUBTRACT:
-                                frame.ValueStack.PushFloat64(ld - rd);
-                                break;
-                            case BinaryOpType.MULTIPLY:
-                            case BinaryOpType.INPLACE_MULTIPLY:
-                                frame.ValueStack.PushFloat64(ld * rd);
-                                break;
-                            case BinaryOpType.TRUE_DIVIDE:
-                            case BinaryOpType.INPLACE_TRUE_DIVIDE:
-                                if (rd == 0.0)
-                                    throw PyZeroDivisionError.Create("float division by zero");
-                                frame.ValueStack.PushFloat64(ld / rd);
-                                break;
-                            case BinaryOpType.POWER:
-                            case BinaryOpType.INPLACE_POWER:
-                                frame.ValueStack.PushFloat64(Math.Pow(ld, rd));
-                                break;
-                            default:
-                                goto binop_pyobject;
-                        }
-                        break;
-                    }
-
-                    // Fast path for string concatenation (str + str)
-                    // CPython 3.12: Objects/unicodeobject.c unicode_concatenate
-                    if ((binOp == BinaryOpType.ADD || binOp == BinaryOpType.INPLACE_ADD)
-                        && lvBin.Tag == PyValue.TAG_OBJECT && rvBin.Tag == PyValue.TAG_OBJECT
-                        && lvBin.ObjRef is PyStr lvStr && rvBin.ObjRef is PyStr rvStr)
-                    {
-                        frame.ValueStack.Push(new PyStr(lvStr.Value + rvStr.Value));
-                        break;
-                    }
-
-                    binop_pyobject:
-                    {
-                        // Fast path: PyClassInstance dunder methods — skip ExecuteBinaryOpType overhead
-                        // CPython 3.12: Objects/abstract.c:947 (binary_op1) — try left.__op__ first
-                        var leftObj = lvBin.ToObject();
-                        var rightObj = rvBin.ToObject();
-                        if (leftObj is PyClassInstance leftInst)
-                        {
-                            string magicName = binOp switch
-                            {
-                                BinaryOpType.ADD or BinaryOpType.INPLACE_ADD => "__add__",
-                                BinaryOpType.MULTIPLY or BinaryOpType.INPLACE_MULTIPLY => "__mul__",
-                                BinaryOpType.SUBTRACT or BinaryOpType.INPLACE_SUBTRACT => "__sub__",
-                                BinaryOpType.TRUE_DIVIDE or BinaryOpType.INPLACE_TRUE_DIVIDE => "__truediv__",
-                                BinaryOpType.FLOOR_DIVIDE or BinaryOpType.INPLACE_FLOOR_DIVIDE => "__floordiv__",
-                                BinaryOpType.MODULO or BinaryOpType.INPLACE_MODULO => "__mod__",
-                                BinaryOpType.POWER or BinaryOpType.INPLACE_POWER => "__pow__",
-                                _ => null,
-                            };
-                            if (magicName != null)
-                            {
-                                var magicResult = leftInst.CallMagicMethodBinary(magicName, rightObj);
-                                if (magicResult != null && magicResult != PyNotImplemented.Instance)
-                                {
-                                    frame.ValueStack.Push(magicResult);
-                                    break;
-                                }
-                            }
-                        }
-
-                        // Fall back to full PyObject virtual dispatch
-                        var binResult = ExecuteBinaryOpType(leftObj, rightObj, binOp);
-                        frame.ValueStack.Push(binResult);
-                        break;
-                    }
-                }
+                    ExecuteBinaryOpFull(frame, (BinaryOpType)instruction.Argument);
+                    break;
 
                 // CPython 3.12: Python/bytecodes.c:400-450 - Specialized Binary Operations
                 // Specialized Binary Operations - CPython 3.12 Adaptive Specialization
