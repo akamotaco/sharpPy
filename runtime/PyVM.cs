@@ -2298,6 +2298,42 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Fast path for CALL on PyMethodDescriptor (builtin methods like list.append).
+        /// Pops args + self + descriptor from stack, calls _implementation directly.
+        /// Stack layout: [..., descriptor, self, arg0, ..., argN-1]
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject CallMethodDescriptorFast(PyFrame frame, PyMethodDescriptor mdesc, int callArgCount)
+        {
+            // Pop args (right to left)
+            PyObject[] mdArgs;
+            if (callArgCount == 0)
+                mdArgs = EmptyArgs;
+            else if (callArgCount == 1)
+            {
+                mdArgs = _oneArgBuf ??= new PyObject[1];
+                mdArgs[0] = frame.ValueStack.Pop();
+            }
+            else if (callArgCount == 2)
+            {
+                mdArgs = _twoArgBuf ??= new PyObject[2];
+                mdArgs[1] = frame.ValueStack.Pop();
+                mdArgs[0] = frame.ValueStack.Pop();
+            }
+            else
+            {
+                mdArgs = new PyObject[callArgCount];
+                for (int i = callArgCount - 1; i >= 0; i--)
+                    mdArgs[i] = frame.ValueStack.Pop();
+            }
+            var mdSelf = frame.ValueStack.Pop(); // self
+            frame.ValueStack.PopValue();          // descriptor (nextElement)
+            var result = mdesc._implementation(mdSelf, mdArgs, null);
+            frame.ValueStack.Push(result);
+            return null;
+        }
+
+        /// <summary>
         /// Trivial getter inlining: execute `return self.attr` without frame creation.
         /// Called from ExecuteCall when code.TrivialGetterAttr is set.
         /// Returns true if handled (result pushed to caller stack), false to fall through.
@@ -3705,6 +3741,15 @@ namespace SharpPy
                                         _pendingInlinedFrame = directFrame;
                                         return _dispatchInlinedSentinel;
                                     }
+                                }
+
+                                // === PyMethodDescriptor Fast Path ===
+                                // Builtin methods (list.append, etc.): skip Standard CALL overhead
+                                if (!isNullPattern
+                                    && nextElemVal.Tag == PyValue.TAG_OBJECT
+                                    && nextElemVal.ObjRef is PyMethodDescriptor mdescFast)
+                                {
+                                    return CallMethodDescriptorFast(frame, mdescFast, callArgCount);
                                 }
                             }
 
