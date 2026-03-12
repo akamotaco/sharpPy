@@ -1842,26 +1842,15 @@ namespace SharpPy
                         else if (inlineOp == ByteCodeOp.RETURN_VALUE)
                         {
                             var inlineRetVal = frame.ValueStack.Count > 0 ? frame.ValueStack.Pop() : PyNone.Instance;
-                            if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
-                                && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
-                            {
-                                if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_"))
-                                {
-                                    frame.ClassBodyVariables = new Dictionary<string, PyObject>(frame.ScopeChain.CurrentScope.Variables);
-                                }
-                                frame.ScopeChain.PopScope();
-                            }
+                            if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                                ReturnCleanupScope(frame);
                             return inlineRetVal;
                         }
                         else if (inlineOp == ByteCodeOp.RETURN_CONST)
                         {
-                            // CPython 3.12: Return constant value directly (e.g., return None in __init__)
                             var rcVal = frame.Code.ConstantsAsValues[cip.Arg].ToObject();
-                            if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0
-                                && frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
-                            {
-                                frame.ScopeChain.PopScope();
-                            }
+                            if ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                                ReturnCleanupScope(frame);
                             return rcVal;
                         }
                         else if (inlineOp == ByteCodeOp.RESUME)
@@ -1901,49 +1890,20 @@ namespace SharpPy
                             if (!laPushNull)
                             {
                                 // Simple attribute access: instance dict lookup
-                                // Use PeekValue to avoid double ToObject (Pop would do it again)
                                 var laObjVal = frame.ValueStack.PeekValue();
                                 if (laObjVal.IsObject && laObjVal.ObjRef is PyClassInstance laInst
                                     && laInst.InstanceDict.TryGetValue(frame.Code.Names[laNameIdx], out var laVal))
                                 {
-                                    frame.ValueStack.PopValue(); // Discard — skip ToObject
+                                    frame.ValueStack.PopValue();
                                     frame.ValueStack.Push(laVal);
                                     ip++;
                                     continue;
                                 }
                             }
-                            else
+                            else if (LoadAttrMethodCacheHit(frame, ip))
                             {
-                                // Method call: check inline cache (monomorphic, type-version-guarded)
-                                // CPython 3.12: LOAD_ATTR_METHOD_WITH_VALUES specialization
-                                var laObjVal = frame.ValueStack.PeekValue();
-                                if (laObjVal.IsObject)
-                                {
-                                    var laObj = laObjVal.ObjRef;
-                                    var laCache = frame.Code.LoadAttrCache;
-                                    if (laCache != null)
-                                    {
-                                        int laIp = ip;
-                                        ref var laCacheEntry = ref laCache[laIp];
-                                        if (laCacheEntry.CachedValue != null)
-                                        {
-                                            bool cacheHit = false;
-                                            if (laObj is PyClassInstance laMethodInst)
-                                                cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
-                                            else
-                                                cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
-
-                                            if (cacheHit)
-                                            {
-                                                frame.ValueStack.PopValue(); // Discard — skip ToObject
-                                                frame.ValueStack.Push(laCacheEntry.CachedValue);
-                                                frame.ValueStack.Push(laObj);
-                                                ip++;
-                                                continue;
-                                            }
-                                        }
-                                    }
-                                }
+                                ip++;
+                                continue;
                             }
                         }
                         else if (inlineOp == ByteCodeOp.STORE_ATTR)
@@ -2019,8 +1979,7 @@ namespace SharpPy
                         }
                         else if (inlineOp == ByteCodeOp.FOR_ITER)
                         {
-                            // Fast path: range iterator — zero-allocation int64 push
-                            // CPython 3.12: FOR_ITER_RANGE specialization
+                            // Hot path: range iterator — zero-allocation int64 push
                             var fiVal = frame.ValueStack.PeekValue();
                             if (fiVal.IsObject && fiVal.ObjRef is PyRangeIterator fiRangeIter)
                             {
@@ -2030,42 +1989,10 @@ namespace SharpPy
                                     ip++;
                                     continue;
                                 }
-                                // Range exhausted — fall through to exhaustion handling below
-                                frame.ValueStack.PopValue();
-                                if (frame.Code is PyQuickenedCodeObject fiRangeQuickened)
-                                    ip = fiRangeQuickened.CalculateForIterTarget(
-                                        ip, cip.Arg);
-                                else if (!frame.Code.IsOptimized)
-                                    ip = ip + cip.Arg + 2;
-                                else
-                                    ip = ip + cip.Arg + 1;
-                                continue;
                             }
-                            var fiIter = frame.ValueStack.Peek();
-                            if (fiIter.TryNext(out var fiNext))
-                            {
-                                frame.ValueStack.Push(fiNext);
-                                ip++;
-                                continue;
-                            }
-                            else
-                            {
-                                frame.ValueStack.Pop();
-                                if (frame.Code is PyQuickenedCodeObject fiQuickened)
-                                {
-                                    ip = fiQuickened.CalculateForIterTarget(
-                                        ip, cip.Arg);
-                                }
-                                else if (!frame.Code.IsOptimized)
-                                {
-                                    ip = ip + cip.Arg + 2;
-                                }
-                                else
-                                {
-                                    ip = ip + cip.Arg + 1;
-                                }
-                                continue;
-                            }
+                            // Cold path: exhaustion + generic iterators → helper
+                            ip = ForIterCold(frame, ip, cip.Arg);
+                            continue;
                         }
                         else if (inlineOp == ByteCodeOp.NOP || inlineOp == ByteCodeOp.CACHE)
                         {
@@ -2223,6 +2150,83 @@ namespace SharpPy
         /// while avoiding the massive ExecuteInstruction (39KB) for common float ops.
         /// Returns true if the operation was handled, false to fall through.
         /// </summary>
+
+        /// <summary>
+        /// LOAD_ATTR method-call inline cache check (extracted from inline fast path to reduce IL).
+        /// Returns true if cache hit and stack updated, false to fall through to ExecuteInstruction.
+        /// </summary>
+        /// <summary>
+        /// RETURN_VALUE/RETURN_CONST cold path: class body scope cleanup for non-CO_OPTIMIZED frames.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void ReturnCleanupScope(PyFrame frame)
+        {
+            if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
+            {
+                if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_"))
+                {
+                    frame.ClassBodyVariables = new Dictionary<string, PyObject>(frame.ScopeChain.CurrentScope.Variables);
+                }
+                frame.ScopeChain.PopScope();
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private bool LoadAttrMethodCacheHit(PyFrame frame, int ip)
+        {
+            var laObjVal = frame.ValueStack.PeekValue();
+            if (!laObjVal.IsObject) return false;
+            var laObj = laObjVal.ObjRef;
+            var laCache = frame.Code.LoadAttrCache;
+            if (laCache == null) return false;
+            ref var laCacheEntry = ref laCache[ip];
+            if (laCacheEntry.CachedValue == null) return false;
+            bool cacheHit;
+            if (laObj is PyClassInstance laMethodInst)
+                cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
+            else
+                cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
+            if (!cacheHit) return false;
+            frame.ValueStack.PopValue();
+            frame.ValueStack.Push(laCacheEntry.CachedValue);
+            frame.ValueStack.Push(laObj);
+            return true;
+        }
+
+        /// <summary>
+        /// FOR_ITER cold path: handles iterator exhaustion and generic (non-range) iterators.
+        /// Extracted from inline fast path to reduce ExecuteFrame IL.
+        /// Returns the new IP value.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private int ForIterCold(PyFrame frame, int ip, int arg)
+        {
+            var fiVal = frame.ValueStack.PeekValue();
+            // Range exhausted (hot path already checked TryNextInt64 and failed)
+            if (fiVal.IsObject && fiVal.ObjRef is PyRangeIterator)
+            {
+                frame.ValueStack.PopValue();
+                return CalculateForIterExhaustedTarget(frame, ip, arg);
+            }
+            // Generic iterator
+            var fiIter = frame.ValueStack.Peek();
+            if (fiIter.TryNext(out var fiNext))
+            {
+                frame.ValueStack.Push(fiNext);
+                return ip + 1;
+            }
+            frame.ValueStack.Pop();
+            return CalculateForIterExhaustedTarget(frame, ip, arg);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private int CalculateForIterExhaustedTarget(PyFrame frame, int ip, int arg)
+        {
+            if (frame.Code is PyQuickenedCodeObject q)
+                return q.CalculateForIterTarget(ip, arg);
+            return !frame.Code.IsOptimized ? ip + arg + 2 : ip + arg + 1;
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private bool BinaryOpWarm(PyFrame frame, BinaryOpType binOp)
         {
