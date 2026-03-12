@@ -410,7 +410,7 @@ namespace SharpPy
         private void PrintTracebackFrame(PyTraceback tb)
         {
             var frame = tb.Frame;
-            var fileName = frame.CurrentFileName ?? _currentFileName ?? "<stdin>";
+            var fileName = frame.Code?.FileName ?? _currentFileName ?? "<stdin>";
             var functionName = frame.Code.Name ?? "<module>";
             var lineNumber = tb.LineNo;
 

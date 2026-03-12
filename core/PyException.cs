@@ -683,7 +683,7 @@ namespace SharpPy
                 while (tb != null)
                 {
                     var frame = tb.Frame;
-                    var fileName = frame.CurrentFileName ?? "<string>";
+                    var fileName = frame.Code?.FileName ?? "<string>";
                     var functionName = frame.Code?.Name ?? "<module>";
                     var lineNumber = tb.LineNo;
 

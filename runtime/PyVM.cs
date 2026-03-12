@@ -251,7 +251,7 @@ namespace SharpPy
             Globals = ScopeChain.GlobalScope?.Variables ?? _emptyGlobals;
 
             // Initialize filename from code object
-            CurrentFileName = code.FileName;
+
 
             // 클로저 정보 설정
             Closure = closure ?? Array.Empty<PyCell>();
@@ -317,7 +317,7 @@ namespace SharpPy
             InstructionPointer = 0;
             ParentFrame = parentFrame;
             Globals = ScopeChain.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = closure ?? Array.Empty<PyCell>();
 
             // Reset all mutable state (may be stale from previous use)
@@ -376,7 +376,7 @@ namespace SharpPy
             InstructionPointer = 0;
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = Array.Empty<PyCell>();
             Cells = Array.Empty<PyCell>();
 
@@ -415,7 +415,7 @@ namespace SharpPy
             InstructionPointer = 0;
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = closure ?? Array.Empty<PyCell>();
 
             CurrentLineNumber = -1;
@@ -487,7 +487,7 @@ namespace SharpPy
             InstructionPointer = 0;
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = Array.Empty<PyCell>();
             Cells = Array.Empty<PyCell>();
 
@@ -525,7 +525,7 @@ namespace SharpPy
             InstructionPointer = 0;
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = closure ?? Array.Empty<PyCell>();
 
             // FreeVar-only: reuse closure array directly (zero allocation)
@@ -592,7 +592,7 @@ namespace SharpPy
 
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = Array.Empty<PyCell>();
             Cells = Array.Empty<PyCell>();
         }
@@ -620,7 +620,7 @@ namespace SharpPy
 
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = closure ?? Array.Empty<PyCell>();
 
             // Pre-initialize cells: copy FreeVars from closure (shared ref), new cells for CellVars only
@@ -681,7 +681,7 @@ namespace SharpPy
 
             ParentFrame = parentFrame;
             Globals = parentScope.GlobalScope?.Variables ?? _emptyGlobals;
-            CurrentFileName = code.FileName;
+
             Closure = Array.Empty<PyCell>();
             Cells = Array.Empty<PyCell>();
         }
@@ -1718,8 +1718,7 @@ namespace SharpPy
                         frame.CurrentLineNumber = instruction.LineNumber;
                     if (instruction.ColumnOffset >= 0)
                         frame.CurrentColumnOffset = instruction.ColumnOffset;
-                    if (!string.IsNullOrEmpty(instruction.FileName))
-                        frame.CurrentFileName = instruction.FileName;
+                    // CurrentFileName removed (use Code.FileName) — skip per-instruction update
 
                     if (frame.ValueStack.Count <= 10)
                     {
@@ -2092,13 +2091,13 @@ namespace SharpPy
                             // Deferred line tracking: resolve line number only on exception
                             if (frame.Code.LineNumberTable.TryGetValue(ip, out var excLine))
                                 frame.CurrentLineNumber = excLine;
-                            if (frame.CurrentFileName == null)
-                                frame.CurrentFileName = frame.Code.FileName;
+                            // CurrentFileName removed — use Code.FileName directly
 
                             // CPython-style error location tracking
-                            if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frame.CurrentFileName))
+                            var frameFileName = frame.Code?.FileName;
+                            if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frameFileName))
                             {
-                                pyEx.FileName = frame.CurrentFileName;
+                                pyEx.FileName = frameFileName;
                                 pyEx.LineNumber = frame.CurrentLineNumber;
                                 pyEx.ColumnOffset = frame.CurrentColumnOffset;
                                 pyEx.SourceLines = frame.Code.SourceLines;
