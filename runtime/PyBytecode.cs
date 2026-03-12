@@ -495,6 +495,19 @@ namespace SharpPy
         /// </summary>
         internal LoadAttrCacheEntry[] LoadAttrCache;
 
+        /// <summary>
+        /// Trivial call inlining: skip frame creation for simple patterns.
+        /// CPython 3.12: Similar to CALL_PY_EXACT_ARGS + LOAD_ATTR_INSTANCE_VALUE combined.
+        /// Non-null if function is a simple getter: `def get(self): return self.attr`
+        /// </summary>
+        internal string TrivialGetterAttr;
+
+        /// <summary>
+        /// Trivial constant return: `def f(self): return None` or `def f(): return 42`
+        /// Index into Constants array, -1 if not applicable.
+        /// </summary>
+        internal int TrivialConstIdx = -1;
+
 
         /// <summary>
         /// Cached PyTuple of default values. Built once at construction time.
@@ -592,6 +605,60 @@ namespace SharpPy
                 && (Flags & (CO_VARARGS | CO_VARKEYWORDS)) == 0
                 && DefaultValues.Count == 0
                 && CachedDefaultsTuple == null;
+
+            // Detect trivial call patterns (getter, constant return)
+            // These can be executed without frame creation at CALL site
+            DetectTrivialPattern();
+        }
+
+        /// <summary>
+        /// Detect trivial bytecode patterns that can be executed without frame creation.
+        /// Patterns:
+        /// - Getter: RESUME, LOAD_FAST 0, LOAD_ATTR n, CACHE*9, RETURN_VALUE → return self.attr
+        /// - Constant return: RESUME, RETURN_CONST n → return constant
+        /// </summary>
+        private void DetectTrivialPattern()
+        {
+            if (!IsSimpleCallTarget) return;
+            if ((CellVars?.Count ?? 0) != 0 || (FreeVars?.Count ?? 0) != 0) return;
+
+            var ci = CompactInstructions;
+            if (ci == null || ci.Length < 2) return;
+
+            int ip = 0;
+            // Skip RESUME and CACHE
+            while (ip < ci.Length && (ci[ip].Op == ByteCodeOp.RESUME || ci[ip].Op == ByteCodeOp.CACHE))
+                ip++;
+
+            if (ip >= ci.Length) return;
+
+            // Pattern 1: Getter — LOAD_FAST 0 (self), LOAD_ATTR n, CACHE*, RETURN_VALUE
+            // Only for methods with exactly 1 arg (self)
+            if (ArgCount == 1 && ip + 1 < ci.Length
+                && ci[ip].Op == ByteCodeOp.LOAD_FAST && ci[ip].Arg == 0
+                && ci[ip + 1].Op == ByteCodeOp.LOAD_ATTR)
+            {
+                int attrArg = ci[ip + 1].Arg;
+                bool pushNull = (attrArg & 1) == 1;
+                if (!pushNull) // Simple attribute access, not method lookup
+                {
+                    int nameIdx = attrArg >> 1;
+                    int nextIp = ip + 2;
+                    // Skip CACHE entries after LOAD_ATTR (9 inline cache slots)
+                    while (nextIp < ci.Length && ci[nextIp].Op == ByteCodeOp.CACHE)
+                        nextIp++;
+                    if (nextIp < ci.Length && ci[nextIp].Op == ByteCodeOp.RETURN_VALUE)
+                    {
+                        TrivialGetterAttr = Names[nameIdx];
+                    }
+                }
+            }
+
+            // Pattern 2: Constant return — RETURN_CONST n
+            if (ci[ip].Op == ByteCodeOp.RETURN_CONST)
+            {
+                TrivialConstIdx = ci[ip].Arg;
+            }
         }
 
         /// <summary>

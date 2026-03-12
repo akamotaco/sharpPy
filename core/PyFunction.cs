@@ -299,8 +299,7 @@ public partial class PyFunction : PyObject, IDescriptor
         PyFrame frame;
         if (code.IsSimpleCallTarget
             && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0
-            && args.Length == code.ArgCount
-            && Attributes.Count == 0)
+            && args.Length == code.ArgCount)
         {
             frame = PyFrame.Rent();
             frame.InitFast(code, args, functionScopeChain, null);

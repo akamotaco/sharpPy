@@ -2275,6 +2275,24 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Trivial getter inlining: execute `return self.attr` without frame creation.
+        /// Called from ExecuteCall when code.TrivialGetterAttr is set.
+        /// Returns true if handled (result pushed to caller stack), false to fall through.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private bool HandleTrivialGetter(PyFrame frame, PyCodeObject code)
+        {
+            var selfVal = _callValBuf[0];
+            if (selfVal.IsObject && selfVal.ObjRef is PyClassInstance inst
+                && inst.InstanceDict.TryGetValue(code.TrivialGetterAttr, out var val))
+            {
+                frame.ValueStack.Push(val);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// FOR_ITER cold path: handles iterator exhaustion and generic (non-range) iterators.
         /// Extracted from inline fast path to reduce ExecuteFrame IL.
         /// Returns the new IP value.
@@ -3607,7 +3625,6 @@ namespace SharpPy
                                 if (func != null
                                     && func.CodeObject is PyCodeObject code
                                     && code.IsSimpleCallTarget
-                                    && func.Attributes.Count == 0
                                     && !code.IsGenerator() && !code.IsCoroutine())
                                 {
                                     int totalArgs = isNullPattern ? callArgCount : callArgCount + 1;
@@ -3633,6 +3650,17 @@ namespace SharpPy
                                                 _callValBuf[i + 1] = frame.ValueStack.PopValue();
                                             _callValBuf[0] = frame.ValueStack.PopValue(); // self (was callableFunc position)
                                             frame.ValueStack.PopValue(); // func (was nextElement position)
+                                        }
+
+                                        // Trivial call inlining: execute without frame creation
+                                        // CPython 3.12: equivalent to CALL_PY_EXACT_ARGS + inline execution
+                                        if (code.TrivialGetterAttr != null
+                                            && HandleTrivialGetter(frame, code))
+                                            return null;
+                                        if (code.TrivialConstIdx >= 0)
+                                        {
+                                            frame.ValueStack.Push(code.Constants[code.TrivialConstIdx]);
+                                            return null;
                                         }
 
                                         PyScopeChain functionScope = func.CreateCachedScopeChain()
@@ -9812,8 +9840,7 @@ namespace SharpPy
                 // IsSimpleCallTarget pre-computes code-level checks; only per-function check is Attributes
                 PyFrame frame;
                 if (code.IsSimpleCallTarget
-                    && args.Length == code.ArgCount
-                    && pyFunc.Attributes.Count == 0)
+                    && args.Length == code.ArgCount)
                 {
                     if ((code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0)
                     {
