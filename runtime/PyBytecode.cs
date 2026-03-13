@@ -531,6 +531,14 @@ namespace SharpPy
         /// </summary>
         public List<string> NonParamCellNames { get; private set; } = null!;
 
+        /// <summary>
+        /// Pre-computed localsplus offset → Cells array index mapping.
+        /// Eliminates per-instruction branch logic in LOAD_DEREF/STORE_DEREF/DELETE_DEREF.
+        /// Index range: [nlocals .. nlocals + ncellvars + nfreevars - 1]
+        /// Value: direct index into frame.Cells[]
+        /// </summary>
+        public int[] DerefToCellIndex { get; private set; } = null!;
+
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
         public const int CO_NEWLOCALS = 0x0002;         // 새로운 지역 변수 네임스페이스
@@ -734,6 +742,42 @@ namespace SharpPy
             {
                 if (!VarNameSet.Contains(CellVars[i]))
                     NonParamCellNames.Add(CellVars[i]);
+            }
+
+            // Build DerefToCellIndex: pre-compute localsplus offset → frame.Cells[] index
+            // CPython 3.12 localsplus layout: [varnames(nlocals) | non-param cells | freevars]
+            // frame.Cells layout: [freevars(0..nfree-1) | cellvars(nfree..nfree+ncell-1)]
+            int nlocals = VarNames.Count;
+            int ncellvars = CellVars.Count;
+            int nfreevars = FreeVars.Count;
+            // Size the array to cover all possible DEREF offsets
+            // Use max of computed layout size and (nlocals + ncellvars + nfreevars) for safety
+            int layoutSlots = nlocals + NonParamCellNames.Count + nfreevars;
+            int maxSlots = nlocals + ncellvars + nfreevars;
+            int totalLocalsPlusSlots = Math.Max(layoutSlots, maxSlots);
+            DerefToCellIndex = new int[totalLocalsPlusSlots];
+
+            // Fill parameter slots that are also cellvars (offset < nlocals)
+            // Fallback: nfreevars - 1 preserves original IndexOf(-1) + nfreevars behavior
+            for (int off = 0; off < nlocals; off++)
+            {
+                if (CellVarIndexMap.TryGetValue(VarNames[off], out int cellVarIdx))
+                    DerefToCellIndex[off] = nfreevars + cellVarIdx;
+                else
+                    DerefToCellIndex[off] = nfreevars - 1;
+            }
+
+            // Fill non-param cellvar slots
+            for (int j = 0; j < NonParamCellNames.Count; j++)
+            {
+                int cellVarIdx = CellVarIndexMap[NonParamCellNames[j]];
+                DerefToCellIndex[nlocals + j] = nfreevars + cellVarIdx;
+            }
+
+            // Fill freevar slots
+            for (int j = 0; j < nfreevars; j++)
+            {
+                DerefToCellIndex[nlocals + NonParamCellNames.Count + j] = j;
             }
         }
 
