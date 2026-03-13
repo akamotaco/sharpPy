@@ -354,6 +354,7 @@ namespace SharpPy
         public ulong TypeVersionTag;   // Receiver type's version at cache time
         public PyObject CachedValue;   // Cached attribute/method result
         public bool IsMethod;          // True if cached for method call (pushNullForMethod=true)
+        public byte BuiltinTypeTag;    // 0=PyClassInstance(use TypeVersionTag), 1=PyStr, 2=PyList, 3=PyDict, 4=PyTuple
     }
 
 

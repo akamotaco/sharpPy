@@ -2307,10 +2307,23 @@ namespace SharpPy
             ref var laCacheEntry = ref laCache[ip];
             if (laCacheEntry.CachedValue == null) return 0;
             bool cacheHit;
-            if (laObj is PyClassInstance laMethodInst)
+            byte btTag = laCacheEntry.BuiltinTypeTag;
+            if (btTag != 0)
+            {
+                // Builtin type: fast type identity check (no virtual calls)
+                cacheHit = btTag switch
+                {
+                    1 => laObj is PyStr,
+                    2 => laObj is PyList,
+                    3 => laObj is PyDict,
+                    4 => laObj is PyTuple,
+                    _ => false,
+                };
+            }
+            else if (laObj is PyClassInstance laMethodInst)
                 cacheHit = laCacheEntry.TypeVersionTag == laMethodInst.InstanceType.TypeVersionTag;
             else
-                cacheHit = laCacheEntry.TypeVersionTag == (ulong)laObj.GetType().GetHashCode();
+                cacheHit = false;
             if (!cacheHit) return 0;
 
             // Check for trivial getter: skip CALL entirely, resolve attr inline
@@ -2376,6 +2389,26 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private PyObject CallTypeOrClassFast(PyFrame frame, PyObject callable, int callArgCount)
         {
+            // Ultra-fast path: str(int)/str(float) — avoid ToObject conversion entirely
+            if (callable is PyType strType && strType == PyType.StrType && callArgCount == 1)
+            {
+                var argVal = frame.ValueStack.PeekValueAt(0);
+                PyStr strResult;
+                if (argVal.IsIntLike)
+                    strResult = new PyStr(argVal.AsInt64.ToString());
+                else if (argVal.IsFloat64)
+                    strResult = new PyStr(PyFloat.FormatFloat(argVal.AsFloat64, null));
+                else if (argVal.IsObject && argVal.ObjRef is PyStr existingStr)
+                    strResult = existingStr;
+                else
+                    strResult = new PyStr(argVal.ToObject().AsString());
+                frame.ValueStack.PopValue(); // arg
+                frame.ValueStack.PopValue(); // callable (type)
+                frame.ValueStack.PopValue(); // NULL
+                frame.ValueStack.Push(strResult);
+                return null;
+            }
+
             // Pop args
             PyObject[] args;
             if (callArgCount == 0)
@@ -2405,9 +2438,7 @@ namespace SharpPy
             if (callable is PyType callType && callArgCount == 1)
             {
                 var arg = args[0];
-                if (callType == PyType.StrType)
-                    result = arg is PyStr ps ? ps : new PyStr(arg.AsString());
-                else if (callType == PyType.IntType)
+                if (callType == PyType.IntType)
                 {
                     if (arg is PyInt) result = arg;
                     else if (arg is PyFloat pf) result = new PyInt((long)pf.Value);
@@ -2849,7 +2880,7 @@ namespace SharpPy
                     frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
                     return true;
                 }
-                // PyClassInstance dunder methods: try DISPATCH_INLINED, fallback to CallSimple
+                // PyClassInstance dunder methods
                 if (lo is PyClassInstance leftInst)
                 {
                     string magicName = binOp switch
@@ -3665,19 +3696,22 @@ namespace SharpPy
                 // CPython 3.12: LOAD_ATTR_METHOD_NO_DICT — builtin types are monomorphic per-instruction
                 var btCache = frame.Code.LoadAttrCache;
                 int btIp = frame.InstructionPointer;
-                if (btCache != null
-                    && btCache[btIp].CachedValue is PyMethodDescriptor cachedDesc
-                    && btCache[btIp].TypeVersionTag == (ulong)obj.GetType().GetHashCode())
+                // Determine builtin type and its tag for cache
+                PyType builtinType = null;
+                byte btTag = 0;
+                if (obj is PyStr) { builtinType = PyType.StrType; btTag = 1; }
+                else if (obj is PyList) { builtinType = PyType.ListType; btTag = 2; }
+                else if (obj is PyDict) { builtinType = PyType.DictType; btTag = 3; }
+                else if (obj is PyTuple) { builtinType = PyType.TupleType; btTag = 4; }
+
+                // Check inline cache (moved after type detection for btTag)
+                if (btCache != null && btCache[btIp].CachedValue is PyMethodDescriptor cachedDesc
+                    && btCache[btIp].BuiltinTypeTag == btTag && btTag != 0)
                 {
                     frame.ValueStack.Push(cachedDesc);
                     frame.ValueStack.Push(obj);
                     return null;
                 }
-
-                PyType builtinType = null;
-                if (obj is PyStr) builtinType = PyType.StrType;
-                else if (obj is PyList) builtinType = PyType.ListType;
-                else if (obj is PyDict) builtinType = PyType.DictType;
 
                 if (builtinType != null && builtinType.TypeDict.TryGetValue(attrName, out var descriptor)
                     && descriptor is PyMethodDescriptor)
@@ -3688,7 +3722,7 @@ namespace SharpPy
                         btCache = new LoadAttrCacheEntry[frame.Code.InstructionsArray.Length];
                         frame.Code.LoadAttrCache = btCache;
                     }
-                    btCache[btIp].TypeVersionTag = (ulong)obj.GetType().GetHashCode();
+                    btCache[btIp].BuiltinTypeTag = btTag;
                     btCache[btIp].CachedValue = descriptor;
 
                     frame.ValueStack.Push(descriptor);
