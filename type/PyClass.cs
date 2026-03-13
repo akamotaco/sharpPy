@@ -132,6 +132,13 @@ namespace SharpPy
         private string[] _fastInitAttrNames;   // attribute names in assignment order
         private int[] _fastInitArgIndices;     // LocalsPlus index of each arg (1-based, 0=self)
 
+        // Slot-based attribute storage for FastInit classes: eliminates Dictionary<> allocation
+        // Slot names/indices are shared across all instances of this class.
+        // CPython 3.12: tp_dictoffset + cached key version for LOAD_ATTR_INSTANCE_VALUE
+        internal string[] SlotNames;                          // attribute names in slot order (null if not slotted)
+        internal Dictionary<string, int> SlotIndexMap;        // name → slot index (null if not slotted)
+        internal int SlotCount;                               // number of slots (0 if not slotted)
+
         /// <summary>
         /// Cached magic method lookup: ClassDict-only MRO search with TypeVersionTag invalidation.
         /// O(1) on cache hit, O(MRO depth) on cache miss.
@@ -343,8 +350,17 @@ namespace SharpPy
                         && instance is PyClassInstance fastInst && args.Length == function.CodeObject.ArgCount - 1)
                     {
                         // Direct attribute assignment without frame creation
-                        for (int i = 0; i < _fastInitAttrNames.Length; i++)
-                            fastInst.InstanceDict[_fastInitAttrNames[i]] = args[_fastInitArgIndices[i] - 1];
+                        // Slot path: write directly to slot array (avoids Dictionary allocation)
+                        if (fastInst._slotValues != null)
+                        {
+                            for (int i = 0; i < _fastInitAttrNames.Length; i++)
+                                fastInst._slotValues[i] = args[_fastInitArgIndices[i] - 1];
+                        }
+                        else
+                        {
+                            for (int i = 0; i < _fastInitAttrNames.Length; i++)
+                                fastInst.InstanceDict[_fastInitAttrNames[i]] = args[_fastInitArgIndices[i] - 1];
+                        }
                     }
                     else
                     {
@@ -450,6 +466,13 @@ namespace SharpPy
                 _fastInitChecked = 1;
                 _fastInitAttrNames = attrNames.ToArray();
                 _fastInitArgIndices = argIndices.ToArray();
+
+                // Build slot infrastructure for inline attribute storage
+                SlotNames = _fastInitAttrNames;
+                SlotCount = SlotNames.Length;
+                SlotIndexMap = new Dictionary<string, int>(SlotCount);
+                for (int si = 0; si < SlotCount; si++)
+                    SlotIndexMap[SlotNames[si]] = si;
             }
         }
 
@@ -1453,9 +1476,85 @@ namespace SharpPy
     public class PyClassInstance : PyObject, IInstanceDictAccessor
     {
         public PyClass InstanceType { get; }
-        public Dictionary<string, PyObject> InstanceDict { get; }
+        private Dictionary<string, PyObject> _instanceDict;
         public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
         private PyFunction _customGetAttr;
+
+        // Slot-based inline attribute storage: eliminates Dictionary allocation for FastInit classes.
+        // Slot names/indices are shared on PyClass; per-instance only stores the values array.
+        // CPython 3.12: tp_dictoffset + LOAD_ATTR_INSTANCE_VALUE inline cache.
+        internal PyObject[] _slotValues;
+
+        /// <summary>
+        /// InstanceDict property: lazy creation for slotted instances.
+        /// On first access, copies slot values to dict and switches to dict mode.
+        /// Cold paths use this; hot paths use TryGetInstanceAttr/SetInstanceAttr.
+        /// </summary>
+        public Dictionary<string, PyObject> InstanceDict
+        {
+            get
+            {
+                if (_instanceDict == null)
+                {
+                    _instanceDict = new Dictionary<string, PyObject>();
+                    // Copy slot values to dict, then switch to dict mode
+                    if (_slotValues != null)
+                    {
+                        var names = InstanceType.SlotNames;
+                        if (names != null)
+                        {
+                            for (int i = 0; i < names.Length; i++)
+                            {
+                                if (_slotValues[i] != null)
+                                    _instanceDict[names[i]] = _slotValues[i];
+                            }
+                        }
+                        _slotValues = null; // switch to dict mode permanently
+                    }
+                }
+                return _instanceDict;
+            }
+        }
+
+        /// <summary>
+        /// Fast attribute read: check slot storage first, then overflow dict.
+        /// O(1) hash lookup on class's SlotIndexMap + array index.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal bool TryGetInstanceAttr(string name, out PyObject value)
+        {
+            if (_slotValues != null)
+            {
+                var map = InstanceType.SlotIndexMap;
+                if (map != null && map.TryGetValue(name, out int idx))
+                {
+                    value = _slotValues[idx];
+                    return value != null;
+                }
+            }
+            if (_instanceDict != null) return _instanceDict.TryGetValue(name, out value);
+            value = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Fast attribute write: check slot storage first, then overflow dict.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void SetInstanceAttr(string name, PyObject value)
+        {
+            if (_slotValues != null)
+            {
+                var map = InstanceType.SlotIndexMap;
+                if (map != null && map.TryGetValue(name, out int idx))
+                {
+                    _slotValues[idx] = value;
+                    return;
+                }
+            }
+            // Non-slot attribute or no slots: fall to dict (triggers lazy creation)
+            InstanceDict[name] = value;
+        }
 
         // ThreadStatic buffers for magic method dispatch — avoids per-call array allocation.
         // Safe because args are consumed by BindArgumentsToParametersCPython312 (copied to LocalsPlus)
@@ -1475,7 +1574,17 @@ namespace SharpPy
         public PyClassInstance(PyClass instanceType)
         {
             InstanceType = instanceType;
-            InstanceDict = new Dictionary<string, PyObject>();
+            // Slot-based storage for FastInit classes: PyObject[] instead of Dictionary
+            if (instanceType.SlotCount > 0)
+            {
+                _slotValues = new PyObject[instanceType.SlotCount];
+                _instanceDict = null; // lazy, created on first InstanceDict access
+            }
+            else
+            {
+                _slotValues = null;
+                _instanceDict = new Dictionary<string, PyObject>();
+            }
             ConstructorArgs = Array.Empty<PyObject>();
 
             // CPython 3.12: _PyType_Lookup(tp, &_Py_ID(__getattr__))
@@ -1682,7 +1791,7 @@ namespace SharpPy
             try
             {
                 // Instance dict first (monkey-patching)
-                if (InstanceDict.TryGetValue("__iter__", out var instIter))
+                if (TryGetInstanceAttr("__iter__", out var instIter))
                     return instIter.Call(new PyObject[0], null);
 
                 // ClassDict + TypeDict MRO (기존 동작 보존: GetIterator는 TypeDict도 검색)
@@ -1747,9 +1856,8 @@ namespace SharpPy
         {
             // Try to call __next__ method if it exists
             // Check instance dict first
-            if (InstanceDict.ContainsKey("__next__"))
+            if (TryGetInstanceAttr("__next__", out var nextMethod))
             {
-                var nextMethod = InstanceDict["__next__"];
                 return nextMethod.Call(new PyObject[0], null);
             }
 
@@ -1781,7 +1889,7 @@ namespace SharpPy
         private PyObject FindMagicMethod(string methodName)
         {
             // 1. Instance dict first (monkey-patching support: obj.__add__ = ...)
-            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+            if (TryGetInstanceAttr(methodName, out var instMethod))
                 return instMethod;
 
             // 2. ClassDict-only MRO search (기존 동작 보존: TypeDict 미검색)
@@ -1836,7 +1944,7 @@ namespace SharpPy
         private PyObject CallMagicMethod(string methodName, params PyObject[] args)
         {
             // 1. Instance dict (monkey-patching: already bound, no self prepend)
-            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+            if (TryGetInstanceAttr(methodName, out var instMethod))
                 return instMethod.Call(args, null);
 
             // 2. Cached ClassDict MRO search (O(1) on hit)
@@ -1853,7 +1961,7 @@ namespace SharpPy
         /// </summary>
         private PyObject CallMagicMethodUnary(string methodName)
         {
-            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+            if (TryGetInstanceAttr(methodName, out var instMethod))
                 return instMethod.Call(System.Array.Empty<PyObject>(), null);
 
             var method = InstanceType.GetCachedMagicMethod(methodName);
@@ -1885,7 +1993,7 @@ namespace SharpPy
         /// </summary>
         internal PyObject CallMagicMethodBinary(string methodName, PyObject arg)
         {
-            if (InstanceDict.TryGetValue(methodName, out var instMethod))
+            if (TryGetInstanceAttr(methodName, out var instMethod))
             {
                 var buf1 = _unaryBuf ??= new PyObject[1];
                 buf1[0] = arg;
@@ -2259,8 +2367,8 @@ namespace SharpPy
                 }
             }
 
-            // 2. 인스턴스 __dict__ 검색
-            if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
+            // 2. 인스턴스 __dict__ 검색 (slot-aware)
+            if (TryGetInstanceAttr(name, out PyObject instanceValue))
             {
                 return instanceValue;
             }
@@ -2536,7 +2644,7 @@ namespace SharpPy
             try
             {
                 // Instance dict first (monkey-patching)
-                if (InstanceDict.TryGetValue("__str__", out var instStr))
+                if (TryGetInstanceAttr("__str__", out var instStr))
                 {
                     var result = instStr.Call(new PyObject[0], null);
                     if (result is PyStr pyStr) return pyStr;

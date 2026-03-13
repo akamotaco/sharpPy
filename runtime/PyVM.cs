@@ -1931,7 +1931,7 @@ namespace SharpPy
                                 // Simple attribute access: instance dict lookup
                                 var laObjVal = frame.ValueStack.PeekValue();
                                 if (laObjVal.IsObject && laObjVal.ObjRef is PyClassInstance laInst
-                                    && laInst.InstanceDict.TryGetValue(frame.Code.Names[laNameIdx], out var laVal))
+                                    && laInst.TryGetInstanceAttr(frame.Code.Names[laNameIdx], out var laVal))
                                 {
                                     frame.ValueStack.PopValue();
                                     frame.ValueStack.Push(laVal);
@@ -1958,7 +1958,7 @@ namespace SharpPy
                             {
                                 frame.ValueStack.PopValue(); // Skip ToObject
                                 var saValue = frame.ValueStack.Pop();
-                                saInst.InstanceDict[saAttrName] = saValue;
+                                saInst.SetInstanceAttr(saAttrName, saValue);
                                 ip += 5; // skip STORE_ATTR(1) + 4 CACHE
                                 continue;
                             }
@@ -2273,7 +2273,9 @@ namespace SharpPy
             }
 
             PoolInlinedFrame(calleeFrame);
-            ip = frame.InstructionPointer + 4; // advance past CALL(1) + 3 CACHE
+            // Determine IP skip based on dispatching opcode: CALL(1)+3 CACHE=4, BINARY_OP(1)+1 CACHE=2
+            var dispatchOp = instructions[frame.InstructionPointer].OpCode;
+            ip = frame.InstructionPointer + (dispatchOp == ByteCodeOp.CALL ? 4 : 2);
             frame.ValueStack.Push(retVal);
         }
 
@@ -2315,7 +2317,7 @@ namespace SharpPy
                 && cachedFunc.CodeObject is PyCodeObject cachedCode
                 && cachedCode.TrivialGetterAttr != null
                 && laObj is PyClassInstance trivInst
-                && trivInst.InstanceDict.TryGetValue(cachedCode.TrivialGetterAttr, out var trivVal))
+                && trivInst.TryGetInstanceAttr(cachedCode.TrivialGetterAttr, out var trivVal))
             {
                 frame.ValueStack.PopValue(); // remove self from stack
                 frame.ValueStack.Push(trivVal);
@@ -2439,7 +2441,7 @@ namespace SharpPy
         {
             var selfVal = _callValBuf[0];
             if (selfVal.IsObject && selfVal.ObjRef is PyClassInstance inst
-                && inst.InstanceDict.TryGetValue(code.TrivialGetterAttr, out var val))
+                && inst.TryGetInstanceAttr(code.TrivialGetterAttr, out var val))
             {
                 frame.ValueStack.Push(val);
                 return true;
@@ -2509,7 +2511,7 @@ namespace SharpPy
         /// Handles all type combinations: int, float, mixed, string, and PyObject fallback.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private void ExecuteBinaryOpFull(PyFrame frame, BinaryOpType binOp)
+        private PyObject ExecuteBinaryOpFull(PyFrame frame, BinaryOpType binOp)
         {
             var rvBin = frame.ValueStack.PopValue();
             var lvBin = frame.ValueStack.PopValue();
@@ -2526,7 +2528,7 @@ namespace SharpPy
                             frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
                         else
                             frame.ValueStack.PushInt64(sum);
-                        return;
+                        return null;
                     }
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
                     {
@@ -2535,7 +2537,7 @@ namespace SharpPy
                             frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
                         else
                             frame.ValueStack.PushInt64(diff);
-                        return;
+                        return null;
                     }
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
                     {
@@ -2549,7 +2551,7 @@ namespace SharpPy
                             else
                                 frame.ValueStack.Push(new PyInt(bigResult));
                         }
-                        return;
+                        return null;
                     }
                     case BinaryOpType.MODULO: case BinaryOpType.INPLACE_MODULO:
                     {
@@ -2557,7 +2559,7 @@ namespace SharpPy
                         long mod = la % ra;
                         if (mod != 0 && (mod ^ ra) < 0) mod += ra;
                         frame.ValueStack.PushInt64(mod);
-                        return;
+                        return null;
                     }
                     case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
                     {
@@ -2565,19 +2567,19 @@ namespace SharpPy
                         long div = la / ra;
                         if ((la ^ ra) < 0 && div * ra != la) div--;
                         frame.ValueStack.PushInt64(div);
-                        return;
+                        return null;
                     }
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
                     {
-                        if (ra < 0) { frame.ValueStack.PushFloat64(Math.Pow((double)la, (double)ra)); return; }
-                        if (ra == 0) { frame.ValueStack.PushInt64(1); return; }
-                        if (ra == 1) { frame.ValueStack.PushInt64(la); return; }
-                        if (ra == 2 && la >= -46340 && la <= 46340) { frame.ValueStack.PushInt64(la * la); return; }
+                        if (ra < 0) { frame.ValueStack.PushFloat64(Math.Pow((double)la, (double)ra)); return null; }
+                        if (ra == 0) { frame.ValueStack.PushInt64(1); return null; }
+                        if (ra == 1) { frame.ValueStack.PushInt64(la); return null; }
+                        if (ra == 2 && la >= -46340 && la <= 46340) { frame.ValueStack.PushInt64(la * la); return null; }
                         if (ra <= 62)
                         {
                             double result = Math.Pow((double)la, (double)ra);
                             if (result >= long.MinValue && result <= long.MaxValue)
-                            { frame.ValueStack.PushInt64((long)result); return; }
+                            { frame.ValueStack.PushInt64((long)result); return null; }
                         }
                         break; // fall through to PyObject path
                     }
@@ -2585,7 +2587,7 @@ namespace SharpPy
                     {
                         if (ra == 0) throw PyZeroDivisionError.Create("division by zero");
                         frame.ValueStack.PushFloat64((double)la / (double)ra);
-                        return;
+                        return null;
                     }
                     default:
                         break; // bitwise, shift → PyObject path
@@ -2597,22 +2599,22 @@ namespace SharpPy
                 switch (binOp)
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
-                        frame.ValueStack.PushFloat64(ld + rd); return;
+                        frame.ValueStack.PushFloat64(ld + rd); return null;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
-                        frame.ValueStack.PushFloat64(ld - rd); return;
+                        frame.ValueStack.PushFloat64(ld - rd); return null;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
-                        frame.ValueStack.PushFloat64(ld * rd); return;
+                        frame.ValueStack.PushFloat64(ld * rd); return null;
                     case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
                         if (rd == 0.0) throw PyZeroDivisionError.Create("float division by zero");
-                        frame.ValueStack.PushFloat64(ld / rd); return;
+                        frame.ValueStack.PushFloat64(ld / rd); return null;
                     case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
                         if (rd == 0.0) throw PyZeroDivisionError.Create("float floor division by zero");
-                        frame.ValueStack.PushFloat64(Math.Floor(ld / rd)); return;
+                        frame.ValueStack.PushFloat64(Math.Floor(ld / rd)); return null;
                     case BinaryOpType.MODULO: case BinaryOpType.INPLACE_MODULO:
                         if (rd == 0.0) throw PyZeroDivisionError.Create("float modulo");
-                        frame.ValueStack.PushFloat64(ld - Math.Floor(ld / rd) * rd); return;
+                        frame.ValueStack.PushFloat64(ld - Math.Floor(ld / rd) * rd); return null;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return;
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return null;
                 }
             }
             else if (lvBin.IsIntLike && rvBin.IsFloat64)
@@ -2621,16 +2623,16 @@ namespace SharpPy
                 switch (binOp)
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
-                        frame.ValueStack.PushFloat64(ld + rd); return;
+                        frame.ValueStack.PushFloat64(ld + rd); return null;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
-                        frame.ValueStack.PushFloat64(ld - rd); return;
+                        frame.ValueStack.PushFloat64(ld - rd); return null;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
-                        frame.ValueStack.PushFloat64(ld * rd); return;
+                        frame.ValueStack.PushFloat64(ld * rd); return null;
                     case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
                         if (rd == 0.0) throw PyZeroDivisionError.Create("float division by zero");
-                        frame.ValueStack.PushFloat64(ld / rd); return;
+                        frame.ValueStack.PushFloat64(ld / rd); return null;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return;
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return null;
                 }
             }
             else if (lvBin.IsFloat64 && rvBin.IsIntLike)
@@ -2639,16 +2641,16 @@ namespace SharpPy
                 switch (binOp)
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
-                        frame.ValueStack.PushFloat64(ld + rd); return;
+                        frame.ValueStack.PushFloat64(ld + rd); return null;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
-                        frame.ValueStack.PushFloat64(ld - rd); return;
+                        frame.ValueStack.PushFloat64(ld - rd); return null;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
-                        frame.ValueStack.PushFloat64(ld * rd); return;
+                        frame.ValueStack.PushFloat64(ld * rd); return null;
                     case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
                         if (rd == 0.0) throw PyZeroDivisionError.Create("float division by zero");
-                        frame.ValueStack.PushFloat64(ld / rd); return;
+                        frame.ValueStack.PushFloat64(ld / rd); return null;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return;
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return null;
                 }
             }
             else if ((binOp == BinaryOpType.ADD || binOp == BinaryOpType.INPLACE_ADD)
@@ -2656,7 +2658,7 @@ namespace SharpPy
                 && lvBin.ObjRef is PyStr lvStr && rvBin.ObjRef is PyStr rvStr)
             {
                 frame.ValueStack.Push(new PyStr(lvStr.Value + rvStr.Value));
-                return;
+                return null;
             }
 
             // PyObject fallback
@@ -2677,12 +2679,44 @@ namespace SharpPy
                 };
                 if (magicName != null)
                 {
+                    // DISPATCH_INLINED: set up dunder frame directly instead of recursive ExecuteFrame
+                    // CPython 3.12: same optimization as CALL DISPATCH_INLINED but for BINARY_OP dunder dispatch
+                    if (!leftInst.TryGetInstanceAttr(magicName, out _))
+                    {
+                        var method = leftInst.InstanceType.GetCachedMagicMethod(magicName);
+                        if (method is PyFunction func && func.CodeObject != null)
+                        {
+                            var code = func.CodeObject;
+                            if (code.IsSimpleCallTarget && code.ArgCount == 2)
+                            {
+                                var scope = func.CreateCachedScopeChain()
+                                    ?? (func.GlobalsDict != null
+                                        ? new PyScopeChain(func.GlobalsDict, code.Name)
+                                        : func.ParentScope ?? new PyScopeChain());
+                                var dunderFrame = PyFrame.Rent();
+                                // Use _callValBuf to pass args as PyValue[] (self, other)
+                                var buf = _callValBuf;
+                                if (buf == null || buf.Length < 2) buf = _callValBuf = new PyValue[4];
+                                buf[0] = lvBin;
+                                buf[1] = rvBin;
+                                bool hasClosure = (code.FreeVars?.Count ?? 0) > 0;
+                                if (hasClosure && func.Closure != null)
+                                    dunderFrame.InitDirectClosure(code, buf, 2, scope, func.Closure, frame);
+                                else
+                                    dunderFrame.InitDirect(code, buf, 2, scope, frame);
+                                _pendingInlinedFrame = dunderFrame;
+                                return _dispatchInlinedSentinel;
+                            }
+                        }
+                    }
+                    // Fallback: normal recursive ExecuteFrame path
                     var magicResult = leftInst.CallMagicMethodBinary(magicName, rightObj);
                     if (magicResult != null && magicResult != PyNotImplemented.Instance)
-                    { frame.ValueStack.Push(magicResult); return; }
+                    { frame.ValueStack.Push(magicResult); return null; }
                 }
             }
             frame.ValueStack.Push(ExecuteBinaryOpType(leftObj, rightObj, binOp));
+            return null;
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -3565,7 +3599,7 @@ namespace SharpPy
                 }
 
                 // Check instance dict first (monkey-patched methods are already bound)
-                if (!fastInst.InstanceDict.ContainsKey(attrName))
+                if (!fastInst.TryGetInstanceAttr(attrName, out _))
                 {
                     // Search ClassDict in MRO for unbound function
                     PyObject unboundFunc = null;
@@ -3610,7 +3644,7 @@ namespace SharpPy
             // Check InstanceDict first (most common case), skip full GetAttribute MRO traversal
             if (!pushNullForMethod && obj is PyClassInstance attrInst)
             {
-                if (attrInst.InstanceDict.TryGetValue(attrName, out var instVal))
+                if (attrInst.TryGetInstanceAttr(attrName, out var instVal))
                 {
                     frame.ValueStack.Push(instVal);
                     #if DEBUG_LOG
@@ -3730,7 +3764,7 @@ namespace SharpPy
                     bool isStaticMethod = false;
                     if (obj is PyClassInstance classInstance)
                     {
-                        isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
+                        isInstanceAttribute = classInstance.TryGetInstanceAttr(attrName, out _);
                         // Lazy staticmethod check: only when it's not an instance attribute
                         if (!isInstanceAttribute)
                         {
@@ -5998,7 +6032,8 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BINARY_OP:
-                    ExecuteBinaryOpFull(frame, (BinaryOpType)instruction.Argument);
+                    var binSentinel = ExecuteBinaryOpFull(frame, (BinaryOpType)instruction.Argument);
+                    if (binSentinel != null) return binSentinel; // DISPATCH_INLINED for dunder
                     break;
 
                 // CPython 3.12: Python/bytecodes.c:400-450 - Specialized Binary Operations
@@ -6201,7 +6236,7 @@ namespace SharpPy
                         // Fast path: if MRO has no data descriptors, skip MRO walk entirely
                         if (setInst.InstanceType.MroHasNoDataDescriptors)
                         {
-                            setInst.InstanceDict[setAttrName] = setAttrValue;
+                            setInst.SetInstanceAttr(setAttrName, setAttrValue);
                         }
                         else
                         {
@@ -6220,7 +6255,7 @@ namespace SharpPy
                                 }
                             }
                             if (!usedDescriptor)
-                                setInst.InstanceDict[setAttrName] = setAttrValue;
+                                setInst.SetInstanceAttr(setAttrName, setAttrValue);
                         }
                     }
                     else
