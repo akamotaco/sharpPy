@@ -2081,7 +2081,10 @@ namespace SharpPy
                         }
 
                         // Re-read IP from frame (ExecuteInstruction may have changed it for jumps)
-                        ip = frame.InstructionPointer + 1;
+                        // For CALL: skip 3 CACHE entries after the instruction
+                        ip = instruction.OpCode == ByteCodeOp.CALL
+                            ? frame.InstructionPointer + 4  // CALL(1) + 3 CACHE
+                            : frame.InstructionPointer + 1;
                     }
                     catch (PythonException pyEx)
                     {
@@ -2241,7 +2244,7 @@ namespace SharpPy
             instructions = frame.Code.InstructionsArray;
             ci = frame.Code.CompactInstructions;
             instructionCount2 = instructions.Length;
-            ip = frame.InstructionPointer + 1; // advance past CALL instruction
+            ip = frame.InstructionPointer + 4; // advance past CALL(1) + 3 CACHE
             frame.ValueStack.Push(retVal);
         }
 
