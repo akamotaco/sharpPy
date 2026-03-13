@@ -432,10 +432,14 @@ public class PyModule : PyObject
                 var fullModule = Import(moduleName);
 
                 // Then return only the top-level package
+                // CPython 3.12: Python/import.c:2905 — return the top-level package
+                // If the top-level module was removed from sys.modules (e.g., due to a prior
+                // import failure), re-import it to ensure it's available.
                 var firstPart = moduleName.Split('.')[0];
                 if (TryGetModule(firstPart, out var topModule))
                     return topModule;
-                throw new Exception($"Module '{firstPart}' not found in sys.modules");
+                // Top-level package missing from sys.modules — re-import it
+                return Import(firstPart);
             }
 
             // Load the main module
