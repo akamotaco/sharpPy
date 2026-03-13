@@ -605,7 +605,7 @@ namespace SharpPy
             // 2. instance dictionary에 저장
             if (this is PyClassInstance instance)
             {
-                instance.InstanceDict[name] = value;
+                instance.SetInstanceAttr(name, value);
             }
             else if (this is PyClass customType)
             {

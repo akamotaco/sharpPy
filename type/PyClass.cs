@@ -136,7 +136,6 @@ namespace SharpPy
         // Slot names/indices are shared across all instances of this class.
         // CPython 3.12: tp_dictoffset + cached key version for LOAD_ATTR_INSTANCE_VALUE
         internal string[] SlotNames;                          // attribute names in slot order (null if not slotted)
-        internal Dictionary<string, int> SlotIndexMap;        // name → slot index (null if not slotted)
         internal int SlotCount;                               // number of slots (0 if not slotted)
 
         /// <summary>
@@ -468,11 +467,10 @@ namespace SharpPy
                 _fastInitArgIndices = argIndices.ToArray();
 
                 // Build slot infrastructure for inline attribute storage
+                // Use SlotNames array for linear scan (SlotCount is typically 2-5,
+                // linear scan is faster than Dictionary hash for small N)
                 SlotNames = _fastInitAttrNames;
                 SlotCount = SlotNames.Length;
-                SlotIndexMap = new Dictionary<string, int>(SlotCount);
-                for (int si = 0; si < SlotCount; si++)
-                    SlotIndexMap[SlotNames[si]] = si;
             }
         }
 
@@ -1518,18 +1516,24 @@ namespace SharpPy
 
         /// <summary>
         /// Fast attribute read: check slot storage first, then overflow dict.
-        /// O(1) hash lookup on class's SlotIndexMap + array index.
+        /// Linear scan on SlotNames (typically 2-5 entries, faster than Dictionary hash).
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal bool TryGetInstanceAttr(string name, out PyObject value)
         {
             if (_slotValues != null)
             {
-                var map = InstanceType.SlotIndexMap;
-                if (map != null && map.TryGetValue(name, out int idx))
+                var names = InstanceType.SlotNames;
+                if (names != null)
                 {
-                    value = _slotValues[idx];
-                    return value != null;
+                    for (int i = 0; i < names.Length; i++)
+                    {
+                        if (ReferenceEquals(names[i], name) || names[i] == name)
+                        {
+                            value = _slotValues[i];
+                            return value != null;
+                        }
+                    }
                 }
             }
             if (_instanceDict != null) return _instanceDict.TryGetValue(name, out value);
@@ -1539,17 +1543,24 @@ namespace SharpPy
 
         /// <summary>
         /// Fast attribute write: check slot storage first, then overflow dict.
+        /// Linear scan on SlotNames (typically 2-5 entries, faster than Dictionary hash).
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal void SetInstanceAttr(string name, PyObject value)
         {
             if (_slotValues != null)
             {
-                var map = InstanceType.SlotIndexMap;
-                if (map != null && map.TryGetValue(name, out int idx))
+                var names = InstanceType.SlotNames;
+                if (names != null)
                 {
-                    _slotValues[idx] = value;
-                    return;
+                    for (int i = 0; i < names.Length; i++)
+                    {
+                        if (ReferenceEquals(names[i], name) || names[i] == name)
+                        {
+                            _slotValues[i] = value;
+                            return;
+                        }
+                    }
                 }
             }
             // Non-slot attribute or no slots: fall to dict (triggers lazy creation)
