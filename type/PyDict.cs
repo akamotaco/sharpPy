@@ -462,6 +462,7 @@ namespace SharpPy
         // PyObject를 키로 사용하기 위한 사용자 정의 비교기
         private class PyObjectEqualityComparer : IEqualityComparer<PyObject>
         {
+            internal static readonly PyObjectEqualityComparer Instance = new PyObjectEqualityComparer();
             public bool Equals(PyObject x, PyObject y)
             {
                 if (ReferenceEquals(x, y)) return true;
@@ -505,13 +506,13 @@ namespace SharpPy
 
         public PyDict()
         {
-            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(PyObjectEqualityComparer.Instance);
             _keys = new List<PyObject>();
         }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(PyObjectEqualityComparer.Instance);
             _keys = new List<PyObject>();
             foreach (var kv in items)
             {
@@ -523,7 +524,7 @@ namespace SharpPy
 
         public PyDict(Dictionary<PyObject, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(items, new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(items, PyObjectEqualityComparer.Instance);
             _keys = new List<PyObject>(items.Keys);
         }
 
@@ -682,7 +683,7 @@ namespace SharpPy
             // _keys에서도 제거 (삽입 순서 유지)
             // Use PyObjectEqualityComparer for proper Python equality semantics
             // (List.Remove uses Object.Equals which doesn't work for PyObject)
-            var comparer = new PyObjectEqualityComparer();
+            var comparer = PyObjectEqualityComparer.Instance;
             for (int i = 0; i < _keys.Count; i++)
             {
                 if (comparer.Equals(_keys[i], key))
