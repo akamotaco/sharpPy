@@ -1825,7 +1825,7 @@ namespace SharpPy
                             {
                                 ip++; continue;
                             }
-                            // Truly cold ops (class dunder, etc.): fall through to ExecuteInstruction
+                            // Truly cold ops: fall through to ExecuteInstruction
                         }
                         else if (inlineOp == ByteCodeOp.COMPARE_OP)
                         {
@@ -2334,6 +2334,69 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Fast path for CALL on PyType/PyClass (str(x), int(x), MyClass(...)).
+        /// PUSH_NULL pattern: stack = [..., NULL, type, arg0, ..., argN-1]
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject CallTypeOrClassFast(PyFrame frame, PyObject callable, int callArgCount)
+        {
+            // Pop args
+            PyObject[] args;
+            if (callArgCount == 0)
+                args = EmptyArgs;
+            else if (callArgCount == 1)
+            {
+                args = _oneArgBuf ??= new PyObject[1];
+                args[0] = frame.ValueStack.Pop();
+            }
+            else if (callArgCount == 2)
+            {
+                args = _twoArgBuf ??= new PyObject[2];
+                args[1] = frame.ValueStack.Pop();
+                args[0] = frame.ValueStack.Pop();
+            }
+            else
+            {
+                args = new PyObject[callArgCount];
+                for (int i = callArgCount - 1; i >= 0; i--)
+                    args[i] = frame.ValueStack.Pop();
+            }
+            frame.ValueStack.PopValue(); // callable (type/class)
+            frame.ValueStack.PopValue(); // NULL
+
+            PyObject result;
+            // Inline fast paths for common builtin type conversions
+            if (callable is PyType callType && callArgCount == 1)
+            {
+                var arg = args[0];
+                if (callType == PyType.StrType)
+                    result = arg is PyStr ps ? ps : new PyStr(arg.AsString());
+                else if (callType == PyType.IntType)
+                {
+                    if (arg is PyInt) result = arg;
+                    else if (arg is PyFloat pf) result = new PyInt((long)pf.Value);
+                    else if (arg is PyBool pb) result = pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
+                    else result = callType.Call(args, null);
+                }
+                else if (callType == PyType.FloatType)
+                {
+                    if (arg is PyFloat) result = arg;
+                    else if (arg is PyInt pi) result = new PyFloat(pi.FitsInLong ? (double)pi.CachedLong : (double)pi.Value);
+                    else result = callType.Call(args, null);
+                }
+                else
+                    result = callType.Call(args, null);
+            }
+            else if (callable is PyClass callClass && callClass.Metaclass == null)
+                result = callClass.CreateInstance(args, null);
+            else
+                result = callable.Call(args, null);
+
+            frame.ValueStack.Push(result);
+            return null;
+        }
+
+        /// <summary>
         /// Trivial getter inlining: execute `return self.attr` without frame creation.
         /// Called from ExecuteCall when code.TrivialGetterAttr is set.
         /// Returns true if handled (result pushed to caller stack), false to fall through.
@@ -2684,7 +2747,7 @@ namespace SharpPy
                         break;
                 }
             }
-            // String concatenation
+            // String concatenation & PyClassInstance dunder methods
             else
             {
                 var lo = lv.ToObject();
@@ -2695,7 +2758,28 @@ namespace SharpPy
                     frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
                     return true;
                 }
-                // Push back for ExecuteInstruction to handle (class dunder methods, etc.)
+                // PyClassInstance dunder methods: try DISPATCH_INLINED, fallback to CallSimple
+                if (lo is PyClassInstance leftInst)
+                {
+                    string magicName = binOp switch
+                    {
+                        BinaryOpType.ADD or BinaryOpType.INPLACE_ADD => "__add__",
+                        BinaryOpType.MULTIPLY or BinaryOpType.INPLACE_MULTIPLY => "__mul__",
+                        BinaryOpType.SUBTRACT or BinaryOpType.INPLACE_SUBTRACT => "__sub__",
+                        BinaryOpType.TRUE_DIVIDE or BinaryOpType.INPLACE_TRUE_DIVIDE => "__truediv__",
+                        BinaryOpType.FLOOR_DIVIDE or BinaryOpType.INPLACE_FLOOR_DIVIDE => "__floordiv__",
+                        BinaryOpType.MODULO or BinaryOpType.INPLACE_MODULO => "__mod__",
+                        BinaryOpType.POWER or BinaryOpType.INPLACE_POWER => "__pow__",
+                        _ => null,
+                    };
+                    if (magicName != null)
+                    {
+                        var magicResult = leftInst.CallMagicMethodBinary(magicName, ro);
+                        if (magicResult != null && magicResult != PyNotImplemented.Instance)
+                        { frame.ValueStack.Push(magicResult); return true; }
+                    }
+                }
+                // Push back for ExecuteInstruction to handle
                 frame.ValueStack.Push(lo);
                 frame.ValueStack.Push(ro);
                 return false;
@@ -3750,6 +3834,16 @@ namespace SharpPy
                                     && nextElemVal.ObjRef is PyMethodDescriptor mdescFast)
                                 {
                                     return CallMethodDescriptorFast(frame, mdescFast, callArgCount);
+                                }
+
+                                // === PyType/PyClass Fast Path ===
+                                // str(x), int(x), class instantiation: skip Standard CALL Path
+                                if (isNullPattern && callArgCount >= 0
+                                    && callFuncVal.Tag == PyValue.TAG_OBJECT)
+                                {
+                                    var callObj = callFuncVal.ObjRef;
+                                    if (callObj is PyType || callObj is PyClass)
+                                        return CallTypeOrClassFast(frame, callObj, callArgCount);
                                 }
                             }
 
