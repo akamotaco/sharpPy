@@ -1796,7 +1796,7 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushInt64(sum);
-                                        ip++; continue;
+                                        ip += 2; continue; // skip BINARY_OP(1) + 1 CACHE
                                     }
                                 }
                                 else if (inlineBinOp == BinaryOpType.SUBTRACT || inlineBinOp == BinaryOpType.INPLACE_SUBTRACT)
@@ -1806,7 +1806,7 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushInt64(diff);
-                                        ip++; continue;
+                                        ip += 2; continue; // skip BINARY_OP(1) + 1 CACHE
                                     }
                                 }
                                 else if (inlineBinOp == BinaryOpType.MULTIPLY || inlineBinOp == BinaryOpType.INPLACE_MULTIPLY)
@@ -1815,7 +1815,7 @@ namespace SharpPy
                                     {
                                         frame.ValueStack.PopValue(); frame.ValueStack.PopValue();
                                         frame.ValueStack.PushInt64(la * ra);
-                                        ip++; continue;
+                                        ip += 2; continue; // skip BINARY_OP(1) + 1 CACHE
                                     }
                                 }
                             }
@@ -1823,7 +1823,7 @@ namespace SharpPy
                             // (avoids falling through to 39KB ExecuteInstruction for common float ops)
                             if (BinaryOpWarm(frame, (BinaryOpType)cip.Arg))
                             {
-                                ip++; continue;
+                                ip += 2; continue; // skip BINARY_OP(1) + 1 CACHE
                             }
                             // Truly cold ops: fall through to ExecuteInstruction
                         }
@@ -1846,7 +1846,7 @@ namespace SharpPy
                                     frame.ValueStack.PopValue();
                                     frame.ValueStack.PopValue();
                                     frame.ValueStack.PushBool(cmpResult);
-                                    ip++;
+                                    ip += 2; // skip COMPARE_OP(1) + 1 CACHE
                                     continue;
                                 }
                             }
@@ -2017,7 +2017,7 @@ namespace SharpPy
                                 if (fiRangeIter.TryNextInt64(out long fiNextInt))
                                 {
                                     frame.ValueStack.PushInt64(fiNextInt);
-                                    ip++;
+                                    ip += 2; // skip FOR_ITER(1) + 1 CACHE
                                     continue;
                                 }
                             }
@@ -2440,7 +2440,7 @@ namespace SharpPy
                 if (gen.TryNext(out var genNext))
                 {
                     frame.ValueStack.Push(genNext);
-                    return ip + 1;
+                    return ip + 2; // skip FOR_ITER(1) + 1 CACHE
                 }
                 goto exhausted;
             }
