@@ -4336,137 +4336,145 @@ namespace SharpPy
         var superAttrName = frame.Code.Names[superAttrIndex];
         var selfObj = frame.ValueStack.Pop();         // self
         var classObj = frame.ValueStack.Pop();        // __class__
-        var superFunc = frame.ValueStack.Pop();       // super function
+        frame.ValueStack.Pop();                       // super function (consumed, not needed for direct MRO lookup)
 
         #if DEBUG_LOG
-        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
+        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
         #endif
 
-        // Call super(__class__, self) to create super proxy, then get attribute
-        try
+        // CPython 3.12: Direct MRO lookup — no PySuper proxy allocation
+        // Equivalent to do_super_lookup() in Objects/typeobject.c
+        // 1. Get the MRO of self's actual type
+        // 2. Find __class__ in the MRO
+        // 3. Look for attr starting from the NEXT class after __class__
+
+        // Determine the type to search through (ObjectType in CPython super)
+        PyClass selfClass = selfObj is PyClassInstance inst ? inst.InstanceType : selfObj as PyClass;
+        PyType selfType = selfClass as PyType ?? (selfClass == null ? selfObj.GetPyType() as PyType : null);
+
+        // Get __class__ as PyClass/PyType for MRO position search
+        PyClass thisClass = classObj as PyClass;
+        PyType thisType = classObj as PyType;
+
+        // Fast path: PyClass with MRO (most common case: user-defined classes)
+        if (selfClass != null && selfClass.MRO != null)
         {
-            // Create super proxy by calling super() with class and self
-            var superArgs = new PyObject[] { classObj, selfObj };
-            PyObject superProxy;
+            var mro = selfClass.MRO;
+            int startIdx = -1;
 
-            if (superFunc is PyBuiltinFunction builtinSuper)
+            // Find __class__ position in MRO
+            for (int i = 0; i < mro.Count; i++)
             {
-                superProxy = builtinSuper.Call(superArgs, null);
-            }
-            else if (superFunc is PyFunction userSuper)
-            {
-                superProxy = userSuper.Call(superArgs, null);
-            }
-            else
-            {
-                throw PyRuntimeError.Create($"super object must be callable, got {superFunc.GetType().Name}");
+                if (mro[i] == classObj || (thisClass != null && mro[i] == thisClass) || (thisType != null && mro[i] == thisType))
+                {
+                    startIdx = i;
+                    break;
+                }
             }
 
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: calling GetAttribute({superAttrName}) on super proxy");
-            #endif
-
-            var superAttr = superProxy.GetAttribute(superAttrName);
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: found attribute type: {superAttr?.GetType().Name ?? "null"}");
-            #endif
-
-            // CPython 3.12: LOAD_SUPER_ATTR automatically binds methods to self
-            // IMPORTANT: class-mode super (selfObj is a type) should NOT auto-bind
-            PyObject finalAttr = superAttr;
-
-            // Check if this is class-mode super: selfObj is the class itself (PyType or PyClass)
-            bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: isClassModeSuper={isClassModeSuper}, selfObj type={selfObj.GetType().Name}");
-            #endif
-
-            if (!isClassModeSuper)
+            if (startIdx >= 0)
             {
-                // Instance-mode super: auto-bind methods to instance
-                if (superAttr is PyFunction pyFunc)
+                // Look for attribute starting from the class AFTER __class__ in MRO
+                for (int i = startIdx + 1; i < mro.Count; i++)
                 {
-                    finalAttr = new PyMethod(selfObj, pyFunc);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
-                    #endif
-                }
-                else if (superAttr is PyBuiltinFunction builtinFunc)
-                {
-                    // Convert PyBuiltinFunction to PyFunction for proper binding
-                    var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
-                    finalAttr = new PyMethod(selfObj, func);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
-                    #endif
-                }
-                else if (superAttr is PyBuiltinMethod builtinMethod)
-                {
-                    // Convert PyBuiltinMethod to PyFunction for proper binding
-                    var func = new PyFunction(builtinMethod.Name, args => builtinMethod.Call(args, null));
-                    finalAttr = new PyMethod(selfObj, func);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
-                    #endif
-                }
-                else if (superAttr is PyMethod existingMethod)
-                {
-                    // CPython 3.12: Check if this is a classmethod-bound method
-                    // If Instance is already a class (PyType/PyClass), don't re-bind to instance
-                    // This preserves classmethod behavior where cls should be the class, not instance
-                    if (existingMethod.Instance is PyType || existingMethod.Instance is PyClass)
+                    var baseType = mro[i];
+                    PyObject attr = null;
+
+                    // CPython 3.12: Look only in the class's __dict__, NOT its full MRO
+                    if (baseType is PyClass pyClass)
                     {
-                        // classmethod: Instance is already the class, keep as-is
-                        finalAttr = existingMethod;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: keeping classmethod {superAttrName} bound to class {existingMethod.Instance}");
-                        #endif
+                        pyClass.ClassDict.TryGetValue(superAttrName, out attr);
                     }
-                    else
+                    else if (baseType is PyType pyType)
                     {
-                        // Regular method: re-bind to current self
-                        finalAttr = new PyMethod(selfObj, existingMethod.Function);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
-                        #endif
+                        attr = PyClass.GetTypeAttribute(pyType, superAttrName);
+                    }
+
+                    if (attr != null)
+                    {
+                        bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
+
+                        // Fast path: only for PyFunction (user-defined methods)
+                        // Built-in descriptors (IDescriptor) need descriptor protocol — fall to slow path
+                        if (attr is PyFunction func)
+                        {
+                            if (superMethodFlag == 1 && !isClassModeSuper)
+                            {
+                                // Method call: push [func, self] for CALL (like LOAD_ATTR method push)
+                                // Avoids PyMethod allocation entirely
+                                frame.ValueStack.Push(func);
+                                frame.ValueStack.Push(selfObj);
+                                return null;
+                            }
+
+                            PyObject finalAttr = isClassModeSuper ? (PyObject)func : new PyMethod(selfObj, func);
+                            if (superMethodFlag == 1)
+                            {
+                                frame.ValueStack.Push(PyNone.Instance);
+                                frame.ValueStack.Push(finalAttr);
+                            }
+                            else
+                            {
+                                frame.ValueStack.Push(finalAttr);
+                            }
+                            return null;
+                        }
+
+                        // For non-PyFunction attrs (descriptors, built-in methods, etc.),
+                        // break out and fall to the slow path for correct descriptor protocol
+                        break;
                     }
                 }
-            }
-            else
-            {
-                // Class-mode super: do NOT auto-bind, return as-is
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: class-mode super, NOT binding {superAttrName}");
-                #endif
-            }
-
-            // CPython 3.12: Push result based on method flag
-            if (superMethodFlag == 1)
-            {
-                // Method call: push [NULL, bound_method] for CALL optimization
-                frame.ValueStack.Push(PyNone.Instance);  // NULL marker
-                frame.ValueStack.Push(finalAttr);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (method call): pushed [NULL, {finalAttr.GetType().Name}]");
-                #endif
-            }
-            else
-            {
-                // Value access: push [attr_value]
-                frame.ValueStack.Push(finalAttr);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (value access): pushed [{finalAttr.GetType().Name}]");
-                #endif
             }
         }
-        catch (Exception ex)
+
+        // Slow fallback: create PySuper proxy (handles edge cases: metaclass, built-in types, etc.)
+        var superArgs = new PyObject[] { classObj, selfObj };
+        PyObject superProxy;
+        // Get the super builtin
+        var superBuiltin = frame.ScopeChain.BuiltinModule?.GetBuiltin("super");
+        if (superBuiltin is PyBuiltinFunction builtinSuper)
+            superProxy = builtinSuper.Call(superArgs, null);
+        else if (superBuiltin != null)
+            superProxy = ((dynamic)superBuiltin).Call(superArgs, null);
+        else
+            throw PyRuntimeError.Create("super() builtin not found");
+
+        var superAttr2 = superProxy.GetAttribute(superAttrName);
+        PyObject finalAttr2 = superAttr2;
+        bool isClassMode2 = (selfObj is PyType) || (selfObj is PyClass);
+
+        if (!isClassMode2)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 LOAD_SUPER_ATTR failed: {ex.Message}");
-            #endif
-            throw;
+            if (superAttr2 is PyFunction pyFunc2)
+                finalAttr2 = new PyMethod(selfObj, pyFunc2);
+            else if (superAttr2 is PyBuiltinFunction bf)
+            {
+                var wf = new PyFunction(bf.Name, a => bf.Call(a, null));
+                finalAttr2 = new PyMethod(selfObj, wf);
+            }
+            else if (superAttr2 is PyBuiltinMethod bm)
+            {
+                var wf = new PyFunction(bm.Name, a => bm.Call(a, null));
+                finalAttr2 = new PyMethod(selfObj, wf);
+            }
+            else if (superAttr2 is PyMethod em)
+            {
+                if (em.Instance is PyType || em.Instance is PyClass)
+                    finalAttr2 = em;
+                else
+                    finalAttr2 = new PyMethod(selfObj, em.Function);
+            }
+        }
+
+        if (superMethodFlag == 1)
+        {
+            frame.ValueStack.Push(PyNone.Instance);
+            frame.ValueStack.Push(finalAttr2);
+        }
+        else
+        {
+            frame.ValueStack.Push(finalAttr2);
         }
             return null;
         }
