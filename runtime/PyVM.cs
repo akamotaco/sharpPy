@@ -169,6 +169,13 @@ namespace SharpPy
         public bool IsCoroutine { get; set; } = false;
 
         /// <summary>
+        /// Back-reference to owning PyGenerator (null for non-generator frames).
+        /// Used by DISPATCH_INLINED to mark generator finished on exhaustion/exception.
+        /// CPython 3.12: gen->gi_frame_state tracks this implicitly.
+        /// </summary>
+        internal PyGenerator? OwnerGenerator { get; set; }
+
+        /// <summary>
         /// Yield sentinel: returned from ExecuteFrame to signal a yield without exception.
         /// CPython uses _Py_YIELD_SENTINEL internally for the same purpose.
         /// </summary>
@@ -327,6 +334,7 @@ namespace SharpPy
             State = FrameState.Created;
             IsGenerator = false;
             IsCoroutine = false;
+            OwnerGenerator = null;
             KeywordNamesForNextCall = null;
             ClassBodyVariables = null;
             ClassLocalsDict = null;
@@ -386,6 +394,7 @@ namespace SharpPy
             State = FrameState.Created;
             IsGenerator = false;
             IsCoroutine = false;
+            OwnerGenerator = null;
             KeywordNamesForNextCall = null;
             ClassBodyVariables = null;
             ClassLocalsDict = null;
@@ -424,6 +433,7 @@ namespace SharpPy
             State = FrameState.Created;
             IsGenerator = false;
             IsCoroutine = false;
+            OwnerGenerator = null;
             KeywordNamesForNextCall = null;
             ClassBodyVariables = null;
             ClassLocalsDict = null;
@@ -497,6 +507,7 @@ namespace SharpPy
             State = FrameState.Created;
             IsGenerator = false;
             IsCoroutine = false;
+            OwnerGenerator = null;
             KeywordNamesForNextCall = null;
             ClassBodyVariables = null;
             ClassLocalsDict = null;
@@ -560,6 +571,7 @@ namespace SharpPy
             State = FrameState.Created;
             IsGenerator = false;
             IsCoroutine = false;
+            OwnerGenerator = null;
             KeywordNamesForNextCall = null;
             ClassBodyVariables = null;
             ClassLocalsDict = null;
@@ -1976,53 +1988,34 @@ namespace SharpPy
                                 ip++;
                             continue;
                         }
-                        else if (inlineOp == ByteCodeOp.POP_JUMP_IF_TRUE)
+                        // POP_JUMP_IF_TRUE + LIST_APPEND: removed from inline path for generator DISPATCH_INLINED IL headroom
+                        else if (inlineOp == ByteCodeOp.YIELD_VALUE)
                         {
-                            var pjVal = frame.ValueStack.PopValue();
-                            bool isTruthy;
-                            if (pjVal.IsBool)
-                                isTruthy = pjVal.AsBool;
-                            else if (pjVal.IsIntLike)
-                                isTruthy = pjVal.AsInt64 != 0;
-                            else
-                                isTruthy = pjVal.ToObject().PyBoolValue();
-
-                            if (isTruthy)
-                                ip = ip + 1 + cip.Arg;
-                            else
-                                ip++;
-                            continue;
-                        }
-                        else if (inlineOp == ByteCodeOp.LIST_APPEND)
-                        {
-                            // CPython 3.12: LIST_APPEND i — append TOS to list at stack[-(i)]
-                            // Hot in list comprehension inner loops
-                            var laItem = frame.ValueStack.Pop();
-                            var laTarget = frame.ValueStack.PeekAt(cip.Arg - 1);
-                            if (laTarget is PyList laList)
+                            // Generator yield: save yield value and restore caller frame
+                            // CPython 3.12: bytecodes.c:911 — YIELD_VALUE pops value, saves stack
+                            frame.YieldValue = frame.ValueStack.Pop();
+                            frame.InstructionPointer = ip; // sync for PrepareInlinedResume (IP++ on next resume)
+                            if (frame != entryFrame)
                             {
-                                laList.Append(laItem);
-                                ip++;
+                                RestoreCallerAfterInlinedReturn(frame, PyFrame.YieldSentinel, ref frame,
+                                    ref instructions, ref ci, ref ip, ref instructionCount2);
                                 continue;
                             }
-                            // Non-list target or PyNull → fall through to ExecuteInstruction
-                            frame.ValueStack.Push(laItem); // restore popped item
+                            return PyFrame.YieldSentinel;
                         }
                         else if (inlineOp == ByteCodeOp.FOR_ITER)
                         {
                             // Hot path: range iterator — zero-allocation int64 push
                             var fiVal = frame.ValueStack.PeekValue();
-                            if (fiVal.IsObject && fiVal.ObjRef is PyRangeIterator fiRangeIter)
+                            if (fiVal.IsObject && fiVal.ObjRef is PyRangeIterator fiRangeIter
+                                && fiRangeIter.TryNextInt64(out long fiNextInt))
                             {
-                                if (fiRangeIter.TryNextInt64(out long fiNextInt))
-                                {
-                                    frame.ValueStack.PushInt64(fiNextInt);
-                                    ip += 2; // skip FOR_ITER(1) + 1 CACHE
-                                    continue;
-                                }
+                                frame.ValueStack.PushInt64(fiNextInt);
+                                ip += 2; // skip FOR_ITER(1) + 1 CACHE
+                                continue;
                             }
-                            // Cold path: exhaustion + generic iterators → helper
-                            ip = ForIterCold(frame, ip, cip.Arg);
+                            // Cold path: exhaustion + generators (DISPATCH_INLINED) + generic iterators
+                            ForIterCold(ref frame, ref ip, cip.Arg, ref instructions, ref ci, ref instructionCount2);
                             continue;
                         }
                         else if (inlineOp == ByteCodeOp.NOP || inlineOp == ByteCodeOp.CACHE)
@@ -2064,7 +2057,7 @@ namespace SharpPy
                                 instructions = frame.Code.InstructionsArray;
                                 ci = frame.Code.CompactInstructions;
                                 instructionCount2 = instructions.Length;
-                                ip = 0;
+                                ip = frame.InstructionPointer; // 0 for CALL, resume IP for generator
                                 continue;
                             }
                             // DISPATCH_INLINED: returning from inlined callee via slow path
@@ -2150,10 +2143,18 @@ namespace SharpPy
 
                             // DISPATCH_INLINED: unwind inlined callee frame, restore caller
                             var callerFrame = frame.ParentFrame;
-                            PoolInlinedFrame(frame);
+                            if (frame.IsGenerator)
+                            {
+                                // Generator frame: don't pool (owned by PyGenerator), mark finished
+                                frame.OwnerGenerator?.MarkFinished();
+                            }
+                            else
+                            {
+                                PoolInlinedFrame(frame);
+                            }
                             frame = callerFrame;
                             _currentFrame = frame;
-                            ip = frame.InstructionPointer; // caller's saved IP (at CALL instruction)
+                            ip = frame.InstructionPointer; // caller's saved resume IP
                             // Continue unwinding loop — check caller's exception table
                         }
                     }
@@ -2186,7 +2187,10 @@ namespace SharpPy
                 while (frame != entryFrame)
                 {
                     var callerFrame = frame.ParentFrame;
-                    PoolInlinedFrame(frame);
+                    if (frame.IsGenerator)
+                        frame.OwnerGenerator?.MarkFinished(); // don't pool generator frames
+                    else
+                        PoolInlinedFrame(frame);
                     frame = callerFrame;
                 }
                 // Don't pool stacks/locals for generator/coroutine frames — they persist across yields.
@@ -2238,12 +2242,37 @@ namespace SharpPy
             ref CompactInstruction[] ci, ref int ip, ref int instructionCount2)
         {
             var callerFrame = calleeFrame.ParentFrame;
-            PoolInlinedFrame(calleeFrame);
             frame = callerFrame;
             _currentFrame = frame;
             instructions = frame.Code.InstructionsArray;
             ci = frame.Code.CompactInstructions;
             instructionCount2 = instructions.Length;
+
+            // Generator frames: don't pool (owned by PyGenerator), handle yield/exhaustion
+            if (calleeFrame.IsGenerator)
+            {
+                if (retVal == PyFrame.YieldSentinel)
+                {
+                    // Generator yielded: push yield value, resume caller after FOR_ITER+CACHE
+                    var yieldVal = calleeFrame.YieldValue ?? PyNone.Instance;
+                    calleeFrame.YieldValue = null;
+                    calleeFrame.OwnerGenerator?.HandleInlinedYield();
+                    ip = frame.InstructionPointer + 2; // FOR_ITER(1) + 1 CACHE
+                    frame.ValueStack.Push(yieldVal);
+                }
+                else
+                {
+                    // Generator exhausted (return/end of function): pop iterator, jump to exhaustion target
+                    calleeFrame.OwnerGenerator?.MarkFinished();
+                    frame.ValueStack.PopValue(); // pop the PyGenerator iterator from caller stack
+                    var forIterIp = frame.InstructionPointer; // at FOR_ITER instruction
+                    var forIterArg = instructions[forIterIp].Argument;
+                    ip = CalculateForIterExhaustedTarget(frame, forIterIp, forIterArg);
+                }
+                return;
+            }
+
+            PoolInlinedFrame(calleeFrame);
             ip = frame.InstructionPointer + 4; // advance past CALL(1) + 3 CACHE
             frame.ValueStack.Push(retVal);
         }
@@ -2419,12 +2448,13 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// FOR_ITER cold path: handles iterator exhaustion and generic (non-range) iterators.
-        /// Extracted from inline fast path to reduce ExecuteFrame IL.
-        /// Returns the new IP value.
+        /// FOR_ITER cold path: handles iterator exhaustion, generators (DISPATCH_INLINED), and generic iterators.
+        /// Takes ref params to allow direct frame swap for generator DISPATCH_INLINED without extra method call.
+        /// CPython 3.12: Python/bytecodes.c FOR_ITER + FOR_ITER_GEN.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private int ForIterCold(PyFrame frame, int ip, int arg)
+        private void ForIterCold(ref PyFrame frame, ref int ip, int arg,
+            ref ByteCodeInstruction[] instructions, ref CompactInstruction[] ci, ref int instructionCount2)
         {
             var fiVal = frame.ValueStack.PeekValue();
             if (!fiVal.IsObject) goto exhausted;
@@ -2434,27 +2464,36 @@ namespace SharpPy
             if (fiObj is PyRangeIterator)
                 goto exhausted;
 
-            // Generator fast path: skip virtual dispatch, use ObjRef directly
+            // Generator DISPATCH_INLINED: inline generator frame instead of recursive ExecuteFrame
+            // CPython 3.12: Python/bytecodes.c FOR_ITER_GEN → DISPATCH_INLINED(gen_frame)
             if (fiObj is PyGenerator gen)
             {
-                if (gen.TryNext(out var genNext))
-                {
-                    frame.ValueStack.Push(genNext);
-                    return ip + 2; // skip FOR_ITER(1) + 1 CACHE
-                }
-                goto exhausted;
+                if (gen.IsFinished) goto exhausted;
+                var genFrame = gen.PrepareInlinedResume();
+                // Save caller's IP at FOR_ITER instruction (RestoreFromGenerator adds +2)
+                frame.InstructionPointer = ip;
+                genFrame.ParentFrame = frame;
+                // Swap to generator frame directly
+                frame = genFrame;
+                _currentFrame = frame;
+                instructions = frame.Code.InstructionsArray;
+                ci = frame.Code.CompactInstructions;
+                instructionCount2 = instructions.Length;
+                ip = frame.InstructionPointer;
+                return;
             }
 
             // Generic iterator (PyIterator subclasses and custom __next__)
             if (fiObj.TryNext(out var fiNext))
             {
                 frame.ValueStack.Push(fiNext);
-                return ip + 1;
+                ip += 1;
+                return;
             }
 
             exhausted:
             frame.ValueStack.PopValue();
-            return CalculateForIterExhaustedTarget(frame, ip, arg);
+            ip = CalculateForIterExhaustedTarget(frame, ip, arg);
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -7005,6 +7044,7 @@ namespace SharpPy
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"    Iterator type: {iter.GetType().Name}, value: {iter}");
                     #endif
+
                     // Optimized: Use TryNext() instead of exception-based Next() + catch StopIteration.
                     // Built-in iterators (list, tuple, range, dict, set, string) override TryNext()
                     // for O(1) termination detection. Other iterators fall back to try/catch in base class.

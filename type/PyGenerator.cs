@@ -83,13 +83,65 @@ namespace SharpPy
             _finished = false;
             Name = name;
             Qualname = new PyStr(name);
-            
+
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
+            _frame.OwnerGenerator = this;
         }
 
         public override PyType GetPyType() => PyType.GeneratorType;
         public override string GetTypeName() => "generator";
+
+        /// <summary>
+        /// Prepare generator frame for DISPATCH_INLINED resume.
+        /// Sets up IP and pushes sent value, same as TryNext() but without calling ExecuteFrame.
+        /// CPython 3.12: Objects/genobject.c:217 — gen_send_ex frame setup.
+        /// </summary>
+        internal PyFrame PrepareInlinedResume()
+        {
+            // Handle thrown exceptions (generator.throw() protocol)
+            if (_thrownException != null)
+            {
+                var exceptionToThrow = _thrownException;
+                _thrownException = null;
+                if (exceptionToThrow is PythonException pyEx)
+                    _frame.PendingException = pyEx;
+                else
+                    _frame.PendingException = new PythonException(new PyRuntimeError(exceptionToThrow.Message));
+            }
+
+            if (!_started)
+            {
+                _frame.InstructionPointer = 0;
+                _frame.ValueStack.Push(PyNone.Instance);
+                _started = true;
+            }
+            else
+            {
+                _frame.InstructionPointer++;
+                _frame.ValueStack.Push(_sentValue);
+            }
+
+            return _frame;
+        }
+
+        /// <summary>
+        /// Called after DISPATCH_INLINED yield: reset sent value.
+        /// CPython 3.12: Objects/genobject.c:232 — after gen_send_ex returns with yield.
+        /// </summary>
+        internal void HandleInlinedYield()
+        {
+            _sentValue = PyNone.Instance;
+        }
+
+        /// <summary>
+        /// Mark generator as finished (exhausted or exception escaped).
+        /// CPython 3.12: Objects/genobject.c:147 — gen->gi_frame_state = FRAME_CLEARED.
+        /// </summary>
+        internal void MarkFinished()
+        {
+            _finished = true;
+        }
 
         #endregion
 
