@@ -2354,6 +2354,24 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private PyObject CallMethodDescriptorFast(PyFrame frame, PyMethodDescriptor mdesc, int callArgCount)
         {
+            // Ultra-fast paths: specialized delegates skip args array entirely
+            // CPython 3.12: METH_NOARGS / METH_O vectorcall — no tuple construction
+            if (callArgCount == 0 && mdesc._fastCall0 != null)
+            {
+                var mdSelf0 = frame.ValueStack.Pop();
+                frame.ValueStack.PopValue();           // descriptor
+                frame.ValueStack.Push(mdesc._fastCall0(mdSelf0));
+                return null;
+            }
+            if (callArgCount == 1 && mdesc._fastCall1 != null)
+            {
+                var mdArg1 = frame.ValueStack.Pop();
+                var mdSelf1 = frame.ValueStack.Pop();
+                frame.ValueStack.PopValue();            // descriptor
+                frame.ValueStack.Push(mdesc._fastCall1(mdSelf1, mdArg1));
+                return null;
+            }
+
             // Pop args (right to left)
             PyObject[] mdArgs;
             if (callArgCount == 0)
@@ -4113,30 +4131,36 @@ namespace SharpPy
                                     else if (actualCallable is PyMethodDescriptor mdesc && finalArgs.Length >= 1)
                                     {
                                         // Fast path: PyMethodDescriptor — call _implementation directly
-                                        // Avoids inner args array allocation in PyMethodDescriptor.Call()
                                         // finalArgs = [self, arg1, ...], descriptor expects (self, args_without_self, kwargs)
                                         var mdSelf = finalArgs[0];
                                         int mdArgCount = finalArgs.Length - 1;
-                                        PyObject[] mdArgs;
-                                        if (mdArgCount == 0) mdArgs = EmptyArgs;
-                                        else if (mdArgCount == 1)
-                                        {
-                                            // ThreadStatic buffer for 1-arg method calls (e.g., list.append(x))
-                                            mdArgs = _oneArgBuf ??= new PyObject[1];
-                                            mdArgs[0] = finalArgs[1];
-                                        }
-                                        else if (mdArgCount == 2)
-                                        {
-                                            mdArgs = _twoArgBuf ??= new PyObject[2];
-                                            mdArgs[0] = finalArgs[1];
-                                            mdArgs[1] = finalArgs[2];
-                                        }
+                                        // Ultra-fast: specialized delegates skip args array entirely
+                                        if (mdArgCount == 0 && mdesc._fastCall0 != null)
+                                            newCallResult = mdesc._fastCall0(mdSelf);
+                                        else if (mdArgCount == 1 && mdesc._fastCall1 != null)
+                                            newCallResult = mdesc._fastCall1(mdSelf, finalArgs[1]);
                                         else
                                         {
-                                            mdArgs = new PyObject[mdArgCount];
-                                            Array.Copy(finalArgs, 1, mdArgs, 0, mdArgCount);
+                                            PyObject[] mdArgs;
+                                            if (mdArgCount == 0) mdArgs = EmptyArgs;
+                                            else if (mdArgCount == 1)
+                                            {
+                                                mdArgs = _oneArgBuf ??= new PyObject[1];
+                                                mdArgs[0] = finalArgs[1];
+                                            }
+                                            else if (mdArgCount == 2)
+                                            {
+                                                mdArgs = _twoArgBuf ??= new PyObject[2];
+                                                mdArgs[0] = finalArgs[1];
+                                                mdArgs[1] = finalArgs[2];
+                                            }
+                                            else
+                                            {
+                                                mdArgs = new PyObject[mdArgCount];
+                                                Array.Copy(finalArgs, 1, mdArgs, 0, mdArgCount);
+                                            }
+                                            newCallResult = mdesc._implementation(mdSelf, mdArgs, null);
                                         }
-                                        newCallResult = mdesc._implementation(mdSelf, mdArgs, null);
                                     }
                                     else
                                     {

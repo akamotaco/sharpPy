@@ -67,7 +67,7 @@ namespace SharpPy
             );
 
             // 기타 주요 메서드들도 등록
-            strType.TypeDict["upper"] = new PyMethodDescriptor(
+            var upperDesc = new PyMethodDescriptor(
                 "upper", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -78,8 +78,10 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
+            upperDesc._fastCall0 = self => new PyStr(((PyStr)self).Value.ToUpperInvariant());
+            strType.TypeDict["upper"] = upperDesc;
 
-            strType.TypeDict["lower"] = new PyMethodDescriptor(
+            var lowerDesc = new PyMethodDescriptor(
                 "lower", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -90,6 +92,8 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
+            lowerDesc._fastCall0 = self => new PyStr(((PyStr)self).Value.ToLowerInvariant());
+            strType.TypeDict["lower"] = lowerDesc;
 
             // CPython 3.12: Objects/unicodeobject.c:10607-10614 - unicode_capitalize_impl
             // Return a capitalized version of the string.
@@ -153,7 +157,7 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 2
             );
 
-            strType.TypeDict["strip"] = new PyMethodDescriptor(
+            var stripDesc = new PyMethodDescriptor(
                 "strip", strType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
@@ -169,6 +173,8 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 1
             );
+            stripDesc._fastCall0 = self => new PyStr(((PyStr)self).Value.Trim());
+            strType.TypeDict["strip"] = stripDesc;
 
             strType.TypeDict["replace"] = new PyMethodDescriptor(
                 "replace", strType,
