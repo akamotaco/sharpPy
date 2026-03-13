@@ -1904,7 +1904,7 @@ namespace SharpPy
                                 if (lgPushNull)
                                     frame.ValueStack.Push(PyNone.Instance);
                                 frame.ValueStack.Push(lgVal);
-                                ip++;
+                                ip += 5; // skip LOAD_GLOBAL(1) + 4 CACHE
                                 continue;
                             }
                         }
@@ -1923,7 +1923,7 @@ namespace SharpPy
                                 {
                                     frame.ValueStack.PopValue();
                                     frame.ValueStack.Push(laVal);
-                                    ip++;
+                                    ip += 10; // skip LOAD_ATTR(1) + 9 CACHE
                                     continue;
                                 }
                             }
@@ -1947,7 +1947,7 @@ namespace SharpPy
                                 frame.ValueStack.PopValue(); // Skip ToObject
                                 var saValue = frame.ValueStack.Pop();
                                 saInst.InstanceDict[saAttrName] = saValue;
-                                ip++;
+                                ip += 5; // skip STORE_ATTR(1) + 4 CACHE
                                 continue;
                             }
                         }
@@ -2258,7 +2258,7 @@ namespace SharpPy
 
         /// <summary>
         /// LOAD_ATTR method cache hit check.
-        /// Returns 0 = cache miss, 1 = normal method hit (push [func, self]),
+        /// Returns 0 = cache miss, 10 = normal method hit (push [func, self], skip 9 CACHE),
         /// 14 = trivial getter hit (push result, skip LOAD_ATTR+9CACHE+CALL+3CACHE).
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -2294,7 +2294,8 @@ namespace SharpPy
             frame.ValueStack.PopValue();
             frame.ValueStack.Push(laCacheEntry.CachedValue);
             frame.ValueStack.Push(laObj);
-            return 1;
+            // Skip LOAD_ATTR(1) + 9 CACHE = 10
+            return 10;
         }
 
         /// <summary>
@@ -2423,20 +2424,33 @@ namespace SharpPy
         private int ForIterCold(PyFrame frame, int ip, int arg)
         {
             var fiVal = frame.ValueStack.PeekValue();
+            if (!fiVal.IsObject) goto exhausted;
+            var fiObj = fiVal.ObjRef;
+
             // Range exhausted (hot path already checked TryNextInt64 and failed)
-            if (fiVal.IsObject && fiVal.ObjRef is PyRangeIterator)
+            if (fiObj is PyRangeIterator)
+                goto exhausted;
+
+            // Generator fast path: skip virtual dispatch, use ObjRef directly
+            if (fiObj is PyGenerator gen)
             {
-                frame.ValueStack.PopValue();
-                return CalculateForIterExhaustedTarget(frame, ip, arg);
+                if (gen.TryNext(out var genNext))
+                {
+                    frame.ValueStack.Push(genNext);
+                    return ip + 1;
+                }
+                goto exhausted;
             }
-            // Generic iterator
-            var fiIter = frame.ValueStack.Peek();
-            if (fiIter.TryNext(out var fiNext))
+
+            // Generic iterator (PyIterator subclasses and custom __next__)
+            if (fiObj.TryNext(out var fiNext))
             {
                 frame.ValueStack.Push(fiNext);
                 return ip + 1;
             }
-            frame.ValueStack.Pop();
+
+            exhausted:
+            frame.ValueStack.PopValue();
             return CalculateForIterExhaustedTarget(frame, ip, arg);
         }
 
