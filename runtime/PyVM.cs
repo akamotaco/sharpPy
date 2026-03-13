@@ -1261,6 +1261,7 @@ namespace SharpPy
 
         // PyValue arg buffer for CALL fast path — avoids PyValue→PyObject→PyValue roundtrip
         [ThreadStatic] private static PyValue[] _callValBuf;
+        [ThreadStatic] private static PyValue[] _kwArgValBuf; // kwargs fast path: args in parameter order
 
         // DISPATCH_INLINED: sentinel object returned by ExecuteCall to signal frame swap
         // instead of recursive ExecuteFrame. Eliminates C# method call overhead (~500-1000ns).
@@ -10176,18 +10177,59 @@ namespace SharpPy
         /// </summary>
         private PyObject CallWithKeywords(PyObject callable, PyObject[] args, PyTuple kwNames, PyScopeChain scopeChain)
         {
-            // KW_NAMES contains the names of keyword arguments
-            // args array: [positional_args...] [keyword_values...]
-            // Performance: Eliminated LINQ - manual array conversion
-            var kwNamesList = new string[kwNames.Items.Length];
-            for (int i = 0; i < kwNames.Items.Length; i++)
+            int numKwArgs = kwNames.Items.Length;
+            int numPosArgs = args.Length - numKwArgs;
+
+            // Fast path: PyFunction with IsSimpleCallTarget — directly map kwargs to LocalsPlus
+            // Eliminates: new string[], new PyObject[] x2, new Dictionary allocation
+            if (callable is PyFunction fastFunc && fastFunc.CodeObject != null && fastFunc.CodeObject.IsSimpleCallTarget)
+            {
+                var code = fastFunc.CodeObject;
+                var varNameMap = code.VarNameIndexMap;
+
+                // Guard: total args must match expected param count
+                if (numPosArgs + numKwArgs == code.ArgCount)
+                {
+                    PyScopeChain functionScope = fastFunc.CreateCachedScopeChain()
+                        ?? fastFunc.ParentScope ?? scopeChain;
+
+                    // Build args in parameter order using ThreadStatic buffer
+                    int argCount = code.ArgCount;
+                    var buf = _kwArgValBuf;
+                    if (buf == null || buf.Length < argCount)
+                        buf = _kwArgValBuf = new PyValue[Math.Max(argCount, 8)];
+
+                    // Fill positional args
+                    for (int i = 0; i < numPosArgs; i++)
+                        buf[i] = PyValue.FromObject(args[i]);
+
+                    // Fill keyword args by looking up parameter index
+                    var kwItems = kwNames.Items;
+                    for (int i = 0; i < numKwArgs; i++)
+                    {
+                        string kwName = ((PyStr)kwItems[i]).Value;
+                        if (varNameMap.TryGetValue(kwName, out int paramIdx))
+                            buf[paramIdx] = PyValue.FromObject(args[numPosArgs + i]);
+                    }
+
+                    var frame = PyFrame.Rent();
+                    bool hasClosure = (code.FreeVars?.Count ?? 0) > 0;
+                    if (hasClosure && fastFunc.Closure != null)
+                        frame.InitDirectClosure(code, buf, argCount, functionScope, fastFunc.Closure, CurrentFrame);
+                    else
+                        frame.InitDirect(code, buf, argCount, functionScope, CurrentFrame);
+
+                    return ExecuteFrame(frame);
+                }
+            }
+
+            // Slow path: full kwarg splitting with intermediate allocations
+            var kwNamesList = new string[numKwArgs];
+            for (int i = 0; i < numKwArgs; i++)
             {
                 kwNamesList[i] = ((PyStr)kwNames.Items[i]).Value;
             }
-            var numKwArgs = kwNamesList.Length;
-            var numPosArgs = args.Length - numKwArgs;
 
-            // Split positional and keyword arguments
             var positionalArgs = new PyObject[numPosArgs];
             var keywordArgs = new Dictionary<string, PyObject>();
 
