@@ -138,6 +138,10 @@ namespace SharpPy
         internal string[] SlotNames;                          // attribute names in slot order (null if not slotted)
         internal int SlotCount;                               // number of slots (0 if not slotted)
 
+        // Fast constructor eligibility: SlotCount > 0 && !DictSubclass && !ListSubclass && !HasGetAttr
+        // Checked once on first CreateInstance, cached for all subsequent calls.
+        private int _fastConstructor = -1; // -1=unchecked, 0=no, 1=yes
+
         /// <summary>
         /// Cached magic method lookup: ClassDict-only MRO search with TypeVersionTag invalidation.
         /// O(1) on cache hit, O(MRO depth) on cache miss.
@@ -284,8 +288,13 @@ namespace SharpPy
 
             if (_usesDefaultNew == 1 && (kwargs == null || kwargs.InternalDict.Count == 0))
             {
-                // Default object.__new__: directly create instance (no args array, no descriptor call)
-                instance = new PyClassInstance(this);
+                // Default object.__new__: directly create instance
+                // Fast constructor: skip Dict/List subclass + __getattr__ checks for simple classes
+                if (_fastConstructor == -1)
+                    _fastConstructor = (SlotCount > 0 && !IsDictSubclassType() && !IsListSubclassType() && !HasGetAttrMethod()) ? 1 : 0;
+                instance = _fastConstructor == 1
+                    ? new PyClassInstance(this, SlotCount)
+                    : new PyClassInstance(this);
             }
             else
             {
@@ -321,16 +330,6 @@ namespace SharpPy
                 // CPython 3.12: Objects/typeobject.c:1672-1675
                 if (instance.GetPyType() != this)
                     return instance;
-            }
-
-            // Store constructor arguments for toString() behavior
-            if (instance is PyClassInstance classInstance)
-            {
-                classInstance.ConstructorArgs = args;
-            }
-            else if (instance is PyTupleSubclass tupleSubclass)
-            {
-                tupleSubclass.ConstructorArgs = args;
             }
 
             // Step 3: Call __init__ on the instance
@@ -1475,7 +1474,7 @@ namespace SharpPy
     {
         public PyClass InstanceType { get; }
         private Dictionary<string, PyObject> _instanceDict;
-        public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
+        // ConstructorArgs removed — was write-only, never read
         private PyFunction _customGetAttr;
 
         // Slot-based inline attribute storage: eliminates Dictionary allocation for FastInit classes.
@@ -1596,8 +1595,6 @@ namespace SharpPy
                 _slotValues = null;
                 _instanceDict = new Dictionary<string, PyObject>();
             }
-            ConstructorArgs = Array.Empty<PyObject>();
-
             // CPython 3.12: _PyType_Lookup(tp, &_Py_ID(__getattr__))
             // Use cached flag on PyClass (O(1)) instead of per-instance MRO search
             if (instanceType.HasGetAttrMethod())
@@ -1615,6 +1612,19 @@ namespace SharpPy
             {
                 _listStorage = new PyList();
             }
+        }
+
+        /// <summary>
+        /// Fast constructor for FastInit classes: skip Dict/List subclass checks, skip __getattr__ lookup.
+        /// Caller guarantees: slotCount > 0, not dict/list subclass, _customGetAttr cached on PyClass.
+        /// CPython 3.12: tp_new fast path for simple user classes
+        /// </summary>
+        internal PyClassInstance(PyClass instanceType, int slotCount)
+        {
+            InstanceType = instanceType;
+            _slotValues = new PyObject[slotCount];
+            // _instanceDict = null (default), _customGetAttr = null (default)
+            // Dict/List subclass checks skipped — caller guarantees not applicable
         }
 
         public bool IsDictSubclass()
@@ -1972,9 +1982,7 @@ namespace SharpPy
         /// </summary>
         private PyObject CallMagicMethodUnary(string methodName)
         {
-            if (TryGetInstanceAttr(methodName, out var instMethod))
-                return instMethod.Call(System.Array.Empty<PyObject>(), null);
-
+            // CPython 3.12: special/dunder methods are looked up on the TYPE, not instance dict.
             var method = InstanceType.GetCachedMagicMethod(methodName);
             if (method == null) return null;
 
@@ -2004,13 +2012,8 @@ namespace SharpPy
         /// </summary>
         internal PyObject CallMagicMethodBinary(string methodName, PyObject arg)
         {
-            if (TryGetInstanceAttr(methodName, out var instMethod))
-            {
-                var buf1 = _unaryBuf ??= new PyObject[1];
-                buf1[0] = arg;
-                return instMethod.Call(buf1, null);
-            }
-
+            // CPython 3.12: special/dunder methods are looked up on the TYPE, not instance dict.
+            // Skip TryGetInstanceAttr — matches CPython's slot_nb_add / lookup_in_type() behavior.
             var method = InstanceType.GetCachedMagicMethod(methodName);
             if (method == null) return null;
 
@@ -2738,8 +2741,6 @@ namespace SharpPy
     {
         public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }
-        public PyObject[] ConstructorArgs { get; set; }
-
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {
             InstanceType = instanceType;

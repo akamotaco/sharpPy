@@ -405,6 +405,47 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Ultra-fast init for dunder binary methods (exactly 2 args: self + other).
+        /// Skips PyObject[] allocation, PyValue.FromObject for known objects, Array.Fill.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void InitDunderBinary(PyCodeObject code, PyObject self, PyObject other, PyScopeChain scope)
+        {
+            Code = code;
+            ValueStack = PyStack.Rent();
+            ScopeChain = scope;
+
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = RentLocals(nlocals);
+            LocalsPlus[0] = PyValue.FromObject(self);
+            LocalsPlus[1] = PyValue.FromObject(other);
+            if (nlocals > 2)
+                System.Array.Fill(LocalsPlus, PyValue.Null, 2, nlocals - 2);
+
+            InstructionPointer = 0;
+            ParentFrame = null;
+            Globals = scope.GlobalScope?.Variables ?? _emptyGlobals;
+
+            Closure = System.Array.Empty<PyCell>();
+            Cells = System.Array.Empty<PyCell>();
+
+            CurrentLineNumber = -1;
+            CurrentColumnOffset = -1;
+            ExceptionHandlerCallCount = 0;
+            State = FrameState.Created;
+            IsGenerator = false;
+            IsCoroutine = false;
+            OwnerGenerator = null;
+            KeywordNamesForNextCall = null;
+            ClassBodyVariables = null;
+            ClassLocalsDict = null;
+            LastException = null;
+            CurrentException = null;
+            PendingException = null;
+            YieldValue = null!;
+        }
+
+        /// <summary>
         /// Fast init for CO_OPTIMIZED closures with exact args, no defaults.
         /// </summary>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -429,17 +470,8 @@ namespace SharpPy
 
             CurrentLineNumber = -1;
             CurrentColumnOffset = -1;
-            ExceptionHandlerCallCount = 0;
             State = FrameState.Created;
-            IsGenerator = false;
-            IsCoroutine = false;
-            OwnerGenerator = null;
-            KeywordNamesForNextCall = null;
-            ClassBodyVariables = null;
-            ClassLocalsDict = null;
-            LastException = null;
-            CurrentException = null;
-            PendingException = null;
+            // Remaining mutable state fields cleaned in Return()
             YieldValue = null!;
 
             int freeVarCount = code.FreeVars?.Count ?? 0;
@@ -2339,6 +2371,46 @@ namespace SharpPy
                 return 14;
             }
 
+            // Trivial builtin method call: merge LOAD_ATTR + CALL for 0-arg descriptors
+            // Pattern: LOAD_ATTR(method) + 9 CACHE + CALL 0 + 3 CACHE
+            // CPython 3.12: CALL_METHOD_DESCRIPTOR_NOARGS specialization
+            if (laCacheEntry.CachedValue is PyMethodDescriptor mdesc0
+                && mdesc0._fastCall0 != null)
+            {
+                var nextIp = ip + 10; // instruction after LOAD_ATTR + 9 CACHE
+                var instructions0 = frame.Code.InstructionsArray;
+                if (nextIp < instructions0.Length && instructions0[nextIp].OpCode == ByteCodeOp.CALL
+                    && instructions0[nextIp].Argument == 0)
+                {
+                    frame.ValueStack.PopValue(); // remove self from stack
+                    frame.ValueStack.Push(mdesc0._fastCall0(laObj));
+                    // Skip: LOAD_ATTR(1) + 9 CACHE + CALL(1) + 3 CACHE = 14
+                    return 14;
+                }
+            }
+
+            // Trivial builtin method call: merge LOAD_ATTR + CALL for 1-arg descriptors
+            // Pattern: LOAD_ATTR(method) + 9 CACHE + LOAD_FAST(arg) + CALL 1 + 3 CACHE
+            if (laCacheEntry.CachedValue is PyMethodDescriptor mdesc1
+                && mdesc1._fastCall1 != null)
+            {
+                var nextIp = ip + 10;
+                var instructions1 = frame.Code.InstructionsArray;
+                if (nextIp + 1 < instructions1.Length
+                    && instructions1[nextIp].OpCode == ByteCodeOp.LOAD_FAST
+                    && instructions1[nextIp + 1].OpCode == ByteCodeOp.CALL
+                    && instructions1[nextIp + 1].Argument == 1)
+                {
+                    // Load arg from LocalsPlus directly (skip LOAD_FAST opcode)
+                    var argVal = frame.LocalsPlus[instructions1[nextIp].Argument];
+                    var arg = argVal.ToObject();
+                    frame.ValueStack.PopValue(); // remove self from stack
+                    frame.ValueStack.Push(mdesc1._fastCall1(laObj, arg));
+                    // Skip: LOAD_ATTR(1) + 9 CACHE + LOAD_FAST(1) + CALL(1) + 3 CACHE = 15
+                    return 15;
+                }
+            }
+
             frame.ValueStack.PopValue();
             frame.ValueStack.Push(laCacheEntry.CachedValue);
             frame.ValueStack.Push(laObj);
@@ -2413,7 +2485,7 @@ namespace SharpPy
                 var argVal = frame.ValueStack.PeekValueAt(0);
                 PyStr strResult;
                 if (argVal.IsIntLike)
-                    strResult = new PyStr(argVal.AsInt64.ToString());
+                    strResult = PyStr.FromInt(argVal.AsInt64);
                 else if (argVal.IsFloat64)
                     strResult = new PyStr(PyFloat.FormatFloat(argVal.AsFloat64, null));
                 else if (argVal.IsObject && argVal.ObjRef is PyStr existingStr)
@@ -2898,7 +2970,7 @@ namespace SharpPy
                     frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
                     return true;
                 }
-                // PyClassInstance dunder methods
+                // PyClassInstance dunder methods — direct dispatch (skip CallMagicMethodBinary indirection)
                 if (lo is PyClassInstance leftInst)
                 {
                     string magicName = binOp switch
@@ -2914,7 +2986,7 @@ namespace SharpPy
                     };
                     if (magicName != null)
                     {
-                        var magicResult = leftInst.CallMagicMethodBinary(magicName, ro);
+                        var magicResult = CallDunderBinaryDirect(leftInst, magicName, ro);
                         if (magicResult != null && magicResult != PyNotImplemented.Instance)
                         { frame.ValueStack.Push(magicResult); return true; }
                     }
@@ -2929,6 +3001,40 @@ namespace SharpPy
             frame.ValueStack.PushValue(lv);
             frame.ValueStack.PushValue(rv);
             return false;
+        }
+
+        /// <summary>
+        /// Direct dunder binary dispatch: skip CallMagicMethodBinary indirection.
+        /// Inlines GetCachedMagicMethod + CallSimple fast path into single method.
+        /// CPython 3.12: slot_nb_add → lookup_in_type → vectorcall
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject CallDunderBinaryDirect(PyClassInstance leftInst, string methodName, PyObject rightObj)
+        {
+            var method = leftInst.InstanceType.GetCachedMagicMethod(methodName);
+            if (method == null) return null;
+
+            if (method is PyFunction func && func.CodeObject != null)
+            {
+                var code = func.CodeObject;
+                // Ultra-fast path: IsSimpleCallTarget + exact 2 args + no closures
+                if (code.IsSimpleCallTarget && code.ArgCount == 2
+                    && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0)
+                {
+                    var scope = func.CreateCachedScopeChain()
+                        ?? (func.GlobalsDict != null ? new PyScopeChain(func.GlobalsDict, code.Name) : func.ParentScope ?? new PyScopeChain());
+                    var frame = PyFrame.Rent();
+                    frame.InitDunderBinary(code, leftInst, rightObj, scope);
+                    return ExecuteFrame(frame);
+                }
+                // Fallback: use existing CallSimple
+                var buf = _twoArgBuf ??= new PyObject[2];
+                buf[0] = leftInst;
+                buf[1] = rightObj;
+                return func.CallSimple(buf);
+            }
+            // Non-function fallback (descriptor, callable, etc.)
+            return leftInst.CallMagicMethodBinary(methodName, rightObj);
         }
 
         #region Extracted Opcode Handlers

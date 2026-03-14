@@ -9,10 +9,7 @@ namespace SharpPy
     /// </summary>
     public class PyStr : PyObject
     {
-        static PyStr()
-        {
-            InitializeStringDescriptors();
-        }
+        // static constructor moved to Core Properties region (initializes _smallIntStrings + descriptors)
 
         /// <summary>
         /// Initialize str type descriptors - called from BuiltinsModule
@@ -78,7 +75,7 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
-            upperDesc._fastCall0 = self => new PyStr(((PyStr)self).Value.ToUpperInvariant());
+            upperDesc._fastCall0 = self => ((PyStr)self).Upper();
             strType.TypeDict["upper"] = upperDesc;
 
             var lowerDesc = new PyMethodDescriptor(
@@ -92,7 +89,7 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
-            lowerDesc._fastCall0 = self => new PyStr(((PyStr)self).Value.ToLowerInvariant());
+            lowerDesc._fastCall0 = self => ((PyStr)self).Lower();
             strType.TypeDict["lower"] = lowerDesc;
 
             // CPython 3.12: Objects/unicodeobject.c:10607-10614 - unicode_capitalize_impl
@@ -173,7 +170,7 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 1
             );
-            stripDesc._fastCall0 = self => new PyStr(((PyStr)self).Value.Trim());
+            stripDesc._fastCall0 = self => ((PyStr)self).StripCached();
             strType.TypeDict["strip"] = stripDesc;
 
             strType.TypeDict["replace"] = new PyMethodDescriptor(
@@ -1718,6 +1715,57 @@ namespace SharpPy
 
         public PyStr(string value) => Value = value ?? "";
 
+        // Per-instance result cache for upper/lower/strip — avoids new PyStr on repeated calls.
+        // CPython 3.12: strings are immutable, so cached results are always valid.
+        private PyStr _cachedUpper;
+        private PyStr _cachedLower;
+        private PyStr _cachedStrip;
+
+        internal PyStr Upper()
+        {
+            if (_cachedUpper != null) return _cachedUpper;
+            var u = Value.ToUpperInvariant();
+            _cachedUpper = u == Value ? this : new PyStr(u);
+            return _cachedUpper;
+        }
+
+        internal PyStr Lower()
+        {
+            if (_cachedLower != null) return _cachedLower;
+            var l = Value.ToLowerInvariant();
+            _cachedLower = l == Value ? this : new PyStr(l);
+            return _cachedLower;
+        }
+
+        internal PyStr StripCached()
+        {
+            if (_cachedStrip != null) return _cachedStrip;
+            var s = Value.Trim();
+            _cachedStrip = s == Value ? this : new PyStr(s);
+            return _cachedStrip;
+        }
+
+        // Static cache for str(0) through str(255) — SmallIntCache pattern.
+        // CPython 3.12: _PyUnicode_FromId caches commonly used strings.
+        private static readonly PyStr[] _smallIntStrings;
+        static PyStr()
+        {
+            _smallIntStrings = new PyStr[256];
+            for (int i = 0; i < 256; i++)
+                _smallIntStrings[i] = new PyStr(i.ToString());
+            InitializeStringDescriptors();
+        }
+
+        /// <summary>
+        /// Get cached PyStr for small int values (0-255), or create new one.
+        /// </summary>
+        internal static PyStr FromInt(long value)
+        {
+            if ((ulong)value < 256)
+                return _smallIntStrings[value];
+            return new PyStr(value.ToString());
+        }
+
         public override PyType GetPyType() => PyType.StrType;
         public override string GetTypeName() => "str";
 
@@ -2206,8 +2254,7 @@ namespace SharpPy
 
         #region String Methods
 
-        public PyStr Upper() => new PyStr(Value.ToUpper());
-        public PyStr Lower() => new PyStr(Value.ToLower());
+        // Upper()/Lower() with per-instance cache are defined in Core Properties region
         public PyStr Capitalize() => new PyStr(CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Value.ToLower()));
         public PyStr Title() => Capitalize(); // 간단한 구현
         
