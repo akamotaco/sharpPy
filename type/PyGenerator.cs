@@ -73,6 +73,12 @@ namespace SharpPy
         internal PyObject _sentValue = PyNone.Instance;
         private Exception? _thrownException = null;
 
+        /// <summary>
+        /// CPython 3.12: Objects/genobject.c:150 — generator return value for StopIteration.value
+        /// Stored when generator completes via TryNext() path, used by builtin next() to propagate.
+        /// </summary>
+        internal PyObject ReturnValue { get; private set; }
+
         public string Name { get; }
         public PyObject Qualname { get; }
 
@@ -349,7 +355,9 @@ namespace SharpPy
                 }
 
                 // Generator completed normally (return or end of function)
+                // CPython 3.12: Objects/genobject.c:150 — save return value for StopIteration.value
                 _finished = true;
+                ReturnValue = result;
                 value = null;
                 return false;
             }

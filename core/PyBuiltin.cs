@@ -2013,6 +2013,11 @@ namespace SharpPy
 
             if (defaultValue != null)
                 return defaultValue;
+
+            // CPython 3.12: Objects/genobject.c:150 — propagate generator return value as StopIteration.value
+            if (iterator is PyGenerator gen && gen.ReturnValue != null)
+                throw PyStopIteration.Create(gen.ReturnValue);
+
             throw PyStopIteration.Create();
         }
 
