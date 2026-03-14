@@ -10225,11 +10225,13 @@ namespace SharpPy
                 cellVars, // Set CellVars for closure support
                 defaultValues: defaultValues, // CPython 3.12: Pass default values
                 kwDefaults: null,
-                flags: 0,
+                // CPython 3.12: lambda always has CO_OPTIMIZED | CO_NEWLOCALS (same as def)
+                // Python/symtable.c: SET_SCOPE always sets CO_OPTIMIZED for function-like scopes
+                flags: PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS,
                 fileName: _currentFileName,
                 sourceLines: _sourceLines
             );
-            
+
             #if DEBUG_LOG
             Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {cleanParamNames.Count} parameters, {defaultValues.Count} defaults");
             #endif
