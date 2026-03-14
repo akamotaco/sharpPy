@@ -70,7 +70,7 @@ namespace SharpPy
         private readonly PyVM _vm;
         private bool _started = false;
         private bool _finished = false;
-        private PyObject _sentValue = PyNone.Instance;
+        internal PyObject _sentValue = PyNone.Instance;
         private Exception? _thrownException = null;
 
         public string Name { get; }
@@ -295,31 +295,49 @@ namespace SharpPy
                 return false;
             }
 
-            // Handle thrown exceptions (generator.throw() protocol)
+            // Hot path: _thrownException is almost always null, _started is true after first call.
+            // Avoid branching on the common path.
+            if (_started)
+            {
+                // Fast resume path: no exception, already started
+                if (_thrownException == null)
+                {
+                    _frame.InstructionPointer++;
+                    _frame.ValueStack.Push(_sentValue);
+                    return TryNextExecute(out value);
+                }
+                // Rare: thrown exception + already started
+                var exToThrow = _thrownException;
+                _thrownException = null;
+                _frame.PendingException = exToThrow is PythonException pyEx2
+                    ? pyEx2 : new PythonException(new PyRuntimeError(exToThrow.Message));
+                _frame.InstructionPointer++;
+                _frame.ValueStack.Push(_sentValue);
+                return TryNextExecute(out value);
+            }
+
+            // Cold path: first call
             if (_thrownException != null)
             {
                 var exceptionToThrow = _thrownException;
                 _thrownException = null;
-                if (exceptionToThrow is PythonException pyEx)
-                    _frame.PendingException = pyEx;
-                else
-                    _frame.PendingException = new PythonException(new PyRuntimeError(exceptionToThrow.Message));
+                _frame.PendingException = exceptionToThrow is PythonException pyEx
+                    ? pyEx : new PythonException(new PyRuntimeError(exceptionToThrow.Message));
             }
+            _frame.InstructionPointer = 0;
+            _frame.ValueStack.Push(PyNone.Instance);
+            _started = true;
+            return TryNextExecute(out value);
+        }
 
+        /// <summary>
+        /// Execute generator frame and handle result. Separated to keep TryNext small.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private bool TryNextExecute(out PyObject value)
+        {
             try
             {
-                if (!_started)
-                {
-                    _frame.InstructionPointer = 0;
-                    _frame.ValueStack.Push(PyNone.Instance);
-                    _started = true;
-                }
-                else
-                {
-                    _frame.InstructionPointer++;
-                    _frame.ValueStack.Push(_sentValue);
-                }
-
                 var result = _vm.ExecuteFrame(_frame);
 
                 if (result == PyFrame.YieldSentinel)

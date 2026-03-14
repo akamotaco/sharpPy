@@ -2024,16 +2024,17 @@ namespace SharpPy
                         // POP_JUMP_IF_TRUE + LIST_APPEND: removed from inline path for generator DISPATCH_INLINED IL headroom
                         else if (inlineOp == ByteCodeOp.YIELD_VALUE)
                         {
-                            // Generator yield: save yield value and restore caller frame
+                            // Generator yield: pop value and restore caller frame directly
                             // CPython 3.12: bytecodes.c:911 — YIELD_VALUE pops value, saves stack
-                            frame.YieldValue = frame.ValueStack.Pop();
+                            var yieldVal = frame.ValueStack.Pop();
                             frame.InstructionPointer = ip; // sync for PrepareInlinedResume (IP++ on next resume)
                             if (frame != entryFrame)
                             {
-                                RestoreCallerAfterInlinedReturn(frame, PyFrame.YieldSentinel, ref frame,
+                                RestoreCallerAfterGeneratorYield(frame, yieldVal, ref frame,
                                     ref instructions, ref ci, ref ip, ref instructionCount2);
                                 continue;
                             }
+                            frame.YieldValue = yieldVal;
                             return PyFrame.YieldSentinel;
                         }
                         else if (inlineOp == ByteCodeOp.FOR_ITER)
@@ -2073,8 +2074,14 @@ namespace SharpPy
                             throw pendingExc;
                         }
 
-                        // Warm dispatch: CALL bypasses ExecuteInstruction switch.
-                        // Synergy with BINARY_OP extraction: both reduce L1i pressure together.
+                        // Warm dispatch: CALL and LOAD_DEREF bypass ExecuteInstruction switch.
+                        // LOAD_DEREF is common in generators/closures — avoid full switch overhead.
+                        if (instruction.OpCode == ByteCodeOp.LOAD_DEREF)
+                        {
+                            ExecuteLoadDerefWarm(frame, instruction.Argument);
+                            ip++;
+                            continue;
+                        }
                         var result = instruction.OpCode == ByteCodeOp.CALL
                             ? ExecuteCall(frame, instruction)
                             : ExecuteInstruction(frame, instruction);
@@ -2310,6 +2317,26 @@ namespace SharpPy
             var dispatchOp = instructions[frame.InstructionPointer].OpCode;
             ip = frame.InstructionPointer + (dispatchOp == ByteCodeOp.CALL ? 4 : 2);
             frame.ValueStack.Push(retVal);
+        }
+
+        /// <summary>
+        /// Specialized restore for generator YIELD_VALUE: skips YieldValue intermediary and IsGenerator/sentinel checks.
+        /// CPython 3.12: Objects/genobject.c:232 — after yield, restore caller frame directly.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void RestoreCallerAfterGeneratorYield(PyFrame genFrame, PyObject yieldVal,
+            ref PyFrame frame, ref ByteCodeInstruction[] instructions,
+            ref CompactInstruction[] ci, ref int ip, ref int instructionCount2)
+        {
+            var callerFrame = genFrame.ParentFrame;
+            frame = callerFrame;
+            _currentFrame = frame;
+            instructions = frame.Code.InstructionsArray;
+            ci = frame.Code.CompactInstructions;
+            instructionCount2 = instructions.Length;
+            genFrame.OwnerGenerator._sentValue = PyNone.Instance;
+            ip = frame.InstructionPointer + 2; // FOR_ITER(1) + 1 CACHE
+            frame.ValueStack.Push(yieldVal);
         }
 
         /// <summary>
@@ -2569,6 +2596,27 @@ namespace SharpPy
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Warm dispatch for LOAD_DEREF: avoids full ExecuteInstruction switch for closure variable access.
+        /// Common in generators and closures. CPython 3.12: Python/ceval.c LOAD_DEREF.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void ExecuteLoadDerefWarm(PyFrame frame, int arg)
+        {
+            var derefMap = frame.Code.DerefToCellIndex;
+            int cellIndex = arg < derefMap.Length ? derefMap[arg] : ComputeDerefCellIndex(frame.Code, arg);
+            var cell = frame.Cells[cellIndex];
+            if (cell.HasValue)
+            {
+                frame.ValueStack.Push(cell.Value!);
+            }
+            else
+            {
+                string varName = GetDerefVarName(frame.Code, arg);
+                throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
+            }
         }
 
         /// <summary>
