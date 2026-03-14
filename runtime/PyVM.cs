@@ -10261,11 +10261,59 @@ namespace SharpPy
                         frame.InitClosure(code, args, functionScope, pyFunc.Closure, CurrentFrame);
                     }
                 }
+                else if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+                    && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
+                    && code.KwonlyArgCount == 0
+                    && args.Length <= code.ArgCount)
+                {
+                    // Medium path: positional call with defaults, no varargs/kwargs/kwonly
+                    bool hasCellsOrFreeVars = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                    frame = PyFrame.Rent();
+
+                    if (args.Length == code.ArgCount)
+                    {
+                        // Exact match — same as IsSimpleCallTarget fast path
+                        if (hasCellsOrFreeVars)
+                            frame.InitClosure(code, args, functionScope, pyFunc.Closure, CurrentFrame);
+                        else
+                            frame.InitFast(code, args, functionScope, CurrentFrame);
+                    }
+                    else
+                    {
+                        // Fewer args than params — fill remaining from defaults
+                        int argCount = code.ArgCount;
+                        var buf = _kwArgValBuf;
+                        if (buf == null || buf.Length < argCount)
+                            buf = _kwArgValBuf = new PyValue[Math.Max(argCount, 8)];
+
+                        for (int i = 0; i < args.Length; i++)
+                            buf[i] = PyValue.FromObject(args[i]);
+
+                        var hasRuntimeAttrs = pyFunc.Attributes.Count > 2;
+                        PyTuple defaults = (hasRuntimeAttrs
+                            && pyFunc.Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
+                            ? dt : code.CachedDefaultsTuple;
+                        if (defaults != null)
+                        {
+                            int numDefaults = defaults.Items.Length;
+                            int firstDefaultParam = argCount - numDefaults;
+                            for (int i = args.Length; i < argCount; i++)
+                            {
+                                int defaultIdx = i - firstDefaultParam;
+                                if (defaultIdx >= 0 && defaultIdx < numDefaults)
+                                    buf[i] = PyValue.FromObject(defaults.Items[defaultIdx]);
+                            }
+                        }
+
+                        if (hasCellsOrFreeVars)
+                            frame.InitDirectClosure(code, buf, argCount, functionScope, pyFunc.Closure, CurrentFrame);
+                        else
+                            frame.InitDirect(code, buf, argCount, functionScope, CurrentFrame);
+                    }
+                }
                 else
                 {
-                    // Standard path: handles defaults, kwargs, varargs
-                    // Only check runtime __defaults__/__kwdefaults__ if Count > 2
-                    // (standard attrs: __type_params__ + __closure__)
+                    // Standard path: handles varargs, kwargs, kwonly, etc.
                     var hasRuntimeAttrs = pyFunc.Attributes.Count > 2;
                     PyTuple defaults = (hasRuntimeAttrs
                         && pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
@@ -10533,28 +10581,33 @@ namespace SharpPy
             int numKwArgs = kwNames.Items.Length;
             int numPosArgs = args.Length - numKwArgs;
 
-            // Fast path: PyFunction with IsSimpleCallTarget — directly map kwargs to LocalsPlus
+            // Fast path: PyFunction — directly map kwargs to LocalsPlus slots
             // Eliminates: new string[], new PyObject[] x2, new Dictionary allocation
-            if (callable is PyFunction fastFunc && fastFunc.CodeObject != null && fastFunc.CodeObject.IsSimpleCallTarget)
+            // Handles both IsSimpleCallTarget (no defaults) and functions with defaults
+            if (callable is PyFunction fastFunc && fastFunc.CodeObject != null)
             {
                 var code = fastFunc.CodeObject;
-                var varNameMap = code.VarNameIndexMap;
-
-                // Guard: total args must match expected param count
-                if (numPosArgs + numKwArgs == code.ArgCount)
+                // Guard: CO_OPTIMIZED, no *args/**kwargs, no keyword-only params
+                if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+                    && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
+                    && code.KwonlyArgCount == 0
+                    && numPosArgs + numKwArgs <= code.ArgCount)
                 {
-                    PyScopeChain functionScope = fastFunc.CreateCachedScopeChain()
-                        ?? fastFunc.ParentScope ?? scopeChain;
+                    var varNameMap = code.VarNameIndexMap;
+                    int argCount = code.ArgCount;
 
                     // Build args in parameter order using ThreadStatic buffer
-                    int argCount = code.ArgCount;
                     var buf = _kwArgValBuf;
                     if (buf == null || buf.Length < argCount)
                         buf = _kwArgValBuf = new PyValue[Math.Max(argCount, 8)];
 
-                    // Fill positional args
+                    // Fill positional args + build filled bitmap
+                    int filledBits = 0;
                     for (int i = 0; i < numPosArgs; i++)
+                    {
                         buf[i] = PyValue.FromObject(args[i]);
+                        filledBits |= (1 << i);
+                    }
 
                     // Fill keyword args by looking up parameter index
                     var kwItems = kwNames.Items;
@@ -10562,12 +10615,40 @@ namespace SharpPy
                     {
                         string kwName = ((PyStr)kwItems[i]).Value;
                         if (varNameMap.TryGetValue(kwName, out int paramIdx))
+                        {
                             buf[paramIdx] = PyValue.FromObject(args[numPosArgs + i]);
+                            filledBits |= (1 << paramIdx);
+                        }
                     }
 
+                    // Fill unfilled slots with defaults (if any)
+                    if (numPosArgs + numKwArgs < argCount)
+                    {
+                        // Get defaults: runtime __defaults__ first, then cached
+                        PyTuple defaults = (fastFunc.Attributes.Count > 0
+                            && fastFunc.Attributes.TryGetValue("__defaults__", out var dAttr)
+                            && dAttr is PyTuple dt) ? dt : code.CachedDefaultsTuple;
+
+                        if (defaults != null)
+                        {
+                            // Defaults apply to the LAST N parameters
+                            // e.g., f(a, b, c=0, d=0) → defaults = (0, 0), apply to slots [2, 3]
+                            int numDefaults = defaults.Items.Length;
+                            int firstDefaultParam = argCount - numDefaults;
+                            for (int i = firstDefaultParam; i < argCount; i++)
+                            {
+                                if ((filledBits & (1 << i)) == 0)
+                                    buf[i] = PyValue.FromObject(defaults.Items[i - firstDefaultParam]);
+                            }
+                        }
+                    }
+
+                    PyScopeChain functionScope = fastFunc.CreateCachedScopeChain()
+                        ?? fastFunc.ParentScope ?? scopeChain;
+
                     var frame = PyFrame.Rent();
-                    bool hasClosure = (code.FreeVars?.Count ?? 0) > 0;
-                    if (hasClosure && fastFunc.Closure != null)
+                    bool hasCellsOrFreeVars = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                    if (hasCellsOrFreeVars)
                         frame.InitDirectClosure(code, buf, argCount, functionScope, fastFunc.Closure, CurrentFrame);
                     else
                         frame.InitDirect(code, buf, argCount, functionScope, CurrentFrame);
