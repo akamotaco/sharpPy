@@ -4282,6 +4282,19 @@ namespace SharpPy
                                     var callObj = callFuncVal.ObjRef;
                                     if (callObj is PyType || callObj is PyClass)
                                         return CallTypeOrClassFast(frame, callObj, callArgCount);
+
+                                    // === len(x) Inline Fast Path ===
+                                    // Skip full CALL dispatch for len() — directly call .Length()
+                                    if (callArgCount == 1 && callObj is PyBuiltinFunction lbf && lbf.Name == "len")
+                                    {
+                                        var lenArg = frame.ValueStack.Pop();
+                                        frame.ValueStack.Pop(); // pop callable
+                                        frame.ValueStack.Pop(); // pop NULL
+                                        int lenResult = lenArg.Length();
+                                        frame.ValueStack.Push((lenResult >= -5 && lenResult <= 256)
+                                            ? SmallIntCache.GetOrCreate(lenResult) : new PyInt(lenResult));
+                                        return null;
+                                    }
                                 }
                             }
 
