@@ -1995,6 +1995,19 @@ namespace SharpPy
                                     ip += laSkip;
                                     continue;
                                 }
+                                if (laSkip < 0)
+                                {
+                                    // DISPATCH_INLINED: LOAD_ATTR+CALL merged into frame swap
+                                    frame.InstructionPointer = ip - laSkip - 4; // point to CALL instruction
+                                    frame = _pendingInlinedFrame;
+                                    _pendingInlinedFrame = null;
+                                    _currentFrame = frame;
+                                    instructions = frame.Code.InstructionsArray;
+                                    ci = frame.Code.CompactInstructions;
+                                    instructionCount2 = instructions.Length;
+                                    ip = 0;
+                                    continue;
+                                }
                             }
                         }
                         else if (inlineOp == ByteCodeOp.STORE_ATTR)
@@ -2450,6 +2463,64 @@ namespace SharpPy
                     frame.ValueStack.Push(mdesc1._fastCall1(laObj, arg));
                     // Skip: LOAD_ATTR(1) + 9 CACHE + LOAD_FAST(1) + CALL(1) + 3 CACHE = 15
                     return 15;
+                }
+            }
+
+            // Try DISPATCH_INLINED for user-defined method: merge LOAD_ATTR + CALL into frame swap
+            // Pattern: LOAD_ATTR(method) + 9 CACHE + [LOAD_FAST args...] + CALL N + 3 CACHE
+            // Returns negative skip count to signal DISPATCH_INLINED to main loop
+            if (laCacheEntry.CachedValue is PyFunction methodFunc
+                && methodFunc.CodeObject is PyCodeObject methodCode
+                && methodCode.IsSimpleCallTarget
+                && (methodCode.CellVars?.Count ?? 0) == 0
+                && (methodCode.FreeVars?.Count ?? 0) == 0)
+            {
+                int methodArgCount = methodCode.ArgCount; // includes self
+                if (methodArgCount >= 1 && methodArgCount <= 4)
+                {
+                    var instructions = frame.Code.InstructionsArray;
+                    int nextIp = ip + 10; // after LOAD_ATTR + 9 CACHE
+                    int userArgCount = methodArgCount - 1; // excluding self
+
+                    // Check pattern: N LOAD_FAST instructions followed by CALL N
+                    bool patternMatch = true;
+                    if (nextIp + userArgCount < instructions.Length
+                        && instructions[nextIp + userArgCount].OpCode == ByteCodeOp.CALL
+                        && instructions[nextIp + userArgCount].Argument == userArgCount)
+                    {
+                        for (int i = 0; i < userArgCount; i++)
+                        {
+                            if (instructions[nextIp + i].OpCode != ByteCodeOp.LOAD_FAST)
+                            { patternMatch = false; break; }
+                        }
+                    }
+                    else patternMatch = false;
+
+                    if (patternMatch)
+                    {
+                        // Build args: [self, arg0, ..., argN-1]
+                        var argBuf = _callValBuf;
+                        if (argBuf == null || argBuf.Length < methodArgCount)
+                        {
+                            argBuf = new PyValue[methodArgCount];
+                            _callValBuf = argBuf;
+                        }
+                        argBuf[0] = PyValue.FromObject(laObj); // self
+                        for (int i = 0; i < userArgCount; i++)
+                            argBuf[i + 1] = frame.LocalsPlus[instructions[nextIp + i].Argument];
+
+                        frame.ValueStack.PopValue(); // remove self from stack
+
+                        var scope = methodFunc.CreateCachedScopeChain()
+                            ?? (methodFunc.GlobalsDict != null
+                                ? new PyScopeChain(methodFunc.GlobalsDict, methodCode.Name)
+                                : methodFunc.ParentScope ?? new PyScopeChain());
+                        var newFrame = PyFrame.Rent();
+                        newFrame.InitDirect(methodCode, argBuf, methodArgCount, scope, frame);
+                        _pendingInlinedFrame = newFrame;
+                        // Return negative: skip LOAD_ATTR(1) + 9 CACHE + N LOAD_FAST + CALL(1) + 3 CACHE
+                        return -(10 + userArgCount + 4);
+                    }
                 }
             }
 
