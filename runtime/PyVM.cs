@@ -1866,9 +1866,24 @@ namespace SharpPy
                             }
                             // Warm path: float/string/int-overflow handled by small dedicated helper
                             // (avoids falling through to 39KB ExecuteInstruction for common float ops)
-                            if (BinaryOpWarm(frame, (BinaryOpType)cip.Arg))
+                            var warmResult = BinaryOpWarm(frame, (BinaryOpType)cip.Arg);
+                            if (warmResult == 1)
                             {
                                 ip += 2; continue; // skip BINARY_OP(1) + 1 CACHE
+                            }
+                            if (warmResult == 2)
+                            {
+                                // DISPATCH_INLINED: dunder method frame swap (no recursive ExecuteFrame)
+                                // Sync IP so RETURN_VALUE can find caller's BINARY_OP instruction
+                                frame.InstructionPointer = ip;
+                                frame = _pendingInlinedFrame;
+                                _pendingInlinedFrame = null;
+                                _currentFrame = frame;
+                                instructions = frame.Code.InstructionsArray;
+                                ci = frame.Code.CompactInstructions;
+                                instructionCount2 = instructions.Length;
+                                ip = 0;
+                                continue;
                             }
                             // Truly cold ops: fall through to ExecuteInstruction
                         }
@@ -2890,7 +2905,11 @@ namespace SharpPy
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private bool BinaryOpWarm(PyFrame frame, BinaryOpType binOp)
+        /// <summary>
+        /// Warm dispatch for BINARY_OP: handles float/int-overflow/string/dunder.
+        /// Returns: 0=not handled (fall through), 1=handled (result pushed), 2=DISPATCH_INLINED (_pendingInlinedFrame set).
+        /// </summary>
+        private int BinaryOpWarm(PyFrame frame, BinaryOpType binOp)
         {
             var rv = frame.ValueStack.PopValue();
             var lv = frame.ValueStack.PopValue();
@@ -2902,18 +2921,18 @@ namespace SharpPy
                 switch (binOp)
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
-                        frame.ValueStack.PushFloat64(ld + rd); return true;
+                        frame.ValueStack.PushFloat64(ld + rd); return 1;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
-                        frame.ValueStack.PushFloat64(ld - rd); return true;
+                        frame.ValueStack.PushFloat64(ld - rd); return 1;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
-                        frame.ValueStack.PushFloat64(ld * rd); return true;
+                        frame.ValueStack.PushFloat64(ld * rd); return 1;
                     case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
-                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return true; }
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return 1; }
                         break;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return true;
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return 1;
                     case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
-                        if (rd != 0.0) { frame.ValueStack.PushFloat64(Math.Floor(ld / rd)); return true; }
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(Math.Floor(ld / rd)); return 1; }
                         break;
                 }
             }
@@ -2924,16 +2943,16 @@ namespace SharpPy
                 switch (binOp)
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
-                        frame.ValueStack.PushFloat64(ld + rd); return true;
+                        frame.ValueStack.PushFloat64(ld + rd); return 1;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
-                        frame.ValueStack.PushFloat64(ld - rd); return true;
+                        frame.ValueStack.PushFloat64(ld - rd); return 1;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
-                        frame.ValueStack.PushFloat64(ld * rd); return true;
+                        frame.ValueStack.PushFloat64(ld * rd); return 1;
                     case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
-                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return true; }
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return 1; }
                         break;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return true;
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return 1;
                 }
             }
             else if (lv.IsFloat64 && rv.IsIntLike)
@@ -2942,16 +2961,16 @@ namespace SharpPy
                 switch (binOp)
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
-                        frame.ValueStack.PushFloat64(ld + rd); return true;
+                        frame.ValueStack.PushFloat64(ld + rd); return 1;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
-                        frame.ValueStack.PushFloat64(ld - rd); return true;
+                        frame.ValueStack.PushFloat64(ld - rd); return 1;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
-                        frame.ValueStack.PushFloat64(ld * rd); return true;
+                        frame.ValueStack.PushFloat64(ld * rd); return 1;
                     case BinaryOpType.TRUE_DIVIDE: case BinaryOpType.INPLACE_TRUE_DIVIDE:
-                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return true; }
+                        if (rd != 0.0) { frame.ValueStack.PushFloat64(ld / rd); return 1; }
                         break;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
-                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return true;
+                        frame.ValueStack.PushFloat64(Math.Pow(ld, rd)); return 1;
                 }
             }
             // Int overflow cases (ADD/SUB that overflowed in inline path)
@@ -2962,10 +2981,10 @@ namespace SharpPy
                 {
                     case BinaryOpType.ADD: case BinaryOpType.INPLACE_ADD:
                         frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) + new System.Numerics.BigInteger(ra)));
-                        return true;
+                        return 1;
                     case BinaryOpType.SUBTRACT: case BinaryOpType.INPLACE_SUBTRACT:
                         frame.ValueStack.Push(new PyInt(new System.Numerics.BigInteger(la) - new System.Numerics.BigInteger(ra)));
-                        return true;
+                        return 1;
                     case BinaryOpType.MULTIPLY: case BinaryOpType.INPLACE_MULTIPLY:
                     {
                         var bigResult = new System.Numerics.BigInteger(la) * new System.Numerics.BigInteger(ra);
@@ -2973,14 +2992,14 @@ namespace SharpPy
                             frame.ValueStack.PushInt64((long)bigResult);
                         else
                             frame.ValueStack.Push(new PyInt(bigResult));
-                        return true;
+                        return 1;
                     }
                     case BinaryOpType.FLOOR_DIVIDE: case BinaryOpType.INPLACE_FLOOR_DIVIDE:
                         if (ra != 0) {
                             long q = la / ra;
                             if ((la ^ ra) < 0 && q * ra != la) q--;
                             frame.ValueStack.PushInt64(q);
-                            return true;
+                            return 1;
                         }
                         break;
                     case BinaryOpType.POWER: case BinaryOpType.INPLACE_POWER:
@@ -2988,10 +3007,10 @@ namespace SharpPy
                         {
                             // Squaring fast path: la*la with overflow check
                             if (la > -3037000499L && la < 3037000499L) // sqrt(long.MaxValue) ≈ 3.03e9
-                            { frame.ValueStack.PushInt64(la * la); return true; }
+                            { frame.ValueStack.PushInt64(la * la); return 1; }
                         }
-                        else if (ra == 0) { frame.ValueStack.PushInt64(1); return true; }
-                        else if (ra == 1) { frame.ValueStack.PushInt64(la); return true; }
+                        else if (ra == 0) { frame.ValueStack.PushInt64(1); return 1; }
+                        else if (ra == 1) { frame.ValueStack.PushInt64(la); return 1; }
                         else if (ra >= 3 && ra <= 10)
                         {
                             long result = 1;
@@ -3002,7 +3021,7 @@ namespace SharpPy
                                 { overflow = true; break; }
                                 result = unchecked(result * la);
                             }
-                            if (!overflow) { frame.ValueStack.PushInt64(result); return true; }
+                            if (!overflow) { frame.ValueStack.PushInt64(result); return 1; }
                         }
                         break;
                 }
@@ -3016,9 +3035,9 @@ namespace SharpPy
                     && lo is PyStr ls && ro is PyStr rs)
                 {
                     frame.ValueStack.Push(new PyStr(ls.Value + rs.Value));
-                    return true;
+                    return 1;
                 }
-                // PyClassInstance dunder methods — direct dispatch (skip CallMagicMethodBinary indirection)
+                // PyClassInstance dunder methods — DISPATCH_INLINED for simple dunder calls
                 if (lo is PyClassInstance leftInst)
                 {
                     string magicName = binOp switch
@@ -3034,21 +3053,54 @@ namespace SharpPy
                     };
                     if (magicName != null)
                     {
+                        // Try DISPATCH_INLINED path: avoid recursive ExecuteFrame
+                        var inlinedResult = TryDunderBinaryInlined(leftInst, magicName, ro, frame);
+                        if (inlinedResult == 2) return 2; // _pendingInlinedFrame set
+                        if (inlinedResult == 1) return 1; // result pushed (fallback path)
+
+                        // Non-inlineable: recursive fallback
                         var magicResult = CallDunderBinaryDirect(leftInst, magicName, ro);
                         if (magicResult != null && magicResult != PyNotImplemented.Instance)
-                        { frame.ValueStack.Push(magicResult); return true; }
+                        { frame.ValueStack.Push(magicResult); return 1; }
                     }
                 }
                 // Push back for ExecuteInstruction to handle
                 frame.ValueStack.Push(lo);
                 frame.ValueStack.Push(ro);
-                return false;
+                return 0;
             }
 
             // Division by zero or unhandled op: push back for ExecuteInstruction
             frame.ValueStack.PushValue(lv);
             frame.ValueStack.PushValue(rv);
-            return false;
+            return 0;
+        }
+
+        /// <summary>
+        /// Try DISPATCH_INLINED for dunder binary methods.
+        /// Returns: 0=not eligible, 1=executed+pushed (fallback), 2=DISPATCH_INLINED (_pendingInlinedFrame set).
+        /// CPython 3.12: dunder methods use recursive _PyEval_EvalFrameDefault, but SharpPy can avoid
+        /// recursion by reusing the existing DISPATCH_INLINED frame swap infrastructure.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private int TryDunderBinaryInlined(PyClassInstance leftInst, string methodName, PyObject rightObj, PyFrame callerFrame)
+        {
+            var method = leftInst.InstanceType.GetCachedMagicMethod(methodName);
+            if (method is not PyFunction func || func.CodeObject == null) return 0;
+
+            var code = func.CodeObject;
+            // DISPATCH_INLINED only for simple targets: exact 2 args, no closures, no generator
+            if (!code.IsSimpleCallTarget || code.ArgCount != 2
+                || (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0)
+                return 0;
+
+            var scope = func.CreateCachedScopeChain()
+                ?? (func.GlobalsDict != null ? new PyScopeChain(func.GlobalsDict, code.Name) : func.ParentScope ?? new PyScopeChain());
+            var newFrame = PyFrame.Rent();
+            newFrame.InitDunderBinary(code, leftInst, rightObj, scope);
+            newFrame.ParentFrame = callerFrame;
+            _pendingInlinedFrame = newFrame;
+            return 2;
         }
 
         /// <summary>
