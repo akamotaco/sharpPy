@@ -67,10 +67,10 @@ public partial class PyFunction : PyObject, IDescriptor
     {
         Name = name;
         Implementation = implementation ?? DefaultImplementation;
-        Attributes = new Dictionary<string, PyObject>();
+        Attributes = new Dictionary<string, PyObject>(4);
         DefiningModule = definingModule;
         TypeParams = typeParams;
-        Closure = closure ?? new PyCell[0];
+        Closure = closure ?? Array.Empty<PyCell>();
         CodeObject = codeObject;
 
         // __type_params__ 속성 설정

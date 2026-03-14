@@ -3284,36 +3284,13 @@ namespace SharpPy
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"   Closure tuple has {closureTupleObj.Items.Length} items:");
-                #endif
                 for (int i = 0; i < closureTupleObj.Items.Length; i++)
-                {
-                    var item = closureTupleObj.Items[i];
-                    #if DEBUG_LOG
-                    Console.WriteLine($"     Item[{i}]: {item?.GetType().Name} = {item}");
-                    #endif
-                }
-                try
-                {
-                    // Performance: Eliminated LINQ - manual cast to PyCell array
-                    closure = new PyCell[closureTupleObj.Items.Length];
-                    for (int i = 0; i < closureTupleObj.Items.Length; i++)
-                    {
-                        closure[i] = (PyCell)closureTupleObj.Items[i];
-                    }
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Function has closure: {closure.Length} cells");
-                    #endif
-                }
-                catch (InvalidCastException e)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ❌ Closure casting error: {e.Message}");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"     Failed to cast items to PyCell");
-                    #endif
-                    throw;
-                }
+                    Console.WriteLine($"     Item[{i}]: {closureTupleObj.Items[i]?.GetType().Name} = {closureTupleObj.Items[i]}");
+                #endif
+                // Cast PyObject[] to PyCell[] for closure
+                closure = new PyCell[closureTupleObj.Items.Length];
+                for (int i = 0; i < closureTupleObj.Items.Length; i++)
+                    closure[i] = (PyCell)closureTupleObj.Items[i];
             }
             else
             {
@@ -3513,87 +3490,21 @@ namespace SharpPy
                     #endif
                 }
 
-                // Create function implementation with proper parameter binding
-                // CPython 3.12: Capture defaults at function definition time
-                var capturedDefaults = defaults; // Capture for closure
-                #if DEBUG_VM_LOG
-                Console.WriteLine($"[DEFAULTS CAPTURE] Capturing defaults for {pyCode.Name}:");
-                Console.WriteLine($"  defaults is null: {defaults == null}");
-                if (defaults != null)
-                {
-                    Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
-                    for (int i = 0; i < defaults.Items.Length; i++)
-                    {
-                        Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
-                    }
-                }
-                #endif
-                Func<PyObject[], PyObject> implementation = args =>
-                {
-                // CPython 3.12: Create new ScopeChain with captured globals
-                // The function's globals are fixed at function definition time
-                #if DEBUG_VM_LOG
-                Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
-                Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
-                Console.WriteLine($"  capturedDefaults is null: {capturedDefaults == null}");
-                if (capturedDefaults != null)
-                {
-                    Console.WriteLine($"  capturedDefaults.Items.Length: {capturedDefaults.Items.Length}");
-                    for (int i = 0; i < capturedDefaults.Items.Length; i++)
-                    {
-                        Console.WriteLine($"  capturedDefaults[{i}]: {capturedDefaults.Items[i]}");
-                    }
-                }
-                #endif
-                if (globalsDict != null)
-                {
-                    #if DEBUG_VM_LOG
-                    // Performance: Eliminated LINQ - manual key preview
-                    var keyCount = Math.Min(10, globalsDict.Keys.Count);
-                    var keys = new string[keyCount];
-                    int keyIdx = 0;
-                    foreach (var key in globalsDict.Keys)
-                    {
-                        if (keyIdx >= keyCount) break;
-                        keys[keyIdx++] = key;
-                    }
-                    Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", keys)}");
-                    Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
-                    #endif
-                }
-
-                if (globalsDict == null)
-                {
-                    throw new InvalidOperationException($"Function {pyCode.Name} has null globals!");
-                }
-
-                var functionScopeChain = new PyScopeChain(globalsDict, "<function>");
-
-                #if DEBUG_VM_LOG
-                Console.WriteLine($"  New ScopeChain GlobalScope count: {functionScopeChain.GlobalScope?.Variables.Count ?? 0}");
-                Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
-                #endif
-
-                var functionFrame = PyFrame.Rent();
-                functionFrame.InitFull(pyCode, args, functionScopeChain, closure != null && closure.Length > 0 ? closure : null, frame, capturedDefaults);
-                return ExecuteFrame(functionFrame);
-            };
+                // Performance: skip delegate creation for regular functions with CodeObject.
+                // ExecuteFunctionCall always checks CodeObject first and bypasses Implementation.
+                // The delegate was a closure-capturing Func<> allocated on every MAKE_FUNCTION.
 
             if (closure != null && closure.Length > 0)
             {
-                // Create function with closure
-                functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
-                // Override implementation to use our parameter binding
-                functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                functionObject = new PyFunction(pyCode.Name, null, null, null, closure, pyCode);
                 functionObject.ParentScope = frame.ScopeChain;
-                functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
+                functionObject.GlobalsDict = globalsDict;
             }
             else
             {
-                // Create regular function without closure
-                functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
+                functionObject = new PyFunction(pyCode.Name, null, null, null, null, pyCode);
                 functionObject.ParentScope = frame.ScopeChain;
-                functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
+                functionObject.GlobalsDict = globalsDict;
             }
 
                 // Set CPython 3.12 compatible function attributes
