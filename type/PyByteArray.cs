@@ -376,7 +376,7 @@ namespace SharpPy
 
         public override string ToString() => ToRepr().Value;
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             var sb = new StringBuilder("bytearray(b'");
             foreach (byte b in _bytes)
@@ -399,7 +399,7 @@ namespace SharpPy
                 }
             }
             sb.Append("')");
-            return new PyString(sb.ToString());
+            return new PyStr(sb.ToString());
         }
 
         public override int Length() => _bytes.Count;

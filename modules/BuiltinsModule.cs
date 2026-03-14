@@ -31,7 +31,7 @@ namespace SharpPy.Modules
             module.ModuleDict["str"] = PyType.StrType;
 
             // Initialize str type descriptors (join, split, etc.)
-            PyString.InitializeStringDescriptors();
+            PyStr.InitializeStringDescriptors();
 
             // Initialize dict type descriptors (get, keys, values, items, etc.)
             PyDict.InitializeDictDescriptors();
@@ -138,40 +138,41 @@ namespace SharpPy.Modules
             module.ModuleDict["staticmethod"] = PyType.StaticMethodType; // Type object
 
             // Add other commonly used builtins
-            module.ModuleDict["print"] = new PyBuiltinFunction("print");
-            module.ModuleDict["input"] = new PyBuiltinFunction("input");
-            module.ModuleDict["repr"] = new PyBuiltinFunction("repr");
-            module.ModuleDict["eval"] = new PyBuiltinFunction("eval");
-            module.ModuleDict["compile"] = new PyBuiltinFunction("compile");
-            module.ModuleDict["exec"] = new PyBuiltinFunction("exec");
-            module.ModuleDict["id"] = new PyBuiltinFunction("id");
-            module.ModuleDict["hash"] = new PyBuiltinFunction("hash");
-            module.ModuleDict["callable"] = new PyBuiltinFunction("callable");
-            module.ModuleDict["dir"] = new PyBuiltinFunction("dir");
-            module.ModuleDict["iter"] = new PyBuiltinFunction("iter");
-            module.ModuleDict["next"] = new PyBuiltinFunction("next");
-            module.ModuleDict["range"] = new PyBuiltinFunction("range");
-            module.ModuleDict["enumerate"] = new PyBuiltinFunction("enumerate");
-            module.ModuleDict["zip"] = new PyBuiltinFunction("zip");
-            module.ModuleDict["map"] = new PyBuiltinFunction("map");
-            module.ModuleDict["filter"] = new PyBuiltinFunction("filter");
-            module.ModuleDict["sorted"] = new PyBuiltinFunction("sorted");
-            module.ModuleDict["reversed"] = new PyBuiltinFunction("reversed");
-            module.ModuleDict["sum"] = new PyBuiltinFunction("sum");
-            module.ModuleDict["min"] = new PyBuiltinFunction("min");
-            module.ModuleDict["max"] = new PyBuiltinFunction("max");
-            module.ModuleDict["any"] = new PyBuiltinFunction("any");
-            module.ModuleDict["all"] = new PyBuiltinFunction("all");
-            module.ModuleDict["delattr"] = new PyBuiltinFunction("delattr");
-            module.ModuleDict["super"] = new PyBuiltinFunction("super");
-            module.ModuleDict["round"] = new PyBuiltinFunction("round");
-            module.ModuleDict["pow"] = new PyBuiltinFunction("pow");
-            module.ModuleDict["divmod"] = new PyBuiltinFunction("divmod");
-            module.ModuleDict["ord"] = new PyBuiltinFunction("ord");
-            module.ModuleDict["chr"] = new PyBuiltinFunction("chr");
-            module.ModuleDict["open"] = new PyBuiltinFunction("open");
-            module.ModuleDict["globals"] = new PyBuiltinFunction("globals");
-            module.ModuleDict["locals"] = new PyBuiltinFunction("locals");
+            // Hot builtins with direct kwargs delegate (skip dictionary fallback)
+            module.ModuleDict["print"] = new PyBuiltinFunction("print", PyBuiltinFunction.GetBuiltinImpl("print"));
+            module.ModuleDict["repr"] = new PyBuiltinFunction("repr", PyBuiltinFunction.GetBuiltinImpl("repr"));
+            module.ModuleDict["id"] = new PyBuiltinFunction("id", PyBuiltinFunction.GetBuiltinImpl("id"));
+            module.ModuleDict["hash"] = new PyBuiltinFunction("hash", PyBuiltinFunction.GetBuiltinImpl("hash"));
+            module.ModuleDict["callable"] = new PyBuiltinFunction("callable", PyBuiltinFunction.GetBuiltinImpl("callable"));
+            module.ModuleDict["dir"] = new PyBuiltinFunction("dir", PyBuiltinFunction.GetBuiltinImpl("dir"));
+            module.ModuleDict["iter"] = new PyBuiltinFunction("iter", PyBuiltinFunction.GetBuiltinImpl("iter"));
+            module.ModuleDict["next"] = new PyBuiltinFunction("next", PyBuiltinFunction.GetBuiltinImpl("next"));
+            module.ModuleDict["range"] = new PyBuiltinFunction("range", PyBuiltinFunction.GetBuiltinImpl("range"));
+            module.ModuleDict["enumerate"] = new PyBuiltinFunction("enumerate", PyBuiltinFunction.GetBuiltinImpl("enumerate"));
+            module.ModuleDict["zip"] = new PyBuiltinFunction("zip", PyBuiltinFunction.GetBuiltinImpl("zip"));
+            module.ModuleDict["map"] = new PyBuiltinFunction("map", PyBuiltinFunction.GetBuiltinImpl("map"));
+            module.ModuleDict["filter"] = new PyBuiltinFunction("filter", PyBuiltinFunction.GetBuiltinImpl("filter"));
+            module.ModuleDict["sorted"] = new PyBuiltinFunction("sorted", PyBuiltinFunction.GetBuiltinImpl("sorted"));
+            module.ModuleDict["reversed"] = new PyBuiltinFunction("reversed", PyBuiltinFunction.GetBuiltinImpl("reversed"));
+            module.ModuleDict["sum"] = new PyBuiltinFunction("sum", PyBuiltinFunction.GetBuiltinImpl("sum"));
+            module.ModuleDict["min"] = new PyBuiltinFunction("min", PyBuiltinFunction.GetBuiltinImpl("min"));
+            module.ModuleDict["max"] = new PyBuiltinFunction("max", PyBuiltinFunction.GetBuiltinImpl("max"));
+            module.ModuleDict["any"] = new PyBuiltinFunction("any", PyBuiltinFunction.GetBuiltinImpl("any"));
+            module.ModuleDict["all"] = new PyBuiltinFunction("all", PyBuiltinFunction.GetBuiltinImpl("all"));
+            module.ModuleDict["delattr"] = new PyBuiltinFunction("delattr", PyBuiltinFunction.GetBuiltinImpl("delattr"));
+            module.ModuleDict["super"] = new PyBuiltinFunction("super", PyBuiltinFunction.GetBuiltinImpl("super"));
+            module.ModuleDict["round"] = new PyBuiltinFunction("round", PyBuiltinFunction.GetBuiltinImpl("round"));
+            module.ModuleDict["pow"] = new PyBuiltinFunction("pow", PyBuiltinFunction.GetBuiltinImpl("pow"));
+            module.ModuleDict["divmod"] = new PyBuiltinFunction("divmod", PyBuiltinFunction.GetBuiltinImpl("divmod"));
+            module.ModuleDict["ord"] = new PyBuiltinFunction("ord", PyBuiltinFunction.GetBuiltinImpl("ord"));
+            module.ModuleDict["chr"] = new PyBuiltinFunction("chr", PyBuiltinFunction.GetBuiltinImpl("chr"));
+            module.ModuleDict["open"] = new PyBuiltinFunction("open", PyBuiltinFunction.GetBuiltinImpl("open"));
+            module.ModuleDict["globals"] = new PyBuiltinFunction("globals", PyBuiltinFunction.GetBuiltinImpl("globals"));
+            module.ModuleDict["locals"] = new PyBuiltinFunction("locals", PyBuiltinFunction.GetBuiltinImpl("locals"));
+            module.ModuleDict["input"] = new PyBuiltinFunction("input", PyBuiltinFunction.GetBuiltinImpl("input"));
+            module.ModuleDict["eval"] = new PyBuiltinFunction("eval", PyBuiltinFunction.GetBuiltinImpl("eval"));
+            module.ModuleDict["compile"] = new PyBuiltinFunction("compile", PyBuiltinFunction.GetBuiltinImpl("compile"));
+            module.ModuleDict["exec"] = new PyBuiltinFunction("exec", PyBuiltinFunction.GetBuiltinImpl("exec"));
 
             // Python 3.12 number conversion builtins
             module.ModuleDict["bin"] = new PyBuiltinFunction("bin", Bin);
@@ -188,8 +189,8 @@ namespace SharpPy.Modules
             module.ModuleDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
 
             // Python 3.12 special attributes
-            module.ModuleDict["__name__"] = new PyString("builtins");
-            module.ModuleDict["__doc__"] = new PyString("Built-in functions, exceptions, and other objects.");
+            module.ModuleDict["__name__"] = new PyStr("builtins");
+            module.ModuleDict["__doc__"] = new PyStr("Built-in functions, exceptions, and other objects.");
 
             return module;
         }
@@ -552,6 +553,9 @@ namespace SharpPy.Modules
             return PyBool.False;
         }
 
+        // CPython 3.12: Python/bltinmodule.c builtin_hasattr_impl
+        // Uses _PyObject_LookupAttr() which only suppresses AttributeError.
+        // Non-AttributeError exceptions are propagated.
         private static PyObject HasAttr(PyObject[] args)
         {
             if (args.Length != 2)
@@ -560,7 +564,7 @@ namespace SharpPy.Modules
             var obj = args[0];
             var name = args[1];
 
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("hasattr(): attribute name must be string");
 
             try
@@ -568,12 +572,15 @@ namespace SharpPy.Modules
                 obj.GetAttribute(nameStr.Value);
                 return PyBool.True;
             }
-            catch
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
                 return PyBool.False;
             }
         }
 
+        // CPython 3.12: Python/bltinmodule.c builtin_getattr
+        // With default: uses _PyObject_LookupAttr() which only suppresses AttributeError.
+        // Without default: uses PyObject_GetAttr() which propagates all exceptions.
         private static PyObject GetAttr(PyObject[] args)
         {
             if (args.Length < 2 || args.Length > 3)
@@ -583,14 +590,14 @@ namespace SharpPy.Modules
             var name = args[1];
             var defaultValue = args.Length > 2 ? args[2] : null;
 
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("getattr(): attribute name must be string");
 
             try
             {
                 return obj.GetAttribute(nameStr.Value);
             }
-            catch
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
                 if (defaultValue != null)
                     return defaultValue;
@@ -607,7 +614,7 @@ namespace SharpPy.Modules
             var name = args[1];
             var value = args[2];
 
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("setattr(): attribute name must be string");
 
             obj.SetAttribute(nameStr.Value, value);
@@ -747,7 +754,7 @@ namespace SharpPy.Modules
 
             // Get repr() of the object
             var reprStr = obj.ToRepr();
-            if (reprStr is not PyString pyStr)
+            if (reprStr is not PyStr pyStr)
             {
                 throw PyTypeError.Create($"__repr__ returned non-string (type {reprStr.GetTypeName()})");
             }
@@ -774,7 +781,7 @@ namespace SharpPy.Modules
                 }
             }
 
-            return new PyString(result.ToString());
+            return new PyStr(result.ToString());
         }
 
         // CPython 3.12: Python/bltinmodule.c:3079 - builtin_vars
@@ -817,10 +824,10 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
 
             var value = args[0];
-            var formatSpec = args.Length == 2 ? args[1] : new PyString("");
+            var formatSpec = args.Length == 2 ? args[1] : new PyStr("");
 
             // format_spec must be a string
-            if (formatSpec is not PyString formatStr)
+            if (formatSpec is not PyStr formatStr)
             {
                 throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
             }
@@ -835,7 +842,7 @@ namespace SharpPy.Modules
                     var result = formatMethod.Call(new PyObject[] { formatStr }, null);
 
                     // Result must be a string
-                    if (result is not PyString)
+                    if (result is not PyStr)
                     {
                         throw PyTypeError.Create($"__format__ must return a str, not {result.GetTypeName()}");
                     }

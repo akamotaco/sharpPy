@@ -28,9 +28,9 @@ namespace SharpPy
                     string encoding = "utf-8";
                     string errors = "strict";
 
-                    if (args.Length > 0 && args[0] is PyString encStr)
+                    if (args.Length > 0 && args[0] is PyStr encStr)
                         encoding = encStr.Value;
-                    if (args.Length > 1 && args[1] is PyString errStr)
+                    if (args.Length > 1 && args[1] is PyStr errStr)
                         errors = errStr.Value;
 
                     // Handle encoding parameter
@@ -46,16 +46,16 @@ namespace SharpPy
 
                     try
                     {
-                        return new PyString(enc.GetString(bytes.Value));
+                        return new PyStr(enc.GetString(bytes.Value));
                     }
                     catch (System.Text.DecoderFallbackException ex)
                     {
                         if (errors == "strict")
                             throw PyUnicodeDecodeError.Create($"'{encoding}' codec can't decode bytes: {ex.Message}");
                         else if (errors == "ignore")
-                            return new PyString(enc.GetString(bytes.Value)); // Try without exceptions
+                            return new PyStr(enc.GetString(bytes.Value)); // Try without exceptions
                         else if (errors == "replace")
-                            return new PyString(enc.GetString(bytes.Value)); // Use replacement char
+                            return new PyStr(enc.GetString(bytes.Value)); // Use replacement char
                         else
                             throw PyLookupError.Create($"unknown error handler name '{errors}'");
                     }
@@ -77,7 +77,7 @@ namespace SharpPy
                     {
                         sb.Append($"{b:x2}");
                     }
-                    return new PyString(sb.ToString());
+                    return new PyStr(sb.ToString());
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -90,7 +90,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"fromhex() takes exactly one argument ({args.Length} given)");
 
-                    if (args[0] is not PyString hexStr)
+                    if (args[0] is not PyStr hexStr)
                         throw PyTypeError.Create($"fromhex() argument must be str, not {args[0].GetTypeName()}");
 
                     string s = hexStr.Value.Replace(" ", "").Replace("\t", "").Replace("\n", "").Replace("\r", "");
@@ -1977,7 +1977,7 @@ namespace SharpPy
             return new PyListIterator(new PyList(items));
         }
         
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             var sb = new System.Text.StringBuilder("b'");
             foreach (byte b in Value)
@@ -2000,7 +2000,7 @@ namespace SharpPy
                 }
             }
             sb.Append('\'');
-            return new PyString(sb.ToString());
+            return new PyStr(sb.ToString());
         }
         
         public override int Length() => Value.Length;

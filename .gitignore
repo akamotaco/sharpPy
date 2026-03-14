@@ -2,6 +2,7 @@ obj
 bin
 .VSCodeCounter
 __pycache__
+__sharppy_cache__
 
 # Godot uid files
 *.uid

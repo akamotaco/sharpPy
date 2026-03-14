@@ -20,11 +20,11 @@ namespace SharpPy.Modules.Stdlib
             var module = new PyModule("os", "C:\\Users\\m11\\Desktop\\work\\sharpPy\\modules\\os.py");
 
             // 시스템 정보
-            module.ModuleDict["name"] = new PyString(GetOsName());
-            module.ModuleDict["sep"] = new PyString(Path.DirectorySeparatorChar.ToString());
-            module.ModuleDict["altsep"] = new PyString(Path.AltDirectorySeparatorChar.ToString());
-            module.ModuleDict["pathsep"] = new PyString(Path.PathSeparator.ToString());
-            module.ModuleDict["linesep"] = new PyString(Environment.NewLine);
+            module.ModuleDict["name"] = new PyStr(GetOsName());
+            module.ModuleDict["sep"] = new PyStr(Path.DirectorySeparatorChar.ToString());
+            module.ModuleDict["altsep"] = new PyStr(Path.AltDirectorySeparatorChar.ToString());
+            module.ModuleDict["pathsep"] = new PyStr(Path.PathSeparator.ToString());
+            module.ModuleDict["linesep"] = new PyStr(Environment.NewLine);
             
             // 현재 디렉토리 관련
             module.ModuleDict["getcwd"] = new PyBuiltinFunction("getcwd", GetCurrentDirectory);
@@ -74,7 +74,7 @@ namespace SharpPy.Modules.Stdlib
                 
             try
             {
-                return new PyString(Directory.GetCurrentDirectory());
+                return new PyStr(Directory.GetCurrentDirectory());
             }
             catch (Exception ex)
             {
@@ -120,7 +120,7 @@ namespace SharpPy.Modules.Stdlib
                 var pyObjects = new PyObject[entries.Length];
                 for (int i = 0; i < entries.Length; i++)
                 {
-                    pyObjects[i] = new PyString(IOHelper.GetFileName(entries[i]));
+                    pyObjects[i] = new PyStr(IOHelper.GetFileName(entries[i]));
                 }
 
                 return new PyList(pyObjects);
@@ -327,7 +327,7 @@ namespace SharpPy.Modules.Stdlib
             var value = Environment.GetEnvironmentVariable(key.Value);
             
             if (value != null)
-                return new PyString(value);
+                return new PyStr(value);
             else if (args.Length == 2)
                 return args[1]; // 기본값 반환
             else
@@ -394,7 +394,7 @@ namespace SharpPy.Modules.Stdlib
                 paths[i] = args[i].ToStr().Value;
             }
             var result = IOHelper.CombinePath(paths);
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         private static PyObject PathSplit(PyObject[] args)
@@ -406,7 +406,7 @@ namespace SharpPy.Modules.Stdlib
             var dirname = IOHelper.GetDirectoryName(path.Value) ?? "";
             var basename = IOHelper.GetFileName(path.Value);
 
-            return new PyTuple(new PyString(dirname), new PyString(basename));
+            return new PyTuple(new PyStr(dirname), new PyStr(basename));
         }
 
         private static PyObject PathDirname(PyObject[] args)
@@ -416,7 +416,7 @@ namespace SharpPy.Modules.Stdlib
 
             var path = args[0].ToStr();
             var dirname = IOHelper.GetDirectoryName(path.Value) ?? "";
-            return new PyString(dirname);
+            return new PyStr(dirname);
         }
 
         private static PyObject PathBasename(PyObject[] args)
@@ -426,7 +426,7 @@ namespace SharpPy.Modules.Stdlib
 
             var path = args[0].ToStr();
             var basename = IOHelper.GetFileName(path.Value);
-            return new PyString(basename);
+            return new PyStr(basename);
         }
 
         private static PyObject PathAbspath(PyObject[] args)
@@ -436,7 +436,7 @@ namespace SharpPy.Modules.Stdlib
 
             var path = args[0].ToStr();
             var abspath = IOHelper.GetFullPath(path.Value);
-            return new PyString(abspath);
+            return new PyStr(abspath);
         }
 
         private static PyObject PathGetSize(PyObject[] args)
@@ -479,7 +479,7 @@ namespace SharpPy.Modules.Stdlib
             var value = Environment.GetEnvironmentVariable(keyStr.Value);
             
             if (value != null)
-                return new PyString(value);
+                return new PyStr(value);
             else
                 throw PyKeyError.Create($"'{keyStr}'");
         }

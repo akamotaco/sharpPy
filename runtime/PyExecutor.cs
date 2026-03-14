@@ -359,7 +359,7 @@ namespace SharpPy
             
             foreach (var value in expr.Values)
             {
-                if (value is ConstantExpression constExpr && constExpr.Value is PyString pyStr)
+                if (value is ConstantExpression constExpr && constExpr.Value is PyStr pyStr)
                 {
                     parts.Add(pyStr.Value);
                 }
@@ -383,7 +383,7 @@ namespace SharpPy
             }
             
             var result = string.Join("", parts);
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         /// <summary>
@@ -416,10 +416,10 @@ namespace SharpPy
                 var formatSpecValue = expr.FormatSpec.Evaluate(scope);
                 // Apply formatting based on format spec
                 // For now, simplified implementation
-                return new PyString(value.AsString());
+                return new PyStr(value.AsString());
             }
 
-            return new PyString(value.AsString());
+            return new PyStr(value.AsString());
         }
 
         /// <summary>
@@ -438,7 +438,7 @@ namespace SharpPy
                 {
                     var decimalPlaces = int.Parse(formatSpec.Substring(1, formatSpec.Length - 2));
                     var formatted = floatValue.Value.ToString($"F{decimalPlaces}");
-                    return new PyString(formatted);
+                    return new PyStr(formatted);
                 }
             }
             else if (value is PyInt intValue)
@@ -446,7 +446,7 @@ namespace SharpPy
                 // d 같은 정수 포맷 처리
                 if (formatSpec == "d")
                 {
-                    return new PyString(intValue.Value.ToString());
+                    return new PyStr(intValue.Value.ToString());
                 }
             }
 
@@ -528,7 +528,7 @@ namespace SharpPy
                 // 타입 파라미터를 함수 스코프에 추가 (임시로 문자열로 저장)
                 foreach (var typeParam in funcDef.TypeParams)
                 {
-                    functionScope.SetVariable(typeParam.Name, new PyString(typeParam.Name));
+                    functionScope.SetVariable(typeParam.Name, new PyStr(typeParam.Name));
                 }
                 
                 // 함수 실행
@@ -568,7 +568,7 @@ namespace SharpPy
                     else if (int.TryParse(defaultValue, out int intVal))
                         defaults.Add(new PyInt(intVal));
                     else if (defaultValue.StartsWith('"') && defaultValue.EndsWith('"'))
-                        defaults.Add(new PyString(defaultValue.TrimDoubleQuotes()));
+                        defaults.Add(new PyStr(defaultValue.TrimDoubleQuotes()));
                     else
                         defaults.Add(PyNone.Instance);
                 }
@@ -625,7 +625,7 @@ namespace SharpPy
             foreach (var typeParam in classDef.TypeParams)
             {
                 // 타입 파라미터를 문자열로 저장 (실제 타입은 인스턴스화 시 결정)
-                classScope.SetVariable(typeParam.Name, new PyString(typeParam.Name));
+                classScope.SetVariable(typeParam.Name, new PyStr(typeParam.Name));
             }
             
             // 6. 클래스 본체 실행

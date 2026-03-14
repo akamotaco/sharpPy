@@ -40,7 +40,7 @@ namespace SharpPy
             // Add new keys that are in underlying but not in _dict
             foreach (var kv in _underlyingDict)
             {
-                var pyKey = new PyString(kv.Key);
+                var pyKey = new PyStr(kv.Key);
                 if (!_dict.ContainsKey(pyKey))
                 {
                     _dict[pyKey] = kv.Value;
@@ -57,7 +57,7 @@ namespace SharpPy
             var keysToRemove = new List<PyObject>();
             foreach (var pyKey in _keys)
             {
-                if (pyKey is PyString strKey && !_underlyingDict.ContainsKey(strKey.Value))
+                if (pyKey is PyStr strKey && !_underlyingDict.ContainsKey(strKey.Value))
                 {
                     keysToRemove.Add(pyKey);
                 }
@@ -114,7 +114,7 @@ namespace SharpPy
             base.SetItem(key, value);
 
             // Sync to underlying dictionary
-            if (key is PyString strKey)
+            if (key is PyStr strKey)
             {
                 _underlyingDict[strKey.Value] = value;
             }
@@ -133,7 +133,7 @@ namespace SharpPy
             var result = base.DelItem(key);
 
             // Sync to underlying dictionary
-            if (key is PyString strKey)
+            if (key is PyStr strKey)
             {
                 _underlyingDict.Remove(strKey.Value);
             }
@@ -160,7 +160,7 @@ namespace SharpPy
                 // PyMappingProxy uses string keys
                 foreach (var key in mappingProxy.Keys)
                 {
-                    var pyKey = new PyString(key);
+                    var pyKey = new PyStr(key);
                     var value = mappingProxy.GetItem(pyKey);
                     SetItem(pyKey, value);  // SetItem handles sync
                 }
@@ -199,7 +199,7 @@ namespace SharpPy
                 _keys.Remove(key);
 
                 // Sync to underlying dictionary
-                if (key is PyString strKey)
+                if (key is PyStr strKey)
                 {
                     _underlyingDict.Remove(strKey.Value);
                 }
@@ -228,7 +228,7 @@ namespace SharpPy
             _keys.RemoveAt(_keys.Count - 1);
 
             // Sync to underlying dictionary
-            if (lastKey is PyString strKey)
+            if (lastKey is PyStr strKey)
             {
                 _underlyingDict.Remove(strKey.Value);
             }

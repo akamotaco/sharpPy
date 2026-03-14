@@ -327,7 +327,7 @@ namespace SharpPy
                 writer.Write(TYPE_BINARY_FLOAT);
                 writer.Write(BitConverter.GetBytes(pyFloat.Value));
             }
-            else if (obj is PyString pyStr)
+            else if (obj is PyStr pyStr)
             {
                 WriteString(writer, pyStr.Value);
             }

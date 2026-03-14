@@ -100,6 +100,62 @@ namespace Godot_IO
             }
         }
         
+        // 바이너리 파일 읽기/쓰기 (SharpPyCache용)
+        public static byte[] ReadAllBytes(string path)
+        {
+            using (var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read))
+            {
+                if (file != null && file.IsOpen())
+                {
+                    var length = (long)file.GetLength();
+                    var data = file.GetBuffer(length);
+                    file.Close();
+                    return data;
+                }
+                else
+                {
+                    throw new System.IO.FileNotFoundException($"Could not open file: {path}");
+                }
+            }
+        }
+
+        public static void WriteAllBytes(string path, byte[] data)
+        {
+            using (var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write))
+            {
+                if (file != null && file.IsOpen())
+                {
+                    file.StoreBuffer(data);
+                    file.Close();
+                }
+                else
+                {
+                    throw new System.IO.IOException($"Could not write to file: {path}");
+                }
+            }
+        }
+
+        public static long GetFileTimestamp(string path)
+        {
+            // Godot doesn't have direct file timestamp API — use FileAccess.GetModifiedTime
+            var modifiedTime = Godot.FileAccess.GetModifiedTime(path);
+            return (long)modifiedTime * 1000; // seconds to milliseconds
+        }
+
+        public static int GetFileSize(string path)
+        {
+            using (var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read))
+            {
+                if (file != null && file.IsOpen())
+                {
+                    var size = (int)file.GetLength();
+                    file.Close();
+                    return size;
+                }
+                return 0;
+            }
+        }
+
         // 경로 결합 - 항상 슬래시 사용
         public static string CombinePath(params string[] paths)
         {

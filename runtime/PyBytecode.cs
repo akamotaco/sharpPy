@@ -344,6 +344,33 @@ namespace SharpPy
         INPLACE_XOR = 25               // ^=  (인플레이스 비트 XOR)
     }
 
+    /// <summary>
+    /// CPython 3.12 inline cache entry for LOAD_ATTR.
+    /// Monomorphic cache: stores type version + cached result for one receiver type.
+    /// CPython reference: Python/specialize.c — _Py_Specialize_LoadAttr
+    /// </summary>
+    internal struct LoadAttrCacheEntry
+    {
+        public ulong TypeVersionTag;   // Receiver type's version at cache time
+        public PyObject CachedValue;   // Cached attribute/method result
+        public bool IsMethod;          // True if cached for method call (pushNullForMethod=true)
+        public byte BuiltinTypeTag;    // 0=PyClassInstance(use TypeVersionTag), 1=PyStr, 2=PyList, 3=PyDict, 4=PyTuple
+    }
+
+
+    /// <summary>
+    /// Compact 8-byte instruction for hot loop dispatch.
+    /// CPython 3.12: _Py_CODEUNIT packs opcode+arg in 2 bytes.
+    /// C# equivalent: struct with enum (4B) + int (4B) = 8B.
+    /// Replaces separate OpCodes[] array and provides both op + arg in one cache line fetch.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    public struct CompactInstruction
+    {
+        public ByteCodeOp Op;
+        public int Arg;
+    }
+
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction
     // No intermediate ExceptHandlerInfo struct needed - use ExceptBlock reference directly
     public struct ByteCodeInstruction
@@ -448,12 +475,76 @@ namespace SharpPy
         public PyValue[] ConstantsAsValues { get; private set; } = null!;
 
         /// <summary>
+        /// Cached array view of Instructions. Built once at construction time.
+        /// Eliminates List indexer overhead (bounds check + indirection) in main loop.
+        /// </summary>
+        public ByteCodeInstruction[] InstructionsArray { get; private set; } = null!;
+
+        /// <summary>
+        /// Compact instruction array: 8B per element (Op 4B + Arg 4B).
+        /// Replaces 40B ByteCodeInstruction stride in fast path with 8B stride.
+        /// Single fetch gives both opcode and argument with better L1 cache density.
+        /// CPython 3.12: _Py_CODEUNIT packs opcode+arg in 2 bytes — same idea.
+        /// </summary>
+        public CompactInstruction[] CompactInstructions { get; private set; } = null!;
+
+        /// <summary>
+        /// Pre-computed exception table with instruction indices (not byte offsets).
+        /// Avoids InstructionIndexToByteOffset/ByteOffsetToInstructionIndex per lookup.
+        /// </summary>
+        public ExceptionTableIndexEntry[] ExceptionTableIndexEntries { get; private set; } = Array.Empty<ExceptionTableIndexEntry>();
+
+        /// <summary>
+        /// CPython 3.12 inline cache for LOAD_ATTR instructions.
+        /// Stores per-instruction (typeVersionTag, cachedValue, isMethod) for monomorphic caching.
+        /// CPython reference: Python/specialize.c — _Py_Specialize_LoadAttr
+        /// Lazily allocated on first LOAD_ATTR cache miss. Indexed by instruction index.
+        /// </summary>
+        internal LoadAttrCacheEntry[] LoadAttrCache;
+
+        /// <summary>
+        /// Trivial call inlining: skip frame creation for simple patterns.
+        /// CPython 3.12: Similar to CALL_PY_EXACT_ARGS + LOAD_ATTR_INSTANCE_VALUE combined.
+        /// Non-null if function is a simple getter: `def get(self): return self.attr`
+        /// </summary>
+        internal string TrivialGetterAttr;
+
+        /// <summary>
+        /// Trivial constant return: `def f(self): return None` or `def f(): return 42`
+        /// Index into Constants array, -1 if not applicable.
+        /// </summary>
+        internal int TrivialConstIdx = -1;
+
+
+        /// <summary>
+        /// Cached PyTuple of default values. Built once at construction time.
+        /// Eliminates per-call PyTuple allocation in BindArgumentsToParametersCPython312.
+        /// </summary>
+        public PyTuple? CachedDefaultsTuple { get; private set; }
+
+        /// <summary>
+        /// Pre-computed flag: true if this code object qualifies for the fast call path
+        /// (CO_OPTIMIZED, no kwonly, no varargs/varkeywords, no defaults).
+        /// CPython 3.12: CALL_PY_EXACT_ARGS specialization equivalent.
+        /// Checked once at construction, avoids 6 condition checks per call in ExecuteFunctionCall.
+        /// </summary>
+        public bool IsSimpleCallTarget { get; private set; }
+
+        /// <summary>
         /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
         /// localsplus layout: [varnames | non-param cells | freevars]
         /// Built once at construction time. Eliminates repeated list building in
         /// LOAD_DEREF, STORE_DEREF, DELETE_DEREF, LOAD_CLOSURE, MAKE_CELL handlers.
         /// </summary>
         public List<string> NonParamCellNames { get; private set; } = null!;
+
+        /// <summary>
+        /// Pre-computed localsplus offset → Cells array index mapping.
+        /// Eliminates per-instruction branch logic in LOAD_DEREF/STORE_DEREF/DELETE_DEREF.
+        /// Index range: [nlocals .. nlocals + ncellvars + nfreevars - 1]
+        /// Value: direct index into frame.Cells[]
+        /// </summary>
+        public int[] DerefToCellIndex { get; private set; } = null!;
 
         // CPython 3.12 추가 CO_* 플래그 상수들
         public const int CO_OPTIMIZED = 0x0001;         // 지역 변수 최적화
@@ -505,6 +596,151 @@ namespace SharpPy
             BuildIndexMaps();
             ComputeClassCellIndex();
             BuildConstantsCache();
+            BuildDefaultsTupleCache();
+            InstructionsArray = Instructions.ToArray();
+
+            // Pre-resolve EXTENDED_ARG: fold accumulated bits into next instruction's Argument.
+            // Eliminates 2 per-instruction checks (EXTENDED_ARG opcode + extendedArg accumulator)
+            // from the VM hot loop. EXTENDED_ARG entries become NOPs (opcode set to CACHE).
+            // CPython 3.12: wordcode format uses EXTENDED_ARG prefix for args > 255.
+            PreResolveExtendedArg();
+
+            // Build compact instruction array for L1 cache-friendly dispatch
+            int instrCount = InstructionsArray.Length;
+            CompactInstructions = new CompactInstruction[instrCount];
+            for (int i = 0; i < instrCount; i++)
+            {
+                CompactInstructions[i].Op = InstructionsArray[i].OpCode;
+                CompactInstructions[i].Arg = InstructionsArray[i].Argument;
+            }
+
+            // Pre-compute fast call eligibility (CPython 3.12: CALL_PY_EXACT_ARGS equivalent)
+            IsSimpleCallTarget = (Flags & CO_OPTIMIZED) != 0
+                && KwonlyArgCount == 0
+                && (Flags & (CO_VARARGS | CO_VARKEYWORDS)) == 0
+                && DefaultValues.Count == 0
+                && CachedDefaultsTuple == null;
+
+            // Pre-compute instruction-index-based exception table for fast lookup
+            BuildExceptionTableIndexEntries();
+
+            // Detect trivial call patterns (getter, constant return)
+            // These can be executed without frame creation at CALL site
+            DetectTrivialPattern();
+        }
+
+        /// <summary>
+        /// Detect trivial bytecode patterns that can be executed without frame creation.
+        /// Patterns:
+        /// - Getter: RESUME, LOAD_FAST 0, LOAD_ATTR n, CACHE*9, RETURN_VALUE → return self.attr
+        /// - Constant return: RESUME, RETURN_CONST n → return constant
+        /// </summary>
+        private void DetectTrivialPattern()
+        {
+            if (!IsSimpleCallTarget) return;
+            if ((CellVars?.Count ?? 0) != 0 || (FreeVars?.Count ?? 0) != 0) return;
+
+            var ci = CompactInstructions;
+            if (ci == null || ci.Length < 2) return;
+
+            int ip = 0;
+            // Skip RESUME and CACHE
+            while (ip < ci.Length && (ci[ip].Op == ByteCodeOp.RESUME || ci[ip].Op == ByteCodeOp.CACHE))
+                ip++;
+
+            if (ip >= ci.Length) return;
+
+            // Pattern 1: Getter — LOAD_FAST 0 (self), LOAD_ATTR n, CACHE*, RETURN_VALUE
+            // Only for methods with exactly 1 arg (self)
+            if (ArgCount == 1 && ip + 1 < ci.Length
+                && ci[ip].Op == ByteCodeOp.LOAD_FAST && ci[ip].Arg == 0
+                && ci[ip + 1].Op == ByteCodeOp.LOAD_ATTR)
+            {
+                int attrArg = ci[ip + 1].Arg;
+                bool pushNull = (attrArg & 1) == 1;
+                if (!pushNull) // Simple attribute access, not method lookup
+                {
+                    int nameIdx = attrArg >> 1;
+                    int nextIp = ip + 2;
+                    // Skip CACHE entries after LOAD_ATTR (9 inline cache slots)
+                    while (nextIp < ci.Length && ci[nextIp].Op == ByteCodeOp.CACHE)
+                        nextIp++;
+                    if (nextIp < ci.Length && ci[nextIp].Op == ByteCodeOp.RETURN_VALUE)
+                    {
+                        TrivialGetterAttr = Names[nameIdx];
+                    }
+                }
+            }
+
+            // Pattern 2: Constant return — RETURN_CONST n
+            if (ci[ip].Op == ByteCodeOp.RETURN_CONST)
+            {
+                TrivialConstIdx = ci[ip].Arg;
+            }
+        }
+
+        /// <summary>
+        /// Pre-compute instruction-index-based exception table entries.
+        /// Converts byte offsets to instruction indices once at construction time,
+        /// avoiding per-lookup conversion in the hot exception handling path.
+        /// </summary>
+        public void BuildExceptionTableIndexEntries()
+        {
+            if (ExceptionTable.Count == 0)
+            {
+                ExceptionTableIndexEntries = Array.Empty<ExceptionTableIndexEntry>();
+                return;
+            }
+            var entries = new ExceptionTableIndexEntry[ExceptionTable.Count];
+            for (int i = 0; i < ExceptionTable.Count; i++)
+            {
+                var e = ExceptionTable[i];
+                // Since each instruction is exactly INSTRUCTION_WORD_SIZE bytes,
+                // byte offset / INSTRUCTION_WORD_SIZE = instruction index
+                entries[i] = new ExceptionTableIndexEntry(
+                    e.StartOffset / INSTRUCTION_WORD_SIZE,
+                    e.EndOffset / INSTRUCTION_WORD_SIZE,
+                    e.HandlerOffset / INSTRUCTION_WORD_SIZE,
+                    e.Depth,
+                    e.Lasti);
+            }
+            ExceptionTableIndexEntries = entries;
+        }
+
+        /// <summary>
+        /// Pre-resolve EXTENDED_ARG sequences: fold accumulated argument bits into the
+        /// target instruction, then replace EXTENDED_ARG with CACHE (NOP).
+        /// This eliminates the EXTENDED_ARG check and accumulator from the VM hot loop.
+        /// CPython 3.12: wordcode uses (oparg << 8) | next_arg pattern.
+        /// </summary>
+        private void PreResolveExtendedArg()
+        {
+            var instrs = InstructionsArray;
+            int len = instrs.Length;
+            int extArg = 0;
+
+            for (int i = 0; i < len; i++)
+            {
+                ref var instr = ref instrs[i];
+                if (instr.OpCode == ByteCodeOp.EXTENDED_ARG)
+                {
+                    extArg = (extArg << 8) | instr.Argument;
+                    // Replace EXTENDED_ARG with CACHE (NOP in VM)
+                    instrs[i] = new ByteCodeInstruction(
+                        ByteCodeOp.CACHE, 0,
+                        instr.LineNumber, instr.ColumnOffset,
+                        instr.FileName, instr.TargetBlock, instr.ExceptBlock);
+                }
+                else if (extArg != 0)
+                {
+                    int combinedArg = (extArg << 8) | instr.Argument;
+                    instrs[i] = new ByteCodeInstruction(
+                        instr.OpCode, combinedArg,
+                        instr.LineNumber, instr.ColumnOffset,
+                        instr.FileName, instr.TargetBlock, instr.ExceptBlock);
+                    extArg = 0;
+                }
+            }
         }
 
         /// <summary>
@@ -544,6 +780,42 @@ namespace SharpPy
             {
                 if (!VarNameSet.Contains(CellVars[i]))
                     NonParamCellNames.Add(CellVars[i]);
+            }
+
+            // Build DerefToCellIndex: pre-compute localsplus offset → frame.Cells[] index
+            // CPython 3.12 localsplus layout: [varnames(nlocals) | non-param cells | freevars]
+            // frame.Cells layout: [freevars(0..nfree-1) | cellvars(nfree..nfree+ncell-1)]
+            int nlocals = VarNames.Count;
+            int ncellvars = CellVars.Count;
+            int nfreevars = FreeVars.Count;
+            // Size the array to cover all possible DEREF offsets
+            // Use max of computed layout size and (nlocals + ncellvars + nfreevars) for safety
+            int layoutSlots = nlocals + NonParamCellNames.Count + nfreevars;
+            int maxSlots = nlocals + ncellvars + nfreevars;
+            int totalLocalsPlusSlots = Math.Max(layoutSlots, maxSlots);
+            DerefToCellIndex = new int[totalLocalsPlusSlots];
+
+            // Fill parameter slots that are also cellvars (offset < nlocals)
+            // Fallback: nfreevars - 1 preserves original IndexOf(-1) + nfreevars behavior
+            for (int off = 0; off < nlocals; off++)
+            {
+                if (CellVarIndexMap.TryGetValue(VarNames[off], out int cellVarIdx))
+                    DerefToCellIndex[off] = nfreevars + cellVarIdx;
+                else
+                    DerefToCellIndex[off] = nfreevars - 1;
+            }
+
+            // Fill non-param cellvar slots
+            for (int j = 0; j < NonParamCellNames.Count; j++)
+            {
+                int cellVarIdx = CellVarIndexMap[NonParamCellNames[j]];
+                DerefToCellIndex[nlocals + j] = nfreevars + cellVarIdx;
+            }
+
+            // Fill freevar slots
+            for (int j = 0; j < nfreevars; j++)
+            {
+                DerefToCellIndex[nlocals + NonParamCellNames.Count + j] = j;
             }
         }
 
@@ -589,6 +861,20 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// Build cached PyTuple from DefaultValues list.
+        /// Called once at construction time, eliminates per-call tuple allocation in BindArguments.
+        /// </summary>
+        private void BuildDefaultsTupleCache()
+        {
+            if (DefaultValues.Count > 0)
+            {
+                var defaultsArray = new PyObject[DefaultValues.Count];
+                DefaultValues.CopyTo(defaultsArray, 0);
+                CachedDefaultsTuple = new PyTuple(defaultsArray);
+            }
+        }
+
         public override string GetTypeName() => "code";
 
         // CPython 3.12 호환: co_* 속성들 지원
@@ -597,16 +883,16 @@ namespace SharpPy
             return name switch
             {
                 "co_flags" => new PyInt(Flags),
-                "co_name" => new PyString(Name),
+                "co_name" => new PyStr(Name),
                 "co_argcount" => new PyInt(ArgCount),
                 "co_posonlyargcount" => new PyInt(PosonlyArgCount),
                 "co_kwonlyargcount" => new PyInt(KwonlyArgCount),
-                "co_varnames" => new PyTuple(VarNames.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_names" => new PyTuple(Names.Select(n => new PyString(n) as PyObject).ToArray()),
+                "co_varnames" => new PyTuple(VarNames.Select(n => new PyStr(n) as PyObject).ToArray()),
+                "co_names" => new PyTuple(Names.Select(n => new PyStr(n) as PyObject).ToArray()),
                 "co_consts" => new PyTuple(Constants.ToArray()),
-                "co_freevars" => new PyTuple(FreeVars.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_cellvars" => new PyTuple(CellVars.Select(n => new PyString(n) as PyObject).ToArray()),
-                "co_filename" => new PyString(FileName ?? "<unknown>"),
+                "co_freevars" => new PyTuple(FreeVars.Select(n => new PyStr(n) as PyObject).ToArray()),
+                "co_cellvars" => new PyTuple(CellVars.Select(n => new PyStr(n) as PyObject).ToArray()),
+                "co_filename" => new PyStr(FileName ?? "<unknown>"),
                 "co_firstlineno" => new PyInt(GetFirstLineNo()),
                 "co_nlocals" => new PyInt(VarNames.Count),
                 "co_stacksize" => new PyInt(64), // Placeholder - actual stack size calculation needed
@@ -741,7 +1027,7 @@ namespace SharpPy
 
             switch (constant)
             {
-                case PyString pyStr:
+                case PyStr pyStr:
                     // 문자열은 따옴표로 감싸기 (CPython 3.12 스타일)
                     return $"'{pyStr.Value}'";
 
@@ -809,10 +1095,9 @@ namespace SharpPy
             throw new NotImplementedException("PyCodeObject.Evaluate() - 나중에 구현예정");
         }
 
-        // CPython 3.12: Convert instruction index to byte offset, accounting for inline cache
-        // CPython uses byte offsets in exception table, but SharpPy uses instruction indices internally
-        // CRITICAL: Must calculate actual byte offset by summing instruction word counts (including inline cache)
-        // Reference: docs/offset_vs_index_analysis.md
+        // CPython 3.12: Convert instruction index to byte offset.
+        // The Instructions array already contains CACHE entries as separate items,
+        // so each entry is exactly 1 word (2 bytes). Simple multiplication suffices.
         public int InstructionIndexToByteOffset(int instructionIndex)
         {
             if (instructionIndex < 0 || instructionIndex >= Instructions.Count)
@@ -821,21 +1106,7 @@ namespace SharpPy
                     $"Instruction index {instructionIndex} out of range [0, {Instructions.Count})");
             }
 
-            int byteOffset = 0;
-            for (int i = 0; i < instructionIndex; i++)
-            {
-                // CPython 3.12: Include/internal/pycore_opcode.h - _PyOpcode_Caches table
-                // Each instruction word is 2 bytes
-                // Instruction word count = 1 (opcode + arg) + EXTENDED_ARG + inline cache size
-                // BUG FIX: Must include inline cache size!
-                // CPython 3.12: Python/assemble.c uses word count INCLUDING cache
-                int instrWords = PyAssemble.CountInstructionWords(Instructions[i]);
-                int cacheWords = PyAssemble.GetInlineCacheSize(Instructions[i].OpCode);
-                int wordCount = instrWords + cacheWords;
-                byteOffset += wordCount * INSTRUCTION_WORD_SIZE;
-            }
-
-            return byteOffset;
+            return instructionIndex * INSTRUCTION_WORD_SIZE;
         }
 
         // CPython 3.12: Convert byte offset to instruction index, accounting for inline cache
@@ -1137,6 +1408,28 @@ namespace SharpPy
 
     #endregion
 
+    /// <summary>
+    /// Pre-computed exception table entry with instruction indices (not byte offsets).
+    /// Avoids per-lookup InstructionIndexToByteOffset/ByteOffsetToInstructionIndex conversion.
+    /// </summary>
+    public readonly struct ExceptionTableIndexEntry
+    {
+        public readonly int StartIndex;   // instruction index (inclusive)
+        public readonly int EndIndex;     // instruction index (exclusive)
+        public readonly int HandlerIndex; // handler instruction index
+        public readonly int Depth;
+        public readonly bool Lasti;
+
+        public ExceptionTableIndexEntry(int startIndex, int endIndex, int handlerIndex, int depth, bool lasti)
+        {
+            StartIndex = startIndex;
+            EndIndex = endIndex;
+            HandlerIndex = handlerIndex;
+            Depth = depth;
+            Lasti = lasti;
+        }
+    }
+
     // CPython 3.12: 스택 효과 분석 시스템
     public static class StackEffectAnalyzer
     {
@@ -1201,11 +1494,23 @@ namespace SharpPy
             // 이터레이션
             { ByteCodeOp.GET_ITER, (1, 1) },
             { ByteCodeOp.FOR_ITER, (1, 2) }, // iter -> iter, value (성공시) 또는 iter -> (실패시)
-            
+            { ByteCodeOp.END_FOR, (2, 0) }, // CPython 3.12: pop value + iterator
+
+            // 컨테이너 확장 (CPython 3.12)
+            { ByteCodeOp.LIST_EXTEND, (1, 0) }, // pop iterable, extend list at stack[arg]
+            { ByteCodeOp.SET_UPDATE, (1, 0) },  // pop iterable, update set at stack[arg]
+            { ByteCodeOp.DICT_MERGE, (1, 0) },  // pop mapping, merge into dict at stack[arg]
+            { ByteCodeOp.DICT_UPDATE, (1, 0) }, // pop mapping, update dict at stack[arg]
+
             // CPython 3.12 새로운 호출 시스템
             { ByteCodeOp.PUSH_NULL, (0, 1) },
             { ByteCodeOp.RESUME, (0, 0) },
-            
+
+            // 예외 처리 (추가)
+            { ByteCodeOp.CHECK_EXC_MATCH, (2, 1) }, // exception, type -> bool
+            { ByteCodeOp.NOP, (0, 0) },
+            { ByteCodeOp.CACHE, (0, 0) },
+
             // CPython 3.12: 예외 그룹 처리
             { ByteCodeOp.CHECK_EG_MATCH, (2, 2) }, // exception_group, match_type -> matched, remainder
         };

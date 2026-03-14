@@ -33,10 +33,13 @@ public partial class PyFunction : PyObject, IDescriptor
     // Avoids creating new PyScopeChain + PyScope + __builtins__ check on every call.
     // CPython 3.12: f_globals is captured at function definition time and reused.
     private PyScope? _cachedGlobalScope = null;
+    // Performance: Cached PyScopeChain for CO_OPTIMIZED functions.
+    // CO_OPTIMIZED functions never use PushScope/PopScope, so a single instance is safe.
+    private PyScopeChain? _cachedScopeChain = null;
 
     /// <summary>
     /// Get or create a PyScopeChain using a cached global scope.
-    /// The global scope is created once and reused across all calls to this function.
+    /// For CO_OPTIMIZED functions, the entire PyScopeChain is cached and reused.
     /// </summary>
     internal PyScopeChain CreateCachedScopeChain()
     {
@@ -48,19 +51,26 @@ public partial class PyFunction : PyObject, IDescriptor
                 _cachedGlobalScope.SetVariable("__builtins__", PyBuiltinsModule.Instance);
             }
         }
-        if (_cachedGlobalScope != null)
-            return new PyScopeChain(_cachedGlobalScope);
-        return null;
+        if (_cachedGlobalScope == null) return null;
+
+        // CO_OPTIMIZED functions: reuse the same PyScopeChain across calls
+        // Safe because LOAD_FAST/STORE_FAST don't modify ScopeChain
+        if (CodeObject != null && (CodeObject.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
+        {
+            return _cachedScopeChain ??= new PyScopeChain(_cachedGlobalScope);
+        }
+        // Non-optimized (class body, exec): create new PyScopeChain each time
+        return new PyScopeChain(_cachedGlobalScope);
     }
 
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
         Name = name;
         Implementation = implementation ?? DefaultImplementation;
-        Attributes = new Dictionary<string, PyObject>();
+        Attributes = new Dictionary<string, PyObject>(4);
         DefiningModule = definingModule;
         TypeParams = typeParams;
-        Closure = closure ?? new PyCell[0];
+        Closure = closure ?? Array.Empty<PyCell>();
         CodeObject = codeObject;
 
         // __type_params__ 속성 설정
@@ -112,7 +122,7 @@ public partial class PyFunction : PyObject, IDescriptor
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return new PyString(func.Name);
+                    return new PyStr(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );
@@ -123,7 +133,7 @@ public partial class PyFunction : PyObject, IDescriptor
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : new PyString("__main__");
+                    return func.DefiningModule != null ? new PyStr(func.DefiningModule.Name) : new PyStr("__main__");
                 throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );
@@ -140,7 +150,7 @@ public partial class PyFunction : PyObject, IDescriptor
                     // CPython 3.12: docstring is first constant if it's a string
                     if (func.CodeObject != null &&
                         func.CodeObject.Constants.Count > 0 &&
-                        func.CodeObject.Constants[0] is PyString docString)
+                        func.CodeObject.Constants[0] is PyStr docString)
                     {
                         return docString;
                     }
@@ -266,6 +276,47 @@ public partial class PyFunction : PyObject, IDescriptor
     public override PyType GetPyType() => PyType.FunctionType;
     public override string GetTypeName() => "function";
 
+    /// <summary>
+    /// Fast path for simple function calls (no kwargs, no generators).
+    /// Used by dunder method dispatch to avoid generator/coroutine/kwargs checks.
+    /// Caller must ensure: CodeObject != null, not generator/coroutine, kwargs not needed.
+    /// </summary>
+    internal PyObject CallSimple(PyObject[] args)
+    {
+        PyScopeChain functionScopeChain;
+        if (GlobalsDict != null)
+        {
+            functionScopeChain = CreateCachedScopeChain()
+                ?? new PyScopeChain(GlobalsDict, CodeObject.Name);
+        }
+        else
+        {
+            functionScopeChain = ParentScope ?? new PyScopeChain();
+        }
+
+        // Fast path: precomputed IsSimpleCallTarget + no closures + exact args → skip BindArgs
+        var code = CodeObject;
+        PyFrame frame;
+        if (code.IsSimpleCallTarget
+            && (code.CellVars?.Count ?? 0) == 0 && (code.FreeVars?.Count ?? 0) == 0
+            && args.Length == code.ArgCount)
+        {
+            frame = PyFrame.Rent();
+            frame.InitFast(code, args, functionScopeChain, null);
+        }
+        else
+        {
+            // Runtime __defaults__ takes priority over CachedDefaultsTuple (can be set dynamically)
+            // Only check if __defaults__ was explicitly set (Count > 2 means beyond __type_params__ + __closure__)
+            PyTuple defaults = (Attributes.Count > 2
+                && Attributes.TryGetValue("__defaults__", out var da) && da is PyTuple dt)
+                ? dt : code.CachedDefaultsTuple;
+            frame = PyFrame.Rent();
+            frame.InitFull(code, args, functionScopeChain, Closure, null, defaults);
+        }
+        return PyVM.Instance.ExecuteFrame(frame);
+    }
+
     // CPython 3.12 호환: kwargs 지원 버전
     public override PyObject Call(PyObject[] args, PyDict kwargs)
     {
@@ -362,7 +413,8 @@ public partial class PyFunction : PyObject, IDescriptor
             }
             else
             {
-                frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
+                frame = PyFrame.Rent();
+                frame.InitFull(CodeObject, args, functionScopeChain, Closure, null, defaults);
             }
 
             var vm = PyVM.Instance;
@@ -403,7 +455,8 @@ public partial class PyFunction : PyObject, IDescriptor
         var defaults = GetDefaults();
 
         // async generator 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
+        var frame = PyFrame.Rent();
+        frame.InitFull(CodeObject, args, null, Closure, null, defaults);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // async generator enumerator 생성
@@ -430,7 +483,8 @@ public partial class PyFunction : PyObject, IDescriptor
         var defaults = GetDefaults();
 
         // 코루틴 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
+        var frame = PyFrame.Rent();
+        frame.InitFull(CodeObject, args, null, Closure, null, defaults);
         frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
 
         return new SharpPy.Core.PyCoroutine(frame, vm, Name);
@@ -497,7 +551,8 @@ public partial class PyFunction : PyObject, IDescriptor
         }
         else
         {
-            frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults);
+            frame = PyFrame.Rent();
+            frame.InitFull(CodeObject, args, generatorScopeChain, Closure, null, defaults);
         }
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
@@ -660,7 +715,8 @@ public partial class PyFunction : PyObject, IDescriptor
         // Create implementation that executes code object with closure support
         Func<PyObject[], PyObject> implementation = args =>
         {
-            var frame = new PyFrame(codeObject, args, parentScope, closure);
+            var frame = PyFrame.Rent();
+            frame.InitFull(codeObject, args, parentScope, closure);
             return PyVM.Instance.ExecuteFrame(frame);
         };
         
@@ -718,7 +774,7 @@ public partial class PyFunction : PyObject, IDescriptor
             {
                 "__self__" => Instance,
                 "__func__" => Function,
-                "__name__" => new PyString(Function.Name),
+                "__name__" => new PyStr(Function.Name),
                 "__call__" => this, // 메서드 자체가 __call__
                 "__code__" => Function.GetAttribute("__code__"), // CPython 3.12: Delegate to underlying function
                 _ => base.GetAttribute(name)
@@ -766,7 +822,7 @@ public partial class PyFunction : PyObject, IDescriptor
             {
                 "__self__" => Instance,
                 "__func__" => BuiltinFunction,
-                "__name__" => new PyString(BuiltinFunction.Name),
+                "__name__" => new PyStr(BuiltinFunction.Name),
                 "__call__" => this,
                 _ => base.GetAttribute(name)
             };
@@ -825,7 +881,7 @@ public class PyFunctionSignature
             var extra = new List<string>();
             foreach (var kvp in kwargs.InternalDict)
             {
-                if (kvp.Key is PyString keyStr)
+                if (kvp.Key is PyStr keyStr)
                 {
                     string keyValue = keyStr.Value;
                     if (!typedDict.RequiredKeys.Contains(keyValue) && !typedDict.OptionalKeys.Contains(keyValue))
@@ -1228,14 +1284,14 @@ public class PyUnpackWrapper : PyObject
         // 필수 키가 모두 있는지 확인
         foreach (var requiredKey in requiredKeys)
         {
-            if (!kwargs.InternalDict.ContainsKey(new PyString(requiredKey)))
+            if (!kwargs.InternalDict.ContainsKey(new PyStr(requiredKey)))
                 return false;
         }
 
         // 추가 키가 허용되지 않는 키인지 확인
         foreach (var kvp in kwargs.InternalDict)
         {
-            if (kvp.Key is PyString keyStr)
+            if (kvp.Key is PyStr keyStr)
             {
                 if (!allKeys.Contains(keyStr.Value))
                     return false;

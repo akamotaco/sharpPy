@@ -31,7 +31,7 @@ namespace SharpPy
             var blockStarts = FindBlockBoundaries(instrSeq);
 
             // Phase 3: Create basic blocks from instruction ranges
-            var indexToBlock = CreateBasicBlocks(cfg, instrSeq, blockStarts, labelToOffset);
+            var indexToBlock = CreateBasicBlocks(cfg, instrSeq, blockStarts, labelToOffset, out var setupRecords);
 
             // Phase 4: Link blocks together (set successors and next)
             LinkBlocks(cfg, instrSeq, indexToBlock);
@@ -62,6 +62,13 @@ namespace SharpPy
             // CPython 3.12: Python/flowgraph.c:1600-1610
             cfg.CalculatePredecessors();
             cfg.EliminateUnreachableCode();
+
+            // Phase 7: Compute stack depths for all blocks (graph-based)
+            // CPython 3.12: _PyCfg_Stackdepth() — flowgraph.c:714-779
+            // This MUST happen after CFG construction and unreachable code elimination.
+            // Sets ExceptionDepth on handler blocks using the correct formula:
+            // depth = h_startdepth - 1 - (lasti ? 1 : 0)  (assemble.c:129-132)
+            ComputeStackDepths(cfg, setupRecords);
 
             return cfg;
         }
@@ -220,7 +227,8 @@ namespace SharpPy
             ControlFlowGraph cfg,
             InstructionSequence instrSeq,
             HashSet<int> blockStarts,
-            Dictionary<string, int> labelToOffset)
+            Dictionary<string, int> labelToOffset,
+            out List<SetupRecord> setupRecords)
         {
             // Performance: Eliminated LINQ - replaced OrderBy().ToList() with manual sorting
             var sortedStarts = new List<int>(blockStarts);
@@ -255,6 +263,11 @@ namespace SharpPy
             // Second pass: process instructions with per-block ExceptStack
             // Track real instruction count to update block offsets
             int realInstructionCount = 0;
+
+            // CPython 3.12: Record SETUP_* pseudo-instruction relationships
+            // for graph-based stackdepth computation (ComputeStackDepths).
+            // ExceptionDepth is NO LONGER set here — it's computed in the separate pass.
+            setupRecords = new List<SetupRecord>();
 
             for (int i = 0; i < sortedStarts.Count; i++)
             {
@@ -320,19 +333,24 @@ namespace SharpPy
                                 // Now push the handler to the current block's stack (after copying)
                                 exceptStack.Push(handlerBlock);
 
-                                // CPython 3.12 exception table semantics:
-                                // - SETUP_FINALLY: depth=0 (pop all), lasti=false (don't preserve)
-                                // - SETUP_CLEANUP: depth=1 (keep exception), lasti=true (preserve for reraise)
-                                // - SETUP_WITH: depth=1, lasti=true
+                                // CPython flowgraph.c:644-646: Set PreserveLasti based on SETUP type
+                                // SETUP_CLEANUP/WITH: preserve last instruction for reraise
+                                // SETUP_FINALLY: do not preserve
                                 if (instr.OpCode == ByteCodeOp.SETUP_CLEANUP || instr.OpCode == ByteCodeOp.SETUP_WITH)
                                 {
                                     handlerBlock.PreserveLasti = true;
-                                    handlerBlock.ExceptionDepth = 1;
                                 }
                                 else // SETUP_FINALLY
                                 {
                                     handlerBlock.PreserveLasti = false;
-                                    handlerBlock.ExceptionDepth = 0;
+                                }
+
+                                // Record setup for graph-based stackdepth computation.
+                                // ExceptionDepth will be set by ComputeStackDepths().
+                                // The try body block starts at j+1 (SETUP creates a boundary there).
+                                if (j + 1 < instructions.Count && indexToBlock.TryGetValue(j + 1, out var tryBodyBlock))
+                                {
+                                    setupRecords.Add(new SetupRecord(handlerBlock, instr.OpCode, tryBodyBlock));
                                 }
                             }
                         }
@@ -363,13 +381,6 @@ namespace SharpPy
                     // CPython 3.12: flowgraph.c:825-849 (set i_except for each instruction)
                     // Store BasicBlock reference directly (CPython's i_except is a pointer to basicblock)
                     var currentHandlerBlock = exceptStack.Top();
-
-#if DEBUG_LOG
-                    if (currentHandlerBlock != null && (instr.OpCode == ByteCodeOp.RAISE_VARARGS || instr.OpCode == ByteCodeOp.LOAD_CONST))
-                    {
-                        Console.WriteLine($"[FLOWGRAPH-EXCEPT] Instr {instr.OpCode} at {realInstructionCount}, handler={currentHandlerBlock.Offset}, stack depth={exceptStack.Depth}");
-                    }
-#endif
 
                     // CPython 3.12: Special handling for YIELD_VALUE (flowgraph.c:846-847)
                     // YIELD_VALUE stores exception stack depth in its argument
@@ -689,6 +700,220 @@ namespace SharpPy
             return op == ByteCodeOp.POP_BLOCK;
         }
 
+        // =====================================================================
+        // CPython 3.12: _PyCfg_Stackdepth() — flowgraph.c:714-779
+        // Graph-based worklist traversal to compute correct stack depth
+        // for all blocks, including exception handler blocks.
+        // Must be called AFTER CFG construction and unreachable code elimination.
+        // =====================================================================
+
+        /// <summary>
+        /// Record of SETUP_* pseudo-instruction linking handler block to try body.
+        /// CPython uses SETUP_*'s i_target and jump stack effect to propagate
+        /// depth to handler blocks during _PyCfg_Stackdepth().
+        /// Since SharpPy removes pseudo-instructions from the CFG, we record
+        /// this information separately for use in the stackdepth pass.
+        /// </summary>
+        private struct SetupRecord
+        {
+            public BasicBlock HandlerBlock;
+            public ByteCodeOp SetupType;
+            public BasicBlock TryBodyBlock;
+
+            public SetupRecord(BasicBlock handler, ByteCodeOp setupType, BasicBlock tryBody)
+            {
+                HandlerBlock = handler;
+                SetupType = setupType;
+                TryBodyBlock = tryBody;
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyCfg_Stackdepth() — flowgraph.c:714-779
+        /// Compute stack depth for all blocks using graph-based worklist traversal.
+        /// Sets StartDepth on all reachable blocks and ExceptionDepth on handler blocks.
+        /// Returns the maximum stack depth needed.
+        /// </summary>
+        private static int ComputeStackDepths(
+            ControlFlowGraph cfg,
+            List<SetupRecord> setupRecords)
+        {
+            // CPython flowgraph.c:717-719: Initialize all b_startdepth = INT_MIN
+            for (BasicBlock? b = cfg.EntryBlock; b != null; b = b.Next)
+            {
+                b.StartDepth = int.MinValue;
+            }
+
+            int maxDepth = 0;
+            var worklist = new Stack<BasicBlock>();
+
+            // CPython flowgraph.c:727-731: Entry block starts at depth 0
+            // (generators/coroutines start at 1, handled separately if needed)
+            StackDepthPush(worklist, cfg.EntryBlock, 0);
+
+            // Build lookup: tryBody block → list of setup records
+            // When we visit a try body block, we propagate depth to its handler blocks
+            // This replaces CPython's SETUP_* pseudo-instruction jump target propagation
+            var tryBodySetups = new Dictionary<BasicBlock, List<(BasicBlock handler, ByteCodeOp setupType)>>();
+            foreach (var record in setupRecords)
+            {
+                if (!tryBodySetups.ContainsKey(record.TryBodyBlock))
+                    tryBodySetups[record.TryBodyBlock] = new List<(BasicBlock, ByteCodeOp)>();
+                tryBodySetups[record.TryBodyBlock].Add((record.HandlerBlock, record.SetupType));
+            }
+
+            // CPython flowgraph.c:733-776: Worklist traversal
+            while (worklist.Count > 0)
+            {
+                var block = worklist.Pop();
+                int depth = block.StartDepth;
+
+                // When visiting a try body block, propagate to its exception handler blocks.
+                // CPython does this via SETUP_* instructions (HAS_TARGET + jump effect).
+                // SharpPy: SETUP_* removed from CFG, so we use recorded SetupRecords.
+                // CPython compile.c:850-863: SETUP_FINALLY jump=+1, SETUP_CLEANUP jump=+2, SETUP_WITH jump=+1
+                if (tryBodySetups.TryGetValue(block, out var setups))
+                {
+                    foreach (var (handler, setupType) in setups)
+                    {
+                        int jumpEffect = setupType switch
+                        {
+                            ByteCodeOp.SETUP_FINALLY => 1,   // compile.c:854
+                            ByteCodeOp.SETUP_CLEANUP => 2,   // compile.c:857
+                            ByteCodeOp.SETUP_WITH => 1,      // compile.c:863
+                            _ => 0
+                        };
+                        int handlerDepth = depth + jumpEffect;
+                        if (handlerDepth > maxDepth) maxDepth = handlerDepth;
+                        StackDepthPush(worklist, handler, handlerDepth);
+                    }
+                }
+
+                BasicBlock? next = block.Next;
+
+                for (int i = 0; i < block.Instructions.Count; i++)
+                {
+                    var instr = block.Instructions[i];
+
+                    // CPython flowgraph.c:740: Normal flow stack effect
+                    int effect = GetNetStackEffect(instr.OpCode, instr.Argument, jump: false);
+                    int newDepth = depth + effect;
+                    if (newDepth > maxDepth) maxDepth = newDepth;
+
+                    // CPython flowgraph.c:752-761: Jump target propagation
+                    if (instr.TargetBlock != null)
+                    {
+                        int jumpEffect = GetNetStackEffect(instr.OpCode, instr.Argument, jump: true);
+                        int targetDepth = depth + jumpEffect;
+                        if (targetDepth > maxDepth) maxDepth = targetDepth;
+                        StackDepthPush(worklist, instr.TargetBlock, targetDepth);
+                    }
+
+                    depth = newDepth;
+
+                    // CPython flowgraph.c:764-769: Unconditional jump or scope exit → dead code
+                    if (IsUnconditionalJumpOpcode(instr.OpCode) || IsScopeExitOpcode(instr.OpCode))
+                    {
+                        next = null;
+                        break;
+                    }
+                }
+
+                // CPython flowgraph.c:772-775: Fallthrough to next block
+                if (next != null)
+                {
+                    StackDepthPush(worklist, next, depth);
+                }
+            }
+
+            // CPython assemble.c:129-132: Set ExceptionDepth from handler's StartDepth
+            // depth = h_startdepth - 1 - (lasti ? 1 : 0)
+            foreach (var record in setupRecords)
+            {
+                var handler = record.HandlerBlock;
+                if (handler.StartDepth > int.MinValue)
+                {
+                    handler.ExceptionDepth = handler.StartDepth - 1 - (handler.PreserveLasti ? 1 : 0);
+                }
+            }
+
+            return maxDepth;
+        }
+
+        /// <summary>
+        /// CPython flowgraph.c:700-709: stackdepth_push
+        /// Push block to worklist ONLY if not yet visited (StartDepth less than 0).
+        /// CPython asserts: b->b_startdepth less than 0 (unvisited) when pushing.
+        /// In valid code, all paths to a block agree on depth, so first-visit is sufficient.
+        /// This prevents infinite loops from cycles in the CFG (back-edges in loops).
+        /// </summary>
+        private static void StackDepthPush(Stack<BasicBlock> worklist, BasicBlock block, int depth)
+        {
+            // CPython flowgraph.c:703: assert(b->b_startdepth < 0 || b->b_startdepth == depth);
+            // CPython flowgraph.c:704: if (b->b_startdepth < depth && b->b_startdepth < 100) {
+            // CPython flowgraph.c:705: assert(b->b_startdepth < 0);
+            // Key: only push unvisited blocks. b_startdepth < 0 means unvisited (INT_MIN).
+            if (block.StartDepth < 0 && depth >= 0)
+            {
+                block.StartDepth = depth;
+                worklist.Push(block);
+            }
+        }
+
+        /// <summary>
+        /// Get net stack effect for an instruction.
+        /// CPython: PyCompile_OpcodeStackEffectWithJump(opcode, arg, jump)
+        /// compile.c:789-878
+        /// </summary>
+        private static int GetNetStackEffect(ByteCodeOp op, int arg, bool jump)
+        {
+            if (jump)
+            {
+                switch (op)
+                {
+                    // CPython: FOR_ITER exhaustion pops iterator and jumps
+                    // Normal: keep iter, push value (+1). Jump: pop iter (-1).
+                    case ByteCodeOp.FOR_ITER:
+                        return -1;
+
+                    // CPython compile.c: SEND on StopIteration
+                    // Normal: replace value (0). Jump: pop one (-1).
+                    case ByteCodeOp.SEND:
+                        return -1;
+                }
+            }
+
+            // Special: END_FOR is a no-op in SharpPy VM
+            // (FOR_ITER already pops the iterator on exhaustion)
+            if (op == ByteCodeOp.END_FOR)
+                return 0;
+
+            // Default: use StackEffectAnalyzer for normal flow effect
+            var (pop, push) = StackEffectAnalyzer.GetStackEffect(op, arg);
+            return push - pop;
+        }
+
+        /// <summary>
+        /// CPython pycore_opcode_utils.h: IS_UNCONDITIONAL_JUMP_OPCODE
+        /// </summary>
+        private static bool IsUnconditionalJumpOpcode(ByteCodeOp op)
+        {
+            return op == ByteCodeOp.JUMP ||
+                   op == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                   op == ByteCodeOp.JUMP_FORWARD ||
+                   op == ByteCodeOp.JUMP_BACKWARD ||
+                   op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT;
+        }
+
+        /// <summary>
+        /// CPython pycore_opcode_utils.h: IS_SCOPE_EXIT_OPCODE
+        /// </summary>
+        private static bool IsScopeExitOpcode(ByteCodeOp op)
+        {
+            return op == ByteCodeOp.RETURN_VALUE ||
+                   op == ByteCodeOp.RAISE_VARARGS ||
+                   op == ByteCodeOp.RERAISE;
+        }
     }
 
     /// <summary>

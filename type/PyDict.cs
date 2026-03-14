@@ -318,7 +318,7 @@ namespace SharpPy
                         if (dictStorage != null)
                         {
                             #if SHARPPY_DEBUG
-                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
+                            var keyStr = args[0] is PyStr ps ? ps.Value : args[0]?.ToString() ?? "null";
                             if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                             {
                                 Console.WriteLine($"[DEBUG-DICT-GETITEM] dict.__getitem__ for _EnumDict['{keyStr}']:");
@@ -400,7 +400,7 @@ namespace SharpPy
                         if (dictStorage != null)
                         {
                             #if SHARPPY_DEBUG
-                            var keyStr = args[0] is PyString ps ? ps.Value : args[0]?.ToString() ?? "null";
+                            var keyStr = args[0] is PyStr ps ? ps.Value : args[0]?.ToString() ?? "null";
                             if (classInstance.GetTypeName() == "_EnumDict" && (keyStr == "STRICT" || keyStr == "CONFORM" || keyStr == "EJECT" || keyStr == "KEEP"))
                             {
                                 Console.WriteLine($"[DEBUG-DICT-SETITEM] dict.__setitem__ for _EnumDict['{keyStr}'] = {args[1]}, type={args[1]?.GetType().Name}");
@@ -462,10 +462,18 @@ namespace SharpPy
         // PyObject를 키로 사용하기 위한 사용자 정의 비교기
         private class PyObjectEqualityComparer : IEqualityComparer<PyObject>
         {
+            internal static readonly PyObjectEqualityComparer Instance = new PyObjectEqualityComparer();
             public bool Equals(PyObject x, PyObject y)
             {
-                if (x == null && y == null) return true;
+                if (ReferenceEquals(x, y)) return true;
                 if (x == null || y == null) return false;
+                // Fast path: string keys (most common Python dict key type)
+                // CPython 3.12: Objects/dictobject.c:216 unicode_get_hash (string-optimized dict)
+                if (x is PyStr xStr && y is PyStr yStr)
+                    return xStr.Value == yStr.Value;
+                // Fast path: int keys
+                if (x is PyInt xInt && y is PyInt yInt)
+                    return xInt.Value == yInt.Value;
                 return ((PyBool)x.RichCompare(y, CompareOp.EQ)).Value;
             }
 
@@ -498,17 +506,17 @@ namespace SharpPy
 
         public PyDict()
         {
-            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(PyObjectEqualityComparer.Instance);
             _keys = new List<PyObject>();
         }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(PyObjectEqualityComparer.Instance);
             _keys = new List<PyObject>();
             foreach (var kv in items)
             {
-                var key = new PyString(kv.Key);
+                var key = new PyStr(kv.Key);
                 _dict[key] = kv.Value;
                 _keys.Add(key);
             }
@@ -516,7 +524,7 @@ namespace SharpPy
 
         public PyDict(Dictionary<PyObject, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(items, new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(items, PyObjectEqualityComparer.Instance);
             _keys = new List<PyObject>(items.Keys);
         }
 
@@ -531,9 +539,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => ToRepr();
+        public override PyStr ToStr() => ToRepr();
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_dict.Count == 0) return StringCache.GetOrCreate("{}");
 
@@ -644,6 +652,26 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// C# indexer for PyObject keys.
+        /// CPython 3.12: Objects/dictobject.c:2488-2530 (dict_subscript / dict_ass_sub)
+        /// </summary>
+        public PyObject this[PyObject key]
+        {
+            get => GetItem(key);
+            set => SetItem(key, value);
+        }
+
+        /// <summary>
+        /// C# indexer for string keys (convenience).
+        /// CPython 3.12: Objects/dictobject.c:3891-3927 (PyDict_GetItemString / PyDict_SetItemString)
+        /// </summary>
+        public PyObject this[string key]
+        {
+            get => GetItem(new PyStr(key));
+            set => SetItem(new PyStr(key), value);
+        }
+
+        /// <summary>
         /// 키 삭제 del dict[key]
         /// Python 3.7+: 삽입 순서 유지 (_keys에서도 제거)
         /// </summary>
@@ -655,7 +683,7 @@ namespace SharpPy
             // _keys에서도 제거 (삽입 순서 유지)
             // Use PyObjectEqualityComparer for proper Python equality semantics
             // (List.Remove uses Object.Equals which doesn't work for PyObject)
-            var comparer = new PyObjectEqualityComparer();
+            var comparer = PyObjectEqualityComparer.Instance;
             for (int i = 0; i < _keys.Count; i++)
             {
                 if (comparer.Equals(_keys[i], key))
@@ -772,7 +800,7 @@ namespace SharpPy
                 // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
                 foreach (var key in mappingProxy.Keys)
                 {
-                    var pyKey = new PyString(key);
+                    var pyKey = new PyStr(key);
                     var value = mappingProxy.GetItem(pyKey);
 
                     #if SHARPPY_DEBUG
@@ -900,11 +928,11 @@ namespace SharpPy
                     dict.SetItem(key, defaultValue);
                 }
             }
-            else if (keys is PyString str)
+            else if (keys is PyStr str)
             {
                 foreach (char c in str.Value)
                 {
-                    dict.SetItem(new PyString(c.ToString()), defaultValue);
+                    dict.SetItem(new PyStr(c.ToString()), defaultValue);
                 }
             }
             else
@@ -1038,7 +1066,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyDict를 PyString으로 변환 (str() 호출과 동일)
+        /// CPython 호환: PyDict를 PyStr으로 변환 (str() 호출과 동일)
         /// </summary>
         public override string AsString()
         {
@@ -1140,7 +1168,7 @@ namespace SharpPy
             // Initialize with current global variables
             foreach (var kv in globalScopeVariables)
             {
-                base.SetItem(new PyString(kv.Key), kv.Value);
+                base.SetItem(new PyStr(kv.Key), kv.Value);
             }
         }
 
@@ -1150,7 +1178,7 @@ namespace SharpPy
             base.SetItem(key, value);
 
             // Sync back to global scope
-            if (key is PyString strKey)
+            if (key is PyStr strKey)
             {
                 _globalScopeVariables[strKey.Value] = value;
             }
@@ -1165,7 +1193,7 @@ namespace SharpPy
             // Note: base.Update modifies _dict directly, so we need to sync everything
             foreach (var key in _keys)
             {
-                if (key is PyString strKey)
+                if (key is PyStr strKey)
                 {
                     _globalScopeVariables[strKey.Value] = _dict[key];
                 }

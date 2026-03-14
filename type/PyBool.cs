@@ -41,8 +41,8 @@ namespace SharpPy
 
         // CPython 3.12: Objects/boolobject.c - bool_repr
         // bool.__repr__ returns "True" or "False", not "1" or "0"
-        public override PyString ToStr() => new PyString(Value ? "True" : "False");
-        public override PyString ToRepr() => new PyString(Value ? "True" : "False");
+        public override PyStr ToStr() => new PyStr(Value ? "True" : "False");
+        public override PyStr ToRepr() => new PyStr(Value ? "True" : "False");
         public override string ToString() => Value ? "True" : "False";
 
         #endregion
@@ -98,7 +98,12 @@ namespace SharpPy
         public override float ToFloat() => Value ? 1.0f : 0.0f;
         public override double ToDouble() => Value ? 1.0 : 0.0;
 
-        // === As* Methods: Type Conversion ===
+        /// <summary>
+        /// CPython PyObject_IsTrue 호환: PyBool에서 C# bool 값 추출
+        /// </summary>
+        public override bool PyBoolValue() => Value;
+
+        // === As* Methods: Type Conversion (PyBool → PyObject types) ===
 
         /// <summary>
         /// CPython 호환: bool(True) → True (자기 자신 반환, 싱글톤)

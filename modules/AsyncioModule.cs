@@ -198,7 +198,9 @@ namespace SharpPy.Modules
                 exceptionTable: new List<ExceptionTableEntry>()
             );
 
-            return new PyFrame(code, new PyCell[0], new PyScopeChain());
+            var frame = PyFrame.Rent();
+            frame.InitFull(code, new PyCell[0], new PyScopeChain());
+            return frame;
         }
 
         public new PyObject Send(PyObject value)

@@ -172,9 +172,9 @@ namespace SharpPy.Modules
             }
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            return new PyString($"functools.partial({_func.ToRepr().Value})");
+            return new PyStr($"functools.partial({_func.ToRepr().Value})");
         }
     }
 
@@ -205,9 +205,9 @@ namespace SharpPy.Modules
             return new PyKeyWrapper(_cmpFunc, args[0]);
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            return new PyString("<functools.cmp_to_key object>");
+            return new PyStr("<functools.cmp_to_key object>");
         }
     }
 
@@ -228,9 +228,9 @@ namespace SharpPy.Modules
 
         public override string GetTypeName() => "KeyWrapper";
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            return new PyString($"<functools.KeyWrapper object at 0x{GetHashCode():x}>");
+            return new PyStr($"<functools.KeyWrapper object at 0x{GetHashCode():x}>");
         }
 
         /// <summary>

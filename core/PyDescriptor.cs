@@ -15,6 +15,18 @@ namespace SharpPy
         private readonly int _maxArgs;
         private readonly bool _acceptsKwargs;
 
+        /// <summary>
+        /// Specialized 0-arg fast call: (self) → result. Skips args array entirely.
+        /// CPython 3.12: METH_NOARGS vectorcall slot — no args tuple construction.
+        /// </summary>
+        internal Func<PyObject, PyObject> _fastCall0;
+
+        /// <summary>
+        /// Specialized 1-arg fast call: (self, arg) → result. Skips args array entirely.
+        /// CPython 3.12: METH_O vectorcall slot — single arg, no tuple construction.
+        /// </summary>
+        internal Func<PyObject, PyObject, PyObject> _fastCall1;
+
         public PyMethodDescriptor(
             string name,
             PyType ownerType,
@@ -123,7 +135,7 @@ namespace SharpPy
                 case "__func__":
                     return MethodDescriptor;
                 case "__name__":
-                    return new PyString(MethodDescriptor.Name);
+                    return new PyStr(MethodDescriptor.Name);
                 default:
                     return base.GetAttribute(name);
             }
@@ -349,7 +361,7 @@ namespace SharpPy
                 case "__func__":
                     return WrapperDescriptor;
                 case "__name__":
-                    return new PyString(WrapperDescriptor.Name);
+                    return new PyStr(WrapperDescriptor.Name);
                 default:
                     return base.GetAttribute(name);
             }

@@ -126,7 +126,7 @@ namespace SharpPy
                 }
             }
             // Case 3: int * (str/bytes) - check for string size explosion
-            else if (left is PyInt strMultiplier && right is PyString str)
+            else if (left is PyInt strMultiplier && right is PyStr str)
             {
                 int size = str.Value.Length;
 
@@ -586,7 +586,7 @@ namespace SharpPy
                 }
                 
                 // len("hello") → 5
-                if (arg is ConstantExpression literal && literal.Value is PyString str)
+                if (arg is ConstantExpression literal && literal.Value is PyStr str)
                 {
                     return new ConstantExpression(new PyInt(str.Value.Length));
                 }

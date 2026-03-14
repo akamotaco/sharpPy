@@ -252,14 +252,14 @@ namespace SharpPy
 
         private bool IsKnownSizeContainer(PyObject value)
         {
-            return value is PyString || value is PyList || value is PyTuple || value is PyDict;
+            return value is PyStr || value is PyList || value is PyTuple || value is PyDict;
         }
 
         private int GetContainerSize(PyObject value)
         {
             return value switch
             {
-                PyString str => str.Value.Length,
+                PyStr str => str.Value.Length,
                 PyList list => list.Length(),
                 PyTuple tuple => tuple.Items.Length,
                 PyDict dict => dict.Length(),
@@ -345,9 +345,9 @@ namespace SharpPy
         {
             return (ObjectType, MethodName) switch
             {
-                ("str", "upper") => new PyString(((PyString)target).Value.ToUpper()),
-                ("str", "lower") => new PyString(((PyString)target).Value.ToLower()),
-                ("str", "strip") => new PyString(((PyString)target).Value.Trim()),
+                ("str", "upper") => new PyStr(((PyStr)target).Value.ToUpper()),
+                ("str", "lower") => new PyStr(((PyStr)target).Value.ToLower()),
+                ("str", "strip") => new PyStr(((PyStr)target).Value.Trim()),
                 ("list", "append") => ExecuteListAppend((PyList)target, args[0]),
                 ("dict", "get") => ExecuteDictGet((PyDict)target, args),
                 _ => throw new NotSupportedException($"Inlined method {ObjectType}.{MethodName} not supported")

@@ -772,7 +772,7 @@ namespace SharpPy
             {
                 var annotationsDict = scope.GetVariable("__annotations__") as PyDict ??
                     new PyDict();
-                annotationsDict.SetItem(new PyString(VariableName), Annotation.Evaluate(scope));
+                annotationsDict.SetItem(new PyStr(VariableName), Annotation.Evaluate(scope));
                 scope.SetVariable("__annotations__", annotationsDict);
             }
             
@@ -875,9 +875,9 @@ namespace SharpPy
                 {
                     currentValue = list.GetItem((int)intIndex.Value);
                 }
-                else if (obj is PyString str && index is PyInt intIndex2)
+                else if (obj is PyStr str && index is PyInt intIndex2)
                 {
-                    currentValue = new PyString(str.Value[(int)intIndex2.Value].ToString());
+                    currentValue = new PyStr(str.Value[(int)intIndex2.Value].ToString());
                 }
                 else
                 {
@@ -1263,7 +1263,8 @@ namespace SharpPy
                     }
 
                     // Create and execute a frame for this function call
-                    var frame = new PyFrame(funcCode, args, scopeChain);
+                    var frame = PyFrame.Rent();
+                    frame.InitFull(funcCode, args, scopeChain);
                     return PyVM.Instance.ExecuteFrame(frame);
                 }, codeObject: funcCode);
             }
@@ -1531,7 +1532,7 @@ namespace SharpPy
                               .Replace("\\'", "'")
                               .Replace("\\\"", "\"")
                               .Replace("\\\\", "\\");
-                return new PyString(content);
+                return new PyStr(content);
             }
             
             // 불린 리터럴
@@ -1857,11 +1858,11 @@ namespace SharpPy
                         }
                     }
                 }
-                else if (iterable is PyString str)
+                else if (iterable is PyStr str)
                 {
                     for (int i = 0; i < str.Value.Length; i++)
                     {
-                        AssignTarget(scope, Target, new PyString(str.Value[i].ToString()));
+                        AssignTarget(scope, Target, new PyStr(str.Value[i].ToString()));
                         try
                         {
                             foreach (var stmt in Body)
@@ -2325,7 +2326,7 @@ namespace SharpPy
                     {
                         // CPython calls __exit__(exc_type, exc_value, traceback)
                         // For simplicity, we pass the exception as exc_value
-                        var excType = new PyString(ex.PyException.GetTypeName());
+                        var excType = new PyStr(ex.PyException.GetTypeName());
                         var excValue = ex.PyException;
                         var traceback = PyNone.Instance; // TODO: implement traceback
                         
@@ -2507,7 +2508,7 @@ namespace SharpPy
                     try
                     {
                         var excType = new PyType(ex.GetType().Name, new PyType[0]);
-                        var excValue = new PyString(ex.Message);
+                        var excValue = new PyStr(ex.Message);
                         var traceback = PyNone.Instance;
 
                         var exitResult = exitMethod.Call(new PyObject[] { excType, excValue, traceback }, null);
@@ -3168,7 +3169,7 @@ namespace SharpPy
             {
                 var evaluated = value.Evaluate(scope);
 
-                if (evaluated is PyString pyStr)
+                if (evaluated is PyStr pyStr)
                 {
                     result.Append(pyStr.Value);
                 }
@@ -3179,7 +3180,7 @@ namespace SharpPy
                 }
             }
 
-            return new PyString(result.ToString());
+            return new PyStr(result.ToString());
         }
 
         public override string ToString() => $"f\"{string.Join("", Values)}\"";
@@ -3206,17 +3207,17 @@ namespace SharpPy
             // Apply conversion if specified
             if (Conversion == 114) // !r (repr)
             {
-                value = new PyString($"'{value}'");
+                value = new PyStr($"'{value}'");
             }
             else if (Conversion == 115) // !s (str)
             {
-                value = new PyString(value.ToString());
+                value = new PyStr(value.ToString());
             }
             else if (Conversion == 97) // !a (ascii)
             {
                 var str = value.ToString();
                 var escaped = str.Replace("\\", "\\\\").Replace("'", "\\'");
-                value = new PyString($"'{escaped}'");
+                value = new PyStr($"'{escaped}'");
             }
 
             // Apply format specification if present
@@ -3568,7 +3569,7 @@ namespace SharpPy
                               .Replace("\\'", "'")
                               .Replace("\\\"", "\"")
                               .Replace("\\\\", "\\");
-                return new PyString(content);
+                return new PyStr(content);
             }
             
             // 불린 리터럴
@@ -3594,7 +3595,7 @@ namespace SharpPy
             }
             
             // 기본값: 문자열로 처리
-            return new PyString(defaultValueStr);
+            return new PyStr(defaultValueStr);
         }
     }
 
@@ -3823,12 +3824,12 @@ namespace SharpPy
                             if (int.TryParse(digits, out int decimalPlaces))
                             {
                                 var formatted = floatObj.Value.ToString($"F{decimalPlaces}");
-                                return new PyString(formatted);
+                                return new PyStr(formatted);
                             }
                         }
                         else if (formatSpec == "f")
                         {
-                            return new PyString(floatObj.Value.ToString("F6"));
+                            return new PyStr(floatObj.Value.ToString("F6"));
                         }
                     }
                 }
@@ -3836,7 +3837,7 @@ namespace SharpPy
                 {
                     if (formatSpec == "d" || string.IsNullOrEmpty(formatSpec))
                     {
-                        return new PyString(intObj.Value.ToString());
+                        return new PyStr(intObj.Value.ToString());
                     }
                 }
 
@@ -3900,45 +3901,45 @@ namespace SharpPy
                             if (int.TryParse(digits, out int decimalPlaces))
                             {
                                 var formatted = floatObj.Value.ToString($"F{decimalPlaces}");
-                                return new PyString(formatted);
+                                return new PyStr(formatted);
                             }
                         }
                         else if (formatSpec == "f")
                         {
-                            return new PyString(floatObj.Value.ToString("F"));
+                            return new PyStr(floatObj.Value.ToString("F"));
                         }
                     }
                     else if (formatSpec.EndsWith("e"))
                     {
-                        return new PyString(floatObj.Value.ToString("E"));
+                        return new PyStr(floatObj.Value.ToString("E"));
                     }
                     else if (formatSpec.EndsWith("%"))
                     {
-                        return new PyString((floatObj.Value * 100).ToString("F") + "%");
+                        return new PyStr((floatObj.Value * 100).ToString("F") + "%");
                     }
                 }
                 else if (obj is PyInt intObj)
                 {
                     if (formatSpec == "d")
                     {
-                        return new PyString(intObj.Value.ToString());
+                        return new PyStr(intObj.Value.ToString());
                     }
                     else if (formatSpec == "x")
                     {
-                        return new PyString(intObj.Value.ToString("x"));
+                        return new PyStr(intObj.Value.ToString("x"));
                     }
                     else if (formatSpec == "X")
                     {
-                        return new PyString(intObj.Value.ToString("X"));
+                        return new PyStr(intObj.Value.ToString("X"));
                     }
                     // CPython 3.12: Objects/stringlib/formatter.h - format_int_or_long
                     else if (formatSpec == "o")
                     {
-                        return new PyString(Convert.ToString((long)intObj.Value, 8));
+                        return new PyStr(Convert.ToString((long)intObj.Value, 8));
                     }
                     else if (formatSpec == "b")
                     {
-                        return new PyString(Convert.ToString((long)intObj.Value, 2));
+                        return new PyStr(Convert.ToString((long)intObj.Value, 2));
                     }
                 }
                 
@@ -3953,13 +3954,13 @@ namespace SharpPy
                         var str = obj.ToStr().Value;
                         switch (align)
                         {
-                            case '<': return new PyString(str.PadRight(width));
-                            case '>': return new PyString(str.PadLeft(width));
+                            case '<': return new PyStr(str.PadRight(width));
+                            case '>': return new PyStr(str.PadLeft(width));
                             case '^':
                                 var totalPadding = width - str.Length;
                                 var leftPadding = totalPadding / 2;
                                 var rightPadding = totalPadding - leftPadding;
-                                return new PyString(new string(' ', leftPadding) + str + new string(' ', rightPadding));
+                                return new PyStr(new string(' ', leftPadding) + str + new string(' ', rightPadding));
                         }
                     }
                 }
@@ -4107,7 +4108,7 @@ namespace SharpPy
         public override PyObject Evaluate(PyScope scope)
         {
             // TypeVar는 타입 매개변수를 나타냄 - C# 에서는 문자열로 처리
-            return new PyString(Name);
+            return new PyStr(Name);
         }
         
         public override string ToString() => Bound != null ? $"{Name}: {Bound}" : Name;
@@ -4125,7 +4126,7 @@ namespace SharpPy
         
         public override PyObject Evaluate(PyScope scope)
         {
-            return new PyString($"**{Name}");
+            return new PyStr($"**{Name}");
         }
         
         public override string ToString() => $"**{Name}";
@@ -4143,7 +4144,7 @@ namespace SharpPy
         
         public override PyObject Evaluate(PyScope scope)
         {
-            return new PyString($"*{Name}");
+            return new PyStr($"*{Name}");
         }
         
         public override string ToString() => $"*{Name}";
@@ -4289,7 +4290,7 @@ namespace SharpPy
                     return pyException.GetPyType().IsSubclassOf(expectedType) || 
                            pyException.GetPyType() == expectedType;
                 }
-                else if (expectedExceptionType is PyString typeName)
+                else if (expectedExceptionType is PyStr typeName)
                 {
                     // Handle string-based type names (for builtin exceptions)
                     return MatchesBuiltinExceptionType(pyException, typeName.Value);
@@ -4612,7 +4613,7 @@ namespace SharpPy
         public override PyObject Evaluate(PyScope scope)
         {
             // Type parameter evaluation
-            var typeParam = new PyString(Name); // Use concrete PyString instead of abstract PyObject
+            var typeParam = new PyStr(Name); // Use concrete PyStr instead of abstract PyObject
             scope.SetVariable(Name, typeParam);
             return typeParam;
         }
@@ -4654,7 +4655,7 @@ namespace SharpPy
         public override PyObject Evaluate(PyScope scope)
         {
             // As patterns are handled during pattern matching compilation
-            return new PyString(Pattern != null ? $"{Pattern} as {Name}" : Name);
+            return new PyStr(Pattern != null ? $"{Pattern} as {Name}" : Name);
         }
         
         public override T Accept<T>(IASTVisitor<T> visitor)
@@ -4686,7 +4687,7 @@ namespace SharpPy
         public override PyObject Evaluate(PyScope scope)
         {
             // Star patterns are handled during pattern matching compilation
-            return new PyString($"*{Name}");
+            return new PyStr($"*{Name}");
         }
         
         public override T Accept<T>(IASTVisitor<T> visitor)
@@ -4759,7 +4760,7 @@ namespace SharpPy
             var dict = new PyDict();
             foreach (var kvp in Patterns)
             {
-                dict.SetItem(new PyString(kvp.Key), kvp.Value.Evaluate(scope));
+                dict.SetItem(new PyStr(kvp.Key), kvp.Value.Evaluate(scope));
             }
             return dict;
         }

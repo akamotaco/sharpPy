@@ -21,7 +21,7 @@ namespace SharpPy
         /// String representation: list[int], tuple[str, int], etc.
         /// CPython 3.12: Objects/genericaliasobject.c:52-120 (ga_repr_item)
         /// </summary>
-        public override PyString ToStr()
+        public override PyStr ToStr()
         {
             if (Args is PyTuple tuple)
             {
@@ -30,9 +30,9 @@ namespace SharpPy
                 {
                     argStrs[i] = FormatTypeArg(tuple.Items[i]);
                 }
-                return new PyString($"{Origin.Name}[{string.Join(", ", argStrs)}]");
+                return new PyStr($"{Origin.Name}[{string.Join(", ", argStrs)}]");
             }
-            return new PyString($"{Origin.Name}[{FormatTypeArg(Args)}]");
+            return new PyStr($"{Origin.Name}[{FormatTypeArg(Args)}]");
         }
 
         /// <summary>
@@ -57,7 +57,7 @@ namespace SharpPy
             return arg.ToStr().Value;
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             return ToStr();
         }

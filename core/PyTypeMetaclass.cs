@@ -143,7 +143,7 @@ namespace SharpPy
                 Console.WriteLine($"🔧 type.__prepare__ called with {args.Length} args");
                 if (kwargs != null && kwargs.InternalDict.Count > 0)
                 {
-                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyStr)?.Value))}");
                 }
                 #endif
 
@@ -173,7 +173,7 @@ namespace SharpPy
                 Console.WriteLine($"🔧 type.__new__ (staticmethod) called with {args.Length} args");
                 if (kwargs != null && kwargs.InternalDict.Count > 0)
                 {
-                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyStr)?.Value))}");
                 }
                 #endif
 
@@ -220,9 +220,9 @@ namespace SharpPy
             {
                 if (self is PyClass pyClass)
                 {
-                    return new PyString($"<class '{pyClass.Name}'>");
+                    return new PyStr($"<class '{pyClass.Name}'>");
                 }
-                return new PyString($"<type '{self}'>"); 
+                return new PyStr($"<type '{self}'>"); 
             }, 1);
 
             // type.__repr__() - same as __str__ for type
@@ -285,7 +285,7 @@ namespace SharpPy
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // format_spec is args[0], but for type objects we just return str()
-                    return new PyString($"<class '{type.Name}'>");
+                    return new PyStr($"<class '{type.Name}'>");
                 },
                 minArgs: 1,
                 maxArgs: 1
@@ -303,7 +303,7 @@ namespace SharpPy
                     // Return (type, (type.__name__,))
                     return new PyTuple(new PyObject[] {
                         typeClass,
-                        new PyTuple(new PyObject[] { new PyString(type.Name) })
+                        new PyTuple(new PyObject[] { new PyStr(type.Name) })
                     });
                 },
                 minArgs: 1,
@@ -440,12 +440,12 @@ namespace SharpPy
             #if DEBUG_LOG
             if (kwargs != null && kwargs.InternalDict.Count > 0)
             {
-                Console.WriteLine($"🔍 CreateNewClass called with kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                Console.WriteLine($"🔍 CreateNewClass called with kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyStr)?.Value))}");
             }
             #endif
 
             #if DEBUG_LOG
-            Console.WriteLine($"🏗️ type.__new__ creating class: {(name is PyString pyStr ? pyStr.Value : name.ToString())}");
+            Console.WriteLine($"🏗️ type.__new__ creating class: {(name is PyStr pyStr ? pyStr.Value : name.ToString())}");
             Console.WriteLine($"   cls (metaclass): {cls.GetType().Name} / {cls}");
             Console.WriteLine($"   bases: {bases}");
             Console.WriteLine($"   namespaceDict: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
@@ -453,7 +453,7 @@ namespace SharpPy
             #endif
 
             // Convert arguments
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
                 throw PyTypeError.Create("type.__new__() name must be string");
                 
             if (!(bases is PyTuple basesTuple))
@@ -555,7 +555,7 @@ namespace SharpPy
                 for (int i = 0; i < logLimit; i++)
                 {
                     var item = dictItems.Items[i];
-                    if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyString keyStr)
+                    if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyStr keyStr)
                     {
                         Console.WriteLine($"   - {keyStr.Value}: {tuple.Items[1].GetTypeName()}");
                     }
@@ -566,7 +566,7 @@ namespace SharpPy
                 {
                     if (item is PyTuple tuple && tuple.Items.Length == 2)
                     {
-                        if (tuple.Items[0] is PyString keyStr)
+                        if (tuple.Items[0] is PyStr keyStr)
                         {
                             // CPython 3.12: Objects/typeobject.c:3751 - values preserved as-is
                             classDict[keyStr.Value] = tuple.Items[1];
@@ -714,7 +714,7 @@ namespace SharpPy
                 Console.WriteLine($"   namespaceDict type: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
                 if (kwargs != null && kwargs.InternalDict.Count > 0)
                 {
-                    Console.WriteLine($"   Forwarding kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                    Console.WriteLine($"   Forwarding kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyStr)?.Value))}");
                 }
                 #endif
 
@@ -750,7 +750,7 @@ namespace SharpPy
                     {
                         if (item is PyTuple tuple && tuple.Items.Length == 2)
                         {
-                            if (tuple.Items[0] is PyString keyStr)
+                            if (tuple.Items[0] is PyStr keyStr)
                             {
                                 classDict[keyStr.Value] = tuple.Items[1];
                             }
@@ -797,7 +797,7 @@ namespace SharpPy
                         Console.WriteLine($"  Calling __set_name__ on {attrName}: {attrValue.GetType().Name}");
                         #endif
                         // Call __set_name__(owner, name)
-                        setNameMethod.Call(new PyObject[] { newClass, new PyString(attrName) }, null);
+                        setNameMethod.Call(new PyObject[] { newClass, new PyStr(attrName) }, null);
                         #if DEBUG_LOG
                         Console.WriteLine($"  ✅ __set_name__ completed for {attrName}");
                         #endif
@@ -1050,7 +1050,7 @@ namespace SharpPy
             {
                 "__self__" => _instance,
                 "__func__" => _method,
-                "__name__" => new PyString(_method.Name),
+                "__name__" => new PyStr(_method.Name),
                 _ => base.GetAttribute(name)
             };
         }
@@ -1254,11 +1254,11 @@ namespace SharpPy
                     {
                         // CPython 3.12: Return the owner's tp_name directly, don't look in ClassDict
                         // (otherwise we'd return the descriptor itself!)
-                        return new PyString(ownerClass.Name);
+                        return new PyStr(ownerClass.Name);
                     }
 
                     // Owner is a PyType (including PyTypeMetaclass)
-                    return new PyString(owner.Name);
+                    return new PyStr(owner.Name);
                 }
 
                 // Fallback: return descriptor itself for unbound access
@@ -1273,13 +1273,13 @@ namespace SharpPy
                     return name;
 
                 // Fallback to Name property
-                return new PyString(pyClass.Name);
+                return new PyStr(pyClass.Name);
             }
 
             if (instance is PyType pyType)
             {
                 // PyType stores name in Name property
-                return new PyString(pyType.Name);
+                return new PyStr(pyType.Name);
             }
 
             return PyNone.Instance;
@@ -1289,7 +1289,7 @@ namespace SharpPy
         {
             if (instance is PyClass pyClass)
             {
-                if (!(value is PyString nameStr))
+                if (!(value is PyStr nameStr))
                     throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__name__, not '{value.GetTypeName()}'");
 
                 // CPython: Update tp_name (in SharpPy, store in ClassDict)
@@ -1335,7 +1335,7 @@ namespace SharpPy
                     return module;
 
                 // Default to "builtins" if not found
-                return new PyString("builtins");
+                return new PyStr("builtins");
             }
 
             // CPython 3.12: Objects/typeobject.c:1078-1088
@@ -1348,12 +1348,12 @@ namespace SharpPy
                 if (dotIndex >= 0)
                 {
                     // Return module name (part before '.')
-                    return new PyString(pyType.Name.Substring(0, dotIndex));
+                    return new PyStr(pyType.Name.Substring(0, dotIndex));
                 }
 
                 // Default: "builtins" for built-in types
                 // CPython: mod = Py_NewRef(&_Py_ID(builtins));
-                return new PyString("builtins");
+                return new PyStr("builtins");
             }
 
             return PyNone.Instance;
@@ -1630,7 +1630,7 @@ namespace SharpPy
                     return qualname;
 
                 // Default to __name__
-                return new PyString(pyClass.Name);
+                return new PyStr(pyClass.Name);
             }
 
             // CPython 3.12: For builtin types (PyType), return tp_name
@@ -1638,7 +1638,7 @@ namespace SharpPy
             if (instance is PyType pyType)
             {
                 // For builtin types, qualname == name
-                return new PyString(pyType.Name);
+                return new PyStr(pyType.Name);
             }
 
             return PyNone.Instance;
@@ -1648,7 +1648,7 @@ namespace SharpPy
         {
             if (instance is PyClass pyClass)
             {
-                if (!(value is PyString))
+                if (!(value is PyStr))
                     throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__qualname__, not '{value.GetTypeName()}'");
 
                 // CPython: Py_SETREF(et->ht_qualname, Py_NewRef(value))

@@ -39,7 +39,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/listobject.c:838-845 (list_append)
             // append method descriptor
-            listType.TypeDict["append"] = new PyMethodDescriptor(
+            var appendDesc = new PyMethodDescriptor(
                 "append", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -50,6 +50,8 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 1
             );
+            appendDesc._fastCall1 = (self, arg) => { GetListStorage(self).Append(arg); return PyNone.Instance; };
+            listType.TypeDict["append"] = appendDesc;
 
             // insert method descriptor
             listType.TypeDict["insert"] = new PyMethodDescriptor(
@@ -79,7 +81,7 @@ namespace SharpPy
             );
 
             // pop method descriptor
-            listType.TypeDict["pop"] = new PyMethodDescriptor(
+            var popDesc = new PyMethodDescriptor(
                 "pop", listType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
@@ -90,9 +92,11 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 1
             );
+            popDesc._fastCall0 = self => GetListStorage(self).Pop(-1);
+            listType.TypeDict["pop"] = popDesc;
 
             // clear method descriptor
-            listType.TypeDict["clear"] = new PyMethodDescriptor(
+            var clearDesc = new PyMethodDescriptor(
                 "clear", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -103,6 +107,8 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
+            clearDesc._fastCall0 = self => { GetListStorage(self).Clear(); return PyNone.Instance; };
+            listType.TypeDict["clear"] = clearDesc;
 
             // extend method descriptor
             listType.TypeDict["extend"] = new PyMethodDescriptor(
@@ -169,8 +175,8 @@ namespace SharpPy
 
                     if (kwargs != null)
                     {
-                        var keyStr = new PyString("key");
-                        var reverseStr = new PyString("reverse");
+                        var keyStr = new PyStr("key");
+                        var reverseStr = new PyStr("reverse");
 
                         if (kwargs.Contains(keyStr).Value)
                             key = kwargs.GetItem(keyStr);
@@ -333,7 +339,7 @@ namespace SharpPy
             return new string(chars);
         }
 
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("[]");
 
@@ -738,7 +744,7 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyList를 PyString으로 변환 (str() 호출과 동일)
+        /// CPython 호환: PyList를 PyStr으로 변환 (str() 호출과 동일)
         /// </summary>
         public override string AsString()
         {

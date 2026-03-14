@@ -69,7 +69,7 @@ namespace SharpPy
             // 키워드 인수 처리
             foreach (var kvp in kwDict)
             {
-                if (kvp.Key is PyString keyStr)
+                if (kvp.Key is PyStr keyStr)
                 {
                     var paramIndex = Parameters.FindIndex(p => p.Name == keyStr.Value);
                     if (paramIndex >= 0)
@@ -149,6 +149,17 @@ namespace SharpPy
             _implementation = implementation;
         }
 
+        /// <summary>
+        /// Expose builtin implementation table for direct delegate wiring.
+        /// CPython: avoids dictionary fallback in Call() hot path.
+        /// </summary>
+        public static Func<PyObject[], PyDict, PyObject> GetBuiltinImpl(string name)
+        {
+            if (_builtinImplementations.TryGetValue(name, out var impl))
+                return impl;
+            return null;
+        }
+
         public override string GetTypeName() => "builtin_function_or_method";
 
         public override PyType GetPyType() => PyType.FunctionType;
@@ -180,10 +191,7 @@ namespace SharpPy
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
             _builtinImplementations["any"] = (args, kwargs) => CallAny(args, kwargs);
             _builtinImplementations["all"] = (args, kwargs) => CallAll(args, kwargs);
-            _builtinImplementations["isinstance"] = (args, kwargs) => {
-                Console.WriteLine($"[BUILTIN isinstance] Called with {args.Length} args");
-                return CallIsInstance(args, kwargs);
-            };
+            _builtinImplementations["isinstance"] = (args, kwargs) => CallIsInstance(args, kwargs);
             _builtinImplementations["issubclass"] = (args, kwargs) => CallIsSubclass(args, kwargs);
             _builtinImplementations["hasattr"] = (args, kwargs) => CallHasAttr(args, kwargs);
             _builtinImplementations["getattr"] = (args, kwargs) => CallGetAttr(args, kwargs);
@@ -290,8 +298,8 @@ namespace SharpPy
         private static PyObject CallPrint(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12 print(*values, sep=' ', end='\n', file=sys.stdout, flush=False)
-            var sep = new PyString(" ");
-            var end = new PyString("\n");
+            var sep = new PyStr(" ");
+            var end = new PyStr("\n");
             PyObject file = null; // sys.stdout는 추후 구현
             var flush = PyBool.False;
 
@@ -300,28 +308,28 @@ namespace SharpPy
             {
                 try
                 {
-                    var sepValue = kwargs.GetItem(new PyString("sep"));
-                    sep = sepValue as PyString ?? new PyString(sepValue.AsString());
+                    var sepValue = kwargs.GetItem(new PyStr("sep"));
+                    sep = sepValue as PyStr ?? new PyStr(sepValue.AsString());
                 }
                 catch { }
 
                 try
                 {
-                    var endValue = kwargs.GetItem(new PyString("end"));
-                    end = endValue as PyString ?? new PyString(endValue.AsString());
+                    var endValue = kwargs.GetItem(new PyStr("end"));
+                    end = endValue as PyStr ?? new PyStr(endValue.AsString());
                 }
                 catch { }
 
                 try
                 {
-                    var fileValue = kwargs.GetItem(new PyString("file"));
+                    var fileValue = kwargs.GetItem(new PyStr("file"));
                     file = fileValue;
                 }
                 catch { }
 
                 try
                 {
-                    var flushValue = kwargs.GetItem(new PyString("flush"));
+                    var flushValue = kwargs.GetItem(new PyStr("flush"));
                     flush = flushValue as PyBool ?? PyBool.FromBool(flushValue.PyBoolValue());
                 }
                 catch { }
@@ -387,7 +395,7 @@ namespace SharpPy
                 }
 
                 // CPython 3.12: 줄바꿈은 자동으로 제거됨 (ReadLine이 이미 제거함)
-                return new PyString(line);
+                return new PyStr(line);
             }
             catch (PythonException)
             {
@@ -412,7 +420,11 @@ namespace SharpPy
 
             try
             {
-                return new PyInt(args[0].Length());
+                int len = args[0].Length();
+                // CPython 3.12: bltinmodule.c:1734 — len() returns small int from cache
+                if (len >= -5 && len <= 256)
+                    return SmallIntCache.GetOrCreate(len);
+                return new PyInt(len);
             }
             catch (System.Exception)
             {
@@ -478,9 +490,9 @@ namespace SharpPy
             // CPython 3.12: Objects/enumobject.c:246-292 - enum_new
             // Check kwargs for 'start' parameter first, then positional arg
             long start = 0;
-            if (kwargs != null && kwargs.Contains(new PyString("start")).ToBool())
+            if (kwargs != null && kwargs.Contains(new PyStr("start")).ToBool())
             {
-                start = (long)((PyInt)kwargs.GetItem(new PyString("start"))).Value;
+                start = (long)((PyInt)kwargs.GetItem(new PyStr("start"))).Value;
             }
             else if (args.Length > 1)
             {
@@ -535,16 +547,11 @@ namespace SharpPy
             var iterator = iterable.GetIterator();
             var result = new System.Collections.Generic.List<PyObject>();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    var mappedItem = func.Call(new PyObject[] { item }, null);
-                    result.Add(mappedItem);
-                }
+                var mappedItem = func.Call(new PyObject[] { item }, null);
+                result.Add(mappedItem);
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
                 // 정상 종료
             }
@@ -563,22 +570,14 @@ namespace SharpPy
             var iterator = iterable.GetIterator();
             var result = new System.Collections.Generic.List<PyObject>();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    var shouldInclude = func == PyNone.Instance 
-                        ? item.PyBoolValue() 
-                        : func.Call(new PyObject[] { item }, null).PyBoolValue();
-                    
-                    if (shouldInclude)
-                        result.Add(item);
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                var shouldInclude = func == PyNone.Instance
+                    ? item.PyBoolValue()
+                    : func.Call(new PyObject[] { item }, null).PyBoolValue();
+
+                if (shouldInclude)
+                    result.Add(item);
             }
 
             // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
@@ -600,14 +599,14 @@ namespace SharpPy
             {
                 try
                 {
-                    var keyValue = kwargs.GetItem(new PyString("key"));
+                    var keyValue = kwargs.GetItem(new PyStr("key"));
                     keyFunc = keyValue != PyNone.Instance ? keyValue : null;
                 }
                 catch { }
 
                 try
                 {
-                    var reverseValue = kwargs.GetItem(new PyString("reverse"));
+                    var reverseValue = kwargs.GetItem(new PyStr("reverse"));
                     reverse = reverseValue.PyBoolValue();
                 }
                 catch { }
@@ -615,7 +614,7 @@ namespace SharpPy
                 // 예상치 못한 키워드 인수 체크
                 foreach (var kvp in kwargs.InternalDict)
                 {
-                    if (kvp.Key is PyString keyStr)
+                    if (kvp.Key is PyStr keyStr)
                     {
                         if (keyStr.Value != "key" && keyStr.Value != "reverse")
                         {
@@ -628,16 +627,9 @@ namespace SharpPy
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var sortedItem))
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                items.Add(sortedItem);
             }
 
             // key 함수가 있으면 키 값과 함께 정렬
@@ -744,13 +736,13 @@ namespace SharpPy
                     items.Add(pyTuple.GetItem(new PyInt(i)));
                 return new PyListIterator(new PyList(items.ToArray()));
             }
-            else if (seq is PyString pyStr)
+            else if (seq is PyStr pyStr)
             {
                 var chars = pyStr.Value.ToCharArray();
                 System.Array.Reverse(chars);
                 var items = new System.Collections.Generic.List<PyObject>();
                 foreach (var c in chars)
-                    items.Add(new PyString(c.ToString()));
+                    items.Add(new PyStr(c.ToString()));
                 return new PyListIterator(new PyList(items.ToArray()));
             }
 
@@ -805,112 +797,190 @@ namespace SharpPy
                 throw PyTypeError.Create($"sum expected at most 2 arguments ({args.Length} given)");
 
             var iterable = args[0];
-            var start = args.Length > 1 ? args[1] : new PyInt(0);
-            var result = start;
-            var iterator = iterable.GetIterator();
+            var start = args.Length > 1 ? args[1] : SmallIntCache.Zero;
 
-            try
+            // Fast path: PyList of PyInt with int start → long accumulator
+            // CPython: bltinmodule.c:2614 (builtin_sum_impl) has _PyLong_Add fast path
+            if (iterable is PyList sumList && (start is PyInt startInt) && startInt.FitsInLong)
             {
-                while (true)
+                long acc = startInt.CachedLong;
+                bool overflow = false;
+                int listLen = sumList.Length();
+                for (int i = 0; i < listLen; i++)
                 {
-                    var item = iterator.Next();
-                    result = result.Add(item);
+                    var elem = sumList.GetItem(i);
+                    if (elem is PyInt elemInt && elemInt.FitsInLong)
+                    {
+                        long prev = acc;
+                        long elemVal = elemInt.CachedLong;
+                        acc = unchecked(acc + elemVal);
+                        if (((prev ^ acc) & (elemVal ^ acc)) < 0)
+                        {
+                            overflow = true;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Non-int element or BigInteger, fall back to generic path
+                        var result = (PyObject)SmallIntCache.GetOrCreate(acc);
+                        for (int j = i; j < listLen; j++)
+                            result = result.Add(sumList.GetItem(j));
+                        return result;
+                    }
+                }
+                if (!overflow)
+                {
+                    if (acc >= -5 && acc <= 256)
+                        return SmallIntCache.GetOrCreate((int)acc);
+                    return new PyInt(acc);
+                }
+                // overflow: fall through to generic
+            }
+
+            // Generic path: use long accumulator when possible
+            // CPython: bltinmodule.c:2614 (builtin_sum_impl) uses _PyLong_Add fast path
+            var iterator = iterable.GetIterator();
+            if (start is PyInt genStartInt && genStartInt.FitsInLong)
+            {
+                long acc = genStartInt.CachedLong;
+                bool useGenericFallback = false;
+                PyObject fallbackResult = null;
+                while (iterator.TryNext(out var item))
+                {
+                    if (item is PyInt itemInt && itemInt.FitsInLong)
+                    {
+                        long prev = acc;
+                        long itemVal = itemInt.CachedLong;
+                        acc = unchecked(acc + itemVal);
+                        if (((prev ^ acc) & (itemVal ^ acc)) < 0)
+                        {
+                            // Overflow: switch to PyObject path for remainder
+                            useGenericFallback = true;
+                            fallbackResult = new PyInt(new System.Numerics.BigInteger(prev) + itemInt.Value);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Non-int item: switch to PyObject path
+                        useGenericFallback = true;
+                        fallbackResult = (acc >= -5 && acc <= 256)
+                            ? ((PyObject)SmallIntCache.GetOrCreate((int)acc)).Add(item)
+                            : new PyInt(acc).Add(item);
+                        break;
+                    }
+                }
+                if (useGenericFallback)
+                {
+                    while (iterator.TryNext(out var item))
+                        fallbackResult = fallbackResult.Add(item);
+                    return fallbackResult;
+                }
+                if (acc >= -5 && acc <= 256)
+                    return SmallIntCache.GetOrCreate((int)acc);
+                return new PyInt(acc);
+            }
+
+            // Fully generic path
+            var genericResult = start;
+            while (iterator.TryNext(out var item))
+            {
+                genericResult = genericResult.Add(item);
+            }
+            return genericResult;
+        }
+
+        // CPython 3.12 bltinmodule.c:1745 min_max()
+        // min() = MinMax(args, kwargs, CompareOp.LT, "min")
+        // max() = MinMax(args, kwargs, CompareOp.GT, "max")
+        private static PyObject MinMax(PyObject[] args, PyDict kwargs, PyObject.CompareOp op, string name)
+        {
+            if (args.Length == 0)
+                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
+
+            // kwargs에서 key, default 추출
+            // CPython bltinmodule.c:1749 kwlist[] = {"key", "default", NULL}
+            PyObject keyfunc = null;
+            PyObject defaultval = null;
+            if (kwargs != null)
+            {
+                try { keyfunc = kwargs.GetItem(new PyStr("key")); } catch { }
+                try { defaultval = kwargs.GetItem(new PyStr("default")); } catch { }
+            }
+
+            // CPython: key=None이면 key 없는 것과 동일
+            if (keyfunc is PyNone)
+                keyfunc = null;
+
+            bool positional = args.Length > 1;
+
+            // CPython: multi-arg에서는 default 사용 불가
+            if (positional && defaultval != null)
+                throw PyTypeError.Create($"Cannot specify a default for {name}() with multiple positional arguments");
+
+            // CPython: positional이면 args 자체를 iterable로 사용, 아니면 args[0]
+            PyObject v;
+            if (positional)
+            {
+                v = new PyList(args);  // args tuple → iterable
+            }
+            else
+            {
+                v = args[0];
+            }
+
+            var iterator = v.GetIterator();
+
+            // CPython: maxitem = 반환할 원본, maxval = 비교용 key 결과
+            PyObject maxitem = null;
+            PyObject maxval = null;
+
+            while (iterator.TryNext(out var item))
+            {
+                // CPython bltinmodule.c:1794-1802
+                PyObject val;
+                if (keyfunc != null)
+                    val = keyfunc.Call(new PyObject[] { item }, null);
+                else
+                    val = item;
+
+                if (maxval == null)
+                {
+                    // 첫 번째 아이템 — 초기값 설정
+                    maxitem = item;
+                    maxval = val;
+                }
+                else
+                {
+                    // CPython bltinmodule.c:1811 — val끼리 비교 (원본 객체 비교 아님)
+                    if (((PyBool)val.RichCompare(maxval, op)).Value)
+                    {
+                        maxval = val;
+                        maxitem = item;
+                    }
                 }
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+
+            // CPython bltinmodule.c:1828-1835
+            if (maxitem == null)
             {
-                // 정상 종료
+                if (defaultval != null)
+                    return defaultval;
+                throw PyValueError.Create($"{name}() iterable argument is empty");
             }
 
-            return result;
+            return maxitem;
         }
 
         private static PyObject CallMin(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("min expected at least 1 argument (0 given)");
-
-            if (args.Length == 1)
-            {
-                // 이터러블에서 최소값 찾기
-                var iterable = args[0];
-                var iterator = iterable.GetIterator();
-                PyObject min = null;
-
-                try
-                {
-                    min = iterator.Next();
-                    while (true)
-                    {
-                        var item = iterator.Next();
-                        if (((PyBool)item.RichCompare(min, PyObject.CompareOp.LT)).Value)
-                            min = item;
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    // 정상 종료
-                }
-
-                if (min == null)
-                    throw PyValueError.Create("min() arg is an empty sequence");
-                return min;
-            }
-            else
-            {
-                // 인수들 중 최소값
-                var min = args[0];
-                for (int i = 1; i < args.Length; i++)
-                {
-                    if (((PyBool)args[i].RichCompare(min, PyObject.CompareOp.LT)).Value)
-                        min = args[i];
-                }
-                return min;
-            }
+            return MinMax(args, kwargs, PyObject.CompareOp.LT, "min");
         }
 
         private static PyObject CallMax(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("max expected at least 1 argument (0 given)");
-
-            if (args.Length == 1)
-            {
-                // 이터러블에서 최대값 찾기
-                var iterable = args[0];
-                var iterator = iterable.GetIterator();
-                PyObject max = null;
-
-                try
-                {
-                    max = iterator.Next();
-                    while (true)
-                    {
-                        var item = iterator.Next();
-                        if (((PyBool)item.RichCompare(max, PyObject.CompareOp.GT)).Value)
-                            max = item;
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    // 정상 종료
-                }
-
-                if (max == null)
-                    throw PyValueError.Create("max() arg is an empty sequence");
-                return max;
-            }
-            else
-            {
-                // 인수들 중 최대값
-                var max = args[0];
-                for (int i = 1; i < args.Length; i++)
-                {
-                    if (((PyBool)args[i].RichCompare(max, PyObject.CompareOp.GT)).Value)
-                        max = args[i];
-                }
-                return max;
-            }
+            return MinMax(args, kwargs, PyObject.CompareOp.GT, "max");
         }
 
         private static PyObject CallAny(PyObject[] args, PyDict kwargs = null)
@@ -921,18 +991,10 @@ namespace SharpPy
             var iterable = args[0];
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    if (item.PyBoolValue())
-                        return PyBool.True;
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 모두 False였음
+                if (item.PyBoolValue())
+                    return PyBool.True;
             }
 
             return PyBool.False;
@@ -946,18 +1008,10 @@ namespace SharpPy
             var iterable = args[0];
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var item))
             {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    if (!item.PyBoolValue())
-                        return PyBool.False;
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 모두 True였음
+                if (!item.PyBoolValue())
+                    return PyBool.False;
             }
 
             return PyBool.True;
@@ -1082,7 +1136,7 @@ namespace SharpPy
             var obj = args[0];
             var name = args[1];
 
-            if (!(name is PyString strName))
+            if (!(name is PyStr strName))
                 throw PyTypeError.Create("hasattr expected str object, not '" + name.GetTypeName() + "'");
 
             try
@@ -1105,7 +1159,7 @@ namespace SharpPy
             var name = args[1];
             var defaultValue = args.Length > 2 ? args[2] : null;
 
-            if (!(name is PyString strName))
+            if (!(name is PyStr strName))
                 throw PyTypeError.Create("getattr expected str object, not '" + name.GetTypeName() + "'");
 
             try
@@ -1138,7 +1192,7 @@ namespace SharpPy
             var name = args[1];
             var value = args[2];
 
-            if (!(name is PyString strName))
+            if (!(name is PyStr strName))
                 throw PyTypeError.Create("setattr expected str object, not '" + name.GetTypeName() + "'");
 
             obj.SetAttribute(strName.Value, value);
@@ -1153,7 +1207,7 @@ namespace SharpPy
             var obj = args[0];
             var name = args[1];
 
-            if (!(name is PyString strName))
+            if (!(name is PyStr strName))
                 throw PyTypeError.Create("delattr expected str object, not '" + name.GetTypeName() + "'");
 
             obj.DelAttribute(strName.Value);
@@ -1193,7 +1247,7 @@ namespace SharpPy
             // CPython 3.12: str(object='', encoding=None, errors='strict')
             // x == NULL: return empty string
             if (args.Length == 0)
-                return new PyString("");
+                return new PyStr("");
 
             if (args.Length > 3)
                 throw PyTypeError.Create($"str() takes at most 3 arguments ({args.Length} given)");
@@ -1201,17 +1255,21 @@ namespace SharpPy
             var x = args[0];
 
             // CPython 3.12: encoding == NULL and errors == NULL → PyObject_Str(x)
+            // Fast path: avoid double wrapping (AsString → new PyStr) for built-in types
             if (args.Length == 1)
-                return new PyString(x.AsString());
+            {
+                if (x is PyStr xStr) return xStr;
+                return new PyStr(x.AsString());
+            }
 
             // CPython 3.12: str(bytes, encoding, errors='strict') → PyUnicode_FromEncodedObject
             var encoding = args.Length > 1 ? args[1] : PyNone.Instance;
-            var errors = args.Length > 2 ? args[2] : new PyString("strict");
+            var errors = args.Length > 2 ? args[2] : new PyStr("strict");
 
-            if (encoding == PyNone.Instance && errors is PyString errStr && errStr.Value == "strict")
+            if (encoding == PyNone.Instance && errors is PyStr errStr && errStr.Value == "strict")
             {
                 // No encoding specified, just convert to string
-                return new PyString(x.AsString());
+                return new PyStr(x.AsString());
             }
 
             // Decode bytes with specified encoding
@@ -1220,12 +1278,12 @@ namespace SharpPy
                 throw PyTypeError.Create($"decoding to str: need a bytes-like object, {x.GetTypeName()} found");
             }
 
-            if (!(encoding is PyString encStr))
+            if (!(encoding is PyStr encStr))
             {
                 throw PyTypeError.Create($"str() argument 2 must be str, not {encoding.GetTypeName()}");
             }
 
-            if (!(errors is PyString))
+            if (!(errors is PyStr))
             {
                 throw PyTypeError.Create($"str() argument 3 must be str, not {errors.GetTypeName()}");
             }
@@ -1242,7 +1300,7 @@ namespace SharpPy
                     "ascii" => System.Text.Encoding.ASCII,
                     _ => throw PyLookupError.Create($"unknown encoding: {encStr.Value}")
                 };
-                return new PyString(enc.GetString(pyBytes.Value));
+                return new PyStr(enc.GetString(pyBytes.Value));
             }
             catch (Exception ex)
             {
@@ -1288,7 +1346,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: Only strings (and bytes) can be converted with explicit base (lines 5626-5639)
-            if (x is PyString pyStr)
+            if (x is PyStr pyStr)
             {
                 return PyInt.FromString(pyStr.Value, baseValue);
             }
@@ -1332,7 +1390,7 @@ namespace SharpPy
             var firstArg = args[0];
 
             // complex("1+2j") - string parsing
-            if (firstArg is PyString pyStr)
+            if (firstArg is PyStr pyStr)
             {
                 if (args.Length > 1)
                     throw PyTypeError.Create("complex() can't take second arg if first is a string");
@@ -1443,7 +1501,7 @@ namespace SharpPy
                     globals = new PyDict();
                     foreach (var kvp in currentFrame.Globals)
                     {
-                        globals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                        globals.InternalDict[new PyStr(kvp.Key)] = kvp.Value;
                     }
 
                     // Convert frame's local scope to PyDict
@@ -1454,7 +1512,7 @@ namespace SharpPy
                         {
                             foreach (var kvp in currentFrame.LocalScope.Variables)
                             {
-                                locals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                                locals.InternalDict[new PyStr(kvp.Key)] = kvp.Value;
                             }
                         }
 
@@ -1478,7 +1536,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: Add __builtins__ to globals if not present
-            var builtinsKey = new PyString("__builtins__");
+            var builtinsKey = new PyStr("__builtins__");
             if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
@@ -1494,7 +1552,7 @@ namespace SharpPy
                 codeObject = pyCode;
             }
             // If source is a string, parse and compile it
-            else if (source is PyString pyString)
+            else if (source is PyStr pyString)
             {
                 string sourceCode = pyString.Value;
                 string filename = "<string>";
@@ -1550,14 +1608,14 @@ namespace SharpPy
 
             // Extract filename
             string filename;
-            if (filenameArg is PyString pyFilename)
+            if (filenameArg is PyStr pyFilename)
                 filename = pyFilename.Value;
             else
                 throw PyTypeError.Create($"compile() arg 2 must be str, not '{filenameArg.GetTypeName()}'");
 
             // Extract mode
             string mode;
-            if (modeArg is PyString pyMode)
+            if (modeArg is PyStr pyMode)
                 mode = pyMode.Value;
             else
                 throw PyTypeError.Create($"compile() arg 3 must be str, not '{modeArg.GetTypeName()}'");
@@ -1572,7 +1630,7 @@ namespace SharpPy
 
             // Extract source code string
             string sourceCode;
-            if (source is PyString pyString)
+            if (source is PyStr pyString)
                 sourceCode = pyString.Value;
             else
                 throw PyTypeError.Create($"compile() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
@@ -1660,7 +1718,7 @@ namespace SharpPy
                     globals = new PyDict();
                     foreach (var kvp in currentFrame.Globals)
                     {
-                        globals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                        globals.InternalDict[new PyStr(kvp.Key)] = kvp.Value;
                     }
 
                     // Convert frame's local scope to PyDict
@@ -1671,7 +1729,7 @@ namespace SharpPy
                         {
                             foreach (var kvp in currentFrame.LocalScope.Variables)
                             {
-                                locals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                                locals.InternalDict[new PyStr(kvp.Key)] = kvp.Value;
                             }
                         }
 
@@ -1695,7 +1753,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: Add __builtins__ to globals if not present
-            var builtinsKey = new PyString("__builtins__");
+            var builtinsKey = new PyStr("__builtins__");
             if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
@@ -1711,7 +1769,7 @@ namespace SharpPy
                 codeObject = pyCode;
             }
             // If source is a string, compile it first
-            else if (source is PyString pyString)
+            else if (source is PyStr pyString)
             {
                 string sourceCode = pyString.Value;
                 string filename = "<string>";
@@ -1750,7 +1808,7 @@ namespace SharpPy
             {
                 foreach (var kvp in globals.InternalDict)
                 {
-                    if (kvp.Key is PyString keyStr)
+                    if (kvp.Key is PyStr keyStr)
                     {
                         scopeChain.GlobalScope.Variables[keyStr.Value] = kvp.Value;
                     }
@@ -1766,7 +1824,7 @@ namespace SharpPy
 
                 foreach (var kvp in locals.InternalDict)
                 {
-                    if (kvp.Key is PyString keyStr)
+                    if (kvp.Key is PyStr keyStr)
                     {
                         localScope.Variables[keyStr.Value] = kvp.Value;
                     }
@@ -1785,7 +1843,7 @@ namespace SharpPy
                 locals.Clear();  // Clears both _dict and _keys
                 foreach (var kvp in localScope.Variables)
                 {
-                    locals.SetItem(new PyString(kvp.Key), kvp.Value);  // Updates both _dict and _keys
+                    locals.SetItem(new PyStr(kvp.Key), kvp.Value);  // Updates both _dict and _keys
                 }
             }
             else
@@ -1794,7 +1852,7 @@ namespace SharpPy
                 globals.Clear();
                 foreach (var kvp in scopeChain.GlobalScope.Variables)
                 {
-                    globals.SetItem(new PyString(kvp.Key), kvp.Value);
+                    globals.SetItem(new PyStr(kvp.Key), kvp.Value);
                 }
             }
 
@@ -1904,16 +1962,9 @@ namespace SharpPy
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var setItem))
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                items.Add(setItem);
             }
 
             return new PySet(items);
@@ -1931,16 +1982,9 @@ namespace SharpPy
             var items = new System.Collections.Generic.List<PyObject>();
             var iterator = iterable.GetIterator();
 
-            try
+            while (iterator.TryNext(out var frozenItem))
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
+                items.Add(frozenItem);
             }
 
             return new PyFrozenSet(items);
@@ -1964,16 +2008,12 @@ namespace SharpPy
             var iterator = args[0];
             var defaultValue = args.Length > 1 ? args[1] : null;
 
-            try
-            {
-                return iterator.Next();
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                if (defaultValue != null)
-                    return defaultValue;
-                throw;
-            }
+            if (iterator.TryNext(out var nextVal))
+                return nextVal;
+
+            if (defaultValue != null)
+                return defaultValue;
+            throw PyStopIteration.Create();
         }
 
         // === 수학 함수들 ===
@@ -2066,14 +2106,14 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
 
-            if (args[0] is PyString str && str.Value.Length == 1)
+            if (args[0] is PyStr str && str.Value.Length == 1)
             {
                 return new PyInt((int)str.Value[0]);
             }
             else
             {
                 throw PyTypeError.Create("ord() expected a character, but string of length " + 
-                    (args[0] is PyString s ? s.Value.Length.ToString() : "?") + " found");
+                    (args[0] is PyStr s ? s.Value.Length.ToString() : "?") + " found");
             }
         }
 
@@ -2087,7 +2127,7 @@ namespace SharpPy
                 if (i.Value < 0 || i.Value > 0x10FFFF)
                     throw PyValueError.Create("chr() arg not in range(0x110000)");
                 
-                return new PyString(((char)i.Value).ToString());
+                return new PyStr(((char)i.Value).ToString());
             }
             else
             {
@@ -2102,7 +2142,7 @@ namespace SharpPy
         {
             return name switch
             {
-                "__name__" => new PyString(Name),
+                "__name__" => new PyStr(Name),
                 "__call__" => this,
                 "__new__" when Name == "type" => new PyBuiltinFunction("type.__new__"),
                 _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
@@ -2169,7 +2209,7 @@ namespace SharpPy
                 {
                     foreach (var key in pyDict.Keys().Items)
                     {
-                        if (key is PyString keyStr)
+                        if (key is PyStr keyStr)
                         {
                             attributes.Add(keyStr.Value);
                         }
@@ -2192,7 +2232,7 @@ namespace SharpPy
             sortedNames.Sort();
             foreach (var name in sortedNames)
             {
-                sortedAttributes.Add(new PyString(name));
+                sortedAttributes.Add(new PyStr(name));
             }
 
             return new PyList(sortedAttributes);
@@ -2338,16 +2378,16 @@ namespace SharpPy
             // CPython reference: Python/bltinmodule.c:137-142
             // Line 140: PyDict_DelItem(mkw, &_Py_ID(metaclass))
             // The 'metaclass' key is removed from kwargs before passing to __prepare__ and __new__
-            if (kwargs != null && kwargs.InternalDict.ContainsKey(new PyString("metaclass")))
+            if (kwargs != null && kwargs.InternalDict.ContainsKey(new PyStr("metaclass")))
             {
-                metaclass = kwargs.InternalDict[new PyString("metaclass")];
+                metaclass = kwargs.InternalDict[new PyStr("metaclass")];
                 hasMetaclass = true;
                 #if DEBUG_LOG
                 Console.WriteLine($"   ✅ Metaclass from kwargs: {metaclass}");
                 #endif
 
                 // Remove 'metaclass' from kwargs so it doesn't get passed to __prepare__ or __new__
-                kwargs.InternalDict.Remove(new PyString("metaclass"));
+                kwargs.InternalDict.Remove(new PyStr("metaclass"));
             }
 
             // Check for explicit metaclass marker (old way, for backward compatibility)
@@ -2356,7 +2396,7 @@ namespace SharpPy
             {
                 // Look for "__metaclass__" marker in second-to-last position
                 var markerIndex = args.Length - 2;
-                if (args[markerIndex] is PyString marker && marker.Value == "__metaclass__")
+                if (args[markerIndex] is PyStr marker && marker.Value == "__metaclass__")
                 {
                     hasExplicitMetaclass = true;
                     metaclass = args[args.Length - 1];  // Last arg is metaclass
@@ -2498,7 +2538,7 @@ namespace SharpPy
                                 basesArray[i] = bases[i];
                             }
                             prepareArgs = new PyObject[] {
-                                new PyString(className),
+                                new PyStr(className),
                                 new PyTuple(basesArray)
                             };
                             #if DEBUG_LOG
@@ -2516,7 +2556,7 @@ namespace SharpPy
                             }
                             prepareArgs = new PyObject[] {
                                 metaclass,
-                                new PyString(className),
+                                new PyStr(className),
                                 new PyTuple(basesArray)
                             };
                             #if DEBUG_LOG
@@ -2548,7 +2588,7 @@ namespace SharpPy
                             {
                                 if (item is PyTuple tuple && tuple.Items.Length == 2)
                                 {
-                                    if (tuple.Items[0] is PyString keyStr)
+                                    if (tuple.Items[0] is PyStr keyStr)
                                     {
                                         classNamespace[keyStr.Value] = tuple.Items[1];
                                         #if DEBUG_LOG
@@ -2584,7 +2624,7 @@ namespace SharpPy
                                         {
                                             if (item is PyTuple tuple && tuple.Items.Length == 2)
                                             {
-                                                if (tuple.Items[0] is PyString keyStr)
+                                                if (tuple.Items[0] is PyStr keyStr)
                                                 {
                                                     classNamespace[keyStr.Value] = tuple.Items[1];
                                                 }
@@ -2602,7 +2642,7 @@ namespace SharpPy
                             // This allows us to pass the original _EnumDict instance to metaclass.__new__
                             prepareDict = new PyDict();
                             // Use InternalDict to bypass equality comparator issues
-                            prepareDict.InternalDict[new PyString("__prepare_result__")] = prepareResult;
+                            prepareDict.InternalDict[new PyStr("__prepare_result__")] = prepareResult;
 
                             // Also add to classNamespace so ExecuteClassBody can access it
                             classNamespace["__prepare_result__"] = prepareResult;
@@ -2766,9 +2806,9 @@ namespace SharpPy
 
                     // Check if prepareDict contains the __prepare_result__ marker
                     PyObject storedPrepareResult = null;
-                    if (prepareDict != null && prepareDict.InternalDict.ContainsKey(new PyString("__prepare_result__")))
+                    if (prepareDict != null && prepareDict.InternalDict.ContainsKey(new PyStr("__prepare_result__")))
                     {
-                        storedPrepareResult = prepareDict.InternalDict[new PyString("__prepare_result__")];
+                        storedPrepareResult = prepareDict.InternalDict[new PyStr("__prepare_result__")];
                         #if DEBUG_LOG
                         Console.WriteLine($"  🔍 Found __prepare_result__ marker: {storedPrepareResult?.GetType().Name}");
                         #endif
@@ -2800,7 +2840,7 @@ namespace SharpPy
                                     int count = 0;
                                     foreach (var item in itemsList.Items)
                                     {
-                                        if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyString keyStr)
+                                        if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyStr keyStr)
                                         {
                                             if (keyStr.Value == "func" || keyStr.Value == "_generate_next_value_")
                                             {
@@ -2865,7 +2905,7 @@ namespace SharpPy
                             {
                                 try
                                 {
-                                    originalPrepareResult.SetItem(new PyString(kvp.Key), kvp.Value);
+                                    originalPrepareResult.SetItem(new PyStr(kvp.Key), kvp.Value);
                                 }
                                 catch (PythonException)
                                 {
@@ -2898,7 +2938,7 @@ namespace SharpPy
                                 #if DEBUG_LOG
                                 Console.WriteLine($"    Calling __setitem__('{kvp.Key}', {kvp.Value?.GetTypeName()})");
                                 #endif
-                                setitemMethod.Call(new PyObject[] { new PyString(kvp.Key), kvp.Value }, null);
+                                setitemMethod.Call(new PyObject[] { new PyStr(kvp.Key), kvp.Value }, null);
                             }
                         }
                         else
@@ -2911,7 +2951,7 @@ namespace SharpPy
                             {
                                 try
                                 {
-                                    storedPrepareResult.SetItem(new PyString(kvp.Key), kvp.Value);
+                                    storedPrepareResult.SetItem(new PyStr(kvp.Key), kvp.Value);
                                 }
                                 catch (PythonException)
                                 {
@@ -2931,7 +2971,7 @@ namespace SharpPy
                         namespaceObj = prepareDict;
                         foreach (var kvp in classNamespace)
                         {
-                            ((PyDict)namespaceObj).SetItem(new PyString(kvp.Key), kvp.Value);
+                            ((PyDict)namespaceObj).SetItem(new PyStr(kvp.Key), kvp.Value);
                         }
                         #if DEBUG_LOG
                         Console.WriteLine($"📦 Using __prepare__ dict (PyDict)");
@@ -2943,7 +2983,7 @@ namespace SharpPy
                         var namespaceDict = new PyDict();
                         foreach (var kvp in classNamespace)
                         {
-                            namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                            namespaceDict.SetItem(new PyStr(kvp.Key), kvp.Value);
                         }
                         namespaceObj = namespaceDict;
                     }
@@ -3046,7 +3086,7 @@ namespace SharpPy
                         }
                         var newArgs = new PyObject[] {
                             metaclass,                      // cls
-                            new PyString(className),        // name
+                            new PyStr(className),        // name
                             new PyTuple(basesArray),        // bases
                             namespaceObj                    // namespace - PyDict or dict-like object (e.g., _EnumDict)
                         };
@@ -3180,7 +3220,7 @@ namespace SharpPy
                                     }
                                     var initArgs = new PyObject[] {
                                         pyClass,                    // cls (the created class)
-                                        new PyString(className),    // name
+                                        new PyStr(className),    // name
                                         new PyTuple(initBasesArray),// bases
                                         namespaceObj                // namespace (dict or dict-like object)
                                     };
@@ -3216,7 +3256,7 @@ namespace SharpPy
                             {
                                 fallbackBasesArray[i] = bases[i];
                             }
-                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(fallbackBasesArray), namespaceObj });
+                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyStr(className), new PyTuple(fallbackBasesArray), namespaceObj });
                             // If type.__new__ didn't return a PyClass, create one with module info
                             if (typeResult is PyClass existingClass)
                             {
@@ -3225,7 +3265,7 @@ namespace SharpPy
                             else
                             {
                                 string moduleInfo = null;
-                                if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                                if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyStr moduleStr)
                                 {
                                     moduleInfo = moduleStr.Value;
                                 }
@@ -3263,7 +3303,7 @@ namespace SharpPy
                         {
                             noCallableBasesArray[i] = bases[i];
                         }
-                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(noCallableBasesArray), namespaceObj });
+                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyStr(className), new PyTuple(noCallableBasesArray), namespaceObj });
                         // If type.__new__ didn't return a PyClass, create one with module info
                         if (typeResult is PyClass existingClass)
                         {
@@ -3272,7 +3312,7 @@ namespace SharpPy
                         else
                         {
                             string moduleInfo = null;
-                            if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                            if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyStr moduleStr)
                             {
                                 moduleInfo = moduleStr.Value;
                             }
@@ -3317,7 +3357,7 @@ namespace SharpPy
             {
                 // Extract __module__ from class namespace
                 string moduleInfo = null;
-                if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
+                if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyStr moduleStr)
                 {
                     moduleInfo = moduleStr.Value;
                 }
@@ -3362,7 +3402,7 @@ namespace SharpPy
                 var namespaceDict = new PyDict();
                 foreach (var kvp in classNamespace)
                 {
-                    namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                    namespaceDict.SetItem(new PyStr(kvp.Key), kvp.Value);
                 }
                 
                 // After metaclass execution, the namespaceDict should contain any additions
@@ -3477,7 +3517,7 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 Calling __set_name__ for attribute '{key}' on {value.GetTypeName()}");
                         #endif
-                        setNameMethod.Call(new PyObject[] { pyClass, new PyString(key) }, null);
+                        setNameMethod.Call(new PyObject[] { pyClass, new PyStr(key) }, null);
                     }
                 }
                 catch (PythonException ex) when (ex.PyException is PyAttributeError)
@@ -3516,7 +3556,7 @@ namespace SharpPy
                     globals = new Dictionary<string, PyObject>();
                     foreach (var kvp in globalsDict.InternalDict)
                     {
-                        if (kvp.Key is PyString keyStr)
+                        if (kvp.Key is PyStr keyStr)
                             globals[keyStr.Value] = kvp.Value;
                     }
                 }
@@ -3537,7 +3577,7 @@ namespace SharpPy
             {
                 foreach (var kvp in kwargs.InternalDict)
                 {
-                    if (kvp.Key is PyString keyStr)
+                    if (kvp.Key is PyStr keyStr)
                     {
                         switch (keyStr.Value)
                         {
@@ -3550,7 +3590,7 @@ namespace SharpPy
                                     globals = new Dictionary<string, PyObject>();
                                     foreach (var g in gDict.InternalDict)
                                     {
-                                        if (g.Key is PyString gKeyStr)
+                                        if (g.Key is PyStr gKeyStr)
                                             globals[gKeyStr.Value] = g.Value;
                                     }
                                 }
@@ -3591,7 +3631,7 @@ namespace SharpPy
                 var result = new string[tuple.Items.Length];
                 for (int i = 0; i < tuple.Items.Length; i++)
                 {
-                    result[i] = tuple.Items[i] is PyString s ? s.Value : tuple.Items[i].AsString();
+                    result[i] = tuple.Items[i] is PyStr s ? s.Value : tuple.Items[i].AsString();
                 }
                 return result;
             }
@@ -3603,7 +3643,7 @@ namespace SharpPy
                 var result = new string[items.Length];
                 for (int i = 0; i < items.Length; i++)
                 {
-                    result[i] = items[i] is PyString s ? s.Value : items[i].AsString();
+                    result[i] = items[i] is PyStr s ? s.Value : items[i].AsString();
                 }
                 return result;
             }
@@ -3688,49 +3728,49 @@ namespace SharpPy
             {
                 try
                 {
-                    var modeValue = kwargs.GetItem(new PyString("mode"));
+                    var modeValue = kwargs.GetItem(new PyStr("mode"));
                     mode = modeValue.ToStr().Value;
                 }
                 catch { }
 
                 try
                 {
-                    var bufferingValue = kwargs.GetItem(new PyString("buffering"));
+                    var bufferingValue = kwargs.GetItem(new PyStr("buffering"));
                     buffering = (int)((PyInt)bufferingValue).Value;
                 }
                 catch { }
 
                 try
                 {
-                    var encodingValue = kwargs.GetItem(new PyString("encoding"));
+                    var encodingValue = kwargs.GetItem(new PyStr("encoding"));
                     encoding = encodingValue != PyNone.Instance ? encodingValue.ToStr().Value : null;
                 }
                 catch { }
 
                 try
                 {
-                    var errorsValue = kwargs.GetItem(new PyString("errors"));
+                    var errorsValue = kwargs.GetItem(new PyStr("errors"));
                     errors = errorsValue != PyNone.Instance ? errorsValue.ToStr().Value : null;
                 }
                 catch { }
 
                 try
                 {
-                    var newlineValue = kwargs.GetItem(new PyString("newline"));
+                    var newlineValue = kwargs.GetItem(new PyStr("newline"));
                     newline = newlineValue != PyNone.Instance ? newlineValue.ToStr().Value : null;
                 }
                 catch { }
 
                 try
                 {
-                    var closefdValue = kwargs.GetItem(new PyString("closefd"));
+                    var closefdValue = kwargs.GetItem(new PyStr("closefd"));
                     closefd = closefdValue.PyBoolValue();
                 }
                 catch { }
 
                 try
                 {
-                    var openerValue = kwargs.GetItem(new PyString("opener"));
+                    var openerValue = kwargs.GetItem(new PyStr("opener"));
                     opener = openerValue != PyNone.Instance ? openerValue : null;
                 }
                 catch { }
@@ -3739,7 +3779,7 @@ namespace SharpPy
                 var validKeys = new[] { "mode", "buffering", "encoding", "errors", "newline", "closefd", "opener" };
                 foreach (var kvp in kwargs.InternalDict)
                 {
-                    if (kvp.Key is PyString keyStr && !validKeys.Contains(keyStr.Value))
+                    if (kvp.Key is PyStr keyStr && !validKeys.Contains(keyStr.Value))
                     {
                         throw PyTypeError.Create($"'{keyStr.Value}' is an invalid keyword argument for open()");
                     }
@@ -3992,17 +4032,17 @@ namespace SharpPy
             var attrs = args[3];      // Class attributes dict (e.g., {"method": <function>})
 
             #if DEBUG_LOG
-            Console.WriteLine($"\n🔍 CallTypeNew called for class: {(name as PyString)?.Value}");
+            Console.WriteLine($"\n🔍 CallTypeNew called for class: {(name as PyStr)?.Value}");
             Console.WriteLine($"  metaclass: {cls?.GetTypeName()}");
             Console.WriteLine($"  attrs type: {attrs?.GetType().Name}, PyType: {attrs?.GetTypeName()}");
             if (kwargs != null && kwargs.InternalDict.Count > 0)
             {
-                Console.WriteLine($"  kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
+                Console.WriteLine($"  kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyStr)?.Value))}");
             }
             #endif
 
             // Convert arguments to proper types
-            if (!(name is PyString nameStr))
+            if (!(name is PyStr nameStr))
             {
                 throw PyTypeError.Create("type.__new__() argument 2 must be string");
             }
@@ -4126,7 +4166,7 @@ namespace SharpPy
             {
                 if (items.Items[i] is PyTuple kvp && kvp.Items.Length == 2)
                 {
-                    if (kvp.Items[0] is PyString keyStr)
+                    if (kvp.Items[0] is PyStr keyStr)
                     {
                         #if DEBUG_LOG
                         if (keyStr.Value == "func" || keyStr.Value == "_generate_next_value_")
@@ -4215,7 +4255,7 @@ namespace SharpPy
             var result = new PyDict();
             foreach (var variable in localScope.Variables)
             {
-                result.SetItem(new PyString(variable.Key), variable.Value);
+                result.SetItem(new PyStr(variable.Key), variable.Value);
             }
 
             return result;
@@ -4239,7 +4279,7 @@ namespace SharpPy
                 var arg = args[0];
 
                 // bytes(string, encoding) - convert string to bytes
-                if (arg is PyString str)
+                if (arg is PyStr str)
                 {
                     // Default encoding is utf-8
                     var bytes = System.Text.Encoding.UTF8.GetBytes(str.Value);
@@ -4298,7 +4338,7 @@ namespace SharpPy
             else if (args.Length == 2)
             {
                 // bytes(string, encoding)
-                if (args[0] is PyString str && args[1] is PyString encoding)
+                if (args[0] is PyStr str && args[1] is PyStr encoding)
                 {
                     var enc = encoding.Value.ToLowerInvariant() switch
                     {
@@ -4333,7 +4373,7 @@ namespace SharpPy
             else if (args.Length == 1)
             {
                 var arg = args[0];
-                if (arg is PyString str)
+                if (arg is PyStr str)
                 {
                     return new PyBytearrayObject(str.Value);
                 }
@@ -4410,7 +4450,7 @@ namespace SharpPy
 
             var obj = args[0];
 
-            // Use the object's ToRepr() method, which already returns a PyString
+            // Use the object's ToRepr() method, which already returns a PyStr
             // Don't wrap it again, as that would add extra quotes
             return obj.ToRepr();
         }
@@ -4577,7 +4617,7 @@ namespace SharpPy
                     sb.Append($"\\U{(int)c:x8}");
                 }
             }
-            return new PyString(sb.ToString());
+            return new PyStr(sb.ToString());
         }
 
         /// <summary>
@@ -4668,9 +4708,9 @@ namespace SharpPy
                 throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
 
             var value = args[0];
-            var formatSpec = args.Length > 1 ? args[1] : new PyString("");
+            var formatSpec = args.Length > 1 ? args[1] : new PyStr("");
 
-            if (formatSpec is not PyString specStr)
+            if (formatSpec is not PyStr specStr)
                 throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
 
             // Try to call __format__ method
@@ -4791,14 +4831,14 @@ namespace SharpPy
                 // For types, check the type's __dict__
                 if (obj is PyType typeObj && typeObj.TypeDict.TryGetValue("__doc__", out var typeDoc))
                 {
-                    if (typeDoc is PyString docStr)
+                    if (typeDoc is PyStr docStr)
                         return docStr.Value;
                 }
 
                 // For classes, check __doc__ in __dict__
                 if (obj is PyClass cls)
                 {
-                    if (cls.TypeDict.TryGetValue("__doc__", out var clsDoc) && clsDoc is PyString docStr)
+                    if (cls.TypeDict.TryGetValue("__doc__", out var clsDoc) && clsDoc is PyStr docStr)
                         return docStr.Value;
                 }
 
@@ -4806,13 +4846,13 @@ namespace SharpPy
                 if (obj is PyFunction func)
                 {
                     var docAttr = func.GetAttribute("__doc__");
-                    if (docAttr != PyNone.Instance && docAttr is PyString docStr)
+                    if (docAttr != PyNone.Instance && docAttr is PyStr docStr)
                         return docStr.Value;
                 }
 
                 // Generic attribute access
                 var docObj = obj.GetAttribute("__doc__");
-                if (docObj != PyNone.Instance && docObj is PyString str)
+                if (docObj != PyNone.Instance && docObj is PyStr str)
                     return str.Value;
             }
             catch { }
@@ -5146,9 +5186,9 @@ namespace SharpPy
         }
 
         // CPython: Lib/_sitebuiltins.py:30-36
-        public override PyString ToRepr()
+        public override PyStr ToRepr()
         {
-            return new PyString(_message);
+            return new PyStr(_message);
         }
 
         // CPython: Lib/_sitebuiltins.py:38-42
@@ -5171,7 +5211,7 @@ namespace SharpPy
     {
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "object";
-        public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
-        public override PyString ToStr() => ToRepr();
+        public override PyStr ToRepr() => new PyStr($"<object object at 0x{GetHashCode():x}>");
+        public override PyStr ToStr() => ToRepr();
     }
 }

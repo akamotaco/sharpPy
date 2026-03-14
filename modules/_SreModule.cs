@@ -28,8 +28,8 @@ namespace SharpPy.Modules
             if (PyPatternType == null)
             {
                 PyPatternType = new PyType("Pattern", new[] { PyType.ObjectType });
-                PyPatternType.TypeDict["__name__"] = new PyString("Pattern");
-                PyPatternType.TypeDict["__module__"] = new PyString("_sre");
+                PyPatternType.TypeDict["__name__"] = new PyStr("Pattern");
+                PyPatternType.TypeDict["__module__"] = new PyStr("_sre");
             }
 
             var module = new PyModule("_sre", "<_sre C module>");
@@ -299,7 +299,7 @@ namespace SharpPy.Modules
             switch (name)
             {
                 case "pattern":
-                    return new PyString(_pattern);
+                    return new PyStr(_pattern);
                 case "flags":
                     return new PyInt((int)_flags);
                 case "match":
@@ -412,13 +412,13 @@ namespace SharpPy.Modules
                     var groups = new List<PyObject>();
                     for (int i = 1; i < match.Groups.Count; i++)
                     {
-                        groups.Add(new PyString(match.Groups[i].Value));
+                        groups.Add(new PyStr(match.Groups[i].Value));
                     }
                     result.Add(new PyTuple(groups.ToArray()));
                 }
                 else
                 {
-                    result.Add(new PyString(match.Value));
+                    result.Add(new PyStr(match.Value));
                 }
             }
 
@@ -464,7 +464,7 @@ namespace SharpPy.Modules
                 _regex.Replace(text.Value, repl.Value) :
                 _regex.Replace(text.Value, repl.Value, count);
 
-            return new PyString(result);
+            return new PyStr(result);
         }
 
         /// <summary>
@@ -490,7 +490,7 @@ namespace SharpPy.Modules
                 _regex.Replace(text.Value, repl.Value, count);
 
             var actualSubstitutions = count <= 0 ? matches : Math.Min(matches, count);
-            return new PyTuple(new PyString(result), new PyInt(actualSubstitutions));
+            return new PyTuple(new PyStr(result), new PyInt(actualSubstitutions));
         }
 
         /// <summary>
@@ -531,7 +531,7 @@ namespace SharpPy.Modules
             var result = new List<PyObject>();
             foreach (var part in parts)
             {
-                result.Add(new PyString(part));
+                result.Add(new PyStr(part));
             }
 
             return new PyList(result.ToArray());
@@ -569,7 +569,7 @@ namespace SharpPy.Modules
             switch (name)
             {
                 case "string":
-                    return new PyString(_string);
+                    return new PyStr(_string);
                 case "group":
                     return new PyBuiltinFunction("group", Group);
                 case "groups":
@@ -594,7 +594,7 @@ namespace SharpPy.Modules
         {
             if (args.Length == 0)
             {
-                return new PyString(_match.Value);
+                return new PyStr(_match.Value);
             }
 
             if (args.Length == 1)
@@ -603,14 +603,14 @@ namespace SharpPy.Modules
                 {
                     if (groupNum.Value < 0 || groupNum.Value >= _match.Groups.Count)
                         throw PyIndexError.Create("no such group");
-                    return new PyString(_match.Groups[(int)groupNum.Value].Value);
+                    return new PyStr(_match.Groups[(int)groupNum.Value].Value);
                 }
-                else if (args[0] is PyString groupName)
+                else if (args[0] is PyStr groupName)
                 {
                     try
                     {
                         var group = _match.Groups[groupName.Value];
-                        return new PyString(group.Value);
+                        return new PyStr(group.Value);
                     }
                     catch
                     {
@@ -626,14 +626,14 @@ namespace SharpPy.Modules
                 {
                     if (groupNum.Value < 0 || groupNum.Value >= _match.Groups.Count)
                         throw PyIndexError.Create("no such group");
-                    result.Add(new PyString(_match.Groups[(int)groupNum.Value].Value));
+                    result.Add(new PyStr(_match.Groups[(int)groupNum.Value].Value));
                 }
-                else if (arg is PyString groupName)
+                else if (arg is PyStr groupName)
                 {
                     try
                     {
                         var group = _match.Groups[groupName.Value];
-                        result.Add(new PyString(group.Value));
+                        result.Add(new PyStr(group.Value));
                     }
                     catch
                     {
@@ -654,7 +654,7 @@ namespace SharpPy.Modules
             {
                 var group = _match.Groups[i];
                 if (group.Success)
-                    result.Add(new PyString(group.Value));
+                    result.Add(new PyStr(group.Value));
                 else
                     result.Add(defaultValue);
             }
@@ -672,8 +672,8 @@ namespace SharpPy.Modules
                 if (groupName != "0")
                 {
                     var group = _match.Groups[groupName];
-                    var value = group.Success ? new PyString(group.Value) : defaultValue;
-                    result.SetItem(new PyString(groupName), value);
+                    var value = group.Success ? new PyStr(group.Value) : defaultValue;
+                    result.SetItem(new PyStr(groupName), value);
                 }
             }
 

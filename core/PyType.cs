@@ -21,6 +21,10 @@ namespace SharpPy
         private const int CACHE_SIZE = 4096;
         private readonly CacheEntry[] _cache = new CacheEntry[CACHE_SIZE];
 
+        // Direct static reference to PyClass.GetTypeAttribute
+        // Replaces previous MethodInfo.Invoke Reflection path (100-1000x slower)
+        // CPython: Objects/typeobject.c — slot_tp_* 정적 슬롯 대응
+
         /// <summary>
         /// Lookup method in cache with version tag validation
         /// CPython reference: Objects/typeobject.c:4650-4774 (_PyType_Lookup)
@@ -79,23 +83,18 @@ namespace SharpPy
 
                 // Fallback: Check hardcoded descriptors via GetTypeAttribute
                 // This handles cases like list.__delitem__ which are defined in PyClass but not in TypeDict
-                // Note: Must be in SharpPy.PyClass (forward reference through dynamic lookup)
-                try
+                // CPython: Objects/typeobject.c — slot wrapper descriptors
                 {
-                    var getTypeAttrMethod = typeof(SharpPy.PyClass).GetMethod(
-                        "GetTypeAttribute",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
-                    );
-                    if (getTypeAttrMethod != null)
+                    try
                     {
-                        var result = (PyObject)getTypeAttrMethod.Invoke(null, new object[] { mroType, name });
+                        var result = PyClass.GetTypeAttribute(mroType, name);
                         if (result != null)
                             return result;
                     }
-                }
-                catch
-                {
-                    // Ignore reflection errors
+                    catch
+                    {
+                        // Ignore lookup errors
+                    }
                 }
             }
 
@@ -496,7 +495,7 @@ namespace SharpPy
         // isinstance/issubclass 지원
         public bool IsSubclassOf(PyType other)
         {
-#if SHARPPY_DEBUG_SUBCLASS
+#if SHARPPY_DEBUG
             Console.WriteLine($"[IsSubclassOf] Checking if {this.Name} (id={this.GetHashCode()}) is subclass of {other.Name} (id={other.GetHashCode()})");
             Console.WriteLine($"[IsSubclassOf] MRO.Count = {MRO.Count}");
             for (int i = 0; i < MRO.Count; i++)
@@ -513,7 +512,7 @@ namespace SharpPy
             {
                 if (ReferenceEquals(MRO[i], other))
                 {
-#if SHARPPY_DEBUG_SUBCLASS
+#if SHARPPY_DEBUG
                     Console.WriteLine($"[IsSubclassOf] Found match at MRO[{i}] by ReferenceEquals");
 #endif
                     return true;
@@ -529,14 +528,14 @@ namespace SharpPy
                      mroType.Name == "str" || mroType.Name == "int" || mroType.Name == "float" ||
                      mroType.Name == "bool" || mroType.Name == "object" || mroType.Name == "type"))
                 {
-#if SHARPPY_DEBUG_SUBCLASS
+#if SHARPPY_DEBUG
                     Console.WriteLine($"[IsSubclassOf] Found match by name: {mroType.Name}");
 #endif
                     return true;
                 }
             }
 
-#if SHARPPY_DEBUG_SUBCLASS
+#if SHARPPY_DEBUG
             Console.WriteLine($"[IsSubclassOf] No match found, returning false");
 #endif
             return false;
@@ -558,7 +557,7 @@ namespace SharpPy
             // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
             if (this == TypeType && args.Length == 3)
             {
-                if (args[0] is PyString name && args[1] is PyTuple bases && args[2] is PyDict classDict)
+                if (args[0] is PyStr name && args[1] is PyTuple bases && args[2] is PyDict classDict)
                 {
                     // CPython 3.12: If kwargs are provided, we need to determine the metaclass
                     // and call its __new__ method with the kwargs
@@ -602,7 +601,7 @@ namespace SharpPy
                     var stringDict = new Dictionary<string, PyObject>();
                     foreach (var kv in classDict.InternalDict)
                     {
-                        if (kv.Key is PyString keyStr)
+                        if (kv.Key is PyStr keyStr)
                         {
                             stringDict[keyStr.Value] = kv.Value;
                         }
@@ -670,7 +669,7 @@ namespace SharpPy
         public virtual PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
         {
             // 예외 타입들에 대한 특별 처리
-            string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
+            string message = args.Length > 0 && args[0] is PyStr pyStr ? pyStr.Value : "";
 
             switch (Name)
             {
@@ -742,7 +741,7 @@ namespace SharpPy
                         // BaseExceptionGroup(message, exceptions) - handle the special constructor
                         if (args.Length >= 2)
                         {
-                            string msg = args[0] is PyString msgStr ? msgStr.Value : "";
+                            string msg = args[0] is PyStr msgStr ? msgStr.Value : "";
                             var exceptions = new List<PyException>();
 
                             if (args[1] is PyList exceptionList)
@@ -771,7 +770,7 @@ namespace SharpPy
                         // ExceptionGroup(message, exceptions) - handle the special constructor
                         if (args.Length >= 2)
                         {
-                            string msg = args[0] is PyString msgStr ? msgStr.Value : "";
+                            string msg = args[0] is PyStr msgStr ? msgStr.Value : "";
                             var exceptions = new List<PyException>();
 
                             if (args[1] is PyList exceptionList)
@@ -805,7 +804,7 @@ namespace SharpPy
                         var stringDict = new Dictionary<string, PyObject>();
                         foreach (var kv in dict.InternalDict)
                         {
-                            if (kv.Key is PyString keyStr)
+                            if (kv.Key is PyStr keyStr)
                                 stringDict[keyStr.Value] = kv.Value;
                         }
                         return new PyMappingProxy(stringDict);
@@ -873,9 +872,58 @@ namespace SharpPy
                     throw PyTypeError.Create($"bytearray() takes at most 1 argument ({args.Length} given)");
             }
 
+            // Fast path for common type conversions — avoid PyBuiltinFunction allocation
+            // CPython 3.12: Objects/unicodeobject.c:14702 (str), longobject.c:5766 (int), floatobject.c:1744 (float)
+            switch (Name)
+            {
+                case "str":
+                    if (args.Length == 0) return new PyStr("");
+                    if (args.Length == 1) return args[0] is PyStr s ? s : new PyStr(args[0].AsString());
+                    break;
+                case "int":
+                    if (args.Length == 0) return SmallIntCache.Zero;
+                    if (args.Length == 1)
+                    {
+                        var a = args[0];
+                        if (a is PyInt pi) return pi;
+                        if (a is PyFloat pf) return new PyInt((long)pf.Value);
+                        if (a is PyBool pb) return pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
+                        if (a is PyStr ps)
+                        {
+                            if (System.Numerics.BigInteger.TryParse(ps.Value.Trim(), out var bv))
+                                return new PyInt(bv);
+                        }
+                    }
+                    break;
+                case "float":
+                    if (args.Length == 0) return new PyFloat(0.0);
+                    if (args.Length == 1)
+                    {
+                        var a = args[0];
+                        if (a is PyFloat pf) return pf;
+                        if (a is PyInt pi) return new PyFloat((double)pi.Value);
+                        if (a is PyBool pb) return new PyFloat(pb.Value ? 1.0 : 0.0);
+                    }
+                    break;
+                case "bool":
+                    if (args.Length == 0) return PyBool.False;
+                    if (args.Length == 1) return PyBool.FromBool(args[0].PyBoolValue());
+                    break;
+                case "list":
+                    if (args.Length == 0) return new PyList();
+                    break;
+                case "dict":
+                    if (args.Length == 0 && (kwargs == null || kwargs.InternalDict.Count == 0))
+                        return new PyDict();
+                    break;
+                case "tuple":
+                    if (args.Length == 0) return PyTuple.Empty;
+                    break;
+            }
+
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
             var builtinFunc = new PyBuiltinFunction(Name);
-            return builtinFunc.Call(args, null);
+            return builtinFunc.Call(args, kwargs);
         }
 
         // Special method lookup (MRO 기반) with method cache
@@ -949,7 +997,7 @@ namespace SharpPy
 
         /// <summary>
         /// str 타입의 descriptor 테이블 초기화 (CPython unicodeobject.c 참조)
-        /// 실제 descriptor 등록은 PyString.InitializeStringDescriptors()에서 수행됨
+        /// 실제 descriptor 등록은 PyStr.InitializeStringDescriptors()에서 수행됨
         /// </summary>
         private void InitializeStrTypeDescriptors()
         {
@@ -968,30 +1016,28 @@ namespace SharpPy
 
                     // If called with just the class, return empty string
                     if (args.Length == 1)
-                        return new PyString("");
+                        return new PyStr("");
 
                     var obj = args[1];
 
                     // Convert object to string
-                    // PyBool must be checked before PyInt (bool inherits int)
-                    // str(True) → "True", not "1"
-                    if (obj is PyString pyStr)
+                    if (obj is PyStr pyStr)
                         return pyStr;
-                    else if (obj is PyBool pyBool)
-                        return new PyString(pyBool.Value ? "True" : "False");
                     else if (obj is PyInt pyInt)
-                        return new PyString(pyInt.Value.ToString());
+                        return new PyStr(pyInt.Value.ToString());
                     else if (obj is PyFloat pyFloat)
-                        return new PyString(pyFloat.Value.ToString());
+                        return new PyStr(pyFloat.Value.ToString());
+                    else if (obj is PyBool pyBool)
+                        return new PyStr(pyBool.Value ? "True" : "False");
                     else if (obj is PyNone)
-                        return new PyString("None");
+                        return new PyStr("None");
                     else
                         // Call __str__ method
-                        return new PyString(obj.ToString());
+                        return new PyStr(obj.ToString());
                 }
             );
 
-            // PyString.InitializeStringDescriptors()에서 모든 str descriptor를 등록하므로
+            // PyStr.InitializeStringDescriptors()에서 모든 str descriptor를 등록하므로
             // 여기서는 __new__ 외에는 아무것도 하지 않음 (중복 방지)
         }
 
@@ -1033,16 +1079,14 @@ namespace SharpPy
                     }
 
                     // Convert x to int
-                    // PyBool must be checked before PyInt (bool inherits int)
-                    // int(True) → 1 (type=int, not bool)
-                    if (x is PyBool pyBool)
-                        return pyBool.AsInt();
-                    else if (x is PyInt pyInt)
+                    if (x is PyInt pyInt)
                         return pyInt;
-                    else if (x is PyString pyStr)
+                    else if (x is PyStr pyStr)
                         return PyInt.FromString(pyStr.Value, baseValue);
                     else if (x is PyFloat pyFloat)
                         return new PyInt((long)pyFloat.Value);
+                    else if (x is PyBool pyBool)
+                        return new PyInt(pyBool.Value ? 1 : 0);
                     else
                         throw PyTypeError.Create($"int() argument must be a string or a number, not '{x.GetTypeName()}'");
                 }
@@ -1167,7 +1211,7 @@ namespace SharpPy
                     if (args.Length < 1)
                         throw PyTypeError.Create("__getattribute__() missing 1 required positional argument: 'name'");
 
-                    if (args[0] is not PyString nameStr)
+                    if (args[0] is not PyStr nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
                     // CPython: object's tp_getattro points directly to PyObject_GenericGetAttr (C function)
@@ -1195,7 +1239,7 @@ namespace SharpPy
                     if (args.Length < 2)
                         throw PyTypeError.Create("__setattr__() missing required positional arguments");
 
-                    if (args[0] is not PyString nameStr)
+                    if (args[0] is not PyStr nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
                     // CPython 3.12: object.__setattr__ uses _PyObject_GenericSetAttrWithDict
@@ -1227,7 +1271,7 @@ namespace SharpPy
                     if (args.Length < 1)
                         throw PyTypeError.Create("__delattr__() missing 1 required positional argument: 'name'");
 
-                    if (args[0] is not PyString nameStr)
+                    if (args[0] is not PyStr nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
                     // CPython 3.12: object.__delattr__ uses _PyObject_GenericSetAttrWithDict with value=NULL
@@ -1270,7 +1314,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
 
-                    if (args[0] is not PyString specStr)
+                    if (args[0] is not PyStr specStr)
                         throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
 
                     // CPython: empty format_spec returns str(self)
@@ -1305,7 +1349,7 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString(type.Name);
+                    return new PyStr(type.Name);
                 }
             );
 
@@ -1317,7 +1361,7 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString(type.Name);  // For built-in types, qualname == name
+                    return new PyStr(type.Name);  // For built-in types, qualname == name
                 }
             );
 
@@ -1449,12 +1493,12 @@ namespace SharpPy
                     var dotIndex = type.Name.LastIndexOf('.');
                     if (dotIndex >= 0)
                     {
-                        return new PyString(type.Name.Substring(0, dotIndex));
+                        return new PyStr(type.Name.Substring(0, dotIndex));
                     }
 
                     // Default: "builtins" for built-in types
                     // CPython: mod = Py_NewRef(&_Py_ID(builtins));
-                    return new PyString("builtins");
+                    return new PyStr("builtins");
                 },
                 setter: (self, value) => {
                     if (self is not PyType type)
@@ -1493,7 +1537,7 @@ namespace SharpPy
                     var namespaceArg = args[3];
 
                     // Validate arguments
-                    if (nameArg is not PyString name)
+                    if (nameArg is not PyStr name)
                         throw PyTypeError.Create($"type.__new__() argument 2 must be str, not {nameArg.GetTypeName()}");
 
                     if (basesArg is not PyTuple bases)
@@ -1520,7 +1564,7 @@ namespace SharpPy
                     var stringDict = new Dictionary<string, PyObject>();
                     foreach (var kv in classDict.InternalDict)
                     {
-                        if (kv.Key is PyString keyStr)
+                        if (kv.Key is PyStr keyStr)
                         {
                             stringDict[keyStr.Value] = kv.Value;
                         }
@@ -1548,7 +1592,7 @@ namespace SharpPy
                     if (args.Length < 2)
                         throw PyTypeError.Create("__setattr__() missing required positional arguments");
 
-                    if (args[0] is not PyString nameStr)
+                    if (args[0] is not PyStr nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
                     // CPython 3.12: Objects/typeobject.c:4815-4894 (type_setattro)
@@ -1577,7 +1621,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__repr__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString($"<class '{type.Name}'>");
+                    return new PyStr($"<class '{type.Name}'>");
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -1592,7 +1636,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__str__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString($"<class '{type.Name}'>");
+                    return new PyStr($"<class '{type.Name}'>");
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -1608,7 +1652,7 @@ namespace SharpPy
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // format_spec is args[0], but for type objects we just return str()
-                    return new PyString($"<class '{type.Name}'>");
+                    return new PyStr($"<class '{type.Name}'>");
                 },
                 minArgs: 1,
                 maxArgs: 1
@@ -1626,7 +1670,7 @@ namespace SharpPy
                     // Return (type, (type.__name__,))
                     return new PyTuple(new PyObject[] {
                         TypeType,
-                        new PyTuple(new PyObject[] { new PyString(type.Name) })
+                        new PyTuple(new PyObject[] { new PyStr(type.Name) })
                     });
                 },
                 minArgs: 1,
@@ -2698,8 +2742,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToRepr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
-        public override PyString ToStr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
+        public override PyStr ToRepr() => new PyStr(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
+        public override PyStr ToStr() => new PyStr(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
 
         #endregion
 
@@ -2804,7 +2848,7 @@ namespace SharpPy
                     var dict = new Dictionary<string, PyObject>();
                     foreach (var kvp in pyDict.InternalDict)
                     {
-                        if (kvp.Key is PyString keyStr)
+                        if (kvp.Key is PyStr keyStr)
                         {
                             dict[keyStr.Value] = kvp.Value;
                         }
@@ -2926,10 +2970,10 @@ namespace SharpPy
                     // C# exception object - directly access Args
                     var excArgs = exc.Args;
                     if (excArgs.Length == 0)
-                        return new PyString("");
+                        return new PyStr("");
                     if (excArgs.Length == 1)
                         return excArgs[0].ToStr();
-                    return new PyString($"({string.Join(", ", excArgs.Select(a => a.ToRepr().Value))})");
+                    return new PyStr($"({string.Join(", ", excArgs.Select(a => a.ToRepr().Value))})");
                 }
                 else if (self is PyClassInstance inst)
                 {
@@ -2940,16 +2984,16 @@ namespace SharpPy
                         if (argsAttr is PyTuple tuple)
                         {
                             if (tuple.Items.Length == 0)
-                                return new PyString("");
+                                return new PyStr("");
                             if (tuple.Items.Length == 1)
                                 return tuple.Items[0].ToStr();
-                            return new PyString($"({string.Join(", ", tuple.Items.Select(a => a.ToRepr().Value))})");
+                            return new PyStr($"({string.Join(", ", tuple.Items.Select(a => a.ToRepr().Value))})");
                         }
                     }
                 }
 
                 // Fallback: return empty string
-                return new PyString("");
+                return new PyStr("");
             });
 
             // CPython 3.12: Objects/exceptions.c:785-795 (BaseException_args member descriptor)
@@ -2991,7 +3035,7 @@ namespace SharpPy
         public override string GetTypeName() => "object";
 
         public override string ToString() => "<object>";
-        public override PyString ToRepr() => new PyString("<object>");
+        public override PyStr ToRepr() => new PyStr("<object>");
 
         // CPython 3.12: Handle builtin methods for object instances
         public override PyObject GetAttribute(string name)

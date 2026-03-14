@@ -46,9 +46,11 @@ namespace SharpPy
                     long value = 0;
                     if (args.Length > 0)
                     {
-                        if (args[0] is PyInt intArg)  // PyBool is PyInt (bool inherits int)
+                        if (args[0] is PyInt intArg)
                             value = intArg.ToLong();
-                        else if (args[0] is PyString strArg)
+                        else if (args[0] is PyBool boolArg)
+                            value = boolArg.Value ? 1 : 0;
+                        else if (args[0] is PyStr strArg)
                             value = long.Parse(strArg.Value);
                         else
                             throw PyTypeError.Create($"int() argument must be a string or a number, not '{args[0].GetTypeName()}'");
@@ -156,7 +158,7 @@ namespace SharpPy
                     string byteorder = "big";
                     if (args.Length >= 2)
                     {
-                        if (args[1] is not PyString byteorderStr)
+                        if (args[1] is not PyStr byteorderStr)
                             throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
                         byteorder = byteorderStr.Value;
                     }
@@ -219,7 +221,7 @@ namespace SharpPy
                     string byteorder = "big";
                     if (args.Length >= 2)
                     {
-                        if (args[1] is not PyString byteorderStr)
+                        if (args[1] is not PyStr byteorderStr)
                             throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
                         byteorder = byteorderStr.Value;
                     }
@@ -353,7 +355,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"__format__() takes 1 positional argument ({args.Length} given)");
-                    if (args[0] is not PyString specStr)
+                    if (args[0] is not PyStr specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
                     // CPython 3.12: Objects/longobject.c:5555-5640 - long__format__
@@ -366,7 +368,7 @@ namespace SharpPy
                     else
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    return new PyString(FormatInt(value, specStr.Value));
+                    return new PyStr(FormatInt(value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -393,11 +395,13 @@ namespace SharpPy
                     if (args.Length >= 2 && args[1] != PyNone.Instance)
                     {
                         // CPython: Line 5605-5615 - convert x to int
-                        if (args[1] is PyInt pyInt)  // PyBool is PyInt
+                        if (args[1] is PyInt pyInt)
                             value = (long)pyInt.Value;
                         else if (args[1] is PyFloat pyFloat)
                             value = (long)Math.Truncate(pyFloat.Value);
-                        else if (args[1] is PyString pyStr)
+                        else if (args[1] is PyBool pyBool)
+                            value = pyBool.Value ? 1 : 0;
+                        else if (args[1] is PyStr pyStr)
                         {
                             // Handle base parameter if present
                             int baseValue = 10;
@@ -454,15 +458,41 @@ namespace SharpPy
 
         public Py_int_t Value { get; }
 
+        /// <summary>
+        /// Cached long representation for fast PyValue.FromObject conversion.
+        /// Avoids expensive BigInteger comparison/cast in hot paths (CALL arg passing).
+        /// CPython 3.12: ob_digit[0] stores compact value for small ints.
+        /// </summary>
+        internal readonly long CachedLong;
+        internal readonly bool FitsInLong;
+
         // CPython 3.12: Objects/longobject.c - PyLongObject inherits ob_type from PyObject
         // Constructor can optionally set custom type for subclasses (IntEnum, IntFlag)
         public PyInt(Py_int_t value, PyType? customType = null)
         {
             Value = value;
+            if (value >= long.MinValue && value <= long.MaxValue)
+            {
+                CachedLong = (long)value;
+                FitsInLong = true;
+            }
             if (customType != null)
             {
                 _customType = customType;  // Inherited from PyObject
             }
+        }
+
+        /// <summary>
+        /// Fast constructor for values known to fit in long.
+        /// Avoids BigInteger comparison in the hot path.
+        /// CPython 3.12: _PyLong_FromLong — small int creation
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public PyInt(long value)
+        {
+            Value = value;
+            CachedLong = value;
+            FitsInLong = true;
         }
 
         // CPython 3.12: Objects/object.c:350 - Py_TYPE(op) returns ob_type
@@ -484,13 +514,13 @@ namespace SharpPy
         /// </summary>
         public long ToLong()
         {
-            // CPython: Check if value fits in long range
-            if (Value > long.MaxValue || Value < long.MinValue)
-            {
-                throw PyOverflowError.Create("int too large to convert to long");
-            }
-            return (long)Value;
+            // CPython 3.12: Objects/longobject.c:339-352 PyLong_AsLong
+            // Fast path: use cached long (avoids BigInteger comparison + cast)
+            if (FitsInLong)
+                return CachedLong;
+            throw PyOverflowError.Create("int too large to convert to long");
         }
+
 
 
         /// <summary>
@@ -514,8 +544,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString(Value.ToString());
-        public override PyString ToRepr() => new PyString(Value.ToString());
+        public override PyStr ToStr() => new PyStr(AsString());
+        public override PyStr ToRepr() => new PyStr(AsString());
 
         #endregion
 
@@ -528,9 +558,9 @@ namespace SharpPy
             return other switch
             {
                 // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
-                // PyBool is PyInt, so PyInt arm covers both int and bool
                 PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
                 PyFloat otherFloat => PyBool.FromBool((double)Value == otherFloat.Value),
+                PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
                 _ => PyBool.False
             };
         }
@@ -542,11 +572,12 @@ namespace SharpPy
         protected override PyObject PyLess(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
-            // PyBool is PyInt, so PyInt check covers both
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value < otherInt.Value);
             if (other is PyFloat otherFloat)
                 return PyBool.FromBool((double)Value < otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value < (otherBool.Value ? 1 : 0));
 
             // Return NotImplemented to allow other object's __gt__ to be tried
             return PyNotImplemented.Instance;
@@ -559,6 +590,8 @@ namespace SharpPy
                 return PyBool.FromBool(Value <= otherInt.Value);
             if (other is PyFloat otherFloat)
                 return PyBool.FromBool((double)Value <= otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0));
 
             // Return NotImplemented to allow other object's __ge__ to be tried
             return PyNotImplemented.Instance;
@@ -571,6 +604,8 @@ namespace SharpPy
                 return PyBool.FromBool(Value > otherInt.Value);
             if (other is PyFloat otherFloat)
                 return PyBool.FromBool((double)Value > otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value > (otherBool.Value ? 1 : 0));
 
             // Return NotImplemented to allow other object's __lt__ to be tried
             return PyNotImplemented.Instance;
@@ -579,10 +614,13 @@ namespace SharpPy
         protected override PyObject PyGreaterEqual(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
+            // Try direct comparison first
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value >= otherInt.Value);
             if (other is PyFloat otherFloat)
                 return PyBool.FromBool((double)Value >= otherFloat.Value);
+            if (other is PyBool otherBool)
+                return PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0));
 
             // CPython: If other type doesn't handle comparison, return NotImplemented
             // This allows the other object's __le__ method to be tried
@@ -597,11 +635,11 @@ namespace SharpPy
         public override PyObject Add(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c (long_add), Objects/complexobject.c (complex_add)
-            // PyBool is PyInt, so PyInt arm covers both int and bool
             return other switch
             {
                 PyInt otherInt => new PyInt(Value + otherInt.Value),
                 PyFloat otherFloat => new PyFloat((double)Value + otherFloat.Value),
+                PyBool otherBool => new PyInt(Value + (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex((double)Value + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -614,6 +652,7 @@ namespace SharpPy
             {
                 PyInt otherInt => new PyInt(Value - otherInt.Value),
                 PyFloat otherFloat => new PyFloat((double)Value - otherFloat.Value),
+                PyBool otherBool => new PyInt(Value - (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex((double)Value - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -626,6 +665,7 @@ namespace SharpPy
             {
                 PyInt otherInt => new PyInt(Value * otherInt.Value),
                 PyFloat otherFloat => new PyFloat((double)Value * otherFloat.Value),
+                PyBool otherBool => new PyInt(Value * (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex((double)Value * otherComplex.Real, (double)Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -635,10 +675,12 @@ namespace SharpPy
         {
             // CPython 3.12: Objects/longobject.c:2533-2570 - long_true_divide
             double otherValue;
-            if (other is PyInt otherInt)  // PyBool is PyInt
+            if (other is PyInt otherInt)
                 otherValue = (double)otherInt.Value;
             else if (other is PyFloat otherFloat)
                 otherValue = otherFloat.Value;
+            else if (other is PyBool otherBool)
+                otherValue = otherBool.Value ? 1.0 : 0.0;
             else
                 return PyNotImplemented.Instance;
 
@@ -675,12 +717,18 @@ namespace SharpPy
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
                 return new PyFloat(Math.Floor((double)Value / otherFloat.Value));
             }
+            if (other is PyBool otherBool)
+            {
+                if (!otherBool.Value)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyInt(Value);
+            }
             return PyNotImplemented.Instance;
         }
 
         public override PyObject Modulo(PyObject other)
         {
-            if (other is PyInt otherInt)  // PyBool is PyInt
+            if (other is PyInt otherInt)
             {
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
@@ -710,6 +758,12 @@ namespace SharpPy
                 }
 
                 return new PyFloat(remainder);
+            }
+            if (other is PyBool otherBool)
+            {
+                if (!otherBool.Value)
+                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                return new PyInt(0);
             }
             return PyNotImplemented.Instance;
         }
@@ -742,7 +796,7 @@ namespace SharpPy
             // int ** float → float
             // Negative base with non-integer exponent → complex (not implemented yet)
 
-            if (other is PyInt otherInt)  // PyBool is PyInt
+            if (other is PyInt otherInt)
             {
                 Py_int_t exponent = otherInt.Value;
 
@@ -757,6 +811,16 @@ namespace SharpPy
                 // CPython: Use BigInteger.Pow for arbitrary precision
                 var result = BigInteger.Pow(Value, (int)exponent);
                 return new PyInt(result);
+            }
+            else if (other is PyBool otherBool)
+            {
+                Py_int_t exponent = otherBool.Value ? 1 : 0;
+
+                // 0 ** 0 = 1 (CPython behavior)
+                if (exponent == 0)
+                    return new PyInt(1);
+
+                return new PyInt(Value);
             }
             else if (other is PyFloat otherFloat)
             {
@@ -922,13 +986,18 @@ namespace SharpPy
             // This includes int subclasses (IntEnum, IntFlag, etc.)
 
             long otherValue;
-            if (other is PyInt otherInt)  // PyBool is PyInt
+            if (other is PyInt otherInt)
             {
                 otherValue = (long)otherInt.Value;
             }
             else if (other is PyIntSubclass intSubclass)
             {
+                // int subclass is also PyLong_Check compatible
                 otherValue = (long)intSubclass.GetIntValue().Value;
+            }
+            else if (other is PyBool otherBool)
+            {
+                otherValue = otherBool.Value ? 1 : 0;
             }
             else
             {
@@ -945,13 +1014,18 @@ namespace SharpPy
             // Line 1547-1551: CHECK_BINOP macro checks PyLong_Check for both operands
 
             long otherValue;
-            if (other is PyInt otherInt)  // PyBool is PyInt
+            if (other is PyInt otherInt)
             {
                 otherValue = (long)otherInt.Value;
             }
             else if (other is PyIntSubclass intSubclass)
             {
+                // int subclass passes PyLong_Check (Include/longobject.h:12-13)
                 otherValue = (long)intSubclass.GetIntValue().Value;
+            }
+            else if (other is PyBool otherBool)
+            {
+                otherValue = otherBool.Value ? 1 : 0;
             }
             else
             {
@@ -968,13 +1042,18 @@ namespace SharpPy
             // Line 1547-1551: CHECK_BINOP macro checks PyLong_Check
 
             long otherValue;
-            if (other is PyInt otherInt)  // PyBool is PyInt
+            if (other is PyInt otherInt)
             {
                 otherValue = (long)otherInt.Value;
             }
             else if (other is PyIntSubclass intSubclass)
             {
+                // int subclass passes PyLong_Check
                 otherValue = (long)intSubclass.GetIntValue().Value;
+            }
+            else if (other is PyBool otherBool)
+            {
+                otherValue = otherBool.Value ? 1 : 0;
             }
             else
             {
@@ -1075,10 +1154,14 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: PyInt를 PyString으로 변환
+        /// CPython 호환: PyInt를 PyStr으로 변환
         /// </summary>
         public override string AsString()
         {
+            // CPython 3.12: Objects/longobject.c long_to_decimal_string
+            // Fast path: use cached long (avoids BigInteger comparison + cast)
+            if (FitsInLong)
+                return CachedLong.ToString();
             return Value.ToString();
         }
 
@@ -1090,41 +1173,41 @@ namespace SharpPy
         /// Convert BigInteger to binary string
         /// CPython 3.12: Objects/longobject.c:long_format_binary
         /// </summary>
-        public PyString Bin()
+        public PyStr Bin()
         {
-            if (Value == 0) return new PyString("0b0");
+            if (Value == 0) return new PyStr("0b0");
 
             var absValue = BigInteger.Abs(Value);
             var binaryStr = ConvertToBase(absValue, 2);
 
             return Value < 0
-                ? new PyString("-0b" + binaryStr)
-                : new PyString("0b" + binaryStr);
+                ? new PyStr("-0b" + binaryStr)
+                : new PyStr("0b" + binaryStr);
         }
 
         /// <summary>
         /// Convert BigInteger to octal string
         /// CPython 3.12: Objects/longobject.c:long_format
         /// </summary>
-        public PyString Oct()
+        public PyStr Oct()
         {
-            if (Value == 0) return new PyString("0o0");
+            if (Value == 0) return new PyStr("0o0");
 
             var absValue = BigInteger.Abs(Value);
             var octalStr = ConvertToBase(absValue, 8);
 
             return Value < 0
-                ? new PyString("-0o" + octalStr)
-                : new PyString("0o" + octalStr);
+                ? new PyStr("-0o" + octalStr)
+                : new PyStr("0o" + octalStr);
         }
 
         /// <summary>
         /// Convert BigInteger to hexadecimal string
         /// CPython 3.12: Objects/longobject.c:long_format
         /// </summary>
-        public PyString Hex()
+        public PyStr Hex()
         {
-            if (Value == 0) return new PyString("0x0");
+            if (Value == 0) return new PyStr("0x0");
 
             var absValue = BigInteger.Abs(Value);
             // BigInteger.ToString("x") provides lowercase hex without prefix
@@ -1133,8 +1216,8 @@ namespace SharpPy
             if (string.IsNullOrEmpty(hexStr)) hexStr = "0";
 
             return Value < 0
-                ? new PyString("-0x" + hexStr)
-                : new PyString("0x" + hexStr);
+                ? new PyStr("-0x" + hexStr)
+                : new PyStr("0x" + hexStr);
         }
 
         /// <summary>
@@ -1306,10 +1389,12 @@ namespace SharpPy
 
         public static PyInt FromNumber(PyObject obj)
         {
-            if (obj is PyInt pyInt)  // PyBool is PyInt
+            if (obj is PyInt pyInt)
                 return pyInt;
             if (obj is PyFloat pyFloat)
                 return new PyInt((Py_int_t)Math.Truncate(pyFloat.Value));
+            if (obj is PyBool pyBool)
+                return new PyInt(pyBool.Value ? 1 : 0);
             throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{obj.GetTypeName()}'");
         }
 

@@ -70,7 +70,7 @@ namespace SharpPy
         private readonly PyVM _vm;
         private bool _started = false;
         private bool _finished = false;
-        private PyObject _sentValue = PyNone.Instance;
+        internal PyObject _sentValue = PyNone.Instance;
         private Exception? _thrownException = null;
 
         public string Name { get; }
@@ -82,20 +82,72 @@ namespace SharpPy
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
             Name = name;
-            Qualname = new PyString(name);
-            
+            Qualname = new PyStr(name);
+
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
+            _frame.OwnerGenerator = this;
         }
 
         public override PyType GetPyType() => PyType.GeneratorType;
         public override string GetTypeName() => "generator";
 
+        /// <summary>
+        /// Prepare generator frame for DISPATCH_INLINED resume.
+        /// Sets up IP and pushes sent value, same as TryNext() but without calling ExecuteFrame.
+        /// CPython 3.12: Objects/genobject.c:217 — gen_send_ex frame setup.
+        /// </summary>
+        internal PyFrame PrepareInlinedResume()
+        {
+            // Handle thrown exceptions (generator.throw() protocol)
+            if (_thrownException != null)
+            {
+                var exceptionToThrow = _thrownException;
+                _thrownException = null;
+                if (exceptionToThrow is PythonException pyEx)
+                    _frame.PendingException = pyEx;
+                else
+                    _frame.PendingException = new PythonException(new PyRuntimeError(exceptionToThrow.Message));
+            }
+
+            if (!_started)
+            {
+                _frame.InstructionPointer = 0;
+                _frame.ValueStack.Push(PyNone.Instance);
+                _started = true;
+            }
+            else
+            {
+                _frame.InstructionPointer++;
+                _frame.ValueStack.Push(_sentValue);
+            }
+
+            return _frame;
+        }
+
+        /// <summary>
+        /// Called after DISPATCH_INLINED yield: reset sent value.
+        /// CPython 3.12: Objects/genobject.c:232 — after gen_send_ex returns with yield.
+        /// </summary>
+        internal void HandleInlinedYield()
+        {
+            _sentValue = PyNone.Instance;
+        }
+
+        /// <summary>
+        /// Mark generator as finished (exhausted or exception escaped).
+        /// CPython 3.12: Objects/genobject.c:147 — gen->gi_frame_state = FRAME_CLEARED.
+        /// </summary>
+        internal void MarkFinished()
+        {
+            _finished = true;
+        }
+
         #endregion
 
         #region String Representation
 
-        public override PyString ToRepr() => new PyString($"<generator object {Name}>");
+        public override PyStr ToRepr() => new PyStr($"<generator object {Name}>");
 
         #endregion
 
@@ -230,9 +282,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Optimized TryNext: avoids the base class try/catch wrapper around Next().
-        /// FOR_ITER calls TryNext() on every iteration - eliminating exception overhead
-        /// for both yield (sentinel-based) and StopIteration (caught here once).
+        /// Optimized TryNext: inlines generator resume logic to avoid double try/catch.
+        /// FOR_ITER and sum() call TryNext() on every iteration.
+        /// Sentinel-based yield path has ZERO exception overhead.
+        /// StopIteration (generator completion) returns false without throwing.
         /// </summary>
         public override bool TryNext(out PyObject value)
         {
@@ -242,15 +295,85 @@ namespace SharpPy
                 return false;
             }
 
+            // Hot path: _thrownException is almost always null, _started is true after first call.
+            // Avoid branching on the common path.
+            if (_started)
+            {
+                // Fast resume path: no exception, already started
+                if (_thrownException == null)
+                {
+                    _frame.InstructionPointer++;
+                    _frame.ValueStack.Push(_sentValue);
+                    return TryNextExecute(out value);
+                }
+                // Rare: thrown exception + already started
+                var exToThrow = _thrownException;
+                _thrownException = null;
+                _frame.PendingException = exToThrow is PythonException pyEx2
+                    ? pyEx2 : new PythonException(new PyRuntimeError(exToThrow.Message));
+                _frame.InstructionPointer++;
+                _frame.ValueStack.Push(_sentValue);
+                return TryNextExecute(out value);
+            }
+
+            // Cold path: first call
+            if (_thrownException != null)
+            {
+                var exceptionToThrow = _thrownException;
+                _thrownException = null;
+                _frame.PendingException = exceptionToThrow is PythonException pyEx
+                    ? pyEx : new PythonException(new PyRuntimeError(exceptionToThrow.Message));
+            }
+            _frame.InstructionPointer = 0;
+            _frame.ValueStack.Push(PyNone.Instance);
+            _started = true;
+            return TryNextExecute(out value);
+        }
+
+        /// <summary>
+        /// Execute generator frame and handle result. Separated to keep TryNext small.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private bool TryNextExecute(out PyObject value)
+        {
             try
             {
-                value = Next();
-                return true;
+                var result = _vm.ExecuteFrame(_frame);
+
+                if (result == PyFrame.YieldSentinel)
+                {
+                    _sentValue = PyNone.Instance;
+                    value = _frame.YieldValue ?? PyNone.Instance;
+                    _frame.YieldValue = null;
+                    return true;
+                }
+
+                // Generator completed normally (return or end of function)
+                _finished = true;
+                value = null;
+                return false;
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
             {
+                _finished = true;
                 value = null;
                 return false;
+            }
+            catch (PythonException)
+            {
+                _finished = true;
+                throw;
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
+            {
+                _finished = true;
+                value = null;
+                return false;
+            }
+            catch (Exception)
+            {
+                _finished = true;
+                throw;
             }
         }
 

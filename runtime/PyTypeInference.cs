@@ -140,10 +140,10 @@ namespace SharpPy
         {
             return value switch
             {
-                PyBool _ => PyTypeInfo.Bool,  // PyBool before PyInt (bool inherits int)
                 PyInt _ => PyTypeInfo.Int,
                 PyFloat _ => PyTypeInfo.Float,
-                PyString _ => PyTypeInfo.String,
+                PyStr _ => PyTypeInfo.String,
+                PyBool _ => PyTypeInfo.Bool,
                 PyNone _ => PyTypeInfo.None,
                 PyList _ => PyTypeInfo.List,
                 PyTuple _ => PyTypeInfo.Tuple,
