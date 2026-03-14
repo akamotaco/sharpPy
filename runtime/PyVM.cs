@@ -2102,11 +2102,17 @@ namespace SharpPy
                             throw pendingExc;
                         }
 
-                        // Warm dispatch: CALL and LOAD_DEREF bypass ExecuteInstruction switch.
-                        // LOAD_DEREF is common in generators/closures — avoid full switch overhead.
+                        // Warm dispatch: CALL, LOAD_DEREF, STORE_DEREF bypass ExecuteInstruction switch.
+                        // DEREF ops common in generators/closures — avoid 51KB cold switch overhead.
                         if (instruction.OpCode == ByteCodeOp.LOAD_DEREF)
                         {
                             ExecuteLoadDerefWarm(frame, instruction.Argument);
+                            ip++;
+                            continue;
+                        }
+                        if (instruction.OpCode == ByteCodeOp.STORE_DEREF)
+                        {
+                            ExecuteStoreDerefWarm(frame, instruction.Argument);
                             ip++;
                             continue;
                         }
@@ -2703,6 +2709,18 @@ namespace SharpPy
                 string varName = GetDerefVarName(frame.Code, arg);
                 throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
             }
+        }
+
+        /// <summary>
+        /// STORE_DEREF warm dispatch: stores TOS into a cell variable without going through ExecuteInstruction switch.
+        /// CPython 3.12: Python/bytecodes.c STORE_DEREF.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private void ExecuteStoreDerefWarm(PyFrame frame, int arg)
+        {
+            var derefMap = frame.Code.DerefToCellIndex;
+            int cellIndex = arg < derefMap.Length ? derefMap[arg] : ComputeDerefCellIndex(frame.Code, arg);
+            frame.Cells[cellIndex].SetValue(frame.ValueStack.Pop());
         }
 
         /// <summary>
