@@ -558,9 +558,9 @@ namespace SharpPy
             return other switch
             {
                 // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
+                PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
                 PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
                 PyFloat otherFloat => PyBool.FromBool((double)Value == otherFloat.Value),
-                PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
                 _ => PyBool.False
             };
         }
@@ -637,9 +637,9 @@ namespace SharpPy
             // CPython 3.12: Objects/longobject.c (long_add), Objects/complexobject.c (complex_add)
             return other switch
             {
+                PyBool otherBool => new PyInt(Value + (otherBool.Value ? 1 : 0)),
                 PyInt otherInt => new PyInt(Value + otherInt.Value),
                 PyFloat otherFloat => new PyFloat((double)Value + otherFloat.Value),
-                PyBool otherBool => new PyInt(Value + (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex((double)Value + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -650,9 +650,9 @@ namespace SharpPy
             // CPython 3.12: Objects/longobject.c (long_sub), Objects/complexobject.c (complex_sub)
             return other switch
             {
+                PyBool otherBool => new PyInt(Value - (otherBool.Value ? 1 : 0)),
                 PyInt otherInt => new PyInt(Value - otherInt.Value),
                 PyFloat otherFloat => new PyFloat((double)Value - otherFloat.Value),
-                PyBool otherBool => new PyInt(Value - (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex((double)Value - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
@@ -663,9 +663,9 @@ namespace SharpPy
             // CPython 3.12: Objects/longobject.c (long_mul), Objects/complexobject.c (complex_mul)
             return other switch
             {
+                PyBool otherBool => new PyInt(Value * (otherBool.Value ? 1 : 0)),
                 PyInt otherInt => new PyInt(Value * otherInt.Value),
                 PyFloat otherFloat => new PyFloat((double)Value * otherFloat.Value),
-                PyBool otherBool => new PyInt(Value * (otherBool.Value ? 1 : 0)),
                 PyComplex otherComplex => new PyComplex((double)Value * otherComplex.Real, (double)Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };

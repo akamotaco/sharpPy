@@ -253,9 +253,9 @@ namespace SharpPy.Modules
             var obj = args[0];
             int size = obj switch
             {
+                PyBool => 16,
                 PyInt => 32,
                 PyFloat => 32,
-                PyBool => 16,
                 PyStr str => 48 + str.Value.Length * 2,
                 PyList list => 64 + list.Items.Length * 8,
                 PyDict dict => 128 + dict.Length() * 16,
