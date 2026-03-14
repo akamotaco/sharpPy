@@ -5,27 +5,48 @@ using System.Runtime.CompilerServices;
 namespace SharpPy
 {
     /// <summary>
-    /// PyValue 기반 배열 스택. CPython의 C 배열 스택 포인터 방식을 C#으로 구현.
-    /// 내부적으로 PyValue[]를 사용하여 int/float/bool/none을 힙 할당 없이 저장.
+    /// PyValue 기반 배열 스택. CPython 3.12의 localsplus 통합 배열 방식을 C#으로 구현.
+    /// Option A: PyFrame의 FrameData (locals + stack) 단일 배열의 스택 영역을 관리.
+    /// _base 오프셋부터 시작하여 locals 영역 뒤에 스택을 배치.
     /// 기존 Push(PyObject)/Pop() API는 자동 변환으로 호환성 유지.
     /// </summary>
     public class PyStack : IEnumerable<PyObject>
     {
-        private PyValue[] _items;
-        private int _top;  // 다음 Push 위치 (= 현재 요소 수)
+        internal PyValue[] _items;
+        internal int _top;   // 다음 Push 위치 (absolute index into _items)
+        internal int _base;  // 스택 시작 오프셋 (= nlocals, locals 뒤부터)
         private const int DefaultCapacity = 16;
+
+        // Back-reference to owning PyFrame for Grow() sync.
+        // When _items grows, frame.LocalsPlus must be updated to the same new array.
+        internal PyFrame _ownerFrame;
+
+        public PyStack()
+        {
+            _items = new PyValue[DefaultCapacity];
+            _top = 0;
+            _base = 0;
+        }
+
+        /// <summary>
+        /// Attach this stack to a shared FrameData buffer at the given base offset.
+        /// CPython 3.12: localsplus array — stack starts after locals.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void AttachTo(PyValue[] buffer, int baseOffset)
+        {
+            _items = buffer;
+            _base = baseOffset;
+            _top = baseOffset;
+        }
+
+        #region Legacy Pool (dead code — PyStack is permanently embedded in PyFrame)
 
         // ThreadStatic pool to avoid allocating new PyValue[16] per frame.
         // CPython reuses stack space via C call stack; we emulate with explicit pooling.
         [ThreadStatic] private static PyStack[] _pool;
         [ThreadStatic] private static int _poolCount;
         private const int PoolMaxSize = 32;
-
-        public PyStack()
-        {
-            _items = new PyValue[DefaultCapacity];
-            _top = 0;
-        }
 
         /// <summary>
         /// Rent a PyStack from the thread-local pool (or create new).
@@ -56,6 +77,8 @@ namespace SharpPy
             }
         }
 
+        #endregion
+
         #region Compatibility API (PyObject — auto-converts via PyValue)
 
         /// <summary>
@@ -75,7 +98,7 @@ namespace SharpPy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PyObject Pop()
         {
-            if (_top == 0)
+            if (_top == _base)
                 throw new InvalidOperationException("Stack is empty");
             var val = _items[--_top];
             _items[_top].ObjRef = null; // GC safety: only clear reference (8B vs 24B)
@@ -88,7 +111,7 @@ namespace SharpPy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PyObject Peek()
         {
-            if (_top == 0)
+            if (_top == _base)
                 throw new InvalidOperationException("Stack is empty");
             return _items[_top - 1].ToObject();
         }
@@ -99,10 +122,11 @@ namespace SharpPy
         /// </summary>
         public PyObject PeekAt(int depth)
         {
-            if (depth < 0 || depth >= _top)
+            int stackCount = _top - _base;
+            if (depth < 0 || depth >= stackCount)
             {
                 throw new ArgumentOutOfRangeException(nameof(depth),
-                    $"Invalid stack depth {depth} (stack size: {_top})");
+                    $"Invalid stack depth {depth} (stack size: {stackCount})");
             }
             return _items[_top - 1 - depth].ToObject();
         }
@@ -141,7 +165,7 @@ namespace SharpPy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PyValue PopValue()
         {
-            if (_top == 0)
+            if (_top == _base)
                 throw new InvalidOperationException("Stack is empty");
             var val = _items[--_top];
             _items[_top].ObjRef = null; // GC safety: only clear reference
@@ -169,7 +193,7 @@ namespace SharpPy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PyValue PeekValue()
         {
-            if (_top == 0)
+            if (_top == _base)
                 throw new InvalidOperationException("Stack is empty");
             return _items[_top - 1];
         }
@@ -249,9 +273,10 @@ namespace SharpPy
         {
             if (distance < 1)
                 throw new ArgumentException($"SWAP distance must be >= 1, got {distance}");
-            if (_top < distance)
+            int stackCount = _top - _base;
+            if (stackCount < distance)
                 throw new InvalidOperationException(
-                    $"SWAP({distance}): Not enough items on stack (need {distance}, got {_top})");
+                    $"SWAP({distance}): Not enough items on stack (need {distance}, got {stackCount})");
 
             int topIdx = _top - 1;
             int otherIdx = topIdx - distance + 1;
@@ -259,21 +284,21 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 스택의 현재 크기
+        /// 스택의 현재 크기 (locals 제외, 스택 요소만)
         /// </summary>
-        public int Count => _top;
+        public int Count => _top - _base;
 
         /// <summary>
-        /// 스택의 모든 요소 제거
+        /// 스택의 모든 요소 제거 (locals는 유지)
         /// </summary>
         public void Clear()
         {
             // Conditional ObjRef clear — avoids GC write barrier on int/float/bool/null slots
-            for (int i = 0; i < _top; i++)
+            for (int i = _base; i < _top; i++)
             {
                 if (_items[i].ObjRef != null) _items[i].ObjRef = null;
             }
-            _top = 0;
+            _top = _base;
         }
 
         #endregion
@@ -281,29 +306,38 @@ namespace SharpPy
         #region Clone / Restore (Generator support)
 
         /// <summary>
-        /// 스택 전체를 복사 (Generator 상태 저장용)
+        /// 스택 부분만 복사 (Generator 상태 저장용).
+        /// Clone is standalone (not attached to any frame).
         /// </summary>
         public PyStack Clone()
         {
+            int stackCount = _top - _base;
             var clone = new PyStack();
-            if (_top > clone._items.Length)
-                clone._items = new PyValue[_top];
-            Array.Copy(_items, 0, clone._items, 0, _top);
-            clone._top = _top;
+            if (stackCount > clone._items.Length)
+                clone._items = new PyValue[stackCount];
+            Array.Copy(_items, _base, clone._items, 0, stackCount);
+            clone._top = stackCount;
+            clone._base = 0;
             return clone;
         }
 
         /// <summary>
-        /// 다른 스택의 내용을 이 스택으로 복원 (Generator resume용)
+        /// 다른 스택의 내용을 이 스택으로 복원 (Generator resume용).
+        /// Source is a standalone clone (base=0); restores into this attached stack.
         /// </summary>
         public void RestoreFrom(PyStack source)
         {
-            Array.Clear(_items, 0, _top);
-            _top = 0;
-            if (source._top > _items.Length)
-                _items = new PyValue[source._top];
-            Array.Copy(source._items, 0, _items, 0, source._top);
-            _top = source._top;
+            // Clear current stack portion
+            for (int i = _base; i < _top; i++)
+            {
+                if (_items[i].ObjRef != null) _items[i].ObjRef = null;
+            }
+            int sourceCount = source._top - source._base;
+            int requiredTotal = _base + sourceCount;
+            if (requiredTotal > _items.Length)
+                Grow(requiredTotal);
+            Array.Copy(source._items, source._base, _items, _base, sourceCount);
+            _top = _base + sourceCount;
         }
 
         #endregion
@@ -315,10 +349,11 @@ namespace SharpPy
         /// </summary>
         public PyObject[] ToArray()
         {
-            var array = new PyObject[_top];
-            for (int i = 0; i < _top; i++)
+            int stackCount = _top - _base;
+            var array = new PyObject[stackCount];
+            for (int i = 0; i < stackCount; i++)
             {
-                array[_top - 1 - i] = _items[i].ToObject();
+                array[stackCount - 1 - i] = _items[_base + i].ToObject();
             }
             return array;
         }
@@ -330,7 +365,8 @@ namespace SharpPy
         {
             if (count <= 0) return Array.Empty<PyObject>();
 
-            int actualCount = Math.Min(count, _top);
+            int stackCount = _top - _base;
+            int actualCount = Math.Min(count, stackCount);
             var result = new PyObject[actualCount];
 
             for (int i = 0; i < actualCount; i++)
@@ -346,7 +382,7 @@ namespace SharpPy
         /// </summary>
         public IEnumerable<PyObject> Reverse()
         {
-            for (int i = _top - 1; i >= 0; i--)
+            for (int i = _top - 1; i >= _base; i--)
             {
                 yield return _items[i].ToObject();
             }
@@ -354,34 +390,43 @@ namespace SharpPy
 
         /// <summary>
         /// 내부 PyValue 배열에 직접 접근 (읽기 전용 목적)
+        /// Returns stack portion only: count = stack element count.
+        /// Caller must add GetStackBase() to index into raw array.
         /// </summary>
         public PyValue[] GetInternalValueArray(out int count)
         {
-            count = _top;
+            count = _top - _base;
             return _items;
         }
 
         /// <summary>
-        /// Legacy: 내부 배열을 PyObject[]로 변환하여 반환
+        /// Stack base offset for GetInternalValueArray callers.
+        /// </summary>
+        public int GetStackBase() => _base;
+
+        /// <summary>
+        /// Legacy: 내부 배열을 PyObject[]로 변환하여 반환 (스택 부분만)
         /// </summary>
         public PyObject[] GetInternalArray(out int count)
         {
-            count = _top;
-            var result = new PyObject[_top];
-            for (int i = 0; i < _top; i++)
-                result[i] = _items[i].ToObject();
+            int stackCount = _top - _base;
+            count = stackCount;
+            var result = new PyObject[stackCount];
+            for (int i = 0; i < stackCount; i++)
+                result[i] = _items[_base + i].ToObject();
             return result;
         }
 
         /// <summary>
         /// Legacy compatibility for UNPACK_EX.
-        /// Returns a temporary List view.
+        /// Returns a temporary List view (스택 부분만).
         /// </summary>
         public List<PyObject> GetInternalList()
         {
-            var list = new List<PyObject>(_top);
-            for (int i = 0; i < _top; i++)
-                list.Add(_items[i].ToObject());
+            int stackCount = _top - _base;
+            var list = new List<PyObject>(stackCount);
+            for (int i = 0; i < stackCount; i++)
+                list.Add(_items[_base + i].ToObject());
             return list;
         }
 
@@ -390,11 +435,11 @@ namespace SharpPy
         #region IEnumerable
 
         /// <summary>
-        /// bottom-to-top 순서로 열거
+        /// bottom-to-top 순서로 열거 (스택 부분만)
         /// </summary>
         public IEnumerator<PyObject> GetEnumerator()
         {
-            for (int i = 0; i < _top; i++)
+            for (int i = _base; i < _top; i++)
                 yield return _items[i].ToObject();
         }
 
@@ -418,6 +463,9 @@ namespace SharpPy
             var newItems = new PyValue[newCapacity];
             Array.Copy(_items, 0, newItems, 0, _top);
             _items = newItems;
+            // Sync frame reference — locals and stack share this array
+            if (_ownerFrame != null)
+                _ownerFrame.LocalsPlus = newItems;
         }
 
         #endregion
