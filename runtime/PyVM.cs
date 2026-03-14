@@ -1306,6 +1306,52 @@ namespace SharpPy
         // C# can't goto across try blocks, so we use sentinel + loop continuation.
         private sealed class DispatchInlinedSentinel : PyObject { }
         private static readonly PyObject _dispatchInlinedSentinel = new DispatchInlinedSentinel();
+
+        // RAISE_HANDLED: sentinel returned by ExecuteRaiseVarargs when handler found in same frame.
+        // Avoids C# throw/catch (~10μs) by using exception table for direct jump.
+        // CPython 3.12: exception table lookup + goto handler (never uses C stack unwinding).
+        private sealed class RaiseHandledSentinel : PyObject { }
+        private static readonly PyObject _raiseHandledSentinel = new RaiseHandledSentinel();
+
+        /// <summary>
+        /// CPython 3.12: Raise exception using exception table for same-frame handler lookup.
+        /// If handler found in current frame, sets up stack and returns _raiseHandledSentinel (no C# throw).
+        /// If no handler, falls back to C# throw for cross-frame propagation.
+        /// This avoids ~10μs throw/catch overhead when handler exists in same frame.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyObject RaiseException(PyFrame frame, PyBaseException exc)
+        {
+            // Set frame tracking
+            frame.LastException = exc;
+
+            // Fast exception table lookup using pre-computed instruction indices
+            var entries = frame.Code.ExceptionTableIndexEntries;
+            int ip = frame.InstructionPointer;
+            for (int i = 0; i < entries.Length; i++)
+            {
+                ref readonly var entry = ref entries[i];
+                if (ip >= entry.StartIndex && ip < entry.EndIndex)
+                {
+                    // Handler found — set up stack exactly like the catch block does
+                    while (frame.ValueStack.Count > entry.Depth)
+                        frame.ValueStack.Pop();
+
+                    if (entry.Lasti)
+                        frame.ValueStack.Push(new PyInt(ip));
+
+                    frame.ValueStack.Push(exc);
+                    frame.CurrentException = exc;
+                    frame.InstructionPointer = entry.HandlerIndex;
+                    return _raiseHandledSentinel;
+                }
+            }
+
+            // No handler in current frame — must use C# throw for cross-frame propagation
+            var pyExToThrow = new PythonException(exc);
+            PyTraceBack_Here(frame, pyExToThrow);
+            throw pyExToThrow;
+        }
         // Pending frame for DISPATCH_INLINED: set by ExecuteCall, consumed by ExecuteFrame main loop
         [ThreadStatic] private static PyFrame _pendingInlinedFrame;
 
@@ -2130,6 +2176,13 @@ namespace SharpPy
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
                         {
+                            // RAISE_HANDLED: exception handler found in same frame, jump directly
+                            // CPython 3.12: exception table lookup avoids C stack unwinding
+                            if (result == _raiseHandledSentinel)
+                            {
+                                ip = frame.InstructionPointer;
+                                continue;
+                            }
                             // DISPATCH_INLINED: sentinel means ExecuteCall set up a callee frame
                             if (result == _dispatchInlinedSentinel)
                             {
@@ -3552,77 +3605,8 @@ namespace SharpPy
             var cause = frame.ValueStack.Pop();  // Pop TOS (cause)
             var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
 
-            // Handle exc - could be a type or an instance
-            PyException excInstance;
-            if (exc is PyException pyExc2)
-            {
-                // Already a PyException instance
-                excInstance = pyExc2;
-            }
-            else if (exc is PyType pyType)
-            {
-                // Exception class (PyType) - instantiate it
-                var instance = pyType.Call(Array.Empty<PyObject>());
-                if (instance is PyException pyExcInst)
-                {
-                    excInstance = pyExcInst;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else if (exc is PyBuiltinType builtinType)
-            {
-                // Builtin exception class - instantiate it
-                var instance = builtinType.Call(Array.Empty<PyObject>());
-                if (instance is PyException pyExcInst)
-                {
-                    excInstance = pyExcInst;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else if (exc is PyClass userClass)
-            {
-                // User-defined exception class - instantiate it
-                var userException = userClass.Call(Array.Empty<PyObject>());
-                if (userException is PyException pyUserExInstance)
-                {
-                    excInstance = pyUserExInstance;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else if (exc is PyObject customInstance)
-            {
-                // Instance of a user-defined exception (e.g., PyClassInstance)
-                if (IsExceptionLike(customInstance))
-                {
-                    // Create a PyException wrapper with class information and instance preserved
-                    if (customInstance is PyClassInstance classInst)
-                    {
-                        // CRITICAL: Store the original PyClassInstance so attributes are preserved
-                        excInstance = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
-                    }
-                    else
-                    {
-                        excInstance = new PyException(customInstance.ToString());
-                    }
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else
-            {
-                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-            }
+            // Resolve exception instance from type or instance
+            var excInstance = ResolveExceptionInstance(exc);
 
             // CPython 3.12: Implicit exception chaining - set __context__ before __cause__
             // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
@@ -3645,16 +3629,10 @@ namespace SharpPy
             }
             else
             {
-                throw new PythonException(new PyTypeError($"exception cause must be None or derive from BaseException"));
+                return RaiseException(frame, new PyTypeError($"exception cause must be None or derive from BaseException"));
             }
 
-            frame.LastException = excInstance;
-
-            // CPython 3.12: Set traceback to current frame before throwing
-            // Corresponds to PyTraceBack_Here() in traceback.c:266
-            var pyExToThrow = new PythonException(excInstance);
-            PyTraceBack_Here(frame, pyExToThrow);
-            throw pyExToThrow;
+            return RaiseException(frame, excInstance);
         }
         else if (instruction.Argument == 1)
         {
@@ -3663,161 +3641,72 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"🔧 RAISE_VARARGS: raisedException type = {raisedException?.GetType().Name}, value = {raisedException}");
             #endif
-            if (raisedException is PyException pyEx)
+
+            // Resolve exception instance from type or instance
+            var excInstance = ResolveExceptionInstance(raisedException);
+
+            // CPython 3.12: Implicit exception chaining
+            if (frame.CurrentException != null && frame.CurrentException != excInstance)
             {
-                // CPython 3.12: Implicit exception chaining
-                // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
-                if (frame.CurrentException != null && frame.CurrentException != pyEx)
-                {
-                    pyEx.__context__ = frame.CurrentException;
-                }
-
-                // Already an exception instance
-                frame.LastException = pyEx;
-                // CPython 3.12: Set traceback to current frame before throwing
-                var pyExToThrow1 = new PythonException(pyEx);
-                PyTraceBack_Here(frame, pyExToThrow1);
-                throw pyExToThrow1;
+                excInstance.__context__ = frame.CurrentException;
             }
-            else if (raisedException is PyType pyType)
-            {
-                // Exception class (PyType) - instantiate it
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 RAISE_VARARGS: Detected PyType exception class {pyType.Name}, instantiating it");
-                #endif
 
-                var instance = pyType.Call(Array.Empty<PyObject>());
-                if (instance is PyException instanceException)
-                {
-                    // CPython 3.12: Implicit exception chaining
-                    if (frame.CurrentException != null && frame.CurrentException != instanceException)
-                    {
-                        instanceException.__context__ = frame.CurrentException;
-                    }
-
-                    frame.LastException = instanceException;
-                    // CPython 3.12: Set traceback to current frame before throwing
-                    var pyExToThrow2 = new PythonException(instanceException);
-                    PyTraceBack_Here(frame, pyExToThrow2);
-                    throw pyExToThrow2;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else if (raisedException is PyBuiltinType builtinType)
-            {
-                // Exception class - instantiate it
-                var builtinException = builtinType.Call(new PyObject[0], null);
-                if (builtinException == null)
-                {
-                    throw new PythonException(new PyTypeError($"exception class {builtinType} returned null when instantiated"));
-                }
-                else if (builtinException is PyException pyExInstance)
-                {
-                    // CPython 3.12: Implicit exception chaining
-                    if (frame.CurrentException != null && frame.CurrentException != pyExInstance)
-                    {
-                        pyExInstance.__context__ = frame.CurrentException;
-                    }
-
-                    frame.LastException = pyExInstance;
-                    // CPython 3.12: Set traceback to current frame before throwing
-                    var pyExToThrow3 = new PythonException(pyExInstance);
-                    PyTraceBack_Here(frame, pyExToThrow3);
-                    throw pyExToThrow3;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException, got {builtinException.GetType().Name}"));
-                }
-            }
-            else if (raisedException is PyClass userClass)
-            {
-                // User-defined exception class - instantiate it
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 RAISE_VARARGS: User-defined class {userClass.Name}");
-                #endif
-                var userException = userClass.Call(new PyObject[0], null);
-                if (userException is PyException pyUserExInstance)
-                {
-                    // CPython 3.12: Implicit exception chaining
-                    if (frame.CurrentException != null && frame.CurrentException != pyUserExInstance)
-                    {
-                        pyUserExInstance.__context__ = frame.CurrentException;
-                    }
-
-                    frame.LastException = pyUserExInstance;
-                    // CPython 3.12: Set traceback to current frame before throwing
-                    var pyExToThrow4 = new PythonException(pyUserExInstance);
-                    PyTraceBack_Here(frame, pyExToThrow4);
-                    throw pyExToThrow4;
-                }
-                else
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 RAISE_VARARGS: User class instance is not PyException: {userException?.GetType().Name}");
-                    #endif
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else if (raisedException is PyObject customInstance)
-            {
-                // Could be an instance of a user-defined exception class
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 RAISE_VARARGS: Custom instance type = {customInstance.GetType().Name}, ToString = {customInstance.ToString()}");
-                #endif
-                // Check if it's derived from BaseException by checking its class hierarchy
-                // For now, treat as a PyException if it has the right properties
-                if (IsExceptionLike(customInstance))
-                {
-                    // Create a PyException wrapper with class information AND instance preserved
-                    PyException wrappedException;
-                    if (customInstance is PyClassInstance classInst)
-                    {
-                        // CRITICAL: Store the original PyClassInstance so attributes are preserved
-                        wrappedException = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RAISE_VARARGS: Created PyException wrapper with OriginalClass={classInst.InstanceType.Name}, OriginalInstance preserved, message='{customInstance.ToString()}'");
-                        #endif
-                    }
-                    else
-                    {
-                        wrappedException = new PyException(customInstance.ToString());
-                    }
-
-                    // CPython 3.12: Implicit exception chaining
-                    if (frame.CurrentException != null && frame.CurrentException != wrappedException)
-                    {
-                        wrappedException.__context__ = frame.CurrentException;
-                    }
-
-                    frame.LastException = wrappedException;
-                    // CPython 3.12: Set traceback to current frame before throwing
-                    var pyExToThrow5 = new PythonException(wrappedException);
-                    PyTraceBack_Here(frame, pyExToThrow5);
-                    throw pyExToThrow5;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-                }
-            }
-            else
-            {
-                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
-            }
+            return RaiseException(frame, excInstance);
         }
         else if (instruction.Argument == 0)
         {
             // bare raise - same as RERAISE
             if (frame.LastException != null)
-                throw new PythonException(frame.LastException);
+                return RaiseException(frame, frame.LastException);
             else
-                throw new PythonException(new PyRuntimeError("No active exception to re-raise"));
+                return RaiseException(frame, new PyRuntimeError("No active exception to re-raise"));
         }
             return null;
+        }
+
+        /// <summary>
+        /// Resolve a raised value (type or instance) into a PyBaseException.
+        /// Handles PyException, PyType, PyBuiltinType, PyClass, and custom instances.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private PyBaseException ResolveExceptionInstance(PyObject exc)
+        {
+            if (exc is PyException pyExc)
+                return pyExc;
+
+            if (exc is PyType pyType)
+            {
+                var instance = pyType.Call(Array.Empty<PyObject>());
+                if (instance is PyException pyExcInst)
+                    return pyExcInst;
+                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+            }
+
+            if (exc is PyBuiltinType builtinType)
+            {
+                var instance = builtinType.Call(Array.Empty<PyObject>(), null);
+                if (instance is PyException pyExcInst)
+                    return pyExcInst;
+                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+            }
+
+            if (exc is PyClass userClass)
+            {
+                var instance = userClass.Call(Array.Empty<PyObject>(), null);
+                if (instance is PyException pyExcInst)
+                    return pyExcInst;
+                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+            }
+
+            // Custom instance (e.g., PyClassInstance)
+            if (IsExceptionLike(exc))
+            {
+                if (exc is PyClassInstance classInst)
+                    return new PyException(exc.ToString(), classInst.InstanceType, classInst);
+                return new PyException(exc.ToString());
+            }
+
+            throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -4621,7 +4510,7 @@ namespace SharpPy
         var superAttrName = frame.Code.Names[superAttrIndex];
         var selfObj = frame.ValueStack.Pop();         // self
         var classObj = frame.ValueStack.Pop();        // __class__
-        frame.ValueStack.Pop();                       // super function (consumed, not needed for direct MRO lookup)
+        frame.ValueStack.PopValue();                  // super function (consumed, discard without conversion)
 
         #if DEBUG_LOG
         Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
@@ -4633,13 +4522,12 @@ namespace SharpPy
         // 2. Find __class__ in the MRO
         // 3. Look for attr starting from the NEXT class after __class__
 
-        // Determine the type to search through (ObjectType in CPython super)
-        PyClass selfClass = selfObj is PyClassInstance inst ? inst.InstanceType : selfObj as PyClass;
-        PyType selfType = selfClass as PyType ?? (selfClass == null ? selfObj.GetPyType() as PyType : null);
-
-        // Get __class__ as PyClass/PyType for MRO position search
-        PyClass thisClass = classObj as PyClass;
-        PyType thisType = classObj as PyType;
+        // Fast path: PyClassInstance (most common case for super())
+        PyClass selfClass;
+        if (selfObj is PyClassInstance inst)
+            selfClass = inst.InstanceType;
+        else
+            selfClass = selfObj as PyClass;
 
         // Fast path: PyClass with MRO (most common case: user-defined classes)
         if (selfClass != null && selfClass.MRO != null)
@@ -4647,10 +4535,10 @@ namespace SharpPy
             var mro = selfClass.MRO;
             int startIdx = -1;
 
-            // Find __class__ position in MRO
+            // Find __class__ position in MRO (reference equality first, then identity)
             for (int i = 0; i < mro.Count; i++)
             {
-                if (mro[i] == classObj || (thisClass != null && mro[i] == thisClass) || (thisType != null && mro[i] == thisType))
+                if (mro[i] == classObj)
                 {
                     startIdx = i;
                     break;

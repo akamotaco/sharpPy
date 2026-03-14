@@ -1335,6 +1335,7 @@ namespace SharpPy
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
+                codeObject.BuildExceptionTableIndexEntries();
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
 #if DEBUG_LOG
@@ -1453,6 +1454,7 @@ namespace SharpPy
             
             // Add Exception Table entries (CPython 3.12)
             codeObject.ExceptionTable.AddRange(_exceptionTable);
+            codeObject.BuildExceptionTableIndexEntries();
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
 #if DEBUG_LOG
@@ -2099,6 +2101,7 @@ namespace SharpPy
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
+                codeObject.BuildExceptionTableIndexEntries();
             }
 
             // CPython 3.12: Generate pending exception handlers at end of bytecode

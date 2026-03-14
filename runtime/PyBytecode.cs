@@ -489,6 +489,12 @@ namespace SharpPy
         public CompactInstruction[] CompactInstructions { get; private set; } = null!;
 
         /// <summary>
+        /// Pre-computed exception table with instruction indices (not byte offsets).
+        /// Avoids InstructionIndexToByteOffset/ByteOffsetToInstructionIndex per lookup.
+        /// </summary>
+        public ExceptionTableIndexEntry[] ExceptionTableIndexEntries { get; private set; } = Array.Empty<ExceptionTableIndexEntry>();
+
+        /// <summary>
         /// CPython 3.12 inline cache for LOAD_ATTR instructions.
         /// Stores per-instruction (typeVersionTag, cachedValue, isMethod) for monomorphic caching.
         /// CPython reference: Python/specialize.c — _Py_Specialize_LoadAttr
@@ -615,6 +621,9 @@ namespace SharpPy
                 && DefaultValues.Count == 0
                 && CachedDefaultsTuple == null;
 
+            // Pre-compute instruction-index-based exception table for fast lookup
+            BuildExceptionTableIndexEntries();
+
             // Detect trivial call patterns (getter, constant return)
             // These can be executed without frame creation at CALL site
             DetectTrivialPattern();
@@ -668,6 +677,34 @@ namespace SharpPy
             {
                 TrivialConstIdx = ci[ip].Arg;
             }
+        }
+
+        /// <summary>
+        /// Pre-compute instruction-index-based exception table entries.
+        /// Converts byte offsets to instruction indices once at construction time,
+        /// avoiding per-lookup conversion in the hot exception handling path.
+        /// </summary>
+        public void BuildExceptionTableIndexEntries()
+        {
+            if (ExceptionTable.Count == 0)
+            {
+                ExceptionTableIndexEntries = Array.Empty<ExceptionTableIndexEntry>();
+                return;
+            }
+            var entries = new ExceptionTableIndexEntry[ExceptionTable.Count];
+            for (int i = 0; i < ExceptionTable.Count; i++)
+            {
+                var e = ExceptionTable[i];
+                // Since each instruction is exactly INSTRUCTION_WORD_SIZE bytes,
+                // byte offset / INSTRUCTION_WORD_SIZE = instruction index
+                entries[i] = new ExceptionTableIndexEntry(
+                    e.StartOffset / INSTRUCTION_WORD_SIZE,
+                    e.EndOffset / INSTRUCTION_WORD_SIZE,
+                    e.HandlerOffset / INSTRUCTION_WORD_SIZE,
+                    e.Depth,
+                    e.Lasti);
+            }
+            ExceptionTableIndexEntries = entries;
         }
 
         /// <summary>
@@ -1370,6 +1407,28 @@ namespace SharpPy
     }
 
     #endregion
+
+    /// <summary>
+    /// Pre-computed exception table entry with instruction indices (not byte offsets).
+    /// Avoids per-lookup InstructionIndexToByteOffset/ByteOffsetToInstructionIndex conversion.
+    /// </summary>
+    public readonly struct ExceptionTableIndexEntry
+    {
+        public readonly int StartIndex;   // instruction index (inclusive)
+        public readonly int EndIndex;     // instruction index (exclusive)
+        public readonly int HandlerIndex; // handler instruction index
+        public readonly int Depth;
+        public readonly bool Lasti;
+
+        public ExceptionTableIndexEntry(int startIndex, int endIndex, int handlerIndex, int depth, bool lasti)
+        {
+            StartIndex = startIndex;
+            EndIndex = endIndex;
+            HandlerIndex = handlerIndex;
+            Depth = depth;
+            Lasti = lasti;
+        }
+    }
 
     // CPython 3.12: 스택 효과 분석 시스템
     public static class StackEffectAnalyzer
