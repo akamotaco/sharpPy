@@ -117,6 +117,11 @@ namespace SharpPy
         public override PyInt AsInt() => Value ? SmallIntCache.One : SmallIntCache.Zero;
 
         /// <summary>
+        /// CPython 호환: float(True) → 1.0
+        /// </summary>
+        public override PyFloat AsFloat() => Value ? FloatCache.One : FloatCache.Zero;
+
+        /// <summary>
         /// CPython 호환: str(True) → "True"
         /// </summary>
         public override string AsString() => Value ? "True" : "False";
