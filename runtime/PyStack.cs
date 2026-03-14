@@ -268,9 +268,11 @@ namespace SharpPy
         /// </summary>
         public void Clear()
         {
-            // Only null ObjRef fields for GC safety (8B per slot vs 24B full clear)
+            // Conditional ObjRef clear — avoids GC write barrier on int/float/bool/null slots
             for (int i = 0; i < _top; i++)
-                _items[i].ObjRef = null;
+            {
+                if (_items[i].ObjRef != null) _items[i].ObjRef = null;
+            }
             _top = 0;
         }
 

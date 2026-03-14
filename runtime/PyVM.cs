@@ -49,8 +49,12 @@ namespace SharpPy
         internal static void ReturnLocals(PyValue[] arr)
         {
             int len = arr.Length;
-            // Clear ObjRef fields for GC safety
-            for (int i = 0; i < len; i++) arr[i].ObjRef = null;
+            // Clear ObjRef fields for GC safety — conditional to avoid GC write barrier
+            // on slots that are already null (int/float/bool/null PyValues)
+            for (int i = 0; i < len; i++)
+            {
+                if (arr[i].ObjRef != null) arr[i].ObjRef = null;
+            }
             switch (len)
             {
                 case 1: _lp1 ??= arr; break;
@@ -106,10 +110,44 @@ namespace SharpPy
         private PyFrame()
         {
             Code = null!;
-            ValueStack = null!;
+            ValueStack = new PyStack();  // Permanent embedded stack — never pooled separately
             ScopeChain = null!;
-            LocalsPlus = null!;
+            LocalsPlus = _emptyLocals;   // Permanent embedded locals — resized on demand
             Globals = _emptyGlobals;
+        }
+
+        // Empty sentinel for initial state (before first Init)
+        private static readonly PyValue[] _emptyLocals = Array.Empty<PyValue>();
+
+        /// <summary>
+        /// Track how many locals are in use (for GC cleanup on return).
+        /// </summary>
+        internal int LocalsCount;
+
+        /// <summary>
+        /// Ensure LocalsPlus has at least 'nlocals' capacity.
+        /// Reuses existing array if large enough. Only allocates on first use or size increase.
+        /// CPython 3.12: localsplus is part of the frame struct on the data stack.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private void EnsureLocalsCapacity(int nlocals)
+        {
+            LocalsCount = nlocals;
+            if (LocalsPlus.Length < nlocals)
+                LocalsPlus = new PyValue[nlocals];
+        }
+
+        /// <summary>
+        /// Clear ObjRef in LocalsPlus for GC safety (called on frame return).
+        /// Only clears the used portion (LocalsCount slots).
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal void ClearLocals()
+        {
+            for (int i = 0; i < LocalsCount; i++)
+            {
+                if (LocalsPlus[i].ObjRef != null) LocalsPlus[i].ObjRef = null;
+            }
         }
         #endregion
 
@@ -234,13 +272,13 @@ namespace SharpPy
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
 #endif
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
             ScopeChain = parentScope ?? new PyScopeChain();
 
             // CPython 3.12: Initialize LocalsPlus array for fast local variable access
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             // Pooled arrays may have stale data — fill all slots with Null (uninitialized).
             // Slots 0..argsLen-1 will be overwritten by BindArgs.
             int argsLen = args.Length;
@@ -312,11 +350,11 @@ namespace SharpPy
         internal void InitFull(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope ?? new PyScopeChain();
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             int argsLen = args.Length;
             if (nlocals > argsLen)
                 Array.Fill(LocalsPlus, PyValue.Null, argsLen, nlocals - argsLen);
@@ -371,11 +409,11 @@ namespace SharpPy
         internal void InitFast(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyFrame parentFrame)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             for (int i = 0; i < args.Length; i++)
                 LocalsPlus[i] = PyValue.FromObject(args[i]);
             if (nlocals > args.Length)
@@ -412,11 +450,11 @@ namespace SharpPy
         internal void InitDunderBinary(PyCodeObject code, PyObject self, PyObject other, PyScopeChain scope)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = scope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             LocalsPlus[0] = PyValue.FromObject(self);
             LocalsPlus[1] = PyValue.FromObject(other);
             if (nlocals > 2)
@@ -452,11 +490,11 @@ namespace SharpPy
         internal void InitClosure(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyCell[] closure, PyFrame parentFrame)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             for (int i = 0; i < args.Length; i++)
                 LocalsPlus[i] = PyValue.FromObject(args[i]);
             if (nlocals > args.Length)
@@ -517,11 +555,11 @@ namespace SharpPy
         internal void InitDirect(PyCodeObject code, PyValue[] argValues, int argCount, PyScopeChain parentScope, PyFrame parentFrame)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
             if (nlocals > argCount)
                 Array.Fill(LocalsPlus, PyValue.Null, argCount, nlocals - argCount);
@@ -556,11 +594,11 @@ namespace SharpPy
         internal void InitDirectClosure(PyCodeObject code, PyValue[] argValues, int argCount, PyScopeChain parentScope, PyCell[] closure, PyFrame parentFrame)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
             Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
             if (nlocals > argCount)
                 Array.Fill(LocalsPlus, PyValue.Null, argCount, nlocals - argCount);
@@ -622,11 +660,11 @@ namespace SharpPy
         internal PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyFrame parentFrame, bool fastPath)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
 
             // Direct args binding — no defaults, no kwargs, no varargs check needed
             for (int i = 0; i < args.Length; i++)
@@ -651,11 +689,11 @@ namespace SharpPy
         internal PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope, PyCell[] closure, PyFrame parentFrame, bool closureFastPath)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
 
             for (int i = 0; i < args.Length; i++)
                 LocalsPlus[i] = PyValue.FromObject(args[i]);
@@ -712,11 +750,11 @@ namespace SharpPy
         internal PyFrame(PyCodeObject code, PyValue[] argValues, int argCount, PyScopeChain parentScope, PyFrame parentFrame)
         {
             Code = code;
-            ValueStack = PyStack.Rent();
+            // ValueStack is permanently embedded in PyFrame — no Rent needed
             ScopeChain = parentScope;
 
             int nlocals = code.VarNames.Count;
-            LocalsPlus = RentLocals(nlocals);
+            EnsureLocalsCapacity(nlocals);
 
             // Direct PyValue copy — no FromObject conversion needed
             Array.Copy(argValues, 0, LocalsPlus, 0, argCount);
@@ -1245,8 +1283,8 @@ namespace SharpPy
         /// </summary>
         public void Clear()
         {
-            // Clear LocalsPlus array
-            for (int i = 0; i < LocalsPlus.Length; i++)
+            // Clear LocalsPlus array (only used portion)
+            for (int i = 0; i < LocalsCount; i++)
             {
                 LocalsPlus[i] = PyValue.Null;
             }
@@ -1574,7 +1612,9 @@ namespace SharpPy
             }
 
             // Method 1: LocalsPlus array (for STORE_FAST operations)
-            for (int i = 0; i < frame.LocalsPlus.Length; i++)
+            // Use LocalsCount (not Length) since embedded array may be larger than nlocals
+            int localsCount = Math.Min(frame.LocalsCount, frame.Code.VarNames.Count);
+            for (int i = 0; i < localsCount; i++)
             {
                 var value = frame.LocalsPlus[i];
                 // Skip uninitialized variables (PyNull)
@@ -2271,8 +2311,8 @@ namespace SharpPy
                 // CPython: generator frames keep their stack alive between send()/next() calls.
                 if ((entryFrame.Code.Flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) == 0)
                 {
-                    PyStack.Return(entryFrame.ValueStack);
-                    PyFrame.ReturnLocals(entryFrame.LocalsPlus);
+                    entryFrame.ValueStack.Clear();  // Clear ObjRef, embedded stack stays with frame
+                    entryFrame.ClearLocals();       // Clear ObjRef in locals, array stays with frame
                     PyFrame.Return(entryFrame);
                 }
             }
@@ -2379,8 +2419,8 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private static void PoolInlinedFrame(PyFrame f)
         {
-            PyStack.Return(f.ValueStack);
-            PyFrame.ReturnLocals(f.LocalsPlus);
+            f.ValueStack.Clear();  // Clear ObjRef, embedded stack stays with frame
+            f.ClearLocals();       // Clear ObjRef in locals, array stays with frame
             PyFrame.Return(f);
         }
 
