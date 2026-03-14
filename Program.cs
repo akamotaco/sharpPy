@@ -50,6 +50,27 @@ namespace SharpPy
                 {
                     compileOnly = true;
                 }
+                if (parsedArgs.ContainsKey("--import-log"))
+                {
+                    // Import 모니터링 이벤트 구독 — 로딩 진행 상태 출력 (타임스탬프 포함)
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    PyImportSystem.OnImportEvent += (e) =>
+                    {
+                        Console.Error.WriteLine($"[{sw.ElapsedMilliseconds,6}ms] {e}");
+                    };
+                }
+                if (parsedArgs.ContainsKey("--precompile"))
+                {
+                    // Lib/ 디렉토리 사전 컴파일 — 게임 배포용
+                    var exeDir = System.IO.Path.GetDirectoryName(
+                        System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
+                    var projectRoot = System.IO.Path.GetFullPath(
+                        System.IO.Path.Combine(exeDir, "..", "..", ".."));
+                    var libDir = System.IO.Path.Combine(projectRoot, "Lib");
+                    Console.WriteLine($"Precompiling: {libDir}");
+                    SharpPyCache.PrecompileDirectory(libDir);
+                    return;
+                }
                 if (parsedArgs.ContainsKey("--test-generator-kwargs"))
                 {
                     GeneratorKwargsTest.RunAllTests();

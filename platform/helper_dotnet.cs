@@ -73,6 +73,27 @@ namespace DotNet_IO
         {
             return File.ReadAllText(path);
         }
+
+        // 바이너리 파일 읽기/쓰기 (SharpPyCache용)
+        public static byte[] ReadAllBytes(string path)
+        {
+            return File.ReadAllBytes(path);
+        }
+
+        public static void WriteAllBytes(string path, byte[] data)
+        {
+            File.WriteAllBytes(path, data);
+        }
+
+        public static long GetFileTimestamp(string path)
+        {
+            return ((DateTimeOffset)new FileInfo(path).LastWriteTimeUtc).ToUnixTimeMilliseconds();
+        }
+
+        public static int GetFileSize(string path)
+        {
+            return (int)new FileInfo(path).Length;
+        }
         
         // 경로 결합 메서드 - 슬래시로 정규화
         public static string CombinePath(params string[] paths)

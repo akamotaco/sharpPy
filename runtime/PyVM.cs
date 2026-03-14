@@ -1333,6 +1333,11 @@ namespace SharpPy
                 ref readonly var entry = ref entries[i];
                 if (ip >= entry.StartIndex && ip < entry.EndIndex)
                 {
+                    // CPython 3.12: Set __traceback__ even for same-frame handlers
+                    // traceback.c:266 — PyTraceBack_Here is called before handler dispatch
+                    // types.py relies on exc.__traceback__.tb_frame being available in except block
+                    SetTracebackDirect(frame, exc, ip);
+
                     // Handler found — set up stack exactly like the catch block does
                     while (frame.ValueStack.Count > entry.Depth)
                         frame.ValueStack.Pop();
@@ -1351,6 +1356,41 @@ namespace SharpPy
             var pyExToThrow = new PythonException(exc);
             PyTraceBack_Here(frame, pyExToThrow);
             throw pyExToThrow;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Set __traceback__ directly on PyBaseException (for same-frame fast path)
+        /// Lightweight version of PyTraceBack_Here — no PythonException wrapper needed
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void SetTracebackDirect(PyFrame frame, PyBaseException exc, int ip)
+        {
+            var lasti = Math.Max(0, ip - 1);
+
+            // Get line number from instruction
+            int lineNo = 0;
+            int colNo = -1;
+            if (lasti >= 0 && lasti < frame.Code.Instructions.Count)
+            {
+                var instr = frame.Code.Instructions[lasti];
+                lineNo = instr.LineNumber;
+                colNo = instr.ColumnOffset;
+            }
+            if (lineNo <= 0 && frame.CurrentLineNumber > 0)
+            {
+                lineNo = frame.CurrentLineNumber;
+                colNo = frame.CurrentColumnOffset;
+            }
+
+            var newTraceback = new PyTraceback(
+                frame: frame,
+                lasti: lasti,
+                lineno: lineNo,
+                next: exc.__traceback__,
+                colno: colNo,
+                endcolno: colNo
+            );
+            exc.__traceback__ = newTraceback;
         }
         // Pending frame for DISPATCH_INLINED: set by ExecuteCall, consumed by ExecuteFrame main loop
         [ThreadStatic] private static PyFrame _pendingInlinedFrame;

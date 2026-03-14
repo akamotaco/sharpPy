@@ -8,6 +8,58 @@ using IOHelper = DotNet_IO.Helper;
 
 namespace SharpPy
 {
+    #region Import Monitoring
+
+    /// <summary>
+    /// Import 진행 단계 — 게임 로딩 화면에서 피드백 용도
+    /// </summary>
+    public enum ImportPhase
+    {
+        /// <summary>sys.path에서 모듈 파일 탐색 중</summary>
+        Searching,
+        /// <summary>파일에서 소스 코드 읽는 중</summary>
+        Loading,
+        /// <summary>소스 → AST 파싱 중</summary>
+        Parsing,
+        /// <summary>AST → 바이트코드 컴파일 중</summary>
+        Compiling,
+        /// <summary>모듈 코드 실행 중</summary>
+        Executing,
+        /// <summary>C# 빌트인 모듈 초기화 중</summary>
+        BuiltinInit,
+        /// <summary>모듈 로드 완료</summary>
+        Done,
+        /// <summary>sys.modules 캐시 히트 (로드 불필요)</summary>
+        CacheHit,
+    }
+
+    /// <summary>
+    /// Import 이벤트 데이터 — 게임에서 로딩 상태를 모니터링할 수 있는 구조체
+    /// </summary>
+    public readonly struct ImportEvent
+    {
+        /// <summary>현재 진행 단계</summary>
+        public readonly ImportPhase Phase;
+        /// <summary>모듈 이름 (예: "collections.abc")</summary>
+        public readonly string ModuleName;
+        /// <summary>파일 경로 (빌트인이면 null)</summary>
+        public readonly string FilePath;
+
+        public ImportEvent(ImportPhase phase, string moduleName, string filePath = null)
+        {
+            Phase = phase;
+            ModuleName = moduleName;
+            FilePath = filePath;
+        }
+
+        public override string ToString() =>
+            FilePath != null
+                ? $"[{Phase}] {ModuleName} ({FilePath})"
+                : $"[{Phase}] {ModuleName}";
+    }
+
+    #endregion
+
     #region Module and Import System
 
 // PEP 420 네임스페이스 패키지 (PyModule을 상속받아 확장)
@@ -193,20 +245,46 @@ public class PyModule : PyObject
 
         try
         {
-            // 1단계: 파싱 (소스 → AST)
-            var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
+            PyCodeObject codeObject;
 
-            var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
+            // 캐시 확인 — 유효하면 Parse+Compile 스킵
+            string cachePath = null;
+            if (FileName != null && PyImportSystem.CacheEnabled)
+            {
+                cachePath = SharpPyCache.GetCachePath(FileName);
+                if (SharpPyCache.IsCacheValid(cachePath, FileName))
+                {
+                    PyImportSystem.EmitImportEvent(ImportPhase.CacheHit, Name, FileName);
+                    codeObject = SharpPyCache.ReadCache(cachePath);
+                    goto executeCode;
+                }
+            }
 
-            // 2단계: 컴파일 (AST → 바이트코드)
-            // CPython 3.12 호환: 모듈 코드 객체 이름은 항상 "<module>"
-            var compiler = new PythonCompiler();
-            var codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
+            {
+                // 1단계: 파싱 (소스 → AST)
+                PyImportSystem.EmitImportEvent(ImportPhase.Parsing, Name, FileName);
+                var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
+                var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
 
+                // 2단계: 컴파일 (AST → 바이트코드)
+                // CPython 3.12 호환: 모듈 코드 객체 이름은 항상 "<module>"
+                PyImportSystem.EmitImportEvent(ImportPhase.Compiling, Name, FileName);
+                var compiler = new PythonCompiler();
+                codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
+
+                // 캐시 저장 (다음 로드 시 Parse+Compile 스킵)
+                if (cachePath != null)
+                {
+                    try { SharpPyCache.WriteCache(cachePath, codeObject, FileName); } catch { }
+                }
+            }
+
+        executeCode:
             // 3단계: 모듈 전용 글로벌 스코프 생성
             var moduleGlobalScope = CreateModuleGlobalScope();
 
             // 4단계: VM 실행 (모듈 네임스페이스에서 실행)
+            PyImportSystem.EmitImportEvent(ImportPhase.Executing, Name, FileName);
             var vm = PyVM.Instance;
             vm.ExecuteModule(codeObject, moduleGlobalScope);
 
@@ -315,6 +393,41 @@ public class PyModule : PyObject
     // Python import 시스템
     public class PyImportSystem
     {
+        // ─── Import Monitoring ───
+        // 게임 로딩 화면 등에서 import 진행 상태를 모니터링
+        // 구독: PyImportSystem.OnImportEvent += (e) => { label.Text = e.ModuleName; };
+        // 해제: PyImportSystem.OnImportEvent -= handler;
+        public static event Action<ImportEvent> OnImportEvent;
+
+        // ─── Bytecode Cache ───
+        // .spyc 캐시 활성화 여부 (기본 활성화)
+        // Parse+Compile 스킵하여 import 속도 ~50% 향상
+        public static bool CacheEnabled { get; set; } = true;
+
+        /// <summary>이벤트 발행 (구독자가 없으면 no-op)</summary>
+        private static void EmitEvent(ImportPhase phase, string moduleName, string filePath = null)
+        {
+            OnImportEvent?.Invoke(new ImportEvent(phase, moduleName, filePath));
+        }
+
+        /// <summary>PyModule.Execute 등 외부에서 호출 가능한 이벤트 발행</summary>
+        internal static void EmitImportEvent(ImportPhase phase, string moduleName, string filePath = null)
+        {
+            EmitEvent(phase, moduleName, filePath);
+        }
+
+        // ─── Path Search Cache ───
+        // 모듈명 → 파일 경로 캐시 (반복 FileExists/DirExists 호출 제거)
+        // key: moduleName, value: (filePath, packageDir or null)
+        private static readonly Dictionary<string, (string filePath, string packageDir)> _pathCache
+            = new Dictionary<string, (string, string)>();
+
+        /// <summary>Path 캐시 초기화 (테스트 또는 sys.path 변경 시)</summary>
+        public static void ClearPathCache()
+        {
+            _pathCache.Clear();
+        }
+
         // CPython 3.12: Python/import.c:185 - PyDict_New()
         // sys.modules 캐시 - CPython과 동일하게 PyDict 사용
         public static PyDict SysModules { get; } = new PyDict();
@@ -462,6 +575,7 @@ public class PyModule : PyObject
             // CPython 3.12: Python/import.c:1673 - Check sys.modules cache first
             if (TryGetModule(moduleName, out PyModule cachedModule))
             {
+                EmitEvent(ImportPhase.CacheHit, moduleName);
                 return cachedModule;
             }
 
@@ -474,12 +588,15 @@ public class PyModule : PyObject
             // CPython 3.12: Python/import.c:2158 - Check builtin modules
             if (_builtinModules.TryGetValue(moduleName, out Func<PyModule> moduleFactory))
             {
+                EmitEvent(ImportPhase.BuiltinInit, moduleName);
                 var module = moduleFactory();
                 SetModule(moduleName, module);
+                EmitEvent(ImportPhase.Done, moduleName);
                 return module;
             }
 
             // 4. sys.path를 사용한 파일 시스템 검색
+            EmitEvent(ImportPhase.Searching, moduleName);
             var foundModule = SearchModuleInPath(moduleName);
             if (foundModule != null)
             {
@@ -592,6 +709,12 @@ public class PyModule : PyObject
         // sys.path에서 모듈 검색
         private static PyModule SearchModuleInPath(string moduleName)
         {
+            // Path 캐시 히트 — 이전에 찾은 경로로 바로 로드
+            if (_pathCache.TryGetValue(moduleName, out var cached))
+            {
+                return LoadModuleFromFile(moduleName, cached.filePath, cached.packageDir);
+            }
+
             var sysPath = GetSysPath();
             if (sysPath == null) return null;
 
@@ -606,6 +729,7 @@ public class PyModule : PyObject
                 var pyFile = IOHelper.CombinePath(searchPath, moduleName + ".py");
                 if (IOHelper.FileExists(pyFile))
                 {
+                    _pathCache[moduleName] = (pyFile, null);
                     return LoadModuleFromFile(moduleName, pyFile);
                 }
 
@@ -616,6 +740,7 @@ public class PyModule : PyObject
                 {
                     // CPython 3.12: Pass package directory to LoadModuleFromFile
                     // __path__ will be set BEFORE executing the module code
+                    _pathCache[moduleName] = (initFile, packageDir);
                     var module = LoadModuleFromFile(moduleName, initFile, packageDir);
                     return module;
                 }
@@ -684,6 +809,7 @@ public class PyModule : PyObject
         {
             try
             {
+                EmitEvent(ImportPhase.Loading, moduleName, filePath);
                 var sourceCode = IOHelper.ReadAllText(filePath);
                 var module = new PyModule(moduleName, filePath);
 
@@ -698,9 +824,10 @@ public class PyModule : PyObject
                 // CPython 3.12: Register in sys.modules (prevents circular import)
                 SetModule(moduleName, module);
 
-                // 모듈 실행 (초기화)
+                // 모듈 실행 (초기화) — Execute 내부에서 Parsing/Compiling/Executing 이벤트 발생
                 module.Execute(sourceCode);
 
+                EmitEvent(ImportPhase.Done, moduleName, filePath);
 #if DEBUG_MODULE_LOG
                 Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
 #endif

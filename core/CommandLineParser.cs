@@ -67,6 +67,14 @@ namespace SharpPy.Core
                         options["--test-pymethod-kwargs"] = "true";
                         break;
 
+                    case "--import-log":
+                        options["--import-log"] = "true";
+                        break;
+
+                    case "--precompile":
+                        options["--precompile"] = "true";
+                        break;
+
                     case "-c":
                         if (i + 1 < args.Length)
                         {
