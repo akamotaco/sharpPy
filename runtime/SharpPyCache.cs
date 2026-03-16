@@ -16,7 +16,7 @@ namespace SharpPy
     /// Parse+Compile 단계를 스킵하여 모듈 로딩 속도 ~50% 향상
     ///
     /// 포맷:
-    ///   Header: "SPYC" (4B) + Version (4B) + SourceTimestamp (8B) + SourceSize (4B)
+    ///   Header: "SPYC" (4B) + Version (4B) + EngineMVID (16B) + SourceTimestamp (8B) + SourceSize (4B)
     ///   Body: Serialized PyCodeObject (재귀적 — 중첩 함수/클래스 포함)
     ///
     /// CPython .pyc와 달리 SharpPy 내부 전용 포맷.
@@ -26,6 +26,15 @@ namespace SharpPy
     {
         private static readonly byte[] MAGIC = Encoding.ASCII.GetBytes("SPYC");
         private const int FORMAT_VERSION = 2;
+
+        /// <summary>
+        /// 엔진 빌드 해시 — SharpPy 자체가 변경되면 캐시 자동 무효화.
+        /// CPython 3.12: MAGIC_NUMBER가 바이트코드 형식 변경 시 갱신되어 .pyc 무효화.
+        /// SharpPy: 어셈블리 MVID(Module Version ID)를 사용하여
+        /// 코드 변경 → 재빌드 → MVID 변경 → 캐시 자동 무효화.
+        /// </summary>
+        private static readonly Guid ENGINE_MVID =
+            typeof(SharpPyCache).Assembly.ManifestModule.ModuleVersionId;
 
         // Cache directory name
         private const string CACHE_DIR = "__sharppy_cache__";
@@ -41,9 +50,14 @@ namespace SharpPy
             return IOHelper.CombinePath(directory, CACHE_DIR, fileNameWithoutExt + ".spyc");
         }
 
+        // Header: MAGIC(4) + VERSION(4) + ENGINE_MVID(16) + Timestamp(8) + Size(4) = 36 bytes
+        private const int HEADER_SIZE = 36;
+
         /// <summary>
-        /// 캐시가 유효한지 확인 (타임스탬프 + 파일 크기 기반)
-        /// IOHelper 사용하여 Godot(res://) 호환
+        /// 캐시가 유효한지 확인
+        /// - Magic + Version: 포맷 호환성
+        /// - Engine MVID: SharpPy 엔진 빌드 변경 감지 (CPython MAGIC_NUMBER 역할)
+        /// - Timestamp + Size: 소스 파일 변경 감지
         /// </summary>
         public static bool IsCacheValid(string cachePath, string sourcePath)
         {
@@ -52,9 +66,9 @@ namespace SharpPy
             try
             {
                 var cacheBytes = IOHelper.ReadAllBytes(cachePath);
-                if (cacheBytes.Length < 20) return false; // header = 4+4+8+4 = 20 bytes
+                if (cacheBytes.Length < HEADER_SIZE) return false;
 
-                using (var ms = new MemoryStream(cacheBytes, 0, 20))
+                using (var ms = new MemoryStream(cacheBytes, 0, HEADER_SIZE))
                 using (var reader = new BinaryReader(ms))
                 {
                     // Magic check
@@ -65,6 +79,10 @@ namespace SharpPy
 
                     // Version check
                     if (reader.ReadInt32() != FORMAT_VERSION) return false;
+
+                    // Engine MVID check — SharpPy 재빌드 시 자동 무효화
+                    var cachedMvid = new Guid(reader.ReadBytes(16));
+                    if (cachedMvid != ENGINE_MVID) return false;
 
                     // Timestamp check
                     long cachedTimestamp = reader.ReadInt64();
@@ -102,9 +120,10 @@ namespace SharpPy
                 using (var ms = new MemoryStream())
                 using (var writer = new BinaryWriter(ms, Encoding.UTF8))
                 {
-                    // Header
+                    // Header: MAGIC + VERSION + ENGINE_MVID + Timestamp + Size
                     writer.Write(MAGIC);
                     writer.Write(FORMAT_VERSION);
+                    writer.Write(ENGINE_MVID.ToByteArray());
                     writer.Write(sourceTimestamp);
                     writer.Write(sourceSize);
 
@@ -193,10 +212,11 @@ namespace SharpPy
             using (var reader = new BinaryReader(ms, Encoding.UTF8))
             {
                 // Skip header (already validated by IsCacheValid)
-                reader.ReadBytes(4);  // magic
-                reader.ReadInt32();   // version
-                reader.ReadInt64();   // timestamp
-                reader.ReadInt32();   // size
+                reader.ReadBytes(4);   // magic
+                reader.ReadInt32();    // version
+                reader.ReadBytes(16);  // engine MVID
+                reader.ReadInt64();    // timestamp
+                reader.ReadInt32();    // size
 
                 // Body
                 return ReadCodeObject(reader);
