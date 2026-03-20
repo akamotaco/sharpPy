@@ -412,6 +412,36 @@ namespace SharpPy.Modules
             Console.WriteLine($"[AbcSubclassCheckInternal] Checking if {subclass} is subclass of {cls}");
 #endif
 
+            // CPython: Modules/_abc.c:693-711 — __subclasshook__ 호출
+            // __subclasshook__가 True/False를 반환하면 바로 결과.
+            // NotImplemented를 반환하면 다음 단계(registry/MRO)로 진행.
+            try
+            {
+                // LookupAttribute는 @classmethod를 찾지 못할 수 있음
+                // Python의 getattr(cls, '__subclasshook__') 경로 사용
+                PyObject hook = null;
+                try { hook = cls.GetAttribute("__subclasshook__"); }
+                catch { hook = null; }
+                if (hook != null)
+                {
+                    var hookResult = hook.Call(new PyObject[] { subclass }, null);
+                    if (hookResult is PyBool hookBool)
+                    {
+                        return hookBool.Value;
+                    }
+                    // NotImplemented → 다음 단계로 진행
+                    var typeName = hookResult?.GetPyType()?.Name ?? "null";
+                    if (typeName != "NotImplementedType" && typeName != "NotImplemented")
+                    {
+                        return hookResult.IsTrue();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // __subclasshook__ 호출 실패 → 무시하고 다음 단계
+            }
+
             // Check registry first
             if (abcData.Registry != null && abcData.Registry.Contains(subclass).Value)
             {

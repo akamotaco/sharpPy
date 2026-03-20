@@ -246,11 +246,22 @@ class MutableMapping(Mapping):
 ### SEQUENCES ###
 # CPython 3.12: Lib/_collections_abc.py:1006-1067
 
+from abc import ABCMeta
+
 # Minimal Sequence ABC for random.py
-class Sequence:
+# CPython: class Sequence(Reversible, Collection):
+#   → metaclass=ABCMeta가 상속 체인(Iterable(metaclass=ABCMeta))으로 전달됨
+#   → isinstance(list_instance, Sequence)가 동작하려면 ABCMeta 필요
+class Sequence(metaclass=ABCMeta):
     """Abstract base class for sized, iterable containers that support indexing."""
 
     __slots__ = ()
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Sequence:
+            return _check_methods(C, '__getitem__', '__len__')
+        return NotImplemented
 
     def __getitem__(self, index):
         raise IndexError

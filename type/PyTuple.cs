@@ -145,6 +145,29 @@ namespace SharpPy
             tupleType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
                 (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
             );
+
+            // === CPython 3.12 dunder method descriptors ===
+            tupleType.TypeDict["__len__"] = new PyMethodDescriptor(
+                "__len__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__len__() takes no arguments");
+                    return new PyInt(((PyTuple)self).Items.Length);
+                }, minArgs: 0, maxArgs: 0);
+
+            tupleType.TypeDict["__contains__"] = new PyMethodDescriptor(
+                "__contains__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__contains__() takes exactly 1 argument");
+                    return ((PyTuple)self).Contains(args[0]);
+                }, minArgs: 1, maxArgs: 1);
+
+            tupleType.TypeDict["__iter__"] = new PyMethodDescriptor(
+                "__iter__", tupleType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__iter__() takes no arguments");
+                    return ((PyTuple)self).GetIterator();
+                }, minArgs: 0, maxArgs: 0);
+            // tuple has no __reversed__ in CPython
         }
 
         #region Core Properties

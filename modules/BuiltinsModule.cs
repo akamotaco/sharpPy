@@ -147,7 +147,7 @@ namespace SharpPy.Modules
             module.ModuleDict["dir"] = new PyBuiltinFunction("dir", PyBuiltinFunction.GetBuiltinImpl("dir"));
             module.ModuleDict["iter"] = new PyBuiltinFunction("iter", PyBuiltinFunction.GetBuiltinImpl("iter"));
             module.ModuleDict["next"] = new PyBuiltinFunction("next", PyBuiltinFunction.GetBuiltinImpl("next"));
-            module.ModuleDict["range"] = new PyBuiltinFunction("range", PyBuiltinFunction.GetBuiltinImpl("range"));
+            module.ModuleDict["range"] = PyType.RangeType;
             module.ModuleDict["enumerate"] = new PyBuiltinFunction("enumerate", PyBuiltinFunction.GetBuiltinImpl("enumerate"));
             module.ModuleDict["zip"] = new PyBuiltinFunction("zip", PyBuiltinFunction.GetBuiltinImpl("zip"));
             module.ModuleDict["map"] = new PyBuiltinFunction("map", PyBuiltinFunction.GetBuiltinImpl("map"));
@@ -249,9 +249,29 @@ namespace SharpPy.Modules
             }
 
             // CPython 3.12: Objects/abstract.c:2609-2612
-            // We know what type's __instancecheck__ does.
-            if (cls is PyType pyTypeExact)
+            // PyType_CheckExact: cls의 metatype이 정확히 type이면 빠른 경로.
+            // ABCMeta 등 커스텀 메타클래스는 __instancecheck__를 호출해야 함.
+            //
+            // 주의: SharpPy에서 ABCMeta가 아직 type(Sequence)==type으로 보이므로
+            // __instancecheck__ 속성 존재 여부로 분기한다.
+            // 빠른 경로: cls가 PyType이고 __instancecheck__가 없는 경우만.
+            if (cls is PyType pyTypeCheck)
             {
+                var metaType = pyTypeCheck.GetPyType();
+                if (metaType != null && metaType != PyType.TypeType)
+                {
+                    // CPython 3.12: Objects/abstract.c:2638-2656
+                    // _PyObject_LookupSpecial: cls 자체에서 __instancecheck__ 탐색
+                    // ABCMeta.__instancecheck__는 Python 메서드이므로 cls.LookupAttribute로 접근
+                    // (metaType.LookupAttribute는 C# PyType dict만 탐색하여 Python 메서드 못 찾음)
+                    var checker = cls.LookupAttribute("__instancecheck__");
+                    if (checker != null)
+                    {
+                        var result = checker.Call(new PyObject[] { inst }, null);
+                        return result is PyBool b ? b.Value : result.IsTrue();
+                    }
+                }
+                // 메타클래스가 type이거나 __instancecheck__가 없으면 기본 경로
                 return ObjectIsInstance(inst, cls);
             }
 
@@ -270,9 +290,7 @@ namespace SharpPy.Modules
                 return false;
             }
 
-            // CPython 3.12: Objects/abstract.c:2638-2656
-            // Check for __instancecheck__ (custom metaclasses)
-            // For now, fall back to object_isinstance
+            // cls has no __instancecheck__() method — fallback
             return ObjectIsInstance(inst, cls);
         }
 
