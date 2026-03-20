@@ -1707,6 +1707,38 @@ namespace SharpPy
                     }
                 }
             );
+
+            // === CPython 3.12 dunder method descriptors ===
+            // isinstance(str_instance, Sequence) 등 ABC 판정에 필요
+
+            strType.TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__getitem__() takes exactly 1 argument");
+                    return ((PyStr)self).GetItem(args[0]);
+                }, minArgs: 1, maxArgs: 1);
+
+            strType.TypeDict["__len__"] = new PyMethodDescriptor(
+                "__len__", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__len__() takes no arguments");
+                    return new PyInt(((PyStr)self).Length());
+                }, minArgs: 0, maxArgs: 0);
+
+            strType.TypeDict["__contains__"] = new PyMethodDescriptor(
+                "__contains__", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__contains__() takes exactly 1 argument");
+                    return ((PyStr)self).Contains(args[0]);
+                }, minArgs: 1, maxArgs: 1);
+
+            strType.TypeDict["__iter__"] = new PyMethodDescriptor(
+                "__iter__", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__iter__() takes no arguments");
+                    return ((PyStr)self).GetIterator();
+                }, minArgs: 0, maxArgs: 0);
+            // str has no __reversed__ in CPython
         }
 
         #region Core Properties

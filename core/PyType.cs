@@ -979,6 +979,8 @@ namespace SharpPy
                         InitializeTupleTypeDescriptors();
                     else if (Name == "dict")
                         InitializeDictTypeDescriptors();
+                    else if (Name == "range")
+                        InitializeRangeTypeDescriptors();
                     else if (Name == "mappingproxy")
                         InitializeMappingProxyTypeDescriptors();
                     else if (Name == "BaseException")
@@ -2522,6 +2524,142 @@ namespace SharpPy
                 maxArgs: int.MaxValue,
                 acceptsKwargs: true
             );
+
+            // === CPython 3.12 dunder method descriptors ===
+            TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__getitem__() takes exactly 1 argument");
+                    if (self is PyDict d) return d.GetItem(args[0]);
+                    if (self is PyClassInstance ci && ci.IsDictSubclass()) return ci.GetDictStorage().GetItem(args[0]);
+                    throw PyTypeError.Create("descriptor '__getitem__' for 'dict' objects doesn't apply");
+                }, minArgs: 1, maxArgs: 1);
+
+            TypeDict["__len__"] = new PyMethodDescriptor(
+                "__len__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__len__() takes no arguments");
+                    if (self is PyDict d) return new PyInt(d.Length());
+                    if (self is PyClassInstance ci && ci.IsDictSubclass()) return new PyInt(ci.GetDictStorage().Length());
+                    throw PyTypeError.Create("descriptor '__len__' for 'dict' objects doesn't apply");
+                }, minArgs: 0, maxArgs: 0);
+
+            TypeDict["__contains__"] = new PyMethodDescriptor(
+                "__contains__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__contains__() takes exactly 1 argument");
+                    if (self is PyDict d) return d.Contains(args[0]);
+                    if (self is PyClassInstance ci && ci.IsDictSubclass()) return ci.GetDictStorage().Contains(args[0]);
+                    throw PyTypeError.Create("descriptor '__contains__' for 'dict' objects doesn't apply");
+                }, minArgs: 1, maxArgs: 1);
+
+            TypeDict["__iter__"] = new PyMethodDescriptor(
+                "__iter__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__iter__() takes no arguments");
+                    if (self is PyDict d) return d.GetIterator();
+                    if (self is PyClassInstance ci && ci.IsDictSubclass()) return ci.GetDictStorage().GetIterator();
+                    throw PyTypeError.Create("descriptor '__iter__' for 'dict' objects doesn't apply");
+                }, minArgs: 0, maxArgs: 0);
+
+            TypeDict["__reversed__"] = new PyMethodDescriptor(
+                "__reversed__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__reversed__() takes no arguments");
+                    PyDict dict;
+                    if (self is PyDict d) dict = d;
+                    else if (self is PyClassInstance ci && ci.IsDictSubclass()) dict = ci.GetDictStorage();
+                    else throw PyTypeError.Create("descriptor '__reversed__' for 'dict' objects doesn't apply");
+                    var keys = dict.Keys();
+                    var reversed = new PyList();
+                    for (int i = keys.Length() - 1; i >= 0; i--)
+                        reversed.Append(keys.GetItem(new PyInt(i)));
+                    return reversed.GetIterator();
+                }, minArgs: 0, maxArgs: 0);
+        }
+
+        /// <summary>
+        /// CPython 3.12 range dunder method descriptors
+        /// </summary>
+        private void InitializeRangeTypeDescriptors()
+        {
+            var rangeType = this;
+
+            // CPython 3.12: Objects/rangeobject.c:134 (range_new → tp_new)
+            // range(stop), range(start, stop), range(start, stop, step)
+            TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__",
+                (args, kwargs) => {
+                    // args[0] is cls (ignored for range — always creates PyRange)
+                    int nargs = args.Length - 1;  // exclude cls
+                    switch (nargs)
+                    {
+                        case 1:
+                            if (args[1] is PyInt stop1) return PyRange.Create((long)stop1.Value);
+                            throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+                        case 2:
+                            if (args[1] is PyInt start2 && args[2] is PyInt stop2)
+                                return PyRange.Create((long)start2.Value, (long)stop2.Value);
+                            throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+                        case 3:
+                            if (args[1] is PyInt start3 && args[2] is PyInt stop3 && args[3] is PyInt step3)
+                                return PyRange.Create((long)start3.Value, (long)stop3.Value, (long)step3.Value);
+                            throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+                        default:
+                            throw PyTypeError.Create($"range expected at most 3 arguments, got {nargs}");
+                    }
+                }
+            );
+
+            TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__", rangeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__getitem__() takes exactly 1 argument");
+                    return ((PyRange)self).GetItem(args[0]);
+                }, minArgs: 1, maxArgs: 1);
+
+            TypeDict["__len__"] = new PyMethodDescriptor(
+                "__len__", rangeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__len__() takes no arguments");
+                    return new PyInt(((PyRange)self).Length());
+                }, minArgs: 0, maxArgs: 0);
+
+            TypeDict["__contains__"] = new PyMethodDescriptor(
+                "__contains__", rangeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1) throw PyTypeError.Create("__contains__() takes exactly 1 argument");
+                    var r = (PyRange)self;
+                    // range contains: check if value is in [start, stop) with step
+                    if (args[0] is PyInt intVal)
+                    {
+                        long val = (long)intVal.Value;
+                        if (r.Step > 0)
+                            return PyBool.FromBool(val >= r.Start && val < r.Stop && (val - r.Start) % r.Step == 0);
+                        else
+                            return PyBool.FromBool(val <= r.Start && val > r.Stop && (r.Start - val) % (-r.Step) == 0);
+                    }
+                    return PyBool.False;
+                }, minArgs: 1, maxArgs: 1);
+
+            TypeDict["__iter__"] = new PyMethodDescriptor(
+                "__iter__", rangeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__iter__() takes no arguments");
+                    return ((PyRange)self).GetIterator();
+                }, minArgs: 0, maxArgs: 0);
+
+            TypeDict["__reversed__"] = new PyMethodDescriptor(
+                "__reversed__", rangeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0) throw PyTypeError.Create("__reversed__() takes no arguments");
+                    var r = (PyRange)self;
+                    // reversed range: new range with swapped start/stop and negated step
+                    long len = r.Length();
+                    if (len == 0) return new PyRange(0, 0, 1).GetIterator();
+                    long newStart = r.Start + (len - 1) * r.Step;
+                    long newStop = r.Start - r.Step;
+                    return new PyRange(newStart, newStop, -r.Step).GetIterator();
+                }, minArgs: 0, maxArgs: 0);
         }
 
         #endregion

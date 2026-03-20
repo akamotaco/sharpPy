@@ -272,6 +272,53 @@ namespace SharpPy
             listType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
                 (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
             );
+
+            // CPython 3.12: Objects/listobject.c:2839 (sq_item → __getitem__)
+            // isinstance(list, Sequence) 판정에 필요 (__subclasshook__가 __getitem__ 확인)
+            listType.TypeDict["__getitem__"] = new PyMethodDescriptor(
+                "__getitem__",
+                listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
+                    var list = GetListStorage(self);
+                    return list.GetItem(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // CPython 3.12: Objects/listobject.c:2843 (sq_contains → __contains__)
+            listType.TypeDict["__contains__"] = new PyMethodDescriptor(
+                "__contains__",
+                listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__contains__() takes exactly 1 argument ({args.Length} given)");
+                    var list = GetListStorage(self);
+                    return list.Contains(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // CPython 3.12: Objects/listobject.c:2856 (list___reversed__)
+            listType.TypeDict["__reversed__"] = new PyMethodDescriptor(
+                "__reversed__",
+                listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__reversed__() takes no arguments");
+                    var list = GetListStorage(self);
+                    // 역순 이터레이터: 리스트를 뒤집어서 이터레이트
+                    var reversed = new PyList();
+                    for (int i = list.Length() - 1; i >= 0; i--)
+                        reversed.Append(list.GetItem(i));
+                    return reversed.GetIterator();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
         }
 
         private List<PyObject> _items;

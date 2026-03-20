@@ -6,6 +6,9 @@
 - test_python312_missing_features.py
 - test_comprehensive_python312.py
 
+## **회귀 테스트**
+- tests/test_abc_isinstance.py — ABC isinstance 호환 (내장타입 dunder, ABCMeta 체인, random.sample, range type)
+
 ## 🔧 **개발 환경**
 - **OS** : windows
 - **CPython 3.12**: ` C:\ProgramData\miniforge3\python.exe`
