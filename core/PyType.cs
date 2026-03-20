@@ -872,32 +872,42 @@ namespace SharpPy
                     throw PyTypeError.Create($"bytearray() takes at most 1 argument ({args.Length} given)");
             }
 
-            // Fast path for common type conversions — avoid PyBuiltinFunction allocation
-            // CPython 3.12: Objects/unicodeobject.c:14702 (str), longobject.c:5766 (int), floatobject.c:1744 (float)
+            // ================================================================
+            // CPython 3.12 type_call 패턴: tp_new 직접 디스패치
+            // ================================================================
+            // CPython: type_call() → type->tp_new(type, args, kwds)
+            // tp_new는 C struct의 함수 포인터 — dict lookup이 아님.
+            // SharpPy: 내장 타입별 switch문으로 동일 효과 구현.
+            // kwargs가 있든 없든 같은 경로에서 처리 (CPython과 동일).
+            //
+            // References:
+            //   Objects/typeobject.c:type_call (line 1627-1689)
+            //   Objects/longobject.c:long_new → _PyArg_UnpackKeywords
+            //   Objects/dictobject.c:dict_vectorcall
+            // ================================================================
+            bool hasKwargs = kwargs != null && kwargs.InternalDict.Count > 0;
+
             switch (Name)
             {
+                // ── str(x='') ──
+                // CPython: Objects/unicodeobject.c unicode_new
                 case "str":
-                    if (args.Length == 0) return new PyStr("");
-                    if (args.Length == 1) return args[0] is PyStr s ? s : new PyStr(args[0].AsString());
+                    if (args.Length == 0 && !hasKwargs) return new PyStr("");
+                    if (args.Length == 1 && !hasKwargs)
+                        return args[0] is PyStr s ? s : new PyStr(args[0].AsString());
                     break;
+
+                // ── int(x=0, base=10) ──
+                // CPython: Objects/longobject.c long_new_impl
+                // _PyArg_UnpackKeywords로 positional + kwargs 통합
                 case "int":
-                    if (args.Length == 0) return SmallIntCache.Zero;
-                    if (args.Length == 1)
-                    {
-                        var a = args[0];
-                        if (a is PyInt pi) return pi;
-                        if (a is PyFloat pf) return new PyInt((long)pf.Value);
-                        if (a is PyBool pb) return pb.Value ? SmallIntCache.One : SmallIntCache.Zero;
-                        if (a is PyStr ps)
-                        {
-                            if (System.Numerics.BigInteger.TryParse(ps.Value.Trim(), out var bv))
-                                return new PyInt(bv);
-                        }
-                    }
-                    break;
+                    return CallIntNew(args, kwargs, hasKwargs);
+
+                // ── float(x=0) ──
+                // CPython: Objects/floatobject.c float_new_impl
                 case "float":
-                    if (args.Length == 0) return new PyFloat(0.0);
-                    if (args.Length == 1)
+                    if (args.Length == 0 && !hasKwargs) return new PyFloat(0.0);
+                    if (args.Length == 1 && !hasKwargs)
                     {
                         var a = args[0];
                         if (a is PyFloat pf) return pf;
@@ -905,23 +915,30 @@ namespace SharpPy
                         if (a is PyBool pb) return new PyFloat(pb.Value ? 1.0 : 0.0);
                     }
                     break;
+
+                // ── bool(x=False) ──
                 case "bool":
-                    if (args.Length == 0) return PyBool.False;
-                    if (args.Length == 1) return PyBool.FromBool(args[0].PyBoolValue());
+                    if (args.Length == 0 && !hasKwargs) return PyBool.False;
+                    if (args.Length == 1 && !hasKwargs) return PyBool.FromBool(args[0].PyBoolValue());
                     break;
+
+                // ── list(iterable=()) ──
                 case "list":
-                    if (args.Length == 0) return new PyList();
+                    if (args.Length == 0 && !hasKwargs) return new PyList();
                     break;
+
+                // ── dict(**kwargs) / dict(mapping) / dict(iterable) ──
+                // CPython: Objects/dictobject.c dict_vectorcall
                 case "dict":
-                    if (args.Length == 0 && (kwargs == null || kwargs.InternalDict.Count == 0))
-                        return new PyDict();
-                    break;
+                    return CallDictNew(args, kwargs, hasKwargs);
+
+                // ── tuple(iterable=()) ──
                 case "tuple":
-                    if (args.Length == 0) return PyTuple.Empty;
+                    if (args.Length == 0 && !hasKwargs) return PyTuple.Empty;
                     break;
             }
 
-            // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
+            // 내장 타입 fallback — PyBuiltinFunction 위임
             var builtinFunc = new PyBuiltinFunction(Name);
             return builtinFunc.Call(args, kwargs);
         }
@@ -932,6 +949,120 @@ namespace SharpPy
         {
             // Use global method cache for fast lookup
             return GlobalMethodCache.Lookup(this, name, out _);
+        }
+
+        // ================================================================
+        // tp_new 구현 — CPython의 내장 타입별 tp_new 함수 포인터에 해당
+        // ================================================================
+
+        /// <summary>
+        /// int(x=0, base=10) — CPython Objects/longobject.c:long_new_impl
+        /// _PyArg_UnpackKeywords 패턴: positional + kwargs를 통합 매핑
+        /// </summary>
+        private static PyObject CallIntNew(PyObject[] args, PyDict kwargs, bool hasKwargs)
+        {
+            // int() → 0
+            if (args.Length == 0 && !hasKwargs)
+                return SmallIntCache.Zero;
+
+            // Extract x: positional args[0]
+            PyObject x = args.Length > 0 ? args[0] : null;
+
+            // Extract base: positional args[1] or kwargs["base"]
+            int baseValue = 10;
+            bool hasExplicitBase = false;
+
+            if (args.Length > 1)
+            {
+                if (args[1] is not PyInt baseArg)
+                    throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+                baseValue = (int)baseArg.Value;
+                hasExplicitBase = true;
+            }
+            else if (hasKwargs)
+            {
+                var baseKey = new PyStr("base");
+                if (kwargs.InternalDict.TryGetValue(baseKey, out var baseVal))
+                {
+                    if (baseVal is not PyInt baseArg)
+                        throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+                    baseValue = (int)baseArg.Value;
+                    hasExplicitBase = true;
+                }
+            }
+
+            if (hasExplicitBase && baseValue != 0 && (baseValue < 2 || baseValue > 36))
+                throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+
+            // int() with no x
+            if (x == null)
+                return SmallIntCache.Zero;
+
+            // int(string, base)
+            if (x is PyStr pyStr)
+                return PyInt.FromString(pyStr.Value, baseValue);
+
+            // int(non-string) with explicit base → error (CPython 동일)
+            if (hasExplicitBase)
+                throw PyTypeError.Create("int() can't convert non-string with explicit base");
+
+            // int(number)
+            if (x is PyInt pyInt) return pyInt;
+            if (x is PyFloat pyFloat) return new PyInt((long)pyFloat.Value);
+            if (x is PyBool pyBool) return new PyInt(pyBool.Value ? 1 : 0);
+
+            // Fast path miss → try __int__, __index__, __trunc__
+            // (기존 fallback 경로로 위임)
+            if (System.Numerics.BigInteger.TryParse(x.AsString().Trim(), out var bv))
+                return new PyInt(bv);
+
+            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a real number, not '{x.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// dict(**kwargs) / dict(mapping) / dict(iterable)
+        /// CPython Objects/dictobject.c:dict_vectorcall
+        /// </summary>
+        private static PyObject CallDictNew(PyObject[] args, PyDict kwargs, bool hasKwargs)
+        {
+            var result = new PyDict();
+
+            // dict(mapping) — positional arg
+            if (args.Length == 1)
+            {
+                if (args[0] is PyDict srcDict)
+                {
+                    foreach (var kv in srcDict.InternalDict)
+                        result.SetItem(kv.Key, kv.Value);
+                }
+                else
+                {
+                    // iterable of (key, value) pairs
+                    var iter = args[0].GetIterator();
+                    while (iter.TryNext(out var item))
+                    {
+                        if (item is PyTuple t && t.Items.Length == 2)
+                            result.SetItem(t.Items[0], t.Items[1]);
+                        else if (item is PyList l && l.Length() == 2)
+                            result.SetItem(l.GetItem(0), l.GetItem(1));
+                        else
+                            throw PyTypeError.Create("cannot convert dictionary update sequence element to a sequence");
+                    }
+                }
+            }
+            else if (args.Length > 1)
+            {
+                throw PyTypeError.Create($"dict expected at most 1 argument, got {args.Length}");
+            }
+
+            // dict(**kwargs) — CPython: kwargs를 직접 dict 항목으로 삽입
+            if (hasKwargs)
+            {
+                foreach (var kv in kwargs.InternalDict)
+                    result.SetItem(kv.Key, kv.Value);
+            }
+
+            return result;
         }
 
         #endregion
@@ -1056,6 +1187,8 @@ namespace SharpPy
                 "__new__",
                 (args, kwargs) => {
                     // int.__new__(cls, x=0, base=10)
+                    // CPython 3.12: Objects/longobject.c long_new_impl
+                    // base는 positional arg[2] 또는 kwargs["base"]로 받을 수 있음
                     if (args.Length == 0)
                         throw PyTypeError.Create("int.__new__(): not enough arguments");
 
@@ -1063,28 +1196,47 @@ namespace SharpPy
                     if (cls is not PyType)
                         throw PyTypeError.Create($"int.__new__(X): X is not a type object ({cls.GetTypeName()})");
 
-                    // If called with just the class, return 0
-                    if (args.Length == 1)
+                    // If called with just the class (and no kwargs), return 0
+                    if (args.Length == 1 && (kwargs == null || kwargs.InternalDict.Count == 0))
                         return new PyInt(0);
 
-                    var x = args[1];
+                    // Extract x: positional arg[1] or kwargs["x"]
+                    PyObject x;
+                    if (args.Length > 1)
+                        x = args[1];
+                    else if (kwargs != null && kwargs.InternalDict.TryGetValue(new PyStr("x"), out var xVal))
+                        x = xVal;
+                    else
+                        return new PyInt(0);
 
-                    // Handle base parameter if present
+                    // Extract base: positional arg[2] or kwargs["base"]
                     int baseValue = 10;
+                    bool hasExplicitBase = false;
                     if (args.Length > 2)
                     {
                         if (args[2] is not PyInt baseArg)
                             throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
                         baseValue = (int)baseArg.Value;
-                        if (baseValue != 0 && (baseValue < 2 || baseValue > 36))
+                        hasExplicitBase = true;
+                    }
+                    else if (kwargs != null && kwargs.InternalDict.TryGetValue(new PyStr("base"), out var baseVal))
+                    {
+                        if (baseVal is not PyInt baseArg)
                             throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+                        baseValue = (int)baseArg.Value;
+                        hasExplicitBase = true;
                     }
 
+                    if (hasExplicitBase && baseValue != 0 && (baseValue < 2 || baseValue > 36))
+                        throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+
                     // Convert x to int
-                    if (x is PyInt pyInt)
-                        return pyInt;
-                    else if (x is PyStr pyStr)
+                    if (x is PyStr pyStr)
                         return PyInt.FromString(pyStr.Value, baseValue);
+                    else if (hasExplicitBase)
+                        throw PyTypeError.Create("int() can't convert non-string with explicit base");
+                    else if (x is PyInt pyInt)
+                        return pyInt;
                     else if (x is PyFloat pyFloat)
                         return new PyInt((long)pyFloat.Value);
                     else if (x is PyBool pyBool)
