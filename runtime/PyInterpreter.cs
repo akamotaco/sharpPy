@@ -95,6 +95,27 @@ namespace SharpPy
             return Execute(expression, "<eval>", false, false, false, CompileMode.Eval);
         }
 
+        /// <summary>
+        /// Import a module and return it.
+        /// CPython 3.12: Python/import.c:2478 — PyImport_ImportModule(name)
+        /// First checks sys.modules, then imports if not found.
+        /// </summary>
+        public PyModule ImportModule(string name)
+        {
+            // CPython: PyImport_GetModule — check sys.modules first
+            if (PyImportSystem.TryGetModule(name, out var module))
+                return module;
+
+            // CPython: PyImport_Import — execute import
+            Execute($"import {name}", "<import>", false, false, false, CompileMode.File);
+
+            // Re-check sys.modules after import
+            if (PyImportSystem.TryGetModule(name, out module))
+                return module;
+
+            return null;
+        }
+
         public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode, CompileMode mode = CompileMode.File)
         {
             // CPython 3.12: Python/pythonrun.c - co_filename uses absolute path for file execution
