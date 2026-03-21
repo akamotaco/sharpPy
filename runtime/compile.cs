@@ -5286,11 +5286,16 @@ namespace SharpPy
 
         private int GetOrAddConstant(PyObject value)
         {
-            // Use object reference equality for constants
+            // CPython 3.12: Objects/codeobject.c:2189 — _PyCode_ConstantKey
+            // Bool must NOT merge with int: False ≠ 0, True ≠ 1 in constant pool
+            // PyBool_Check → key = (type, value), PyLong_CheckExact → key = value
             for (int i = 0; i < _constants.Count; i++)
             {
                 if (ReferenceEquals(_constants[i], value) ||
-                    (value is PyInt intConst && _constants[i] is PyInt existingInt && intConst.Value == existingInt.Value) ||
+                    // Bool: both must be PyBool (not just PyInt) and same Value
+                    (value is PyBool boolConst && _constants[i] is PyBool existingBool && boolConst.Value == existingBool.Value) ||
+                    // Int: exact type match (exclude PyBool subclass)
+                    (value is PyInt intConst && value is not PyBool && _constants[i] is PyInt existingInt && _constants[i] is not PyBool && intConst.Value == existingInt.Value) ||
                     (value is PyStr strConst && _constants[i] is PyStr existingStr && strConst.Value == existingStr.Value) ||
                     (value is PyTuple tupleConst && _constants[i] is PyTuple existingTuple && TupleEquals(tupleConst, existingTuple)))
                 {
