@@ -9,6 +9,7 @@
 ## **회귀 테스트**
 - tests/test_abc_isinstance.py — ABC isinstance 호환 (내장타입 dunder, ABCMeta 체인, random.sample, range type)
 - tests/test_builtin_kwargs.py — builtin kwargs 호환 (int base, dict kwargs, sorted reverse/key, class __init__ kwargs)
+- tests/test_eval_mode.py — eval mode 호환 (타입 보존, SyntaxError, compile mode, bool identity)
 
 ## 🔧 **개발 환경**
 - **OS** : windows

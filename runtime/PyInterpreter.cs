@@ -145,7 +145,21 @@ namespace SharpPy
                     return PyNone.Instance;
                 }
 
-                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
+                // CPython 3.12: start_rule에 따라 다른 파서 진입점 사용
+                // Py_file_input → file_rule, Py_eval_input → eval_rule, Py_single_input → interactive_rule
+                // Parser/parser.c:41919-41927
+                List<Statement> statements;
+                if (mode == CompileMode.Eval)
+                {
+                    // CPython: eval_rule → "expressions NEWLINE* ENDMARKER"
+                    // 단일 표현식만 허용, import 등 statement → SyntaxError
+                    var expr = PyParserRuntime.ParseExpression(tokens, sourceCode, fileName ?? "<string>");
+                    statements = new List<Statement> { new ExpressionStatement(expr) };
+                }
+                else
+                {
+                    statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
+                }
 
                 if(showAst)
                 {
