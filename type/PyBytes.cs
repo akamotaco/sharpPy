@@ -2110,7 +2110,26 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// bytes equality comparison (used by equals operation)
+        /// Python == operator for bytes
+        /// </summary>
+        protected override PyObject PyEquals(PyObject other)
+        {
+            if (other is PyBytes otherBytes)
+            {
+                if (Value.Length != otherBytes.Value.Length)
+                    return PyBool.False;
+                for (int i = 0; i < Value.Length; i++)
+                {
+                    if (Value[i] != otherBytes.Value[i])
+                        return PyBool.False;
+                }
+                return PyBool.True;
+            }
+            return PyBool.False;
+        }
+
+        /// <summary>
+        /// bytes equality comparison (used by .NET equals operation)
         /// </summary>
         public override bool Equals(object? obj)
         {
