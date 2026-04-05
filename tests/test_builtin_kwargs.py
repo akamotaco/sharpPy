@@ -138,12 +138,28 @@ check_raises("isinstance() unexpected kwarg", lambda: isinstance(1, int, foo=1))
 check_raises("range() unexpected kwarg", lambda: range(10, step=2))
 
 # 내장 함수: 일부 kwargs만 받는 함수 — 잘못된 kwarg
-# TODO: int("10", foo=1) → PyType 경로 (PyBuiltinFunction이 아님)
-# PyType.Call()에서의 kwargs 검증은 별도 이슈
-# check_raises("int() unexpected kwarg", lambda: int("10", foo=1))
+check_raises("int() unexpected kwarg", lambda: int("10", foo=1))
 check_raises("sorted() unexpected kwarg", lambda: sorted([3,1,2], foo=True))
 check_raises("print() unexpected kwarg", lambda: print("test", foo=1))
 check_raises("max() unexpected kwarg", lambda: max([1,2,3], foo=1))
+
+# PyType 경로: kwargs를 전혀 받지 않는 타입들
+# CPython: X_vectorcall → _PyArg_NoKwnames → "X() takes no keyword arguments"
+check_raises("float() unexpected kwarg", lambda: float(3.14, foo=1))
+check_raises("bool() unexpected kwarg", lambda: bool(1, foo=1))
+check_raises("list() unexpected kwarg", lambda: list([1], foo=1))
+check_raises("tuple() unexpected kwarg", lambda: tuple([1], foo=1))
+check_raises("set() unexpected kwarg", lambda: set([1], foo=1))
+check_raises("frozenset() unexpected kwarg", lambda: frozenset([1], foo=1))
+
+# PyType 경로: 일부 kwargs만 받는 타입
+# CPython: _PyArg_UnpackKeywords → "'foo' is an invalid keyword argument for X()"
+check_raises("str() unexpected kwarg", lambda: str("hi", foo=1))
+
+# valid kwargs가 정상 동작하는지도 확인
+check("int(base=16) valid kwarg", int("ff", base=16), 255)
+check("str() no args", str(), "")
+check("str(object=123)", str(object=123), "123")
 
 
 print(f"\n{'='*50}")
