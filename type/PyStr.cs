@@ -55,7 +55,32 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw PyTypeError.Create("can only join an iterable");
+                        // General iterable (generator, set, dict_keys, etc.)
+                        try
+                        {
+                            var iter = iterable.GetIterator();
+                            int idx = 0;
+                            while (iter.TryNext(out var item))
+                            {
+                                if (item is PyStr itemStr)
+                                    items.Add(itemStr.Value);
+                                else
+                                    throw PyTypeError.Create($"sequence item {idx}: expected str instance, {item.GetTypeName()} found");
+                                idx++;
+                            }
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyTypeError)
+                        {
+                            throw;
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                            // iteration complete
+                        }
+                        catch (PythonException)
+                        {
+                            throw PyTypeError.Create("can only join an iterable");
+                        }
                     }
 
                     return new PyStr(string.Join(str.Value, items));
