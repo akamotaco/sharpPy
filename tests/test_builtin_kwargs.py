@@ -116,6 +116,36 @@ check("lambda default", add(5), 15)
 check("lambda kwarg", add(5, b=20), 25)
 
 
+print("\n=== 6. Unexpected kwargs → TypeError (CPython 3.12 호환) ===")
+
+# CPython 3.12: "X() takes no keyword arguments"
+def check_raises(name, fn, expected_type=TypeError):
+    global passed, failed
+    try:
+        fn()
+        failed += 1
+        print(f"  FAIL: {name} — expected {expected_type.__name__} but no exception raised")
+    except expected_type:
+        passed += 1
+    except Exception as e:
+        failed += 1
+        print(f"  FAIL: {name} — expected {expected_type.__name__}, got {type(e).__name__}: {e}")
+
+# 내장 함수: kwargs를 전혀 받지 않는 함수들
+check_raises("len() unexpected kwarg", lambda: len([], foo=1))
+check_raises("abs() unexpected kwarg", lambda: abs(-1, foo=1))
+check_raises("isinstance() unexpected kwarg", lambda: isinstance(1, int, foo=1))
+check_raises("range() unexpected kwarg", lambda: range(10, step=2))
+
+# 내장 함수: 일부 kwargs만 받는 함수 — 잘못된 kwarg
+# TODO: int("10", foo=1) → PyType 경로 (PyBuiltinFunction이 아님)
+# PyType.Call()에서의 kwargs 검증은 별도 이슈
+# check_raises("int() unexpected kwarg", lambda: int("10", foo=1))
+check_raises("sorted() unexpected kwarg", lambda: sorted([3,1,2], foo=True))
+check_raises("print() unexpected kwarg", lambda: print("test", foo=1))
+check_raises("max() unexpected kwarg", lambda: max([1,2,3], foo=1))
+
+
 print(f"\n{'='*50}")
 print(f"TOTAL: {passed}/{passed+failed} passed, {failed} failed")
 if failed == 0:

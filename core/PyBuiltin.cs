@@ -273,12 +273,18 @@ namespace SharpPy
                 return _implementation(processedArgs);
             }
 
-            // 기존 구현이 있으면 사용 (kwargs 무시)
+            // 기존 구현이 있으면 사용 — kwargs가 있으면 TypeError
+            // CPython 3.12: _implementation은 kwargs를 받지 않는 함수이므로
+            // kwargs 전달 시 "X() takes no keyword arguments" 발생해야 함
             if (_implementation != null)
             {
 #if DEBUG_LOG
                 Console.WriteLine($"[PyBuiltinFunction.Call] Using _implementation for {Name}");
 #endif
+                if (kwargs != null && kwargs.InternalDict.Count > 0)
+                {
+                    throw PyTypeError.Create($"{Name}() takes no keyword arguments");
+                }
                 return _implementation(args);
             }
 
@@ -303,9 +309,17 @@ namespace SharpPy
             PyObject file = null; // sys.stdout는 추후 구현
             var flush = PyBool.False;
 
-            // kwargs 처리
+            // CPython 3.12 print() kwargs: sep, end, file, flush
+            var validPrintKwargs = new HashSet<string> { "sep", "end", "file", "flush" };
             if (kwargs != null)
             {
+                foreach (var kv in kwargs.InternalDict)
+                {
+                    var keyStr = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                    if (!validPrintKwargs.Contains(keyStr))
+                        throw PyTypeError.Create($"'{keyStr}' is an invalid keyword argument for print()");
+                }
+
                 try
                 {
                     var sepValue = kwargs.GetItem(new PyStr("sep"));
@@ -459,6 +473,10 @@ namespace SharpPy
 
         private static PyObject CallRange(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: range() takes no keyword arguments
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+                throw PyTypeError.Create("range() takes no keyword arguments");
+
             return args.Length switch
             {
                 1 => args[0] switch
@@ -905,8 +923,16 @@ namespace SharpPy
             PyObject defaultval = null;
             if (kwargs != null)
             {
-                try { keyfunc = kwargs.GetItem(new PyStr("key")); } catch { }
-                try { defaultval = kwargs.GetItem(new PyStr("default")); } catch { }
+                foreach (var kv in kwargs.InternalDict)
+                {
+                    var keyStr = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                    if (keyStr == "key")
+                        keyfunc = kv.Value;
+                    else if (keyStr == "default")
+                        defaultval = kv.Value;
+                    else
+                        throw PyTypeError.Create($"'{keyStr}' is an invalid keyword argument for {name}()");
+                }
             }
 
             // CPython: key=None이면 key 없는 것과 동일
@@ -1311,21 +1337,37 @@ namespace SharpPy
         // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
         private static PyObject CallInt(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: kwargs에서 base 추출, unknown kwargs 검증
+            PyObject kwargsBase = null;
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+            {
+                foreach (var kv in kwargs.InternalDict)
+                {
+                    var keyStr = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                    if (keyStr == "base")
+                        kwargsBase = kv.Value;
+                    else
+                        throw PyTypeError.Create($"'{keyStr}' is an invalid keyword argument for int()");
+                }
+            }
+
             // CPython 3.12: int() with no args returns 0
-            if (args.Length == 0)
+            if (args.Length == 0 && kwargsBase == null)
                 return new PyInt(0);
 
             if (args.Length > 2)
                 throw PyTypeError.Create($"int() takes at most 2 arguments ({args.Length} given)");
 
-            var x = args[0];
+            var x = args.Length > 0 ? args[0] : throw PyTypeError.Create("int() missing string argument");
 
-            // CPython 3.12: int(x) without base - default base and limit, forward to standard implementation
-            if (args.Length == 1)
+            // base: positional args[1] 우선, kwargs 'base' 보조
+            PyObject obase = args.Length >= 2 ? args[1] : kwargsBase;
+
+            // CPython 3.12: int(x) without base
+            if (obase == null)
                 return x.AsInt();
 
             // CPython 3.12: int(x, base) - convert string with explicit base
-            var obase = args[1];
 
             if (x == PyNone.Instance)
             {
