@@ -50,3 +50,42 @@ except TypeError:
     pass
 
 print("All str.join tests passed!")
+
+# ========================================
+# bytes.join tests
+# ========================================
+
+# 기본: list (NOTE: bytes == 비교 버그 있으므로 repr 비교)
+assert repr(b",".join([b"a", b"b", b"c"])) == "b'a,b,c'"
+
+# 기본: tuple
+assert repr(b"-".join((b"x", b"y"))) == "b'x-y'"
+
+# 빈 iterable
+assert repr(b",".join([])) == "b''"
+
+# generator expression
+assert repr(b",".join(x for x in [b"a", b"b", b"c"])) == "b'a,b,c'"
+
+# generator function
+def gen_bytes():
+    yield b"hello"
+    yield b"world"
+
+assert repr(b" ".join(gen_bytes())) == "b'hello world'"
+
+# 에러: non-bytes 요소
+try:
+    b",".join(["a", "b"])
+    assert False, "should raise TypeError"
+except TypeError:
+    pass
+
+# 에러: non-bytes in generator
+try:
+    b",".join(x for x in [b"a", "b"])
+    assert False, "should raise TypeError"
+except TypeError:
+    pass
+
+print("All bytes.join tests passed!")
