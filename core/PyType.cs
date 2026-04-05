@@ -811,6 +811,9 @@ namespace SharpPy
                     }
                     throw PyTypeError.Create($"mappingproxy() argument must be dict, not '{args[0].GetTypeName()}'");
                 case "set":
+                    // CPython: Objects/setobject.c set_vectorcall → _PyArg_NoKwnames
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("set() takes no keyword arguments");
                     // set() constructor - create a new set
                     if (args.Length == 0)
                         return PySet.Empty;
@@ -834,6 +837,9 @@ namespace SharpPy
                     }
                     throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
                 case "frozenset":
+                    // CPython: Objects/setobject.c frozenset_vectorcall → _PyArg_NoKwnames
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("frozenset() takes no keyword arguments");
                     // frozenset() constructor - create a new frozenset
                     if (args.Length == 0)
                         return new PyFrozenSet();
@@ -889,25 +895,25 @@ namespace SharpPy
 
             switch (Name)
             {
-                // ── str(x='') ──
-                // CPython: Objects/unicodeobject.c unicode_new
+                // ── str(object='', encoding=None, errors=None) ──
+                // CPython: Objects/unicodeobject.c unicode_new → _PyArg_UnpackKeywords
+                // Valid kwargs: "object", "encoding", "errors"
                 case "str":
-                    if (args.Length == 0 && !hasKwargs) return new PyStr("");
-                    if (args.Length == 1 && !hasKwargs)
-                        return args[0] is PyStr s ? s : new PyStr(args[0].AsString());
-                    break;
+                    return CallStrNew(args, kwargs, hasKwargs);
 
                 // ── int(x=0, base=10) ──
-                // CPython: Objects/longobject.c long_new_impl
-                // _PyArg_UnpackKeywords로 positional + kwargs 통합
+                // CPython: Objects/longobject.c long_new_impl → _PyArg_UnpackKeywords
+                // Valid kwargs: "x", "base"
                 case "int":
                     return CallIntNew(args, kwargs, hasKwargs);
 
                 // ── float(x=0) ──
-                // CPython: Objects/floatobject.c float_new_impl
+                // CPython: Objects/floatobject.c float_vectorcall → _PyArg_NoKwnames
                 case "float":
-                    if (args.Length == 0 && !hasKwargs) return new PyFloat(0.0);
-                    if (args.Length == 1 && !hasKwargs)
+                    if (hasKwargs)
+                        throw PyTypeError.Create("float() takes no keyword arguments");
+                    if (args.Length == 0) return new PyFloat(0.0);
+                    if (args.Length == 1)
                     {
                         var a = args[0];
                         if (a is PyFloat pf) return pf;
@@ -917,25 +923,36 @@ namespace SharpPy
                     break;
 
                 // ── bool(x=False) ──
+                // CPython: Objects/boolobject.c bool_vectorcall → _PyArg_NoKwnames
                 case "bool":
-                    if (args.Length == 0 && !hasKwargs) return PyBool.False;
-                    if (args.Length == 1 && !hasKwargs) return PyBool.FromBool(args[0].PyBoolValue());
+                    if (hasKwargs)
+                        throw PyTypeError.Create("bool() takes no keyword arguments");
+                    if (args.Length == 0) return PyBool.False;
+                    if (args.Length == 1) return PyBool.FromBool(args[0].PyBoolValue());
                     break;
 
                 // ── list(iterable=()) ──
+                // CPython: Objects/listobject.c list_vectorcall → _PyArg_NoKwnames
                 case "list":
-                    if (args.Length == 0 && !hasKwargs) return new PyList();
+                    if (hasKwargs)
+                        throw PyTypeError.Create("list() takes no keyword arguments");
+                    if (args.Length == 0) return new PyList();
                     break;
 
                 // ── dict(**kwargs) / dict(mapping) / dict(iterable) ──
-                // CPython: Objects/dictobject.c dict_vectorcall
+                // CPython: Objects/dictobject.c dict_vectorcall — accepts arbitrary kwargs
                 case "dict":
                     return CallDictNew(args, kwargs, hasKwargs);
 
                 // ── tuple(iterable=()) ──
+                // CPython: Objects/tupleobject.c tuple_vectorcall → _PyArg_NoKwnames
                 case "tuple":
-                    if (args.Length == 0 && !hasKwargs) return PyTuple.Empty;
+                    if (hasKwargs)
+                        throw PyTypeError.Create("tuple() takes no keyword arguments");
+                    if (args.Length == 0) return PyTuple.Empty;
                     break;
+
+                // set/frozenset — 이전 switch문에서 처리 (kwargs 검증 포함)
             }
 
             // 내장 타입 fallback — PyBuiltinFunction 위임
@@ -954,6 +971,67 @@ namespace SharpPy
         // ================================================================
         // tp_new 구현 — CPython의 내장 타입별 tp_new 함수 포인터에 해당
         // ================================================================
+
+        /// <summary>
+        /// str(object='', encoding=None, errors=None) — CPython Objects/unicodeobject.c:unicode_new_impl
+        /// _PyArg_UnpackKeywords 패턴: "object", "encoding", "errors" 만 허용
+        /// </summary>
+        private static PyObject CallStrNew(PyObject[] args, PyDict kwargs, bool hasKwargs)
+        {
+            // CPython: str() with no args returns ""
+            if (args.Length == 0 && !hasKwargs)
+                return new PyStr("");
+
+            // Extract kwargs — CPython valid kwargs: "object", "encoding", "errors"
+            PyObject kwObject = null;
+            string encoding = null;
+            string errors = null;
+
+            if (hasKwargs)
+            {
+                foreach (var kv in kwargs.InternalDict)
+                {
+                    var keyStr = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                    switch (keyStr)
+                    {
+                        case "object":
+                            kwObject = kv.Value;
+                            break;
+                        case "encoding":
+                            encoding = kv.Value is PyStr encStr ? encStr.Value : kv.Value.AsString();
+                            break;
+                        case "errors":
+                            errors = kv.Value is PyStr errStr ? errStr.Value : kv.Value.AsString();
+                            break;
+                        default:
+                            throw PyTypeError.Create($"'{keyStr}' is an invalid keyword argument for str()");
+                    }
+                }
+            }
+
+            // Resolve x: positional args[0] or kwargs "object"
+            PyObject x = args.Length > 0 ? args[0] : kwObject;
+
+            // str() with no object
+            if (x == null)
+                return new PyStr("");
+
+            // str(object) — simple conversion (no encoding/errors)
+            if (encoding == null && errors == null)
+            {
+                if (x is PyStr s) return s;
+                return new PyStr(x.AsString());
+            }
+
+            // str(bytes, encoding, errors) — decode bytes
+            if (x is PyBytes pyBytes)
+            {
+                // Simple UTF-8 decode (encoding parameter ignored for now)
+                return new PyStr(System.Text.Encoding.UTF8.GetString(pyBytes.Value));
+            }
+
+            throw PyTypeError.Create("encoding without a string argument");
+        }
 
         /// <summary>
         /// int(x=0, base=10) — CPython Objects/longobject.c:long_new_impl
@@ -981,13 +1059,21 @@ namespace SharpPy
             }
             else if (hasKwargs)
             {
-                var baseKey = new PyStr("base");
-                if (kwargs.InternalDict.TryGetValue(baseKey, out var baseVal))
+                // CPython 3.12: int() accepts only 'base' as keyword argument
+                foreach (var kv in kwargs.InternalDict)
                 {
-                    if (baseVal is not PyInt baseArg)
-                        throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
-                    baseValue = (int)baseArg.Value;
-                    hasExplicitBase = true;
+                    var keyStr = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                    if (keyStr == "base")
+                    {
+                        if (kv.Value is not PyInt baseArg)
+                            throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
+                        baseValue = (int)baseArg.Value;
+                        hasExplicitBase = true;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"'{keyStr}' is an invalid keyword argument for int()");
+                    }
                 }
             }
 
