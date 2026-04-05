@@ -827,11 +827,18 @@ public class PyModule : PyObject
                 // 모듈 실행 (초기화) — Execute 내부에서 Parsing/Compiling/Executing 이벤트 발생
                 module.Execute(sourceCode);
 
+                // CPython 3.12: importlib/_bootstrap.py — 모듈 코드 실행 후 sys.modules에서
+                // 다시 조회. 모듈 코드가 sys.modules[__name__]을 교체했을 수 있음.
+                // (예: sys.modules[__name__] = other_module)
+                PyModule finalModule;
+                if (!TryGetModule(moduleName, out finalModule) || finalModule == null)
+                    finalModule = module;
+
                 EmitEvent(ImportPhase.Done, moduleName, filePath);
 #if DEBUG_MODULE_LOG
                 Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
 #endif
-                return module;
+                return finalModule;
             }
             catch (PySyntaxErrorException)
             {
