@@ -471,18 +471,62 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
 
-                    if (args[0] is not PyList list)
-                        throw PyTypeError.Create($"can only join an iterable");
+                    var iterable = args[0];
+                    var bytesList = new System.Collections.Generic.List<PyBytes>();
+
+                    if (iterable is PyList list)
+                    {
+                        for (int i = 0; i < list.Items.Length; i++)
+                        {
+                            if (list.Items[i] is not PyBytes item)
+                                throw PyTypeError.Create($"sequence item {i}: expected a bytes-like object, {list.Items[i].GetTypeName()} found");
+                            bytesList.Add(item);
+                        }
+                    }
+                    else if (iterable is PyTuple tuple)
+                    {
+                        for (int i = 0; i < tuple.Items.Length; i++)
+                        {
+                            if (tuple.Items[i] is not PyBytes item)
+                                throw PyTypeError.Create($"sequence item {i}: expected a bytes-like object, {tuple.Items[i].GetTypeName()} found");
+                            bytesList.Add(item);
+                        }
+                    }
+                    else
+                    {
+                        // General iterable (generator, etc.)
+                        try
+                        {
+                            var iter = iterable.GetIterator();
+                            int idx = 0;
+                            while (iter.TryNext(out var item))
+                            {
+                                if (item is not PyBytes bytesItem)
+                                    throw PyTypeError.Create($"sequence item {idx}: expected a bytes-like object, {item.GetTypeName()} found");
+                                bytesList.Add(bytesItem);
+                                idx++;
+                            }
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyTypeError)
+                        {
+                            throw;
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                            // iteration complete
+                        }
+                        catch (PythonException)
+                        {
+                            throw PyTypeError.Create("can only join an iterable");
+                        }
+                    }
 
                     var result = new System.Collections.Generic.List<byte>();
-                    for (int i = 0; i < list.Items.Length; i++)
+                    for (int i = 0; i < bytesList.Count; i++)
                     {
-                        if (list.Items[i] is not PyBytes item)
-                            throw PyTypeError.Create($"sequence item {i}: expected bytes, {list.Items[i].GetTypeName()} found");
-
                         if (i > 0)
                             result.AddRange(separator.Value);
-                        result.AddRange(item.Value);
+                        result.AddRange(bytesList[i].Value);
                     }
 
                     return new PyBytes(result.ToArray());
