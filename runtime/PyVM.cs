@@ -2575,9 +2575,15 @@ namespace SharpPy
             // Try DISPATCH_INLINED for user-defined method: merge LOAD_ATTR + CALL into frame swap
             // Pattern: LOAD_ATTR(method) + 9 CACHE + [LOAD_FAST args...] + CALL N + 3 CACHE
             // Returns negative skip count to signal DISPATCH_INLINED to main loop
+            //
+            // IMPORTANT: Generators/coroutines need RETURN_GENERATOR handling via PyFunction.Call
+            // (CreateGenerator). Inlining their frame skips that path → empty stack on POP_TOP
+            // following RETURN_GENERATOR. Other fast paths (lines ~4063, ~10069) check this;
+            // this one was missing → "Stack is empty" runtime error.
             if (laCacheEntry.CachedValue is PyFunction methodFunc
                 && methodFunc.CodeObject is PyCodeObject methodCode
                 && methodCode.IsSimpleCallTarget
+                && !methodCode.IsGenerator() && !methodCode.IsCoroutine()
                 && (methodCode.CellVars?.Count ?? 0) == 0
                 && (methodCode.FreeVars?.Count ?? 0) == 0)
             {
