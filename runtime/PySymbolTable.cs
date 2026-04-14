@@ -567,12 +567,31 @@ namespace SharpPy
                     break;
 
                 case ImportStatement importStmt:
-                    // Register imported modules as global variables
+                    // CPython 3.12: Python/symtable.c — symtable_visit_stmt (Import case)
+                    // "import X.Y as Z" → register Z (alias)
+                    // "import X.Y"      → register X (top-level only, CPython stores X alone)
+                    // "import X"        → register X
+                    // ImportStatement.Names is raw "X as Y" or "X.Y" strings; parse to extract
+                    // the actual bound name so lambdas/inner scopes can resolve via closure.
                     foreach (var moduleName in importStmt.Names)
                     {
-                        _currentTable?.DefineSymbol(moduleName, SymbolFlags.Assigned);
+                        string symbolToRegister;
+                        if (moduleName.Contains(" as "))
+                        {
+                            var parts = moduleName.Split(new[] { " as " },
+                                StringSplitOptions.RemoveEmptyEntries);
+                            symbolToRegister = parts[1].Trim();
+                        }
+                        else
+                        {
+                            var dotIdx = moduleName.IndexOf('.');
+                            symbolToRegister = (dotIdx != -1)
+                                ? moduleName.Substring(0, dotIdx)
+                                : moduleName;
+                        }
+                        _currentTable?.DefineSymbol(symbolToRegister, SymbolFlags.Assigned);
                         #if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"  ImportStatement: Registered '{moduleName}' as global symbol");
+                        Console.WriteLine($"  ImportStatement: Registered '{symbolToRegister}' (from raw '{moduleName}')");
                         #endif
                     }
                     break;
