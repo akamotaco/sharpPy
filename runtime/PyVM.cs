@@ -5531,28 +5531,33 @@ namespace SharpPy
         }
         else
         {
-            // CPython 3.12: Try to iterate using __iter__
+            // CPython 3.12: Python/ceval.c unpack_iterable()
+            // 1) PyObject_GetIter 실패 시에만 TypeError "cannot unpack non-iterable..."
+            // 2) 반복 중 발생하는 예외는 그대로 호출자로 전파 (CPython 과 동일)
+            PyObject unpackIterator;
             try
             {
-                var unpackIterator = unpackExSequence.GetIterator();
-                var unpackItems = new System.Collections.Generic.List<PyObject>();
-                while (true)
-                {
-                    try
-                    {
-                        unpackItems.Add(unpackIterator.Next());
-                    }
-                    catch (Exception ex) when (ex is PyStopIteration || ex.Message.Contains("StopIteration"))
-                    {
-                        break;
-                    }
-                }
-                itemsToUnpack = unpackItems.ToArray();
+                unpackIterator = unpackExSequence.GetIterator();
             }
-            catch (Exception)
+            catch
             {
                 throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
             }
+
+            var unpackItems = new System.Collections.Generic.List<PyObject>();
+            while (true)
+            {
+                try
+                {
+                    unpackItems.Add(unpackIterator.Next());
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
+                // 다른 예외는 전파 — message-string matching 제거 (fragile + CPython 비호환)
+            }
+            itemsToUnpack = unpackItems.ToArray();
         }
 
         if (itemsToUnpack.Length < countBefore + countAfter)
