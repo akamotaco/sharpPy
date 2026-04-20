@@ -162,13 +162,24 @@ namespace SharpPy
                 _magicMethodCacheVersion = TypeVersionTag;
             }
 
-            // Cache miss: ClassDict-only MRO search (기존 동작 보존)
+            // Cache miss: MRO search — ClassDict(사용자 정의) + TypeDict(built-in descriptor) 둘 다 확인.
+            // CPython 은 단일 __dict__ 를 갖지만 SharpPy 는 분리 — built-in base class
+            // (BaseException/Exception 등) 의 __init__/__str__/... 는 TypeDict 에 저장되므로
+            // ClassDict 만 탐색하면 user-defined exception subclass 가 base __init__ 을 못 찾음.
             PyObject found = null;
             foreach (var mroType in MRO)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var method))
+                // PyClass (사용자 정의) 우선 — user override
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var clsMethod))
                 {
-                    found = method;
+                    found = clsMethod;
+                    break;
+                }
+                // 그 다음 TypeDict — built-in PyType 의 descriptor
+                if (mroType != null && mroType.TypeDict != null
+                    && mroType.TypeDict.TryGetValue(name, out var typeMethod))
+                {
+                    found = typeMethod;
                     break;
                 }
             }
@@ -394,7 +405,13 @@ namespace SharpPy
                 }
                 else
                 {
-                    init.Call(args, kwargs);
+                    // PyBuiltinFunction (e.g. BaseException.__init__ at TypeDict) 등 unbound callable —
+                    // CPython type.__call__ 처럼 instance 를 self 로 앞에 prepend 해서 호출해야 함.
+                    // (prepend 누락 시 첫 사용자 arg 가 self 로 잘못 해석됨 — args 저장 실패 등 증상)
+                    var wrappedArgs = new PyObject[args.Length + 1];
+                    wrappedArgs[0] = instance;
+                    for (int i = 0; i < args.Length; i++) wrappedArgs[i + 1] = args[i];
+                    init.Call(wrappedArgs, kwargs);
                 }
             }
 
