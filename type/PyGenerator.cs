@@ -267,9 +267,11 @@ namespace SharpPy
                 _finished = true;
                 throw;
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack is empty"))
             {
-                // Generator completion: Stack empty during final cleanup is normal completion
+                // Generator completion: Stack empty during final cleanup is normal completion.
+                // PyStack 의 실제 throw 메시지는 "Stack is empty" (이전 코드는 "Stack empty" 로
+                // 검사해 매칭 실패 — catch 가 무력화되어 있었음).
                 #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🎉 Generator: Completed successfully (stack empty during cleanup)");
                 #endif
@@ -372,8 +374,9 @@ namespace SharpPy
                 _finished = true;
                 throw;
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack is empty"))
             {
+                // PyStack throw 메시지 "Stack is empty" 일치 수정 (기존 "Stack empty" 는 매칭 안 됨).
                 _finished = true;
                 value = null;
                 return false;
