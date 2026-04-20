@@ -2350,7 +2350,7 @@ namespace SharpPy
                     {
                         // CPython 3.12 의미: 스택 언더플로우 등 VM 내부 일관성 오류는
                         // debug build 에서 assert 실패로 크래시. SharpPy 는 C# 예외로
-                        // 감지되므로 진단 정보(frame/ip/opcode/stack level/file:line) 를
+                        // 감지되므로 진단 정보(frame/ip/opcode/stack level/file:line/주변 명령어) 를
                         // 붙여 재throw. Python-level StopIteration 으로 위장하지 않음.
                         var opStr = ip < instructions.Length
                             ? $"{instructions[ip].OpCode} arg={instructions[ip].Argument}"
@@ -2359,11 +2359,37 @@ namespace SharpPy
                         var stackLevel = frame.ValueStack.Count;
                         var fileName = frame.Code.FileName ?? "?";
                         var funcName = frame.Code.Name ?? "?";
-                        var diag = $"[VM internal] {ioEx.Message} " +
+
+                        // 주변 명령어 덤프 (ip-12 .. ip+4) — 호출 패턴 패턴 식별용
+                        var sb = new System.Text.StringBuilder();
+                        sb.AppendLine($"🔴 [VM internal] {ioEx.Message} " +
                             $"(frame={funcName}, ip={ip}, opcode={opStr}, " +
-                            $"stack_level={stackLevel}, file={fileName}:{lineNo})";
-                        Console.Error.WriteLine("🔴 " + diag);
-                        throw new InvalidOperationException(diag, ioEx);
+                            $"stack_level={stackLevel}, file={fileName}:{lineNo})");
+                        sb.AppendLine("  Surrounding instructions:");
+                        int start = Math.Max(0, ip - 12);
+                        int end = Math.Min(instructions.Length - 1, ip + 4);
+                        for (int i = start; i <= end; i++)
+                        {
+                            var marker = i == ip ? " >>>" : "    ";
+                            var hasLine = frame.Code.LineNumberTable.TryGetValue(i, out var iLn);
+                            var lnStr = hasLine ? $" line={iLn}" : "";
+                            sb.AppendLine($"  {marker} [{i}] {instructions[i].OpCode} arg={instructions[i].Argument}{lnStr}");
+                        }
+                        // 호출 스택 (inlined frame chain)
+                        sb.AppendLine($"  Frame chain:");
+                        var curFr = frame;
+                        int depth = 0;
+                        while (curFr != null && depth < 8)
+                        {
+                            sb.AppendLine($"    [{depth}] {curFr.Code.Name} (ip={curFr.InstructionPointer}, file={curFr.Code.FileName ?? "?"})");
+                            curFr = curFr.ParentFrame;
+                            depth++;
+                        }
+                        var diag = sb.ToString().TrimEnd();
+                        Console.Error.WriteLine(diag);
+                        throw new InvalidOperationException(
+                            $"[VM internal] {ioEx.Message} (frame={funcName}, ip={ip}, opcode={opStr}, stack_level={stackLevel})",
+                            ioEx);
                     }
                 }
 
