@@ -267,20 +267,13 @@ namespace SharpPy
                 _finished = true;
                 throw;
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack is empty"))
-            {
-                // Generator completion: Stack empty during final cleanup is normal completion.
-                // PyStack 의 실제 throw 메시지는 "Stack is empty" (이전 코드는 "Stack empty" 로
-                // 검사해 매칭 실패 — catch 가 무력화되어 있었음).
-                #if DEBUG_GENERATOR_LOG
-                Console.WriteLine($"🎉 Generator: Completed successfully (stack empty during cleanup)");
-                #endif
-                _finished = true;
-                throw PyStopIteration.Create();
-            }
             catch (Exception ex)
             {
-                // 다른 예외가 발생한 경우
+                // CPython 3.12 의미: StopIteration 은 오직 RETURN_* opcode 로 자연 완료된 경우에만 세팅.
+                // 내부 VM 오류 (스택 언더플로우 등) 는 StopIteration 으로 변환해서는 안 됨
+                // (Objects/genobject.c gen_send_ex — PYGEN_ERROR 경로는 기존 PyErr 를 그대로 propagate,
+                //  ceval_macros.h POP() 은 debug build 에서 assert 로 즉시 크래시).
+                // 따라서 모든 비-StopIteration 예외는 그대로 전파. 호출자가 내부 오류를 볼 수 있어야 함.
                 #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🔴 PyGenerator.Next() Exception: {ex.GetType().Name}: {ex.Message}");
                 #endif
@@ -374,13 +367,9 @@ namespace SharpPy
                 _finished = true;
                 throw;
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Stack is empty"))
-            {
-                // PyStack throw 메시지 "Stack is empty" 일치 수정 (기존 "Stack empty" 는 매칭 안 됨).
-                _finished = true;
-                value = null;
-                return false;
-            }
+            // CPython 3.12 의미: 내부 VM 오류 (InvalidOperationException 등) 는 StopIteration 이나
+            // 정상 완료로 변환되지 않음. CPython 은 그런 경우 assertion 실패 / UB 로 크래시.
+            // SharpPy 는 C# 예외를 그대로 propagate 해서 호출자가 진단 가능하게 함.
             catch (Exception)
             {
                 _finished = true;
