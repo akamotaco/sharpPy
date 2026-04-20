@@ -830,29 +830,33 @@ namespace SharpPy
             // CPython list() 생성자 동작 모방
             if (this is PyList list)
                 return new PyList(list.Items.ToList()); // 복사본 생성
-            
-            // 이터러블 객체인 경우 변환
-            var items = new List<PyObject>();
+
+            // CPython: iter() 단계 실패만 "not iterable" — 반복 중 예외는 그대로 전파되어야 함.
+            // (기존 try/catch 전체를 감싸면 generator 내부 예외가 TypeError 로 오염됨)
+            PyObject iter;
             try
             {
-                var iter = GetIterator();
-                while (true)
-                {
-                    try
-                    {
-                        items.Add(iter.Next());
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        break;
-                    }
-                }
-                return new PyList(items);
+                iter = GetIterator();
             }
             catch
             {
                 throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
             }
+
+            var items = new List<PyObject>();
+            while (true)
+            {
+                try
+                {
+                    items.Add(iter.Next());
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
+                // 다른 예외는 catch 안 함 → CPython 처럼 호출자로 전파
+            }
+            return new PyList(items);
         }
 
         /// <summary>
@@ -917,29 +921,32 @@ namespace SharpPy
             // CPython tuple() 생성자 동작 모방
             if (this is PyTuple tuple)
                 return tuple; // 튜플은 immutable이므로 동일 객체 반환
-            
-            // 이터러블 객체인 경우 변환
-            var items = new List<PyObject>();
+
+            // CPython: iter() 단계 실패만 "not iterable" — 반복 중 예외는 그대로 전파
+            PyObject iter;
             try
             {
-                var iter = GetIterator();
-                while (true)
-                {
-                    try
-                    {
-                        items.Add(iter.Next());
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        break;
-                    }
-                }
-                return new PyTuple(items.ToArray());
+                iter = GetIterator();
             }
             catch
             {
                 throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
             }
+
+            var items = new List<PyObject>();
+            while (true)
+            {
+                try
+                {
+                    items.Add(iter.Next());
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
+                // 다른 예외는 catch 안 함 → 호출자로 전파
+            }
+            return new PyTuple(items.ToArray());
         }
 
         public virtual int Length()
