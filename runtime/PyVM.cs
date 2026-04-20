@@ -2362,14 +2362,14 @@ namespace SharpPy
                         var fileName = frame.Code.FileName ?? "?";
                         var funcName = frame.Code.Name ?? "?";
 
-                        // 주변 명령어 덤프 (ip-12 .. ip+4) — 호출 패턴 패턴 식별용
+                        // 주변 명령어 덤프 (ip-30 .. ip+6) — CALL 의 prep 패턴 식별용
                         var sb = new System.Text.StringBuilder();
                         sb.AppendLine($"🔴 [VM internal] {ioEx.Message} " +
                             $"(frame={funcName}, ip={ip}, opcode={opStr}, " +
                             $"stack_level={stackLevel}, file={fileName}:{lineNo})");
                         sb.AppendLine("  Surrounding instructions:");
-                        int start = Math.Max(0, ip - 12);
-                        int end = Math.Min(instructions.Length - 1, ip + 4);
+                        int start = Math.Max(0, ip - 30);
+                        int end = Math.Min(instructions.Length - 1, ip + 6);
                         for (int i = start; i <= end; i++)
                         {
                             var marker = i == ip ? " >>>" : "    ";
