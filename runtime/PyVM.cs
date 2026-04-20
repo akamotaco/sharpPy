@@ -2348,6 +2348,25 @@ namespace SharpPy
                         ip = loopStart;
                         frame.InstructionPointer = ip;
                     }
+                    catch (InvalidOperationException ioEx)
+                    {
+                        // CPython 3.12 의미: 스택 언더플로우 등 VM 내부 일관성 오류는
+                        // debug build 에서 assert 실패로 크래시. SharpPy 는 C# 예외로
+                        // 감지되므로 진단 정보(frame/ip/opcode/stack level/file:line) 를
+                        // 붙여 재throw. Python-level StopIteration 으로 위장하지 않음.
+                        var opStr = ip < instructions.Length
+                            ? $"{instructions[ip].OpCode} arg={instructions[ip].Argument}"
+                            : "(ip out of range)";
+                        var lineNo = frame.Code.LineNumberTable.TryGetValue(ip, out var ln) ? ln : -1;
+                        var stackLevel = frame.ValueStack.Count;
+                        var fileName = frame.Code.FileName ?? "?";
+                        var funcName = frame.Code.Name ?? "?";
+                        var diag = $"[VM internal] {ioEx.Message} " +
+                            $"(frame={funcName}, ip={ip}, opcode={opStr}, " +
+                            $"stack_level={stackLevel}, file={fileName}:{lineNo})";
+                        Console.Error.WriteLine("🔴 " + diag);
+                        throw new InvalidOperationException(diag, ioEx);
+                    }
                 }
 
                 // 명시적 return이 없으면 None 반환
