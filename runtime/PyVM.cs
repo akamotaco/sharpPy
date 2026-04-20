@@ -10515,10 +10515,17 @@ namespace SharpPy
             {
                 var code = fastFunc.CodeObject;
                 // Guard: CO_OPTIMIZED, no *args/**kwargs, no keyword-only params
+                // CPython 3.12: Generator/coroutine functions MUST go through PyFunction.Call
+                // to trigger RETURN_GENERATOR handling (Python/bytecodes.c:3306-3327).
+                // 이 fast path 는 ExecuteFrame 을 직접 호출하므로 generator 경우 body 가
+                // 즉시 실행돼 stack 오염/언더플로우 발생 (romance() stack-empty 버그).
+                // ExecuteFunctionCall / ExecuteFunctionCallWithKeywords 에는 이 체크가
+                // 있었지만 CallWithKeywords fast path 에만 누락됨.
                 if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
                     && (code.Flags & (PyCodeObject.CO_VARARGS | PyCodeObject.CO_VARKEYWORDS)) == 0
                     && code.KwonlyArgCount == 0
-                    && numPosArgs + numKwArgs <= code.ArgCount)
+                    && numPosArgs + numKwArgs <= code.ArgCount
+                    && !code.IsGenerator() && !code.IsCoroutine() && !code.IsAsyncGenerator())
                 {
                     var varNameMap = code.VarNameIndexMap;
                     int argCount = code.ArgCount;
