@@ -71,15 +71,26 @@ namespace SharpPy.Modules
             // Exception types (most important for enum module)
             module.ModuleDict["BaseException"] = PyType.BaseExceptionType;
             module.ModuleDict["Exception"] = PyType.ExceptionType;
+            // BaseException 직계 (Exception 외)
+            module.ModuleDict["SystemExit"] = PyType.SystemExitType;
+            module.ModuleDict["KeyboardInterrupt"] = PyType.KeyboardInterruptType;
+            module.ModuleDict["GeneratorExit"] = PyType.GeneratorExitType;
+            // StopIteration 계열
             module.ModuleDict["StopIteration"] = PyType.StopIterationType;
+            module.ModuleDict["StopAsyncIteration"] = PyType.StopAsyncIterationType;
+            // 기본 Exception 서브
             module.ModuleDict["TypeError"] = PyType.TypeErrorType;
             module.ModuleDict["ValueError"] = PyType.ValueErrorType;
+            // LookupError 계층 (IndexError / KeyError 의 공통 조상)
+            module.ModuleDict["LookupError"] = PyType.LookupErrorType;
             module.ModuleDict["KeyError"] = PyType.KeyErrorType;
             module.ModuleDict["IndexError"] = PyType.IndexErrorType;
             module.ModuleDict["AttributeError"] = PyType.AttributeErrorType;
             module.ModuleDict["NameError"] = PyType.NameErrorType;
             module.ModuleDict["RuntimeError"] = PyType.RuntimeErrorType;
             module.ModuleDict["SystemError"] = PyType.SystemErrorType;
+            // ArithmeticError 계층 (ZeroDivisionError / OverflowError 의 공통 조상)
+            module.ModuleDict["ArithmeticError"] = PyType.ArithmeticErrorType;
             module.ModuleDict["ZeroDivisionError"] = PyType.ZeroDivisionErrorType;
             module.ModuleDict["ImportError"] = PyType.ImportErrorType;
             module.ModuleDict["ModuleNotFoundError"] = PyType.ModuleNotFoundErrorType;

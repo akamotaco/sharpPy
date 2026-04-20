@@ -4969,13 +4969,23 @@ namespace SharpPy
 
             if (expectedType is PyClass userClass)
             {
+                // CPython: PyType_IsSubtype — MRO 체인에서 검색
                 matches = classInstance.InstanceType == userClass ||
-                         classInstance.InstanceType.Name == userClass.Name;
+                         classInstance.InstanceType.MRO.Contains(userClass);
             }
             else if (expectedType is PyType pyType)
             {
-                // Check if custom instance is compatible with Exception/BaseException
-                matches = pyType.Name == "Exception" || pyType.Name == "BaseException";
+                // CPython: PyType_IsSubtype — MRO 전체에서 built-in type 매치 검사
+                // 기존 로직은 Exception/BaseException 만 체크했지만, 중간 타입(LookupError, ValueError 등) 도
+                // MRO 체인을 타고 매치되어야 함. CPython 과 동일한 PyType_IsSubtype 의미론.
+                foreach (var mroEntry in classInstance.InstanceType.MRO)
+                {
+                    if (mroEntry == pyType || mroEntry.Name == pyType.Name)
+                    {
+                        matches = true;
+                        break;
+                    }
+                }
             }
         }
 
@@ -10948,15 +10958,32 @@ namespace SharpPy
             // If both are exception classes, use PyType_IsSubtype
             var expectedType = GetExceptionTypeByName(expectedTypeName);
 
+            // Built-in PyException 계열: C# 상속 체인 검사
+            if (expectedType != null && expectedType.IsAssignableFrom(actualType))
+            {
+                return true;
+            }
+
+            // 사용자 정의 예외 (PyException 으로 래핑된 경우): OriginalClass 의 MRO 에서 검색.
+            // CPython PyType_IsSubtype 와 동일 의미론 — 중간 built-in 타입(LookupError 등) 도 매치.
+            if (exception.OriginalClass != null)
+            {
+                foreach (var mroEntry in exception.OriginalClass.MRO)
+                {
+                    if (mroEntry.Name == expectedTypeName)
+                    {
+                        return true;
+                    }
+                }
+            }
+
             if (expectedType == null)
             {
-                // Unknown exception type, fall back to name match
+                // Unknown exception type: fall back to name match
                 return exception.GetTypeName() == expectedTypeName;
             }
 
-            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
-            // In C#: expectedType.IsAssignableFrom(actualType)
-            return expectedType.IsAssignableFrom(actualType);
+            return false;
         }
 
         /// <summary>
