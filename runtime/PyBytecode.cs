@@ -1066,11 +1066,27 @@ namespace SharpPy
         
         /// <summary>
         /// 제너레이터 함수인지 확인 (yield 또는 yield from 명령어 포함 여부)
+        /// 명령어 스캔 결과는 코드 객체당 1회만 계산 후 캐시 (호출 경로 핫스팟)
         /// </summary>
+        private byte _isGeneratorCache; // 0=미계산, 1=generator, 2=non-generator
         public bool IsGenerator()
         {
-            return Instructions.Any(inst => 
-                inst.OpCode == ByteCodeOp.YIELD_VALUE); // CPython 3.12: YIELD_FROM removed
+            byte cached = _isGeneratorCache;
+            if (cached != 0)
+                return cached == 1;
+
+            bool isGen = false;
+            var insts = Instructions;
+            for (int i = 0; i < insts.Count; i++)
+            {
+                if (insts[i].OpCode == ByteCodeOp.YIELD_VALUE) // CPython 3.12: YIELD_FROM removed
+                {
+                    isGen = true;
+                    break;
+                }
+            }
+            _isGeneratorCache = isGen ? (byte)1 : (byte)2;
+            return isGen;
         }
         
         /// <summary>
