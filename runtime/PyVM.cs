@@ -4645,72 +4645,93 @@ namespace SharpPy
         // Fast path: PyClass with MRO (most common case: user-defined classes)
         if (selfClass != null && selfClass.MRO != null)
         {
-            var mro = selfClass.MRO;
-            int startIdx = -1;
-
-            // Find __class__ position in MRO (reference equality first, then identity)
-            for (int i = 0; i < mro.Count; i++)
+            // 1-entry super lookup 캐시: (startClass=__class__, name) → PyFunction
+            // CPython do_super_lookup 의 MRO 스캔 결과를 TypeVersionTag 가드로 캐시.
+            // (CPython 은 interned string dict 조회라 스캔이 원래 쌈 — 캐시로 동등 효과)
+            PyFunction resolvedFunc = null;
+            if (selfClass._superCacheVersion == selfClass.TypeVersionTag
+                && ReferenceEquals(selfClass._superCacheStartClass, classObj)
+                && selfClass._superCacheName == superAttrName)
             {
-                if (mro[i] == classObj)
-                {
-                    startIdx = i;
-                    break;
-                }
+                resolvedFunc = selfClass._superCacheResult as PyFunction;
             }
 
-            if (startIdx >= 0)
+            if (resolvedFunc == null)
             {
-                // Look for attribute starting from the class AFTER __class__ in MRO
-                for (int i = startIdx + 1; i < mro.Count; i++)
+                var mro = selfClass.MRO;
+                int startIdx = -1;
+
+                // Find __class__ position in MRO (reference equality first, then identity)
+                for (int i = 0; i < mro.Count; i++)
                 {
-                    var baseType = mro[i];
-                    PyObject attr = null;
-
-                    // CPython 3.12: Look only in the class's __dict__, NOT its full MRO
-                    if (baseType is PyClass pyClass)
+                    if (mro[i] == classObj)
                     {
-                        pyClass.ClassDict.TryGetValue(superAttrName, out attr);
-                    }
-                    else if (baseType is PyType pyType)
-                    {
-                        attr = PyClass.GetTypeAttribute(pyType, superAttrName);
-                    }
-
-                    if (attr != null)
-                    {
-                        bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
-
-                        // Fast path: only for PyFunction (user-defined methods)
-                        // Built-in descriptors (IDescriptor) need descriptor protocol — fall to slow path
-                        if (attr is PyFunction func)
-                        {
-                            if (superMethodFlag == 1 && !isClassModeSuper)
-                            {
-                                // Method call: push [func, self] for CALL (like LOAD_ATTR method push)
-                                // Avoids PyMethod allocation entirely
-                                frame.ValueStack.Push(func);
-                                frame.ValueStack.Push(selfObj);
-                                return null;
-                            }
-
-                            PyObject finalAttr = isClassModeSuper ? (PyObject)func : new PyMethod(selfObj, func);
-                            if (superMethodFlag == 1)
-                            {
-                                frame.ValueStack.Push(PyNone.Instance);
-                                frame.ValueStack.Push(finalAttr);
-                            }
-                            else
-                            {
-                                frame.ValueStack.Push(finalAttr);
-                            }
-                            return null;
-                        }
-
-                        // For non-PyFunction attrs (descriptors, built-in methods, etc.),
-                        // break out and fall to the slow path for correct descriptor protocol
+                        startIdx = i;
                         break;
                     }
                 }
+
+                if (startIdx >= 0)
+                {
+                    // Look for attribute starting from the class AFTER __class__ in MRO
+                    for (int i = startIdx + 1; i < mro.Count; i++)
+                    {
+                        var baseType = mro[i];
+                        PyObject attr = null;
+
+                        // CPython 3.12: Look only in the class's __dict__, NOT its full MRO
+                        if (baseType is PyClass pyClass)
+                        {
+                            pyClass.ClassDict.TryGetValue(superAttrName, out attr);
+                        }
+                        else if (baseType is PyType pyType)
+                        {
+                            attr = PyClass.GetTypeAttribute(pyType, superAttrName);
+                        }
+
+                        if (attr != null)
+                        {
+                            // Fast path: only for PyFunction (user-defined methods)
+                            // Built-in descriptors (IDescriptor) need descriptor protocol — fall to slow path
+                            if (attr is PyFunction func)
+                            {
+                                resolvedFunc = func;
+                                selfClass._superCacheStartClass = classObj;
+                                selfClass._superCacheName = superAttrName;
+                                selfClass._superCacheResult = func;
+                                selfClass._superCacheVersion = selfClass.TypeVersionTag;
+                            }
+                            // 비 PyFunction (descriptor 등) → resolvedFunc null 유지 → slow path
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (resolvedFunc != null)
+            {
+                bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
+
+                if (superMethodFlag == 1 && !isClassModeSuper)
+                {
+                    // Method call: push [func, self] for CALL (like LOAD_ATTR method push)
+                    // Avoids PyMethod allocation entirely
+                    frame.ValueStack.Push(resolvedFunc);
+                    frame.ValueStack.Push(selfObj);
+                    return null;
+                }
+
+                PyObject finalAttr = isClassModeSuper ? (PyObject)resolvedFunc : new PyMethod(selfObj, resolvedFunc);
+                if (superMethodFlag == 1)
+                {
+                    frame.ValueStack.Push(PyNone.Instance);
+                    frame.ValueStack.Push(finalAttr);
+                }
+                else
+                {
+                    frame.ValueStack.Push(finalAttr);
+                }
+                return null;
             }
         }
 
@@ -10564,11 +10585,26 @@ namespace SharpPy
                     }
 
                     // Fill keyword args by looking up parameter index
+                    // kwnames tuple 은 call site 당 동일 객체 (co_consts) → 인덱스 매핑을 1회만 계산
                     var kwItems = kwNames.Items;
+                    int[] kwParamIdx = ReferenceEquals(code.LastKwNamesTuple, kwNames)
+                        ? code.LastKwParamIndices
+                        : null;
+                    if (kwParamIdx == null)
+                    {
+                        kwParamIdx = new int[numKwArgs];
+                        for (int i = 0; i < numKwArgs; i++)
+                        {
+                            string kwName = ((PyStr)kwItems[i]).Value;
+                            kwParamIdx[i] = varNameMap.TryGetValue(kwName, out int pi) ? pi : -1;
+                        }
+                        code.LastKwParamIndices = kwParamIdx;
+                        code.LastKwNamesTuple = kwNames;
+                    }
                     for (int i = 0; i < numKwArgs; i++)
                     {
-                        string kwName = ((PyStr)kwItems[i]).Value;
-                        if (varNameMap.TryGetValue(kwName, out int paramIdx))
+                        int paramIdx = kwParamIdx[i];
+                        if (paramIdx >= 0)
                         {
                             buf[paramIdx] = PyValue.FromObject(args[numPosArgs + i]);
                             filledBits |= (1 << paramIdx);

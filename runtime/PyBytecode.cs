@@ -523,6 +523,17 @@ namespace SharpPy
         public PyTuple? CachedDefaultsTuple { get; private set; }
 
         /// <summary>
+        /// kwargs 바인딩 캐시 (1-entry): KW_NAMES tuple identity → 파라미터 인덱스 배열.
+        /// KW_NAMES 의 tuple 은 call site 의 co_consts 객체라 호출마다 동일 —
+        /// kwname 별 VarNameIndexMap 해시 조회를 사이트당 1회로 축소.
+        /// (CPython 3.12 은 interned string 포인터 비교라 이 비용이 원래 없음 —
+        ///  ceval.c initialize_locals 의 동등 효과)
+        /// 미정의 이름은 -1 (호출측에서 기존과 동일하게 skip).
+        /// </summary>
+        internal PyTuple? LastKwNamesTuple;
+        internal int[]? LastKwParamIndices;
+
+        /// <summary>
         /// Pre-computed flag: true if this code object qualifies for the fast call path
         /// (CO_OPTIMIZED, no kwonly, no varargs/varkeywords, no defaults).
         /// CPython 3.12: CALL_PY_EXACT_ARGS specialization equivalent.
