@@ -2224,7 +2224,7 @@ namespace SharpPy
                             var warmHandler = PyVMWarmOps.Table[(int)instruction.OpCode];
                             if (warmHandler != null)
                             {
-                                int warmNextIp = warmHandler(frame, ip, instruction.Argument);
+                                int warmNextIp = warmHandler(this, frame, ip, instruction.Argument);
                                 if (warmNextIp != PyVMWarmOps.NotHandled)
                                 {
                                     ip = warmNextIp;
@@ -4125,8 +4125,7 @@ namespace SharpPy
 
                                 if (func != null
                                     && func.CodeObject is PyCodeObject code
-                                    && code.IsSimpleCallTarget
-                                    && !code.IsGenerator() && !code.IsCoroutine())
+                                    && code.IsFastCallTarget)
                                 {
                                     int totalArgs = isNullPattern ? callArgCount : callArgCount + 1;
                                     if (totalArgs == code.ArgCount)
@@ -4175,8 +4174,7 @@ namespace SharpPy
                                         // CPython 3.12: Python/ceval.c:752 — DISPATCH_INLINED.
                                         // frame.InstructionPointer was synced before ExecuteCall.
                                         var directFrame = PyFrame.Rent();
-                                        bool hasCells = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
-                                        if (!hasCells)
+                                        if (!code.HasCellsOrFreeVars)
                                             directFrame.InitDirect(code, _callValBuf, totalArgs, functionScope, frame);
                                         else
                                             directFrame.InitDirectClosure(code, _callValBuf, totalArgs, functionScope, func.Closure, frame);
@@ -4609,7 +4607,7 @@ namespace SharpPy
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private PyObject ExecuteLoadSuperAttr(PyFrame frame, in ByteCodeInstruction instruction)
+        internal PyObject ExecuteLoadSuperAttr(PyFrame frame, int superOparg)
         {
         #if DEBUG_LOG
         Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
@@ -4617,7 +4615,6 @@ namespace SharpPy
         // CPython 3.12: super() attribute access
         // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
         // oparg format: (name_index << 1) | method_flag
-        int superOparg = instruction.Argument;
         int superMethodFlag = superOparg & 1;  // Low bit: method flag
         int superAttrIndex = superOparg >> 1;  // High bits: name index
         var superAttrName = frame.Code.Names[superAttrIndex];
@@ -6606,7 +6603,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_SUPER_ATTR:
-                    return ExecuteLoadSuperAttr(frame, instruction);
+                    return ExecuteLoadSuperAttr(frame, instruction.Argument);
 
                 // CPython 3.12: Pattern matching opcodes
                 case ByteCodeOp.MATCH_MAPPING:
@@ -10235,7 +10232,7 @@ namespace SharpPy
                     && args.Length <= code.ArgCount)
                 {
                     // Medium path: positional call with defaults, no varargs/kwargs/kwonly
-                    bool hasCellsOrFreeVars = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                    bool hasCellsOrFreeVars = code.HasCellsOrFreeVars;
                     frame = PyFrame.Rent();
 
                     if (args.Length == code.ArgCount)
@@ -10637,7 +10634,7 @@ namespace SharpPy
                         ?? fastFunc.ParentScope ?? scopeChain;
 
                     var frame = PyFrame.Rent();
-                    bool hasCellsOrFreeVars = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                    bool hasCellsOrFreeVars = code.HasCellsOrFreeVars;
                     if (hasCellsOrFreeVars)
                         frame.InitDirectClosure(code, buf, argCount, functionScope, fastFunc.Closure, CurrentFrame);
                     else

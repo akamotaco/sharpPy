@@ -542,6 +542,17 @@ namespace SharpPy
         public bool IsSimpleCallTarget { get; private set; }
 
         /// <summary>
+        /// 사전 계산: CellVars/FreeVars 존재 여부 (InitDirect vs InitDirectClosure 분기용)
+        /// </summary>
+        public bool HasCellsOrFreeVars { get; private set; }
+
+        /// <summary>
+        /// 사전 계산: IsSimpleCallTarget && !generator && !coroutine && !async generator.
+        /// ExecuteCall PyValue fast path 의 단일 플래그 검사용.
+        /// </summary>
+        public bool IsFastCallTarget { get; private set; }
+
+        /// <summary>
         /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
         /// localsplus layout: [varnames | non-param cells | freevars]
         /// Built once at construction time. Eliminates repeated list building in
@@ -631,6 +642,15 @@ namespace SharpPy
                 && (Flags & (CO_VARARGS | CO_VARKEYWORDS)) == 0
                 && DefaultValues.Count == 0
                 && CachedDefaultsTuple == null;
+
+            // 호출 핫 패스 사전 계산:
+            // HasCellsOrFreeVars — InitDirect vs InitDirectClosure 분기 (호출마다 List Count 4회 → 플래그 1회)
+            // IsFastCallTarget — IsSimpleCallTarget && !generator && !coroutine 통합
+            //   (IsGenerator 캐시를 생성 시점에 즉시 채움 — Instructions 는 이후 불변)
+            HasCellsOrFreeVars = (CellVars?.Count ?? 0) > 0 || (FreeVars?.Count ?? 0) > 0;
+            IsFastCallTarget = IsSimpleCallTarget
+                && !IsGenerator()
+                && (Flags & (CO_COROUTINE | CO_ASYNC_GENERATOR)) == 0;
 
             // Pre-compute instruction-index-based exception table for fast lookup
             BuildExceptionTableIndexEntries();
