@@ -4163,7 +4163,9 @@ namespace SharpPy
 
                     // CPython 3.12: If function or its nested functions contain super() calls, ensure __class__ is in freeVars
                     // This handles cases like: def method(self): def inner(): return super().__repr__()
-                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__"))
+                    // 감싸는 클래스가 없으면 (모듈 함수의 2-인자 super 등) __class__ cell 바인딩 불가 — 추가 금지
+                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__")
+                        && HasEnclosingClassScope(funcSymbolTable))
                     {
                         freeVars.Add("__class__");
                         #if DEBUG_LOG
@@ -4197,7 +4199,9 @@ namespace SharpPy
                     cellVars.AddRange(oldCellVars);
 
                     // CPython 3.12: If function contains super() calls, ensure __class__ is in freeVars
-                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__"))
+                    // 감싸는 클래스가 없으면 __class__ cell 바인딩 불가 — 추가 금지
+                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__")
+                        && HasEnclosingClassScope(_currentSymbolTable))
                     {
                         freeVars.Add("__class__");
                         #if DEBUG_LOG
@@ -4231,6 +4235,13 @@ namespace SharpPy
             
             // 업데이트된 cell 변수들 사용
             cellVars = additionalCellVars;
+
+            // CPython 3.12 불변식: cellvars 와 freevars 는 상호 배타적 (symtable.c —
+            // 한 이름의 scope 는 CELL 또는 FREE 중 하나). 이 스코프에서 FREE 인 이름은
+            // 중첩 함수가 캡처해도 FREE 유지 — COPY_FREE_VARS 로 받은 셀을 LOAD_CLOSURE 로
+            // 그대로 전달한다. cellVars 에 중복 포함되면 MAKE_CELL 이 복사된 셀을 빈 셀로
+            // 덮어써 클래스 셀(__class__) 전파가 끊어진다 (중첩 함수 bare __class__ 버그).
+            cellVars.RemoveAll(freeVars.Contains);
             #if DEBUG_LOG
             Console.WriteLine($"  Updated Cell variables: [{string.Join(", ", cellVars)}]");
             #endif
@@ -4384,7 +4395,8 @@ namespace SharpPy
                 // CPython 3.12: Check for zero-argument super() calls and add __class__ as referenced variable
                 // NOTE: We check ContainsSuperCalls() first, then add __class__ even if not in availableOuterVars
                 // This handles the case where we're compiling a method inside a class body that has __class__ cell
-                if (ContainsSuperCalls(func.Body))
+                // 감싸는 클래스가 없으면 __class__ cell 바인딩 불가 — 추가 금지
+                if (ContainsSuperCalls(func.Body) && HasEnclosingClassScope(_currentSymbolTable))
                 {
                     #if DEBUG_LOG
                     Console.WriteLine($"   Function contains super() calls - adding __class__ as referenced variable");
@@ -6793,6 +6805,19 @@ namespace SharpPy
         /// <summary>
         /// Check if class body contains super() calls (without arguments)
         /// </summary>
+        /// <summary>
+        /// CPython 3.12: __class__ cell 은 감싸는 클래스 스코프가 있을 때만 바인딩 가능.
+        /// 모듈 레벨 함수의 super(C, obj) (2-인자) 같은 경우 CPython 은 __class__ USE 를
+        /// global implicit 으로 강등시킨다 (symtable.c analyze_name) — free var 강제 추가 금지.
+        /// </summary>
+        public static bool HasEnclosingClassScope(SymbolTable table)
+        {
+            for (var t = table; t != null; t = t.GetParent())
+                if (t.Type == SymbolTableType.Class)
+                    return true;
+            return false;
+        }
+
         public static bool ContainsSuperCalls(List<Statement> statements)
         {
             #if DEBUG_LOG
@@ -6895,8 +6920,15 @@ namespace SharpPy
                     }
                     return ContainsSuperCallsInExpression(call.Function);
 
-                case NameExpression:
-                    return false;
+                case NameExpression ne:
+                    // CPython 3.12 symtable.c (symtable_visit_expr, Name case):
+                    // 함수 스코프에서 이름 'super' 의 Load 는 호출 여부와 무관하게 그 자체로
+                    // __class__ USE 를 추가한다 (s = super; s().method() 패턴 지원).
+                    // bare __class__ Load 역시 free var 로서 class cell 을 요구한다
+                    // (analyze_block → drop_class_free 가 ste_needs_class_closure 설정).
+                    // 이 walker 는 statement 의 값 표현식만 순회하므로 Store 컨텍스트
+                    // (super = x 등 할당 타겟) 는 CPython 과 동일하게 제외된다.
+                    return ne.Name == "super" || ne.Name == "__class__";
 
                 case AttributeExpression attr:
 #if DEBUG_LOG

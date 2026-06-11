@@ -759,7 +759,10 @@ namespace SharpPy
             // CPython 3.12: If function or nested functions contain super() calls, add __class__ as free variable
             // This is critical for proper closure propagation in cases like:
             //   def outer(self): def inner(): return super().__repr__()
-            if (PythonCompiler.ContainsSuperCalls(func.Body))
+            // 감싸는 클래스가 없으면 (모듈 함수의 2-인자 super 등) __class__ cell 바인딩 불가 —
+            // CPython 은 이 경우 global implicit 으로 강등 (symtable.c analyze_name)
+            if (PythonCompiler.ContainsSuperCalls(func.Body)
+                && PythonCompiler.HasEnclosingClassScope(_currentTable))
             {
                 if (!_currentTable.HasSymbol("__class__"))
                 {
