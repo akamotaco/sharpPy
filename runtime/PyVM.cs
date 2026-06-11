@@ -2209,9 +2209,31 @@ namespace SharpPy
                             ip++;
                             continue;
                         }
-                        var result = instruction.OpCode == ByteCodeOp.CALL
-                            ? ExecuteCall(frame, instruction)
-                            : ExecuteInstruction(frame, instruction);
+                        PyObject result;
+                        if (instruction.OpCode == ByteCodeOp.CALL)
+                        {
+                            result = ExecuteCall(frame, instruction);
+                        }
+                        else
+                        {
+                            // Warm handler table: op당 독립 소형 핸들러 (PyVMWarmOps).
+                            // SWAP/COPY/POP_JUMP_IF_TRUE/JUMP_FORWARD/LIST_APPEND/KW_NAMES 가
+                            // 39KB ExecuteInstruction switch 를 우회 (연쇄 비교/comprehension/kwargs 핫 패스).
+                            // 테이블 직접 조회: 미등록 op 의 미스 비용은 null 체크 1회.
+                            // (Table 크기 384 > ByteCodeOp 최대값 — 인덱스 검사 불필요)
+                            var warmHandler = PyVMWarmOps.Table[(int)instruction.OpCode];
+                            if (warmHandler != null)
+                            {
+                                int warmNextIp = warmHandler(frame, ip, instruction.Argument);
+                                if (warmNextIp != PyVMWarmOps.NotHandled)
+                                {
+                                    ip = warmNextIp;
+                                    continue;
+                                }
+                            }
+
+                            result = ExecuteInstruction(frame, instruction);
+                        }
 
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
