@@ -40,6 +40,10 @@ namespace SharpPy
             t[(int)ByteCodeOp.JUMP_FORWARD] = JumpForward;
             t[(int)ByteCodeOp.LIST_APPEND] = ListAppend;
             t[(int)ByteCodeOp.KW_NAMES] = KwNames;
+            t[(int)ByteCodeOp.UNPACK_SEQUENCE] = UnpackSequence;
+            t[(int)ByteCodeOp.GET_ITER] = GetIter;
+            t[(int)ByteCodeOp.BUILD_LIST] = BuildList;
+            t[(int)ByteCodeOp.BUILD_TUPLE] = BuildTuple;
             return t;
         }
 
@@ -109,6 +113,53 @@ namespace SharpPy
         private static int KwNames(PyFrame frame, int ip, int arg)
         {
             frame.KeywordNamesForNextCall = frame.Code.Constants[arg] as PyTuple;
+            return ip + 1;
+        }
+
+        // CPython 3.12: UNPACK_SEQUENCE(count) — 시퀀스를 역순으로 push
+        // (Python/bytecodes.c UNPACK_SEQUENCE_TUPLE 특수화 대응 — tuple 만 처리)
+        // list/str/오류 메시지 경로는 ExecuteInstruction 폴백
+        private static int UnpackSequence(PyFrame frame, int ip, int arg)
+        {
+            var stack = frame.ValueStack;
+            var top = stack.PeekValue();
+            if (!top.IsObject || !(top.ObjRef is PyTuple tup) || tup.Items.Length != arg)
+                return NotHandled;
+            stack.PopValue();
+            var items = tup.Items;
+            for (int i = items.Length - 1; i >= 0; i--)
+                stack.Push(items[i]);
+            return ip + 1;
+        }
+
+        // CPython 3.12: GET_ITER — TOS 를 iterator 로 교체 (Python/bytecodes.c GET_ITER)
+        private static int GetIter(PyFrame frame, int ip, int arg)
+        {
+            var stack = frame.ValueStack;
+            var iterator = stack.Pop().GetIterator();
+            stack.Push(iterator);
+            return ip + 1;
+        }
+
+        // CPython 3.12: BUILD_LIST(count) — 스택 상위 count 개로 리스트 생성
+        private static int BuildList(PyFrame frame, int ip, int arg)
+        {
+            var stack = frame.ValueStack;
+            var items = new PyObject[arg];
+            for (int i = arg - 1; i >= 0; i--)
+                items[i] = stack.Pop();
+            stack.Push(new PyList(items));
+            return ip + 1;
+        }
+
+        // CPython 3.12: BUILD_TUPLE(count) — 스택 상위 count 개로 tuple 생성
+        private static int BuildTuple(PyFrame frame, int ip, int arg)
+        {
+            var stack = frame.ValueStack;
+            var items = new PyObject[arg];
+            for (int i = arg - 1; i >= 0; i--)
+                items[i] = stack.Pop();
+            stack.Push(new PyTuple(items));
             return ip + 1;
         }
 
