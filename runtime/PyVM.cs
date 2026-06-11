@@ -2211,9 +2211,31 @@ namespace SharpPy
                             ip++;
                             continue;
                         }
-                        var result = instruction.OpCode == ByteCodeOp.CALL
-                            ? ExecuteCall(frame, instruction)
-                            : ExecuteInstruction(frame, instruction);
+                        PyObject result;
+                        if (instruction.OpCode == ByteCodeOp.CALL)
+                        {
+                            result = ExecuteCall(frame, instruction);
+                        }
+                        else
+                        {
+                            // Warm handler table: op당 독립 소형 핸들러 (PyVMWarmOps).
+                            // SWAP/COPY/POP_JUMP_IF_TRUE/JUMP_FORWARD/LIST_APPEND/KW_NAMES 가
+                            // 39KB ExecuteInstruction switch 를 우회 (연쇄 비교/comprehension/kwargs 핫 패스).
+                            // 테이블 직접 조회: 미등록 op 의 미스 비용은 null 체크 1회.
+                            // (Table 크기 384 > ByteCodeOp 최대값 — 인덱스 검사 불필요)
+                            var warmHandler = PyVMWarmOps.Table[(int)instruction.OpCode];
+                            if (warmHandler != null)
+                            {
+                                int warmNextIp = warmHandler(this, frame, ip, instruction.Argument);
+                                if (warmNextIp != PyVMWarmOps.NotHandled)
+                                {
+                                    ip = warmNextIp;
+                                    continue;
+                                }
+                            }
+
+                            result = ExecuteInstruction(frame, instruction);
+                        }
 
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
@@ -4105,8 +4127,7 @@ namespace SharpPy
 
                                 if (func != null
                                     && func.CodeObject is PyCodeObject code
-                                    && code.IsSimpleCallTarget
-                                    && !code.IsGenerator() && !code.IsCoroutine())
+                                    && code.IsFastCallTarget)
                                 {
                                     int totalArgs = isNullPattern ? callArgCount : callArgCount + 1;
                                     if (totalArgs == code.ArgCount)
@@ -4155,8 +4176,7 @@ namespace SharpPy
                                         // CPython 3.12: Python/ceval.c:752 — DISPATCH_INLINED.
                                         // frame.InstructionPointer was synced before ExecuteCall.
                                         var directFrame = PyFrame.Rent();
-                                        bool hasCells = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
-                                        if (!hasCells)
+                                        if (!code.HasCellsOrFreeVars)
                                             directFrame.InitDirect(code, _callValBuf, totalArgs, functionScope, frame);
                                         else
                                             directFrame.InitDirectClosure(code, _callValBuf, totalArgs, functionScope, func.Closure, frame);
@@ -4589,7 +4609,7 @@ namespace SharpPy
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        private PyObject ExecuteLoadSuperAttr(PyFrame frame, in ByteCodeInstruction instruction)
+        internal PyObject ExecuteLoadSuperAttr(PyFrame frame, int superOparg)
         {
         #if DEBUG_LOG
         Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
@@ -4597,7 +4617,6 @@ namespace SharpPy
         // CPython 3.12: super() attribute access
         // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
         // oparg format: (name_index << 1) | method_flag
-        int superOparg = instruction.Argument;
         int superMethodFlag = superOparg & 1;  // Low bit: method flag
         int superAttrIndex = superOparg >> 1;  // High bits: name index
         var superAttrName = frame.Code.Names[superAttrIndex];
@@ -4625,72 +4644,93 @@ namespace SharpPy
         // Fast path: PyClass with MRO (most common case: user-defined classes)
         if (selfClass != null && selfClass.MRO != null)
         {
-            var mro = selfClass.MRO;
-            int startIdx = -1;
-
-            // Find __class__ position in MRO (reference equality first, then identity)
-            for (int i = 0; i < mro.Count; i++)
+            // 1-entry super lookup 캐시: (startClass=__class__, name) → PyFunction
+            // CPython do_super_lookup 의 MRO 스캔 결과를 TypeVersionTag 가드로 캐시.
+            // (CPython 은 interned string dict 조회라 스캔이 원래 쌈 — 캐시로 동등 효과)
+            PyFunction resolvedFunc = null;
+            if (selfClass._superCacheVersion == selfClass.TypeVersionTag
+                && ReferenceEquals(selfClass._superCacheStartClass, classObj)
+                && selfClass._superCacheName == superAttrName)
             {
-                if (mro[i] == classObj)
-                {
-                    startIdx = i;
-                    break;
-                }
+                resolvedFunc = selfClass._superCacheResult as PyFunction;
             }
 
-            if (startIdx >= 0)
+            if (resolvedFunc == null)
             {
-                // Look for attribute starting from the class AFTER __class__ in MRO
-                for (int i = startIdx + 1; i < mro.Count; i++)
+                var mro = selfClass.MRO;
+                int startIdx = -1;
+
+                // Find __class__ position in MRO (reference equality first, then identity)
+                for (int i = 0; i < mro.Count; i++)
                 {
-                    var baseType = mro[i];
-                    PyObject attr = null;
-
-                    // CPython 3.12: Look only in the class's __dict__, NOT its full MRO
-                    if (baseType is PyClass pyClass)
+                    if (mro[i] == classObj)
                     {
-                        pyClass.ClassDict.TryGetValue(superAttrName, out attr);
-                    }
-                    else if (baseType is PyType pyType)
-                    {
-                        attr = PyClass.GetTypeAttribute(pyType, superAttrName);
-                    }
-
-                    if (attr != null)
-                    {
-                        bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
-
-                        // Fast path: only for PyFunction (user-defined methods)
-                        // Built-in descriptors (IDescriptor) need descriptor protocol — fall to slow path
-                        if (attr is PyFunction func)
-                        {
-                            if (superMethodFlag == 1 && !isClassModeSuper)
-                            {
-                                // Method call: push [func, self] for CALL (like LOAD_ATTR method push)
-                                // Avoids PyMethod allocation entirely
-                                frame.ValueStack.Push(func);
-                                frame.ValueStack.Push(selfObj);
-                                return null;
-                            }
-
-                            PyObject finalAttr = isClassModeSuper ? (PyObject)func : new PyMethod(selfObj, func);
-                            if (superMethodFlag == 1)
-                            {
-                                frame.ValueStack.Push(PyNone.Instance);
-                                frame.ValueStack.Push(finalAttr);
-                            }
-                            else
-                            {
-                                frame.ValueStack.Push(finalAttr);
-                            }
-                            return null;
-                        }
-
-                        // For non-PyFunction attrs (descriptors, built-in methods, etc.),
-                        // break out and fall to the slow path for correct descriptor protocol
+                        startIdx = i;
                         break;
                     }
                 }
+
+                if (startIdx >= 0)
+                {
+                    // Look for attribute starting from the class AFTER __class__ in MRO
+                    for (int i = startIdx + 1; i < mro.Count; i++)
+                    {
+                        var baseType = mro[i];
+                        PyObject attr = null;
+
+                        // CPython 3.12: Look only in the class's __dict__, NOT its full MRO
+                        if (baseType is PyClass pyClass)
+                        {
+                            pyClass.ClassDict.TryGetValue(superAttrName, out attr);
+                        }
+                        else if (baseType is PyType pyType)
+                        {
+                            attr = PyClass.GetTypeAttribute(pyType, superAttrName);
+                        }
+
+                        if (attr != null)
+                        {
+                            // Fast path: only for PyFunction (user-defined methods)
+                            // Built-in descriptors (IDescriptor) need descriptor protocol — fall to slow path
+                            if (attr is PyFunction func)
+                            {
+                                resolvedFunc = func;
+                                selfClass._superCacheStartClass = classObj;
+                                selfClass._superCacheName = superAttrName;
+                                selfClass._superCacheResult = func;
+                                selfClass._superCacheVersion = selfClass.TypeVersionTag;
+                            }
+                            // 비 PyFunction (descriptor 등) → resolvedFunc null 유지 → slow path
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (resolvedFunc != null)
+            {
+                bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
+
+                if (superMethodFlag == 1 && !isClassModeSuper)
+                {
+                    // Method call: push [func, self] for CALL (like LOAD_ATTR method push)
+                    // Avoids PyMethod allocation entirely
+                    frame.ValueStack.Push(resolvedFunc);
+                    frame.ValueStack.Push(selfObj);
+                    return null;
+                }
+
+                PyObject finalAttr = isClassModeSuper ? (PyObject)resolvedFunc : new PyMethod(selfObj, resolvedFunc);
+                if (superMethodFlag == 1)
+                {
+                    frame.ValueStack.Push(PyNone.Instance);
+                    frame.ValueStack.Push(finalAttr);
+                }
+                else
+                {
+                    frame.ValueStack.Push(finalAttr);
+                }
+                return null;
             }
         }
 
@@ -6565,7 +6605,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_SUPER_ATTR:
-                    return ExecuteLoadSuperAttr(frame, instruction);
+                    return ExecuteLoadSuperAttr(frame, instruction.Argument);
 
                 // CPython 3.12: Pattern matching opcodes
                 case ByteCodeOp.MATCH_MAPPING:
@@ -10194,7 +10234,7 @@ namespace SharpPy
                     && args.Length <= code.ArgCount)
                 {
                     // Medium path: positional call with defaults, no varargs/kwargs/kwonly
-                    bool hasCellsOrFreeVars = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                    bool hasCellsOrFreeVars = code.HasCellsOrFreeVars;
                     frame = PyFrame.Rent();
 
                     if (args.Length == code.ArgCount)
@@ -10544,11 +10584,26 @@ namespace SharpPy
                     }
 
                     // Fill keyword args by looking up parameter index
+                    // kwnames tuple 은 call site 당 동일 객체 (co_consts) → 인덱스 매핑을 1회만 계산
                     var kwItems = kwNames.Items;
+                    int[] kwParamIdx = ReferenceEquals(code.LastKwNamesTuple, kwNames)
+                        ? code.LastKwParamIndices
+                        : null;
+                    if (kwParamIdx == null)
+                    {
+                        kwParamIdx = new int[numKwArgs];
+                        for (int i = 0; i < numKwArgs; i++)
+                        {
+                            string kwName = ((PyStr)kwItems[i]).Value;
+                            kwParamIdx[i] = varNameMap.TryGetValue(kwName, out int pi) ? pi : -1;
+                        }
+                        code.LastKwParamIndices = kwParamIdx;
+                        code.LastKwNamesTuple = kwNames;
+                    }
                     for (int i = 0; i < numKwArgs; i++)
                     {
-                        string kwName = ((PyStr)kwItems[i]).Value;
-                        if (varNameMap.TryGetValue(kwName, out int paramIdx))
+                        int paramIdx = kwParamIdx[i];
+                        if (paramIdx >= 0)
                         {
                             buf[paramIdx] = PyValue.FromObject(args[numPosArgs + i]);
                             filledBits |= (1 << paramIdx);
@@ -10581,7 +10636,7 @@ namespace SharpPy
                         ?? fastFunc.ParentScope ?? scopeChain;
 
                     var frame = PyFrame.Rent();
-                    bool hasCellsOrFreeVars = (code.CellVars?.Count ?? 0) > 0 || (code.FreeVars?.Count ?? 0) > 0;
+                    bool hasCellsOrFreeVars = code.HasCellsOrFreeVars;
                     if (hasCellsOrFreeVars)
                         frame.InitDirectClosure(code, buf, argCount, functionScope, fastFunc.Closure, CurrentFrame);
                     else

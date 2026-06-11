@@ -523,12 +523,34 @@ namespace SharpPy
         public PyTuple? CachedDefaultsTuple { get; private set; }
 
         /// <summary>
+        /// kwargs 바인딩 캐시 (1-entry): KW_NAMES tuple identity → 파라미터 인덱스 배열.
+        /// KW_NAMES 의 tuple 은 call site 의 co_consts 객체라 호출마다 동일 —
+        /// kwname 별 VarNameIndexMap 해시 조회를 사이트당 1회로 축소.
+        /// (CPython 3.12 은 interned string 포인터 비교라 이 비용이 원래 없음 —
+        ///  ceval.c initialize_locals 의 동등 효과)
+        /// 미정의 이름은 -1 (호출측에서 기존과 동일하게 skip).
+        /// </summary>
+        internal PyTuple? LastKwNamesTuple;
+        internal int[]? LastKwParamIndices;
+
+        /// <summary>
         /// Pre-computed flag: true if this code object qualifies for the fast call path
         /// (CO_OPTIMIZED, no kwonly, no varargs/varkeywords, no defaults).
         /// CPython 3.12: CALL_PY_EXACT_ARGS specialization equivalent.
         /// Checked once at construction, avoids 6 condition checks per call in ExecuteFunctionCall.
         /// </summary>
         public bool IsSimpleCallTarget { get; private set; }
+
+        /// <summary>
+        /// 사전 계산: CellVars/FreeVars 존재 여부 (InitDirect vs InitDirectClosure 분기용)
+        /// </summary>
+        public bool HasCellsOrFreeVars { get; private set; }
+
+        /// <summary>
+        /// 사전 계산: IsSimpleCallTarget && !generator && !coroutine && !async generator.
+        /// ExecuteCall PyValue fast path 의 단일 플래그 검사용.
+        /// </summary>
+        public bool IsFastCallTarget { get; private set; }
 
         /// <summary>
         /// CPython 3.12: Pre-computed list of cell variable names that are NOT parameters.
@@ -620,6 +642,15 @@ namespace SharpPy
                 && (Flags & (CO_VARARGS | CO_VARKEYWORDS)) == 0
                 && DefaultValues.Count == 0
                 && CachedDefaultsTuple == null;
+
+            // 호출 핫 패스 사전 계산:
+            // HasCellsOrFreeVars — InitDirect vs InitDirectClosure 분기 (호출마다 List Count 4회 → 플래그 1회)
+            // IsFastCallTarget — IsSimpleCallTarget && !generator && !coroutine 통합
+            //   (IsGenerator 캐시를 생성 시점에 즉시 채움 — Instructions 는 이후 불변)
+            HasCellsOrFreeVars = (CellVars?.Count ?? 0) > 0 || (FreeVars?.Count ?? 0) > 0;
+            IsFastCallTarget = IsSimpleCallTarget
+                && !IsGenerator()
+                && (Flags & (CO_COROUTINE | CO_ASYNC_GENERATOR)) == 0;
 
             // Pre-compute instruction-index-based exception table for fast lookup
             BuildExceptionTableIndexEntries();
@@ -1066,11 +1097,27 @@ namespace SharpPy
         
         /// <summary>
         /// 제너레이터 함수인지 확인 (yield 또는 yield from 명령어 포함 여부)
+        /// 명령어 스캔 결과는 코드 객체당 1회만 계산 후 캐시 (호출 경로 핫스팟)
         /// </summary>
+        private byte _isGeneratorCache; // 0=미계산, 1=generator, 2=non-generator
         public bool IsGenerator()
         {
-            return Instructions.Any(inst => 
-                inst.OpCode == ByteCodeOp.YIELD_VALUE); // CPython 3.12: YIELD_FROM removed
+            byte cached = _isGeneratorCache;
+            if (cached != 0)
+                return cached == 1;
+
+            bool isGen = false;
+            var insts = Instructions;
+            for (int i = 0; i < insts.Count; i++)
+            {
+                if (insts[i].OpCode == ByteCodeOp.YIELD_VALUE) // CPython 3.12: YIELD_FROM removed
+                {
+                    isGen = true;
+                    break;
+                }
+            }
+            _isGeneratorCache = isGen ? (byte)1 : (byte)2;
+            return isGen;
         }
         
         /// <summary>

@@ -80,6 +80,16 @@ namespace SharpPy
         private bool _mroHasNoDataDescriptors;
         private ulong _mroNoDataDescVersion;
 
+        // LOAD_SUPER_ATTR 1-entry 캐시: (startClass=__class__, name) → 해석된 PyFunction.
+        // CPython 3.12 의 do_super_lookup 은 매 호출 MRO 를 스캔하지만 dict 조회가
+        // interned string 비교라 쌈 — SharpPy 는 결과를 캐시해 동등 효과.
+        // 무효화: TypeVersionTag (기존 _magicMethodCache 와 동일한 보장 수준 —
+        // 베이스 클래스 변경의 서브클래스 전파는 InvalidateTypeCache TODO 와 공유)
+        internal PyObject _superCacheStartClass;
+        internal string _superCacheName;
+        internal PyObject _superCacheResult;
+        internal ulong _superCacheVersion;
+
         /// <summary>
         /// True if no class in this type's MRO defines a data descriptor in its ClassDict.
         /// Cached per TypeVersionTag. Eliminates MRO walk in STORE_ATTR fast path.
