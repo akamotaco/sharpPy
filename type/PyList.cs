@@ -550,6 +550,13 @@ namespace SharpPy
         // 리스트 조작 메서드들
         public void Append(PyObject item)
         {
+            // 성장 정책: List<T> 기본 2배 대신 소형 구간 4배 성장 (0→8→32→128→512→2048→8192, 이후 2배)
+            // comprehension/append 루프의 재할당+복사 횟수를 절반 이하로 줄임 (GC 압력 감소)
+            // CPython obmalloc 의 realloc 은 in-place 확장이 가능하지만 .NET 배열은 매번 새 할당이므로
+            // 재할당 횟수 자체를 줄이는 것이 중요
+            int cap = _items.Capacity;
+            if (_items.Count == cap)
+                _items.Capacity = cap == 0 ? 8 : (cap < 8192 ? cap * 4 : cap * 2);
             _items.Add(item);
         }
 
