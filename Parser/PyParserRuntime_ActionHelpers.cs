@@ -1349,9 +1349,11 @@ namespace SharpPy.Generated
             bool rawmode = false;
 
             // CPython: Skip prefix (r, R, b, B, u, U) - string_parser.c:251-268
+            // ASCII 전용 소문자화: culture-aware char.ToLower는 globalization lazy-init 유발 (CPython도 raw byte 비교)
             while (startIdx < s.Length && char.IsLetter(s[startIdx]))
             {
-                char prefix = char.ToLower(s[startIdx]);
+                char c0 = s[startIdx];
+                char prefix = (c0 >= 'A' && c0 <= 'Z') ? (char)(c0 + 32) : c0;
                 if (prefix == 'b')
                 {
                     bytesmode = true;

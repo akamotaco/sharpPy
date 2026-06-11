@@ -678,7 +678,7 @@ namespace SharpPy
 #endif
             }
             // **FIXED**: 클래스 바디 스코프에서는 로컬 클래스 스코프에 저장 (property chaining을 위해)
-            else if (CurrentScope != null && CurrentScope.Name.StartsWith("<class_body_") && CurrentScope.Type == ScopeType.Local)
+            else if (CurrentScope != null && CurrentScope.Name.StartsWith("<class_body_", StringComparison.Ordinal) && CurrentScope.Type == ScopeType.Local)
             {
                 // 클래스 바디에서 정의되는 변수들을 로컬 클래스 스코프에 저장
                 CurrentScope.SetVariable(name, value);
@@ -739,13 +739,14 @@ namespace SharpPy
         /// </summary>
         private static bool IsModuleScope(string scopeName)
         {
+            // Ordinal 명시: culture-aware EndsWith/Contains는 STORE_NAME 핫 패스에서 ICU 비교 호출 발생
             return scopeName == "<module>" ||
                    scopeName == "contextlib" ||
                    scopeName == "abc" ||
                    scopeName == "functools" ||
                    scopeName == "typing" ||
-                   scopeName.EndsWith(".py") ||
-                   scopeName.Contains("module");
+                   scopeName.EndsWith(".py", StringComparison.Ordinal) ||
+                   scopeName.Contains("module", StringComparison.Ordinal);
         }
 
 

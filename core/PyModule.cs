@@ -176,7 +176,7 @@ public class PyModule : PyObject
         // CPython 3.12: Set __package__
         // For packages (__init__.py): __package__ = __name__
         // For modules: __package__ = parent package name (or "" for top-level)
-        bool isPackage = FileName != null && FileName.EndsWith("__init__.py");
+        bool isPackage = FileName != null && FileName.EndsWith("__init__.py", StringComparison.Ordinal);
 
         if (isPackage)
         {

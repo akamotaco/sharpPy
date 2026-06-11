@@ -99,11 +99,11 @@ namespace SharpPy.Core
                         
                     default:
                         // Python 파일이나 기타 명령어
-                        if (arg.EndsWith(".py"))
+                        if (arg.EndsWith(".py", StringComparison.Ordinal))
                         {
                             pythonFile = arg;
                         }
-                        else if (!arg.StartsWith("-") && pythonFile == null)
+                        else if (!arg.StartsWith("-", StringComparison.Ordinal) && pythonFile == null)
                         {
                             // 특별한 명령어들 (demo, test-iteration 등)
                             options["command"] = arg;
