@@ -109,7 +109,11 @@ namespace SharpPy
                     else
                     {
                         var iterator = value.GetIterator();
-                        var items = new List<PyObject>();
+                        // Use CLR List growth when no hint is available; CPython's
+                        // initial tuple capacity of ten is an allocation strategy.
+                        long hint = value.LengthHint(0);
+                        if (hint > Array.MaxLength) throw PyMemoryError.Create();
+                        var items = new List<PyObject>((int)hint);
                         while (true)
                         {
                             PyObject item;

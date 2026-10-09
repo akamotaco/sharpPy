@@ -955,6 +955,47 @@ namespace SharpPy
             }
         }
 
+        // CPython PyObject_LengthHint: TypeError from len/call is a fallback,
+        // while invalid hint return values and other exceptions propagate.
+        internal long LengthHint(long defaultValue)
+        {
+            try
+            {
+                var lengthMethod = LookupSpecialMethodUncached("__len__");
+                if (lengthMethod == null) return Length();
+                var result = BindSpecialMethod(lengthMethod).Call(Array.Empty<PyObject>(), null);
+                var length = TryGetIndex(result);
+                if (length == null)
+                    throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
+                if (length.Value.Sign < 0)
+                    throw PyValueError.Create("__len__() should return >= 0");
+                try { return (long)nint.CreateChecked(length.Value); }
+                catch (OverflowException)
+                {
+                    throw PyOverflowError.Create($"cannot fit '{result.GetTypeName()}' into an index-sized integer");
+                }
+            }
+            catch (PythonException ex) when (ex.PyException is PyTypeError) { }
+
+            var hintMethod = LookupSpecialMethodUncached("__length_hint__");
+            if (hintMethod == null) return defaultValue;
+            var boundHint = BindSpecialMethod(hintMethod);
+            PyObject hint;
+            try { hint = boundHint.Call(Array.Empty<PyObject>(), null); }
+            catch (PythonException ex) when (ex.PyException is PyTypeError) { return defaultValue; }
+            if (hint == PyNotImplemented.Instance) return defaultValue;
+            if (hint is not PyInt && hint is not PyBool && hint is not PyIntSubclass)
+                throw PyTypeError.Create($"__length_hint__ must be an integer, not {hint.GetTypeName()}");
+            long value;
+            try { value = (long)nint.CreateChecked(TryGetIndex(hint).Value); }
+            catch (OverflowException)
+            {
+                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+            }
+            if (value < 0) throw PyValueError.Create("__length_hint__() should return >= 0");
+            return value;
+        }
+
         public virtual int Length()
         {
             try

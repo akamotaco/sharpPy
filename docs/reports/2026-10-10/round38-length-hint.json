@@ -1,0 +1,137 @@
+{
+  "baseline_commit": "4869535",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "file": "Objects/abstract.c",
+    "sha256": "abb8e2403b6479b976e900668273a44d29f117ebb021b0f4669f3bf03521766e",
+    "functions": [
+      "PyObject_LengthHint",
+      "PySequence_Tuple",
+      "PyObject_GetIter"
+    ]
+  },
+  "before": [
+    {
+      "name": "tests/exception_args_length_hint_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03349359999992885,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\exception_args_length_hint_regression.py\", line 35, in <module>\n    assert calls == expected_calls\n                                  ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\exception_args_length_hint_regression.py\", line 35, in <module>\n        assert calls == expected_calls\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2987834000014118,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.030491800003801472,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\exception_args_length_hint.py\", line 16, in <module>\n    raise AssertionError('expected length hint failure')\n                                                        ^\nAssertionError: expected length hint failure\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\exception_args_length_hint.py\", line 16, in <module>\n        raise AssertionError('expected length hint failure')\nAssertionError: expected length hint failure\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2722476000053575,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/exception_args_length_hint_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02952509999886388,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2858321000021533,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03132300000288524,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26292629999807104,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "counts": {
+    "matching_output": 76,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "b76ee7ce8098f84531e94760a64263bf1af01b1529a9951763b130730bb8868b",
+  "outstanding": [
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.030119200004264712,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\operator_length_hint.py\", line 5, in <module>\n    assert _operator.length_hint(Source()) == 3\n                                               ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\operator_length_hint.py\", line 5, in <module>\n    assert _operator.length_hint(Source()) == 3\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2592595000023721,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "integration": "Sources compiled directly in Godot SDK project, no separate SharpPy DLL reference",
+    "build": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nsequence large step: 216 PASS\r\nbytearray iterable assignment: PASS\r\nbytearray slice reentry: PASS\r\nbytearray byte values: PASS\r\nStopIteration arguments: PASS\r\nexception args update: PASS\r\nexception args length hint: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "performance": "No benchmark. Valid supplied hints reserve capacity; absent hints use CLR List growth rather than CPython tuple initial capacity 10.",
+  "limitations": "CLR array length bounds and allocation failures are runtime constraints; large actual allocations not tested. Public _operator.length_hint still uses old code."
+}

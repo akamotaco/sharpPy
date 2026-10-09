@@ -1465,6 +1465,8 @@ namespace SharpPy
             }
             catch (Exception ex)
             {
+                // An exception raised by __iter__ is not an invalid return value.
+                if (ex is PythonException) throw;
                 throw PyTypeError.Create($"iter() returned non-iterator of type '{GetTypeName()}': {ex.Message}");
             }
 

@@ -114,6 +114,8 @@ def main():
             "tests/bytearray_bytevalue_regression.py",
             "tests/stop_iteration_arguments_regression.py",
             "tests/exception_args_update_regression.py",
+            "tests/exception_args_length_hint_regression.py",
+            "tests/compatibility/exception_args_length_hint.py",
             "tests/compatibility/stop_iteration_args_update.py",
             "tests/compatibility/stop_iteration_message.py",
             "tests/compatibility/bytearray_slice_callback_order.py",
