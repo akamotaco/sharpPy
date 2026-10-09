@@ -464,9 +464,10 @@ namespace SharpPy
                     var result = new List<byte>();
                     if (step > 0)
                     {
-                        for (int i = start; i < stop; i += step)
+                        for (long position = start; position < stop; position += step)
                         {
-                            if (i >= 0 && i < _bytes.Count)
+                            int i = (int)position;
+                            if ((uint)i < (uint)_bytes.Count)
                                 result.Add(_bytes[i]);
                         }
                     }

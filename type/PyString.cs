@@ -2135,25 +2135,11 @@ namespace SharpPy
                 // 슬라이싱 처리
                 var (start, stop, step) = slice.Indices(Value.Length);
                 
-                var chars = new List<char>();
-                if (step > 0)
-                {
-                    for (int i = start; i < stop; i += step)
-                    {
-                        if (i >= 0 && i < Value.Length)
-                            chars.Add(Value[i]);
-                    }
-                }
-                else if (step < 0)
-                {
-                    for (int i = start; i > stop; i += step)
-                    {
-                        if (i >= 0 && i < Value.Length)
-                            chars.Add(Value[i]);
-                    }
-                }
-                
-                return new PyString(new string(chars.ToArray()));
+                int count = PySlice.GetLength(start, stop, step);
+                var chars = new char[count];
+                for (int n = 0, position = start; n < count; n++, position = unchecked(position + step))
+                    chars[n] = Value[position];
+                return new PyString(new string(chars));
             }
             else
             {

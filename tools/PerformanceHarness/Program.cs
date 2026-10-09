@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--sequence-slice-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(SequenceSliceProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--list-slice-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(ListSliceProbe.Run()));

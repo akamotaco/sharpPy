@@ -403,12 +403,20 @@ namespace SharpPy
             if (step == 0)
                 throw PyValueError.Create("slice step cannot be zero");
 
+            if (step == 1)
+            {
+                var contiguous = new PyObject[Math.Max(0, stop - start)];
+                Array.Copy(Items, start, contiguous, 0, contiguous.Length);
+                return TupleCache.GetOrCreate(contiguous);
+            }
+
             var result = new System.Collections.Generic.List<PyObject>();
 
             if (step > 0)
             {
-                for (int i = start; i < stop; i += step)
+                for (long position = start; position < stop; position += step)
                 {
+                    int i = (int)position;
                     if (i >= 0 && i < Items.Length)
                         result.Add(Items[i]);
                 }

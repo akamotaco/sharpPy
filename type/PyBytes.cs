@@ -2154,23 +2154,11 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Step slice
-                    var resultList = new List<byte>();
-                    if (step > 0)
-                    {
-                        for (int i = start; i < stop; i += step)
-                        {
-                            resultList.Add(Value[i]);
-                        }
-                    }
-                    else
-                    {
-                        for (int i = start; i > stop; i += step)
-                        {
-                            resultList.Add(Value[i]);
-                        }
-                    }
-                    return new PyBytes(resultList.ToArray());
+                    int count = PySlice.GetLength(start, stop, step);
+                    var result = new byte[count];
+                    for (int n = 0, position = start; n < count; n++, position = unchecked(position + step))
+                        result[n] = Value[position];
+                    return new PyBytes(result);
                 }
             }
             
