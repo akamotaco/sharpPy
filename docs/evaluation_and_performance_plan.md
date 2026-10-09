@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[32차 결과](reports/2026-10-10/sequence_large_step_analysis.md): 저장된 시퀀스 다섯 타입의 큰 step을 포화 변환해 CPython과 결과를 맞췄다. 기본 70개 검사와 Godot 소스 통합 회귀 5개 통과. 일반 step의 native 할당은 동일하며 속도 향상은 주장하지 않는다. range/view의 큰 step 표현과 bytearray 일반 iterable 대입의 StopIteration 오류는 별도 회귀로 남겼다.
+
 [31차 결과](reports/2026-10-10/range_slice_analysis.md): range slice의 stop을 CPython과 동일하게 매핑하고 경계 callback 중복을 제거했다. 기본 69개 검사와 Godot 소스 통합의 선별 회귀 4개가 통과했다. 큰 step의 int 변환과 range/view의 정수 표현은 별도 미해결 항목으로 유지한다.
 
 일반 .NET 실행과 Godot .NET 실행을 모두 지원한다. Godot에서는 **SharpPy 소스를 프로젝트에 직접 포함해 Godot의 빌드 구성으로 컴파일·빌드하고 실행**하는 것을 호환성 검증 기준으로 삼는다. 사용자의 Android·iPhone 배포 경험상 소스 통합은 동작하지만 SharpPy를 별도 DLL로 분리하면 오류가 발생하므로 DLL 분리 방식은 제외한다. 모바일 실기기 검증을 추가 완료 조건으로 요구하지 않는다. 새 API·패키지·native 의존성·동적 코드 생성도 이 소스 통합 경로를 유지해야 한다.

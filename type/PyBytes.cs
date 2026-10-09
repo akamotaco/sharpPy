@@ -2142,7 +2142,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Handle slice indexing
-                var (start, stop, step) = slice.Indices(Value.Length);
+                var (start, stop, step) = slice.StorageIndices(Value.Length);
                 
                 if (step == 1)
                 {

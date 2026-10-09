@@ -1047,7 +1047,7 @@ namespace SharpPy
                                     // CPython 3.12: Objects/listobject.c:623-737 (list_ass_slice)
                                     // Handle slice deletion: del list[start:stop:step]
                                     var length = list.Length();
-                                    var (start, stop, step) = slice.Indices(length);
+                                    var (start, stop, step) = slice.StorageIndices(length);
                                     int count = PySlice.GetLength(start, stop, step);
                                     list.DeleteSlice(start, step, count);
                                 }

@@ -86,9 +86,16 @@ namespace SharpPy
         /// <summary>
         /// 슬라이스를 실제 인덱스로 변환 (Python indices 메서드)
         /// </summary>
-        public (int start, int stop, int step) Indices(int length)
+        public (int start, int stop, int step) Indices(int length) => NormalizeIndices(length, false);
+
+        // Array/List-backed sequences only observe selected items. With int-sized
+        // storage, a larger stride selects at most one item. Do not use this
+        // clipping for range steps or memoryview stride metadata.
+        internal (int start, int stop, int step) StorageIndices(int length) => NormalizeIndices(length, true);
+
+        private (int start, int stop, int step) NormalizeIndices(int length, bool clipStep)
         {
-            var step = GetStepValue();
+            var step = GetStepValue(clipStep);
             
             if (step == 0)
                 throw PyValueError.Create("slice step cannot be zero");
@@ -98,7 +105,7 @@ namespace SharpPy
             return (start, stop, step);
         }
 
-        private int GetStepValue()
+        private int GetStepValue(bool clipStep)
         {
             if (Step == PyNone.Instance)
                 return 1;
@@ -107,7 +114,7 @@ namespace SharpPy
             // CPython 3.12: Objects/sliceobject.c:245 (slice_indices)
             var index = PyObject.TryGetIndex(Step);
             if (index != null)
-                return (int)index.Value;
+                return clipStep ? int.CreateSaturating(index.Value) : (int)index.Value;
 
             throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
         }

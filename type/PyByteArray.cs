@@ -445,7 +445,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Slice access - returns new bytearray
-                var (start, stop, step) = slice.Indices(_bytes.Count);
+                var (start, stop, step) = slice.StorageIndices(_bytes.Count);
 
                 if (step == 1)
                 {
@@ -507,7 +507,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Slice assignment
-                var (start, stop, step) = slice.Indices(_bytes.Count);
+                var (start, stop, step) = slice.StorageIndices(_bytes.Count);
 
                 // Convert value to bytes
                 List<byte> newBytes = ConvertToBytes(value);
@@ -565,7 +565,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Slice deletion
-                var (start, stop, step) = slice.Indices(_bytes.Count);
+                var (start, stop, step) = slice.StorageIndices(_bytes.Count);
 
                 if (step == 1)
                 {

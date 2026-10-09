@@ -386,7 +386,7 @@ namespace SharpPy
 
             if (key is PySlice slice)
             {
-                var (start, stop, step) = slice.Indices(Items.Length);
+                var (start, stop, step) = slice.StorageIndices(Items.Length);
                 return GetSlice(start, stop, step);
             }
 

@@ -2133,7 +2133,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // 슬라이싱 처리
-                var (start, stop, step) = slice.Indices(Value.Length);
+                var (start, stop, step) = slice.StorageIndices(Value.Length);
                 
                 int count = PySlice.GetLength(start, stop, step);
                 var chars = new char[count];

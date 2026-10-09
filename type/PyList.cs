@@ -391,7 +391,7 @@ namespace SharpPy
             if (index is PySlice slice)
             {
                 // 슬라이싱 처리
-                var (start, stop, step) = slice.Indices(_items.Count);
+                var (start, stop, step) = slice.StorageIndices(_items.Count);
 
                 int count = PySlice.GetLength(start, stop, step);
                 var result = new List<PyObject>(count);
@@ -455,7 +455,7 @@ namespace SharpPy
                     valueList = new PyList(tempList);
                 }
 
-                var (start, stop, step) = slice.Indices(_items.Count);
+                var (start, stop, step) = slice.StorageIndices(_items.Count);
 
                 if (step == 1)
                 {
