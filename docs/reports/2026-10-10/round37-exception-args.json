@@ -1,0 +1,138 @@
+{
+  "baseline_commit": "bc14d9d",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "files": {
+      "exceptions.c": "623128614c3b2ada233875e3e0f0627b75653bc9042013d1e1cf242f3139e839",
+      "abstract.c": "abb8e2403b6479b976e900668273a44d29f117ebb021b0f4669f3bf03521766e"
+    },
+    "functions": [
+      "BaseException_get_args",
+      "BaseException_set_args",
+      "PySequence_Tuple"
+    ]
+  },
+  "before": [
+    {
+      "name": "tests/exception_args_update_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03205760000128066,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\exception_args_update_regression.py\", line 3, in <module>\n    assert error.args is original\n                                 ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\exception_args_update_regression.py\", line 3, in <module>\n        assert error.args is original\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2710164000018267,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02817920000234153,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_args_update.py\", line 0, in <module>\n    # Source line not available (line 0)\nAttributeError: 'StopIteration' object attribute 'args' is read-only\n--- C# Exception Details ---\nAttributeError(\"'StopIteration' object attribute 'args' is read-only\")\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2306592000022647,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/exception_args_update_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028595299998414703,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "exception args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26058349999948405,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02769280000211438,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "StopIteration args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.22982069999852683,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "counts": {
+    "matching_output": 74,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "d1b64b1eaf46400a90ac8170ff0446f542eef5fbeb9834074ba9109269656a03",
+  "outstanding": [
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception args length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.023726600004010834,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\exception_args_length_hint.py\", line 16, in <module>\n    raise AssertionError('expected length hint failure')\n                                                        ^\nAssertionError: expected length hint failure\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\exception_args_length_hint.py\", line 16, in <module>\n        raise AssertionError('expected length hint failure')\nAssertionError: expected length hint failure\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24356319999787956,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "integration": "Sources compiled directly in Godot SDK project; no separate SharpPy DLL reference",
+    "build": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nsequence large step: 216 PASS\r\nbytearray iterable assignment: PASS\r\nbytearray slice reentry: PASS\r\nbytearray byte values: PASS\r\nStopIteration arguments: PASS\r\nexception args update: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "performance": "Not benchmarked. Existing args field changed from array reference to array-or-tuple reference; no extra field; tuple materialized on observation."
+}

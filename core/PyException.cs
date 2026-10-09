@@ -9,7 +9,14 @@ namespace SharpPy
     public class PyBaseException : PyObject
     {
         public string Message { get; protected set; }
-        public PyObject[] Args { get; protected set; }
+        // Keep the original array until Python observes args; then retain its
+        // tuple identity in the same slot, without a second field per exception.
+        private object _args;
+        public PyObject[] Args
+        {
+            get => _args is PyTuple tuple ? tuple.Items : (PyObject[])_args;
+            protected set => _args = value;
+        }
 
         // CPython 3.12: Exception chaining attributes
         public PyBaseException? __cause__ { get; set; }
@@ -67,7 +74,13 @@ namespace SharpPy
             switch (name)
             {
                 case "args":
-                    return new PyTuple(Args);
+                    if (_args is not PyTuple argsTuple)
+                    {
+                        var items = Args;
+                        argsTuple = items.Length == 0 ? TupleCache.Empty : new PyTuple(items);
+                        _args = argsTuple;
+                    }
+                    return argsTuple;
                 case "__cause__":
                     return (PyObject?)__cause__ ?? PyNone.Instance;
                 case "__context__":
@@ -85,6 +98,32 @@ namespace SharpPy
         {
             switch (name)
             {
+                case "args":
+                    PyTuple replacement;
+                    if (value.GetType() == typeof(PyTuple)) replacement = (PyTuple)value;
+                    else if (value.GetType() == typeof(PyList))
+                    {
+                        var items = ((PyList)value).Items;
+                        replacement = items.Length == 0 ? TupleCache.Empty : new PyTuple(items);
+                    }
+                    else
+                    {
+                        var iterator = value.GetIterator();
+                        var items = new List<PyObject>();
+                        while (true)
+                        {
+                            PyObject item;
+                            try { item = iterator.Next(); }
+                            catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
+                            if (item == null) break;
+                            items.Add(item);
+                        }
+                        replacement = items.Count == 0 ? TupleCache.Empty : new PyTuple(items.ToArray());
+                    }
+                    // Commit only after conversion; callbacks may observe or
+                    // replace the previous args while the iterable is consumed.
+                    _args = replacement;
+                    break;
                 case "__cause__":
                     if (value is PyNone)
                         __cause__ = null;
@@ -116,6 +155,12 @@ namespace SharpPy
                     base.SetAttribute(name, value);
                     break;
             }
+        }
+
+        public override void DelAttribute(string name)
+        {
+            if (name == "args") throw PyTypeError.Create("args may not be deleted");
+            base.DelAttribute(name);
         }
 
         /// <summary>

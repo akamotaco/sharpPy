@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[37차 결과](reports/2026-10-10/exception_args_update_analysis.md): 예외 args 재대입·identity·삭제 거부와 변환 실패 시 상태를 맞췄다. 기본 79개와 Godot 소스 통합 회귀 10개 통과. 별도 캐시 필드 없이 관찰 tuple을 보존한다. 일반 iterable의 길이 힌트 callback은 다음 과제로 재현 테스트를 남겼다.
+
 [36차 결과](reports/2026-10-10/stop_iteration_analysis.md): StopIteration 생성 인자·value·str/repr 및 generator 반환값을 맞췄다. 기본 77개와 Godot 소스 통합 회귀 9개 통과. 빈 종료 예외의 불필요한 인자 객체를 제거했다. 다음은 예외 args 재대입이며 별도 실패 fixture를 보존했다.
 
 [35차 결과](reports/2026-10-10/bytearray_bytevalue_analysis.md): bytearray 항목의 __index__·bool 및 큰 정수 범위 오류를 맞추고 값 callback 후 길이를 검사한다. 기본 75개와 Godot 소스 통합 회귀 8개 통과. StopIteration 메시지의 기존 차이와 CPython 저장소 재할당 callback의 불안정한 관찰 결과는 별도 기록했다.
