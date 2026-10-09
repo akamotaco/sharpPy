@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[39차 결과](reports/2026-10-10/operator_length_hint_analysis.md): _operator.length_hint를 공통 프로토콜에 연결하고 기본값 검증 순서·음수/초대형 값·keyword 처리를 맞췄다. 기본 83개와 Godot 소스 통합 회귀 12개 통과. 다음은 기존 range/memoryview 큰 step 표현 문제로 돌아간다.
+
 [38차 결과](reports/2026-10-10/exception_length_hint_analysis.md): args 변환의 len/length_hint 순서와 예외를 맞추고 __iter__의 Python 예외를 보존했다. 기본 81개와 Godot 소스 통합 회귀 11개 통과. 힌트가 없을 때 CLR 기본 확장을 사용한다. 공개 _operator.length_hint의 기존 별도 구현은 다음 대상으로 재현했다.
 
 [37차 결과](reports/2026-10-10/exception_args_update_analysis.md): 예외 args 재대입·identity·삭제 거부와 변환 실패 시 상태를 맞췄다. 기본 79개와 Godot 소스 통합 회귀 10개 통과. 별도 캐시 필드 없이 관찰 tuple을 보존한다. 일반 iterable의 길이 힌트 callback은 다음 과제로 재현 테스트를 남겼다.

@@ -443,19 +443,27 @@ namespace SharpPy.Modules
             return PyNone.Instance;
         }
 
-        private static PyObject LengthHint(PyObject[] args)
+        private static PyObject LengthHint(PyObject[] args, PyDict kwargs)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"length_hint() takes 1 or 2 arguments ({args.Length} given)");
-
-            try
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("_operator.length_hint() takes no keyword arguments");
+            if (args.Length < 1)
+                throw PyTypeError.Create("length_hint expected at least 1 argument, got 0");
+            if (args.Length > 2)
+                throw PyTypeError.Create($"length_hint expected at most 2 arguments, got {args.Length}");
+            long defaultValue = 0;
+            if (args.Length == 2)
             {
-                return new PyInt(args[0].Length());
+                var integer = PyObject.TryGetIndex(args[1]);
+                if (integer == null)
+                    throw PyTypeError.Create($"'{args[1].GetTypeName()}' object cannot be interpreted as an integer");
+                try { defaultValue = (long)nint.CreateChecked(integer.Value); }
+                catch (OverflowException)
+                {
+                    throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+                }
             }
-            catch
-            {
-                return args.Length > 1 ? args[1] : new PyInt(0);
-            }
+            return SmallIntCache.GetOrCreate(args[0].LengthHint(defaultValue));
         }
 
         #endregion

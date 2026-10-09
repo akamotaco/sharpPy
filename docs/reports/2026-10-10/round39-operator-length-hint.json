@@ -1,0 +1,121 @@
+{
+  "baseline_commit": "1cbc300",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "download_date": "2026-10-10",
+    "files": {
+      "Modules/_operator.c": {
+        "sha256": "30573c8a576dc09ab26970415428164758dd013754edf0f190841bff062f4c8c",
+        "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Modules/_operator.c"
+      },
+      "Modules/clinic/_operator.c.h": {
+        "sha256": "668ba2d84ac3e7579da4a1e38bc79b1e3ed6540eb41397001b4270d22416fba3",
+        "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Modules/clinic/_operator.c.h"
+      },
+      "Objects/abstract.c": {
+        "sha256": "abb8e2403b6479b976e900668273a44d29f117ebb021b0f4669f3bf03521766e",
+        "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/abstract.c"
+      }
+    }
+  },
+  "before": [
+    {
+      "name": "tests/operator_length_hint_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02778799999941839,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\operator_length_hint_regression.py\", line 15, in <module>\n    assert length_hint(Source(), Default()) == 3\n                                                ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\operator_length_hint_regression.py\", line 15, in <module>\n    assert length_hint(Source(), Default()) == 3\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.28471410000202013,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029432499999529682,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\operator_length_hint.py\", line 5, in <module>\n    assert _operator.length_hint(Source()) == 3\n                                               ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\operator_length_hint.py\", line 5, in <module>\n    assert _operator.length_hint(Source()) == 3\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25456349999876693,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/operator_length_hint_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03280040000390727,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3008209999970859,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.030171999998856336,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "operator length hint: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2678278000021237,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "counts": {
+    "matching_output": 78,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "d87ff144e7a3e639c6a3df005ef24edad4886bb77553587ed144b2f9b8a29117",
+  "godot": {
+    "integration": "Sources directly compiled in Godot SDK project, no separate SharpPy DLL reference",
+    "build": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nsequence large step: 216 PASS\r\nbytearray iterable assignment: PASS\r\nbytearray slice reentry: PASS\r\nbytearray byte values: PASS\r\nStopIteration arguments: PASS\r\nexception args update: PASS\r\nexception args length hint: PASS\r\noperator length hint: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "performance": "No benchmark; shared LengthHint implementation and existing SmallIntCache used. No speedup or end-to-end allocation claim."
+}

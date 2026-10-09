@@ -115,6 +115,8 @@ def main():
             "tests/stop_iteration_arguments_regression.py",
             "tests/exception_args_update_regression.py",
             "tests/exception_args_length_hint_regression.py",
+            "tests/operator_length_hint_regression.py",
+            "tests/compatibility/operator_length_hint.py",
             "tests/compatibility/exception_args_length_hint.py",
             "tests/compatibility/stop_iteration_args_update.py",
             "tests/compatibility/stop_iteration_message.py",
