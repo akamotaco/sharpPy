@@ -2291,17 +2291,15 @@ namespace SharpPy
                     #endif
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 MAKE_FUNCTION stack size before processing: {frame.ValueStack.Count}");
-                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         var debugStackItems = frame.ValueStack.ToArray();
                         for (int i = 0; i < Math.Min(debugStackItems.Length, 5); i++)
                         {
-                            #if DEBUG_LOG
                             Console.WriteLine($"   Stack[{i}]: {debugStackItems[i]?.GetType().Name} = {debugStackItems[i]}");
-                            #endif
                         }
                     }
+                    #endif
 
                     // CPython 3.12 MAKE_FUNCTION flags processing order (bit order matters!):
                     // 0x01 - HAS_DEFAULTS: function has positional default parameters
@@ -3997,7 +3995,6 @@ namespace SharpPy
                     // CPython 3.12 compatible FOR_ITER implementation
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 FOR_ITER: Stack.Count before Peek = {frame.ValueStack.Count}, IP={frame.InstructionPointer}");
-                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         // Performance: Eliminated LINQ - manual stack preview
@@ -4008,10 +4005,9 @@ namespace SharpPy
                         {
                             stackItems[i] = $"[{i}]={stackArray[i].GetType().Name}";
                         }
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack items: {string.Join(", ", stackItems)}");
-                        #endif
                     }
+                    #endif
                     var iter = frame.ValueStack.Peek(); // Keep iterator on stack for inspection
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"    Iterator type: {iter.GetType().Name}, value: {iter}");
@@ -4604,15 +4600,11 @@ namespace SharpPy
                     // DEBUG: 스택 상태 확인
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 WITH_EXCEPT_START 완료 후 스택 크기: {frame.ValueStack.Count}");
-                    #endif
                     for (int i = 0; i < Math.Min(frame.ValueStack.Count, 5); i++)
                     {
                         var debugItem = frame.ValueStack.ToArray()[frame.ValueStack.Count - 1 - i];
-                        #if DEBUG_LOG
                         Console.WriteLine($"  Stack[{frame.ValueStack.Count - 1 - i}]: {debugItem}");
-                        #endif
                     }
-                    #if DEBUG_LOG
                     Console.WriteLine($"🔧 WITH_EXCEPT_START: Pushed result = {suppressException}");
                     #endif
                     break;
@@ -5624,7 +5616,6 @@ namespace SharpPy
                     // 스택: [..., list, ..., item] → [..., list, ...]
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔧 LIST_APPEND {instruction.Argument}: Stack before pop = {frame.ValueStack.Count}");
-                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         // Performance: Eliminated LINQ - manual stack preview
@@ -5635,10 +5626,9 @@ namespace SharpPy
                         {
                             stackBefore[i] = $"[{i}]={stackArray[i].GetType().Name}";
                         }
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack: {string.Join(", ", stackBefore)}");
-                        #endif
                     }
+                    #endif
 
                     var itemToAppend = frame.ValueStack.Pop();
                     #if DEBUG_VM_LOG
@@ -6460,18 +6450,18 @@ namespace SharpPy
                         // CPython 3.12: In-place operations
                         // CPython: Objects/abstract.c:binary_iop1 (lines 1162-1193)
                         // Try in-place method first, fallback to regular operation
-                        BinaryOpType.INPLACE_ADD => TryInplaceOp(left, right, "InplaceAdd", () => left.Add(right)),
-                        BinaryOpType.INPLACE_SUBTRACT => TryInplaceOp(left, right, "InplaceSubtract", () => left.Subtract(right)),
-                        BinaryOpType.INPLACE_MULTIPLY => TryInplaceOp(left, right, "InplaceMultiply", () => left.Multiply(right)),
-                        BinaryOpType.INPLACE_TRUE_DIVIDE => TryInplaceOp(left, right, "InplaceDivide", () => left.Divide(right)),
-                        BinaryOpType.INPLACE_FLOOR_DIVIDE => TryInplaceOp(left, right, "InplaceFloorDivide", () => left.FloorDivide(right)),
-                        BinaryOpType.INPLACE_MODULO => TryInplaceOp(left, right, "InplaceModulo", () => left.Modulo(right)),
-                        BinaryOpType.INPLACE_POWER => TryInplaceOp(left, right, "InplacePower", () => left.Power(right)),
-                        BinaryOpType.INPLACE_LSHIFT => TryInplaceOp(left, right, "InplaceLeftShift", () => left.LeftShift(right)),
-                        BinaryOpType.INPLACE_RSHIFT => TryInplaceOp(left, right, "InplaceRightShift", () => left.RightShift(right)),
-                        BinaryOpType.INPLACE_AND => TryInplaceOp(left, right, "InplaceBitwiseAnd", () => left.BitwiseAnd(right)),
-                        BinaryOpType.INPLACE_OR => TryInplaceOp(left, right, "InplaceBitwiseOr", () => left.BitwiseOr(right)),
-                        BinaryOpType.INPLACE_XOR => TryInplaceOp(left, right, "InplaceBitwiseXor", () => left.BitwiseXor(right)),
+                        BinaryOpType.INPLACE_ADD => TryInplaceOp(left, right, "InplaceAdd", BinaryOpType.ADD),
+                        BinaryOpType.INPLACE_SUBTRACT => TryInplaceOp(left, right, "InplaceSubtract", BinaryOpType.SUBTRACT),
+                        BinaryOpType.INPLACE_MULTIPLY => TryInplaceOp(left, right, "InplaceMultiply", BinaryOpType.MULTIPLY),
+                        BinaryOpType.INPLACE_TRUE_DIVIDE => TryInplaceOp(left, right, "InplaceDivide", BinaryOpType.TRUE_DIVIDE),
+                        BinaryOpType.INPLACE_FLOOR_DIVIDE => TryInplaceOp(left, right, "InplaceFloorDivide", BinaryOpType.FLOOR_DIVIDE),
+                        BinaryOpType.INPLACE_MODULO => TryInplaceOp(left, right, "InplaceModulo", BinaryOpType.MODULO),
+                        BinaryOpType.INPLACE_POWER => TryInplaceOp(left, right, "InplacePower", BinaryOpType.POWER),
+                        BinaryOpType.INPLACE_LSHIFT => TryInplaceOp(left, right, "InplaceLeftShift", BinaryOpType.LSHIFT),
+                        BinaryOpType.INPLACE_RSHIFT => TryInplaceOp(left, right, "InplaceRightShift", BinaryOpType.RSHIFT),
+                        BinaryOpType.INPLACE_AND => TryInplaceOp(left, right, "InplaceBitwiseAnd", BinaryOpType.AND),
+                        BinaryOpType.INPLACE_OR => TryInplaceOp(left, right, "InplaceBitwiseOr", BinaryOpType.OR),
+                        BinaryOpType.INPLACE_XOR => TryInplaceOp(left, right, "InplaceBitwiseXor", BinaryOpType.XOR),
                         BinaryOpType.INPLACE_MATRIX_MULTIPLY => throw PyNotImplementedError.Create("In-place matrix multiplication not yet implemented"),
 
                         _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
@@ -6524,7 +6514,7 @@ namespace SharpPy
         /// In-place operations modify the object in place and return self for mutable types (list, dict, set).
         /// For immutable types (int, str, tuple), they fall back to regular operations and return a new object.
         /// </summary>
-        private PyObject TryInplaceOp(PyObject left, PyObject right, string inplaceMethodName, Func<PyObject> regularOpFallback)
+        private PyObject TryInplaceOp(PyObject left, PyObject right, string inplaceMethodName, BinaryOpType regularOperation)
         {
             // CPython: Objects/abstract.c:1166-1173 - Try in-place method first
             // Map C# method name to Python dunder method name
@@ -6603,7 +6593,10 @@ namespace SharpPy
             }
 
             // CPython: Objects/abstract.c:1179 - Fall back to regular operation
-            return regularOpFallback();
+            // Use the complete regular dispatch, including right.__rop__ for NotImplemented.
+            // CPython v3.12.15, Objects/abstract.c, binary_iop1 -> binary_op1.
+            // Passing an opcode also avoids captured fallback delegates on every BINARY_OP.
+            return ExecuteBinaryOpType(left, right, regularOperation);
         }
 
         /// <summary>

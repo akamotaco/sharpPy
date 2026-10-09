@@ -2,3 +2,4 @@ obj
 bin
 .VSCodeCounter
 __pycache__
+.artifacts/

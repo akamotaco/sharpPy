@@ -1,0 +1,109 @@
+{
+  "downloaded_utc": "2026-10-08T23:58:00.946789+00:00",
+  "references": [
+    {
+      "tag": "v3.12.0",
+      "commit": "0fb18b02c8ad56299d6a2910be0bab8ad601ef24",
+      "resolution_url": "https://api.github.com/repos/python/cpython/commits/v3.12.0",
+      "files": [
+        {
+          "path": "Grammar/python.gram",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Grammar/python.gram",
+          "sha256": "f928cdfce12292cc9f09eec353f842551110b2e1fb5a96a8202d0b084602a5db"
+        },
+        {
+          "path": "Parser/Python.asdl",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Parser/Python.asdl",
+          "sha256": "ecc26bc2818ebddec685f96663c811de8915beaa74a7cb1ace6eea3920679ac7"
+        },
+        {
+          "path": "Lib/opcode.py",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Lib/opcode.py",
+          "sha256": "192f6008508f28d3273bff42eaea9b01c8394dab1607cd36aea778bdd166c3a6"
+        },
+        {
+          "path": "Python/bytecodes.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Python/bytecodes.c",
+          "sha256": "9f37d6c80511a84ef15297012ac11833f0bf61f8a7e4fbace46f830d1786b394"
+        },
+        {
+          "path": "Python/compile.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Python/compile.c",
+          "sha256": "bfaf597c06ab4dfd6f026c094fcf6f1cd80565a0bf2ffc6f990da7557b57765a"
+        },
+        {
+          "path": "Python/flowgraph.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Python/flowgraph.c",
+          "sha256": "64f8ec53af9299e381f1000248252f250cc8d5ece6dd9fca15433f123630894c"
+        },
+        {
+          "path": "Python/assemble.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Python/assemble.c",
+          "sha256": "4799e6917b59ed84eb8074947a102ad3d679e5e209a4ee667a06c6224611701f"
+        },
+        {
+          "path": "Python/specialize.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Python/specialize.c",
+          "sha256": "af17ca6de87406d76ccf4b16ef0ad2875bdd42cfa5c74ecb8be3e9b58360bc52"
+        },
+        {
+          "path": "Objects/abstract.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/0fb18b02c8ad56299d6a2910be0bab8ad601ef24/Objects/abstract.c",
+          "sha256": "abb8e2403b6479b976e900668273a44d29f117ebb021b0f4669f3bf03521766e"
+        }
+      ]
+    },
+    {
+      "tag": "v3.12.15",
+      "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+      "resolution_url": "https://api.github.com/repos/python/cpython/commits/v3.12.15",
+      "files": [
+        {
+          "path": "Grammar/python.gram",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Grammar/python.gram",
+          "sha256": "efc77bdaffa4816c7e98e44396679d97d19a3a357b61d20790806317343fa7e6"
+        },
+        {
+          "path": "Parser/Python.asdl",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Parser/Python.asdl",
+          "sha256": "ecc26bc2818ebddec685f96663c811de8915beaa74a7cb1ace6eea3920679ac7"
+        },
+        {
+          "path": "Lib/opcode.py",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Lib/opcode.py",
+          "sha256": "192f6008508f28d3273bff42eaea9b01c8394dab1607cd36aea778bdd166c3a6"
+        },
+        {
+          "path": "Python/bytecodes.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/bytecodes.c",
+          "sha256": "f8c050621f1498d953d4898aaf29457e154620fec7f8bb987b4d3fde6f5a1d84"
+        },
+        {
+          "path": "Python/compile.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/compile.c",
+          "sha256": "1e94426b3948c09ba0c480293e0424420ea52ccceb485f49f665bae1a47c3ad8"
+        },
+        {
+          "path": "Python/flowgraph.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/flowgraph.c",
+          "sha256": "e31bb668c2ff0f187159d3c46c11135acbb7a2762101fcd71b2647868de26e58"
+        },
+        {
+          "path": "Python/assemble.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/assemble.c",
+          "sha256": "5c18802e40010697e2dbc2d6b6a9e330621d58f243b0c3359d4d3b33771b2827"
+        },
+        {
+          "path": "Python/specialize.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/specialize.c",
+          "sha256": "2ccf2d583bb84e0f553766c782f23c42bf1e661d5d0754be529281e4928108cc"
+        },
+        {
+          "path": "Objects/abstract.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/abstract.c",
+          "sha256": "abb8e2403b6479b976e900668273a44d29f117ebb021b0f4669f3bf03521766e"
+        }
+      ]
+    }
+  ]
+}
