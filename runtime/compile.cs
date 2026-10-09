@@ -5116,6 +5116,14 @@ namespace SharpPy
                     }
                 }
                 
+                // A captured local is stored in a cell, just like LOAD/STORE_DEREF.
+                // FixCellOffsets remaps this cell index to a localsplus offset.
+                if (_cellVars.Contains(name))
+                {
+                    EmitInstruction(ByteCodeOp.DELETE_DEREF, _cellVars.IndexOf(name));
+                    return;
+                }
+
                 // 지역 변수: DELETE_FAST 사용
                 var varIndex = _varNames.IndexOf(name);
                 if (varIndex >= 0)

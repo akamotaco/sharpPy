@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SharpPy.Modules;
@@ -1462,8 +1462,9 @@ namespace SharpPy
                     // Convert frame's local scope to PyDict
                     if (locals == null)
                     {
-                        locals = new PyDict();
-                        if (currentFrame.LocalScope != null)
+                        bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
+                        locals = optimized ? currentFrame.GetOptimizedLocals() : new PyDict();
+                        if (!optimized && currentFrame.LocalScope != null)
                         {
                             foreach (var kvp in currentFrame.LocalScope.Variables)
                             {
@@ -1472,7 +1473,7 @@ namespace SharpPy
                         }
 
                         // If no local variables, use globals for locals (like CPython)
-                        if (locals.InternalDict.Count == 0)
+                        if (!optimized && locals.InternalDict.Count == 0)
                             locals = globals;
                     }
                 }
@@ -1679,8 +1680,9 @@ namespace SharpPy
                     // Convert frame's local scope to PyDict
                     if (locals == null)
                     {
-                        locals = new PyDict();
-                        if (currentFrame.LocalScope != null)
+                        bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
+                        locals = optimized ? currentFrame.GetOptimizedLocals() : new PyDict();
+                        if (!optimized && currentFrame.LocalScope != null)
                         {
                             foreach (var kvp in currentFrame.LocalScope.Variables)
                             {
@@ -1689,7 +1691,7 @@ namespace SharpPy
                         }
 
                         // If no local variables, use globals for locals (like CPython)
-                        if (locals.InternalDict.Count == 0)
+                        if (!optimized && locals.InternalDict.Count == 0)
                             locals = globals;
                     }
                 }
@@ -4212,6 +4214,9 @@ namespace SharpPy
             {
                 return new PyDict(); // Return empty dict if no frame
             }
+
+            if ((currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
+                return currentFrame.GetOptimizedLocals();
 
             // Get the local scope from the current frame's scope chain
             // At module level or if no local scope, return globals

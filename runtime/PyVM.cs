@@ -1,4 +1,4 @@
-// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
+﻿// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
 
 using SharpPy.Core;
 
@@ -13,6 +13,7 @@ namespace SharpPy
         public PyStack ValueStack { get; }
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
         public PyObject[] LocalsPlus { get; }  // CPython 3.12 style: Direct array for local variables
+        private PyDict _localsDict;
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking
@@ -164,7 +165,10 @@ namespace SharpPy
             // 함수 스코프 생성 (모듈 실행인 경우 제외)
             if (!IsModuleExecution(code.Name))
             {
-                ScopeChain.PushScope(ScopeType.Local, code.Name);
+                if ((code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
+                    ScopeChain.PushFastLocalScope(this, code.Name);
+                else
+                    ScopeChain.PushScope(ScopeType.Local, code.Name);
 #if DEBUG_LOG
                 Console.WriteLine($"📁 스코프 추가: Local Scope '{code.Name}': 0 variables");
 #endif
@@ -273,7 +277,7 @@ namespace SharpPy
                 {
                     // Bind positional argument
                     LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
-                    ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
+                    RecordParameterInScope(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
 #if DEBUG_LOG
@@ -307,7 +311,7 @@ namespace SharpPy
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
                     LocalsPlus[paramIndex] = keywordValue;
-                    ScopeChain.AssignVariable(paramName, keywordValue);
+                    RecordParameterInScope(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -332,7 +336,7 @@ namespace SharpPy
                     {
                         var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
                         LocalsPlus[paramIndex] = defaultValue;
-                        ScopeChain.AssignVariable(paramName, defaultValue);
+                        RecordParameterInScope(paramName, defaultValue);
 
 #if DEBUG_LOG
                         Console.WriteLine($"  → {paramName} = {defaultValue} (기본값, index {paramIndex - numRequiredParams})");
@@ -358,7 +362,7 @@ namespace SharpPy
                 {
                     var keywordValue = keywordArgs[paramName];
                     LocalsPlus[paramIndex] = keywordValue;
-                    ScopeChain.AssignVariable(paramName, keywordValue);
+                    RecordParameterInScope(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -405,7 +409,7 @@ namespace SharpPy
                     if (hasDefault)
                     {
                         LocalsPlus[paramIndex] = defaultValue;
-                        ScopeChain.AssignVariable(paramName, defaultValue);
+                        RecordParameterInScope(paramName, defaultValue);
                     }
                     else
                     {
@@ -430,7 +434,7 @@ namespace SharpPy
                 var argsTuple = new PyTuple(extraArgs);
 
                 LocalsPlus[varargsIndex] = argsTuple;
-                ScopeChain.AssignVariable(varargsName, argsTuple);
+                RecordParameterInScope(varargsName, argsTuple);
 
 #if DEBUG_LOG
                 Console.WriteLine($"  → {varargsName} = {argsTuple} (*args with {extraArgs.Length} items)");
@@ -454,7 +458,7 @@ namespace SharpPy
                 }
 
                 LocalsPlus[varkwargsIndex] = kwargsDict;
-                ScopeChain.AssignVariable(varkwargsName, kwargsDict);
+                RecordParameterInScope(varkwargsName, kwargsDict);
 
 #if DEBUG_LOG
                 var itemCount = keywordArgs?.Count ?? 0;
@@ -655,6 +659,9 @@ namespace SharpPy
         /// </summary>
         private PyDict BuildLocalsDict()
         {
+            if ((Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
+                return GetOptimizedLocals();
+
             var localsDict = new Dictionary<string, PyObject>();
 
             // Add variables from LocalsPlus array
@@ -677,6 +684,54 @@ namespace SharpPy
             }
 
             return new PyDict(localsDict);
+        }
+
+        internal void RecordParameterInScope(string name, PyObject value)
+        {
+            if ((Code.Flags & PyCodeObject.CO_OPTIMIZED) == 0)
+                ScopeChain.AssignVariable(name, value);
+        }
+
+        internal void RefreshScopeLocals(Dictionary<string, PyObject> result)
+        {
+            static void Sync(Dictionary<string, PyObject> result, string name, PyObject value)
+            {
+                if (value != null && !PyNull.IsNull(value)) result[name] = value;
+                else result.Remove(name);
+            }
+            for (int i = 0; i < Code.VarNames.Count && i < LocalsPlus.Length; i++)
+                Sync(result, Code.VarNames[i], LocalsPlus[i]);
+            int freeCount = Code.FreeVars?.Count ?? 0;
+            for (int i = 0; i < (Code.CellVars?.Count ?? 0) && freeCount + i < Cells.Length; i++)
+                Sync(result, Code.CellVars[i], Cells[freeCount + i].Value);
+            for (int i = 0; i < freeCount && i < Cells.Length; i++)
+                Sync(result, Code.FreeVars[i], Cells[i].Value);
+        }
+
+        // CPython 3.12 Objects/frameobject.c: _PyFrame_GetLocals refreshes
+        // one retained dictionary from fast locals/cells. Dictionary writes
+        // alone do not write back to fast locals (tracing is a separate path).
+        internal PyDict GetOptimizedLocals()
+        {
+            var result = _localsDict ??= new PyDict();
+            static void Sync(PyDict result, string name, PyObject value)
+            {
+                var key = new PyString(name);
+                if (value != null && !PyNull.IsNull(value))
+                    result.SetItem(key, value);
+                else if (result.InternalDict.ContainsKey(key))
+                    result.DelItem(key);
+            }
+            for (int i = 0; i < Code.VarNames.Count && i < LocalsPlus.Length; i++)
+                Sync(result, Code.VarNames[i], LocalsPlus[i]);
+            int freeCount = Code.FreeVars?.Count ?? 0;
+            int cellCount = Code.CellVars?.Count ?? 0;
+            for (int i = 0; i < cellCount; i++)
+                if (freeCount + i < Cells.Length)
+                    Sync(result, Code.CellVars[i], Cells[freeCount + i].Value);
+            for (int i = 0; i < freeCount && i < Cells.Length; i++)
+                Sync(result, Code.FreeVars[i], Cells[i].Value);
+            return result;
         }
 
         /// <summary>
@@ -8595,7 +8650,7 @@ namespace SharpPy
                 {
                     // Bind positional argument
                     frame.LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
-                    frame.ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
+                    frame.RecordParameterInScope(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
 #if DEBUG_LOG
@@ -8607,7 +8662,7 @@ namespace SharpPy
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
                     frame.LocalsPlus[paramIndex] = keywordValue;
-                    frame.ScopeChain.AssignVariable(paramName, keywordValue);
+                    frame.RecordParameterInScope(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
 #if DEBUG_LOG
@@ -8622,7 +8677,7 @@ namespace SharpPy
                     {
                         var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
                         frame.LocalsPlus[paramIndex] = defaultValue;
-                        frame.ScopeChain.AssignVariable(paramName, defaultValue);
+                        frame.RecordParameterInScope(paramName, defaultValue);
 
 #if DEBUG_LOG
                         Console.WriteLine($"  → {paramName} = {defaultValue} (기본값)");
@@ -8653,7 +8708,7 @@ namespace SharpPy
                 remainingPositionalArgs.CopyTo(argsArray, 0);
                 var argsTuple = new PyTuple(argsArray);
                 frame.LocalsPlus[argsParamIndex] = argsTuple;
-                frame.ScopeChain.AssignVariable(argsParamName, argsTuple);
+                frame.RecordParameterInScope(argsParamName, argsTuple);
 
 #if DEBUG_LOG
                 Console.WriteLine($"  → *{argsParamName} = {argsTuple} ({remainingPositionalArgs.Count}개 인수)");
@@ -8683,7 +8738,7 @@ namespace SharpPy
                 }
 
                 frame.LocalsPlus[kwargsIndex] = kwargsDict;
-                frame.ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
+                frame.RecordParameterInScope(kwargsParamName, kwargsDict);
 
 #if DEBUG_LOG
                 Console.WriteLine($"  → **{kwargsParamName} = {kwargsDict} ({keywordArgs.Count}개 키워드)");

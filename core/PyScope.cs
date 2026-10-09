@@ -360,7 +360,8 @@ namespace SharpPy
     public class PyScope
     {
         public ScopeType Type { get; }
-        public Dictionary<string, PyObject> Variables { get; }
+        private Dictionary<string, PyObject> _variables;
+        public virtual Dictionary<string, PyObject> Variables => _variables ??= new Dictionary<string, PyObject>();
         public PyScope EnclosingScope { get; }
         public string Name { get; }
         // CPython 3.12: frame->f_globals references module->md_dict
@@ -368,9 +369,14 @@ namespace SharpPy
         public PyModule Module { get; }
 
         public PyScope(ScopeType type, PyScope enclosingScope = null, string name = "")
+            : this(type, enclosingScope, name, false)
+        {
+        }
+
+        protected PyScope(ScopeType type, PyScope enclosingScope, string name, bool deferVariables)
         {
             Type = type;
-            Variables = new Dictionary<string, PyObject>();
+            if (!deferVariables) _variables = new Dictionary<string, PyObject>();
             EnclosingScope = enclosingScope;
             Name = name;
             Module = null;
@@ -383,7 +389,7 @@ namespace SharpPy
         public PyScope(ScopeType type, Dictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "", PyModule module = null)
         {
             Type = type;
-            Variables = existingVariables ?? new Dictionary<string, PyObject>();
+            _variables = existingVariables ?? new Dictionary<string, PyObject>();
             EnclosingScope = enclosingScope;
             Name = name;
             Module = module; // Store module for globals() to return module.__dict__
@@ -407,6 +413,24 @@ namespace SharpPy
         public override string ToString()
         {
             return $"{Type} Scope '{Name}': {Variables.Count} variables";
+        }
+    }
+
+    // Optimized function scopes materialize their C# dictionary only on access.
+    internal sealed class PyFastLocalScope : PyScope
+    {
+        private readonly PyFrame _frame;
+        internal PyFastLocalScope(PyFrame frame, PyScope enclosingScope, string name)
+            : base(ScopeType.Local, enclosingScope, name, true) => _frame = frame;
+
+        public override Dictionary<string, PyObject> Variables
+        {
+            get
+            {
+                var variables = base.Variables;
+                _frame.RefreshScopeLocals(variables);
+                return variables;
+            }
         }
     }
 
@@ -478,6 +502,13 @@ namespace SharpPy
             Console.WriteLine($"📁 스코프 추가: {newScope}");
 #endif
             return newScope;
+        }
+
+        internal PyScope PushFastLocalScope(PyFrame frame, string name)
+        {
+            var scope = new PyFastLocalScope(frame, CurrentScope, name);
+            _normalScopes.Add(scope);
+            return scope;
         }
 
         public void PopScope()

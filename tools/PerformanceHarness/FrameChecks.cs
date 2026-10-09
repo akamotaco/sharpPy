@@ -26,5 +26,22 @@ internal static class FrameChecks
         frame.PopExceptionHandler();
         frame.PopExceptionHandler();
         if (frame.GetExceptionHandler() != null) throw new InvalidOperationException("Legacy handler cleanup changed");
+
+        interpreter.Execute("def scope_probe(value):\n    return value\n");
+        var probe = (PyFunction)interpreter.GetGlobalVariable("scope_probe");
+        var scopeFrame = new PyFrame(probe.CodeObject, new PyObject[] { SmallIntCache.One },
+            new PyScopeChain(probe.GlobalsDict, "probe"));
+        var localScope = scopeFrame.LocalScope ?? throw new InvalidOperationException("Missing function scope");
+        var variables = localScope.Variables;
+        if (!ReferenceEquals(variables["value"], SmallIntCache.One))
+            throw new InvalidOperationException("C# scope parameter lookup changed");
+        scopeFrame.LocalsPlus[0] = new PyInt(2);
+        if (!ReferenceEquals(variables, localScope.Variables) ||
+            ((PyInt)variables["value"]).Value != 2)
+            throw new InvalidOperationException("C# scope refresh or identity changed");
+        variables["extra"] = SmallIntCache.One;
+        scopeFrame.LocalsPlus[0] = PyNull.Instance;
+        if (localScope.Variables.ContainsKey("value") || !variables.ContainsKey("extra"))
+            throw new InvalidOperationException("C# scope deletion or extra key retention changed");
     }
 }
