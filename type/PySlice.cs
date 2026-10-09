@@ -125,7 +125,12 @@ namespace SharpPy
                 var startIndex = PyObject.TryGetIndex(Start);
                 if (startIndex != null)
                 {
-                    start = (int)startIndex.Value;
+                    // Match PyNumber_AsSsize_t(..., NULL): overflow clips by
+                    // sign. Storage lengths are int-sized, so these sentinels
+                    // produce the same adjusted endpoints. Keep __index__
+                    // outside the catch so its exceptions still propagate.
+                    try { start = (int)startIndex.Value; }
+                    catch (OverflowException) { start = startIndex.Value.Sign < 0 ? int.MinValue : int.MaxValue; }
                     if (start < 0) start += length;
                     // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:289-290)
                     if (start < 0)
@@ -153,7 +158,8 @@ namespace SharpPy
                 var stopIndex = PyObject.TryGetIndex(Stop);
                 if (stopIndex != null)
                 {
-                    stop = (int)stopIndex.Value;
+                    try { stop = (int)stopIndex.Value; }
+                    catch (OverflowException) { stop = stopIndex.Value.Sign < 0 ? int.MinValue : int.MaxValue; }
                     if (stop < 0) stop += length;
                     // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:299-300)
                     if (stop < 0)

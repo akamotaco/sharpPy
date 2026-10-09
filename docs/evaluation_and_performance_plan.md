@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [25차 큰 slice 경계](reports/2026-10-09/slice_bounds_analysis.md)는 start/stop 범위 초과를 정규화해 6개 시퀀스 타입의 결과를 CPython과 맞췄다. 기본 61개에서 새 실패 없음. 일반 slice 경로의 시간 분포·할당 유지, 큰 경계값의 CLR 예외 처리 비용은 남는다. 큰 step과 bytes slice 동등성은 별도 실패 fixture로 보존했고 bytes 비교 경로를 다음 우선 확인 대상으로 둔다.
+
 - 추가 확인: [24차 memoryview 슬라이스 대입](reports/2026-10-09/memoryview_slice_analysis.md)은 겹침·역방향 복사와 콜백 중 해제 순서를 CPython에 맞췄다. 기본 60개에서 새 실패 없음. CPU 경합 중 측정은 제외했고, 최종 기존 경로의 시간 분포는 겹치며 할당은 동일했다. 연속 memoryview 대입은 native 루프 내 추가 할당 0바이트. 다음 후보는 큰 slice 정수의 포화 변환과 stride 범위이며 자동 해제는 미해결이다.
 
 - 추가 확인: [23차 memoryview index](reports/2026-10-09/memoryview_index_analysis.md)는 bool/int subclass 및 type-only __index__, 예외 전파와 재진입 시 해제 순서를 보완했다. 기본 59개에서 새 실패 없음. native 바이트 쓰기 약 34.8% 단축, 할당 동일. 자동 해제는 VM 전반의 참조 소유권 기반이 없어 국소 패치로 해결하지 않았으며 구조 과제로 유지한다.
