@@ -186,18 +186,15 @@ namespace SharpPy
         public int GetLength(int sequenceLength)
         {
             var (start, stop, step) = Indices(sequenceLength);
-            
-            if (step > 0)
-            {
-                if (start >= stop) return 0;
-                return (stop - start + step - 1) / step;
-            }
-            else
-            {
-                if (start <= stop) return 0;
-                return (start - stop - step - 1) / (-step);
-            }
+
+            return GetLength(start, stop, step);
         }
+
+        // Normalized bounds let callers reuse one __index__ evaluation.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static int GetLength(int start, int stop, int step) => step > 0
+            ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
+            : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
 
         /// <summary>
         /// 특정 인덱스에 해당하는 실제 인덱스 계산
@@ -205,7 +202,7 @@ namespace SharpPy
         public int GetIndexAt(int i, int sequenceLength)
         {
             var (start, stop, step) = Indices(sequenceLength);
-            var length = GetLength(sequenceLength);
+            var length = GetLength(start, stop, step);
             
             if (i < 0) i += length;
             if (i < 0 || i >= length)
@@ -224,24 +221,12 @@ namespace SharpPy
         public int[] GetIndices(int sequenceLength)
         {
             var (start, stop, step) = Indices(sequenceLength);
-            var result = new int[GetLength(sequenceLength)];
-            
-            int index = 0;
-            if (step > 0)
-            {
-                for (int i = start; i < stop; i += step)
-                {
-                    result[index++] = i;
-                }
-            }
-            else
-            {
-                for (int i = start; i > stop; i += step)
-                {
-                    result[index++] = i;
-                }
-            }
-            
+            var result = new int[GetLength(start, stop, step)];
+            // Count-bounded traversal: the final increment may wrap, but its
+            // value is never used to decide whether another element exists.
+            for (int n = 0, position = start; n < result.Length; n++, position = unchecked(position + step))
+                result[n] = position;
+
             return result;
         }
 

@@ -476,15 +476,18 @@ namespace SharpPy
                 else
                 {
                     // Extended slice assignment: must have same number of items
-                    var sliceIndices = slice.GetIndices(_items.Count);
-                    if (sliceIndices.Length != valueList.Items.Length)
+                    int sliceLength = PySlice.GetLength(start, stop, step);
+                    if (sliceLength != valueList._items.Count)
                     {
-                        throw PyValueError.Create($"attempt to assign sequence of size {valueList.Items.Length} to extended slice of size {sliceIndices.Length}");
+                        throw PyValueError.Create($"attempt to assign sequence of size {valueList._items.Count} to extended slice of size {sliceLength}");
                     }
-
-                    for (int i = 0; i < sliceIndices.Length; i++)
+                    // CPython snapshots self-assignment before writing. Other
+                    // lists can be read directly: this loop invokes no Python.
+                    var replacement = ReferenceEquals(this, valueList)
+                        ? new List<PyObject>(_items) : valueList._items;
+                    for (int i = 0, position = start; i < sliceLength; i++, position = unchecked(position + step))
                     {
-                        _items[sliceIndices[i]] = valueList.Items[i];
+                        _items[position] = replacement[i];
                     }
                 }
             }

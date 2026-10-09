@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [27차 list 확장 slice 대입](reports/2026-10-09/list_slice_assignment_analysis.md)은 길이 계산 overflow, __index__ 중복 호출, 자기 대입 원본 손상을 수정했다. 반복 Items 복사와 인덱스 배열을 제거해 별도 list 대입 native 측정에서 약 67.7%/93.4% 단축, 추가 할당 0바이트. 기본 64개에서 새 실패 없음. 큰 step 변환과 다른 읽기 루프의 overflow는 별도 실패로 남아 다음 대상이다.
+
 - 추가 확인: [26차 bytes 비교](reports/2026-10-09/bytes_comparison_analysis.md)는 내용 비교·Python hash 연결, 사용자 NotImplemented 전달과 VM 동등성 fallback을 수정했다. bytes slice 동등성 실패를 해소해 기본 63개에서 새 실패 없음. 기존 CLR Equals 교체는 빠른 불일치 경로의 퇴행 때문에 제외했고, 새 Python 비교는 span을 사용한다. 비교 루프 추가 할당 0바이트이며 잘못된 기존 Python 결과 대비 속도 개선율은 제시하지 않는다. 다음은 큰 step/stride 산술이다.
 
 - 추가 확인: [25차 큰 slice 경계](reports/2026-10-09/slice_bounds_analysis.md)는 start/stop 범위 초과를 정규화해 6개 시퀀스 타입의 결과를 CPython과 맞췄다. 기본 61개에서 새 실패 없음. 일반 slice 경로의 시간 분포·할당 유지, 큰 경계값의 CLR 예외 처리 비용은 남는다. 큰 step과 bytes slice 동등성은 별도 실패 fixture로 보존했고 bytes 비교 경로를 다음 우선 확인 대상으로 둔다.
