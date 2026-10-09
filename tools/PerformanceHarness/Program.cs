@@ -25,6 +25,11 @@ if (args.Length > 0 && args[0] == "--frame-check")
     Console.WriteLine("C# frame checks: PASS");
     return;
 }
+if (args.Length > 0 && args[0] == "--class-closure-inspect")
+{
+    Console.WriteLine(JsonSerializer.Serialize(ClassClosureInspection.Inspect(args[1])));
+    return;
+}
 
 // Compile once, warm up, then time calls to the same function/code object.
 // Allocation counters measure this synchronous thread; retained memory is not measured.
@@ -36,7 +41,7 @@ var interpreter = new IntegratedPythonInterpreter();
 var setupStart = Stopwatch.GetTimestamp();
 interpreter.Execute(source, args[0], false, false, false);
 double setupMilliseconds = Stopwatch.GetElapsedTime(setupStart).TotalMilliseconds;
-var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "comprehension", "bound_builtin", "locals_observation", "frame_observation" };
+var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "comprehension", "bound_builtin", "locals_observation", "frame_observation", "class_locals_observation" };
 long sum = (long)iterations * (iterations - 1) / 2;
 var callArgs = new PyObject[] { new PyInt(iterations) };
 var results = new List<object>();

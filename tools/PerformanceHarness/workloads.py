@@ -80,3 +80,11 @@ def frame_observation(n):
     for i in range(n):
         result = result + frame.f_locals['i']
     return result
+
+
+def class_locals_observation(n):
+    class Body:
+        total = 0
+        for i in range(n):
+            total = total + locals()['i']
+    return Body.total

@@ -1495,7 +1495,11 @@ namespace SharpPy
                     if (basesArg is not PyTuple bases)
                         throw PyTypeError.Create($"type.__new__() argument 3 must be tuple, not {basesArg.GetTypeName()}");
 
-                    if (namespaceArg is not PyDict classDict)
+                    var classDict = namespaceArg as PyDict;
+                    if (classDict == null && namespaceArg is PyClassInstance dictInstance &&
+                        dictInstance.InstanceType.IsSubclassOf(DictType))
+                        classDict = dictInstance.GetDictStorage();
+                    if (classDict == null)
                         throw PyTypeError.Create($"type.__new__() argument 4 must be dict, not {namespaceArg.GetTypeName()}");
 
                     // Convert bases tuple to PyType array

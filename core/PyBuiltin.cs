@@ -2798,39 +2798,6 @@ namespace SharpPy
                         //   - STORE_NAME in class body calls __setitem__ on ns
                         //   - Pass SAME ns to metaclass.__new__ (line 208) - NO re-processing!
 
-                        Console.WriteLine($"\n🔍 DEBUG: originalPrepareResult check");
-                        Console.WriteLine($"  Type: {originalPrepareResult.GetType().Name}");
-
-                        // Check what's in originalPrepareResult now
-                        try
-                        {
-                            var itemsMethod = originalPrepareResult.GetAttribute("items");
-                            if (itemsMethod != null && itemsMethod.IsCallable())
-                            {
-                                var itemsResult = itemsMethod.Call(new PyObject[0], null);
-                                if (itemsResult is PyList itemsList)
-                                {
-                                    Console.WriteLine($"  Items in originalPrepareResult ({itemsList.Items.Length} total):");
-                                    int count = 0;
-                                    foreach (var item in itemsList.Items)
-                                    {
-                                        if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyString keyStr)
-                                        {
-                                            if (keyStr.Value == "func" || keyStr.Value == "_generate_next_value_")
-                                            {
-                                                Console.WriteLine($"    {keyStr.Value} = {tuple.Items[1]}, type={tuple.Items[1]?.GetTypeName()}");
-                                            }
-                                            if (++count > 15) break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"  Error checking items: {ex.Message}");
-                        }
-
                         #if DEBUG_LOG
                         Console.WriteLine($"  ✅ Using original __prepare__ result from variable! Type: {originalPrepareResult.GetType().Name}");
                         #endif
@@ -4214,6 +4181,9 @@ namespace SharpPy
             {
                 return new PyDict(); // Return empty dict if no frame
             }
+
+            if (currentFrame.ClassLocalsDict != null)
+                return currentFrame.ClassLocalsDict;
 
             if ((currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
                 return currentFrame.GetOptimizedLocals();

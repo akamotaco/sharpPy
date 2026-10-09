@@ -4741,16 +4741,17 @@ namespace SharpPy
                     {
                         case SymbolScope.Free:
                         case SymbolScope.Cell:
-                            // CPython 3.12: Python/compile.c:4076-4160 (compiler_nameop)
-                            // Class body에서는 enclosing scope 변수를 LOAD_NAME으로 처리
-                            // (FREE/CELL이 아님)
+                            // CPython 3.12 compiler_nameop: class free/cell reads
+                            // check the namespace mapping before the closure cell.
                             if (_isInClassBody)
                             {
-                                #if DEBUG_COMPILER_LOG
-                                Console.WriteLine($"      → Class body: Using LOAD_NAME instead of LOAD_DEREF for {name}");
-                                #endif
-                                var nameIndex = AddName(name);
-                                EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
+                                int classCellIndex = _cellVars.IndexOf(name);
+                                int classFreeIndex = _freeVars.IndexOf(name);
+                                if (classCellIndex < 0 && classFreeIndex < 0)
+                                    throw new InvalidOperationException($"Missing class closure variable '{name}'");
+                                EmitInstruction(ByteCodeOp.LOAD_LOCALS, 0);
+                                EmitInstruction(ByteCodeOp.LOAD_FROM_DICT_OR_DEREF,
+                                    classCellIndex >= 0 ? classCellIndex : _cellVars.Count + classFreeIndex);
                                 return;
                             }
 
@@ -6169,8 +6170,20 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Get free variables for a class from its symbol table or by analyzing class body
+        /// Find the class in its lexical parent before using the legacy root lookup.
         /// </summary>
+        private SymbolTable? FindClassSymbolTable(string className)
+        {
+            string actualName = className.Replace("<class_body_", "").TrimEnd('>');
+            if (_currentSymbolTable != null)
+                foreach (var child in _currentSymbolTable.GetChildren())
+                    if (child.Type == SymbolTableType.Class && child.GetName() == actualName)
+                        return child;
+            return _symbolTable == null ? null :
+                FindSymbolTableByName(GetRootSymbolTable(_symbolTable), actualName);
+        }
+
+        /// <summary>Get the free variables belonging to this class scope.</summary>
         private List<string> GetClassFreeVariables(string className)
         {
             if (_symbolTable == null)
@@ -6188,7 +6201,7 @@ namespace SharpPy
             Console.WriteLine($"🔍 GetClassFreeVariables: Looking for class '{className}' from root table '{rootSymbolTable.GetName()}'");
             #endif
 
-            var classSymbolTable = FindSymbolTableByName(rootSymbolTable, className);
+            var classSymbolTable = FindClassSymbolTable(className);
 
             #if DEBUG_LOG
             Console.WriteLine($"🔍 FindSymbolTableByName({className}): {(classSymbolTable != null ? "Found" : "Not found")}");
@@ -6557,7 +6570,7 @@ namespace SharpPy
                 #endif
 
                 // Find the class symbol table by name
-                classSymbolTable = FindSymbolTableByName(_symbolTable, className);
+                classSymbolTable = FindClassSymbolTable(className);
                 if (classSymbolTable == null)
                 {
                     // Try extracting class name from className (remove <class_body_ prefix)

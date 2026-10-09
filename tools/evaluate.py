@@ -65,6 +65,11 @@ def main():
             "tests/dynamic_locals_regression.py",
             "tests/namespace_locals_regression.py",
             "tests/locals_refresh_regression.py",
+            "tests/class_locals_mapping_regression.py",
+            "tests/prepared_namespace_regression.py",
+            "tests/type_new_dict_subclass_regression.py",
+            "tests/call_failure_state_regression.py",
+            "tests/class_closure_mapping_regression.py",
         "examples/hello.py", "examples/advanced.py",
     ]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONHASHSEED="0")

@@ -1,0 +1,183 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.18274819999987812,
+    "failure_markers": []
+  },
+  "git": "d24e39517826610dfdb31cd7c4c4a6a9e2f14cac",
+  "git_status": " M core/PyBuiltin.cs\n M core/PyType.cs\n M runtime/PyBytecode.cs\n M runtime/PyVM.cs\n M runtime/compile.cs\n M tools/PerformanceHarness/Program.cs\n M tools/PerformanceHarness/cpython_benchmark.py\n M tools/PerformanceHarness/workloads.py\n M tools/evaluate.py\n?? tests/call_failure_state_regression.py\n?? tests/class_closure_mapping_regression.py\n?? tests/class_locals_mapping_regression.py\n?? tests/compatibility/class_body_exceptions.py\n?? tests/prepared_namespace_regression.py\n?? tests/type_new_dict_subclass_regression.py\n?? tools/PerformanceHarness/ClassClosureInspection.cs\n?? tools/compare_class_closure.py\n",
+  "dll_sha256": "c30f7f14fd2da78f88fd6550cbfc60261f60e4c70dc677635af20f3cf0b458b9",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/compatibility/bound_method_attributes.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "True\nTrue\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.037523899999541754,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "True\nFalse\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\bound_method_attributes.py\", line 10, in <module>\n    assert getattr(Example().method, \"__override__\", False) is True\n                                                                   ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\bound_method_attributes.py\", line 10, in <module>\n    assert getattr(Example().method, \"__override__\", False) is True\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2523747999994157,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/class_body_exceptions.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class body exceptions: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028040499999406165,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_exceptions.py\", line 6, in <module>\n    caught = True\n             ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_exceptions.py\", line 4, in <class_body_Example>\n    raise ValueError('check')\n                             ^\nValueError: check\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_exceptions.py\", line 4, in <module>\n            raise ValueError('check')\nValueError: check\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2346266000004107,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/class_body_freevar.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class body free variable: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039488100000198756,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 10, in <module>\n    assert type(build()).__name__ == \"Local\"\n                                            ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 6, in build\n    item = Local()\n           ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 6, in <class_body_Holder>\n    item = Local()\n           ^\nNameError: name 'Local' is not defined. Did you mean: 'build'?\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 6, in <module>\n            item = Local()\n                   ^\nNameError: name 'Local' is not defined. Did you mean: 'build'?\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24950649999937013,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/class_locals_mapping.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class locals mapping: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03127629999926285,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "class locals mapping: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24813349999931233,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/coroutine_send.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "6\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039050200000019686,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_send.py\", line ?, in <module>\n    # Line information not available\nRuntimeError: Stack is empty\n--- C# Exception Details ---\nSystem.InvalidOperationException: Stack is empty\n   at SharpPy.PyStack.Pop() in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyStack.cs:line 44\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeInstruction instruction) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 2069\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1338\n   at SharpPy.Core.PyCoroutine.Send(PyObject value) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyCoroutine.cs:line 182\n   at SharpPy.Core.PyCoroutine.<>c.<InitializeCoroutineDescriptors>b__1_0(PyObject self, PyObject[] args, PyDict kwargs) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyCoroutine.cs:line 51\n   at SharpPy.PyBoundMethodDescriptor.Call(PyObject[] args, PyDict kwargs) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyDescriptor.cs:line 127\n   at SharpPy.PyVM.ExecuteCall(PyFrame frame, Int32 callArgCount) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1636\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeInstruction instruction) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 2589\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1338\n   at SharpPy.PyVM.ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 936\n   at SharpPy.IntegratedPythonInterpreter.Execute(String sourceCode, String fileName, Boolean showTokenize, Boolean showAst, Boolean showBytecode, CompileMode mode) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyInterpreter.cs:line 217\n   at SharpPy.Core.FileExecutor.ExecuteFile(String pythonFile, Boolean showTokenize, Boolean showAst, Boolean showBytecode, Boolean compileOnly) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\FileExecutor.cs:line 62\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2614129999992656,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/memoryview_write.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray(b'aBC')\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03784389999964333,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "bytearray(b'ABC')\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\memoryview_write.py\", line 6, in <module>\n    assert data == bytearray(b\"aBC\")\n                                    ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\memoryview_write.py\", line 6, in <module>\n    assert data == bytearray(b\"aBC\")\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23096960000020772,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_locals_live.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module locals live: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02964350000002014,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_locals_live.py\", line 4, in <module>\n    assert namespace['created_after_observation'] == 7\n                                                      ^\nKeyError: '<str object at 0xb9c9bc52>'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_locals_live.py\", line 4, in <module>\n    assert namespace['created_after_observation'] == 7\nKeyError: '<str object at 0xb9c9bc52>'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23654829999941285,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/script_import/entry.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "42\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03755469999941852,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\script_import\\entry.py\", line 2, in <module>\n    from sibling import VALUE\n                             ^\nModuleNotFoundError: No module named 'sibling'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\script_import\\entry.py\", line 2, in <module>\n    from sibling import VALUE\nModuleNotFoundError: No module named 'sibling'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23140280000006896,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "sharppy_failure": 7,
+    "matching_output": 1
+  }
+}

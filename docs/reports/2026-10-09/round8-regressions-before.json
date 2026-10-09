@@ -1,0 +1,142 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.2046411999999691,
+    "failure_markers": []
+  },
+  "git": "d24e39517826610dfdb31cd7c4c4a6a9e2f14cac",
+  "git_status": " M core/PyBuiltin.cs\n M core/PyType.cs\n M runtime/PyBytecode.cs\n M runtime/PyVM.cs\n M runtime/compile.cs\n M tools/PerformanceHarness/Program.cs\n M tools/PerformanceHarness/cpython_benchmark.py\n M tools/PerformanceHarness/workloads.py\n M tools/evaluate.py\n?? tests/call_failure_state_regression.py\n?? tests/class_closure_mapping_regression.py\n?? tests/class_locals_mapping_regression.py\n?? tests/compatibility/class_body_exceptions.py\n?? tests/prepared_namespace_regression.py\n?? tests/type_new_dict_subclass_regression.py\n?? tools/PerformanceHarness/ClassClosureInspection.cs\n?? tools/compare_class_closure.py\n",
+  "dll_sha256": "e145471104dc31643f5e0c84afe10546670c43721bc8c0c1b017abe27bbfeecd",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/class_locals_mapping_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class locals mapping regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02553139999963605,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\class_locals_mapping_regression.py\", line 16, in <module>\n    assert 'created' not in namespace\n                                     ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\class_locals_mapping_regression.py\", line 9, in <class_body_Example>\n    assert namespace is locals()\n                                ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\class_locals_mapping_regression.py\", line 9, in <module>\n        assert namespace is locals()\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26150980000056734,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/prepared_namespace_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "prepared namespace regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028562499999679858,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\prepared_namespace_regression.py\", line 48, in <module>\n    delete_error = False\n                   ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\prepared_namespace_regression.py\", line 40, in <class_body_Example>\n    assert namespace is prepared['namespace']\n                                             ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\prepared_namespace_regression.py\", line 40, in <module>\n        assert namespace is prepared['namespace']\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2804187000001548,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/type_new_dict_subclass_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "type new dict subclass regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.031027999999423628,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\type_new_dict_subclass_regression.py\", line 9, in <module>\n    namespace = Namespace()\n    ^\nTypeError: type.__new__() argument 4 must be dict, not Namespace\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\type_new_dict_subclass_regression.py\", line 9, in <module>\n    namespace = Namespace()\n    ^\nTypeError: type.__new__() argument 4 must be dict, not Namespace\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2538996999992378,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/call_failure_state_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "call failure state regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.025221800000508665,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\call_failure_state_regression.py\", line 15, in <module>\n    assert len([1, 2]) == 2\n                           ^\nTypeError: len() takes exactly one argument (0 given)\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\call_failure_state_regression.py\", line 15, in <module>\n    assert len([1, 2]) == 2\nTypeError: len() takes exactly one argument (0 given)\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2715084999999817,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/class_closure_mapping_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class closure mapping regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02865120000024035,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\class_closure_mapping_regression.py\", line ?, in <module>\n    # Line information not available\nNameError: Variable 'n' not found in cell or free variables\n--- C# Exception Details ---\nSystem.Exception: Variable 'n' not found in cell or free variables\n   at SharpPy.PythonCompiler.EmitLoadClosure(String varName) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 12389\n   at SharpPy.PythonCompiler.CompileRegularClass(ClassDefStatement cls) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 6081\n   at SharpPy.PythonCompiler.CompileClass(ClassDefStatement cls) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 5801\n   at SharpPy.PythonCompiler.CompileStatement(Statement statement) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 2704\n   at SharpPy.PythonCompiler.CompilerFunctionBody(List`1 statements, String name, List`1 paramNames, List`1 defaults, List`1 kwDefaults, List`1 freeVars, List`1 cellVars, Int32 flags, Int32 argCount, Int32 posonlyArgCount, Int32 kwonlyArgCount) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 2033\n   at SharpPy.PythonCompiler.CompileNestedFunction(FunctionDefStatement func) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 4440\n   at SharpPy.PythonCompiler.CompileStatement(Statement statement) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 2696\n   at SharpPy.PythonCompiler.Compile(List`1 statements, String name, List`1 parameters, String fileName, CompileMode mode) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\compile.cs:line 1295\n   at SharpPy.IntegratedPythonInterpreter.Execute(String sourceCode, String fileName, Boolean showTokenize, Boolean showAst, Boolean showBytecode, CompileMode mode) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyInterpreter.cs:line 182\n   at SharpPy.Core.FileExecutor.ExecuteFile(String pythonFile, Boolean showTokenize, Boolean showAst, Boolean showBytecode, Boolean compileOnly) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\FileExecutor.cs:line 62\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23206780000055005,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/class_body_exceptions.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class body exceptions: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.027709199999662815,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_exceptions.py\", line 6, in <module>\n    caught = True\n             ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_exceptions.py\", line 4, in <class_body_Example>\n    raise ValueError('check')\n                             ^\nValueError: check\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_exceptions.py\", line 4, in <module>\n            raise ValueError('check')\nValueError: check\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23275350000039907,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "sharppy_failure": 6
+  }
+}

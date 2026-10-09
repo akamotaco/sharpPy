@@ -1,0 +1,83 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "scope": "Three selected class bodies; closure metadata and LOAD_LOCALS/LOAD_FROM_DICT_OR_DEREF pairs, not full bytecode equivalence",
+  "source_sha256": "3e096ace5a9ab0cab2dd2e7863efb00b1ad461a772f23a6f6b8ecf36072cbce0",
+  "dll_sha256": "28b05fd938a4753693cc32a3fb2c7f45f5dcbdd3f1ce9d3201b081d8c1752b97",
+  "reference": [
+    {
+      "name": "observed",
+      "parent_cells": [
+        "n"
+      ],
+      "class_locals": [],
+      "class_cells": [],
+      "class_freevars": [
+        "n"
+      ],
+      "pairs": [
+        [87, 0, 176, 0]
+      ]
+    },
+    {
+      "name": "local_name",
+      "parent_cells": [],
+      "class_locals": [],
+      "class_cells": [],
+      "class_freevars": [],
+      "pairs": []
+    },
+    {
+      "name": "prepared",
+      "parent_cells": [
+        "n"
+      ],
+      "class_locals": [],
+      "class_cells": [],
+      "class_freevars": [
+        "n"
+      ],
+      "pairs": [
+        [87, 0, 176, 0]
+      ]
+    }
+  ],
+  "sharppy": [
+    {
+      "name": "observed",
+      "parent_cells": [
+        "n"
+      ],
+      "class_locals": [],
+      "class_cells": [],
+      "class_freevars": [
+        "n"
+      ],
+      "pairs": [
+        [87, 0, 176, 0]
+      ]
+    },
+    {
+      "name": "local_name",
+      "parent_cells": [],
+      "class_locals": [],
+      "class_cells": [],
+      "class_freevars": [],
+      "pairs": []
+    },
+    {
+      "name": "prepared",
+      "parent_cells": [
+        "n"
+      ],
+      "class_locals": [],
+      "class_cells": [],
+      "class_freevars": [
+        "n"
+      ],
+      "pairs": [
+        [87, 0, 176, 0]
+      ]
+    }
+  ],
+  "matching": true
+}

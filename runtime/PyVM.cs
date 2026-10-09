@@ -657,8 +657,11 @@ namespace SharpPy
         /// <summary>
         /// Build f_locals dict from LocalsPlus array and scope
         /// </summary>
-        private PyDict BuildLocalsDict()
+        private PyObject BuildLocalsDict()
         {
+            if (ClassLocalsDict != null)
+                return ClassLocalsDict;
+
             if ((Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0)
                 return GetOptimizedLocals();
 
@@ -684,6 +687,30 @@ namespace SharpPy
             }
 
             return new PyDict(localsDict);
+        }
+
+        internal (string Name, int CellIndex, bool IsFree) ResolveDerefOperand(int offset)
+        {
+            int freeCount = Code.FreeVars.Count;
+            if (offset < Code.VarNames.Count)
+            {
+                string name = Code.VarNames[offset];
+                int index = Code.CellVars.IndexOf(name);
+                if (index >= 0) return (name, freeCount + index, false);
+            }
+            else
+            {
+                int remaining = offset - Code.VarNames.Count;
+                for (int i = 0; i < Code.CellVars.Count; i++)
+                    if (!Code.VarNames.Contains(Code.CellVars[i]))
+                    {
+                        if (remaining == 0) return (Code.CellVars[i], freeCount + i, false);
+                        remaining--;
+                    }
+                if (remaining >= 0 && remaining < freeCount)
+                    return (Code.FreeVars[remaining], remaining, true);
+            }
+            throw PyRuntimeError.Create($"Invalid closure localsplus offset {offset}");
         }
 
         internal void RecordParameterInScope(string name, PyObject value)
@@ -985,6 +1012,18 @@ namespace SharpPy
                 #endif
             }
 
+            // CPython creates a fresh namespace when no __prepare__ mapping
+            // was supplied. Keep this exact object for all class name access.
+            if (prepareResult == null)
+            {
+                var namespaceDict = new PyDict();
+                if (initialNamespace != null)
+                    foreach (var kvp in initialNamespace)
+                        if (kvp.Key != "__prepare_result__")
+                            namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                frame.ClassLocalsDict = namespaceDict;
+            }
+
             // CPython 3.12: Pre-populate local scope with initial namespace from __prepare__
             // IMPORTANT: CPython passes the __prepare__ result dict DIRECTLY as locals() to the class body.
             // The dict is used as-is, without extraction and re-insertion.
@@ -1020,6 +1059,14 @@ namespace SharpPy
 
             // Extract class namespace - capture variables added during class body execution
             var classNamespace = new Dictionary<string, PyObject>();
+
+            if (prepareResult == null && frame.ClassLocalsDict is PyDict plainNamespace)
+            {
+                foreach (var kvp in plainNamespace.InternalDict)
+                    if (kvp.Key is PyString key)
+                        classNamespace[key.Value] = kvp.Value;
+                return classNamespace;
+            }
 
             // CPython Python/bltinmodule.c:201-209:
             //   - Class body executes with ns as locals (line 201)
@@ -1475,7 +1522,147 @@ namespace SharpPy
             }
         }
 
-        // 개별 명령어 실행 (기존 시스템과 연동)
+        // Keep mapping protocol exception handling outside the opcode dispatcher.
+        private static PyObject LookupNamespaceMapping(PyObject mapping, PyString key)
+        {
+            if (mapping.GetType() == typeof(PyDict))
+                return ((PyDict)mapping).InternalDict.TryGetValue(key, out var value) ? value : null;
+            try { return mapping.GetItem(key); }
+            catch (PythonException ex) when (ex.PyException is PyKeyError) { return null; }
+        }
+
+        private static void DeleteNamespaceName(PyFrame frame, string name)
+        {
+            try
+            {
+                var key = new PyString(name);
+                if (frame.ClassLocalsDict is PyDict dict) dict.DelItem(key);
+                else frame.ClassLocalsDict.DelItem(key);
+            }
+            catch (PythonException)
+            {
+                // CPython DELETE_NAME replaces all mapping deletion errors.
+                throw CreateNameErrorWithSuggestion(name, frame);
+            }
+        }
+
+        private void ExecuteCall(PyFrame frame, int callArgCount)
+        {
+            var callArgs = new PyObject[callArgCount];
+
+            // CPython 3.12: Save current scope depth before function call for proper restoration
+            var savedScopeCount = frame.ScopeChain?.ScopeCount ?? 0;
+            var savedCurrentScopeName = frame.ScopeChain?.CurrentScope?.Name;
+
+            // CPython 3.12: Check for keyword arguments from KW_NAMES
+            var kwNames = frame.KeywordNamesForNextCall;
+    #if DEBUG_LOG
+            Console.WriteLine($"🔧 CALL Debug: kwNames = {(kwNames == null ? "null" : $"length {kwNames.Items.Length}")}, callArgCount = {callArgCount}");
+    #endif
+
+            // 🔧 REMOVED HOTFIX: The malformed finally handler stack hotfix is no longer needed
+            // The underlying issue was fixed in the compiler by properly generating exception tables
+            // and ensuring finally blocks execute in both normal and exception paths
+
+            // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
+            for (int i = callArgCount - 1; i >= 0; i--)
+            {
+                callArgs[i] = frame.ValueStack.Pop();
+            }
+
+            // 함수 객체 팝 (callable) - 인수들 아래에 있음
+            var callableFunc = frame.ValueStack.Pop();
+
+            // CPython 3.12: Check if there's a NULL/self on the stack
+            // If stack is empty or top is NULL, it's a simple call
+            // Otherwise, it's a method call with self
+            PyObject nextElement = null;
+            if (frame.ValueStack.Count > 0)
+            {
+                nextElement = frame.ValueStack.Pop();
+            }
+
+            // CPython 3.12 호출 방식 결정
+            // CPython: if (method != NULL) { callable = method; args--; total_args++; }
+            PyObject newCallResult;
+            PyObject[] finalArgs;
+            PyObject actualCallable;
+
+            if (nextElement == null || nextElement.Equals(PyNone.Instance))
+            {
+                // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
+                actualCallable = callableFunc;
+                finalArgs = callArgs;
+            }
+            else
+            {
+                // CPython 3.12: method != NULL
+                // callable = method, args includes original callable as first arg
+                actualCallable = nextElement;  // method becomes the callable!
+                finalArgs = new PyObject[callArgs.Length + 1];
+                finalArgs[0] = callableFunc;  // original callable becomes first arg
+                Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
+            }
+
+            // CPython 3.12: 키워드 인수 처리
+            // CPython 3.12: Wrap function call in try-catch to add caller frame to traceback
+            // This ensures the full call stack is recorded when exception propagates
+            try
+            {
+                if (kwNames != null && kwNames.Items.Length > 0)
+                {
+                    // 키워드 인수가 있는 경우 - CallWithKeywords 사용
+                    newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
+                }
+                else
+                {
+                    // 위치 인수만 있는 경우 - 기존 방식 사용
+                    if (actualCallable is PyBuiltinFunction builtin)
+                    {
+                        newCallResult = builtin.Call(finalArgs, null);
+                    }
+                    else if (actualCallable is PyMethod method)
+                    {
+                        newCallResult = method.Call(finalArgs, null);
+                    }
+                    else if (actualCallable is PyFunction func)
+                    {
+                        newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
+                    }
+                    else
+                    {
+                        newCallResult = actualCallable.Call(finalArgs, null);
+                    }
+                }
+            }
+            catch (PythonException pyEx)
+            {
+                // CPython 3.12: Add caller frame to traceback when exception propagates
+                // This matches CPython's PyTraceBack_Here() behavior in ceval.c
+                PyTraceBack_Here(frame, pyEx);
+                throw;
+            }
+            finally
+            {
+                // Consume KW_NAMES and restore caller scope on success or failure.
+                frame.KeywordNamesForNextCall = null;
+                // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
+                if (frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
+                    #endif
+                    frame.ScopeChain.RestoreScopeDepth(savedScopeCount);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"✅ Scope depth restored successfully to: {frame.ScopeChain.CurrentScope?.Name}");
+                    #endif
+                }
+
+            }
+
+            frame.ValueStack.Push(newCallResult);
+        }
+
         // Keep captured function-creation state out of the instruction dispatcher.
         // Otherwise the C# compiler allocates a display class for every opcode.
         private void ExecuteMakeFunction(PyFrame frame, ByteCodeInstruction instruction)
@@ -1986,28 +2173,23 @@ namespace SharpPy
                         Console.WriteLine($"🔍 LOAD_NAME({name}): Checking ClassLocalsDict first");
                         #endif
 
-                        // Try to get item from ClassLocalsDict (lines 1718-1735)
-                        try
-                        {
-                            value = frame.ClassLocalsDict.GetItem(new PyString(name));
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 LOAD_NAME({name}): Found in ClassLocalsDict: {value?.GetType().Name}");
-                            #endif
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyKeyError)
-                        {
-                            // Not found in ClassLocalsDict, will fallback to globals/builtins
-                            value = null;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 LOAD_NAME({name}): Not found in ClassLocalsDict, trying LEGB");
-                            #endif
-                        }
+                        value = LookupNamespaceMapping(frame.ClassLocalsDict, new PyString(name));
                     }
 
                     // CPython 3.12: If not found in locals, check GLOBALS() and BUILTINS() (lines 1736-1767)
                     if (value == null)
                     {
-                        value = frame.ScopeChain.LookupVariable(name, verbose: true);
+                        if (frame.ClassLocalsDict != null)
+                        {
+                            // LOAD_NAME checks the actual class mapping, then globals
+                            // and builtins. A copied scope may retain a deleted seed.
+                            if (!frame.Globals.TryGetValue(name, out value))
+                                value = frame.ScopeChain.BuiltinModule.GetBuiltin(name);
+                            if (value == null)
+                                throw CreateNameErrorWithSuggestion(name, frame);
+                        }
+                        else
+                            value = frame.ScopeChain.LookupVariable(name, verbose: true);
                     }
 
                     #if DEBUG_LOG
@@ -2130,6 +2312,11 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_NAME:
                     var deleteName = frame.Code.Names[instruction.Argument];
+                    if (frame.ClassLocalsDict != null)
+                    {
+                        DeleteNamespaceName(frame, deleteName);
+                        break;
+                    }
                     // 변수 삭제: 현재 스코프에서 먼저 찾기
                     if (frame.ScopeChain.CurrentScope?.Variables.Remove(deleteName) == true)
                     {
@@ -2399,119 +2586,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.CALL:
-                    // CPython 3.12 정확한 CALL 동작
-                    var callArgCount = instruction.Argument;
-                    var callArgs = new PyObject[callArgCount];
-
-                    // CPython 3.12: Save current scope depth before function call for proper restoration
-                    var savedScopeCount = frame.ScopeChain?.ScopeCount ?? 0;
-                    var savedCurrentScopeName = frame.ScopeChain?.CurrentScope?.Name;
-
-                    // CPython 3.12: Check for keyword arguments from KW_NAMES
-                    var kwNames = frame.KeywordNamesForNextCall;
-#if DEBUG_LOG
-                    Console.WriteLine($"🔧 CALL Debug: kwNames = {(kwNames == null ? "null" : $"length {kwNames.Items.Length}")}, callArgCount = {callArgCount}");
-#endif
-
-                    // 🔧 REMOVED HOTFIX: The malformed finally handler stack hotfix is no longer needed
-                    // The underlying issue was fixed in the compiler by properly generating exception tables
-                    // and ensuring finally blocks execute in both normal and exception paths
-
-                    // 명시적 인수들을 스택에서 팝 (역순으로) - 스택 최상위부터
-                    for (int i = callArgCount - 1; i >= 0; i--)
-                    {
-                        callArgs[i] = frame.ValueStack.Pop();
-                    }
-
-                    // 함수 객체 팝 (callable) - 인수들 아래에 있음
-                    var callableFunc = frame.ValueStack.Pop();
-
-                    // CPython 3.12: Check if there's a NULL/self on the stack
-                    // If stack is empty or top is NULL, it's a simple call
-                    // Otherwise, it's a method call with self
-                    PyObject nextElement = null;
-                    if (frame.ValueStack.Count > 0)
-                    {
-                        nextElement = frame.ValueStack.Pop();
-                    }
-
-                    // CPython 3.12 호출 방식 결정
-                    // CPython: if (method != NULL) { callable = method; args--; total_args++; }
-                    PyObject newCallResult;
-                    PyObject[] finalArgs;
-                    PyObject actualCallable;
-
-                    if (nextElement == null || nextElement.Equals(PyNone.Instance))
-                    {
-                        // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
-                        actualCallable = callableFunc;
-                        finalArgs = callArgs;
-                    }
-                    else
-                    {
-                        // CPython 3.12: method != NULL
-                        // callable = method, args includes original callable as first arg
-                        actualCallable = nextElement;  // method becomes the callable!
-                        finalArgs = new PyObject[callArgs.Length + 1];
-                        finalArgs[0] = callableFunc;  // original callable becomes first arg
-                        Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
-                    }
-
-                    // CPython 3.12: 키워드 인수 처리
-                    // CPython 3.12: Wrap function call in try-catch to add caller frame to traceback
-                    // This ensures the full call stack is recorded when exception propagates
-                    try
-                    {
-                        if (kwNames != null && kwNames.Items.Length > 0)
-                        {
-                            // 키워드 인수가 있는 경우 - CallWithKeywords 사용
-                            newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
-                        }
-                        else
-                        {
-                            // 위치 인수만 있는 경우 - 기존 방식 사용
-                            if (actualCallable is PyBuiltinFunction builtin)
-                            {
-                                newCallResult = builtin.Call(finalArgs, null);
-                            }
-                            else if (actualCallable is PyMethod method)
-                            {
-                                newCallResult = method.Call(finalArgs, null);
-                            }
-                            else if (actualCallable is PyFunction func)
-                            {
-                                newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
-                            }
-                            else
-                            {
-                                newCallResult = actualCallable.Call(finalArgs, null);
-                            }
-                        }
-                    }
-                    catch (PythonException pyEx)
-                    {
-                        // CPython 3.12: Add caller frame to traceback when exception propagates
-                        // This matches CPython's PyTraceBack_Here() behavior in ceval.c
-                        PyTraceBack_Here(frame, pyEx);
-                        throw;
-                    }
-
-                    frame.ValueStack.Push(newCallResult);
-
-                    // CPython 3.12: Restore scope depth after function call (especially important for metaclass)
-                    if (frame.ScopeChain != null && frame.ScopeChain.ScopeCount != savedScopeCount)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 Restoring scope depth after function call: {frame.ScopeChain.CurrentScope?.Name} (depth={frame.ScopeChain.ScopeCount}) → {savedCurrentScopeName} (depth={savedScopeCount})");
-                        #endif
-                        frame.ScopeChain.RestoreScopeDepth(savedScopeCount);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"✅ Scope depth restored successfully to: {frame.ScopeChain.CurrentScope?.Name}");
-                        #endif
-                    }
-
-                    // CPython 3.12: Clear keyword names after call
-                    frame.KeywordNamesForNextCall = null;
+                    ExecuteCall(frame, instruction.Argument);
                     break;
 
                 // Specialized Method Calls - CPython 3.12 Adaptive Specialization
@@ -5861,6 +5936,26 @@ namespace SharpPy
                     break;
 
                 // === Closure Support Bytecodes (CPython 호환) ===
+                case ByteCodeOp.LOAD_LOCALS:
+                    frame.ValueStack.Push(frame.ClassLocalsDict ?? frame.GetAttribute("f_locals"));
+                    break;
+
+                case ByteCodeOp.LOAD_FROM_DICT_OR_DEREF:
+                    var closureMapping = frame.ValueStack.Pop();
+                    var closureOperand = frame.ResolveDerefOperand(instruction.Argument);
+                    var closureNameKey = new PyString(closureOperand.Name);
+                    PyObject mappedClosureValue = LookupNamespaceMapping(closureMapping, closureNameKey);
+                    if (mappedClosureValue != null)
+                        frame.ValueStack.Push(mappedClosureValue);
+                    else if (closureOperand.CellIndex >= 0 && closureOperand.CellIndex < frame.Cells.Length &&
+                             frame.Cells[closureOperand.CellIndex].HasValue)
+                        frame.ValueStack.Push(frame.Cells[closureOperand.CellIndex].Value);
+                    else if (closureOperand.IsFree)
+                        throw PyNameError.Create($"cannot access free variable '{closureOperand.Name}' where it is not associated with a value in enclosing scope");
+                    else
+                        throw PyUnboundLocalError.Create($"cannot access local variable '{closureOperand.Name}' where it is not associated with a value");
+                    break;
+
                 case ByteCodeOp.LOAD_DEREF:
                     // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
                     // Need to convert to SharpPy Cells index

@@ -1145,6 +1145,8 @@ namespace SharpPy
             
             // 로드/저장
             { ByteCodeOp.LOAD_CONST, (0, 1) },
+            { ByteCodeOp.LOAD_LOCALS, (0, 1) },
+            { ByteCodeOp.LOAD_FROM_DICT_OR_DEREF, (1, 1) },
             { ByteCodeOp.LOAD_NAME, (0, 1) },
             { ByteCodeOp.LOAD_GLOBAL, (0, 1) },
             { ByteCodeOp.LOAD_FAST, (0, 1) },
