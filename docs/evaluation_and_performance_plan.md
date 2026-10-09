@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[40차 결과](reports/2026-10-10/memoryview_large_step_analysis.md): memoryview 큰 step·native stride·중첩 대입을 맞추고 sys.maxsize를 바로잡았다. 기본 85개와 Godot 소스 통합 회귀 13개 통과. native view 생성·slice 할당은 기존과 같으며 읽기·쓰기 시간 범위도 겹친다. 다음은 range의 임의 정밀도 step이다.
+
 [39차 결과](reports/2026-10-10/operator_length_hint_analysis.md): _operator.length_hint를 공통 프로토콜에 연결하고 기본값 검증 순서·음수/초대형 값·keyword 처리를 맞췄다. 기본 83개와 Godot 소스 통합 회귀 12개 통과. 다음은 기존 range/memoryview 큰 step 표현 문제로 돌아간다.
 
 [38차 결과](reports/2026-10-10/exception_length_hint_analysis.md): args 변환의 len/length_hint 순서와 예외를 맞추고 __iter__의 Python 예외를 보존했다. 기본 81개와 Godot 소스 통합 회귀 11개 통과. 힌트가 없을 때 CLR 기본 확장을 사용한다. 공개 _operator.length_hint의 기존 별도 구현은 다음 대상으로 재현했다.

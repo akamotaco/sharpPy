@@ -44,7 +44,7 @@ namespace SharpPy.Modules
             module.ModuleDict["byteorder"] = new PyString(BitConverter.IsLittleEndian ? "little" : "big");
 
             // 최대 정수 크기 (int 범위로 제한)
-            module.ModuleDict["maxsize"] = new PyInt(int.MaxValue);
+            module.ModuleDict["maxsize"] = new PyInt((long)nint.MaxValue);
 
             // 기본 인코딩
             module.ModuleDict["getdefaultencoding"] = new PySysFunction("getdefaultencoding");

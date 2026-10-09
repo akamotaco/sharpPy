@@ -1,4 +1,4 @@
-# Outstanding: slice step conversion and consumer arithmetic need a joint fix.
+# Regression: large steps in copied sequences and memoryview reads.
 huge = 10 ** 100
 assert list(b'abcdef'[::huge]) == [97]
 assert list(b'abcdef'[::-huge]) == [102]

@@ -93,6 +93,26 @@ namespace SharpPy
         // clipping for range steps or memoryview stride metadata.
         internal (int start, int stop, int step) StorageIndices(int length) => NormalizeIndices(length, true);
 
+        // Views expose the native-width stride, unlike copied sequences.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal (int start, int stop, nint step) ViewIndices(int length)
+        {
+            nint step = 1;
+            if (Step != PyNone.Instance)
+            {
+                var index = PyObject.TryGetIndex(Step);
+                if (index == null)
+                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+                step = nint.CreateSaturating(index.Value);
+                if (step == 0) throw PyValueError.Create("slice step cannot be zero");
+                if (step == nint.MinValue) step = -nint.MaxValue;
+            }
+            int start = GetBoundValue(Start, step < 0 ? int.MaxValue : 0);
+            int stop = GetBoundValue(Stop, step < 0 ? int.MinValue : int.MaxValue);
+            (start, stop, _) = AdjustStorageIndices(length, start, stop, step < 0 ? -1 : 1);
+            return (start, stop, step);
+        }
+
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private (int start, int stop, int step) NormalizeIndices(int length, bool clipStep)
         {

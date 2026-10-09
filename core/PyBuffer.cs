@@ -100,12 +100,15 @@ namespace SharpPy
         // Either the exporting bytearray or an immutable-size byte[] buffer.
         // A null reference marks a released view and drops the backing storage.
         private object _data;
-        private readonly bool _readonly;
         private readonly int _itemsize;
+        // Physical storage is int-sized; only stride is exposed at native width.
         private readonly int _offset;
         private readonly int _length;
-        private readonly int _stride;
-        private int _bufferExports;
+        private readonly nint _stride;
+        // Bit 0 is readonly; the upper 31 bits hold the borrowed-export count.
+        // Sharing this slot avoids growing each view for the native-width stride.
+        private uint _bufferState;
+        private bool _readonly => (_bufferState & 1) != 0;
 
         static PyMemoryView()
         {
@@ -135,10 +138,10 @@ namespace SharpPy
             : this(data, false, 1, 0, data.Length(), 1) { }
 
         private PyMemoryView(object data, bool readOnly, int itemsize,
-            int offset, int length, int stride)
+            int offset, int length, nint stride)
         {
             _data = data ?? throw new ArgumentNullException(nameof(data));
-            _readonly = readOnly;
+            _bufferState = readOnly ? 1u : 0u;
             _itemsize = itemsize;  // CPython: Py_buffer.itemsize
             _offset = offset;
             _length = length;
@@ -160,10 +163,12 @@ namespace SharpPy
             // Such callbacks may release the parent; the child still owns its export.
             try
             {
-                var (start, stop, step) = slice.Indices(_length);
-                _length = SliceLength(start, stop, step);
-                _offset += start * _stride;
-                _stride *= step;
+                var (start, stop, step) = slice.ViewIndices(_length);
+                _length = PySlice.GetLength(start, stop, int.CreateSaturating(step));
+                // An empty view can have an out-of-storage logical offset, but
+                // cannot dereference it or yield a nonempty child.
+                _offset = unchecked((int)(_offset + start * _stride));
+                _stride = unchecked(_stride * step);
             }
             catch
             {
@@ -187,13 +192,14 @@ namespace SharpPy
             if (position < 0) position += _length;
             if ((ulong)position >= (ulong)_length)
                 throw PyIndexError.Create("index out of bounds on dimension 1");
-            return _offset + (int)position * _stride;
+            return StorageIndex((int)position);
         }
 
         public void Release()
         {
-            if (_bufferExports != 0)
-                throw PyBufferError.Create($"memoryview has {_bufferExports} exported buffer{(_bufferExports == 1 ? "" : "s")}");
+            uint exports = _bufferState >> 1;
+            if (exports != 0)
+                throw PyBufferError.Create($"memoryview has {exports} exported buffer{(exports == 1 ? "" : "s")}");
             var data = _data;
             _data = null;
             if (data is PyByteArray exporter) exporter.ReleaseBufferExport();
@@ -214,7 +220,7 @@ namespace SharpPy
                 if (_data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
                     return array;
                 var result = new byte[_length];
-                for (int i = 0; i < result.Length; i++) result[i] = ReadByte(_offset + i * _stride);
+                for (int i = 0; i < result.Length; i++) result[i] = ReadByte(StorageIndex(i));
                 return result;
             }
         }
@@ -230,6 +236,11 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetAttribute(string name)
         {
+            if (name == "strides")
+            {
+                CheckReleased();
+                return new PyTuple(SmallIntCache.GetOrCreate((long)_stride));
+            }
             if (name == "itemsize")
             {
                 return SmallIntCache.GetOrCreate(ItemSize);
@@ -293,10 +304,8 @@ namespace SharpPy
             throw PyTypeError.Create("memoryview: invalid slice key");
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        private static int SliceLength(int start, int stop, int step) => step > 0
-            ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
-            : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
+        // Valid logical indices of a nonempty view always map into int-sized storage.
+        private int StorageIndex(int position) => unchecked((int)(_offset + position * _stride));
 
         private Span<byte> StorageSpan() => _data is PyByteArray exporter
             ? exporter.BufferSpan : (byte[])_data;
@@ -308,24 +317,24 @@ namespace SharpPy
             bool borrowed = value is PyMemoryView;
             var source = borrowed ? (PyMemoryView)value : value.GetBuffer(0);
             source.CheckReleased();
-            source._bufferExports++;
+            source._bufferState += 2;
             try
             {
-                var (start, stop, step) = slice.Indices(_length);
-                int length = SliceLength(start, stop, step);
+                var (start, stop, step) = slice.ViewIndices(_length);
+                int length = PySlice.GetLength(start, stop, int.CreateSaturating(step));
                 CheckReleased();
                 if (length != source._length || _itemsize != source._itemsize)
                     throw PyValueError.Create("memoryview assignment: lvalue and rvalue have different structures");
                 if (length == 0) return;
 
-                int offset = _offset + start * _stride;
-                int stride = _stride * step;
+                nint offset = unchecked(_offset + start * _stride);
+                nint stride = unchecked(_stride * step);
                 // All Python callbacks have completed before taking storage spans.
                 var destination = StorageSpan();
                 var input = source.StorageSpan();
                 if (stride == 1 && source._stride == 1)
                 {
-                    input.Slice(source._offset, length).CopyTo(destination.Slice(offset, length));
+                    input.Slice(source._offset, length).CopyTo(destination.Slice(unchecked((int)offset), length));
                     return;
                 }
                 if (ReferenceEquals(_data, source._data))
@@ -333,16 +342,16 @@ namespace SharpPy
                     // A strided overlapping assignment must read every source byte
                     // before writing any destination byte (CPython copy_single).
                     var snapshot = new byte[length];
-                    for (int i = 0; i < length; i++) snapshot[i] = input[source._offset + i * source._stride];
-                    for (int i = 0; i < length; i++) destination[offset + i * stride] = snapshot[i];
+                    for (int i = 0; i < length; i++) snapshot[i] = input[source.StorageIndex(i)];
+                    for (int i = 0; i < length; i++) destination[unchecked((int)(offset + i * stride))] = snapshot[i];
                 }
                 else
                     for (int i = 0; i < length; i++)
-                        destination[offset + i * stride] = input[source._offset + i * source._stride];
+                        destination[unchecked((int)(offset + i * stride))] = input[source.StorageIndex(i)];
             }
             finally
             {
-                source._bufferExports--;
+                source._bufferState -= 2;
                 if (!borrowed) source.Release();
             }
         }
