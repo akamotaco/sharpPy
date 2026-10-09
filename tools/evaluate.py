@@ -101,6 +101,7 @@ def main():
         "tests/builtin_descriptor_regression.py",
             "tests/bound_method_attributes_regression.py",
             "tests/memoryview_alias_regression.py",
+            "tests/memoryview_release_regression.py",
             "tests/frame_lifetime_regression.py",
             "tests/locals_observation_regression.py",
             "tests/cell_delete_regression.py",

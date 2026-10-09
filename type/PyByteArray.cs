@@ -888,15 +888,18 @@ namespace SharpPy
 
         public override PyMemoryView GetBuffer(int flags)
         {
-            _exports++;
-            return new PyMemoryView(_bytes);
+            return new PyMemoryView(this);
         }
 
         public override void ReleaseBuffer(PyMemoryView buffer)
         {
-            _exports--;
-            if (_exports < 0) _exports = 0;
+            buffer.Release();
         }
+
+        internal void AcquireBufferExport() => _exports++;
+        internal void ReleaseBufferExport() => _exports--;
+        internal byte ReadBufferByte(int index) => _bytes[index];
+        internal void WriteBufferByte(int index, byte value) => _bytes[index] = value;
 
         public override bool SupportsBuffer() => true;
 

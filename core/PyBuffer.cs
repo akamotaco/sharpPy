@@ -97,20 +97,43 @@ namespace SharpPy
     /// </summary>
     public class PyMemoryView : PyObject
     {
-        private readonly IList<byte> _data;
+        // Either the exporting bytearray or an immutable-size byte[] buffer.
+        // A null reference marks a released view and drops the backing storage.
+        private object _data;
         private readonly bool _readonly;
         private readonly int _itemsize;
         private readonly int _offset;
         private readonly int _length;
         private readonly int _stride;
 
+        static PyMemoryView()
+        {
+            var type = PyType.MemoryViewType;
+            foreach (var name in new[] { "release", "__enter__", "__exit__" })
+                type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
+                    if (self is not PyMemoryView view)
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"{name}() takes no keyword arguments");
+                    if (name != "__exit__" && args.Length != 0)
+                        throw PyTypeError.Create($"{name}() takes no arguments ({args.Length} given)");
+                    if (name == "__enter__")
+                    {
+                        view.CheckReleased();
+                        return view;
+                    }
+                    view.Release();
+                    return PyNone.Instance;
+                });
+        }
+
         public PyMemoryView(byte[] data, bool readOnly = false, int itemsize = 1)
             : this(data, readOnly, itemsize, 0, data?.Length ?? 0, 1) { }
 
-        internal PyMemoryView(List<byte> data)
-            : this(data, false, 1, 0, data.Count, 1) { }
+        internal PyMemoryView(PyByteArray data)
+            : this(data, false, 1, 0, data.Length(), 1) { }
 
-        private PyMemoryView(IList<byte> data, bool readOnly, int itemsize,
+        private PyMemoryView(object data, bool readOnly, int itemsize,
             int offset, int length, int stride)
         {
             _data = data ?? throw new ArgumentNullException(nameof(data));
@@ -119,21 +142,61 @@ namespace SharpPy
             _offset = offset;
             _length = length;
             _stride = stride;
+            if (data is PyByteArray exporter) exporter.AcquireBufferExport();
+        }
+
+        private void CheckReleased()
+        {
+            if (_data == null)
+                throw PyValueError.Create("operation forbidden on released memoryview object");
+        }
+
+        private byte ReadByte(int position) => _data is PyByteArray exporter
+            ? exporter.ReadBufferByte(position) : ((byte[])_data)[position];
+
+        private int GetIndex(PyInt index)
+        {
+            // CPython converts an index to Py_ssize_t before adjusting negatives.
+            long position;
+            try { position = (long)index.Value; }
+            catch (OverflowException)
+            {
+                throw PyIndexError.Create("cannot fit 'int' into an index-sized integer");
+            }
+            if (position < 0) position += _length;
+            if ((ulong)position >= (ulong)_length)
+                throw PyIndexError.Create("index out of bounds on dimension 1");
+            return _offset + (int)position * _stride;
+        }
+
+        public void Release()
+        {
+            var data = _data;
+            _data = null;
+            if (data is PyByteArray exporter) exporter.ReleaseBufferExport();
+        }
+
+        public override bool SupportsBuffer() => true;
+        public override PyMemoryView GetBuffer(int flags)
+        {
+            CheckReleased();
+            return new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride);
         }
 
         public byte[] Data
         {
             get
             {
+                CheckReleased();
                 if (_data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
                     return array;
                 var result = new byte[_length];
-                for (int i = 0; i < result.Length; i++) result[i] = _data[_offset + i * _stride];
+                for (int i = 0; i < result.Length; i++) result[i] = ReadByte(_offset + i * _stride);
                 return result;
             }
         }
-        public bool ReadOnly => _readonly;
-        public int ItemSize => _itemsize;  // CPython: self->view.itemsize
+        public bool ReadOnly { get { CheckReleased(); return _readonly; } }
+        public int ItemSize { get { CheckReleased(); return _itemsize; } }
 
         public override PyType GetPyType() => PyType.MemoryViewType;
         public override string GetTypeName() => "memoryview";
@@ -146,7 +209,7 @@ namespace SharpPy
         {
             if (name == "itemsize")
             {
-                return new PyInt(_itemsize);  // CPython: PyLong_FromSsize_t(self->view.itemsize)
+                return SmallIntCache.GetOrCreate(ItemSize);
             }
             return base.GetAttribute(name);
         }
@@ -157,23 +220,20 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetItem(PyObject index)
         {
+            CheckReleased();
             // CPython 3.12: line 2571-2576 - integer indexing
             if (index is PyInt pyInt)
             {
-                // CPython 3.12: Objects/memoryobject.c:2540-2560 - memory_subscript
-                var idx = pyInt.Value;
-                if (idx < 0) idx += _length;
-                if (idx < 0 || idx >= _length)
-                    throw PyIndexError.Create("memoryview index out of range");
-
-                return SmallIntCache.GetOrCreate(_data[_offset + (int)idx * _stride]);
+                return SmallIntCache.GetOrCreate(ReadByte(GetIndex(pyInt)));
             }
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
             {
                 // Calculate slice indices
                 var (start, stop, step) = slice.Indices(_length);
-                var sliceLength = slice.GetLength(_length);
+                int sliceLength = step > 0
+                    ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
+                    : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
                 return new PyMemoryView(_data, _readonly, _itemsize,
                     _offset + start * _stride, sliceLength, _stride * step);
             }
@@ -182,29 +242,29 @@ namespace SharpPy
 
         public override void SetItem(PyObject index, PyObject value)
         {
+            CheckReleased();
             if (_readonly)
                 throw PyTypeError.Create("cannot modify read-only memory");
 
             if (index is PyInt pyInt && value is PyInt pyValue)
             {
-                var idx = pyInt.Value;
-                if (idx < 0) idx += _length;
-                // CPython 3.12: Objects/memoryobject.c:2700-2730 - memory_ass_sub
-                if (idx < 0 || idx >= _length)
-                    throw PyIndexError.Create("memoryview index out of range");
+                int position = GetIndex(pyInt);
 
                 if (pyValue.Value < 0 || pyValue.Value > 255)
                     throw PyValueError.Create("byte must be in range(0, 256)");
 
-                _data[_offset + (int)idx * _stride] = (byte)(int)pyValue.Value;
+                if (_data is PyByteArray exporter) exporter.WriteBufferByte(position, (byte)(int)pyValue.Value);
+                else ((byte[])_data)[position] = (byte)(int)pyValue.Value;
                 return;
             }
             throw PyTypeError.Create($"memoryview indices must be integers, not {index.GetTypeName()}");
         }
 
-        public override int Length() => _length;
+        public override int Length() { CheckReleased(); return _length; }
+        public override bool IsTrue() => Length() != 0;
+        public override bool PyBoolValue() => IsTrue();
 
-        public override string ToString() => $"<memory at 0x{GetHashCode():X}>";
+        public override string ToString() => $"<{(_data == null ? "released memory" : "memory")} at 0x{GetHashCode():X}>";
         public override PyString ToRepr() => new PyString(ToString());
     }
 }
