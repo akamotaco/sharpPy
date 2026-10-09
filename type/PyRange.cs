@@ -88,16 +88,11 @@ namespace SharpPy
                 var length = Length();
                 var (start, stop, step) = slice.Indices(length);
 
-                // Calculate new range parameters
-                if (step == 0)
-                    throw PyValueError.Create("slice step cannot be zero");
-
+                // CPython compute_slice maps the normalized boundaries directly.
+                // Reuse them: GetLength(length) would invoke __index__ again.
                 long newStart = Start + start * Step;
                 long newStep = Step * step;
-
-                // Calculate new stop
-                int sliceLength = slice.GetLength(length);
-                long newStop = newStart + sliceLength * newStep;
+                long newStop = Start + stop * Step;
 
                 return new PyRange(newStart, newStop, newStep);
             }

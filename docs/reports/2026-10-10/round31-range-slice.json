@@ -1,0 +1,91 @@
+{
+  "baseline_commit": "cd6a17e",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "file": "Objects/rangeobject.c",
+    "download_date": "2026-10-10",
+    "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/rangeobject.c",
+    "sha256": "69f852c725935226db115b41a2aa2307a4b5201886a6adb5723c94c0f46e1ab0"
+  },
+  "before": [
+    {
+      "name": "tests/range_slice_indices_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "range slice indices: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.026355199996032752,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\range_slice_indices_regression.py\", line 2, in <module>\n    assert repr(range(1, 11)[::3]) == 'range(1, 11, 3)'\n                                                       ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\range_slice_indices_regression.py\", line 2, in <module>\n    assert repr(range(1, 11)[::3]) == 'range(1, 11, 3)'\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27887689999624854,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/range_slice_indices_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "range slice indices: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.027292699996905867,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "range slice indices: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.263944199999969,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "regression_counts": {
+    "matching_output": 64,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "f9530f8095598bbaad9383ac5ad71bb0ecfbb2349ebc4ab5bba0e8479f133a8a",
+  "godot": {
+    "integration": "Sources included directly in Godot SDK project; no SharpPy DLL/ProjectReference",
+    "command": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "outstanding": [
+    {
+      "name": "tests/compatibility/slice_large_step.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "large slice step: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029594599996926263,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\slice_large_step.py\", line 3, in <module>\n    assert list(b'abcdef'[::huge]) == [97]\n                                          ^\nTypeError: subscript error: Value was either too large or too small for an Int32.\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\slice_large_step.py\", line 3, in <module>\n    assert list(b'abcdef'[::huge]) == [97]\nTypeError: subscript error: Value was either too large or too small for an Int32.\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25964119999844115,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "performance": "Not benchmarked; removes duplicate normalization and callbacks."
+}
