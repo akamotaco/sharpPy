@@ -475,6 +475,8 @@ namespace SharpPy
             }
         }
 
+        private static readonly PyObjectEqualityComparer KeyComparer = new PyObjectEqualityComparer();
+
         // Python 3.7+: dict는 삽입 순서를 보장해야 함
         // C# Dictionary는 순서 보장 안 함 → List + Dictionary 혼합 사용
         protected readonly Dictionary<PyObject, PyObject> _dict;  // O(1) 조회용
@@ -498,13 +500,13 @@ namespace SharpPy
 
         public PyDict()
         {
-            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(KeyComparer);
             _keys = new List<PyObject>();
         }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(KeyComparer);
             _keys = new List<PyObject>();
             foreach (var kv in items)
             {
@@ -516,7 +518,7 @@ namespace SharpPy
 
         public PyDict(Dictionary<PyObject, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(items, new PyObjectEqualityComparer());
+            _dict = new Dictionary<PyObject, PyObject>(items, KeyComparer);
             _keys = new List<PyObject>(items.Keys);
         }
 
@@ -652,19 +654,21 @@ namespace SharpPy
             if (!_dict.Remove(key))
                 throw PyKeyError.Create(key.ToRepr());
 
-            // _keys에서도 제거 (삽입 순서 유지)
-            // Use PyObjectEqualityComparer for proper Python equality semantics
-            // (List.Remove uses Object.Equals which doesn't work for PyObject)
-            var comparer = new PyObjectEqualityComparer();
+            RemoveOrderedKey(key);
+            return PyNone.Instance;
+        }
+
+        private void RemoveOrderedKey(PyObject key)
+        {
+            // Use the same Python equality as lookup storage; List.Remove uses CLR equality.
             for (int i = 0; i < _keys.Count; i++)
             {
-                if (comparer.Equals(_keys[i], key))
+                if (ReferenceEquals(_keys[i], key) || KeyComparer.Equals(_keys[i], key))
                 {
                     _keys.RemoveAt(i);
                     break;
                 }
             }
-            return PyNone.Instance;
         }
 
         /// <summary>
@@ -700,10 +704,9 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
-            if (_dict.TryGetValue(key, out PyObject value))
+            if (_dict.Remove(key, out PyObject value))
             {
-                _dict.Remove(key);
-                _keys.Remove(key);  // 삽입 순서 유지
+                RemoveOrderedKey(key);
                 return value;
             }
 

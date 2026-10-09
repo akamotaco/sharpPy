@@ -1,0 +1,103 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.20304140000007465,
+    "failure_markers": []
+  },
+  "git": "a58310c183cdf94da68949009265c4f76ab40f09",
+  "git_status": " M tools/PerformanceHarness/Program.cs\n M tools/evaluate.py\n M type/PyDict.cs\n?? tests/compatibility/dict_retained_views.py\n?? tests/compatibility/module_mapping_pop.py\n?? tests/dict_pop_order_regression.py\n",
+  "dll_sha256": "ed67bcd44d481a310e0a8befacc3af94e37010b91a00c4dbc78049cefb562817",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict pop order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029867299999750685,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict pop order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2714408000010735,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_locals_live.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module locals live: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029951999998957035,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_locals_live.py\", line 4, in <module>\n    assert namespace['created_after_observation'] == 7\n                                                      ^\nKeyError: '<str object at 0xacf7b946>'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_locals_live.py\", line 4, in <module>\n    assert namespace['created_after_observation'] == 7\nKeyError: '<str object at 0xacf7b946>'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24727859999984503,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/dict_retained_views.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict retained views: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.027425999998740735,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_retained_views.py\", line 7, in <module>\n    assert list(keys) == ['before', 'after']\n                                            ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_retained_views.py\", line 7, in <module>\n    assert list(keys) == ['before', 'after']\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24811469999986002,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_mapping_pop.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping pop: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029303200000867946,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_pop.py\", line 12, in <module>\n    raise AssertionError('pop must remove the global binding')\n                                                              ^\nAssertionError: pop must remove the global binding\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_pop.py\", line 12, in <module>\n        raise AssertionError('pop must remove the global binding')\nAssertionError: pop must remove the global binding\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25753330000043206,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "matching_output": 1,
+    "sharppy_failure": 3
+  }
+}

@@ -1,0 +1,200 @@
+﻿{
+    "before":  {
+                   "median_ms":  1.03125,
+                   "min_ms":  0.9303,
+                   "max_ms":  1.5617,
+                   "allocated_bytes":  [
+                                           3680000
+                                       ],
+                   "processes":  3,
+                   "samples_per_process":  10,
+                   "raw":  [
+                               {
+                                   "iterations":  10000,
+                                   "warmups":  10,
+                                   "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                   "milliseconds":  [
+                                                        1.2007,
+                                                        1.2108,
+                                                        1.1716,
+                                                        1.5617,
+                                                        1.2094,
+                                                        1.134,
+                                                        1.2115,
+                                                        1.1941,
+                                                        1.1145,
+                                                        1.0063
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "warmups":  10,
+                                   "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                   "milliseconds":  [
+                                                        0.9303,
+                                                        0.9481,
+                                                        0.9872,
+                                                        1.3558,
+                                                        1.1325,
+                                                        1.0311,
+                                                        1.0255,
+                                                        1.0476,
+                                                        0.9981,
+                                                        0.9654
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "warmups":  10,
+                                   "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                   "milliseconds":  [
+                                                        0.956,
+                                                        1.0314,
+                                                        1.0222,
+                                                        1.2105,
+                                                        0.966,
+                                                        0.9383,
+                                                        0.9414,
+                                                        1.0095,
+                                                        0.993,
+                                                        1.0695
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000,
+                                                           3680000
+                                                       ]
+                               }
+                           ]
+               },
+    "after":  {
+                  "median_ms":  1.08455,
+                  "min_ms":  0.9115,
+                  "max_ms":  1.3794,
+                  "allocated_bytes":  [
+                                          3440000
+                                      ],
+                  "processes":  3,
+                  "samples_per_process":  10,
+                  "raw":  [
+                              {
+                                  "iterations":  10000,
+                                  "warmups":  10,
+                                  "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                  "milliseconds":  [
+                                                       1.1416,
+                                                       1.3794,
+                                                       1.169,
+                                                       1.1542,
+                                                       1.3263,
+                                                       1.0821,
+                                                       1.0795,
+                                                       1.1525,
+                                                       1.1567,
+                                                       1.1118
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "warmups":  10,
+                                  "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                  "milliseconds":  [
+                                                       0.9621,
+                                                       0.9274,
+                                                       1.0092,
+                                                       1.087,
+                                                       1.2073,
+                                                       0.9915,
+                                                       0.9115,
+                                                       0.978,
+                                                       1.022,
+                                                       1.0233
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "warmups":  10,
+                                  "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                  "milliseconds":  [
+                                                       1.023,
+                                                       1.0427,
+                                                       1.1664,
+                                                       1.103,
+                                                       1.3369,
+                                                       1.0078,
+                                                       0.9618,
+                                                       1.1651,
+                                                       0.9979,
+                                                       1.088
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000,
+                                                          3440000
+                                                      ]
+                              }
+                          ]
+              }
+}

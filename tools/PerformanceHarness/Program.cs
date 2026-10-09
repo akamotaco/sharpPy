@@ -3,6 +3,41 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--dict-storage-probe")
+{
+    var key = new PyInt(1000);
+    var value = new PyInt(7);
+    PyDict? Run(int count)
+    {
+        PyDict? last = null;
+        for (int i = 0; i < count; i++)
+        {
+            last = new PyDict();
+            last.SetItem(key, value);
+            if (!ReferenceEquals(last.Pop(key), value) || last.Length() != 0)
+                throw new InvalidOperationException("dict storage probe failed");
+        }
+        return last;
+    }
+    const int probeIterations = 10000;
+    for (int i = 0; i < 10; i++) GC.KeepAlive(Run(probeIterations));
+    var durations = new double[10];
+    var allocations = new long[10];
+    for (int i = 0; i < 10; i++)
+    {
+        long allocated = GC.GetAllocatedBytesForCurrentThread();
+        long started = Stopwatch.GetTimestamp();
+        var last = Run(probeIterations);
+        durations[i] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        allocations[i] = GC.GetAllocatedBytesForCurrentThread() - allocated;
+        GC.KeepAlive(last);
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { iterations = probeIterations, warmups = 10,
+        scope = "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+        milliseconds = durations, allocated_bytes = allocations }));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--inspect")
 {
     Console.WriteLine(JsonSerializer.Serialize(IlInspection.Inspect()));

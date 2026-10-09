@@ -74,6 +74,7 @@ def main():
             "tests/class_nested_state_regression.py",
             "tests/exception_offset_regression.py",
             "tests/compatibility/lookup_error_builtin.py",
+            "tests/dict_pop_order_regression.py",
         "examples/hello.py", "examples/advanced.py",
     ]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONHASHSEED="0")
