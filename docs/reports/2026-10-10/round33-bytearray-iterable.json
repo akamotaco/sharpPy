@@ -1,0 +1,135 @@
+{
+  "baseline_commit": "5da8e90",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "file": "Objects/bytearrayobject.c",
+    "sha256": "371795e3559821c7b0870febca595adf370c5156f76acde0cf3530fed7a0bd1d",
+    "functions": [
+      "bytearray_ass_subscript",
+      "bytearray___init___impl"
+    ]
+  },
+  "before": [
+    {
+      "name": "tests/bytearray_iterable_assignment_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray iterable assignment: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.031306900003983174,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_iterable_assignment_regression.py\", line 5, in <module>\n    for source in [[88, 89], (88, 89), iter([88, 89]), values()]:\n    ^\nStopIteration: StopIteration\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_iterable_assignment_regression.py\", line 5, in <module>\n    for source in [[88, 89], (88, 89), iter([88, 89]), values()]:\n    ^\nStopIteration: StopIteration\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2795038999975077,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray iterable slice assignment: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.027945699999690987,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\bytearray_slice_iterable_assignment.py\", line 0, in <module>\n    # Source line not available (line 0)\nStopIteration: StopIteration\n--- C# Exception Details ---\nStopIteration('StopIteration')\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25429589999839664,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/bytearray_iterable_assignment_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray iterable assignment: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028427500001271255,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "bytearray iterable assignment: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26537549999920884,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray iterable slice assignment: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.0260097999998834,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "bytearray iterable slice assignment: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23066340000514174,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "counts": {
+    "matching_output": 67,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "6acbb1a3db6e86582d17c2428e0ce4daf4b009a31dea9e6d8f56e270c381a29c",
+  "godot": {
+    "integration": "SharpPy sources directly compiled in Godot SDK project; no separate SharpPy DLL reference",
+    "build": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nsequence large step: 216 PASS\r\nbytearray iterable assignment: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "outstanding": [
+    {
+      "name": "tests/compatibility/bytearray_slice_callback_order.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray slice callback order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02814109999599168,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\bytearray_slice_callback_order.py\", line 14, in <module>\n    assert calls == ['step', 'start', 'stop', 'step', 'start', 'stop']\n                                                                      ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\bytearray_slice_callback_order.py\", line 14, in <module>\n    assert calls == ['step', 'start', 'stop', 'step', 'start', 'stop']\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2463932000027853,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "performance": "Not benchmarked: baseline iterable assignment fails. Existing bytes/bytearray fast paths unchanged."
+}

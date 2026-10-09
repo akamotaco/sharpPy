@@ -899,14 +899,15 @@ namespace SharpPy
             if (obj is PyBytes bytes) return new List<byte>(bytes.Value);
             if (obj is PyByteArray byteArray) return new List<byte>(byteArray._bytes);
             var result = new List<byte>();
+            var iterator = obj.GetIterator();
+            while (true)
             {
-                // Try to iterate
-                var iterator = obj.GetIterator();
-                PyObject? item;
-                while ((item = iterator.Next()) != null)
-                {
-                    result.Add((byte)GetByteValue(item));
-                }
+                PyObject item;
+                try { item = iterator.Next(); }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
+                if (item == null) break; // Legacy native iterator exhaustion.
+                // Only Next() exhaustion ends iteration; conversion errors propagate.
+                result.Add((byte)GetByteValue(item));
             }
 
             return result;
