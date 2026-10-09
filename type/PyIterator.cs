@@ -294,7 +294,9 @@ namespace SharpPy
     {
         private PyDict _dictionary;
         private readonly int _initialSize;
-        private List<PyObject>.Enumerator _enumerator;
+        private OrderedIterationState _state;
+        private int _position;
+        private int _remaining;
         private bool _finished;
         private bool _sizeFailed;
 
@@ -303,7 +305,8 @@ namespace SharpPy
             if (dict == null) throw new ArgumentNullException(nameof(dict));
             _dictionary = dict;
             _initialSize = dict.Length();
-            _enumerator = dict.GetOrderedKeyEnumerator();
+            _state = dict.GetIterationState();
+            _remaining = _initialSize;
         }
 
         public override PyObject Next()
@@ -314,21 +317,17 @@ namespace SharpPy
                 _sizeFailed = true;
                 throw PyRuntimeError.Create("dictionary changed size during iteration");
             }
-            bool found;
-            try { found = _enumerator.MoveNext(); }
-            catch (InvalidOperationException)
-            {
-                // Conservative same-size mutation guard. CPython can permit replacement
-                // of unvisited keys; matching that requires a stable entry cursor.
-                Finish();
-                throw PyRuntimeError.Create("dictionary keys changed during iteration");
-            }
-            if (!found)
+            if (!_state.TryNext(ref _position, out var key))
             {
                 Finish();
                 throw PyStopIteration.Create();
             }
-            var key = _enumerator.Current;
+            if (_remaining == 0)
+            {
+                Finish();
+                throw PyRuntimeError.Create("dictionary keys changed during iteration");
+            }
+            _remaining--;
             return Project(key, _dictionary);
         }
 
@@ -337,15 +336,10 @@ namespace SharpPy
         private void Finish()
         {
             _finished = true;
-            _enumerator = default;
+            _state = null;
             _dictionary = null;
         }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing) _enumerator.Dispose();
-            base.Dispose(disposing);
-        }
     }
 
     public class PyDictKeyIterator : PyDictIterator

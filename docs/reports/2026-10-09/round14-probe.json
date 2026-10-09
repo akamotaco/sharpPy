@@ -1,0 +1,788 @@
+﻿{
+    "after":  {
+                  "raw_storage":  [
+                                      {
+                                          "iterations":  10000,
+                                          "warmups":  10,
+                                          "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                          "milliseconds":  [
+                                                               2.1884,
+                                                               1.1912,
+                                                               1.1905,
+                                                               1.1701,
+                                                               1.4534,
+                                                               1.1218,
+                                                               1.0945,
+                                                               1.1645,
+                                                               1.1615,
+                                                               1.11
+                                                           ],
+                                          "allocated_bytes":  [
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000
+                                                              ]
+                                      },
+                                      {
+                                          "iterations":  10000,
+                                          "warmups":  10,
+                                          "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                          "milliseconds":  [
+                                                               0.9549,
+                                                               0.9248,
+                                                               0.9651,
+                                                               0.9547,
+                                                               1.0977,
+                                                               0.9012,
+                                                               0.9084,
+                                                               0.9275,
+                                                               0.9487,
+                                                               0.9403
+                                                           ],
+                                          "allocated_bytes":  [
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000
+                                                              ]
+                                      },
+                                      {
+                                          "iterations":  10000,
+                                          "warmups":  10,
+                                          "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                          "milliseconds":  [
+                                                               0.929,
+                                                               0.9116,
+                                                               0.9108,
+                                                               0.9074,
+                                                               1.0543,
+                                                               0.8864,
+                                                               0.8872,
+                                                               0.9077,
+                                                               0.9143,
+                                                               0.8821
+                                                           ],
+                                          "allocated_bytes":  [
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000,
+                                                                  3520000
+                                                              ]
+                                      }
+                                  ],
+                  "traverse":  [
+                                   {
+                                       "kind":  "keys",
+                                       "median_ms":  2.3161,
+                                       "allocated_bytes":  [
+                                                               64000
+                                                           ]
+                                   },
+                                   {
+                                       "kind":  "values",
+                                       "median_ms":  4.6616,
+                                       "allocated_bytes":  [
+                                                               64000
+                                                           ]
+                                   },
+                                   {
+                                       "kind":  "items",
+                                       "median_ms":  6.5277,
+                                       "allocated_bytes":  [
+                                                               7264000
+                                                           ]
+                                   }
+                               ],
+                  "raw_traverse":  [
+                                       {
+                                           "iterations":  1000,
+                                           "dict_size":  100,
+                                           "warmups":  10,
+                                           "scope":  "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM",
+                                           "results":  [
+                                                           {
+                                                               "kind":  "keys",
+                                                               "milliseconds":  [
+                                                                                    2.3409,
+                                                                                    2.3087,
+                                                                                    2.3668,
+                                                                                    2.3515,
+                                                                                    2.3304,
+                                                                                    2.328,
+                                                                                    2.3306,
+                                                                                    2.365,
+                                                                                    2.3685,
+                                                                                    2.3174
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000
+                                                                                   ]
+                                                           },
+                                                           {
+                                                               "kind":  "values",
+                                                               "milliseconds":  [
+                                                                                    4.7134,
+                                                                                    4.6908,
+                                                                                    4.7477,
+                                                                                    4.7114,
+                                                                                    4.7213,
+                                                                                    4.802,
+                                                                                    4.6958,
+                                                                                    4.7586,
+                                                                                    4.7836,
+                                                                                    4.8244
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000
+                                                                                   ]
+                                                           },
+                                                           {
+                                                               "kind":  "items",
+                                                               "milliseconds":  [
+                                                                                    6.8629,
+                                                                                    7.0949,
+                                                                                    6.7728,
+                                                                                    6.8769,
+                                                                                    6.7973,
+                                                                                    7.1759,
+                                                                                    6.6903,
+                                                                                    6.8099,
+                                                                                    6.6907,
+                                                                                    6.7453
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000
+                                                                                   ]
+                                                           }
+                                                       ]
+                                       },
+                                       {
+                                           "iterations":  1000,
+                                           "dict_size":  100,
+                                           "warmups":  10,
+                                           "scope":  "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM",
+                                           "results":  [
+                                                           {
+                                                               "kind":  "keys",
+                                                               "milliseconds":  [
+                                                                                    2.2992,
+                                                                                    2.2848,
+                                                                                    2.2993,
+                                                                                    2.3394,
+                                                                                    2.3338,
+                                                                                    2.3321,
+                                                                                    2.3314,
+                                                                                    2.3154,
+                                                                                    2.3168,
+                                                                                    2.3173
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000
+                                                                                   ]
+                                                           },
+                                                           {
+                                                               "kind":  "values",
+                                                               "milliseconds":  [
+                                                                                    4.6767,
+                                                                                    4.6862,
+                                                                                    4.6478,
+                                                                                    4.6576,
+                                                                                    4.6628,
+                                                                                    4.6496,
+                                                                                    4.6464,
+                                                                                    4.6604,
+                                                                                    4.7286,
+                                                                                    4.6835
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000
+                                                                                   ]
+                                                           },
+                                                           {
+                                                               "kind":  "items",
+                                                               "milliseconds":  [
+                                                                                    6.4604,
+                                                                                    6.4125,
+                                                                                    6.4866,
+                                                                                    6.4979,
+                                                                                    6.4069,
+                                                                                    6.5506,
+                                                                                    6.399,
+                                                                                    6.5124,
+                                                                                    6.3718,
+                                                                                    6.3797
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000
+                                                                                   ]
+                                                           }
+                                                       ]
+                                       },
+                                       {
+                                           "iterations":  1000,
+                                           "dict_size":  100,
+                                           "warmups":  10,
+                                           "scope":  "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM",
+                                           "results":  [
+                                                           {
+                                                               "kind":  "keys",
+                                                               "milliseconds":  [
+                                                                                    2.1596,
+                                                                                    2.142,
+                                                                                    2.1837,
+                                                                                    2.1608,
+                                                                                    2.2462,
+                                                                                    2.1569,
+                                                                                    2.2696,
+                                                                                    2.2003,
+                                                                                    2.1529,
+                                                                                    2.1523
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000
+                                                                                   ]
+                                                           },
+                                                           {
+                                                               "kind":  "values",
+                                                               "milliseconds":  [
+                                                                                    4.6105,
+                                                                                    4.6002,
+                                                                                    4.605,
+                                                                                    4.631,
+                                                                                    4.6337,
+                                                                                    4.6082,
+                                                                                    4.5997,
+                                                                                    4.615,
+                                                                                    4.6198,
+                                                                                    4.6154
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000,
+                                                                                       64000
+                                                                                   ]
+                                                           },
+                                                           {
+                                                               "kind":  "items",
+                                                               "milliseconds":  [
+                                                                                    6.5206,
+                                                                                    6.4879,
+                                                                                    6.5348,
+                                                                                    6.5888,
+                                                                                    6.4661,
+                                                                                    6.5684,
+                                                                                    6.4251,
+                                                                                    6.5436,
+                                                                                    6.338,
+                                                                                    6.4326
+                                                                                ],
+                                                               "allocated_bytes":  [
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000,
+                                                                                       7264000
+                                                                                   ]
+                                                           }
+                                                       ]
+                                       }
+                                   ],
+                  "storage":  {
+                                  "allocated_bytes":  [
+                                                          3520000
+                                                      ],
+                                  "median_ms":  0.9517
+                              }
+              },
+    "before":  {
+                   "raw_storage":  [
+                                       {
+                                           "iterations":  10000,
+                                           "warmups":  10,
+                                           "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                           "milliseconds":  [
+                                                                0.959,
+                                                                0.9129,
+                                                                0.9319,
+                                                                0.9231,
+                                                                1.1221,
+                                                                0.9869,
+                                                                0.9078,
+                                                                0.9487,
+                                                                0.9215,
+                                                                0.9705
+                                                            ],
+                                           "allocated_bytes":  [
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000
+                                                               ]
+                                       },
+                                       {
+                                           "iterations":  10000,
+                                           "warmups":  10,
+                                           "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                           "milliseconds":  [
+                                                                0.9883,
+                                                                0.9127,
+                                                                1.0976,
+                                                                1.5818,
+                                                                1.3016,
+                                                                0.9266,
+                                                                0.9218,
+                                                                0.8945,
+                                                                0.906,
+                                                                0.9602
+                                                            ],
+                                           "allocated_bytes":  [
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000
+                                                               ]
+                                       },
+                                       {
+                                           "iterations":  10000,
+                                           "warmups":  10,
+                                           "scope":  "Native PyDict construction, one insertion and pop of identical key; excludes Python VM",
+                                           "milliseconds":  [
+                                                                0.951,
+                                                                0.9159,
+                                                                0.9008,
+                                                                0.92,
+                                                                1.0859,
+                                                                0.9062,
+                                                                0.8973,
+                                                                0.9391,
+                                                                0.9095,
+                                                                0.9206
+                                                            ],
+                                           "allocated_bytes":  [
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000,
+                                                                   3440000
+                                                               ]
+                                       }
+                                   ],
+                   "traverse":  [
+                                    {
+                                        "kind":  "keys",
+                                        "median_ms":  1.76015,
+                                        "allocated_bytes":  [
+                                                                72000
+                                                            ]
+                                    },
+                                    {
+                                        "kind":  "values",
+                                        "median_ms":  4.3258,
+                                        "allocated_bytes":  [
+                                                                72000
+                                                            ]
+                                    },
+                                    {
+                                        "kind":  "items",
+                                        "median_ms":  5.8674,
+                                        "allocated_bytes":  [
+                                                                7272000
+                                                            ]
+                                    }
+                                ],
+                   "raw_traverse":  [
+                                        {
+                                            "iterations":  1000,
+                                            "dict_size":  100,
+                                            "warmups":  10,
+                                            "scope":  "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM",
+                                            "results":  [
+                                                            {
+                                                                "kind":  "keys",
+                                                                "milliseconds":  [
+                                                                                     1.7595,
+                                                                                     1.7957,
+                                                                                     1.7817,
+                                                                                     1.7834,
+                                                                                     1.8594,
+                                                                                     1.923,
+                                                                                     1.8116,
+                                                                                     1.807,
+                                                                                     1.8659,
+                                                                                     2.0876
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000
+                                                                                    ]
+                                                            },
+                                                            {
+                                                                "kind":  "values",
+                                                                "milliseconds":  [
+                                                                                     4.6938,
+                                                                                     4.6163,
+                                                                                     4.3397,
+                                                                                     4.4223,
+                                                                                     4.4056,
+                                                                                     4.447,
+                                                                                     4.4081,
+                                                                                     4.4469,
+                                                                                     4.676,
+                                                                                     4.3785
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000
+                                                                                    ]
+                                                            },
+                                                            {
+                                                                "kind":  "items",
+                                                                "milliseconds":  [
+                                                                                     6.3953,
+                                                                                     6.2935,
+                                                                                     6.332,
+                                                                                     6.3384,
+                                                                                     6.2322,
+                                                                                     6.3911,
+                                                                                     6.8625,
+                                                                                     6.5651,
+                                                                                     6.303,
+                                                                                     6.4691
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000
+                                                                                    ]
+                                                            }
+                                                        ]
+                                        },
+                                        {
+                                            "iterations":  1000,
+                                            "dict_size":  100,
+                                            "warmups":  10,
+                                            "scope":  "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM",
+                                            "results":  [
+                                                            {
+                                                                "kind":  "keys",
+                                                                "milliseconds":  [
+                                                                                     1.7669,
+                                                                                     1.7438,
+                                                                                     1.7383,
+                                                                                     1.7478,
+                                                                                     1.769,
+                                                                                     1.7608,
+                                                                                     1.7841,
+                                                                                     1.8005,
+                                                                                     1.7585,
+                                                                                     1.8001
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000
+                                                                                    ]
+                                                            },
+                                                            {
+                                                                "kind":  "values",
+                                                                "milliseconds":  [
+                                                                                     4.2459,
+                                                                                     4.4793,
+                                                                                     4.3645,
+                                                                                     4.2753,
+                                                                                     4.3045,
+                                                                                     4.4117,
+                                                                                     4.3461,
+                                                                                     4.2396,
+                                                                                     4.3012,
+                                                                                     4.4505
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000
+                                                                                    ]
+                                                            },
+                                                            {
+                                                                "kind":  "items",
+                                                                "milliseconds":  [
+                                                                                     5.9761,
+                                                                                     5.9317,
+                                                                                     6.3082,
+                                                                                     5.884,
+                                                                                     5.8459,
+                                                                                     5.8725,
+                                                                                     5.8102,
+                                                                                     5.8623,
+                                                                                     5.7696,
+                                                                                     5.7518
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000
+                                                                                    ]
+                                                            }
+                                                        ]
+                                        },
+                                        {
+                                            "iterations":  1000,
+                                            "dict_size":  100,
+                                            "warmups":  10,
+                                            "scope":  "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM",
+                                            "results":  [
+                                                            {
+                                                                "kind":  "keys",
+                                                                "milliseconds":  [
+                                                                                     1.7228,
+                                                                                     1.708,
+                                                                                     1.7316,
+                                                                                     1.703,
+                                                                                     1.7179,
+                                                                                     1.7233,
+                                                                                     1.7345,
+                                                                                     1.732,
+                                                                                     1.7136,
+                                                                                     1.7123
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000
+                                                                                    ]
+                                                            },
+                                                            {
+                                                                "kind":  "values",
+                                                                "milliseconds":  [
+                                                                                     4.2893,
+                                                                                     4.2844,
+                                                                                     4.2827,
+                                                                                     4.2719,
+                                                                                     4.3119,
+                                                                                     4.26,
+                                                                                     4.2839,
+                                                                                     4.2797,
+                                                                                     4.2888,
+                                                                                     4.2757
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000,
+                                                                                        72000
+                                                                                    ]
+                                                            },
+                                                            {
+                                                                "kind":  "items",
+                                                                "milliseconds":  [
+                                                                                     5.8348,
+                                                                                     5.6847,
+                                                                                     5.7537,
+                                                                                     5.6866,
+                                                                                     5.632,
+                                                                                     5.7499,
+                                                                                     5.6249,
+                                                                                     5.7984,
+                                                                                     5.8088,
+                                                                                     5.7921
+                                                                                 ],
+                                                                "allocated_bytes":  [
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000,
+                                                                                        7272000
+                                                                                    ]
+                                                            }
+                                                        ]
+                                        }
+                                    ],
+                   "storage":  {
+                                   "allocated_bytes":  [
+                                                           3440000
+                                                       ],
+                                   "median_ms":  0.92485
+                               }
+               },
+    "metadata":  {
+                     "before_dll_sha256":  "54BD08B311AB47AA2B27C19938EFF906640C46AA9755957C2071F841A53449C6",
+                     "after_dll_sha256":  "B8F4147A378366590D14EA892E3B7829FC158D4D11F73A151D0C88D6D63C6751",
+                     "samples_per_process":  10,
+                     "baseline_commit":  "3a98a0d",
+                     "warmups_per_process":  10,
+                     "process_pairs":  3
+                 }
+}

@@ -1,0 +1,123 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.1707940000014787,
+    "failure_markers": []
+  },
+  "git": "3a98a0dbf2c90ee91f41c716c9383ad24535c958",
+  "git_status": " M tools/evaluate.py\n M type/PyDict.cs\n M type/PyIterator.cs\n?? docs/reports/2026-10-09/round14-before.json\n?? docs/reports/2026-10-09/round14-focused.json\n?? docs/reports/2026-10-09/round14-probe.json\n?? docs/reports/2026-10-09/round14-workloads.json\n?? tests/compatibility/dict_iterator_resize_compaction.py\n?? tests/dict_cursor_mutation_regression.py\n?? type/OrderedKeyList.cs\n",
+  "dll_sha256": "b8f4147a378366590d14ea892e3b7829fc158d4d11f73a151d0c88d6d63c6751",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/dict_cursor_mutation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict cursor mutation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02646690000256058,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict cursor mutation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 3.4276325999999244,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/dict_iterator_same_size.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict iterator same size: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.027694000000337837,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict iterator same size: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23198929999853135,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/dict_iterator_resize_compaction.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict iterator resize compaction: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028253299999050796,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_iterator_resize_compaction.py\", line 8, in <module>\n    assert next(iterator) == 2\n                              ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_iterator_resize_compaction.py\", line 8, in <module>\n    assert next(iterator) == 2\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2341320999985328,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dict_iterator_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict iterator: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028831600000557955,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict iterator: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2481461000024865,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict pop order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028033700000378303,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict pop order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24797770000077435,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "matching_output": 4,
+    "sharppy_failure": 1
+  }
+}

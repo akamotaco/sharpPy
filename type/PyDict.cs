@@ -484,7 +484,10 @@ namespace SharpPy
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal Dictionary<PyObject, PyObject> InternalDict => _dict;
-        internal List<PyObject>.Enumerator GetOrderedKeyEnumerator() => _keys.GetEnumerator();
+        internal OrderedIterationState GetIterationState() => ((OrderedKeyList)_keys).GetIterationState();
+        private void AddOrderedKey(PyObject key) => ((OrderedKeyList)_keys).AddKey(key);
+        private void RemoveOrderedKeyAt(int index, bool trimTail = false) => ((OrderedKeyList)_keys).RemoveKeyAt(index, trimTail);
+        private void ClearOrderedKeys() => ((OrderedKeyList)_keys).ClearKeys();
 
         /// <summary>
         /// CPython 3.12: Include/cpython/dictobject.h - 내부 딕셔너리 순회용
@@ -502,25 +505,25 @@ namespace SharpPy
         public PyDict()
         {
             _dict = new Dictionary<PyObject, PyObject>(KeyComparer);
-            _keys = new List<PyObject>();
+            _keys = new OrderedKeyList();
         }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
             _dict = new Dictionary<PyObject, PyObject>(KeyComparer);
-            _keys = new List<PyObject>();
+            _keys = new OrderedKeyList();
             foreach (var kv in items)
             {
                 var key = new PyString(kv.Key);
                 _dict[key] = kv.Value;
-                _keys.Add(key);
+                AddOrderedKey(key);
             }
         }
 
         public PyDict(Dictionary<PyObject, PyObject> items)
         {
             _dict = new Dictionary<PyObject, PyObject>(items, KeyComparer);
-            _keys = new List<PyObject>(items.Keys);
+            _keys = new OrderedKeyList(items.Keys);
         }
 
         public override PyType GetPyType() => PyType.DictType;
@@ -641,7 +644,7 @@ namespace SharpPy
             // 새 키인 경우에만 _keys에 추가 (삽입 순서 보장)
             if (!_dict.ContainsKey(key))
             {
-                _keys.Add(key);
+                AddOrderedKey(key);
             }
             _dict[key] = value;
         }
@@ -666,7 +669,7 @@ namespace SharpPy
             {
                 if (ReferenceEquals(_keys[i], key) || KeyComparer.Equals(_keys[i], key))
                 {
-                    _keys.RemoveAt(i);
+                    RemoveOrderedKeyAt(i);
                     break;
                 }
             }
@@ -730,7 +733,7 @@ namespace SharpPy
             var lastKey = _keys[_keys.Count - 1];
             var value = _dict[lastKey];
             _dict.Remove(lastKey);
-            _keys.RemoveAt(_keys.Count - 1);
+            RemoveOrderedKeyAt(_keys.Count - 1, trimTail: true);
             return TupleCache.CreatePair(lastKey, value);
         }
 
@@ -741,7 +744,7 @@ namespace SharpPy
         public virtual PyNone Clear()
         {
             _dict.Clear();
-            _keys.Clear();
+            ClearOrderedKeys();
             return PyNone.Instance;
         }
 
@@ -764,7 +767,7 @@ namespace SharpPy
                     // Direct storage update (bypass __setitem__)
                     if (!_dict.ContainsKey(key))
                     {
-                        _keys.Add(key);
+                        AddOrderedKey(key);
                     }
                     _dict[key] = value;
                 }
@@ -791,7 +794,7 @@ namespace SharpPy
                     // Direct storage update (bypass __setitem__)
                     if (!_dict.ContainsKey(pyKey))
                     {
-                        _keys.Add(pyKey);
+                        AddOrderedKey(pyKey);
                     }
                     _dict[pyKey] = value;
                 }
@@ -814,7 +817,7 @@ namespace SharpPy
 
             var newValue = defaultValue ?? PyNone.Instance;
             // 새 키이므로 _keys에 추가 (삽입 순서 보장)
-            _keys.Add(key);
+            AddOrderedKey(key);
             _dict[key] = newValue;
             return newValue;
         }
@@ -933,7 +936,7 @@ namespace SharpPy
             // 삽입 순서대로 복사
             foreach (var key in _keys)
             {
-                newDict._keys.Add(key);
+                newDict.AddOrderedKey(key);
                 newDict._dict[key] = _dict[key];
             }
             return newDict;
@@ -1065,7 +1068,7 @@ namespace SharpPy
             foreach (var key in _keys)
             {
                 result._dict[key] = _dict[key];
-                result._keys.Add(key);
+                result.AddOrderedKey(key);
             }
 
             // CPython: Objects/dictobject.c:3164-3168 - Merge other's items (rightmost wins)
@@ -1074,7 +1077,7 @@ namespace SharpPy
             {
                 if (!result._dict.ContainsKey(key))
                 {
-                    result._keys.Add(key);
+                    result.AddOrderedKey(key);
                 }
                 result._dict[key] = otherDict._dict[key];
             }
@@ -1101,7 +1104,7 @@ namespace SharpPy
             {
                 if (!_dict.ContainsKey(key))
                 {
-                    _keys.Add(key);
+                    AddOrderedKey(key);
                 }
                 _dict[key] = otherDict._dict[key];
             }
