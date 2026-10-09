@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--dict-copy-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(DictCopyProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--globals-observation-probe")
 {
     var observedBindings = new Dictionary<string, PyObject>();
@@ -282,7 +288,7 @@ var interpreter = new IntegratedPythonInterpreter();
 var setupStart = Stopwatch.GetTimestamp();
 interpreter.Execute(source, args[0], false, false, false);
 double setupMilliseconds = Stopwatch.GetElapsedTime(setupStart).TotalMilliseconds;
-var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "dictionary_iteration", "namespace_update", "namespace_read", "comprehension", "bound_builtin", "locals_observation", "frame_observation", "class_locals_observation", "exception_handling" };
+var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "dictionary_iteration", "dictionary_copy", "namespace_update", "namespace_read", "comprehension", "bound_builtin", "locals_observation", "frame_observation", "class_locals_observation", "exception_handling" };
 if (args.Length > 3)
 {
     string selected = args[3];

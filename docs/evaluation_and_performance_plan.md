@@ -125,6 +125,10 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 판단 기준: CPython 3.12의 관찰 가능한 결과를 유지하고 C#에 적합한 구현으로 측정한다. 자체 동작 정책이나 C 구조의 직역을 최적화로 인정하지 않는다. 결과 차이가 남거나 비용이 증가한 기존 변경도 재검토한다. module snapshot의 메서드별 보정은 늘리지 않는다.
+
+- 추가 확인: [19차 일반 dict copy](reports/2026-10-09/dict_copy_analysis.md)는 저장된 해시·참조와 삽입 순서를 복사해 재해시 및 반복 확장을 제거했다. Python copy workload 시간 약 46.0%, 할당 약 66.0% 감소. 전체 54개에서 새 실패 없음. dict subclass copy의 기존 실패를 별도 보존했다. module 이중 저장소와 임의 cursor 압축 정책은 여전히 교체 검토 대상이다.
+
 - 추가 확인: [18차 module observation 분석](reports/2026-10-09/module_mapping_observation_analysis.md)에서 길이·진리값·copy의 최신 binding 관찰을 보완했다. wrapper 생성당 8B와 copy의 key 객체 할당이 추가돼 호환성 개선으로 평가한다. view iteration, copy의 삭제/재삽입 및 mixed-key 순서는 아직 불일치이며 실패 fixture를 유지한다.
 
 - 추가 확인: [17차 module live 조회 분석](reports/2026-10-09/module_mapping_live_read_analysis.md)에서 string key GetItem/Get/Contains 및 builtin storage read를 원본 namespace에 연결했다. 기존 module_locals_live가 통과한다. native 조회 중앙값은 약 59.2% 감소했지만 VM 개선은 미확정이며 Length/Copy/view iteration과 raw storage 관찰은 아직 통합되지 않았다.

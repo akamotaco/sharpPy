@@ -87,6 +87,15 @@ def namespace_read(n):
     return result
 
 
+def dictionary_copy(n):
+    source = {i: i for i in range(100)}
+    result = 0
+    for i in range(n):
+        copied = source.copy()
+        result = result + copied[50] + i - 50
+    return result
+
+
 def bound_builtin(n):
     values = []
     append = values.append

@@ -75,6 +75,7 @@ def main():
             "tests/exception_offset_regression.py",
             "tests/compatibility/lookup_error_builtin.py",
             "tests/dict_pop_order_regression.py",
+            "tests/dict_copy_regression.py",
             "tests/dict_views_regression.py",
             "tests/dict_iterator_regression.py",
             "tests/dict_cursor_mutation_regression.py",

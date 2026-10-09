@@ -935,14 +935,15 @@ namespace SharpPy
         /// </summary>
         public virtual PyDict Copy()
         {
-            var newDict = new PyDict();
-            // 삽입 순서대로 복사
-            foreach (var key in _keys)
-            {
-                newDict.AddOrderedKey(key);
-                newDict._dict[key] = _dict[key];
-            }
-            return newDict;
+            return new PyDict(_dict, _keys);
+        }
+
+        private PyDict(Dictionary<PyObject, PyObject> items, List<PyObject> keys)
+        {
+            // The identical comparer lets Dictionary reuse stored hashes. Keep the
+            // Python insertion order separately: CLR deletion reuses entry slots.
+            _dict = new Dictionary<PyObject, PyObject>(items, KeyComparer);
+            _keys = new OrderedKeyList(keys);
         }
 
         #endregion
