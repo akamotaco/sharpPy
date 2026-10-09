@@ -105,6 +105,7 @@ namespace SharpPy
         private readonly int _offset;
         private readonly int _length;
         private readonly int _stride;
+        private int _bufferExports;
 
         static PyMemoryView()
         {
@@ -160,9 +161,7 @@ namespace SharpPy
             try
             {
                 var (start, stop, step) = slice.Indices(_length);
-                _length = step > 0
-                    ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
-                    : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
+                _length = SliceLength(start, stop, step);
                 _offset += start * _stride;
                 _stride *= step;
             }
@@ -193,6 +192,8 @@ namespace SharpPy
 
         public void Release()
         {
+            if (_bufferExports != 0)
+                throw PyBufferError.Create($"memoryview has {_bufferExports} exported buffer{(_bufferExports == 1 ? "" : "s")}");
             var data = _data;
             _data = null;
             if (data is PyByteArray exporter) exporter.ReleaseBufferExport();
@@ -266,7 +267,16 @@ namespace SharpPy
             if (_readonly)
                 throw PyTypeError.Create("cannot modify read-only memory");
 
-            var pyInt = index as PyInt ?? TryGetIndex(index);
+            var pyInt = index as PyInt;
+            if (pyInt == null)
+            {
+                if (index is PySlice slice)
+                {
+                    SetSlice(slice, value);
+                    return;
+                }
+                pyInt = TryGetIndex(index);
+            }
             if (pyInt != null)
             {
                 int position = GetIndex(pyInt, index);
@@ -281,6 +291,60 @@ namespace SharpPy
                 return;
             }
             throw PyTypeError.Create("memoryview: invalid slice key");
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private static int SliceLength(int start, int stop, int step) => step > 0
+            ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
+            : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
+
+        private Span<byte> StorageSpan() => _data is PyByteArray exporter
+            ? exporter.BufferSpan : (byte[])_data;
+
+        private void SetSlice(PySlice slice, PyObject value)
+        {
+            // memory_ass_sub acquires the source before invoking slice callbacks.
+            // Borrowing a view prevents release(), unlike creating a child view.
+            bool borrowed = value is PyMemoryView;
+            var source = borrowed ? (PyMemoryView)value : value.GetBuffer(0);
+            source.CheckReleased();
+            source._bufferExports++;
+            try
+            {
+                var (start, stop, step) = slice.Indices(_length);
+                int length = SliceLength(start, stop, step);
+                CheckReleased();
+                if (length != source._length || _itemsize != source._itemsize)
+                    throw PyValueError.Create("memoryview assignment: lvalue and rvalue have different structures");
+                if (length == 0) return;
+
+                int offset = _offset + start * _stride;
+                int stride = _stride * step;
+                // All Python callbacks have completed before taking storage spans.
+                var destination = StorageSpan();
+                var input = source.StorageSpan();
+                if (stride == 1 && source._stride == 1)
+                {
+                    input.Slice(source._offset, length).CopyTo(destination.Slice(offset, length));
+                    return;
+                }
+                if (ReferenceEquals(_data, source._data))
+                {
+                    // A strided overlapping assignment must read every source byte
+                    // before writing any destination byte (CPython copy_single).
+                    var snapshot = new byte[length];
+                    for (int i = 0; i < length; i++) snapshot[i] = input[source._offset + i * source._stride];
+                    for (int i = 0; i < length; i++) destination[offset + i * stride] = snapshot[i];
+                }
+                else
+                    for (int i = 0; i < length; i++)
+                        destination[offset + i * stride] = input[source._offset + i * source._stride];
+            }
+            finally
+            {
+                source._bufferExports--;
+                if (!borrowed) source.Release();
+            }
         }
 
         private static ulong ConvertByteValue(PyObject value)

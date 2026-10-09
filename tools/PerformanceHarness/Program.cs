@@ -3,9 +3,9 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
-if (args.Length > 0 && args[0] == "--memoryview-probe")
+if (args.Length > 0 && (args[0] == "--memoryview-probe" || args[0] == "--memoryview-copy-probe"))
 {
-    Console.WriteLine(JsonSerializer.Serialize(MemoryViewProbe.Run()));
+    Console.WriteLine(JsonSerializer.Serialize(MemoryViewProbe.Run(args[0] == "--memoryview-copy-probe")));
     return;
 }
 

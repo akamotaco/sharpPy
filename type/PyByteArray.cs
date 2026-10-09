@@ -899,6 +899,7 @@ namespace SharpPy
         internal void AcquireBufferExport() => _exports++;
         internal void ReleaseBufferExport() => _exports--;
         internal byte ReadBufferByte(int index) => _bytes[index];
+        internal Span<byte> BufferSpan => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_bytes);
         internal void WriteBufferByte(int index, byte value) => _bytes[index] = value;
 
         public override bool SupportsBuffer() => true;
