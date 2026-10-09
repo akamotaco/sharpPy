@@ -5,7 +5,7 @@ using SharpPy;
 
 if (args.Length > 0 && args[0] == "--bytearray-slice-mutation-probe")
 {
-    Console.WriteLine(JsonSerializer.Serialize(ByteArraySliceMutationProbe.Run()));
+    Console.WriteLine(JsonSerializer.Serialize(ByteArraySliceMutationProbe.Run(args.Length > 1 ? args[1] : null)));
     return;
 }
 

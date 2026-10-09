@@ -3,13 +3,16 @@ using SharpPy;
 
 internal static class ByteArraySliceMutationProbe
 {
-    public static object Run()
+    public static object Run(string onlyOperation = null)
     {
+        if (onlyOperation != null && onlyOperation != "assign" && onlyOperation != "delete")
+            throw new ArgumentException("Expected assign or delete", nameof(onlyOperation));
         var results = new List<object>();
         foreach (int size in new[] { 16, 1024 })
         foreach (int step in new[] { 2, -2 })
         foreach (string operation in new[] { "assign", "delete" })
         {
+            if (onlyOperation != null && operation != onlyOperation) continue;
             var data = Enumerable.Repeat((byte)97, size).ToArray();
             var replacement = new PyBytes(Enumerable.Repeat((byte)98, size / 2).ToArray());
             var slice = new PySlice(PyNone.Instance, PyNone.Instance, new PyInt(step));

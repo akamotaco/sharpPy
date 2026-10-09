@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[34차 결과](reports/2026-10-10/bytearray_slice_reentry_analysis.md): bytearray의 RHS별 slice 재평가와 callback 후 경계 조정을 맞추고 불변 bytes 복사를 제거했다. 기본 74개 및 Godot 소스 통합 회귀 7개 통과. native 큰 bytes RHS 대입은 약 32% 빨라지고 측정 구간 할당은 0B였다. 삭제 혼합 측정의 변동은 별도 결과와 함께 기록했다.
+
 [33차 결과](reports/2026-10-10/bytearray_iterable_analysis.md): bytearray iterable 변환에서 정상 StopIteration을 처리했다. 기본 72개 검사와 Godot 소스 통합 회귀 6개 통과. 다음은 CPython bytearray의 RHS 변환 후 slice callback 재평가와 대상 변경 순서이며 별도 실패 fixture를 보존했다.
 
 [32차 결과](reports/2026-10-10/sequence_large_step_analysis.md): 저장된 시퀀스 다섯 타입의 큰 step을 포화 변환해 CPython과 결과를 맞췄다. 기본 70개 검사와 Godot 소스 통합 회귀 5개 통과. 일반 step의 native 할당은 동일하며 속도 향상은 주장하지 않는다. range/view의 큰 step 표현과 bytearray 일반 iterable 대입의 StopIteration 오류는 별도 회귀로 남겼다.

@@ -506,35 +506,48 @@ namespace SharpPy
             }
             else if (index is PySlice slice)
             {
-                // Slice assignment
-                var (start, stop, step) = slice.StorageIndices(_bytes.Count);
-
-                // Convert value to bytes
-                List<byte> newBytes = ConvertToBytes(value);
+                var (start, stop, step) = slice.UnpackStorage();
+                List<byte> newBytes;
+                if (value is PyByteArray source && !ReferenceEquals(source, this))
+                    newBytes = source._bytes;
+                else
+                {
+                    // Immutable bytes need no snapshot; retain the existing buffer.
+                    newBytes = value is PyBytes ? null : ConvertToBytes(value);
+                    // CPython re-enters slice assignment after converting the RHS.
+                    // Immutable built-in indices cannot observe that second unpack.
+                    if (slice.HasIndexCallbacks)
+                        (start, stop, step) = slice.UnpackStorage();
+                }
+                // Both index callbacks and RHS iteration may resize the target.
+                (start, stop, step) = PySlice.AdjustStorageIndices(_bytes.Count, start, stop, step);
+                ReadOnlySpan<byte> replacement = value is PyBytes bytes
+                    ? bytes.Value : System.Runtime.InteropServices.CollectionsMarshal.AsSpan(newBytes);
 
                 if (step == 1)
                 {
                     // Contiguous slice - can change size
                     int deleteCount = Math.Max(0, stop - start);
-                    if (_exports > 0 && deleteCount != newBytes.Count)
+                    if (_exports > 0 && deleteCount != replacement.Length)
                         throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
                     _bytes.RemoveRange(start, deleteCount);
-                    _bytes.InsertRange(start, newBytes);
+                    if (value is PyBytes contiguousBytes) _bytes.InsertRange(start, contiguousBytes.Value);
+                    else _bytes.InsertRange(start, newBytes);
                 }
                 else
                 {
                     int count = PySlice.GetLength(start, stop, step);
-                    if (newBytes.Count == 0)
+                    if (replacement.Length == 0)
                     {
                         if (_exports > 0)
                             throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
                         DeleteExtendedSlice(start, step, count);
                         return;
                     }
-                    if (count != newBytes.Count)
-                        throw PyValueError.Create($"attempt to assign bytes of size {newBytes.Count} to extended slice of size {count}");
+                    if (count != replacement.Length)
+                        throw PyValueError.Create($"attempt to assign bytes of size {replacement.Length} to extended slice of size {count}");
                     for (int n = 0, position = start; n < count; n++, position = unchecked(position + step))
-                        _bytes[position] = newBytes[n];
+                        _bytes[position] = replacement[n];
                 }
             }
             else

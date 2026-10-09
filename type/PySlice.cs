@@ -93,18 +93,35 @@ namespace SharpPy
         // clipping for range steps or memoryview stride metadata.
         internal (int start, int stop, int step) StorageIndices(int length) => NormalizeIndices(length, true);
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private (int start, int stop, int step) NormalizeIndices(int length, bool clipStep)
         {
-            var step = GetStepValue(clipStep);
-            
-            if (step == 0)
-                throw PyValueError.Create("slice step cannot be zero");
-            
-            var (start, stop) = GetStartStopValues(length, step);
-            
+            var (start, stop, step) = UnpackIndices(clipStep);
+            return AdjustStorageIndices(length, start, stop, step);
+        }
+
+        // Bytearray must read its current size after all __index__ callbacks.
+        internal (int start, int stop, int step) UnpackStorage() => UnpackIndices(true);
+
+        internal bool HasIndexCallbacks
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => NeedsIndexCall(Start) || NeedsIndexCall(Stop) || NeedsIndexCall(Step);
+        }
+        private static bool NeedsIndexCall(PyObject value) =>
+            value != PyNone.Instance && value is not PyInt && value is not PyBool;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private (int start, int stop, int step) UnpackIndices(bool clipStep)
+        {
+            int step = GetStepValue(clipStep);
+            if (step == 0) throw PyValueError.Create("slice step cannot be zero");
+            int start = GetBoundValue(Start, step < 0 ? int.MaxValue : 0);
+            int stop = GetBoundValue(Stop, step < 0 ? int.MinValue : int.MaxValue);
             return (start, stop, step);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private int GetStepValue(bool clipStep)
         {
             if (Step == PyNone.Instance)
@@ -119,74 +136,27 @@ namespace SharpPy
             throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
         }
 
-        private (int start, int stop) GetStartStopValues(int length, int step)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private static int GetBoundValue(PyObject value, int defaultValue)
         {
-            int start, stop;
+            if (value == PyNone.Instance) return defaultValue;
+            var index = PyObject.TryGetIndex(value);
+            if (index == null)
+                throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+            return int.CreateSaturating(index.Value);
+        }
 
-            // Start 값 처리 - __index__ protocol 지원
-            // CPython 3.12: Objects/sliceobject.c:246-248 (slice_indices)
-            if (Start == PyNone.Instance)
-            {
-                start = step < 0 ? length - 1 : 0;
-            }
-            else
-            {
-                var startIndex = PyObject.TryGetIndex(Start);
-                if (startIndex != null)
-                {
-                    // Match PyNumber_AsSsize_t(..., NULL): overflow clips by
-                    // sign. Storage lengths are int-sized, so these sentinels
-                    // produce the same adjusted endpoints. Keep __index__
-                    // outside the catch so its exceptions still propagate.
-                    try { start = (int)startIndex.Value; }
-                    catch (OverflowException) { start = startIndex.Value.Sign < 0 ? int.MinValue : int.MaxValue; }
-                    if (start < 0) start += length;
-                    // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:289-290)
-                    if (start < 0)
-                    {
-                        start = (step < 0) ? -1 : 0;
-                    }
-                    else if (start >= length)
-                    {
-                        start = (step < 0) ? length - 1 : length;
-                    }
-                }
-                else
-                {
-                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-                }
-            }
-
-            // Stop 값 처리 - __index__ protocol 지원
-            if (Stop == PyNone.Instance)
-            {
-                stop = step < 0 ? -1 : length;
-            }
-            else
-            {
-                var stopIndex = PyObject.TryGetIndex(Stop);
-                if (stopIndex != null)
-                {
-                    try { stop = (int)stopIndex.Value; }
-                    catch (OverflowException) { stop = stopIndex.Value.Sign < 0 ? int.MinValue : int.MaxValue; }
-                    if (stop < 0) stop += length;
-                    // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:299-300)
-                    if (stop < 0)
-                    {
-                        stop = (step < 0) ? -1 : 0;
-                    }
-                    else if (stop >= length)
-                    {
-                        stop = (step < 0) ? length - 1 : length;
-                    }
-                }
-                else
-                {
-                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
-                }
-            }
-
-            return (start, stop);
+        // CPython PySlice_AdjustIndices: this phase cannot execute Python code.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static (int start, int stop, int step) AdjustStorageIndices(int length, int start, int stop, int step)
+        {
+            if (start < 0) start += length;
+            if (start < 0) start = step < 0 ? -1 : 0;
+            else if (start >= length) start = step < 0 ? length - 1 : length;
+            if (stop < 0) stop += length;
+            if (stop < 0) stop = step < 0 ? -1 : 0;
+            else if (stop >= length) stop = step < 0 ? length - 1 : length;
+            return (start, stop, step);
         }
 
         /// <summary>
