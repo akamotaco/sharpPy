@@ -43,5 +43,29 @@ internal static class FrameChecks
         scopeFrame.LocalsPlus[0] = PyNull.Instance;
         if (localScope.Variables.ContainsKey("value") || !variables.ContainsKey("extra"))
             throw new InvalidOperationException("C# scope deletion or extra key retention changed");
+
+        scopeFrame.LocalsPlus[0] = SmallIntCache.One;
+        var observed = (PyDict)scopeFrame.GetAttribute("f_locals");
+        if (((PyInt)observed.GetItem(new PyString("value"))).Value != 1)
+            throw new InvalidOperationException("Initial locals key cache changed values");
+        try
+        {
+            probe.CodeObject.VarNames[0] = "renamed";
+            observed = (PyDict)scopeFrame.GetAttribute("f_locals");
+            if (((PyInt)observed.GetItem(new PyString("renamed"))).Value != 1)
+                throw new InvalidOperationException("Locals key cache retained a stale metadata name");
+            probe.CodeObject.VarNames.Add("later");
+            var resized = new PyFrame(probe.CodeObject, new PyObject[] { SmallIntCache.One },
+                new PyScopeChain(probe.GlobalsDict, "probe"));
+            resized.LocalsPlus[1] = new PyInt(2);
+            observed = (PyDict)resized.GetAttribute("f_locals");
+            if (((PyInt)observed.GetItem(new PyString("later"))).Value != 2)
+                throw new InvalidOperationException("Locals key cache did not resize with metadata");
+        }
+        finally
+        {
+            probe.CodeObject.VarNames[0] = "value";
+            if (probe.CodeObject.VarNames.Count > 1) probe.CodeObject.VarNames.RemoveAt(1);
+        }
     }
 }

@@ -1,4 +1,5 @@
 """Shared, deterministic workloads for SharpPy and CPython. No timed output."""
+import sys
 
 
 def addition(n):
@@ -64,3 +65,18 @@ def bound_builtin(n):
     for i in range(n):
         append(i)
     return sum(values)
+
+
+def locals_observation(n):
+    result = 0
+    for i in range(n):
+        result = result + locals()['i']
+    return result
+
+
+def frame_observation(n):
+    frame = sys._getframe()
+    result = 0
+    for i in range(n):
+        result = result + frame.f_locals['i']
+    return result

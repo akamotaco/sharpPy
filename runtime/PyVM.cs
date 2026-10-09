@@ -714,23 +714,25 @@ namespace SharpPy
         internal PyDict GetOptimizedLocals()
         {
             var result = _localsDict ??= new PyDict();
-            static void Sync(PyDict result, string name, PyObject value)
+            static void Sync(PyDict result, PyString key, PyObject value)
             {
-                var key = new PyString(name);
                 if (value != null && !PyNull.IsNull(value))
                     result.SetItem(key, value);
                 else if (result.InternalDict.ContainsKey(key))
                     result.DelItem(key);
             }
-            for (int i = 0; i < Code.VarNames.Count && i < LocalsPlus.Length; i++)
-                Sync(result, Code.VarNames[i], LocalsPlus[i]);
-            int freeCount = Code.FreeVars?.Count ?? 0;
-            int cellCount = Code.CellVars?.Count ?? 0;
+            var localNames = Code.GetLocalNameKeys();
+            var cellNames = Code.GetCellNameKeys();
+            var freeNames = Code.GetFreeNameKeys();
+            for (int i = 0; i < localNames.Length && i < LocalsPlus.Length; i++)
+                Sync(result, localNames[i], LocalsPlus[i]);
+            int freeCount = freeNames.Length;
+            int cellCount = cellNames.Length;
             for (int i = 0; i < cellCount; i++)
                 if (freeCount + i < Cells.Length)
-                    Sync(result, Code.CellVars[i], Cells[freeCount + i].Value);
+                    Sync(result, cellNames[i], Cells[freeCount + i].Value);
             for (int i = 0; i < freeCount && i < Cells.Length; i++)
-                Sync(result, Code.FreeVars[i], Cells[i].Value);
+                Sync(result, freeNames[i], Cells[i].Value);
             return result;
         }
 

@@ -415,6 +415,27 @@ namespace SharpPy
         public List<string> FreeVars { get; set; } = new List<string>();   // co_freevars - 자유 변수
         public List<string> CellVars { get; set; } = new List<string>();   // co_cellvars - 셀 변수
 
+        private PyString[] _localNameKeys;
+        private PyString[] _cellNameKeys;
+        private PyString[] _freeNameKeys;
+
+        internal PyString[] GetLocalNameKeys() => GetNameKeys(VarNames, ref _localNameKeys);
+        internal PyString[] GetCellNameKeys() => GetNameKeys(CellVars, ref _cellNameKeys);
+        internal PyString[] GetFreeNameKeys() => GetNameKeys(FreeVars, ref _freeNameKeys);
+
+        // CPython keeps Python name objects in co_localsplusnames. SharpPy's
+        // public C# metadata lists are mutable, so validate names before reuse.
+        private static PyString[] GetNameKeys(List<string> names, ref PyString[] cache)
+        {
+            int count = names?.Count ?? 0;
+            if (count == 0) return Array.Empty<PyString>();
+            if (cache == null || cache.Length != count) cache = new PyString[count];
+            for (int i = 0; i < count; i++)
+                if (cache[i] == null || !string.Equals(cache[i].Value, names[i], StringComparison.Ordinal))
+                    cache[i] = new PyString(names[i]);
+            return cache;
+        }
+
         // CPython 3.12: Cached index for __class__ cell variable
         // Computed at compile time, used at runtime for fast lookup (avoids IndexOf)
         // -1 means __class__ is not in FreeVars/CellVars
