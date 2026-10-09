@@ -1,0 +1,144 @@
+{
+  "baseline_commit": "f57ce71",
+  "baseline_sha256": "c9ba130eff68fa9a5f5efbc1c3c7b8920f1325cf52ff098c6897128a321e5072",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "path": "Objects/bytearrayobject.c",
+    "functions": [
+      "_getbytevalue",
+      "bytearray_ass_subscript"
+    ],
+    "sha256": "371795e3559821c7b0870febca595adf370c5156f76acde0cf3530fed7a0bd1d"
+  },
+  "before": [
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray byte values: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.022135599996545352,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_bytevalue_regression.py\", line 9, in <module>\n    data = bytearray([Index(65), True, False])\n    ^\nTypeError: an integer is required\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_bytevalue_regression.py\", line 9, in <module>\n    data = bytearray([Index(65), True, False])\n    ^\nTypeError: an integer is required\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24150879999797326,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration message: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.023724599996057805,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_message.py\", line 2, in <module>\n    assert str(StopIteration('value conversion')) == 'value conversion'\n                                                                       ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_message.py\", line 2, in <module>\n    assert str(StopIteration('value conversion')) == 'value conversion'\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2022004000027664,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "bytearray byte values: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.025313799997093156,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "bytearray byte values: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2811768000028678,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "counts": {
+    "matching_output": 70,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "f5d4b64f8173235f014c55da1597c9d3e916b949c0b6580bc408e6aec147e457",
+  "outstanding": [
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration message: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.022550300003786106,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_message.py\", line 2, in <module>\n    assert str(StopIteration('value conversion')) == 'value conversion'\n                                                                       ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_message.py\", line 2, in <module>\n    assert str(StopIteration('value conversion')) == 'value conversion'\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.20061149999673944,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "superseded_initial_test": [
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "reference_test_failure",
+      "reference": {
+        "exit_code": 3221225477,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_bytevalue_regression.py\", line 61, in <module>\n    assert data == bytearray(b'abcX')\n",
+        "timed_out": false,
+        "process_seconds": 2.6248637000026065,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_bytevalue_regression.py\", line 9, in <module>\n    data = bytearray([Index(65), True, False])\n    ^\nTypeError: an integer is required\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\bytearray_bytevalue_regression.py\", line 9, in <module>\n    data = bytearray([Index(65), True, False])\n    ^\nTypeError: an integer is required\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.29438870000012685,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "integration": "Sources directly included in Godot SDK project, no separate SharpPy DLL reference",
+    "build": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nsequence large step: 216 PASS\r\nbytearray iterable assignment: PASS\r\nbytearray slice reentry: PASS\r\nbytearray byte values: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "performance": "Not benchmarked. Ordinary PyInt uses direct path; no new buffers/dependencies. No timing claim.",
+  "cpython_growth_observation": {
+    "input": "data=bytearray(b\"abc\"); data[-1]=Grow(), where Grow.__index__ appends 100 and returns 88",
+    "observed_cpython": "bytearray(b'abcd')",
+    "expected_by_initial_test": "bytearray(b'abcX')",
+    "assessment": "Source caches buf before conversion callback; stale pointer after buffer relocation is a suspected upstream issue. Not treated as stable compatibility output; final regression uses non-relocating trim and cleared-target bounds check."
+  }
+}

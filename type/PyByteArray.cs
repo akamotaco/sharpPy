@@ -496,12 +496,14 @@ namespace SharpPy
             {
                 // Single index assignment
                 int idx = (int)pyInt.Value;
+                // CPython converts the value before checking the current size:
+                // its __index__ callback may resize this bytearray.
+                int byteValue = GetByteValue(value);
                 if (idx < 0) idx += _bytes.Count;
 
                 if (idx < 0 || idx >= _bytes.Count)
                     throw PyIndexError.Create("bytearray index out of range");
 
-                int byteValue = GetByteValue(value);
                 _bytes[idx] = (byte)byteValue;
             }
             else if (index is PySlice slice)
@@ -889,11 +891,13 @@ namespace SharpPy
         /// </summary>
         private static int GetByteValue(PyObject obj)
         {
-            if (obj is not PyInt pyInt)
-                throw PyTypeError.Create("an integer is required");
+            var pyInt = obj as PyInt ?? PyObject.TryGetIndex(obj);
+            if (pyInt == null)
+                throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
 
-            int value = (int)pyInt.Value;
-            if (value < 0 || value > 255)
+            // Oversized integers are byte-range errors, not CLR cast overflow.
+            int value = int.CreateSaturating(pyInt.Value);
+            if ((uint)value > 255)
                 throw PyValueError.Create("byte must be in range(0, 256)");
 
             return value;

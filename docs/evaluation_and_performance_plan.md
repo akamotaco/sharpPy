@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[35차 결과](reports/2026-10-10/bytearray_bytevalue_analysis.md): bytearray 항목의 __index__·bool 및 큰 정수 범위 오류를 맞추고 값 callback 후 길이를 검사한다. 기본 75개와 Godot 소스 통합 회귀 8개 통과. StopIteration 메시지의 기존 차이와 CPython 저장소 재할당 callback의 불안정한 관찰 결과는 별도 기록했다.
+
 [34차 결과](reports/2026-10-10/bytearray_slice_reentry_analysis.md): bytearray의 RHS별 slice 재평가와 callback 후 경계 조정을 맞추고 불변 bytes 복사를 제거했다. 기본 74개 및 Godot 소스 통합 회귀 7개 통과. native 큰 bytes RHS 대입은 약 32% 빨라지고 측정 구간 할당은 0B였다. 삭제 혼합 측정의 변동은 별도 결과와 함께 기록했다.
 
 [33차 결과](reports/2026-10-10/bytearray_iterable_analysis.md): bytearray iterable 변환에서 정상 StopIteration을 처리했다. 기본 72개 검사와 Godot 소스 통합 회귀 6개 통과. 다음은 CPython bytearray의 RHS 변환 후 slice callback 재평가와 대상 변경 순서이며 별도 실패 fixture를 보존했다.
