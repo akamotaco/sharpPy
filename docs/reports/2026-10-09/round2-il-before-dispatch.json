@@ -1,0 +1,1005 @@
+{
+  "scope": "Selected SharpPy method IL; allocation/call frequencies and runtime transitive boxing are not measured",
+  "methods": [
+    {
+      "type": "SharpPy.PyInt",
+      "method": "System.Numerics.BigInteger get_Value()",
+      "boxing": [],
+      "constructors": {},
+      "constructor_calls": []
+    },
+    {
+      "type": "SharpPy.PyInt",
+      "method": "SharpPy.PyObject Add(SharpPy.PyObject)",
+      "boxing": [],
+      "constructors": {
+        "SharpPy.PyInt": 2,
+        "SharpPy.PyFloat": 1,
+        "SharpPy.PyComplex": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 60,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 88,
+          "type": "SharpPy.PyFloat",
+          "value_type": false
+        },
+        {
+          "offset": 123,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 157,
+          "type": "SharpPy.PyComplex",
+          "value_type": false
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyInt",
+      "method": "SharpPy.PyObject FloorDivide(SharpPy.PyObject)",
+      "boxing": [],
+      "constructors": {
+        "SharpPy.PyInt": 2,
+        "SharpPy.PyFloat": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 123,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 191,
+          "type": "SharpPy.PyFloat",
+          "value_type": false
+        },
+        {
+          "offset": 233,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyStack",
+      "method": "Void Push(SharpPy.PyObject)",
+      "boxing": [],
+      "constructors": {},
+      "constructor_calls": []
+    },
+    {
+      "type": "SharpPy.PyStack",
+      "method": "SharpPy.PyObject Pop()",
+      "boxing": [],
+      "constructors": {
+        "System.InvalidOperationException": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 18,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyVM",
+      "method": "SharpPy.PyObject ExecuteBinaryOpType(SharpPy.PyObject, SharpPy.PyObject, SharpPy.BinaryOpType)",
+      "boxing": [],
+      "constructors": {
+        "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler": 3
+      },
+      "constructor_calls": [
+        {
+          "offset": 524,
+          "type": "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler",
+          "value_type": true
+        },
+        {
+          "offset": 602,
+          "type": "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler",
+          "value_type": true
+        },
+        {
+          "offset": 751,
+          "type": "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler",
+          "value_type": true
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyVM",
+      "method": "SharpPy.PyObject TryInplaceOp(SharpPy.PyObject, SharpPy.PyObject, System.String, SharpPy.BinaryOpType)",
+      "boxing": [],
+      "constructors": {},
+      "constructor_calls": []
+    },
+    {
+      "type": "SharpPy.PyVM",
+      "method": "SharpPy.PyObject ExecuteInstruction(SharpPy.PyFrame, SharpPy.ByteCodeInstruction)",
+      "boxing": [],
+      "constructors": {
+        "SharpPy.PyVM+<>c__DisplayClass18_0": 1,
+        "SharpPy.PyString": 9,
+        "SharpPy.PyDict": 10,
+        "SharpPy.PyInt": 6,
+        "System.InvalidOperationException": 9,
+        "System.Collections.Generic.List`1[SharpPy.PyObject]": 6,
+        "System.Collections.Generic.List`1[System.ValueTuple`2[System.String,SharpPy.PyObject]]": 1,
+        "System.ValueTuple`2[System.String,SharpPy.PyObject]": 1,
+        "System.Collections.Generic.Dictionary`2[System.String,SharpPy.PyObject]": 2,
+        "SharpPy.PyTuple": 5,
+        "System.Func`2[SharpPy.PyObject[],SharpPy.PyObject]": 5,
+        "SharpPy.PyFunction": 6,
+        "SharpPy.PyVM+<>c__DisplayClass18_1": 1,
+        "SharpPy.PyVM+<>c__DisplayClass18_2": 1,
+        "SharpPy.PyMethod": 4,
+        "SharpPy.PyVM+<>c__DisplayClass18_3": 1,
+        "SharpPy.PyVM+<>c__DisplayClass18_4": 1,
+        "System.Exception": 15,
+        "SharpPy.PythonException": 24,
+        "SharpPy.PyList": 2,
+        "SharpPy.PySlice": 4,
+        "SharpPy.PySet": 1,
+        "System.Collections.Generic.List`1[System.ValueTuple`2[SharpPy.PyObject,SharpPy.PyObject]]": 1,
+        "System.ValueTuple`2[SharpPy.PyObject,SharpPy.PyObject]": 1,
+        "SharpPy.PyTypeError": 12,
+        "SharpPy.PyException": 4,
+        "SharpPy.PyRuntimeError": 1,
+        "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler": 1,
+        "System.Func`2[System.Char,SharpPy.PyObject]": 1,
+        "System.Collections.Generic.List`1[System.String]": 6,
+        "SharpPy.PyCell": 1,
+        "System.IndexOutOfRangeException": 1,
+        "SharpPy.PyYieldException": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 0,
+          "type": "SharpPy.PyVM+<>c__DisplayClass18_0",
+          "value_type": false
+        },
+        {
+          "offset": 1606,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 2658,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 3624,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 3655,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 5065,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 5143,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 5222,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 5306,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 5469,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 5664,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 5723,
+          "type": "System.Collections.Generic.List`1[SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 5859,
+          "type": "System.Collections.Generic.List`1[System.ValueTuple`2[System.String,SharpPy.PyObject]]",
+          "value_type": false
+        },
+        {
+          "offset": 5980,
+          "type": "System.ValueTuple`2[System.String,SharpPy.PyObject]",
+          "value_type": true
+        },
+        {
+          "offset": 6052,
+          "type": "System.Collections.Generic.Dictionary`2[System.String,SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 6272,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 6332,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 6489,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 6549,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 6682,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 6742,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 7418,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 7563,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 7624,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 7688,
+          "type": "SharpPy.PyTuple",
+          "value_type": false
+        },
+        {
+          "offset": 7742,
+          "type": "System.Func`2[SharpPy.PyObject[],SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 7784,
+          "type": "SharpPy.PyFunction",
+          "value_type": false
+        },
+        {
+          "offset": 7904,
+          "type": "SharpPy.PyVM+<>c__DisplayClass18_1",
+          "value_type": false
+        },
+        {
+          "offset": 7988,
+          "type": "System.Func`2[SharpPy.PyObject[],SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 8060,
+          "type": "SharpPy.PyFunction",
+          "value_type": false
+        },
+        {
+          "offset": 8196,
+          "type": "SharpPy.PyVM+<>c__DisplayClass18_2",
+          "value_type": false
+        },
+        {
+          "offset": 8305,
+          "type": "System.Func`2[SharpPy.PyObject[],SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 8505,
+          "type": "SharpPy.PyFunction",
+          "value_type": false
+        },
+        {
+          "offset": 8633,
+          "type": "SharpPy.PyFunction",
+          "value_type": false
+        },
+        {
+          "offset": 8867,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 10273,
+          "type": "SharpPy.PyMethod",
+          "value_type": false
+        },
+        {
+          "offset": 10289,
+          "type": "SharpPy.PyVM+<>c__DisplayClass18_3",
+          "value_type": false
+        },
+        {
+          "offset": 10363,
+          "type": "System.Func`2[SharpPy.PyObject[],SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 10372,
+          "type": "SharpPy.PyFunction",
+          "value_type": false
+        },
+        {
+          "offset": 10391,
+          "type": "SharpPy.PyMethod",
+          "value_type": false
+        },
+        {
+          "offset": 10407,
+          "type": "SharpPy.PyVM+<>c__DisplayClass18_4",
+          "value_type": false
+        },
+        {
+          "offset": 10481,
+          "type": "System.Func`2[SharpPy.PyObject[],SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 10490,
+          "type": "SharpPy.PyFunction",
+          "value_type": false
+        },
+        {
+          "offset": 10509,
+          "type": "SharpPy.PyMethod",
+          "value_type": false
+        },
+        {
+          "offset": 10610,
+          "type": "SharpPy.PyMethod",
+          "value_type": false
+        },
+        {
+          "offset": 10889,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 10941,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 10996,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 11053,
+          "type": "SharpPy.PyInt",
+          "value_type": false
+        },
+        {
+          "offset": 11138,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 11262,
+          "type": "System.Collections.Generic.List`1[SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 11472,
+          "type": "SharpPy.PyTuple",
+          "value_type": false
+        },
+        {
+          "offset": 12309,
+          "type": "System.Collections.Generic.List`1[SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 12593,
+          "type": "System.Collections.Generic.List`1[SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 12866,
+          "type": "SharpPy.PyTuple",
+          "value_type": false
+        },
+        {
+          "offset": 12895,
+          "type": "SharpPy.PyTuple",
+          "value_type": false
+        },
+        {
+          "offset": 13095,
+          "type": "System.Collections.Generic.Dictionary`2[System.String,SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 13427,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 13466,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 14024,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 14235,
+          "type": "SharpPy.PyList",
+          "value_type": false
+        },
+        {
+          "offset": 14340,
+          "type": "SharpPy.PyTuple",
+          "value_type": false
+        },
+        {
+          "offset": 14548,
+          "type": "SharpPy.PySlice",
+          "value_type": false
+        },
+        {
+          "offset": 14663,
+          "type": "SharpPy.PySlice",
+          "value_type": false
+        },
+        {
+          "offset": 14771,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 16325,
+          "type": "SharpPy.PySet",
+          "value_type": false
+        },
+        {
+          "offset": 16421,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 16430,
+          "type": "System.Collections.Generic.List`1[System.ValueTuple`2[SharpPy.PyObject,SharpPy.PyObject]]",
+          "value_type": false
+        },
+        {
+          "offset": 16504,
+          "type": "System.ValueTuple`2[SharpPy.PyObject,SharpPy.PyObject]",
+          "value_type": true
+        },
+        {
+          "offset": 16685,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 16691,
+          "type": "SharpPy.PyDict",
+          "value_type": false
+        },
+        {
+          "offset": 17035,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        },
+        {
+          "offset": 19590,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20081,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 20086,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20175,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 20180,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20269,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 20274,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20370,
+          "type": "SharpPy.PyException",
+          "value_type": false
+        },
+        {
+          "offset": 20399,
+          "type": "SharpPy.PyException",
+          "value_type": false
+        },
+        {
+          "offset": 20417,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 20422,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20433,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 20438,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20598,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 20603,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20632,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20805,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 20982,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21023,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 21028,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21168,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 21173,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21281,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21343,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 21348,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21496,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21537,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 21542,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21641,
+          "type": "SharpPy.PyException",
+          "value_type": false
+        },
+        {
+          "offset": 21670,
+          "type": "SharpPy.PyException",
+          "value_type": false
+        },
+        {
+          "offset": 21758,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21799,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 21804,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21815,
+          "type": "SharpPy.PyTypeError",
+          "value_type": false
+        },
+        {
+          "offset": 21820,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21862,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 21873,
+          "type": "SharpPy.PyRuntimeError",
+          "value_type": false
+        },
+        {
+          "offset": 21878,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 23252,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 23286,
+          "type": "SharpPy.PythonException",
+          "value_type": false
+        },
+        {
+          "offset": 23721,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 24477,
+          "type": "SharpPy.PyString",
+          "value_type": false
+        },
+        {
+          "offset": 24529,
+          "type": "System.Collections.Generic.List`1[SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 24628,
+          "type": "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler",
+          "value_type": true
+        },
+        {
+          "offset": 25066,
+          "type": "System.Func`2[System.Char,SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 25108,
+          "type": "System.Collections.Generic.List`1[SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 25516,
+          "type": "SharpPy.PyList",
+          "value_type": false
+        },
+        {
+          "offset": 25977,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 26048,
+          "type": "System.Collections.Generic.List`1[System.String]",
+          "value_type": false
+        },
+        {
+          "offset": 27190,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 27414,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 27524,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 27694,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 27919,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 27963,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 28175,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 28293,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 28412,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 28575,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 28597,
+          "type": "System.Collections.Generic.List`1[System.String]",
+          "value_type": false
+        },
+        {
+          "offset": 29033,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 29267,
+          "type": "System.Collections.Generic.List`1[System.String]",
+          "value_type": false
+        },
+        {
+          "offset": 29622,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 29778,
+          "type": "System.Collections.Generic.List`1[System.String]",
+          "value_type": false
+        },
+        {
+          "offset": 30131,
+          "type": "System.Exception",
+          "value_type": false
+        },
+        {
+          "offset": 30287,
+          "type": "System.Collections.Generic.List`1[System.String]",
+          "value_type": false
+        },
+        {
+          "offset": 30581,
+          "type": "SharpPy.PyCell",
+          "value_type": false
+        },
+        {
+          "offset": 30956,
+          "type": "System.IndexOutOfRangeException",
+          "value_type": false
+        },
+        {
+          "offset": 30986,
+          "type": "System.Collections.Generic.List`1[System.String]",
+          "value_type": false
+        },
+        {
+          "offset": 31559,
+          "type": "SharpPy.PyYieldException",
+          "value_type": false
+        },
+        {
+          "offset": 32153,
+          "type": "SharpPy.PySlice",
+          "value_type": false
+        },
+        {
+          "offset": 32309,
+          "type": "SharpPy.PySlice",
+          "value_type": false
+        },
+        {
+          "offset": 32593,
+          "type": "System.InvalidOperationException",
+          "value_type": false
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyFunction",
+      "method": "SharpPy.PyObject Call(SharpPy.PyObject[], SharpPy.PyDict)",
+      "boxing": [],
+      "constructors": {
+        "SharpPy.PyScopeChain": 2,
+        "SharpPy.PyFrame": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 122,
+          "type": "SharpPy.PyScopeChain",
+          "value_type": false
+        },
+        {
+          "offset": 140,
+          "type": "SharpPy.PyScopeChain",
+          "value_type": false
+        },
+        {
+          "offset": 211,
+          "type": "SharpPy.PyFrame",
+          "value_type": false
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyObject",
+      "method": "SharpPy.PyObject GenericGetAttribute(System.String)",
+      "boxing": [],
+      "constructors": {
+        "SharpPy.PyDescriptorWrapper": 2,
+        "SharpPy.PyMethod": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 94,
+          "type": "SharpPy.PyDescriptorWrapper",
+          "value_type": false
+        },
+        {
+          "offset": 171,
+          "type": "SharpPy.PyDescriptorWrapper",
+          "value_type": false
+        },
+        {
+          "offset": 327,
+          "type": "SharpPy.PyMethod",
+          "value_type": false
+        }
+      ]
+    },
+    {
+      "type": "SharpPy.PyFrame",
+      "method": "Void .ctor(SharpPy.PyCodeObject, SharpPy.PyObject[], SharpPy.PyScopeChain, SharpPy.PyCell[], SharpPy.PyFrame, SharpPy.PyTuple, SharpPy.PyDict)",
+      "boxing": [],
+      "constructors": {
+        "System.Collections.Generic.Stack`1[System.Int32]": 1,
+        "SharpPy.PyStack": 1,
+        "SharpPy.PyScopeChain": 1,
+        "System.Collections.Generic.Dictionary`2[System.String,SharpPy.PyObject]": 1,
+        "SharpPy.PyCell": 1
+      },
+      "constructor_calls": [
+        {
+          "offset": 39,
+          "type": "System.Collections.Generic.Stack`1[System.Int32]",
+          "value_type": false
+        },
+        {
+          "offset": 63,
+          "type": "SharpPy.PyStack",
+          "value_type": false
+        },
+        {
+          "offset": 79,
+          "type": "SharpPy.PyScopeChain",
+          "value_type": false
+        },
+        {
+          "offset": 181,
+          "type": "System.Collections.Generic.Dictionary`2[System.String,SharpPy.PyObject]",
+          "value_type": false
+        },
+        {
+          "offset": 291,
+          "type": "SharpPy.PyCell",
+          "value_type": false
+        }
+      ]
+    }
+  ],
+  "compiler_closures": [
+    {
+      "type": "SharpPy.PyVM+<>c__DisplayClass18_0",
+      "fields": [
+        {
+          "Name": "frame",
+          "type": "SharpPy.PyFrame"
+        },
+        {
+          "Name": "<>4__this",
+          "type": "SharpPy.PyVM"
+        },
+        {
+          "Name": "closure",
+          "type": "SharpPy.PyCell[]"
+        },
+        {
+          "Name": "pyCode",
+          "type": "SharpPy.PyCodeObject"
+        }
+      ]
+    }
+  ]
+}

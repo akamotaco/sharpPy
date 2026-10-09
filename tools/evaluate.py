@@ -55,6 +55,8 @@ def main():
         *[str(path.relative_to(ROOT)) for path in sorted((ROOT / "tests").glob("level*.py"))],
         *[str(path.relative_to(ROOT)) for path in sorted(ROOT.glob("test_*.py"))],
         "tests/binary_inplace_regression.py",
+        "tests/inplace_special_lookup.py",
+        "tests/function_creation_regression.py",
         "examples/hello.py", "examples/advanced.py",
     ]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONHASHSEED="0")

@@ -1,0 +1,229 @@
+{
+  "regression": {
+    "counts": {
+      "matching_output": 22,
+      "output_difference": 4,
+      "no_reported_failure": 2
+    },
+    "cases": [
+      {
+        "name": "tests\\level10_integration.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level11_exceptions_advanced.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level12_indexing_slicing.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level1_literals.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level2_operators.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level3_variables.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level4_control_if.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level4_control_loops.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level5_functions_advanced.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level5_functions_basic.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level6_classes_basic.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level7_comprehensions.py",
+        "status": "output_difference",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level8_generators.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests\\level9_exceptions.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_comprehensive_exception_handling.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_comprehensive_python312.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_global_variable.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_nested_super.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_python312_advanced_features.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_python312_missing_features.py",
+        "status": "output_difference",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "test_ultimate_complex_features.py",
+        "status": "output_difference",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests/binary_inplace_regression.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests/inplace_special_lookup.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "tests/function_creation_regression.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "examples/hello.py",
+        "status": "matching_output",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "examples/advanced.py",
+        "status": "output_difference",
+        "reference_exit": 0,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "--test-generator-kwargs",
+        "status": "no_reported_failure",
+        "reference_exit": null,
+        "sharppy_exit": 0
+      },
+      {
+        "name": "--test-pymethod-kwargs",
+        "status": "no_reported_failure",
+        "reference_exit": null,
+        "sharppy_exit": 0
+      }
+    ]
+  },
+  "operator_before": {
+    "counts": {
+      "sharppy_failure": 1
+    },
+    "cases": [
+      {
+        "name": "tests/inplace_special_lookup.py",
+        "status": "sharppy_failure",
+        "reference_exit": 0,
+        "sharppy_exit": 1
+      }
+    ]
+  },
+  "known_findings": {
+    "counts": {
+      "sharppy_failure": 5
+    },
+    "cases": [
+      {
+        "name": "tests/compatibility/memoryview_write.py",
+        "status": "sharppy_failure",
+        "reference_exit": 0,
+        "sharppy_exit": 1
+      },
+      {
+        "name": "tests/compatibility/bound_method_attributes.py",
+        "status": "sharppy_failure",
+        "reference_exit": 0,
+        "sharppy_exit": 1
+      },
+      {
+        "name": "tests/compatibility/script_import/entry.py",
+        "status": "sharppy_failure",
+        "reference_exit": 0,
+        "sharppy_exit": 1
+      },
+      {
+        "name": "tests/compatibility/coroutine_send.py",
+        "status": "sharppy_failure",
+        "reference_exit": 0,
+        "sharppy_exit": 1
+      },
+      {
+        "name": "tests/compatibility/class_body_freevar.py",
+        "status": "sharppy_failure",
+        "reference_exit": 0,
+        "sharppy_exit": 1
+      }
+    ]
+  }
+}

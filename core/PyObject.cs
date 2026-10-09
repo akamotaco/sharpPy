@@ -441,6 +441,42 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Type-only special method lookup without invoking instance attribute hooks.
+        /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method / slot_nb_inplace_*.
+        /// Deliberately uncached: the global cache does not yet invalidate descendants.
+        /// </summary>
+        internal PyObject LookupSpecialMethodUncached(string name)
+        {
+            foreach (var type in GetPyType().MRO)
+            {
+                if (type is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out var classValue))
+                    return classValue;
+                if (type.TypeDict != null && type.TypeDict.TryGetValue(name, out var typeValue))
+                    return typeValue;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Bind a type-level special method, including Python descriptor __get__.
+        /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method.
+        /// Descriptor exceptions must propagate, rather than mean "method missing".
+        /// </summary>
+        internal PyObject BindSpecialMethod(PyObject method)
+        {
+            if (method is IDescriptor descriptor)
+                return descriptor.Get(this, GetPyType());
+
+            var getMethod = method.LookupSpecialMethodUncached("__get__");
+            if (getMethod != null)
+            {
+                var boundGet = method.BindSpecialMethod(getMethod);
+                return boundGet.Call(new PyObject[] { this, GetPyType() }, null);
+            }
+            return method;
+        }
+
+        /// <summary>
         /// CPython PyObject_GenericGetAttr 호환: 제네릭 속성 접근
         /// MRO 기반 descriptor 프로토콜 구현
         /// </summary>

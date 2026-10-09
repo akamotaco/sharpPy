@@ -18,6 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", required=True)
+    parser.add_argument("--harness", default="tools/PerformanceHarness/bin/Release/net8.0/PerformanceHarness.dll")
+    parser.add_argument("--dll", default="bin/Release/net8.0/sharppy.dll")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--processes", type=int, default=3)
     parser.add_argument("--iterations", type=int, default=10000)
@@ -31,7 +33,7 @@ def main():
     def execute(command):
         return subprocess.run(command, cwd=ROOT, env=env, capture_output=True, encoding="utf-8",
                               errors="strict", timeout=args.timeout, check=True).stdout
-    dll = ROOT / "bin/Release/net8.0/sharppy.dll"
+    dll = ROOT / args.dll
     workloads = ROOT / "tools/PerformanceHarness/workloads.py"
     report = dict(created_utc=datetime.now(timezone.utc).isoformat(), python=sys.version,
                   python_executable=sys.executable, platform=platform.platform(), processor=platform.processor(),
@@ -43,7 +45,7 @@ def main():
                   iterations=args.iterations, samples=args.samples, processes=args.processes, runs=[])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     commands = {
-        "sharppy": [args.dotnet, "tools/PerformanceHarness/bin/Release/net8.0/PerformanceHarness.dll",
+        "sharppy": [args.dotnet, args.harness,
                     str(workloads), str(args.iterations), str(args.samples)],
         "cpython": [sys.executable, "tools/PerformanceHarness/cpython_benchmark.py",
                     "--iterations", str(args.iterations), "--samples", str(args.samples)],

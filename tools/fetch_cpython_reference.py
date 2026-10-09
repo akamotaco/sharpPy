@@ -10,6 +10,8 @@ FILES = (
     "Grammar/python.gram", "Parser/Python.asdl", "Lib/opcode.py",
     "Python/bytecodes.c", "Python/compile.c", "Python/flowgraph.c",
     "Python/assemble.c", "Python/specialize.c", "Objects/abstract.c",
+    "Include/internal/pycore_frame.h", "Objects/longobject.c", "Objects/typeobject.c",
+    "Objects/classobject.c", "Python/ceval.c",
 )
 
 

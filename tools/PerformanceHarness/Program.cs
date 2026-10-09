@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--inspect")
+{
+    Console.WriteLine(JsonSerializer.Serialize(IlInspection.Inspect()));
+    return;
+}
+
 // Compile once, warm up, then time calls to the same function/code object.
 // Allocation counters measure this synchronous thread; retained memory is not measured.
 var source = File.ReadAllText(args[0]);

@@ -1,0 +1,82 @@
+{
+  "downloaded_utc": "2026-10-09T00:11:21.640840+00:00",
+  "references": [
+    {
+      "tag": "v3.12.15",
+      "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+      "resolution_url": "https://api.github.com/repos/python/cpython/commits/v3.12.15",
+      "files": [
+        {
+          "path": "Grammar/python.gram",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Grammar/python.gram",
+          "sha256": "efc77bdaffa4816c7e98e44396679d97d19a3a357b61d20790806317343fa7e6"
+        },
+        {
+          "path": "Parser/Python.asdl",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Parser/Python.asdl",
+          "sha256": "ecc26bc2818ebddec685f96663c811de8915beaa74a7cb1ace6eea3920679ac7"
+        },
+        {
+          "path": "Lib/opcode.py",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Lib/opcode.py",
+          "sha256": "192f6008508f28d3273bff42eaea9b01c8394dab1607cd36aea778bdd166c3a6"
+        },
+        {
+          "path": "Python/bytecodes.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/bytecodes.c",
+          "sha256": "f8c050621f1498d953d4898aaf29457e154620fec7f8bb987b4d3fde6f5a1d84"
+        },
+        {
+          "path": "Python/compile.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/compile.c",
+          "sha256": "1e94426b3948c09ba0c480293e0424420ea52ccceb485f49f665bae1a47c3ad8"
+        },
+        {
+          "path": "Python/flowgraph.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/flowgraph.c",
+          "sha256": "e31bb668c2ff0f187159d3c46c11135acbb7a2762101fcd71b2647868de26e58"
+        },
+        {
+          "path": "Python/assemble.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/assemble.c",
+          "sha256": "5c18802e40010697e2dbc2d6b6a9e330621d58f243b0c3359d4d3b33771b2827"
+        },
+        {
+          "path": "Python/specialize.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/specialize.c",
+          "sha256": "2ccf2d583bb84e0f553766c782f23c42bf1e661d5d0754be529281e4928108cc"
+        },
+        {
+          "path": "Objects/abstract.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/abstract.c",
+          "sha256": "abb8e2403b6479b976e900668273a44d29f117ebb021b0f4669f3bf03521766e"
+        },
+        {
+          "path": "Include/internal/pycore_frame.h",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Include/internal/pycore_frame.h",
+          "sha256": "23d66ba6ef2936ecca96dc427be5e022712ae25c3f4b3df2abd2ca46b1ee5f39"
+        },
+        {
+          "path": "Objects/longobject.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/longobject.c",
+          "sha256": "315c71c11dacfcffcbc33bc2d778533297f162438d02780ec02de569871a2879"
+        },
+        {
+          "path": "Objects/typeobject.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/typeobject.c",
+          "sha256": "77e687a382ef5fbced0be9c99fb722e2531131f4cdd1216994a8a52696c21501"
+        },
+        {
+          "path": "Objects/classobject.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/classobject.c",
+          "sha256": "9a841367ce2aeaff6c55cf6e68487e29262b7b818a66a16c616733da20fd7f2f"
+        },
+        {
+          "path": "Python/ceval.c",
+          "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Python/ceval.c",
+          "sha256": "29640a033f373391a5b000253f74a7a1bc3182265412c0b40a76c4615acd1fda"
+        }
+      ]
+    }
+  ]
+}
