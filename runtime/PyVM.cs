@@ -30,11 +30,11 @@ namespace SharpPy
         public string? CurrentFileName { get; set; }
 
         // CPython-style closure support
-        public PyCell[] Cells { get; set; } = new PyCell[0];     // 클로저 셀들 (freevars + cellvars)
+        public PyCell[] Cells { get; set; } = Array.Empty<PyCell>();     // 클로저 셀들 (freevars + cellvars)
 
         // CPython 3.12: Keyword names for next CALL instruction
         public PyTuple? KeywordNamesForNextCall { get; set; }
-        public PyCell[] Closure { get; set; } = new PyCell[0];   // 부모로부터 받은 클로저 셀들
+        public PyCell[] Closure { get; set; } = Array.Empty<PyCell>();   // 부모로부터 받은 클로저 셀들
 
         // **NEW**: Storage for class body variables before scope cleanup
         public Dictionary<string, PyObject>? ClassBodyVariables { get; set; }
@@ -44,7 +44,10 @@ namespace SharpPy
         public PyObject? ClassLocalsDict { get; set; }
 
         // CPython-style exception handling support
-        public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
+        private Stack<int> _exceptionHandlers;
+        // Python 3.12 exception tables are the normal path. Allocate the legacy
+        // stack only when a legacy handler or an external caller requests it.
+        public Stack<int> ExceptionHandlers => _exceptionHandlers ??= new Stack<int>();
         public PyBaseException? LastException { get; set; }
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
         public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
@@ -97,7 +100,7 @@ namespace SharpPy
             // This simulates CPython's approach where kwnames is passed through the call chain
             var dummyCode = new PyCodeObject("<kwargs_holder>", new List<ByteCodeInstruction>(),
                 new List<PyObject>(), new List<string>(), new List<string>());
-            var parentFrame = new PyFrame(dummyCode, new PyObject[0], parentScope);
+            var parentFrame = new PyFrame(dummyCode, Array.Empty<PyObject>(), parentScope);
             parentFrame.KeywordNamesForNextCall = kwNames;
 
             // Create the actual frame with combined args
@@ -116,7 +119,7 @@ namespace SharpPy
 
             // CPython 3.12: Initialize LocalsPlus array for fast local variable access
             int nlocals = code.VarNames.Count;
-            LocalsPlus = new PyObject[nlocals];
+            LocalsPlus = nlocals == 0 ? Array.Empty<PyObject>() : new PyObject[nlocals];
             // Initialize all to PyNull (uninitialized marker)
             for (int i = 0; i < nlocals; i++)
             {
@@ -135,7 +138,7 @@ namespace SharpPy
             CurrentFileName = code.FileName;
 
             // 클로저 정보 설정
-            Closure = closure ?? new PyCell[0];
+            Closure = closure ?? Array.Empty<PyCell>();
 
             // CPython 3.12: Cells array includes both FreeVars (first) and CellVars (after)
             int freeVarCount = code.FreeVars?.Count ?? 0;
@@ -155,7 +158,7 @@ namespace SharpPy
             }
             else
             {
-                Cells = new PyCell[0];
+                Cells = Array.Empty<PyCell>();
             }
 
             // 함수 스코프 생성 (모듈 실행인 경우 제외)
@@ -485,8 +488,8 @@ namespace SharpPy
 
         public void PopExceptionHandler()
         {
-            if (ExceptionHandlers.Count > 0)
-                ExceptionHandlers.Pop();
+            if (_exceptionHandlers != null && _exceptionHandlers.Count > 0)
+                _exceptionHandlers.Pop();
         }
 
         public int? GetExceptionHandler()
@@ -521,7 +524,7 @@ namespace SharpPy
                 }
             }
             #if DEBUG_LOG
-            Console.WriteLine($"   Legacy handlers: {ExceptionHandlers.Count}");
+            Console.WriteLine($"   Legacy handlers: {_exceptionHandlers?.Count ?? 0}");
             #endif
 
             // CPython 3.12: Use Exception Table instead of SETUP_EXCEPT stack
@@ -535,7 +538,8 @@ namespace SharpPy
             }
 
             // Fallback to legacy SETUP_EXCEPT stack for compatibility
-            var legacyResult = ExceptionHandlers.Count > 0 ? (int?)ExceptionHandlers.Peek() : null;
+            var legacyResult = _exceptionHandlers != null && _exceptionHandlers.Count > 0
+                ? (int?)_exceptionHandlers.Peek() : null;
             #if DEBUG_LOG
             Console.WriteLine($"   Legacy handler result: {legacyResult}");
             #endif

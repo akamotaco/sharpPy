@@ -133,3 +133,4 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 - 추가 확인: Release 디버그 준비 비용과 이항 연산 fallback 할당을 개선하고 회귀·전후 측정을 수행했다. 남은 속성 조회 비용이 프로파일 상위에 있다. 실제 작업별 목표와 최적화 제어 경로의 전체 검증은 미확정.
 - 추가 확인: 2차에서 type-only in-place 조회와 명령 처리 진입점의 캡처 분리를 적용했다. 선별한 IL에서는 직접적인 CLR boxing이 없었으며, PyInt 객체화와 실행 보조 객체의 할당을 구분했다. 일반 값 표현 재설계는 아직 prototype 단계에도 착수하지 않았다.
 - 추가 확인: 3차에서 scope 이름 추측으로 인한 전역 변수 오염을 수정하고, 반환 시 내부 접두사 비교와 인덱스 descriptor의 배열 복사를 개선했다. 다음 조사 대상은 호출별 frame/scope/인자 할당이다.
+- 추가 확인: [4차 프레임 할당 분석](reports/2026-10-09/frame_allocation_analysis.md)에서 빈 배열과 legacy 예외 스택, Release 로그 준비 비용을 줄였다. 함수 호출 작업의 할당량은 약 16% 감소했고 시간 개선은 확정하지 않았다. 다음 조사 대상은 fast locals와 scope dictionary의 중복 저장이며, 변경 전 locals 관찰·변경과 closure/class body/generator 동작을 검증한다.

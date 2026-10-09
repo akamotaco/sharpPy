@@ -59,6 +59,7 @@ def main():
         "tests/function_creation_regression.py",
         "tests/scope_binding_regression.py",
         "tests/builtin_descriptor_regression.py",
+        "tests/frame_lifetime_regression.py",
         "examples/hello.py", "examples/advanced.py",
     ]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONHASHSEED="0")

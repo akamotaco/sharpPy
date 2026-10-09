@@ -1,0 +1,124 @@
+{
+  "before": {
+    "iterations": 1000,
+    "results": [
+      {
+        "name": "argument_array_2",
+        "allocated_bytes": 40000,
+        "bytes_per_operation": 40
+      },
+      {
+        "name": "empty_cells_array",
+        "allocated_bytes": 24000,
+        "bytes_per_operation": 24
+      },
+      {
+        "name": "legacy_handler_stack",
+        "allocated_bytes": 32000,
+        "bytes_per_operation": 32
+      },
+      {
+        "name": "value_stack",
+        "allocated_bytes": 56000,
+        "bytes_per_operation": 56
+      },
+      {
+        "name": "local_scope_empty",
+        "allocated_bytes": 136000,
+        "bytes_per_operation": 136
+      },
+      {
+        "name": "local_scope_2_parameters",
+        "allocated_bytes": 272000,
+        "bytes_per_operation": 272
+      },
+      {
+        "name": "global_scope_chain",
+        "allocated_bytes": 256000,
+        "bytes_per_operation": 256
+      },
+      {
+        "name": "frame_empty_precreated_scope",
+        "allocated_bytes": 520000,
+        "bytes_per_operation": 520
+      },
+      {
+        "name": "frame_add_precreated_scope",
+        "allocated_bytes": 672000,
+        "bytes_per_operation": 672
+      },
+      {
+        "name": "host_call_empty",
+        "allocated_bytes": 880000,
+        "bytes_per_operation": 880
+      },
+      {
+        "name": "host_call_add",
+        "allocated_bytes": 1064000,
+        "bytes_per_operation": 1064
+      }
+    ],
+    "scope": "Synchronous thread allocations; setup/output arrays outside measurement; frame probes include local scope creation and binding; overlapping components must not be summed"
+  },
+  "after": {
+    "iterations": 1000,
+    "results": [
+      {
+        "name": "argument_array_2",
+        "allocated_bytes": 40000,
+        "bytes_per_operation": 40
+      },
+      {
+        "name": "empty_cells_array",
+        "allocated_bytes": 24000,
+        "bytes_per_operation": 24
+      },
+      {
+        "name": "legacy_handler_stack",
+        "allocated_bytes": 32000,
+        "bytes_per_operation": 32
+      },
+      {
+        "name": "value_stack",
+        "allocated_bytes": 56000,
+        "bytes_per_operation": 56
+      },
+      {
+        "name": "local_scope_empty",
+        "allocated_bytes": 136000,
+        "bytes_per_operation": 136
+      },
+      {
+        "name": "local_scope_2_parameters",
+        "allocated_bytes": 272000,
+        "bytes_per_operation": 272
+      },
+      {
+        "name": "global_scope_chain",
+        "allocated_bytes": 176000,
+        "bytes_per_operation": 176
+      },
+      {
+        "name": "frame_empty_precreated_scope",
+        "allocated_bytes": 368000,
+        "bytes_per_operation": 368
+      },
+      {
+        "name": "frame_add_precreated_scope",
+        "allocated_bytes": 544000,
+        "bytes_per_operation": 544
+      },
+      {
+        "name": "host_call_empty",
+        "allocated_bytes": 672000,
+        "bytes_per_operation": 672
+      },
+      {
+        "name": "host_call_add",
+        "allocated_bytes": 888000,
+        "bytes_per_operation": 888
+      }
+    ],
+    "scope": "Synchronous thread allocations; setup/output arrays outside measurement; frame probes include local scope creation and binding; overlapping components must not be summed"
+  }
+}

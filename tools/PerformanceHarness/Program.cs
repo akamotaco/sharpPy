@@ -14,6 +14,17 @@ if (args.Length > 0 && args[0] == "--descriptor-check")
     Console.WriteLine("C# descriptor checks: PASS");
     return;
 }
+if (args.Length > 0 && args[0] == "--frame-allocations")
+{
+    Console.WriteLine(JsonSerializer.Serialize(FrameAllocationProbes.Run()));
+    return;
+}
+if (args.Length > 0 && args[0] == "--frame-check")
+{
+    FrameChecks.Run();
+    Console.WriteLine("C# frame checks: PASS");
+    return;
+}
 
 // Compile once, warm up, then time calls to the same function/code object.
 // Allocation counters measure this synchronous thread; retained memory is not measured.
