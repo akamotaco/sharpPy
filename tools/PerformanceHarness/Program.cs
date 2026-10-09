@@ -3,6 +3,36 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--dict-view-probe")
+{
+    var probeDict = new PyDict();
+    for (int i = 0; i < 100; i++) probeDict.SetItem(new PyInt(i), new PyInt(i));
+    var keysMethod = probeDict.GetAttribute("keys");
+    PyObject? RunViews()
+    {
+        PyObject? last = null;
+        for (int i = 0; i < 10000; i++) last = keysMethod.Call(Array.Empty<PyObject>(), null);
+        if (last?.Length() != 100) throw new InvalidOperationException("dict view probe failed");
+        return last;
+    }
+    for (int i = 0; i < 10; i++) GC.KeepAlive(RunViews());
+    var viewTimes = new double[10];
+    var viewAllocations = new long[10];
+    for (int i = 0; i < 10; i++)
+    {
+        long allocated = GC.GetAllocatedBytesForCurrentThread();
+        long started = Stopwatch.GetTimestamp();
+        var last = RunViews();
+        viewTimes[i] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        viewAllocations[i] = GC.GetAllocatedBytesForCurrentThread() - allocated;
+        GC.KeepAlive(last);
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { iterations = 10000, dict_size = 100, warmups = 10,
+        scope = "Native bound dict.keys calls; excludes iteration and Python VM",
+        milliseconds = viewTimes, allocated_bytes = viewAllocations }));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--dict-storage-probe")
 {
     var key = new PyInt(1000);

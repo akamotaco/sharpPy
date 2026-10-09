@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [12차 dict view 분석](reports/2026-10-09/dict_views_analysis.md)에서 Python keys/values/items를 retained view로 바꾸고 내부 snapshot API는 유지했다. native keys 생성 probe의 할당이 약 97.7% 감소했다. iterator mutation, set 연산, namespace stale 저장소는 아직 미해결이며 실제 CPython 비교 실패 fixture로 구분했다.
+
 - 추가 확인: [11차 dict 저장소 분석](reports/2026-10-09/dict_storage_analysis.md)에서 동등 키 pop의 순서 목록 정합성을 수정하고 comparer를 공유했다. native probe에서 생성당 24B 할당 감소를 확인했으며 속도 개선은 미확정이다. namespace live 조회·삭제와 일반 dict retained view를 별도 실패 fixture로 확보했다.
 
 - 추가 확인: [10차 LookupError 분석](reports/2026-10-09/lookup_error_analysis.md)에서 누락된 builtins 등록을 보완했다. 실제 CPython 3.12와 생성·상속·예외 포착을 비교했고 Release 전체 평가의 기존 결과를 유지했다. 다음 구조적 후보는 module namespace 저장소 통합이며 wrapper의 일부 조회만 수정하는 방식은 views/mutation 정합성을 해결하지 못한다.

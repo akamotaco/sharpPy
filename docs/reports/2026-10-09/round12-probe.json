@@ -1,0 +1,210 @@
+﻿{
+    "before":  {
+                   "median_ms":  7.52965,
+                   "min_ms":  7.3814,
+                   "max_ms":  7.6936,
+                   "allocated_bytes":  [
+                                           17120000
+                                       ],
+                   "raw":  [
+                               {
+                                   "iterations":  10000,
+                                   "dict_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native bound dict.keys calls; excludes iteration and Python VM",
+                                   "milliseconds":  [
+                                                        7.5626,
+                                                        7.4921,
+                                                        7.3956,
+                                                        7.4559,
+                                                        7.5313,
+                                                        7.5256,
+                                                        7.5202,
+                                                        7.5225,
+                                                        7.3814,
+                                                        7.4749
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "dict_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native bound dict.keys calls; excludes iteration and Python VM",
+                                   "milliseconds":  [
+                                                        7.6936,
+                                                        7.5029,
+                                                        7.6255,
+                                                        7.5824,
+                                                        7.528,
+                                                        7.5214,
+                                                        7.5484,
+                                                        7.6489,
+                                                        7.6496,
+                                                        7.6422
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "dict_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native bound dict.keys calls; excludes iteration and Python VM",
+                                   "milliseconds":  [
+                                                        7.5315,
+                                                        7.4579,
+                                                        7.5015,
+                                                        7.516,
+                                                        7.6374,
+                                                        7.6637,
+                                                        7.5485,
+                                                        7.6167,
+                                                        7.5005,
+                                                        7.5764
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000,
+                                                           17120000
+                                                       ]
+                               }
+                           ]
+               },
+    "after":  {
+                  "median_ms":  0.2927,
+                  "min_ms":  0.276,
+                  "max_ms":  0.3528,
+                  "allocated_bytes":  [
+                                          400000
+                                      ],
+                  "raw":  [
+                              {
+                                  "iterations":  10000,
+                                  "dict_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native bound dict.keys calls; excludes iteration and Python VM",
+                                  "milliseconds":  [
+                                                       0.2984,
+                                                       0.3055,
+                                                       0.3528,
+                                                       0.2952,
+                                                       0.2945,
+                                                       0.2798,
+                                                       0.2849,
+                                                       0.2926,
+                                                       0.2881,
+                                                       0.2961
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "dict_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native bound dict.keys calls; excludes iteration and Python VM",
+                                  "milliseconds":  [
+                                                       0.2889,
+                                                       0.2937,
+                                                       0.3232,
+                                                       0.2903,
+                                                       0.3011,
+                                                       0.2895,
+                                                       0.2798,
+                                                       0.2927,
+                                                       0.2899,
+                                                       0.2885
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "dict_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native bound dict.keys calls; excludes iteration and Python VM",
+                                  "milliseconds":  [
+                                                       0.276,
+                                                       0.3032,
+                                                       0.2927,
+                                                       0.2929,
+                                                       0.2967,
+                                                       0.2889,
+                                                       0.2908,
+                                                       0.2943,
+                                                       0.3229,
+                                                       0.2876
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000,
+                                                          400000
+                                                      ]
+                              }
+                          ]
+              },
+    "metadata":  {
+                     "before_dll_sha256":  "ed67bcd44d481a310e0a8befacc3af94e37010b91a00c4dbc78049cefb562817",
+                     "after_dll_sha256":  "74035a33bbcce6b21b66bcfd8827e03cda3004c06af9946f787b9553afaaee98",
+                     "processes_per_variant":  3,
+                     "baseline_commit":  "a097221",
+                     "order":  "all before, then all after; builds excluded; no paired execution",
+                     "samples_per_process":  10
+                 }
+}

@@ -202,6 +202,9 @@ namespace SharpPy
         public static readonly PyType ListType = new PyType("list", new[] { ObjectType });
         public static readonly PyType TupleType = new PyType("tuple", new[] { ObjectType });
         public static readonly PyType DictType = new PyType("dict", new[] { ObjectType });
+        public static readonly PyType DictKeysType = new PyType("dict_keys", new[] { ObjectType });
+        public static readonly PyType DictValuesType = new PyType("dict_values", new[] { ObjectType });
+        public static readonly PyType DictItemsType = new PyType("dict_items", new[] { ObjectType });
         public static readonly PyType SetType = new PyType("set", new[] { ObjectType });
         public static readonly PyType FrozenSetType = new PyType("frozenset", new[] { ObjectType });
         public static readonly PyType RangeType = new PyType("range", new[] { ObjectType });
@@ -2061,7 +2064,7 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor 'keys' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     }
 
-                    return dict.Keys();
+                    return new PyDictView(dict, DictViewKind.Keys);
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -2090,7 +2093,7 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor 'values' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     }
 
-                    return dict.Values();
+                    return new PyDictView(dict, DictViewKind.Values);
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -2119,7 +2122,7 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor 'items' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     }
 
-                    return dict.Items();
+                    return new PyDictView(dict, DictViewKind.Items);
                 },
                 minArgs: 0,
                 maxArgs: 0

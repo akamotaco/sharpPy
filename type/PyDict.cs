@@ -80,7 +80,7 @@ namespace SharpPy
                     if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'keys' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
-                    return GetDict(self, dictType).Keys();
+                    return new PyDictView(GetDict(self, dictType), DictViewKind.Keys);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -96,7 +96,7 @@ namespace SharpPy
                     if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'values' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
-                    return GetDict(self, dictType).Values();
+                    return new PyDictView(GetDict(self, dictType), DictViewKind.Values);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -112,7 +112,7 @@ namespace SharpPy
                     if (!self.GetPyType().IsSubclassOf(dictType))
                         throw PyTypeError.Create($"descriptor 'items' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
-                    return GetDict(self, dictType).Items();
+                    return new PyDictView(GetDict(self, dictType), DictViewKind.Items);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -820,7 +820,7 @@ namespace SharpPy
 
         #endregion
 
-        #region Views (Keys, Values, Items)
+        #region Internal Snapshots (Python methods return PyDictView)
 
         /// <summary>
         /// 모든 키의 뷰 반환

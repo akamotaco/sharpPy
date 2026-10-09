@@ -862,7 +862,7 @@ namespace SharpPy
                                 throw PyTypeError.Create($"keys() takes exactly 1 argument ({args.Length} given)");
 
                             var dict = GetDictStorage(args[0]);
-                            return dict.Keys();
+                            return new PyDictView(dict, DictViewKind.Keys);
                         }),
 
                         "values" => new PyBuiltinFunction("values", (args, kwargs) =>
@@ -871,7 +871,7 @@ namespace SharpPy
                                 throw PyTypeError.Create($"values() takes exactly 1 argument ({args.Length} given)");
 
                             var dict = GetDictStorage(args[0]);
-                            return dict.Values();
+                            return new PyDictView(dict, DictViewKind.Values);
                         }),
 
                         "items" => new PyBuiltinFunction("items", (args, kwargs) =>
@@ -880,7 +880,7 @@ namespace SharpPy
                                 throw PyTypeError.Create($"items() takes exactly 1 argument ({args.Length} given)");
 
                             var dict = GetDictStorage(args[0]);
-                            return dict.Items();
+                            return new PyDictView(dict, DictViewKind.Items);
                         }),
 
                         "pop" => new PyBuiltinFunction("pop", (args, kwargs) =>
