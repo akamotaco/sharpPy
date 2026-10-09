@@ -23,7 +23,8 @@ print("Square dict:", square_dict)
 # Set comprehension
 print("\n=== Set Comprehension ===")
 unique_squares = {x**2 for x in [1, 2, 2, 3, 3, 4]}
-print("Unique squares:", unique_squares)
+assert unique_squares == {1, 4, 9, 16}
+print("Unique squares:", sorted(unique_squares))
 
 # Complex comprehension
 print("\n=== Complex Comprehension ===")

@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--memoryview-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(MemoryViewProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--dict-copy-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(DictCopyProbe.Run()));

@@ -5,6 +5,7 @@ Requires CPython 3.12. Timing here is diagnostic process duration, not a VM benc
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -13,6 +14,45 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def stable_output(name, output):
+    """Mask only named volatile fields; retain raw output and captured values."""
+    patterns = {
+        "test_python312_missing_features.py": [
+            r"^(  (?:Memoryview slice|Read-only memoryview|Read-only slice): <memory at )(?P<value>0x[0-9a-fA-F]+)(>)$",
+        ],
+        "examples/advanced.py": [
+            r"^(Execution time: )(?P<value>[0-9.eE+-]+)( seconds)$",
+        ],
+        "test_ultimate_complex_features.py": [
+            r"^(  🕐 TimestampMixin initialized at )(?P<value>[0-9.eE+-]+)()$",
+            r"^(  ⚡ advanced_process executed in )(?P<value>[0-9.eE+-]+)(s)$",
+            r"^(🎬 Session Ultimate Test completed in )(?P<value>[0-9.eE+-]+)(s)$",
+            r"^(   .*'age_seconds': )(?P<value>[0-9.eE+-]+)(, 'results_count': .*)$",
+        ],
+    }
+    fields = []
+    lines = []
+    for number, line in enumerate(output.splitlines(keepends=True), 1):
+        for pattern in patterns.get(name.replace('\\', '/'), []):
+            match = re.fullmatch(pattern, line.rstrip('\r\n'))
+            if match:
+                value = match['value']
+                if value.startswith('0x'):
+                    valid = int(value, 16) > 0
+                else:
+                    try:
+                        valid = math.isfinite(float(value)) and float(value) >= 0
+                    except ValueError:
+                        valid = False
+                if valid:
+                    fields.append(dict(line=number, value=value))
+                    start, end = match.span('value')
+                    line = line[:start] + '<volatile>' + line[end:]
+                break
+        lines.append(line)
+    return ''.join(lines), fields
 
 
 def failure_markers(output):
@@ -59,6 +99,8 @@ def main():
         "tests/function_creation_regression.py",
         "tests/scope_binding_regression.py",
         "tests/builtin_descriptor_regression.py",
+            "tests/bound_method_attributes_regression.py",
+            "tests/memoryview_alias_regression.py",
             "tests/frame_lifetime_regression.py",
             "tests/locals_observation_regression.py",
             "tests/cell_delete_regression.py",
@@ -76,6 +118,7 @@ def main():
             "tests/compatibility/lookup_error_builtin.py",
             "tests/dict_pop_order_regression.py",
             "tests/dict_copy_regression.py",
+            "tests/dict_copy_subclass_regression.py",
             "tests/dict_views_regression.py",
             "tests/dict_iterator_regression.py",
             "tests/dict_cursor_mutation_regression.py",
@@ -102,6 +145,7 @@ def main():
     for name, reference_command, sharppy_command in commands:
         reference = run(reference_command, args.timeout, env) if reference_command else None
         sharppy = run(sharppy_command, args.timeout, env)
+        volatile_fields = None
         if sharppy["timed_out"]:
             status = "sharppy_timeout"
         elif reference and reference["timed_out"]:
@@ -112,9 +156,16 @@ def main():
             status = "sharppy_failure"
         elif reference and (reference["stdout"] != sharppy["stdout"] or reference["stderr"] != sharppy["stderr"]):
             status = "output_difference"
+            ref_stable, ref_fields = stable_output(name, reference['stdout'])
+            actual_stable, actual_fields = stable_output(name, sharppy['stdout'])
+            if (ref_fields and ref_stable == actual_stable and
+                    reference['stderr'] == sharppy['stderr']):
+                status = 'matching_except_volatile_fields'
+                volatile_fields = dict(reference=ref_fields, sharppy=actual_fields)
         else:
             status = "matching_output" if reference else "no_reported_failure"
-        report["cases"].append(dict(name=name, status=status, reference=reference, sharppy=sharppy))
+        report["cases"].append(dict(name=name, status=status, reference=reference, sharppy=sharppy,
+                                  volatile_fields=volatile_fields))
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"{name}: {status}", flush=True)
     counts = {}
@@ -123,7 +174,7 @@ def main():
     report["counts"] = counts
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(counts, ensure_ascii=False))
-    return int(any(case["status"] in ("sharppy_timeout", "sharppy_failure", "reference_timeout", "reference_test_failure")
+    return int(any(case["status"] in ("output_difference", "sharppy_timeout", "sharppy_failure", "reference_timeout", "reference_test_failure")
                    for case in report["cases"]))
 
 

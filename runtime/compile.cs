@@ -12079,13 +12079,15 @@ namespace SharpPy
                     
                 case SubscriptExpression subscript:
                     // Check if this is a slice assignment (obj[start:stop] = value)
-                    if (subscript.Slice is SliceExpression slice)
+                    if (subscript.Slice is SliceExpression slice && slice.Step == null)
                     {
                         // CPython 3.12: Use STORE_SLICE for slice assignments
                         // Stack order: container, start, stop, value -> []
                         CompileExpression(subscript.Value);  // container
-                        CompileExpression(slice.Start);      // start 
-                        CompileExpression(slice.Stop);       // stop
+                        if (slice.Start != null) CompileExpression(slice.Start);
+                        else EmitLoadConst(PyNone.Instance);
+                        if (slice.Stop != null) CompileExpression(slice.Stop);
+                        else EmitLoadConst(PyNone.Instance);
                         // Value is already on stack from assignment statement
                         EmitInstruction(ByteCodeOp.STORE_SLICE);
                     }
@@ -12175,13 +12177,15 @@ namespace SharpPy
 
                 case SubscriptExpression subscript:
                     // Check if this is a slice assignment (obj[start:stop] = value)
-                    if (subscript.Slice is SliceExpression slice)
+                    if (subscript.Slice is SliceExpression slice && slice.Step == null)
                     {
                         // CPython 3.12: Use STORE_SLICE for slice assignments  
                         // Stack order: container, start, stop, value -> []
                         CompileExpression(subscript.Value);  // container
-                        CompileExpression(slice.Start);      // start 
-                        CompileExpression(slice.Stop);       // stop
+                        if (slice.Start != null) CompileExpression(slice.Start);
+                        else EmitLoadConst(PyNone.Instance);
+                        if (slice.Stop != null) CompileExpression(slice.Stop);
+                        else EmitLoadConst(PyNone.Instance);
                         // Value is already on stack from previous operations
                         EmitInstruction(ByteCodeOp.STORE_SLICE);
                     }

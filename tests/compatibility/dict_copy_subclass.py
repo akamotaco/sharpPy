@@ -1,4 +1,4 @@
-"""Known gap: dict.copy must accept dict subclasses and bypass overrides."""
+"""dict.copy accepts subclasses with inherited iteration and bypasses item overrides."""
 class Derived(dict):
     def __getitem__(self, key):
         raise AssertionError('copy must read underlying storage')

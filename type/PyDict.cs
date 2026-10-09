@@ -261,10 +261,8 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
-                        throw PyTypeError.Create($"descriptor 'copy' requires a 'dict' object but received a '{self.GetTypeName()}'");
-
-                    return dict.Copy();
+                    if (self is PyDict dict) return dict.Copy();
+                    return CopySubclass(self, GetDict(self, dictType));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -928,6 +926,42 @@ namespace SharpPy
         #endregion
 
         #region Copy
+
+        private static PyDict CopySubclass(PyObject source, PyDict storage)
+        {
+            // PyDict_Copy skips callbacks for empty storage. Otherwise an
+            // overridden iteration slot selects dict_merge's mapping path.
+            if (storage.Length() == 0 || ReferenceEquals(
+                source.LookupSpecialMethodUncached("__iter__"),
+                storage.LookupSpecialMethodUncached("__iter__")))
+                return storage.Copy();
+
+            var output = source.GetAttribute("keys").Call(Array.Empty<PyObject>(), null);
+            PyList keys;
+            if (output is PyList list && output.GetPyType() == PyType.ListType)
+                keys = list;
+            else
+            {
+                PyObject iterator;
+                try { iterator = output.GetIterator(); }
+                catch (PythonException ex) when (ex.PyException is PyTypeError)
+                {
+                    throw PyTypeError.Create($"{source.GetTypeName()}.keys() returned a non-iterable (type {output.GetTypeName()})");
+                }
+                // PyMapping_Keys materializes before any item lookup. Avoid
+                // AsList, which currently replaces iterator errors with TypeError.
+                keys = new PyList();
+                keys.InplaceAdd(iterator);
+            }
+
+            var copy = new PyDict();
+            for (int i = 0; i < keys.Length(); i++)
+            {
+                var key = keys.Items[i];
+                copy.SetItem(key, source.GetItem(key));
+            }
+            return copy;
+        }
 
         /// <summary>
         /// 딕셔너리의 얕은 복사본 생성

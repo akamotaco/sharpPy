@@ -1,0 +1,847 @@
+{
+  "baseline_commit": "38f6956",
+  "workload": "dictionary_copy",
+  "iterations": 10000,
+  "process_pairs": 3,
+  "warmups_per_process": 10,
+  "samples_per_process": 10,
+  "runs": {
+    "before": [
+      {
+        "framework": ".NET 8.0.31",
+        "architecture": "X64",
+        "os": "Microsoft Windows 10.0.26200",
+        "iterations": 10000,
+        "samples": 10,
+        "warmups": 10,
+        "setup_milliseconds": 196.2034,
+        "results": [
+          {
+            "name": "dictionary_copy",
+            "expected": 49995000,
+            "milliseconds": [
+              27.452,
+              26.4152,
+              26.6231,
+              26.759,
+              26.7251,
+              26.4838,
+              26.8501,
+              26.3885,
+              26.4356,
+              26.5332
+            ],
+            "allocated_bytes": [
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616
+            ],
+            "gc_collections": [
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "framework": ".NET 8.0.31",
+        "architecture": "X64",
+        "os": "Microsoft Windows 10.0.26200",
+        "iterations": 10000,
+        "samples": 10,
+        "warmups": 10,
+        "setup_milliseconds": 188.5053,
+        "results": [
+          {
+            "name": "dictionary_copy",
+            "expected": 49995000,
+            "milliseconds": [
+              26.3591,
+              26.5153,
+              25.8678,
+              25.7207,
+              27.3661,
+              26.6462,
+              25.5395,
+              26.3915,
+              27.0937,
+              26.796
+            ],
+            "allocated_bytes": [
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616
+            ],
+            "gc_collections": [
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "framework": ".NET 8.0.31",
+        "architecture": "X64",
+        "os": "Microsoft Windows 10.0.26200",
+        "iterations": 10000,
+        "samples": 10,
+        "warmups": 10,
+        "setup_milliseconds": 188.7169,
+        "results": [
+          {
+            "name": "dictionary_copy",
+            "expected": 49995000,
+            "milliseconds": [
+              26.3695,
+              26.1813,
+              25.868,
+              26.8856,
+              27.1715,
+              27.714,
+              26.8577,
+              26.5797,
+              26.8451,
+              26.5802
+            ],
+            "allocated_bytes": [
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616
+            ],
+            "gc_collections": [
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "framework": ".NET 8.0.31",
+        "architecture": "X64",
+        "os": "Microsoft Windows 10.0.26200",
+        "iterations": 10000,
+        "samples": 10,
+        "warmups": 10,
+        "setup_milliseconds": 185.9474,
+        "results": [
+          {
+            "name": "dictionary_copy",
+            "expected": 49995000,
+            "milliseconds": [
+              26.8889,
+              25.796,
+              25.8304,
+              26.5293,
+              26.5739,
+              26.5728,
+              26.8532,
+              26.6617,
+              25.6581,
+              26.6065
+            ],
+            "allocated_bytes": [
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616
+            ],
+            "gc_collections": [
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "framework": ".NET 8.0.31",
+        "architecture": "X64",
+        "os": "Microsoft Windows 10.0.26200",
+        "iterations": 10000,
+        "samples": 10,
+        "warmups": 10,
+        "setup_milliseconds": 188.5765,
+        "results": [
+          {
+            "name": "dictionary_copy",
+            "expected": 49995000,
+            "milliseconds": [
+              26.3965,
+              27.1225,
+              27.3871,
+              26.9702,
+              30.5287,
+              27.0016,
+              26.6381,
+              27.2717,
+              28.9509,
+              27.8507
+            ],
+            "allocated_bytes": [
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616
+            ],
+            "gc_collections": [
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "framework": ".NET 8.0.31",
+        "architecture": "X64",
+        "os": "Microsoft Windows 10.0.26200",
+        "iterations": 10000,
+        "samples": 10,
+        "warmups": 10,
+        "setup_milliseconds": 189.887,
+        "results": [
+          {
+            "name": "dictionary_copy",
+            "expected": 49995000,
+            "milliseconds": [
+              26.7785,
+              26.8687,
+              26.3075,
+              27.7749,
+              28.3742,
+              28.6359,
+              28.175,
+              28.159,
+              26.6407,
+              26.5886
+            ],
+            "allocated_bytes": [
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616,
+              43302616
+            ],
+            "gc_collections": [
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "before": {
+      "median_ms": 26.57995,
+      "q1_ms": 26.3885,
+      "q3_ms": 26.8501,
+      "allocated_bytes": [
+        43302616
+      ]
+    },
+    "after": {
+      "median_ms": 26.860950000000003,
+      "q1_ms": 26.5739,
+      "q3_ms": 27.7749,
+      "allocated_bytes": [
+        43302616
+      ]
+    }
+  },
+  "dll_sha256": {
+    "before": "704e21857205c5db26998fece10a3417b5a92d8c58a671401de4f4c7259d18c5",
+    "after": "fb83f575549be3c438ae651d1e8f28c16b343254208a471a78cc8c6a2255c7ea"
+  },
+  "tests": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "matching_output": 49,
+      "output_difference": 4,
+      "no_reported_failure": 2
+    },
+    "dll_sha256": "fb83f575549be3c438ae651d1e8f28c16b343254208a471a78cc8c6a2255c7ea",
+    "cases": [
+      {
+        "name": "tests\\level10_integration.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level11_exceptions_advanced.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level12_indexing_slicing.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level1_literals.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level2_operators.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level3_variables.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level4_control_if.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level4_control_loops.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level5_functions_advanced.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level5_functions_basic.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level6_classes_basic.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level7_comprehensions.py",
+        "status": "output_difference"
+      },
+      {
+        "name": "tests\\level8_generators.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level9_exceptions.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_comprehensive_exception_handling.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_comprehensive_python312.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_global_variable.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_nested_super.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_python312_advanced_features.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_python312_missing_features.py",
+        "status": "output_difference"
+      },
+      {
+        "name": "test_ultimate_complex_features.py",
+        "status": "output_difference"
+      },
+      {
+        "name": "tests/binary_inplace_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/inplace_special_lookup.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/function_creation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/scope_binding_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/builtin_descriptor_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/frame_lifetime_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/locals_observation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/cell_delete_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dynamic_locals_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/namespace_locals_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/locals_refresh_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_locals_mapping_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/prepared_namespace_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/type_new_dict_subclass_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/call_failure_state_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_closure_mapping_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_exception_table_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_nested_state_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/exception_offset_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/compatibility/lookup_error_builtin.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_pop_order_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_copy_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_copy_subclass_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_views_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_iterator_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_cursor_mutation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_mutation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_clear_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_live_reads_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_observation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "examples/hello.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "examples/advanced.py",
+        "status": "output_difference"
+      },
+      {
+        "name": "--test-generator-kwargs",
+        "status": "no_reported_failure"
+      },
+      {
+        "name": "--test-pymethod-kwargs",
+        "status": "no_reported_failure"
+      }
+    ]
+  },
+  "before_tests": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "sharppy_failure": 1
+    },
+    "dll_sha256": "704e21857205c5db26998fece10a3417b5a92d8c58a671401de4f4c7259d18c5",
+    "cases": [
+      {
+        "name": "tests/dict_copy_subclass_regression.py",
+        "status": "sharppy_failure"
+      }
+    ]
+  },
+  "focused": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "matching_output": 3
+    },
+    "dll_sha256": "fb83f575549be3c438ae651d1e8f28c16b343254208a471a78cc8c6a2255c7ea",
+    "cases": [
+      {
+        "name": "tests/dict_copy_subclass_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/compatibility/dict_copy_subclass.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_copy_regression.py",
+        "status": "matching_output"
+      }
+    ]
+  }
+}

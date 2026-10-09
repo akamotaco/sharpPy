@@ -28,6 +28,17 @@ namespace SharpPy
         {
             var baType = PyType.BytearrayType;
 
+            baType.TypeDict["__delitem__"] = new PyMethodDescriptor(
+                "__delitem__", baType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__delitem__() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyByteArray ba)
+                        throw PyTypeError.Create($"descriptor '__delitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    ba.DelItem(args[0]);
+                    return PyNone.Instance;
+                }, minArgs: 1, maxArgs: 1);
+
             // append method descriptor
             baType.TypeDict["append"] = new PyMethodDescriptor(
                 "append", baType,
@@ -434,8 +445,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Slice access - returns new bytearray
-                var indices = slice.GetIndices(_bytes.Count);
-                int start = indices[0], stop = indices[1], step = indices[2];
+                var (start, stop, step) = slice.Indices(_bytes.Count);
 
                 if (step == 1)
                 {
@@ -481,9 +491,6 @@ namespace SharpPy
         /// </summary>
         public override void SetItem(PyObject index, PyObject value)
         {
-            if (_exports > 0)
-                throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
-
             if (index is PyInt pyInt)
             {
                 // Single index assignment
@@ -499,8 +506,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Slice assignment
-                var indices = slice.GetIndices(_bytes.Count);
-                int start = indices[0], stop = indices[1], step = indices[2];
+                var (start, stop, step) = slice.Indices(_bytes.Count);
 
                 // Convert value to bytes
                 List<byte> newBytes = ConvertToBytes(value);
@@ -509,6 +515,8 @@ namespace SharpPy
                 {
                     // Contiguous slice - can change size
                     int deleteCount = Math.Max(0, stop - start);
+                    if (_exports > 0 && deleteCount != newBytes.Count)
+                        throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
                     _bytes.RemoveRange(start, deleteCount);
                     _bytes.InsertRange(start, newBytes);
                 }
@@ -570,8 +578,7 @@ namespace SharpPy
             else if (index is PySlice slice)
             {
                 // Slice deletion
-                var indices = slice.GetIndices(_bytes.Count);
-                int start = indices[0], stop = indices[1], step = indices[2];
+                var (start, stop, step) = slice.Indices(_bytes.Count);
 
                 if (step == 1)
                 {
@@ -882,9 +889,7 @@ namespace SharpPy
         public override PyMemoryView GetBuffer(int flags)
         {
             _exports++;
-            // Performance: ToArray needed here for buffer export (creates snapshot)
-            // bytearray provides writable buffer
-            return new PyMemoryView(_bytes.ToArray(), false);  // writable=true
+            return new PyMemoryView(_bytes);
         }
 
         public override void ReleaseBuffer(PyMemoryView buffer)

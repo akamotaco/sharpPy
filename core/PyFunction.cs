@@ -693,10 +693,14 @@ public partial class PyFunction : PyObject, IDescriptor
             {
                 "__self__" => Instance,
                 "__func__" => Function,
+                "__class__" => GetPyType(),
                 "__name__" => new PyString(Function.Name),
                 "__call__" => this, // 메서드 자체가 __call__
                 "__code__" => Function.GetAttribute("__code__"), // CPython 3.12: Delegate to underlying function
-                _ => base.GetAttribute(name)
+                "__doc__" => Function.GetAttribute(name),
+                // method_getattro: method descriptors precede function attributes.
+                _ => LookupSpecialMethodUncached(name) != null
+                    ? base.GetAttribute(name) : Function.GetAttribute(name)
             };
         }
 

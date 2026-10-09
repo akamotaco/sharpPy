@@ -97,18 +97,41 @@ namespace SharpPy
     /// </summary>
     public class PyMemoryView : PyObject
     {
-        private readonly byte[] _data;
+        private readonly IList<byte> _data;
         private readonly bool _readonly;
         private readonly int _itemsize;
+        private readonly int _offset;
+        private readonly int _length;
+        private readonly int _stride;
 
         public PyMemoryView(byte[] data, bool readOnly = false, int itemsize = 1)
+            : this(data, readOnly, itemsize, 0, data?.Length ?? 0, 1) { }
+
+        internal PyMemoryView(List<byte> data)
+            : this(data, false, 1, 0, data.Count, 1) { }
+
+        private PyMemoryView(IList<byte> data, bool readOnly, int itemsize,
+            int offset, int length, int stride)
         {
             _data = data ?? throw new ArgumentNullException(nameof(data));
             _readonly = readOnly;
             _itemsize = itemsize;  // CPython: Py_buffer.itemsize
+            _offset = offset;
+            _length = length;
+            _stride = stride;
         }
 
-        public byte[] Data => _data;
+        public byte[] Data
+        {
+            get
+            {
+                if (_data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
+                    return array;
+                var result = new byte[_length];
+                for (int i = 0; i < result.Length; i++) result[i] = _data[_offset + i * _stride];
+                return result;
+            }
+        }
         public bool ReadOnly => _readonly;
         public int ItemSize => _itemsize;  // CPython: self->view.itemsize
 
@@ -139,32 +162,20 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/memoryobject.c:2540-2560 - memory_subscript
                 var idx = pyInt.Value;
-                if (idx < 0) idx += _data.Length;
-                if (idx < 0 || idx >= _data.Length)
+                if (idx < 0) idx += _length;
+                if (idx < 0 || idx >= _length)
                     throw PyIndexError.Create("memoryview index out of range");
 
-                return new PyInt(_data[(int)idx]);
+                return SmallIntCache.GetOrCreate(_data[_offset + (int)idx * _stride]);
             }
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
             {
                 // Calculate slice indices
-                var (start, stop, step) = slice.Indices(_data.Length);
-
-                // Create new byte array for sliced data
-                var sliceLength = slice.GetLength(_data.Length);
-                var slicedData = new byte[sliceLength];
-
-                int idx = 0;
-                for (int i = start; step > 0 ? i < stop : i > stop; i += step)
-                {
-                    slicedData[idx++] = _data[i];
-                }
-
-                // Return new memoryview with sliced data
-                // CPython: creates a new memoryview object sharing the same buffer
-                // SharpPy: creates a new memoryview with copied data (simpler implementation)
-                return new PyMemoryView(slicedData, _readonly, _itemsize);
+                var (start, stop, step) = slice.Indices(_length);
+                var sliceLength = slice.GetLength(_length);
+                return new PyMemoryView(_data, _readonly, _itemsize,
+                    _offset + start * _stride, sliceLength, _stride * step);
             }
             throw PyTypeError.Create($"memoryview indices must be integers or slices, not {index.GetTypeName()}");
         }
@@ -177,21 +188,21 @@ namespace SharpPy
             if (index is PyInt pyInt && value is PyInt pyValue)
             {
                 var idx = pyInt.Value;
-                if (idx < 0) idx += _data.Length;
+                if (idx < 0) idx += _length;
                 // CPython 3.12: Objects/memoryobject.c:2700-2730 - memory_ass_sub
-                if (idx < 0 || idx >= _data.Length)
+                if (idx < 0 || idx >= _length)
                     throw PyIndexError.Create("memoryview index out of range");
 
                 if (pyValue.Value < 0 || pyValue.Value > 255)
                     throw PyValueError.Create("byte must be in range(0, 256)");
 
-                _data[(int)idx] = (byte)(int)pyValue.Value;
+                _data[_offset + (int)idx * _stride] = (byte)(int)pyValue.Value;
                 return;
             }
             throw PyTypeError.Create($"memoryview indices must be integers, not {index.GetTypeName()}");
         }
 
-        public override int Length() => _data.Length;
+        public override int Length() => _length;
 
         public override string ToString() => $"<memory at 0x{GetHashCode():X}>";
         public override PyString ToRepr() => new PyString(ToString());

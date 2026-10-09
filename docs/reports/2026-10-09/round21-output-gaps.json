@@ -1,0 +1,1270 @@
+{
+  "baseline_commit": "38f6956",
+  "scope": "bytearray-backed memoryview native probe, 1024 bytes",
+  "samples": 30,
+  "runs": {
+    "before": [
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.4072,
+              0.2706,
+              0.2876,
+              0.2911,
+              0.2658,
+              0.29,
+              0.437,
+              0.4119,
+              0.4205,
+              0.3734
+            ],
+            "allocated_bytes": [
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              7.273,
+              6.6953,
+              7.1111,
+              7.1653,
+              6.6418,
+              7.0165,
+              7.222,
+              7.1786,
+              7.285,
+              7.2942
+            ],
+            "allocated_bytes": [
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              2.0744,
+              2.1001,
+              2.1392,
+              2.0802,
+              2.1001,
+              2.249,
+              2.1404,
+              2.0782,
+              2.0861,
+              2.0807
+            ],
+            "allocated_bytes": [
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.2689,
+              0.2578,
+              0.2758,
+              0.2802,
+              0.2609,
+              0.2742,
+              0.2749,
+              0.2586,
+              0.2715,
+              0.2761
+            ],
+            "allocated_bytes": [
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              5.0582,
+              4.9106,
+              4.8457,
+              5.0161,
+              5.0132,
+              5.3164,
+              5.4044,
+              5.2044,
+              5.4246,
+              5.4379
+            ],
+            "allocated_bytes": [
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              2.33,
+              2.3218,
+              2.4344,
+              2.3528,
+              2.3176,
+              2.3674,
+              2.4484,
+              2.3981,
+              2.3643,
+              3.0242
+            ],
+            "allocated_bytes": [
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.2706,
+              0.2564,
+              0.2721,
+              0.2702,
+              0.2586,
+              0.2745,
+              0.2823,
+              0.2644,
+              0.2777,
+              0.2826
+            ],
+            "allocated_bytes": [
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              5.195,
+              5.014,
+              4.9883,
+              5.1364,
+              5.1432,
+              5.1731,
+              5.6656,
+              5.297,
+              5.3253,
+              5.2374
+            ],
+            "allocated_bytes": [
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000,
+              10880000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.9434,
+              1.9618,
+              2.0235,
+              2.0446,
+              1.9596,
+              1.9522,
+              1.978,
+              1.9154,
+              1.9316,
+              1.9484
+            ],
+            "allocated_bytes": [
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000,
+              4000000
+            ]
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.3859,
+              0.486,
+              0.5101,
+              0.4325,
+              0.5664,
+              0.4463,
+              0.5896,
+              0.3815,
+              0.2909,
+              0.2817
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.8509,
+              0.8536,
+              0.8856,
+              0.8737,
+              0.8743,
+              0.8847,
+              0.8737,
+              0.8906,
+              0.8886,
+              0.8649
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              2.3557,
+              2.3832,
+              1.8997,
+              1.8462,
+              1.8574,
+              1.8724,
+              1.8753,
+              1.8806,
+              1.8778,
+              1.882
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.5964,
+              0.5917,
+              0.3166,
+              0.2395,
+              0.2226,
+              0.228,
+              0.2454,
+              0.2371,
+              0.237,
+              0.2446
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.8128,
+              0.8251,
+              0.816,
+              0.8224,
+              0.8202,
+              0.8339,
+              0.8209,
+              0.8139,
+              0.8248,
+              0.8177
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              2.2743,
+              2.3108,
+              2.2635,
+              2.316,
+              2.2305,
+              1.8495,
+              1.846,
+              1.8477,
+              1.858,
+              1.8617
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.5396,
+              0.6495,
+              0.8084,
+              0.5226,
+              0.6202,
+              0.3569,
+              0.2266,
+              0.2235,
+              0.2285,
+              0.246
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.8365,
+              0.8292,
+              0.8495,
+              0.8265,
+              0.8609,
+              0.8337,
+              0.8285,
+              0.8294,
+              0.8177,
+              0.8985
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.8663,
+              1.8669,
+              1.868,
+              1.8684,
+              1.8656,
+              1.8778,
+              1.857,
+              1.8639,
+              1.8635,
+              1.8665
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "summary": [
+    {
+      "operation": "create",
+      "before": {
+        "median_ms": 0.2747,
+        "q1_ms": 0.2689,
+        "q3_ms": 0.2876,
+        "bytes": [
+          10880000
+        ]
+      },
+      "after": {
+        "median_ms": 0.3692,
+        "q1_ms": 0.2395,
+        "q3_ms": 0.5396,
+        "bytes": [
+          560000
+        ]
+      }
+    },
+    {
+      "operation": "slice",
+      "before": {
+        "median_ms": 5.32085,
+        "q1_ms": 5.1364,
+        "q3_ms": 7.0165,
+        "bytes": [
+          10880000
+        ]
+      },
+      "after": {
+        "median_ms": 0.8338,
+        "q1_ms": 0.8224,
+        "q3_ms": 0.8737,
+        "bytes": [
+          560000
+        ]
+      }
+    },
+    {
+      "operation": "read",
+      "before": {
+        "median_ms": 2.0930999999999997,
+        "q1_ms": 1.978,
+        "q3_ms": 2.33,
+        "bytes": [
+          4000000
+        ]
+      },
+      "after": {
+        "median_ms": 1.8682,
+        "q1_ms": 1.8617,
+        "q3_ms": 1.8997,
+        "bytes": [
+          0
+        ]
+      }
+    }
+  ],
+  "intermediate_read_regression": {
+    "before": [
+      {
+        "operation": "read",
+        "count": 100000,
+        "milliseconds": [
+          1.9474,
+          1.9191,
+          2.0573,
+          1.9224,
+          2.1123,
+          2.2301,
+          2.4286,
+          1.8794,
+          1.9431,
+          1.9299
+        ],
+        "allocated_bytes": [
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000
+        ]
+      },
+      {
+        "operation": "read",
+        "count": 100000,
+        "milliseconds": [
+          2.1004,
+          2.1268,
+          2.1711,
+          2.1266,
+          2.1165,
+          2.1398,
+          2.1455,
+          2.0793,
+          2.1237,
+          1.966
+        ],
+        "allocated_bytes": [
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000
+        ]
+      },
+      {
+        "operation": "read",
+        "count": 100000,
+        "milliseconds": [
+          2.8851,
+          2.773,
+          2.9054,
+          2.7361,
+          2.8932,
+          2.8031,
+          3.027,
+          2.7453,
+          2.7355,
+          2.8953
+        ],
+        "allocated_bytes": [
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000
+        ]
+      }
+    ],
+    "after": [
+      {
+        "operation": "read",
+        "count": 100000,
+        "milliseconds": [
+          3.1952,
+          2.9185,
+          2.7939,
+          2.874,
+          2.8467,
+          2.8386,
+          2.7741,
+          2.7311,
+          2.8111,
+          2.7712
+        ],
+        "allocated_bytes": [
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000
+        ]
+      },
+      {
+        "operation": "read",
+        "count": 100000,
+        "milliseconds": [
+          2.8279,
+          2.8456,
+          2.8233,
+          2.8807,
+          3.202,
+          2.9199,
+          2.8256,
+          2.8111,
+          2.979,
+          2.9586
+        ],
+        "allocated_bytes": [
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000
+        ]
+      },
+      {
+        "operation": "read",
+        "count": 100000,
+        "milliseconds": [
+          3.0741,
+          2.9956,
+          2.9261,
+          2.9591,
+          2.9121,
+          3.0834,
+          2.9093,
+          2.9619,
+          2.9912,
+          2.9814
+        ],
+        "allocated_bytes": [
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000,
+          4000000
+        ]
+      }
+    ]
+  },
+  "dll_sha256": {
+    "before": "704e21857205c5db26998fece10a3417b5a92d8c58a671401de4f4c7259d18c5",
+    "after": "d9e25b10021b419c3ad54a69e381d446f491c289809ce2000dc95999c6757d63"
+  },
+  "tests": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "matching_output": 52,
+      "matching_except_volatile_fields": 3,
+      "no_reported_failure": 2
+    },
+    "dll_sha256": "1cab9fc2c3dfb273a04e61c44852051d2407ea897fdab874dc2c96d0545ea00d",
+    "cases": [
+      {
+        "name": "tests\\level10_integration.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level11_exceptions_advanced.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level12_indexing_slicing.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level1_literals.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level2_operators.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level3_variables.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level4_control_if.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level4_control_loops.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level5_functions_advanced.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level5_functions_basic.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level6_classes_basic.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level7_comprehensions.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level8_generators.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests\\level9_exceptions.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "test_comprehensive_exception_handling.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "test_comprehensive_python312.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "test_global_variable.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "test_nested_super.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "test_python312_advanced_features.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "test_python312_missing_features.py",
+        "status": "matching_except_volatile_fields",
+        "volatile_fields": {
+          "reference": [
+            {
+              "line": 75,
+              "value": "0x00000164D85DD000"
+            },
+            {
+              "line": 76,
+              "value": "0x00000164D85DD000"
+            },
+            {
+              "line": 77,
+              "value": "0x00000164D85DD180"
+            }
+          ],
+          "sharppy": [
+            {
+              "line": 75,
+              "value": "0xE2DBA9"
+            },
+            {
+              "line": 76,
+              "value": "0x3F9B8F5"
+            },
+            {
+              "line": 77,
+              "value": "0x3C780A2"
+            }
+          ]
+        }
+      },
+      {
+        "name": "test_ultimate_complex_features.py",
+        "status": "matching_except_volatile_fields",
+        "volatile_fields": {
+          "reference": [
+            {
+              "line": 31,
+              "value": "1791548351.0963187"
+            },
+            {
+              "line": 44,
+              "value": "0.0"
+            },
+            {
+              "line": 84,
+              "value": "0.0000"
+            },
+            {
+              "line": 125,
+              "value": "0.0000"
+            },
+            {
+              "line": 136,
+              "value": "1791548351.0963187"
+            },
+            {
+              "line": 182,
+              "value": "1791548351.0963187"
+            },
+            {
+              "line": 269,
+              "value": "0.0000"
+            },
+            {
+              "line": 275,
+              "value": "0.0"
+            },
+            {
+              "line": 279,
+              "value": "0.0"
+            },
+            {
+              "line": 283,
+              "value": "0.0"
+            },
+            {
+              "line": 284,
+              "value": "0.0000"
+            }
+          ],
+          "sharppy": [
+            {
+              "line": 31,
+              "value": "1791548352.1859925"
+            },
+            {
+              "line": 44,
+              "value": "0.0013480186462402344"
+            },
+            {
+              "line": 84,
+              "value": "0.0026"
+            },
+            {
+              "line": 125,
+              "value": "0.0010"
+            },
+            {
+              "line": 136,
+              "value": "1791548352.1926427"
+            },
+            {
+              "line": 182,
+              "value": "1791548352.1942637"
+            },
+            {
+              "line": 269,
+              "value": "0.0013"
+            },
+            {
+              "line": 275,
+              "value": "0.010687112808227539"
+            },
+            {
+              "line": 279,
+              "value": "0.004126787185668945"
+            },
+            {
+              "line": 283,
+              "value": "0.0025911331176757812"
+            },
+            {
+              "line": 284,
+              "value": "0.0127"
+            }
+          ]
+        }
+      },
+      {
+        "name": "tests/binary_inplace_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/inplace_special_lookup.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/function_creation_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/scope_binding_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/builtin_descriptor_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/bound_method_attributes_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/memoryview_alias_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/frame_lifetime_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/locals_observation_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/cell_delete_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dynamic_locals_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/namespace_locals_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/locals_refresh_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/class_locals_mapping_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/prepared_namespace_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/type_new_dict_subclass_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/call_failure_state_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/class_closure_mapping_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/class_exception_table_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/class_nested_state_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/exception_offset_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/lookup_error_builtin.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_pop_order_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_copy_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_copy_subclass_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_views_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_iterator_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_cursor_mutation_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_mutation_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_clear_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_live_reads_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_observation_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "examples/hello.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      },
+      {
+        "name": "examples/advanced.py",
+        "status": "matching_except_volatile_fields",
+        "volatile_fields": {
+          "reference": [
+            {
+              "line": 6,
+              "value": "0.0"
+            }
+          ],
+          "sharppy": [
+            {
+              "line": 6,
+              "value": "0.0069353580474853516"
+            }
+          ]
+        }
+      },
+      {
+        "name": "--test-generator-kwargs",
+        "status": "no_reported_failure",
+        "volatile_fields": null
+      },
+      {
+        "name": "--test-pymethod-kwargs",
+        "status": "no_reported_failure",
+        "volatile_fields": null
+      }
+    ]
+  },
+  "final_focused": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "matching_output": 1
+    },
+    "dll_sha256": "d9e25b10021b419c3ad54a69e381d446f491c289809ce2000dc95999c6757d63",
+    "cases": [
+      {
+        "name": "tests/memoryview_alias_regression.py",
+        "status": "matching_output",
+        "volatile_fields": null
+      }
+    ]
+  },
+  "before_focused": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "sharppy_failure": 2
+    },
+    "dll_sha256": "704e21857205c5db26998fece10a3417b5a92d8c58a671401de4f4c7259d18c5",
+    "cases": [
+      {
+        "name": "tests/bound_method_attributes_regression.py",
+        "status": "sharppy_failure",
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/memoryview_write.py",
+        "status": "sharppy_failure",
+        "volatile_fields": null
+      }
+    ]
+  },
+  "original_differences": [
+    {
+      "name": "tests\\level7_comprehensions.py",
+      "diff": "--- \n+++ \n@@ -7,7 +7,7 @@\n Square dict: {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}\n \n === Set Comprehension ===\n-Unique squares: {16, 1, 4, 9}\n+Unique squares: {1, 4, 9, 16}\n \n === Complex Comprehension ===\n Word lengths: [5, 5, 6]\n"
+    },
+    {
+      "name": "test_python312_missing_features.py",
+      "diff": "--- \n+++ \n@@ -46,7 +46,7 @@\n 🧪 6. @override Decorator Tests\n   Parent method: parent_method\n   Child method: child_method (overriding parent_method)\n-  Override marker: True\n+  Override marker: False\n ✅ @override decorator tests (simulated) passed\n \n 🧪 7. Exception Groups Tests\n@@ -71,10 +71,10 @@\n   Original data: bytearray(b'Hello, World!')\n   Memoryview length: 13\n   Memoryview itemsize: 1\n-  Modified data: bytearray(b'hello, world!')\n-  Memoryview slice: <memory at 0x000002EAB7D9D000>\n-  Read-only memoryview: <memory at 0x000002EAB7D9D000>\n-  Read-only slice: <memory at 0x000002EAB7D9D180>\n+  Modified data: bytearray(b'Hello, World!')\n+  Memoryview slice: <memory at 0xE2DBA9>\n+  Read-only memoryview: <memory at 0x3F9B8F5>\n+  Read-only slice: <memory at 0x3C780A2>\n ✅ Buffer protocol & memoryview tests passed\n \n 🧪 10. Union Type Operator Tests\n"
+    },
+    {
+      "name": "test_ultimate_complex_features.py",
+      "diff": "--- \n+++ \n@@ -1,3 +1,71 @@\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for Enum:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for ReprEnum:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for IntEnum:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for StrEnum:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for FlagBoundary:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for Flag:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n+[TYPE_NEW DEBUG]   Type: staticmethod\n+[TYPE_NEW DEBUG]   It's a staticmethod!\n+[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n+[TYPE_NEW DEBUG] After PyClass creation for IntFlag:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <function _generate_next_value_>\n+[TYPE_NEW DEBUG]   Type: function\n+[TYPE_NEW DEBUG] After PyClass creation for EnumCheck:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: function\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: function\n+[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n+[TYPE_NEW DEBUG]   Value: <function _generate_next_value_>\n+[TYPE_NEW DEBUG]   Type: function\n+[TYPE_NEW DEBUG] After PyClass creation for RegexFlag:\n+[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: function\n+[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: function\n === Python 3.12 ULTIMATE Complex Features Test ===\n 🚀 EnhancedMeta creating enhanced class: BaseProcessor\n 🔍 ValidationMeta processing class: BaseProcessor\n@@ -28,7 +96,7 @@\n   ✅ name set successfully\n   🔐 ContextMixin initialized\n   💾 SerializableMixin initialized\n-  🕐 TimestampMixin initialized at 1791547540.9246037\n+  🕐 TimestampMixin initialized at 1791547542.0372427\n   ✏️ Setting threshold = 2.5\n   🔄 Transformed to: 2.5\n   ✅ threshold set successfully\n@@ -41,7 +109,7 @@\n    Transformed name: Enhanced Processor\n   👀 Getting name: Enhanced Processor\n   👀 Getting threshold: 2.5\n-   Statistics: {'name': 'Enhanced Processor', 'processed_count': 0, 'age_seconds': 0.0, 'results_count': 0, 'threshold': 2.5}\n+   Statistics: {'name': 'Enhanced Processor', 'processed_count': 0, 'age_seconds': 0.0013794898986816406, 'results_count': 0, 'threshold': 2.5}\n   📋 Calling DataProcessor.advanced_process\n   🚀 Advanced processing with multiplier 3.0\n   🚪 Entering context for DataProcessor\n@@ -81,7 +149,7 @@\n   📝 Processed 'world' → 'WORLD'\n   🚪 Exiting context for DataProcessor\n   📝 Cached result for advanced_process\n-  ⚡ advanced_process executed in 0.0000s\n+  ⚡ advanced_process executed in 0.0025s\n    First run results: [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']\n   📋 Calling DataProcessor.advanced_process\n   🚀 Advanced processing with multiplier 3.0\n@@ -122,7 +190,7 @@\n   📝 Processed 'world' → 'WORLD'\n   🚪 Exiting context for DataProcessor\n   📝 Cached result for advanced_process\n-  ⚡ advanced_process executed in 0.0000s\n+  ⚡ advanced_process executed in 0.0011s\n    Cached run results: [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']\n    Serialized: {'processed_count': 12, 'results': [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD', 7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']}\n \n@@ -133,7 +201,7 @@\n   ✅ name set successfully\n   🔐 ContextMixin initialized\n   💾 SerializableMixin initialized\n-  🕐 TimestampMixin initialized at 1791547540.9246037\n+  🕐 TimestampMixin initialized at 1791547542.0440931\n   ✏️ Setting threshold = 1.5\n   🔄 Transformed to: 1.5\n   ✅ threshold set successfully\n@@ -179,7 +247,7 @@\n   ✅ name set successfully\n   🔐 ContextMixin initialized\n   💾 SerializableMixin initialized\n-  🕐 TimestampMixin initialized at 1791547540.9246037\n+  🕐 TimestampMixin initialized at 1791547542.0456765\n   ✏️ Setting threshold = 1.0\n   🔄 Transformed to: 1.0\n   ✅ threshold set successfully\n@@ -266,22 +334,22 @@\n   📝 Processed 't' → 'T'\n   🚪 Exiting context for DataProcessor\n   📝 Cached result for advanced_process\n-  ⚡ advanced_process executed in 0.0000s\n+  ⚡ advanced_process executed in 0.0014s\n \n 6. Final statistics:\n   👀 Getting name: Enhanced Processor\n   👀 Getting name: Enhanced Processor\n   👀 Getting threshold: 2.5\n-   DataProcessor(name='Enhanced Processor', processed=22): {'name': 'Enhanced Processor', 'processed_count': 22, 'age_seconds': 0.0, 'results_count': 22, 'threshold': 2.5}\n+   DataProcessor(name='Enhanced Processor', processed=22): {'name': 'Enhanced Processor', 'processed_count': 22, 'age_seconds': 0.010892868041992188, 'results_count': 22, 'threshold': 2.5}\n   👀 Getting name: Numbercruncher\n   👀 Getting name: Numbercruncher\n   👀 Getting threshold: 1.5\n-   DataProcessor(name='Numbercruncher', processed=4): {'name': 'Numbercruncher', 'processed_count': 4, 'age_seconds': 0.0, 'results_count': 0, 'threshold': 1.5}\n+   DataProcessor(name='Numbercruncher', processed=4): {'name': 'Numbercruncher', 'processed_count': 4, 'age_seconds': 0.004136085510253906, 'results_count': 0, 'threshold': 1.5}\n   👀 Getting name: Textprocessor\n   👀 Getting name: Textprocessor\n   👀 Getting threshold: 1.0\n-   DataProcessor(name='Textprocessor', processed=3): {'name': 'Textprocessor', 'processed_count': 3, 'age_seconds': 0.0, 'results_count': 0, 'threshold': 1.0}\n-🎬 Session Ultimate Test completed in 0.0000s\n+   DataProcessor(name='Textprocessor', processed=3): {'name': 'Textprocessor', 'processed_count': 3, 'age_seconds': 0.0026395320892333984, 'results_count': 0, 'threshold': 1.0}\n+🎬 Session Ultimate Test completed in 0.0129s\n \n ============================================================\n 🎉 ALL ULTIMATE COMPLEX FEATURES TESTED SUCCESSFULLY!\n"
+    },
+    {
+      "name": "examples/advanced.py",
+      "diff": "--- \n+++ \n@@ -3,4 +3,4 @@\n It's a dog!\n It's a cat!\n HELLO, WORLD\n-Execution time: 0.0 seconds\n+Execution time: 0.007222175598144531 seconds\n"
+    }
+  ]
+}

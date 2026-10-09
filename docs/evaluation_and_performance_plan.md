@@ -125,6 +125,10 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [21차 기존 출력 차이 분석](reports/2026-10-09/output_difference_analysis.md)에서 bound method 속성, memoryview 원본 공유, 불필요한 type 생성 로그를 수정했다. set은 동등성 assertion과 정렬 출력으로 검사한다. 전체 57개: raw 일치 52, 시간·주소 필드만 다른 3, native 2. 시간·주소 차이는 별도 상태로 표시하며 나머지 output_difference는 evaluator 실패로 처리한다. memoryview 수명/format 전체 호환성과 별도 compatibility fixture들은 미해결이다.
+
+- 추가 확인: [20차 dict subclass copy](reports/2026-10-09/dict_copy_subclass_analysis.md)는 기본 iteration의 저장소 복사와 iteration 재정의 시 mapping 복사를 CPython 소스·실행 결과에 맞췄다. 전체 55개에서 새 실패 없음. 일반 copy workload 할당 동일, 시간 분포는 겹치므로 추가 속도 개선은 주장하지 않는다.
+
 - 판단 기준: CPython 3.12의 관찰 가능한 결과를 유지하고 C#에 적합한 구현으로 측정한다. 자체 동작 정책이나 C 구조의 직역을 최적화로 인정하지 않는다. 결과 차이가 남거나 비용이 증가한 기존 변경도 재검토한다. module snapshot의 메서드별 보정은 늘리지 않는다.
 
 - 추가 확인: [19차 일반 dict copy](reports/2026-10-09/dict_copy_analysis.md)는 저장된 해시·참조와 삽입 순서를 복사해 재해시 및 반복 확장을 제거했다. Python copy workload 시간 약 46.0%, 할당 약 66.0% 감소. 전체 54개에서 새 실패 없음. dict subclass copy의 기존 실패를 별도 보존했다. module 이중 저장소와 임의 cursor 압축 정책은 여전히 교체 검토 대상이다.
