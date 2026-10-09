@@ -10,18 +10,25 @@ internal static class MemoryViewProbe
         var view = exporter.GetBuffer(0);
         var slice = new PySlice(new PyInt(0), new PyInt(1024));
         var index = new PyInt(0);
+        var writtenValue = new PyInt(97);
         var results = new List<object>();
-        foreach (string operation in new[] { "create", "slice", "read" })
+        foreach (string operation in new[] { "create", "slice", "read", "write" })
         {
-            int count = operation == "read" ? 100000 : 10000;
+            int count = operation == "read" || operation == "write" ? 100000 : 10000;
             void RunBatch()
             {
                 PyObject last = view;
                 for (int i = 0; i < count; i++)
-                    last = operation == "create" ? exporter.GetBuffer(0)
-                        : operation == "slice" ? view.GetItem(slice) : view.GetItem(index);
+                {
+                    if (operation == "write") view.SetItem(index, writtenValue);
+                    else
+                        last = operation == "create" ? exporter.GetBuffer(0)
+                            : operation == "slice" ? view.GetItem(slice) : view.GetItem(index);
+                }
                 if (operation == "read" ? last.ToInt() != 0 : last.Length() != 1024)
                     throw new InvalidOperationException("memoryview probe result");
+                if (operation == "write" && view.GetItem(index).ToInt() != 97)
+                    throw new InvalidOperationException("memoryview write result");
                 GC.KeepAlive(last);
             }
             for (int i = 0; i < 10; i++) RunBatch();

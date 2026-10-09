@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [23차 memoryview index](reports/2026-10-09/memoryview_index_analysis.md)는 bool/int subclass 및 type-only __index__, 예외 전파와 재진입 시 해제 순서를 보완했다. 기본 59개에서 새 실패 없음. native 바이트 쓰기 약 34.8% 단축, 할당 동일. 자동 해제는 VM 전반의 참조 소유권 기반이 없어 국소 패치로 해결하지 않았으며 구조 과제로 유지한다.
+
 - 추가 확인: [22차 memoryview 명시적 해제](reports/2026-10-09/memoryview_release_analysis.md)는 release/with 종료와 자식 view의 resize 보호를 CPython과 맞췄다. 기본 58개에서 새 실패 없음. native slice/읽기 중앙값 약 39.4%/20.2% 감소, 할당 동일. `del view` 자동 해제는 별도 재현에서 아직 실패하며 다음 우선 조사 대상으로 지정한다.
 
 - 추가 확인: [21차 기존 출력 차이 분석](reports/2026-10-09/output_difference_analysis.md)에서 bound method 속성, memoryview 원본 공유, 불필요한 type 생성 로그를 수정했다. set은 동등성 assertion과 정렬 출력으로 검사한다. 전체 57개: raw 일치 52, 시간·주소 필드만 다른 3, native 2. 시간·주소 차이는 별도 상태로 표시하며 나머지 output_difference는 evaluator 실패로 처리한다. memoryview 수명/format 전체 호환성과 별도 compatibility fixture들은 미해결이다.

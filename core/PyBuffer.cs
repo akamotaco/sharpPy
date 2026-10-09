@@ -151,17 +151,39 @@ namespace SharpPy
                 throw PyValueError.Create("operation forbidden on released memoryview object");
         }
 
+        private PyMemoryView(PyMemoryView source, PySlice slice)
+            : this(source._data, source._readonly, source._itemsize,
+                   source._offset, source._length, source._stride)
+        {
+            // CPython registers the child before slice __index__ callbacks run.
+            // Such callbacks may release the parent; the child still owns its export.
+            try
+            {
+                var (start, stop, step) = slice.Indices(_length);
+                _length = step > 0
+                    ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
+                    : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
+                _offset += start * _stride;
+                _stride *= step;
+            }
+            catch
+            {
+                Release();
+                throw;
+            }
+        }
+
         private byte ReadByte(int position) => _data is PyByteArray exporter
             ? exporter.ReadBufferByte(position) : ((byte[])_data)[position];
 
-        private int GetIndex(PyInt index)
+        private int GetIndex(PyInt index, PyObject original = null)
         {
             // CPython converts an index to Py_ssize_t before adjusting negatives.
             long position;
             try { position = (long)index.Value; }
             catch (OverflowException)
             {
-                throw PyIndexError.Create("cannot fit 'int' into an index-sized integer");
+                throw PyIndexError.Create($"cannot fit '{(original ?? index).GetTypeName()}' into an index-sized integer");
             }
             if (position < 0) position += _length;
             if ((ulong)position >= (ulong)_length)
@@ -229,15 +251,13 @@ namespace SharpPy
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
             {
-                // Calculate slice indices
-                var (start, stop, step) = slice.Indices(_length);
-                int sliceLength = step > 0
-                    ? (start < stop ? 1 + (stop - 1 - start) / step : 0)
-                    : (stop < start ? (int)(1 + ((long)start - 1 - stop) / -(long)step) : 0);
-                return new PyMemoryView(_data, _readonly, _itemsize,
-                    _offset + start * _stride, sliceLength, _stride * step);
+                return new PyMemoryView(this, slice);
             }
-            throw PyTypeError.Create($"memoryview indices must be integers or slices, not {index.GetTypeName()}");
+            var converted = TryGetIndex(index);
+            if (converted == null) throw PyTypeError.Create("memoryview: invalid slice key");
+            int position = GetIndex(converted, index);
+            CheckReleased();
+            return SmallIntCache.GetOrCreate(ReadByte(position));
         }
 
         public override void SetItem(PyObject index, PyObject value)
@@ -246,18 +266,45 @@ namespace SharpPy
             if (_readonly)
                 throw PyTypeError.Create("cannot modify read-only memory");
 
-            if (index is PyInt pyInt && value is PyInt pyValue)
+            var pyInt = index as PyInt ?? TryGetIndex(index);
+            if (pyInt != null)
             {
-                int position = GetIndex(pyInt);
+                int position = GetIndex(pyInt, index);
+                ulong byteValue = ConvertByteValue(value);
+                CheckReleased();
 
-                if (pyValue.Value < 0 || pyValue.Value > 255)
-                    throw PyValueError.Create("byte must be in range(0, 256)");
+                if (byteValue > 255)
+                    throw PyValueError.Create("memoryview: invalid value for format 'B'");
 
-                if (_data is PyByteArray exporter) exporter.WriteBufferByte(position, (byte)(int)pyValue.Value);
-                else ((byte[])_data)[position] = (byte)(int)pyValue.Value;
+                if (_data is PyByteArray exporter) exporter.WriteBufferByte(position, (byte)byteValue);
+                else ((byte[])_data)[position] = (byte)byteValue;
                 return;
             }
-            throw PyTypeError.Create($"memoryview indices must be integers, not {index.GetTypeName()}");
+            throw PyTypeError.Create("memoryview: invalid slice key");
+        }
+
+        private static ulong ConvertByteValue(PyObject value)
+        {
+            try
+            {
+                var integer = value as PyInt ?? TryGetIndex(value);
+                if (integer == null) throw PyTypeError.Create("memoryview: invalid type for format 'B'");
+                // pack_single converts to C unsigned long before checking release
+                // and the byte range (32 bits on Windows, 64 on Unix x64).
+                return OperatingSystem.IsWindows() ? (ulong)(uint)integer.Value : (ulong)integer.Value;
+            }
+            catch (PythonException ex) when (ex.PyException is PyTypeError)
+            {
+                throw PyTypeError.Create("memoryview: invalid type for format 'B'");
+            }
+            catch (PythonException ex) when (ex.PyException is PyValueError || ex.PyException is PyOverflowError)
+            {
+                throw PyValueError.Create("memoryview: invalid value for format 'B'");
+            }
+            catch (OverflowException)
+            {
+                throw PyValueError.Create("memoryview: invalid value for format 'B'");
+            }
         }
 
         public override int Length() { CheckReleased(); return _length; }

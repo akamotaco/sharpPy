@@ -1,0 +1,1234 @@
+{
+  "baseline_commit": "f5c3afe",
+  "scope": "memoryview built-in create/slice/read/write; 1024-byte exporter",
+  "runs": {
+    "before": [
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.2066,
+              0.2023,
+              0.207,
+              0.2058,
+              0.2039,
+              0.2058,
+              0.2038,
+              0.203,
+              0.2076,
+              0.2202
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.5379,
+              0.5824,
+              0.488,
+              0.4888,
+              0.4851,
+              0.5013,
+              0.4883,
+              0.4878,
+              0.4849,
+              0.4872
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.5027,
+              1.5022,
+              1.4958,
+              1.4998,
+              1.5029,
+              1.5012,
+              1.4897,
+              1.511,
+              1.4985,
+              1.4961
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "operation": "write",
+            "count": 100000,
+            "milliseconds": [
+              3.5152,
+              3.4967,
+              3.5015,
+              3.5083,
+              3.5064,
+              3.5707,
+              3.5037,
+              3.5032,
+              3.493,
+              3.5101
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.4316,
+              0.3212,
+              0.2713,
+              0.2398,
+              0.2242,
+              0.1999,
+              0.2056,
+              0.2097,
+              0.2065,
+              0.2056
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.4928,
+              0.4914,
+              0.4897,
+              0.4944,
+              0.4927,
+              0.4916,
+              0.4925,
+              0.4913,
+              0.4909,
+              0.4904
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.4947,
+              1.4945,
+              1.4939,
+              1.4909,
+              1.4934,
+              1.5093,
+              1.5554,
+              1.5254,
+              1.4915,
+              1.4928
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "operation": "write",
+            "count": 100000,
+            "milliseconds": [
+              3.5217,
+              3.4936,
+              3.4988,
+              3.4952,
+              3.4958,
+              3.5042,
+              3.5047,
+              3.5047,
+              3.4925,
+              3.4943
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.2558,
+              0.3357,
+              0.2463,
+              0.2657,
+              0.2045,
+              0.2064,
+              0.2067,
+              0.2049,
+              0.2076,
+              0.2045
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.4779,
+              0.4786,
+              0.4982,
+              0.4968,
+              0.4797,
+              0.4824,
+              0.4766,
+              0.4794,
+              0.4772,
+              0.4806
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.4946,
+              1.4961,
+              1.4877,
+              1.523,
+              1.4877,
+              1.493,
+              1.4911,
+              1.5506,
+              1.4889,
+              1.4909
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "operation": "write",
+            "count": 100000,
+            "milliseconds": [
+              3.5372,
+              3.6486,
+              3.7333,
+              3.7187,
+              3.5157,
+              3.5252,
+              4.1044,
+              3.634,
+              3.5127,
+              3.5217
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.2046,
+              0.2027,
+              0.2071,
+              0.202,
+              0.2051,
+              0.2003,
+              0.2028,
+              0.2126,
+              0.2023,
+              0.2093
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.4931,
+              0.4969,
+              0.4938,
+              0.4991,
+              0.4943,
+              0.4983,
+              0.4953,
+              0.4985,
+              0.4939,
+              0.5005
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.4799,
+              1.4794,
+              1.4784,
+              1.4758,
+              1.4791,
+              1.4792,
+              1.4803,
+              1.4782,
+              1.4796,
+              1.4958
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "operation": "write",
+            "count": 100000,
+            "milliseconds": [
+              2.4551,
+              2.4699,
+              2.4398,
+              2.4447,
+              2.4456,
+              2.4721,
+              2.4629,
+              2.581,
+              2.5019,
+              2.4457
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.3857,
+              0.3391,
+              0.301,
+              0.3434,
+              0.3131,
+              0.2158,
+              0.2373,
+              0.2096,
+              0.2164,
+              0.2141
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.4751,
+              0.5276,
+              0.4795,
+              0.4768,
+              0.4767,
+              0.4837,
+              0.4796,
+              0.4761,
+              0.4799,
+              0.4829
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.5164,
+              1.5182,
+              1.5161,
+              1.5157,
+              1.5135,
+              1.5342,
+              1.5236,
+              1.5326,
+              1.5101,
+              1.5141
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "operation": "write",
+            "count": 100000,
+            "milliseconds": [
+              2.2973,
+              2.2877,
+              2.2863,
+              2.2826,
+              2.2795,
+              2.2813,
+              2.2833,
+              2.3026,
+              2.2859,
+              2.2887
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "buffer_size": 1024,
+        "warmups": 10,
+        "results": [
+          {
+            "operation": "create",
+            "count": 10000,
+            "milliseconds": [
+              0.3755,
+              0.3178,
+              0.2572,
+              0.3208,
+              0.2654,
+              0.2128,
+              0.2181,
+              0.2043,
+              0.2003,
+              0.2089
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "slice",
+            "count": 10000,
+            "milliseconds": [
+              0.487,
+              0.4873,
+              0.492,
+              0.4891,
+              0.4906,
+              0.4903,
+              0.4907,
+              0.4906,
+              0.4884,
+              0.4877
+            ],
+            "allocated_bytes": [
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000,
+              560000
+            ]
+          },
+          {
+            "operation": "read",
+            "count": 100000,
+            "milliseconds": [
+              1.4924,
+              1.4958,
+              1.5249,
+              1.5034,
+              1.4921,
+              1.4941,
+              1.4962,
+              1.4972,
+              1.4939,
+              1.4941
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "operation": "write",
+            "count": 100000,
+            "milliseconds": [
+              2.2578,
+              2.2534,
+              2.2558,
+              2.2595,
+              2.2501,
+              2.2826,
+              2.2718,
+              2.2549,
+              2.2585,
+              2.2626
+            ],
+            "allocated_bytes": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "summary": [
+    {
+      "operation": "create",
+      "before": {
+        "median_ms": 0.20665,
+        "q1_ms": 0.2049,
+        "q3_ms": 0.2398,
+        "allocated_bytes": [
+          560000
+        ]
+      },
+      "after": {
+        "median_ms": 0.21345,
+        "q1_ms": 0.2046,
+        "q3_ms": 0.301,
+        "allocated_bytes": [
+          560000
+        ]
+      }
+    },
+    {
+      "operation": "slice",
+      "before": {
+        "median_ms": 0.48925,
+        "q1_ms": 0.4824,
+        "q3_ms": 0.4927,
+        "allocated_bytes": [
+          560000
+        ]
+      },
+      "after": {
+        "median_ms": 0.49045,
+        "q1_ms": 0.4829,
+        "q3_ms": 0.4943,
+        "allocated_bytes": [
+          560000
+        ]
+      }
+    },
+    {
+      "operation": "read",
+      "before": {
+        "median_ms": 1.49525,
+        "q1_ms": 1.4915,
+        "q3_ms": 1.5027,
+        "allocated_bytes": [
+          0
+        ]
+      },
+      "after": {
+        "median_ms": 1.4958,
+        "q1_ms": 1.4799,
+        "q3_ms": 1.5157,
+        "allocated_bytes": [
+          0
+        ]
+      }
+    },
+    {
+      "operation": "write",
+      "before": {
+        "median_ms": 3.50735,
+        "q1_ms": 3.4988,
+        "q3_ms": 3.5252,
+        "allocated_bytes": [
+          0
+        ]
+      },
+      "after": {
+        "median_ms": 2.2861000000000002,
+        "q1_ms": 2.2626,
+        "q3_ms": 2.4456,
+        "allocated_bytes": [
+          0
+        ]
+      }
+    }
+  ],
+  "intermediate_write": {
+    "before": [
+      {
+        "operation": "write",
+        "count": 100000,
+        "milliseconds": [
+          3.5015,
+          3.5136,
+          3.5025,
+          3.6117,
+          3.4598,
+          3.4634,
+          3.471,
+          3.4905,
+          3.4852,
+          3.4874
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "operation": "write",
+        "count": 100000,
+        "milliseconds": [
+          3.5022,
+          3.5135,
+          3.501,
+          3.5036,
+          3.5,
+          3.5151,
+          3.5025,
+          3.5015,
+          3.5112,
+          3.5236
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "operation": "write",
+        "count": 100000,
+        "milliseconds": [
+          3.5169,
+          3.4967,
+          3.5043,
+          3.4995,
+          3.4986,
+          3.5169,
+          3.5053,
+          3.5008,
+          3.4979,
+          3.5074
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "after": [
+      {
+        "operation": "write",
+        "count": 100000,
+        "milliseconds": [
+          3.9136,
+          3.9204,
+          3.9191,
+          3.8921,
+          3.9085,
+          3.9242,
+          3.9139,
+          3.9106,
+          3.9109,
+          3.9184
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "operation": "write",
+        "count": 100000,
+        "milliseconds": [
+          3.8568,
+          3.8422,
+          3.8464,
+          3.8489,
+          3.8468,
+          3.8519,
+          3.8497,
+          3.8762,
+          3.8561,
+          3.8491
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "operation": "write",
+        "count": 100000,
+        "milliseconds": [
+          3.864,
+          3.8163,
+          3.8263,
+          3.813,
+          3.8311,
+          3.8261,
+          3.8287,
+          3.8229,
+          3.8729,
+          3.822
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "dll_sha256": {
+    "before": "231220cdd3d8ec517f03e2c8f58c8905d0b2d9ed6b55c5ccc67649ec0425f222",
+    "after": "3a7c09d6ec4cab72e12a3165ce451e9595266c5ecb8de3ca9e2b12223bfd5209"
+  },
+  "tests": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "matching_output": 54,
+      "matching_except_volatile_fields": 3,
+      "no_reported_failure": 2
+    },
+    "dll_sha256": "3a7c09d6ec4cab72e12a3165ce451e9595266c5ecb8de3ca9e2b12223bfd5209",
+    "cases": [
+      {
+        "name": "tests\\level10_integration.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level11_exceptions_advanced.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level12_indexing_slicing.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level1_literals.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level2_operators.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level3_variables.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level4_control_if.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level4_control_loops.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level5_functions_advanced.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level5_functions_basic.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level6_classes_basic.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level7_comprehensions.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level8_generators.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests\\level9_exceptions.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_comprehensive_exception_handling.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_comprehensive_python312.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_global_variable.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_nested_super.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_python312_advanced_features.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "test_python312_missing_features.py",
+        "status": "matching_except_volatile_fields"
+      },
+      {
+        "name": "test_ultimate_complex_features.py",
+        "status": "matching_except_volatile_fields"
+      },
+      {
+        "name": "tests/binary_inplace_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/inplace_special_lookup.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/function_creation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/scope_binding_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/builtin_descriptor_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/bound_method_attributes_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/memoryview_alias_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/memoryview_release_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/memoryview_index_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/frame_lifetime_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/locals_observation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/cell_delete_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dynamic_locals_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/namespace_locals_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/locals_refresh_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_locals_mapping_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/prepared_namespace_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/type_new_dict_subclass_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/call_failure_state_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_closure_mapping_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_exception_table_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/class_nested_state_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/exception_offset_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/compatibility/lookup_error_builtin.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_pop_order_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_copy_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_copy_subclass_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_views_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_iterator_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/dict_cursor_mutation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_mutation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_clear_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_live_reads_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "tests/module_mapping_observation_regression.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "examples/hello.py",
+        "status": "matching_output"
+      },
+      {
+        "name": "examples/advanced.py",
+        "status": "matching_except_volatile_fields"
+      },
+      {
+        "name": "--test-generator-kwargs",
+        "status": "no_reported_failure"
+      },
+      {
+        "name": "--test-pymethod-kwargs",
+        "status": "no_reported_failure"
+      }
+    ]
+  },
+  "before_tests": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "counts": {
+      "sharppy_failure": 1
+    },
+    "dll_sha256": "231220cdd3d8ec517f03e2c8f58c8905d0b2d9ed6b55c5ccc67649ec0425f222",
+    "cases": [
+      {
+        "name": "tests/memoryview_index_regression.py",
+        "status": "sharppy_failure"
+      }
+    ]
+  }
+}

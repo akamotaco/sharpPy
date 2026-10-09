@@ -112,42 +112,27 @@ namespace SharpPy
         /// </summary>
         /// <param name="obj">The object to convert</param>
         /// <returns>PyInt if successful, null if __index__ not found</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static PyInt? TryGetIndex(PyObject obj)
         {
             // Fast path for int and bool
             if (obj is PyInt pyInt)
                 return pyInt;
             if (obj is PyBool pyBool)
-                return new PyInt(pyBool.IsTrue() ? 1 : 0);
+                return pyBool.Value ? SmallIntCache.One : SmallIntCache.Zero;
+            if (obj is PyIntSubclass subclass)
+                return subclass.GetIntValue();
+            return TryGetIndexSlow(obj);
+        }
 
-            // Try __index__ method
-            try
-            {
-                var indexMethod = obj.GetAttribute("__index__");
-                if (indexMethod != null)
-                {
-                    PyObject result;
-                    if (indexMethod is PyMethod boundMethod)
-                        result = boundMethod.Call(new PyObject[0], null);
-                    else if (indexMethod is PyFunction func)
-                        result = func.Call(new PyObject[] { obj }, null);
-                    else if (indexMethod is PyBuiltinFunction builtinFunc)
-                        result = builtinFunc.Call(new PyObject[0]);
-                    else
-                        result = indexMethod.Call(new PyObject[0], null);
-
-                    if (result is PyInt intResult)
-                        return intResult;
-
-                    throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                }
-            }
-            catch
-            {
-                // No __index__ method or any other error
-            }
-
-            return null;
+        private static PyInt TryGetIndexSlow(PyObject obj)
+        {
+            // Special methods come from the type; exceptions are not "missing".
+            var method = obj.LookupSpecialMethodUncached("__index__");
+            if (method == null) return null;
+            var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            if (result is PyInt intResult) return intResult;
+            throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
         }
 
         /// <summary>

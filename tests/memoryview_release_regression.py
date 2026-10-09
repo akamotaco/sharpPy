@@ -18,6 +18,14 @@ def check_released(view):
     assert view.release() is None
 
 data = bytearray(b'abc')
+# Deleting a name must not release a view retained through another reference.
+original = memoryview(data)
+holder = [original]
+del original
+assert holder[0][0] == ord('a')
+holder[0].release()
+data.append(ord('d'))
+data.pop()
 view = memoryview(data)
 child = view[1:]
 copied = memoryview(child)
