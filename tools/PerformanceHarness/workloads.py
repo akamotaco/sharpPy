@@ -69,6 +69,15 @@ def dictionary_iteration(n):
     return result
 
 
+def namespace_update(n):
+    namespace = globals()
+    result = 0
+    for i in range(n):
+        namespace.update({'namespace_updated': i})
+        result = result + namespace_updated
+    return result
+
+
 def bound_builtin(n):
     values = []
     append = values.append

@@ -3,6 +3,37 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--globals-update-probe")
+{
+    var moduleBindings = new Dictionary<string, PyObject>();
+    var probeValue = new PyInt(7);
+    for (int i = 0; i < 100; i++) moduleBindings["seed_" + i] = probeValue;
+    var globals = new PyGlobalsDict(moduleBindings);
+    var changes = new PyDict();
+    changes.SetItem(new PyString("updated"), probeValue);
+    void UpdateGlobals()
+    {
+        for (int i = 0; i < 10000; i++) globals.Update(changes);
+        if (!ReferenceEquals(moduleBindings["updated"], probeValue))
+            throw new InvalidOperationException("globals update probe failed");
+    }
+    for (int i = 0; i < 10; i++) UpdateGlobals();
+    var globalsTimes = new double[10];
+    var globalsAllocations = new long[10];
+    for (int i = 0; i < 10; i++)
+    {
+        long allocated = GC.GetAllocatedBytesForCurrentThread();
+        long started = Stopwatch.GetTimestamp();
+        UpdateGlobals();
+        globalsTimes[i] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        globalsAllocations[i] = GC.GetAllocatedBytesForCurrentThread() - allocated;
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { iterations = 10000, initial_namespace_size = 100,
+        source_keys = 1, warmups = 10, scope = "Native PyGlobalsDict.Update; excludes Python VM",
+        milliseconds = globalsTimes, allocated_bytes = globalsAllocations }));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--dict-iterator-probe")
 {
     bool traverse = args.Contains("--traverse");
@@ -172,7 +203,7 @@ var interpreter = new IntegratedPythonInterpreter();
 var setupStart = Stopwatch.GetTimestamp();
 interpreter.Execute(source, args[0], false, false, false);
 double setupMilliseconds = Stopwatch.GetElapsedTime(setupStart).TotalMilliseconds;
-var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "dictionary_iteration", "comprehension", "bound_builtin", "locals_observation", "frame_observation", "class_locals_observation", "exception_handling" };
+var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "dictionary_iteration", "namespace_update", "comprehension", "bound_builtin", "locals_observation", "frame_observation", "class_locals_observation", "exception_handling" };
 if (args.Length > 3)
 {
     string selected = args[3];

@@ -1,0 +1,216 @@
+﻿{
+    "after":  {
+                  "median_ms":  1.07135,
+                  "q1_ms":  1.0585,
+                  "raw":  [
+                              {
+                                  "iterations":  10000,
+                                  "initial_namespace_size":  100,
+                                  "source_keys":  1,
+                                  "warmups":  10,
+                                  "scope":  "Native PyGlobalsDict.Update; excludes Python VM",
+                                  "milliseconds":  [
+                                                       1.2609,
+                                                       1.2582,
+                                                       1.2606,
+                                                       1.251,
+                                                       1.2512,
+                                                       1.2726,
+                                                       1.2528,
+                                                       1.2484,
+                                                       1.242,
+                                                       1.2448
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "initial_namespace_size":  100,
+                                  "source_keys":  1,
+                                  "warmups":  10,
+                                  "scope":  "Native PyGlobalsDict.Update; excludes Python VM",
+                                  "milliseconds":  [
+                                                       1.0737,
+                                                       1.075,
+                                                       1.0678,
+                                                       1.053,
+                                                       1.0508,
+                                                       1.0487,
+                                                       1.0651,
+                                                       1.0502,
+                                                       1.0875,
+                                                       1.0535
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "initial_namespace_size":  100,
+                                  "source_keys":  1,
+                                  "warmups":  10,
+                                  "scope":  "Native PyGlobalsDict.Update; excludes Python VM",
+                                  "milliseconds":  [
+                                                       1.0889,
+                                                       1.0728,
+                                                       1.0699,
+                                                       1.0581,
+                                                       1.0623,
+                                                       1.059,
+                                                       1.0588,
+                                                       1.0585,
+                                                       1.0567,
+                                                       1.059
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0
+                                                      ]
+                              }
+                          ],
+                  "q3_ms":  1.2484,
+                  "allocated_bytes":  [
+                                          0
+                                      ]
+              },
+    "before":  {
+                   "median_ms":  18.4603,
+                   "q1_ms":  18.0326,
+                   "raw":  [
+                               {
+                                   "iterations":  10000,
+                                   "initial_namespace_size":  100,
+                                   "source_keys":  1,
+                                   "warmups":  10,
+                                   "scope":  "Native PyGlobalsDict.Update; excludes Python VM",
+                                   "milliseconds":  [
+                                                        18.0551,
+                                                        18.063,
+                                                        18.0326,
+                                                        18.0143,
+                                                        18.0154,
+                                                        17.967,
+                                                        17.9506,
+                                                        17.9468,
+                                                        17.9858,
+                                                        18.0259
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "initial_namespace_size":  100,
+                                   "source_keys":  1,
+                                   "warmups":  10,
+                                   "scope":  "Native PyGlobalsDict.Update; excludes Python VM",
+                                   "milliseconds":  [
+                                                        18.5058,
+                                                        18.5711,
+                                                        18.4914,
+                                                        18.5139,
+                                                        18.4792,
+                                                        18.4966,
+                                                        18.5334,
+                                                        18.7185,
+                                                        18.4346,
+                                                        18.4829
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "initial_namespace_size":  100,
+                                   "source_keys":  1,
+                                   "warmups":  10,
+                                   "scope":  "Native PyGlobalsDict.Update; excludes Python VM",
+                                   "milliseconds":  [
+                                                        18.4273,
+                                                        18.4787,
+                                                        18.5359,
+                                                        18.4308,
+                                                        18.4643,
+                                                        18.5197,
+                                                        18.4563,
+                                                        18.4956,
+                                                        18.4401,
+                                                        18.5026
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0
+                                                       ]
+                               }
+                           ],
+                   "q3_ms":  18.5026,
+                   "allocated_bytes":  [
+                                           0
+                                       ]
+               },
+    "metadata":  {
+                     "before_dll_sha256":  "6B872D64851C5A154278123ABFB932E2A735E446BB2B6C2EA40D4C02E402F424",
+                     "after_dll_sha256":  "F8E348EEA83D3501E96E375EB50F1912E11E6FC3E99BE832404972EF2580B6EE",
+                     "samples_per_process":  10,
+                     "baseline_commit":  "4d16131",
+                     "warmups_per_process":  10,
+                     "process_pairs":  3
+                 }
+}

@@ -484,6 +484,7 @@ namespace SharpPy
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal Dictionary<PyObject, PyObject> InternalDict => _dict;
+        internal List<PyObject>.Enumerator GetStorageKeyEnumerator() => _keys.GetEnumerator();
         internal OrderedIterationState GetIterationState() => ((OrderedKeyList)_keys).GetIterationState();
         private void AddOrderedKey(PyObject key) => ((OrderedKeyList)_keys).AddKey(key);
         private void RemoveOrderedKeyAt(int index, bool trimTail = false) => ((OrderedKeyList)_keys).RemoveKeyAt(index, trimTail);
@@ -810,7 +811,7 @@ namespace SharpPy
         /// 키가 없으면 기본값 설정하고 반환
         /// Python 3.7+: 삽입 순서 유지
         /// </summary>
-        public PyObject SetDefault(PyObject key, PyObject defaultValue = null)
+        public virtual PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
             if (_dict.TryGetValue(key, out PyObject value))
                 return value;
@@ -1158,22 +1159,75 @@ namespace SharpPy
             }
         }
 
+        public override PyObject DelItem(PyObject key)
+        {
+            if (key is not PyString name) return base.DelItem(key);
+            if (!_globalScopeVariables.Remove(name.Value)) throw PyKeyError.Create(key.ToRepr());
+            if (base.ContainsKey(key)) base.DelItem(key);
+            return PyNone.Instance;
+        }
+
+        public override PyObject Pop(PyObject key, PyObject defaultValue = null)
+        {
+            if (key is not PyString name) return base.Pop(key, defaultValue);
+            bool found = _globalScopeVariables.Remove(name.Value, out var value);
+            if (base.ContainsKey(key)) base.DelItem(key);
+            if (found) return value;
+            if (defaultValue != null) return defaultValue;
+            throw PyKeyError.Create(key.ToRepr());
+        }
+
+        public override PyNone Clear()
+        {
+            _globalScopeVariables.Clear();
+            return base.Clear();
+        }
+
+        public override PyObject SetDefault(PyObject key, PyObject defaultValue = null)
+        {
+            if (key is not PyString name) return base.SetDefault(key, defaultValue);
+            if (_globalScopeVariables.TryGetValue(name.Value, out var value))
+            {
+                base.SetItem(key, value);
+                return value;
+            }
+            value = defaultValue ?? PyNone.Instance;
+            SetItem(key, value);
+            return value;
+        }
+
         public override PyNone Update(PyObject other)
         {
-            // Call base Update to modify this dict
-            var result = base.Update(other);
-
-            // Sync all changes back to global scope
-            // Note: base.Update modifies _dict directly, so we need to sync everything
-            foreach (var key in _keys)
+            // Self-update must not replay a stale snapshot over the actual namespace.
+            if (ReferenceEquals(other, this) || (other is PyGlobalsDict globals &&
+                ReferenceEquals(globals._globalScopeVariables, _globalScopeVariables))) return PyNone.Instance;
+            if (other is PyDict source)
             {
-                if (key is PyString strKey)
+                var keys = source.GetStorageKeyEnumerator();
+                while (keys.MoveNext())
                 {
-                    _globalScopeVariables[strKey.Value] = _dict[key];
+                    var key = keys.Current;
+                    SetItem(key, source.InternalDict[key]);
                 }
+                return PyNone.Instance;
             }
+            if (other is PyMappingProxy proxy)
+            {
+                foreach (var name in proxy.Keys)
+                {
+                    var key = StringCache.GetOrCreate(name);
+                    SetItem(key, proxy.GetItem(key));
+                }
+                return PyNone.Instance;
+            }
+            return base.Update(other); // Preserve existing unsupported-input errors.
+        }
 
-            return result;
+        public override PyObject InplaceBitwiseOr(PyObject other)
+        {
+            if (other is not PyDict) return PyNotImplemented.Instance;
+            Update(other);
+            return this;
         }
     }
 }

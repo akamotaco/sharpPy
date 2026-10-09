@@ -1,0 +1,82 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.21998299999904702,
+    "failure_markers": []
+  },
+  "git": "4d16131cdd04c94c1dfc2c2aef174eba222fe5e7",
+  "git_status": "?? tests/module_mapping_clear_regression.py\n?? tests/module_mapping_mutation_regression.py\n",
+  "dll_sha256": "e7c50e524f6937f7cb28ec702f7be6f1f7457bde6cd40f70e6b32d2808ea6588",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/module_mapping_mutation_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping mutations: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02786529999866616,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\module_mapping_mutation_regression.py\", line 4, in <module>\n    assert namespace.setdefault('mutation_existing', 99) == 20\n                                                              ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\module_mapping_mutation_regression.py\", line 4, in <module>\n    assert namespace.setdefault('mutation_existing', 99) == 20\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2474352999997791,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping clear: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.023407099997712066,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\module_mapping_clear_regression.py\", line 14, in <module>\n    assert clear_scope()\n                        ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\module_mapping_clear_regression.py\", line 9, in clear_scope\n    assert 'clear_me' not in globals()\n                                      ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\module_mapping_clear_regression.py\", line 9, in <module>\n        assert 'clear_me' not in globals()\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.22501629999896977,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_mapping_pop.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping pop: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.022931299998163013,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_pop.py\", line 12, in <module>\n    raise AssertionError('pop must remove the global binding')\n                                                              ^\nAssertionError: pop must remove the global binding\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_pop.py\", line 12, in <module>\n        raise AssertionError('pop must remove the global binding')\nAssertionError: pop must remove the global binding\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2273133999988204,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "sharppy_failure": 3
+  }
+}
