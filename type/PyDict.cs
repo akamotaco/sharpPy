@@ -307,7 +307,7 @@ namespace SharpPy
                     if (self is PyDict pyDict)
                     {
                         // Real PyDict: use internal _dict
-                        return pyDict._dict.TryGetValue(args[0], out var value)
+                        return pyDict.TryGetStoredValue(args[0], out var value)
                             ? value
                             : throw PyKeyError.Create(args[0]);
                     }
@@ -484,6 +484,8 @@ namespace SharpPy
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal Dictionary<PyObject, PyObject> InternalDict => _dict;
+        // Bypass Python __getitem__ overrides while allowing internal storage adapters.
+        internal virtual bool TryGetStoredValue(PyObject key, out PyObject value) => _dict.TryGetValue(key, out value);
         internal List<PyObject>.Enumerator GetStorageKeyEnumerator() => _keys.GetEnumerator();
         internal OrderedIterationState GetIterationState() => ((OrderedKeyList)_keys).GetIterationState();
         private void AddOrderedKey(PyObject key) => ((OrderedKeyList)_keys).AddKey(key);
@@ -688,7 +690,7 @@ namespace SharpPy
         /// CPython 3.12: PyDict_Contains - 키 포함 여부 확인 (bool 반환)
         /// DICT_MERGE 명령어에서 중복 키 검사에 사용
         /// </summary>
-        public bool ContainsKey(PyObject key)
+        public virtual bool ContainsKey(PyObject key)
         {
             return _dict.ContainsKey(key);
         }
@@ -696,7 +698,7 @@ namespace SharpPy
         /// <summary>
         /// 기본값과 함께 값 가져오기
         /// </summary>
-        public PyObject Get(PyObject key, PyObject defaultValue = null)
+        public virtual PyObject Get(PyObject key, PyObject defaultValue = null)
         {
             return _dict.TryGetValue(key, out PyObject value)
                 ? value
@@ -1146,6 +1148,28 @@ namespace SharpPy
                 base.SetItem(new PyString(kv.Key), kv.Value);
             }
         }
+
+        public override PyObject GetItem(PyObject key)
+        {
+            if (key is not PyString name) return base.GetItem(key);
+            if (_globalScopeVariables.TryGetValue(name.Value, out var value)) return value;
+            throw PyKeyError.Create(key.ToRepr());
+        }
+
+        public override PyObject Get(PyObject key, PyObject defaultValue = null)
+        {
+            if (key is not PyString name) return base.Get(key, defaultValue);
+            return _globalScopeVariables.TryGetValue(name.Value, out var value)
+                ? value : defaultValue ?? PyNone.Instance;
+        }
+
+        internal override bool TryGetStoredValue(PyObject key, out PyObject value) => key is PyString name
+            ? _globalScopeVariables.TryGetValue(name.Value, out value) : base.TryGetStoredValue(key, out value);
+
+        public override bool ContainsKey(PyObject key) => key is PyString name
+            ? _globalScopeVariables.ContainsKey(name.Value) : base.ContainsKey(key);
+
+        public override PyBool Contains(PyObject key) => PyBool.FromBool(ContainsKey(key));
 
         public override void SetItem(PyObject key, PyObject value)
         {

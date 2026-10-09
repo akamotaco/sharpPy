@@ -78,6 +78,15 @@ def namespace_update(n):
     return result
 
 
+def namespace_read(n):
+    namespace = globals()
+    namespace['namespace_read_base'] = 0
+    result = 0
+    for i in range(n):
+        result = result + namespace['namespace_read_base'] + i
+    return result
+
+
 def bound_builtin(n):
     values = []
     append = values.append

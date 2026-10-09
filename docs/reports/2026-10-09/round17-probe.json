@@ -1,0 +1,210 @@
+﻿{
+    "after":  {
+                  "median_ms":  0.26665,
+                  "q1_ms":  0.2652,
+                  "raw":  [
+                              {
+                                  "iterations":  10000,
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native GetItem/Get/Contains and validation per iteration; excludes Python VM and missing-key exceptions",
+                                  "milliseconds":  [
+                                                       0.2855,
+                                                       0.2933,
+                                                       0.2827,
+                                                       0.286,
+                                                       0.2829,
+                                                       0.2836,
+                                                       0.2834,
+                                                       0.2976,
+                                                       0.2845,
+                                                       0.2843
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native GetItem/Get/Contains and validation per iteration; excludes Python VM and missing-key exceptions",
+                                  "milliseconds":  [
+                                                       0.2659,
+                                                       0.2643,
+                                                       0.2679,
+                                                       0.269,
+                                                       0.2652,
+                                                       0.265,
+                                                       0.2666,
+                                                       0.2664,
+                                                       0.2668,
+                                                       0.2667
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0
+                                                      ]
+                              },
+                              {
+                                  "iterations":  10000,
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native GetItem/Get/Contains and validation per iteration; excludes Python VM and missing-key exceptions",
+                                  "milliseconds":  [
+                                                       0.2658,
+                                                       0.2643,
+                                                       0.2635,
+                                                       0.2644,
+                                                       0.2656,
+                                                       0.27,
+                                                       0.2646,
+                                                       0.2652,
+                                                       0.2655,
+                                                       0.265
+                                                   ],
+                                  "allocated_bytes":  [
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0
+                                                      ]
+                              }
+                          ],
+                  "q3_ms":  0.2834,
+                  "allocated_bytes":  [
+                                          0
+                                      ]
+              },
+    "before":  {
+                   "median_ms":  0.6534,
+                   "q1_ms":  0.6485,
+                   "raw":  [
+                               {
+                                   "iterations":  10000,
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native GetItem/Get/Contains and validation per iteration; excludes Python VM and missing-key exceptions",
+                                   "milliseconds":  [
+                                                        0.7574,
+                                                        0.7589,
+                                                        0.765,
+                                                        0.7822,
+                                                        0.7751,
+                                                        0.7615,
+                                                        0.7625,
+                                                        0.7581,
+                                                        0.7501,
+                                                        0.7597
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native GetItem/Get/Contains and validation per iteration; excludes Python VM and missing-key exceptions",
+                                   "milliseconds":  [
+                                                        0.6535,
+                                                        0.6462,
+                                                        0.6829,
+                                                        0.6533,
+                                                        0.6474,
+                                                        0.6485,
+                                                        0.6522,
+                                                        0.6475,
+                                                        0.6485,
+                                                        0.6544
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0
+                                                       ]
+                               },
+                               {
+                                   "iterations":  10000,
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native GetItem/Get/Contains and validation per iteration; excludes Python VM and missing-key exceptions",
+                                   "milliseconds":  [
+                                                        0.6497,
+                                                        0.6522,
+                                                        0.6499,
+                                                        0.6479,
+                                                        0.6472,
+                                                        0.6763,
+                                                        0.6512,
+                                                        0.6485,
+                                                        0.6582,
+                                                        0.6512
+                                                    ],
+                                   "allocated_bytes":  [
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0
+                                                       ]
+                               }
+                           ],
+                   "q3_ms":  0.7581,
+                   "allocated_bytes":  [
+                                           0
+                                       ]
+               },
+    "metadata":  {
+                     "before_dll_sha256":  "426C613E0AD422473B2159C2F56DB5BD3AE50D197A1D47237450DBE299B201CB",
+                     "after_dll_sha256":  "E16801456EC04E729272F4B7855B70A466501BE6037C99F782351BFFC303558D",
+                     "samples_per_process":  10,
+                     "baseline_commit":  "d536978",
+                     "warmups_per_process":  10,
+                     "process_pairs":  3
+                 }
+}

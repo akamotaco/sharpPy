@@ -65,7 +65,7 @@ namespace SharpPy
             if (_kind == DictViewKind.Items)
             {
                 if (item is not PyTuple pair || pair.Items.Length != 2) return PyBool.False;
-                if (!_dictionary.InternalDict.TryGetValue(pair.Items[0], out var value)) return PyBool.False;
+                if (!_dictionary.TryGetStoredValue(pair.Items[0], out var value)) return PyBool.False;
                 return Equal(value, pair.Items[1]);
             }
             foreach (var entry in _dictionary.GetInternalDict())

@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [17차 module live 조회 분석](reports/2026-10-09/module_mapping_live_read_analysis.md)에서 string key GetItem/Get/Contains 및 builtin storage read를 원본 namespace에 연결했다. 기존 module_locals_live가 통과한다. native 조회 중앙값은 약 59.2% 감소했지만 VM 개선은 미확정이며 Length/Copy/view iteration과 raw storage 관찰은 아직 통합되지 않았다.
+
 - 추가 확인: [16차 module mutation 분석](reports/2026-10-09/module_mapping_mutation_analysis.md)에서 pop/del/clear/setdefault/update/|=의 원본 반영과 stale 전체 replay를 수정했다. 실제 Python namespace_update workload의 중앙값은 약 16.2% 감소했다. 일반 live 조회와 popitem은 아직 실패하며 저장소 통합 후보로 유지한다.
 
 - 추가 확인: [15차 cursor 일반 경로 분석](reports/2026-10-09/dict_cursor_fast_path_analysis.md)에서 이력 없는 순회를 분리했다. native keys 순회 중앙값 약 10.4% 감소를 확인했으나 Python 전체 개선은 미확정이다. fresh dict별 첫 cursor 할당(120B/192B)을 별도 측정했고 그대로 남는다. class workload의 실행 순서 의존성과 일부 할당 변동도 보존했다.

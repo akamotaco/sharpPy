@@ -80,6 +80,7 @@ def main():
             "tests/dict_cursor_mutation_regression.py",
             "tests/module_mapping_mutation_regression.py",
             "tests/module_mapping_clear_regression.py",
+            "tests/module_mapping_live_reads_regression.py",
         "examples/hello.py", "examples/advanced.py",
     ]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONHASHSEED="0")
