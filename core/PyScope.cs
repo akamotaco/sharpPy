@@ -658,21 +658,15 @@ namespace SharpPy
                 Console.WriteLine($"📝 Global 변수 할당: {name} = {value}");
 #endif
             }
-            // **핵심 수정**: 모듈 실행에서는 GlobalScope에 저장 (CPython 3.12 호환)
-            else if (CurrentScope != null && IsModuleScope(CurrentScope.Name))
+            // Scope ownership is explicit; a function name must not redirect locals
+            // to globals (e.g. functions named "module", "abc" or "typing").
+            // CPython v3.12.15, Python/ceval.c: initialize_locals uses frame localsplus.
+            else if (CurrentScope != null &&
+                     (CurrentScope.Type == ScopeType.Global || CurrentScope.Type == ScopeType.Module))
             {
                 GlobalScope.SetVariable(name, value);
 #if DEBUG_LOG
                 Console.WriteLine($"📝 Module → Global 변수 할당: {name} = {value}");
-#endif
-            }
-            // **FIXED**: 클래스 바디 스코프에서는 로컬 클래스 스코프에 저장 (property chaining을 위해)
-            else if (CurrentScope != null && CurrentScope.Name.StartsWith("<class_body_") && CurrentScope.Type == ScopeType.Local)
-            {
-                // 클래스 바디에서 정의되는 변수들을 로컬 클래스 스코프에 저장
-                CurrentScope.SetVariable(name, value);
-#if DEBUG_LOG
-                Console.WriteLine($"📝 ClassBody → Local 변수 할당: {name} = {value} (in scope: {CurrentScope.Name})");
 #endif
             }
             else if (CurrentScope != null)
@@ -721,20 +715,6 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"  ⭐ Builtin Module (전역): {_builtinModule}");
 #endif
-        }
-
-        /// <summary>
-        /// 스코프 이름으로 모듈 스코프인지 판단
-        /// </summary>
-        private static bool IsModuleScope(string scopeName)
-        {
-            return scopeName == "<module>" ||
-                   scopeName == "contextlib" ||
-                   scopeName == "abc" ||
-                   scopeName == "functools" ||
-                   scopeName == "typing" ||
-                   scopeName.EndsWith(".py") ||
-                   scopeName.Contains("module");
         }
 
 

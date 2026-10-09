@@ -8,6 +8,12 @@ if (args.Length > 0 && args[0] == "--inspect")
     Console.WriteLine(JsonSerializer.Serialize(IlInspection.Inspect()));
     return;
 }
+if (args.Length > 0 && args[0] == "--descriptor-check")
+{
+    DescriptorCallChecks.Run();
+    Console.WriteLine("C# descriptor checks: PASS");
+    return;
+}
 
 // Compile once, warm up, then time calls to the same function/code object.
 // Allocation counters measure this synchronous thread; retained memory is not measured.
@@ -19,7 +25,7 @@ var interpreter = new IntegratedPythonInterpreter();
 var setupStart = Stopwatch.GetTimestamp();
 interpreter.Execute(source, args[0], false, false, false);
 double setupMilliseconds = Stopwatch.GetElapsedTime(setupStart).TotalMilliseconds;
-var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "comprehension" };
+var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "comprehension", "bound_builtin" };
 long sum = (long)iterations * (iterations - 1) / 2;
 var callArgs = new PyObject[] { new PyInt(iterations) };
 var results = new List<object>();

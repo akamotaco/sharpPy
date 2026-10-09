@@ -3268,7 +3268,7 @@ namespace SharpPy
                         #endif
 
                         // **CRITICAL FIX**: 클래스 body인 경우 scope 제거 전에 변수들을 저장
-                        if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_"))
+                        if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_", StringComparison.Ordinal))
                         {
                             frame.ClassBodyVariables = new Dictionary<string, PyObject>(frame.ScopeChain.CurrentScope.Variables);
                             #if DEBUG_LOG
@@ -3683,7 +3683,7 @@ namespace SharpPy
                             {
                                 // Found descriptor (user-defined or built-in)
                                 // Call __getitem__(self, key)
-                                subscriptResult = getitemDescriptor.Call(new[] { subscriptObj, subscriptKey }, null);
+                                subscriptResult = getitemDescriptor.CallWithReceiver(subscriptObj, new[] { subscriptKey }, null);
                             }
                             else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
                             {
@@ -3761,7 +3761,7 @@ namespace SharpPy
                         {
                             // Found descriptor (user-defined or built-in)
                             // Call __setitem__(self, key, value)
-                            setitemDescriptor.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
+                            setitemDescriptor.CallWithReceiver(subscrStoreObj, new[] { subscrStoreKey, subscrStoreValue }, null);
                         }
                         else if (setitemAttr != null && setitemAttr is PyFunction setitemFunc)
                         {
@@ -3820,7 +3820,7 @@ namespace SharpPy
                         {
                             // Found descriptor (user-defined or built-in)
                             // Call __delitem__(self, key)
-                            delitemDescriptor.Call(new[] { delSubContainer, delSubSub }, null);
+                            delitemDescriptor.CallWithReceiver(delSubContainer, new[] { delSubSub }, null);
                         }
                         else if (delitemAttr != null && delitemAttr is PyFunction delitemFunc)
                         {

@@ -17,7 +17,7 @@ exec(compile(Path(__file__).with_name("workloads.py").read_text(encoding="utf-8"
 setup_ms = (time.perf_counter() - start) * 1000
 results = []
 expected_sum = args.iterations * (args.iterations - 1) // 2
-for name in ("addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "comprehension"):
+for name in ("addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "comprehension", "bound_builtin"):
     function = namespace[name]
     expected = expected_sum - args.iterations if name == "arithmetic" else expected_sum
     for _ in range(10):

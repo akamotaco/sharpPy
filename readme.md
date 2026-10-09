@@ -7,6 +7,7 @@ Python 소스를 토큰화하고 PEG 파서로 AST를 생성한 뒤, 컴파일�
 - [평가 및 성능 개선 계획](docs/evaluation_and_performance_plan.md)
 - [1차 분석·개선 결과](docs/reports/2026-10-09/analysis.md)
 - [2차 구조 비교·할당 개선](docs/reports/2026-10-09/structural_analysis.md)
+- [3차 scope·descriptor 개선](docs/reports/2026-10-09/scope_and_descriptor_analysis.md)
 - [문서 보관 안내](docs/archive/2026-10-09/INDEX.md)
 - [기존 프로젝트 설명](docs/archive/2026-10-09/readme.md)
 - [라이선스](LICENSE)

@@ -56,3 +56,11 @@ def dictionary(n):
 
 def comprehension(n):
     return sum([i for i in range(n)])
+
+
+def bound_builtin(n):
+    values = []
+    append = values.append
+    for i in range(n):
+        append(i)
+    return sum(values)
