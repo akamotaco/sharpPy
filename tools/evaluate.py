@@ -105,6 +105,8 @@ def main():
             "tests/memoryview_index_regression.py",
             "tests/memoryview_slice_assignment_regression.py",
             "tests/slice_large_bounds_regression.py",
+            "tests/bytes_comparison_regression.py",
+            "tests/compatibility/bytes_slice_equality.py",
             "tests/frame_lifetime_regression.py",
             "tests/locals_observation_regression.py",
             "tests/cell_delete_regression.py",

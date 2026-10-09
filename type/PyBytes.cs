@@ -2068,22 +2068,50 @@ namespace SharpPy
         /// <summary>
         /// bytes equality comparison (used by equals operation)
         /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            // bytes_richcompare leaves other types to reflected comparison.
+            if (other is not PyBytes bytes) return PyNotImplemented.Instance;
+            if (op == CompareOp.EQ || op == CompareOp.NE)
+            {
+                bool equal = ContentEquals(bytes);
+                return PyBool.FromBool(op == CompareOp.EQ ? equal : !equal);
+            }
+            int order = Value.AsSpan().SequenceCompareTo(bytes.Value);
+            return op switch
+            {
+                CompareOp.LT => PyBool.FromBool(order < 0),
+                CompareOp.LE => PyBool.FromBool(order <= 0),
+                CompareOp.GT => PyBool.FromBool(order > 0),
+                CompareOp.GE => PyBool.FromBool(order >= 0),
+                _ => throw PyValueError.Create($"Invalid comparison operator: {op}")
+            };
+        }
+
         public override bool Equals(object? obj)
         {
             if (obj is PyBytes other)
             {
-                if (Value.Length != other.Value.Length)
-                    return false;
-                
+                if (Value.Length != other.Value.Length) return false;
                 for (int i = 0; i < Value.Length; i++)
-                {
-                    if (Value[i] != other.Value[i])
-                        return false;
-                }
+                    if (Value[i] != other.Value[i]) return false;
                 return true;
             }
             return false;
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private bool ContentEquals(PyBytes other)
+        {
+            // bytes_compare_eq rejects different lengths/first bytes before
+            // comparing the full buffer. Preserve these cheap rejection paths.
+            if (Value.Length != other.Value.Length) return false;
+            if (Value.Length == 0) return true;
+            if (Value[0] != other.Value[0]) return false;
+            return Value.AsSpan().SequenceEqual(other.Value);
+        }
+
+        public override int ToHash() => GetHashCode();
 
         public override int GetHashCode()
         {

@@ -2366,22 +2366,13 @@ namespace SharpPy
                                 var boundMethod = new PyMethod(this, func);
                                 var result = boundMethod.Call(new PyObject[] { other }, null);
 
-                                // CPython 3.12: If result is NotImplemented, fall back to default
-                                if (result == PyNotImplemented.Instance)
-                                {
-                                    break;
-                                }
-
+                                // Preserve NotImplemented for reflected comparison
+                                // and the caller's equality/ordering fallback.
                                 return result;
                             }
                             else if (compareMethod.IsCallable())
                             {
                                 var result = compareMethod.Call(new PyObject[] { this, other }, null);
-
-                                if (result == PyNotImplemented.Instance)
-                                {
-                                    break;
-                                }
 
                                 return result;
                             }

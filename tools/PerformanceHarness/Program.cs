@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && (args[0] == "--bytes-comparison-probe" || args[0] == "--bytes-protocol-probe"))
+{
+    Console.WriteLine(JsonSerializer.Serialize(BytesComparisonProbe.Run(args[0] == "--bytes-protocol-probe")));
+    return;
+}
+
 if (args.Length > 0 && (args[0] == "--memoryview-probe" || args[0] == "--memoryview-copy-probe"))
 {
     Console.WriteLine(JsonSerializer.Serialize(MemoryViewProbe.Run(args[0] == "--memoryview-copy-probe")));

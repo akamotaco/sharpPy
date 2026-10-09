@@ -7058,9 +7058,15 @@ namespace SharpPy
 
                 result = right.RichCompare(left, reversedOp);
 
-                // If right also returns NotImplemented, raise TypeError
+                // Both declined: identity for equality, TypeError for ordering.
                 if (result == PyNotImplemented.Instance)
                 {
+                    // CPython do_richcompare falls back to identity for EQ/NE
+                    // when neither operand implements the comparison.
+                    if (operation == CompareOp.EQ)
+                        return PyBool.FromBool(ReferenceEquals(left, right));
+                    if (operation == CompareOp.NE)
+                        return PyBool.FromBool(!ReferenceEquals(left, right));
                     var opStr = operation switch
                     {
                         CompareOp.LT => "<",
