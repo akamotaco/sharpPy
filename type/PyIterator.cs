@@ -222,26 +222,26 @@ namespace SharpPy
     /// </summary>
     public class PyRangeIterator : PyIterator
     {
-        private readonly PyRange _range;
         private long _current;
         private readonly long _step;
-        private readonly long _stop;
+        private ulong _remaining;
 
         public PyRangeIterator(PyRange range)
         {
-            _range = range ?? throw new ArgumentNullException(nameof(range));
+            if (range == null) throw new ArgumentNullException(nameof(range));
             _current = range.Start;
             _step = range.Step;
-            _stop = range.Stop;
+            _remaining = range.LengthUnsigned();
         }
 
         public override PyObject Next()
         {
-            if (_step > 0 ? _current >= _stop : _current <= _stop)
+            if (_remaining == 0)
                 throw PyStopIteration.Create();
             
             var result = new PyInt(_current);
-            _current += _step;
+            _current = unchecked(_current + _step);
+            _remaining--;
             return result;
         }
 

@@ -3,6 +3,19 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--range-boundary-check")
+{
+    RangeIterationProbe.VerifyBoundaries();
+    Console.WriteLine("range native GetValues: PASS");
+    return;
+}
+
+if (args.Length > 0 && args[0] == "--range-iteration-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(RangeIterationProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--bytearray-slice-mutation-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(ByteArraySliceMutationProbe.Run(args.Length > 1 ? args[1] : null)));

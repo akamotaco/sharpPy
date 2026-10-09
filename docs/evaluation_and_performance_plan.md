@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[41차 결과](reports/2026-10-10/range_native_boundary_analysis.md): range 확장 조사 중 발견한 signed-long 경계 길이·반복 종료·인덱스 문제를 먼저 수정했다. 기본 86개와 Godot 소스 통합 회귀 14개 통과. 반복자 할당은 8B 감소했고 GetValues 할당은 유지했다. 일부 길이 조회 비용 증가는 보고서에 기록했다. 임의 정밀도 step과 len/slice 한계는 후속 과제다.
+
 [40차 결과](reports/2026-10-10/memoryview_large_step_analysis.md): memoryview 큰 step·native stride·중첩 대입을 맞추고 sys.maxsize를 바로잡았다. 기본 85개와 Godot 소스 통합 회귀 13개 통과. native view 생성·slice 할당은 기존과 같으며 읽기·쓰기 시간 범위도 겹친다. 다음은 range의 임의 정밀도 step이다.
 
 [39차 결과](reports/2026-10-10/operator_length_hint_analysis.md): _operator.length_hint를 공통 프로토콜에 연결하고 기본값 검증 순서·음수/초대형 값·keyword 처리를 맞췄다. 기본 83개와 Godot 소스 통합 회귀 12개 통과. 다음은 기존 range/memoryview 큰 step 표현 문제로 돌아간다.

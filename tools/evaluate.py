@@ -108,6 +108,7 @@ def main():
             "tests/bytes_comparison_regression.py",
             "tests/slice_assignment_indices_regression.py",
             "tests/range_slice_indices_regression.py",
+            "tests/range_native_boundary_regression.py",
             "tests/sequence_large_step_regression.py",
             "tests/bytearray_iterable_assignment_regression.py",
             "tests/bytearray_slice_reentry_regression.py",

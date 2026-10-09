@@ -107,15 +107,22 @@ namespace SharpPy
         /// </summary>
         public PyInt GetItem(long index)
         {
-            var length = LengthLong();
+            ulong length = LengthUnsigned();
+            ulong position;
+            if (index < 0)
+            {
+                ulong distance = unchecked(0UL - (ulong)index);
+                if (distance > length)
+                    throw PyIndexError.Create("range object index out of range");
+                position = length - distance;
+            }
+            else position = (ulong)index;
 
-            // 음수 인덱스 지원
-            if (index < 0) index += length;
-
-            if (index < 0 || index >= length)
+            if (position >= length)
                 throw PyIndexError.Create("range object index out of range");
 
-            return new PyInt(Start + index * Step);
+            // The validated element lies between the signed-long endpoints.
+            return new PyInt(unchecked((long)((ulong)Start + position * (ulong)Step)));
         }
 
         /// <summary>
@@ -203,13 +210,19 @@ namespace SharpPy
         {
             if (Step > 0)
             {
-                for (long i = Start; i < Stop; i += Step)
-                    yield return new PyInt(i);
+                for (long current = Start; current < Stop; current = unchecked(current + Step))
+                {
+                    yield return new PyInt(current);
+                    if (unchecked((ulong)Stop - (ulong)current) <= (ulong)Step) yield break;
+                }
             }
             else
             {
-                for (long i = Start; i > Stop; i += Step)
-                    yield return new PyInt(i);
+                for (long current = Start; current > Stop; current = unchecked(current + Step))
+                {
+                    yield return new PyInt(current);
+                    if (unchecked((ulong)current - (ulong)Stop) <= unchecked(0UL - (ulong)Step)) yield break;
+                }
             }
         }
 
@@ -254,20 +267,31 @@ namespace SharpPy
         #region Length and Type Checking
 
         /// <summary>
-        /// Returns the length as long (for internal use with large ranges)
+        /// Exact count for signed-long endpoints, including counts above long.MaxValue.
         /// </summary>
-        public long LengthLong()
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal ulong LengthUnsigned()
         {
+            // CPython get_len_of_range: unsigned differences cover the full
+            // signed endpoint span, including long.MinValue as a negative step.
             if (Step > 0)
             {
                 if (Start >= Stop) return 0;
-                return (Stop - Start + Step - 1) / Step;
+                return 1 + unchecked((ulong)Stop - 1 - (ulong)Start) / (ulong)Step;
             }
             else
             {
                 if (Start <= Stop) return 0;
-                return (Start - Stop - Step - 1) / (-Step);
+                return 1 + unchecked((ulong)Start - 1 - (ulong)Stop) / unchecked(0UL - (ulong)Step);
             }
+        }
+
+        public long LengthLong()
+        {
+            ulong length = LengthUnsigned();
+            if (length > long.MaxValue)
+                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+            return (long)length;
         }
 
         public override int Length()
@@ -278,7 +302,7 @@ namespace SharpPy
             return (int)len;
         }
 
-        public override bool PyBoolValue() => LengthLong() > 0;
+        public override bool PyBoolValue() => Step > 0 ? Start < Stop : Start > Stop;
 
         #endregion
 
@@ -370,7 +394,7 @@ namespace SharpPy
         /// <summary>
         /// range가 빈지 확인
         /// </summary>
-        public bool IsEmpty() => LengthLong() == 0;
+        public bool IsEmpty() => !PyBoolValue();
 
         /// <summary>
         /// range의 최소값
