@@ -59,6 +59,16 @@ def comprehension(n):
     return sum([i for i in range(n)])
 
 
+def dictionary_iteration(n):
+    values = {}
+    for i in range(n):
+        values[i] = i
+    result = 0
+    for key in values:
+        result = result + values[key]
+    return result
+
+
 def bound_builtin(n):
     values = []
     append = values.append

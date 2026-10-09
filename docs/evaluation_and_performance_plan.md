@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [15차 cursor 일반 경로 분석](reports/2026-10-09/dict_cursor_fast_path_analysis.md)에서 이력 없는 순회를 분리했다. native keys 순회 중앙값 약 10.4% 감소를 확인했으나 Python 전체 개선은 미확정이다. fresh dict별 첫 cursor 할당(120B/192B)을 별도 측정했고 그대로 남는다. class workload의 실행 순서 의존성과 일부 할당 변동도 보존했다.
+
 - 추가 확인: [14차 dict cursor 분석](reports/2026-10-09/dict_cursor_analysis.md)에서 작은 same-size mutation과 복수 iterator를 CPython과 비교하고 이력 상한을 추가했다. dict 생성당 8B 및 native 순회 시간 증가가 있어 호환성 개선으로 평가한다. CPython resize/compaction 결과는 아직 다르며 namespace 저장소 채택 전 cursor 비용과 first-use/삭제 이력 비용을 검토한다.
 
 - 추가 확인: [13차 dict iterator 분석](reports/2026-10-09/dict_iterator_analysis.md)에서 snapshot을 제거하고 live 값 조회·size mutation 감지·sticky exhaustion을 actual CPython과 비교했다. native 전체 순회에서도 할당 감소를 확인했다. same-size 삭제/재삽입은 List enumerator와 CPython entry cursor의 차이로 미해결이며 별도 실패 fixture를 유지한다.

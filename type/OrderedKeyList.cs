@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace SharpPy
 {
@@ -66,9 +67,23 @@ namespace SharpPy
                 }
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool TryNext(ref int position, out PyObject key)
         {
-            var entries = _history ?? _keys;
+            if (_history != null) return TryNextHistory(ref position, out key);
+            // Compact storage has no tombstones, so each step reads exactly one key.
+            if ((uint)position < (uint)_keys.Count)
+            {
+                key = _keys[position++];
+                return true;
+            }
+            key = null;
+            return false;
+        }
+
+        private bool TryNextHistory(ref int position, out PyObject key)
+        {
+            var entries = _history;
             while (position < entries.Count)
             {
                 key = entries[position++];
