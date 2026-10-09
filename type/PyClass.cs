@@ -1049,12 +1049,7 @@ namespace SharpPy
                                     var length = list.Length();
                                     var (start, stop, step) = slice.Indices(length);
                                     int count = PySlice.GetLength(start, stop, step);
-                                    // Descending physical positions preserve the
-                                    // remaining indices after each removal.
-                                    long position = step > 0 ? start + (long)(count - 1) * step : start;
-                                    long decrement = step > 0 ? -(long)step : step;
-                                    for (int n = 0; n < count; n++, position += decrement)
-                                        list.Pop((int)position);
+                                    list.DeleteSlice(start, step, count);
                                 }
                                 else
                                 {

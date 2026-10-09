@@ -408,6 +408,9 @@ namespace SharpPy
             }
         }
 
+        internal void DeleteSlice(int start, int step, int count)
+            => PySlice.DeleteItems(_items, start, step, count);
+
         public void SetItem(int index, PyObject value)
         {
             if (index < 0) index += _items.Count;

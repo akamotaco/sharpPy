@@ -887,15 +887,11 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Delete normalized extended-slice positions in descending order.
+        /// Delete normalized extended-slice positions by compacting survivors.
         /// </summary>
         private void DeleteExtendedSlice(int start, int step, int count)
         {
-            // Delete highest positions first; no index array or sort.
-            long position = step > 0 ? start + (long)(count - 1) * step : start;
-            long decrement = step > 0 ? -(long)step : step;
-            for (int n = 0; n < count; n++, position += decrement)
-                _bytes.RemoveAt((int)position);
+            PySlice.DeleteItems(_bytes, start, step, count);
         }
 
         private static List<byte> ConvertToBytes(PyObject obj)

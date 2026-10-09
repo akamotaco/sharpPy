@@ -8360,7 +8360,8 @@
     "Initial 10-warmup and later 100-warmup default-JIT results showed large variation even on unchanged contiguous bytearray code.",
     "Fixed optimized-JIT measurements are reported separately; not a guarantee of default tiering or whole-VM performance.",
     "Discarded array/count traversal for tuple and bytearray; final tuple contiguous path uses Array.Copy.",
-    "round28-complete/release local runs are intermediate builds, not final evidence."
+    "round28-complete/release local runs are intermediate builds, not final evidence.",
+    "Round30 audit: initial_failure had been a host configuration failure, not a regression result. Copied runtimeconfig/deps files and reran the unchanged baseline DLL. The replacement records the actual Python-level failure; benchmark timings are unaffected."
   ],
   "regression_counts": {
     "matching_output": 61,
@@ -8642,6 +8643,62 @@
       "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
       "stderr": "",
       "timed_out": false,
+      "process_seconds": 0.2122626999989734,
+      "failure_markers": []
+    },
+    "git": "9ec2391352a880afa4d3aa69862bd5a3c132c389",
+    "git_status": " M tools/evaluate.py\n M type/PyByteArray.cs\n M type/PyClass.cs\n M type/PyList.cs\n M type/PySlice.cs\n?? tests/slice_delete_compaction_regression.py\n",
+    "dll_sha256": "72dc19c44919ead3a07185d6db9d23117f623192f0ae5819fb1a0f1f615381b2",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/slice_read_step_regression.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "slice read steps: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02983210000093095,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\slice_read_step_regression.py\", line 9, in <module>\n    i += step\n         ^\nTypeError: subscript error: Index was outside the bounds of the array.\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\slice_read_step_regression.py\", line 9, in <module>\n                i += step\n                     ^\nTypeError: subscript error: Index was outside the bounds of the array.\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.27792480000061914,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "sharppy_failure": 1
+    }
+  },
+  "final_focused": {
+    "matching_output": 3
+  },
+  "hashes": {
+    "baseline_dll": "72dc19c44919ead3a07185d6db9d23117f623192f0ae5819fb1a0f1f615381b2",
+    "final_dll": "2897c32fe57a72de4db350ba658b6bf5d4db9a09641b2356b0295600fa0425ab",
+    "baseline_harness": "4f2feb4d54972ca1bcd07ac64cb32ab9d0fce46c475bcc63e4c93df31c2b7d60",
+    "final_harness": "3204d4cb5e425161c825b224cb3e3559b3b44767e8df8e1dc70372b22e5c76cb"
+  },
+  "limitations": [
+    "Step conversion beyond int, slice mutation/deletion overflow, range and memoryview stride representation are not fixed.",
+    "Unicode codepoint semantics, identity reuse and callback-driven resizing are outside this change."
+  ],
+  "superseded_initial_failure": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
       "process_seconds": 0.1613526000001002,
       "failure_markers": []
     },
@@ -8675,18 +8732,5 @@
     "counts": {
       "sharppy_failure": 1
     }
-  },
-  "final_focused": {
-    "matching_output": 3
-  },
-  "hashes": {
-    "baseline_dll": "72dc19c44919ead3a07185d6db9d23117f623192f0ae5819fb1a0f1f615381b2",
-    "final_dll": "2897c32fe57a72de4db350ba658b6bf5d4db9a09641b2356b0295600fa0425ab",
-    "baseline_harness": "4f2feb4d54972ca1bcd07ac64cb32ab9d0fce46c475bcc63e4c93df31c2b7d60",
-    "final_harness": "3204d4cb5e425161c825b224cb3e3559b3b44767e8df8e1dc70372b22e5c76cb"
-  },
-  "limitations": [
-    "Step conversion beyond int, slice mutation/deletion overflow, range and memoryview stride representation are not fixed.",
-    "Unicode codepoint semantics, identity reuse and callback-driven resizing are outside this change."
-  ]
+  }
 }

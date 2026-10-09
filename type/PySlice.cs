@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace SharpPy
 {
@@ -214,6 +216,38 @@ namespace SharpPy
         #endregion
 
         #region Slice Utilities
+
+        // Arguments have already been normalized; no Python callbacks occur
+        // while the backing span is in use. Each surviving run moves once.
+        internal static void DeleteItems<T>(List<T> items, int start, int step, int count)
+        {
+            if (count == 0) return;
+            long stride = step;
+            if (stride < 0)
+            {
+                start = (int)(start + (count - 1) * stride);
+                stride = -stride;
+            }
+            if (count == 1 || stride == 1)
+            {
+                items.RemoveRange(start, count);
+                return;
+            }
+            var storage = CollectionsMarshal.AsSpan(items);
+            int write = start;
+            long removedPosition = start;
+            for (int n = 0; n < count; n++)
+            {
+                int read = (int)removedPosition + 1;
+                long next = n + 1 < count ? removedPosition + stride : storage.Length;
+                int length = (int)(next - read);
+                storage.Slice(read, length).CopyTo(storage.Slice(write, length));
+                write += length;
+                removedPosition = next;
+            }
+            // List<T> clears reference slots in the discarded tail when needed.
+            items.RemoveRange(write, count);
+        }
 
         /// <summary>
         /// 시퀀스에 슬라이스를 적용하여 인덱스 배열 반환

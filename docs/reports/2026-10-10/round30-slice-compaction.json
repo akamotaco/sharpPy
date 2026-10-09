@@ -1,0 +1,1679 @@
+{
+  "baseline_commit": "9ec2391",
+  "source_commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+  "protocol": "Identical native harness; DOTNET_TieredCompilation=0; 3 sequential process pairs, 100 warmups and 10 samples per process. Deletion includes target creation. No list or whole-VM speed claim.",
+  "runs": {
+    "before": [
+      {
+        "warmups": 100,
+        "deletion_includes_target_creation": true,
+        "results": [
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0501,
+              0.0448,
+              0.0485,
+              0.0477,
+              0.0469,
+              0.0476,
+              0.0479,
+              0.0445,
+              0.0477,
+              0.0483
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0966,
+              0.0962,
+              0.0976,
+              0.0969,
+              0.0976,
+              0.0957,
+              0.0957,
+              0.0965,
+              0.1008,
+              0.0957
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0315,
+              0.0308,
+              0.0314,
+              0.0306,
+              0.0308,
+              0.0309,
+              0.0308,
+              0.0306,
+              0.0313,
+              0.031
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0914,
+              0.0902,
+              0.1038,
+              0.0905,
+              0.0977,
+              0.0902,
+              0.0911,
+              0.0901,
+              0.0907,
+              0.0878
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0514,
+              0.055,
+              0.0543,
+              0.0524,
+              0.0529,
+              0.0538,
+              0.053,
+              0.052,
+              0.0504,
+              0.059
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.6139,
+              0.6218,
+              0.6187,
+              0.6236,
+              0.6306,
+              0.6355,
+              0.6386,
+              0.6422,
+              0.6401,
+              0.6378
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0472,
+              0.0478,
+              0.0479,
+              0.0486,
+              0.0485,
+              0.0487,
+              0.0486,
+              0.0485,
+              0.048,
+              0.0488
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.6296,
+              0.6296,
+              0.6179,
+              0.6107,
+              0.6173,
+              0.6121,
+              0.612,
+              0.6176,
+              0.6114,
+              0.621
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          }
+        ]
+      },
+      {
+        "warmups": 100,
+        "deletion_includes_target_creation": true,
+        "results": [
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0647,
+              0.055,
+              0.0666,
+              0.0939,
+              0.1857,
+              0.0611,
+              0.0702,
+              0.0898,
+              0.0617,
+              0.0767
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.095,
+              0.1028,
+              0.1155,
+              0.0947,
+              0.0943,
+              0.1054,
+              0.1306,
+              0.0947,
+              0.0946,
+              0.094
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0569,
+              0.0322,
+              0.0335,
+              0.0331,
+              0.0338,
+              0.0361,
+              0.0351,
+              0.0412,
+              0.0399,
+              0.036
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0905,
+              0.1105,
+              0.0903,
+              0.0893,
+              0.0933,
+              0.0929,
+              0.0897,
+              0.0971,
+              0.0961,
+              0.0907
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0495,
+              0.0514,
+              0.0505,
+              0.0499,
+              0.051,
+              0.0576,
+              0.0559,
+              0.0486,
+              0.0818,
+              0.049
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.6228,
+              0.6285,
+              0.6476,
+              0.6271,
+              0.6557,
+              0.6986,
+              0.6352,
+              0.6229,
+              0.6611,
+              0.741
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0496,
+              0.0497,
+              0.0499,
+              0.0514,
+              0.0529,
+              0.0534,
+              0.0498,
+              0.05,
+              0.0491,
+              0.0562
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.6307,
+              0.6195,
+              0.6319,
+              0.6243,
+              0.6339,
+              0.62,
+              0.6281,
+              0.6252,
+              0.6213,
+              0.6225
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          }
+        ]
+      },
+      {
+        "warmups": 100,
+        "deletion_includes_target_creation": true,
+        "results": [
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0806,
+              0.0773,
+              0.0772,
+              0.0763,
+              0.0769,
+              0.0758,
+              0.0753,
+              0.0743,
+              0.1131,
+              0.1056
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.1003,
+              0.0983,
+              0.1042,
+              0.1209,
+              0.1011,
+              0.1121,
+              0.0969,
+              0.0961,
+              0.1117,
+              0.1271
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0329,
+              0.0335,
+              0.032,
+              0.0358,
+              0.0341,
+              0.0316,
+              0.0331,
+              0.0316,
+              0.0349,
+              0.0323
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0883,
+              0.0892,
+              0.0878,
+              0.1003,
+              0.0887,
+              0.0886,
+              0.0868,
+              0.0874,
+              0.0887,
+              0.0908
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.052,
+              0.0521,
+              0.0793,
+              0.05,
+              0.0512,
+              0.0525,
+              0.0512,
+              0.054,
+              0.0522,
+              0.0539
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.6431,
+              0.6124,
+              0.6277,
+              0.6901,
+              0.6197,
+              0.6694,
+              0.6818,
+              0.6424,
+              0.6628,
+              0.8048
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0553,
+              0.0479,
+              0.1988,
+              0.0568,
+              0.0549,
+              0.057,
+              0.0534,
+              0.0532,
+              0.0565,
+              0.061
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.5845,
+              0.5811,
+              0.6105,
+              0.5841,
+              0.6618,
+              0.5796,
+              0.5916,
+              0.6073,
+              0.596,
+              0.6065
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "warmups": 100,
+        "deletion_includes_target_creation": true,
+        "results": [
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0497,
+              0.0521,
+              0.0617,
+              0.0525,
+              0.0503,
+              0.0561,
+              0.0551,
+              0.0647,
+              0.0587,
+              0.0527
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0514,
+              0.0489,
+              0.05,
+              0.0495,
+              0.0538,
+              0.0515,
+              0.0615,
+              0.0516,
+              0.049,
+              0.0495
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0344,
+              0.0343,
+              0.0339,
+              0.034,
+              0.0339,
+              0.034,
+              0.0339,
+              0.0378,
+              0.0449,
+              0.0338
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0643,
+              0.0523,
+              0.0518,
+              0.0549,
+              0.0512,
+              0.0512,
+              0.0559,
+              0.0553,
+              0.0604,
+              0.0515
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0347,
+              0.1192,
+              0.0469,
+              0.0447,
+              0.0432,
+              0.0359,
+              0.0336,
+              0.0926,
+              0.0335,
+              0.0358
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.0971,
+              0.1142,
+              0.1013,
+              0.0976,
+              0.0971,
+              0.0969,
+              0.0976,
+              0.1089,
+              0.0958,
+              0.1151
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.037,
+              0.0316,
+              0.0326,
+              0.0325,
+              0.0326,
+              0.0322,
+              0.0321,
+              0.0329,
+              0.0321,
+              0.0325
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.0961,
+              0.0963,
+              0.0964,
+              0.0961,
+              0.0962,
+              0.0962,
+              0.0969,
+              0.0965,
+              0.0969,
+              0.0957
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          }
+        ]
+      },
+      {
+        "warmups": 100,
+        "deletion_includes_target_creation": true,
+        "results": [
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0674,
+              0.0835,
+              0.0624,
+              0.088,
+              0.1005,
+              0.0823,
+              0.1017,
+              0.0589,
+              0.0826,
+              0.0802
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0485,
+              0.0479,
+              0.0478,
+              0.0458,
+              0.0471,
+              0.0463,
+              0.05,
+              0.0637,
+              0.048,
+              0.0459
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.033,
+              0.0339,
+              0.0334,
+              0.0344,
+              0.0337,
+              0.0463,
+              0.0332,
+              0.0327,
+              0.0343,
+              0.0321
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0538,
+              0.0529,
+              0.0609,
+              0.0544,
+              0.0527,
+              0.056,
+              0.0521,
+              0.0512,
+              0.0549,
+              0.0563
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0328,
+              0.0332,
+              0.0328,
+              0.0326,
+              0.0329,
+              0.033,
+              0.0331,
+              0.033,
+              0.0331,
+              0.0333
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.1572,
+              0.1005,
+              0.1267,
+              0.0983,
+              0.0996,
+              0.113,
+              0.099,
+              0.104,
+              0.0965,
+              0.1035
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0367,
+              0.0361,
+              0.0362,
+              0.0354,
+              0.0352,
+              0.0354,
+              0.038,
+              0.0447,
+              0.0342,
+              0.0361
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.0984,
+              0.1006,
+              0.1002,
+              0.0995,
+              0.0968,
+              0.1038,
+              0.143,
+              0.1,
+              0.1048,
+              0.1003
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          }
+        ]
+      },
+      {
+        "warmups": 100,
+        "deletion_includes_target_creation": true,
+        "results": [
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0809,
+              0.0453,
+              0.0473,
+              0.0484,
+              0.0765,
+              0.0656,
+              0.048,
+              0.052,
+              0.0601,
+              0.0585
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": 2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0481,
+              0.0489,
+              0.0539,
+              0.0509,
+              0.053,
+              0.0499,
+              0.0509,
+              0.0528,
+              0.0539,
+              0.0511
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "assign",
+            "count": 1000,
+            "milliseconds": [
+              0.0357,
+              0.036,
+              0.0341,
+              0.0361,
+              0.0362,
+              0.0372,
+              0.0318,
+              0.0307,
+              0.0334,
+              0.0304
+            ],
+            "allocated_bytes": [
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000,
+              64000
+            ]
+          },
+          {
+            "size": 16,
+            "step": -2,
+            "operation": "delete",
+            "count": 1000,
+            "milliseconds": [
+              0.0874,
+              0.0943,
+              0.0937,
+              0.0583,
+              0.0503,
+              0.0609,
+              0.0739,
+              0.0522,
+              0.0497,
+              0.0512
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.036,
+              0.0356,
+              0.0361,
+              0.0364,
+              0.0349,
+              0.0372,
+              0.0359,
+              0.0406,
+              0.0354,
+              0.035
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": 2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.0985,
+              0.1024,
+              0.221,
+              0.1005,
+              0.099,
+              0.1027,
+              0.1008,
+              0.1068,
+              0.1309,
+              0.1021
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "assign",
+            "count": 100,
+            "milliseconds": [
+              0.0341,
+              0.0349,
+              0.0376,
+              0.0405,
+              0.0373,
+              0.0345,
+              0.0348,
+              0.0331,
+              0.0348,
+              0.0363
+            ],
+            "allocated_bytes": [
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800,
+              56800
+            ]
+          },
+          {
+            "size": 1024,
+            "step": -2,
+            "operation": "delete",
+            "count": 100,
+            "milliseconds": [
+              0.0967,
+              0.0962,
+              0.0979,
+              0.0958,
+              0.1022,
+              0.1256,
+              0.1153,
+              0.1003,
+              0.1033,
+              0.1067
+            ],
+            "allocated_bytes": [
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000,
+              112000
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "summary": [
+    {
+      "size": 16,
+      "step": 2,
+      "operation": "assign",
+      "count": 1000,
+      "before": {
+        "median_ms": 0.0684,
+        "q1_ms": 0.0483,
+        "q3_ms": 0.0772,
+        "allocated_bytes_median": 64000.0
+      },
+      "after": {
+        "median_ms": 0.0595,
+        "q1_ms": 0.0521,
+        "q3_ms": 0.0802,
+        "allocated_bytes_median": 64000.0
+      }
+    },
+    {
+      "size": 16,
+      "step": 2,
+      "operation": "delete",
+      "count": 1000,
+      "before": {
+        "median_ms": 0.09725,
+        "q1_ms": 0.0957,
+        "q3_ms": 0.1042,
+        "allocated_bytes_median": 112000.0
+      },
+      "after": {
+        "median_ms": 0.04995,
+        "q1_ms": 0.0481,
+        "q3_ms": 0.0516,
+        "allocated_bytes_median": 112000.0
+      }
+    },
+    {
+      "size": 16,
+      "step": -2,
+      "operation": "assign",
+      "count": 1000,
+      "before": {
+        "median_ms": 0.032600000000000004,
+        "q1_ms": 0.0313,
+        "q3_ms": 0.0349,
+        "allocated_bytes_median": 64000.0
+      },
+      "after": {
+        "median_ms": 0.03395,
+        "q1_ms": 0.0334,
+        "q3_ms": 0.0357,
+        "allocated_bytes_median": 64000.0
+      }
+    },
+    {
+      "size": 16,
+      "step": -2,
+      "operation": "delete",
+      "count": 1000,
+      "before": {
+        "median_ms": 0.09040000000000001,
+        "q1_ms": 0.0887,
+        "q3_ms": 0.0929,
+        "allocated_bytes_median": 112000.0
+      },
+      "after": {
+        "median_ms": 0.05465,
+        "q1_ms": 0.0518,
+        "q3_ms": 0.0604,
+        "allocated_bytes_median": 112000.0
+      }
+    },
+    {
+      "size": 1024,
+      "step": 2,
+      "operation": "assign",
+      "count": 100,
+      "before": {
+        "median_ms": 0.05215,
+        "q1_ms": 0.051,
+        "q3_ms": 0.054,
+        "allocated_bytes_median": 56800.0
+      },
+      "after": {
+        "median_ms": 0.0352,
+        "q1_ms": 0.0331,
+        "q3_ms": 0.0364,
+        "allocated_bytes_median": 56800.0
+      }
+    },
+    {
+      "size": 1024,
+      "step": 2,
+      "operation": "delete",
+      "count": 100,
+      "before": {
+        "median_ms": 0.6382,
+        "q1_ms": 0.6236,
+        "q3_ms": 0.6611,
+        "allocated_bytes_median": 112000.0
+      },
+      "after": {
+        "median_ms": 0.10105,
+        "q1_ms": 0.0983,
+        "q3_ms": 0.1089,
+        "allocated_bytes_median": 112000.0
+      }
+    },
+    {
+      "size": 1024,
+      "step": -2,
+      "operation": "assign",
+      "count": 100,
+      "before": {
+        "median_ms": 0.04985,
+        "q1_ms": 0.0486,
+        "q3_ms": 0.0549,
+        "allocated_bytes_median": 56800.0
+      },
+      "after": {
+        "median_ms": 0.03485,
+        "q1_ms": 0.0326,
+        "q3_ms": 0.0363,
+        "allocated_bytes_median": 56800.0
+      }
+    },
+    {
+      "size": 1024,
+      "step": -2,
+      "operation": "delete",
+      "count": 100,
+      "before": {
+        "median_ms": 0.61775,
+        "q1_ms": 0.6073,
+        "q3_ms": 0.6252,
+        "allocated_bytes_median": 112000.0
+      },
+      "after": {
+        "median_ms": 0.09815,
+        "q1_ms": 0.0963,
+        "q3_ms": 0.1022,
+        "allocated_bytes_median": 112000.0
+      }
+    }
+  ],
+  "regression_counts": {
+    "matching_output": 63,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "5c5e04cbf87c3cf571409f7a2efe339f8076bf713573b2e4380510555d42e153",
+  "baseline_regression": [
+    {
+      "name": "tests/slice_delete_compaction_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "slice deletion compaction: 1440 PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03804949999903329,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "slice deletion compaction: 1440 PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.6689789000010933,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "version": "4.7.2.stable.mono.official.ed1daf0bf",
+    "runtime": ".NET 8.0.31",
+    "platform": "Windows x64 headless",
+    "mode": "SharpPy source compiled directly in Godot SDK project, no SharpPy DLL/ProjectReference",
+    "build": "dotnet build CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "reason_for_constants": "Exclude existing DEBUG instruction-count cap; GODOT adapter stays enabled.",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nSHARPPY_GODOT_PASS\r\n",
+    "project_files": {
+      "CompatibilityProbe.csproj": "<Project Sdk=\"Godot.NET.Sdk/4.7.2\">\n<PropertyGroup><TargetFramework>net8.0</TargetFramework><EnableDynamicLoading>true</EnableDynamicLoading><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems><GenerateAssemblyInfo>false</GenerateAssemblyInfo><GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute><WarningLevel>0</WarningLevel></PropertyGroup>\n<ItemGroup><Compile Include=\"ProbeNode.cs\"/><Compile Include=\"${REPO}/**/*.cs\" Exclude=\"${REPO}/**/obj/**;${REPO}/**/bin/**;${REPO}/.artifacts/**;${REPO}/SharpPy.Tokens/**;${REPO}/SharpPy.PegGenerator/**;${REPO}/tools/PerformanceHarness/**;${REPO}/Generated/*_test.cs\"/></ItemGroup>\n</Project>",
+      "ProbeNode.cs": "using Godot;\r\nusing SharpPy;\r\npublic partial class ProbeNode : Node\r\n{\r\n    public override void _Ready()\r\n    {\r\n        try {\r\n            GD.Print(\"SHARPPY_HOST \" + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);\r\n            foreach (string file in new[] { \"slice_delete_compaction_regression.py\", \"memoryview_slice_assignment_regression.py\", \"bytes_comparison_regression.py\" }) {\r\n                string path = \"res://\" + file;\r\n                new IntegratedPythonInterpreter().Execute(Godot_IO.Helper.ReadAllText(path), path, false, false, false);\r\n            }\r\n            GD.Print(\"SHARPPY_GODOT_PASS\");\r\n            GetTree().Quit(0);\r\n        } catch (System.Exception error) {\r\n            GD.PrintErr(error.ToString());\r\n            GetTree().Quit(1);\r\n        }\r\n    }\r\n}\r\n",
+      "project.godot": "config_version=5\r\n[application]\r\nconfig/name=\"SharpPy compatibility probe\"\r\nrun/main_scene=\"res://probe.tscn\"\r\n[dotnet]\r\nproject/assembly_name=\"CompatibilityProbe\"\r\n[rendering]\r\nrenderer/rendering_method=\"gl_compatibility\"\r\n",
+      "probe.tscn": "[gd_scene load_steps=2 format=3]\r\n[ext_resource type=\"Script\" path=\"res://ProbeNode.cs\" id=\"1\"]\r\n[node name=\"Probe\" type=\"Node\"]\r\nscript = ExtResource(\"1\")\r\n",
+      "NuGet.Config": "<configuration><packageSources><clear/><add key=\"local-godot\" value=\"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\Godot_v4.7.2-stable_mono_win64\\Godot_v4.7.2-stable_mono_win64\\GodotSharp\\Tools\\nupkgs\"/></packageSources></configuration>"
+    },
+    "limitations": "Android/iOS export and devices not tested; bundled library imports not covered by these three cases."
+  }
+}
