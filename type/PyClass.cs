@@ -1048,51 +1048,13 @@ namespace SharpPy
                                     // Handle slice deletion: del list[start:stop:step]
                                     var length = list.Length();
                                     var (start, stop, step) = slice.Indices(length);
-                                    var sliceLength = slice.GetLength(length);
-
-                                    if (step == 1)
-                                    {
-                                        // Simple case: contiguous deletion
-                                        // del list[start:stop] removes items from start to stop-1
-                                        // CPython: list_ass_slice(a, ilow, ihigh, NULL) with v=NULL means delete
-                                        for (int i = 0; i < sliceLength; i++)
-                                        {
-                                            list.Pop(start);
-                                        }
-                                    }
-                                    else if (step > 0)
-                                    {
-                                        // Extended slice deletion with positive step
-                                        // Delete from end to beginning to maintain indices
-                                        var indicesToDelete = new List<int>();
-                                        for (int i = start; i < stop; i += step)
-                                        {
-                                            if (i >= 0 && i < length)
-                                                indicesToDelete.Add(i);
-                                        }
-                                        // Remove in reverse order
-                                        for (int i = indicesToDelete.Count - 1; i >= 0; i--)
-                                        {
-                                            list.Pop(indicesToDelete[i]);
-                                        }
-                                    }
-                                    else // step < 0
-                                    {
-                                        // Extended slice deletion with negative step
-                                        var indicesToDelete = new List<int>();
-                                        for (int i = start; i > stop; i += step)
-                                        {
-                                            if (i >= 0 && i < length)
-                                                indicesToDelete.Add(i);
-                                        }
-                                        // Remove in reverse order
-                                        indicesToDelete.Sort();
-                                        indicesToDelete.Reverse();
-                                        foreach (var idx in indicesToDelete)
-                                        {
-                                            list.Pop(idx);
-                                        }
-                                    }
+                                    int count = PySlice.GetLength(start, stop, step);
+                                    // Descending physical positions preserve the
+                                    // remaining indices after each removal.
+                                    long position = step > 0 ? start + (long)(count - 1) * step : start;
+                                    long decrement = step > 0 ? -(long)step : step;
+                                    for (int n = 0; n < count; n++, position += decrement)
+                                        list.Pop((int)position);
                                 }
                                 else
                                 {

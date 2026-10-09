@@ -523,32 +523,18 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Extended slice - must have same length
-                    var sliceIndices = new List<int>();
-                    if (step > 0)
+                    int count = PySlice.GetLength(start, stop, step);
+                    if (newBytes.Count == 0)
                     {
-                        for (int i = start; i < stop; i += step)
-                        {
-                            if (i >= 0 && i < _bytes.Count)
-                                sliceIndices.Add(i);
-                        }
+                        if (_exports > 0)
+                            throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
+                        DeleteExtendedSlice(start, step, count);
+                        return;
                     }
-                    else
-                    {
-                        for (int i = start; i > stop; i += step)
-                        {
-                            if (i >= 0 && i < _bytes.Count)
-                                sliceIndices.Add(i);
-                        }
-                    }
-
-                    if (sliceIndices.Count != newBytes.Count)
-                        throw PyValueError.Create($"attempt to assign bytes of size {newBytes.Count} to extended slice of size {sliceIndices.Count}");
-
-                    for (int i = 0; i < sliceIndices.Count; i++)
-                    {
-                        _bytes[sliceIndices[i]] = newBytes[i];
-                    }
+                    if (count != newBytes.Count)
+                        throw PyValueError.Create($"attempt to assign bytes of size {newBytes.Count} to extended slice of size {count}");
+                    for (int n = 0, position = start; n < count; n++, position = unchecked(position + step))
+                        _bytes[position] = newBytes[n];
                 }
             }
             else
@@ -589,32 +575,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Extended slice - delete in reverse order
-                    var indicesToDelete = new List<int>();
-                    if (step > 0)
-                    {
-                        for (int i = start; i < stop; i += step)
-                        {
-                            if (i >= 0 && i < _bytes.Count)
-                                indicesToDelete.Add(i);
-                        }
-                    }
-                    else
-                    {
-                        for (int i = start; i > stop; i += step)
-                        {
-                            if (i >= 0 && i < _bytes.Count)
-                                indicesToDelete.Add(i);
-                        }
-                    }
-
-                    // Delete in reverse order to maintain indices
-                    indicesToDelete.Sort();
-                    indicesToDelete.Reverse();
-                    foreach (int idx in indicesToDelete)
-                    {
-                        _bytes.RemoveAt(idx);
-                    }
+                    int count = PySlice.GetLength(start, stop, step);
+                    DeleteExtendedSlice(start, step, count);
                 }
             }
             else
@@ -925,21 +887,22 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Convert PyObject to List of bytes
+        /// Delete normalized extended-slice positions in descending order.
         /// </summary>
+        private void DeleteExtendedSlice(int start, int step, int count)
+        {
+            // Delete highest positions first; no index array or sort.
+            long position = step > 0 ? start + (long)(count - 1) * step : start;
+            long decrement = step > 0 ? -(long)step : step;
+            for (int n = 0; n < count; n++, position += decrement)
+                _bytes.RemoveAt((int)position);
+        }
+
         private static List<byte> ConvertToBytes(PyObject obj)
         {
+            if (obj is PyBytes bytes) return new List<byte>(bytes.Value);
+            if (obj is PyByteArray byteArray) return new List<byte>(byteArray._bytes);
             var result = new List<byte>();
-
-            if (obj is PyBytes pyBytes)
-            {
-                result.AddRange(pyBytes.Value);
-            }
-            else if (obj is PyByteArray pyByteArray)
-            {
-                result.AddRange(pyByteArray._bytes);
-            }
-            else
             {
                 // Try to iterate
                 var iterator = obj.GetIterator();

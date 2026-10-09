@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--bytearray-slice-mutation-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(ByteArraySliceMutationProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--sequence-slice-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(SequenceSliceProbe.Run()));

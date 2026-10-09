@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [29차 slice 대입·삭제](reports/2026-10-09/slice_mutation_analysis.md)는 int 범위 step의 overflow, list 삭제의 콜백 중복, bytearray 빈 값 대입의 삭제 동작을 수정했다. 기본 67개에서 새 실패 없음. 고정 JIT의 큰 bytearray 측정에서 대입 약 49~56%, 삭제 약 25~28% 단축, 할당 각각 약 88%/79% 감소. 큰 step 변환과 선형 삭제 알고리즘은 다음 검토 대상으로 남는다.
+
 - 추가 확인: [28차 slice 읽기](reports/2026-10-09/sequence_slice_read_analysis.md)는 5개 타입의 int 범위 step 증가식 overflow를 수정했다. bytes/str/list 및 연속 tuple의 중간 버퍼 비용도 줄였다. 기본 66개에서 새 실패 없음. JIT 전환 의심 변동 때문에 고정 JIT 조건의 측정을 별도 기록했으며 전체 VM 개선율로 해석하지 않는다. 큰 step 변환과 쓰기·삭제 루프는 다음 대상으로 남는다.
 
 - 추가 확인: [27차 list 확장 slice 대입](reports/2026-10-09/list_slice_assignment_analysis.md)은 길이 계산 overflow, __index__ 중복 호출, 자기 대입 원본 손상을 수정했다. 반복 Items 복사와 인덱스 배열을 제거해 별도 list 대입 native 측정에서 약 67.7%/93.4% 단축, 추가 할당 0바이트. 기본 64개에서 새 실패 없음. 큰 step 변환과 다른 읽기 루프의 overflow는 별도 실패로 남아 다음 대상이다.
