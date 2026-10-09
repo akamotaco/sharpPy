@@ -3,6 +3,54 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--dict-iterator-probe")
+{
+    bool traverse = args.Length > 1 && args[1] == "--traverse";
+    int iteratorCount = traverse ? 1000 : 10000;
+    var iteratorDict = new PyDict();
+    for (int i = 0; i < 100; i++) iteratorDict.SetItem(new PyInt(i), new PyInt(i));
+    var iteratorResults = new List<object>();
+    foreach (string kind in new[] { "keys", "values", "items" })
+    {
+        PyObject RunIterators()
+        {
+            PyObject last = PyNone.Instance;
+            for (int i = 0; i < iteratorCount; i++)
+            {
+                PyIterator cursor = kind switch
+                {
+                    "keys" => new PyDictKeyIterator(iteratorDict),
+                    "values" => new PyDictValueIterator(iteratorDict),
+                    _ => new PyDictItemIterator(iteratorDict)
+                };
+                for (int step = 0; step < (traverse ? 100 : 1); step++) last = cursor.Next();
+            }
+            var number = last is PyTuple pair ? pair.Items[1] : last;
+            if (number is not PyInt result || result.Value != (traverse ? 99 : 0))
+                throw new InvalidOperationException("dict iterator probe failed");
+            return last;
+        }
+        for (int i = 0; i < 10; i++) GC.KeepAlive(RunIterators());
+        var iteratorTimes = new double[10];
+        var iteratorAllocations = new long[10];
+        for (int i = 0; i < 10; i++)
+        {
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            long started = Stopwatch.GetTimestamp();
+            var last = RunIterators();
+            iteratorTimes[i] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            iteratorAllocations[i] = GC.GetAllocatedBytesForCurrentThread() - allocated;
+            GC.KeepAlive(last);
+        }
+        iteratorResults.Add(new { kind, milliseconds = iteratorTimes, allocated_bytes = iteratorAllocations });
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { iterations = iteratorCount, dict_size = 100, warmups = 10,
+        scope = traverse ? "Native iterator construction and 100 Next calls; excludes terminal StopIteration and Python VM"
+            : "Native iterator construction and first Next only; excludes full traversal and Python VM",
+        results = iteratorResults }));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--dict-view-probe")
 {
     var probeDict = new PyDict();

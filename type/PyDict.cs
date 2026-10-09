@@ -484,6 +484,7 @@ namespace SharpPy
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal Dictionary<PyObject, PyObject> InternalDict => _dict;
+        internal List<PyObject>.Enumerator GetOrderedKeyEnumerator() => _keys.GetEnumerator();
 
         /// <summary>
         /// CPython 3.12: Include/cpython/dictobject.h - 내부 딕셔너리 순회용

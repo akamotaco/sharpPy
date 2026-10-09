@@ -290,100 +290,90 @@ namespace SharpPy
     /// <summary>
     /// 딕셔너리 키 이터레이터 구현
     /// </summary>
-    public class PyDictKeyIterator : PyIterator
+    public abstract class PyDictIterator : PyIterator
     {
-        private readonly IEnumerator<PyObject> _enumerator;
+        private PyDict _dictionary;
+        private readonly int _initialSize;
+        private List<PyObject>.Enumerator _enumerator;
+        private bool _finished;
+        private bool _sizeFailed;
 
-        public PyDictKeyIterator(PyDict dict)
+        protected PyDictIterator(PyDict dict)
         {
             if (dict == null) throw new ArgumentNullException(nameof(dict));
-            _enumerator = ((IEnumerable<PyObject>)dict.Keys().Items).GetEnumerator();
+            _dictionary = dict;
+            _initialSize = dict.Length();
+            _enumerator = dict.GetOrderedKeyEnumerator();
         }
 
         public override PyObject Next()
         {
-            if (!_enumerator.MoveNext())
+            if (_finished) throw PyStopIteration.Create();
+            if (_sizeFailed || _dictionary.Length() != _initialSize)
+            {
+                _sizeFailed = true;
+                throw PyRuntimeError.Create("dictionary changed size during iteration");
+            }
+            bool found;
+            try { found = _enumerator.MoveNext(); }
+            catch (InvalidOperationException)
+            {
+                // Conservative same-size mutation guard. CPython can permit replacement
+                // of unvisited keys; matching that requires a stable entry cursor.
+                Finish();
+                throw PyRuntimeError.Create("dictionary keys changed during iteration");
+            }
+            if (!found)
+            {
+                Finish();
                 throw PyStopIteration.Create();
-
-            return _enumerator.Current;
+            }
+            var key = _enumerator.Current;
+            return Project(key, _dictionary);
         }
 
-        public override PyString ToRepr() => new PyString($"<dict_keyiterator object>");
+        protected abstract PyObject Project(PyObject key, PyDict dictionary);
+
+        private void Finish()
+        {
+            _finished = true;
+            _enumerator = default;
+            _dictionary = null;
+        }
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-            {
-                _enumerator?.Dispose();
-            }
+            if (disposing) _enumerator.Dispose();
             base.Dispose(disposing);
         }
+    }
+
+    public class PyDictKeyIterator : PyDictIterator
+    {
+        public PyDictKeyIterator(PyDict dict) : base(dict) { }
+        protected override PyObject Project(PyObject key, PyDict dictionary) => key;
+        public override PyString ToRepr() => new PyString("<dict_keyiterator object>");
     }
 
     /// <summary>
     /// 딕셔너리 값 이터레이터 구현
     /// </summary>
-    public class PyDictValueIterator : PyIterator
+    public class PyDictValueIterator : PyDictIterator
     {
-        private readonly IEnumerator<PyObject> _enumerator;
-
-        public PyDictValueIterator(PyDict dict)
-        {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
-            _enumerator = ((IEnumerable<PyObject>)dict.Values().Items).GetEnumerator();
-        }
-
-        public override PyObject Next()
-        {
-            if (!_enumerator.MoveNext())
-                throw PyStopIteration.Create();
-            
-            return _enumerator.Current;
-        }
-
-        public override PyString ToRepr() => new PyString($"<dict_valueiterator object>");
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _enumerator?.Dispose();
-            }
-            base.Dispose(disposing);
-        }
+        public PyDictValueIterator(PyDict dict) : base(dict) { }
+        protected override PyObject Project(PyObject key, PyDict dictionary) => dictionary.InternalDict[key];
+        public override PyString ToRepr() => new PyString("<dict_valueiterator object>");
     }
 
     /// <summary>
     /// 딕셔너리 아이템 이터레이터 구현
     /// </summary>
-    public class PyDictItemIterator : PyIterator
+    public class PyDictItemIterator : PyDictIterator
     {
-        private readonly IEnumerator<PyTuple> _enumerator;
-
-        public PyDictItemIterator(PyDict dict)
-        {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
-            _enumerator = dict.Items().Items.Cast<PyTuple>().GetEnumerator();
-        }
-
-        public override PyObject Next()
-        {
-            if (!_enumerator.MoveNext())
-                throw PyStopIteration.Create();
-            
-            return _enumerator.Current;
-        }
-
-        public override PyString ToRepr() => new PyString($"<dict_itemiterator object>");
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _enumerator?.Dispose();
-            }
-            base.Dispose(disposing);
-        }
+        public PyDictItemIterator(PyDict dict) : base(dict) { }
+        protected override PyObject Project(PyObject key, PyDict dictionary) =>
+            TupleCache.CreatePair(key, dictionary.InternalDict[key]);
+        public override PyString ToRepr() => new PyString("<dict_itemiterator object>");
     }
 
     /// <summary>

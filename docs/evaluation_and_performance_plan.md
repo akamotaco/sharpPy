@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [13차 dict iterator 분석](reports/2026-10-09/dict_iterator_analysis.md)에서 snapshot을 제거하고 live 값 조회·size mutation 감지·sticky exhaustion을 actual CPython과 비교했다. native 전체 순회에서도 할당 감소를 확인했다. same-size 삭제/재삽입은 List enumerator와 CPython entry cursor의 차이로 미해결이며 별도 실패 fixture를 유지한다.
+
 - 추가 확인: [12차 dict view 분석](reports/2026-10-09/dict_views_analysis.md)에서 Python keys/values/items를 retained view로 바꾸고 내부 snapshot API는 유지했다. native keys 생성 probe의 할당이 약 97.7% 감소했다. iterator mutation, set 연산, namespace stale 저장소는 아직 미해결이며 실제 CPython 비교 실패 fixture로 구분했다.
 
 - 추가 확인: [11차 dict 저장소 분석](reports/2026-10-09/dict_storage_analysis.md)에서 동등 키 pop의 순서 목록 정합성을 수정하고 comparer를 공유했다. native probe에서 생성당 24B 할당 감소를 확인했으며 속도 개선은 미확정이다. namespace live 조회·삭제와 일반 dict retained view를 별도 실패 fixture로 확보했다.
