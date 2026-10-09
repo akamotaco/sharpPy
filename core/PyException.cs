@@ -29,6 +29,14 @@ namespace SharpPy
             __traceback__ = null;
         }
 
+        // Preserve explicit Python arguments, including the empty tuple, without
+        // manufacturing a message argument or calling user __str__ methods.
+        protected PyBaseException(PyObject[] args)
+        {
+            Args = args;
+            Message = args.Length > 0 && args[0] is PyString text ? text.Value : "";
+        }
+
         public override PyType GetPyType() => PyType.BaseExceptionType;
         public override string GetTypeName() => "BaseException";
 
@@ -36,8 +44,8 @@ namespace SharpPy
         {
             if (Args.Length == 0)
                 return new PyString("");
-            if (Args.Length == 1 && Args[0] is PyString str)
-                return new PyString(str.Value);
+            if (Args.Length == 1)
+                return Args[0].ToStr();
             return new PyString($"({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
         }
 
@@ -129,6 +137,8 @@ namespace SharpPy
         public PyClassInstance? OriginalInstance { get; set; } // Store original user-defined instance
 
         public PyException(string message = "", params PyObject[] args) : base(message, args) { }
+
+        protected PyException(PyObject[] args) : base(args) { }
 
         // Constructor for wrapping user-defined exceptions with class info
         public PyException(string message, PyClass? originalClass) : base(message)
@@ -553,11 +563,14 @@ namespace SharpPy
     // Iterator 예외
     public class PyStopIteration : PyException
     {
-        public PyObject Value { get; }
+        public PyObject Value { get; private set; }
 
-        public PyStopIteration(PyObject value = null) : base("StopIteration")
+        public PyStopIteration(PyObject value = null)
+            : this(value == null ? Array.Empty<PyObject>() : new[] { value }) { }
+
+        internal PyStopIteration(PyObject[] args) : base(args)
         {
-            Value = value ?? PyNone.Instance;
+            Value = args.Length > 0 ? args[0] : PyNone.Instance;
         }
 
         public override PyType GetPyType() => PyType.StopIterationType;
@@ -570,9 +583,15 @@ namespace SharpPy
             return base.GetAttribute(name);
         }
 
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "value") Value = value;
+            else base.SetAttribute(name, value);
+        }
+
         public new static System.Exception Create(PyObject value = null)
         {
-            var pyException = new PyStopIteration(value);
+            var pyException = new PyStopIteration(value is PyNone ? null : value);
             return new PythonException(pyException);
         }
     }

@@ -1,0 +1,138 @@
+{
+  "baseline_commit": "dfb59c8",
+  "source": {
+    "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+    "file": "Objects/exceptions.c",
+    "download_date": "2026-10-10",
+    "url": "https://raw.githubusercontent.com/python/cpython/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Objects/exceptions.c",
+    "sha256": "623128614c3b2ada233875e3e0f0627b75653bc9042013d1e1cf242f3139e839",
+    "functions": [
+      "StopIteration_init",
+      "BaseException_str",
+      "StopIteration_members"
+    ]
+  },
+  "before": [
+    {
+      "name": "tests/stop_iteration_arguments_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration arguments: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029190399996878114,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\stop_iteration_arguments_regression.py\", line 3, in <module>\n    assert error.args == args\n                             ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\stop_iteration_arguments_regression.py\", line 3, in <module>\n        assert error.args == args\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25960639999539126,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration message: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.025097700003243517,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_message.py\", line 2, in <module>\n    assert str(StopIteration('value conversion')) == 'value conversion'\n                                                                       ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_message.py\", line 2, in <module>\n    assert str(StopIteration('value conversion')) == 'value conversion'\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23332479999953648,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "after": [
+    {
+      "name": "tests/stop_iteration_arguments_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration arguments: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.030288800000562333,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "StopIteration arguments: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2854107000021031,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration message: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.025354900004458614,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "StopIteration message: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.22292259999812813,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "counts": {
+    "matching_output": 72,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "dll_sha256": "f06b8f00f5ed20caa036d57da359d31637eaa15071f5c0b15b38df84cfa50180",
+  "outstanding": [
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "StopIteration args update: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029720499995164573,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\stop_iteration_args_update.py\", line 0, in <module>\n    # Source line not available (line 0)\nAttributeError: 'StopIteration' object attribute 'args' is read-only\n--- C# Exception Details ---\nAttributeError(\"'StopIteration' object attribute 'args' is read-only\")\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24495359999855282,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "integration": "SharpPy sources directly compiled in Godot SDK project, no separate SharpPy DLL",
+    "build": "dotnet build .artifacts/round30-godot/CompatibilityProbe.csproj -c Debug -p:DefineConstants=GODOT",
+    "output": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\r\n\r\nSHARPPY_HOST .NET 8.0.31\r\nslice deletion compaction: 1440 PASS\r\nmemoryview slice assignment: PASS\r\nbytes comparisons: PASS\r\nrange slice indices: PASS\r\nsequence large step: 216 PASS\r\nbytearray iterable assignment: PASS\r\nbytearray slice reentry: PASS\r\nbytearray byte values: PASS\r\nStopIteration arguments: PASS\r\nSHARPPY_GODOT_PASS\r\n"
+  },
+  "performance": "No timings collected. Empty StopIteration uses Array.Empty and no synthetic message PyString; ordinary args retained without copy."
+}

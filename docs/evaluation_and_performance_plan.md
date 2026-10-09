@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[36차 결과](reports/2026-10-10/stop_iteration_analysis.md): StopIteration 생성 인자·value·str/repr 및 generator 반환값을 맞췄다. 기본 77개와 Godot 소스 통합 회귀 9개 통과. 빈 종료 예외의 불필요한 인자 객체를 제거했다. 다음은 예외 args 재대입이며 별도 실패 fixture를 보존했다.
+
 [35차 결과](reports/2026-10-10/bytearray_bytevalue_analysis.md): bytearray 항목의 __index__·bool 및 큰 정수 범위 오류를 맞추고 값 callback 후 길이를 검사한다. 기본 75개와 Godot 소스 통합 회귀 8개 통과. StopIteration 메시지의 기존 차이와 CPython 저장소 재할당 callback의 불안정한 관찰 결과는 별도 기록했다.
 
 [34차 결과](reports/2026-10-10/bytearray_slice_reentry_analysis.md): bytearray의 RHS별 slice 재평가와 callback 후 경계 조정을 맞추고 불변 bytes 복사를 제거했다. 기본 74개 및 Godot 소스 통합 회귀 7개 통과. native 큰 bytes RHS 대입은 약 32% 빨라지고 측정 구간 할당은 0B였다. 삭제 혼합 측정의 변동은 별도 결과와 함께 기록했다.

@@ -112,6 +112,8 @@ def main():
             "tests/bytearray_iterable_assignment_regression.py",
             "tests/bytearray_slice_reentry_regression.py",
             "tests/bytearray_bytevalue_regression.py",
+            "tests/stop_iteration_arguments_regression.py",
+            "tests/compatibility/stop_iteration_message.py",
             "tests/compatibility/bytearray_slice_callback_order.py",
             "tests/compatibility/bytearray_slice_iterable_assignment.py",
             "tests/slice_read_step_regression.py",

@@ -136,7 +136,9 @@ namespace SharpPy
                     message = args.Length > 0 ? args[0].ToStr().Value : "";
                     return new PySyntaxError(message);
                 case "StopIteration":
-                    return args.Length > 0 ? new PyStopIteration(args[0]) : new PyStopIteration();
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("StopIteration() takes no keyword arguments");
+                    return new PyStopIteration(args);
                 case "BaseException":
                     message = args.Length > 0 ? args[0].ToStr().Value : "";
                     return new PyBaseException(message);

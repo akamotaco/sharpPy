@@ -733,7 +733,9 @@ namespace SharpPy
                 case "GeneratorExit":
                     return new PyGeneratorExit();
                 case "StopIteration":
-                    return new PyStopIteration();
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("StopIteration() takes no keyword arguments");
+                    return new PyStopIteration(args);
                 case "AssertionError":
                     return new PyAssertionError(message);
                 case "OSError":
