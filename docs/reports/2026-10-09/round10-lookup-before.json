@@ -1,0 +1,42 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.20674569999937376,
+    "failure_markers": []
+  },
+  "git": "6554d8d9b993c5b07be41e75498352f8d74b47f1",
+  "git_status": " M README.md\n M docs/evaluation_and_performance_plan.md\n M docs/reports/2026-10-09/class_namespace_analysis.md\n M readme.md\n M runtime/PyBytecode.cs\n M runtime/PyVM.cs\n M runtime/assemble.cs\n M runtime/compile.cs\n M tools/PerformanceHarness/ClassClosureInspection.cs\n M tools/PerformanceHarness/FrameChecks.cs\n M tools/PerformanceHarness/Program.cs\n M tools/PerformanceHarness/cpython_benchmark.py\n M tools/PerformanceHarness/workloads.py\n M tools/evaluate.py\n?? docs/reports/2026-10-09/class_exception_table_analysis.md\n?? docs/reports/2026-10-09/round9-known-gaps.json\n?? docs/reports/2026-10-09/round9-performance.json\n?? docs/reports/2026-10-09/round9-regressions-before.json\n?? docs/reports/2026-10-09/round9-tables-before.json\n?? docs/reports/2026-10-09/round9-tables-debug.json\n?? docs/reports/2026-10-09/round9-tables-final.json\n?? docs/reports/2026-10-09/round9-tables-intermediate.json\n?? docs/reports/2026-10-09/round9-tests.json\n?? docs/reports/2026-10-09/terminal_dotnet_crash_analysis.md\n?? tests/class_exception_table_regression.py\n?? tests/class_nested_state_regression.py\n?? tests/compatibility/lookup_error_builtin.py\n?? tests/exception_offset_regression.py\n?? tools/PerformanceHarness/ExceptionTableInspection.cs\n?? tools/compare_exception_tables.py\n",
+  "dll_sha256": "e4f7ec4d76873907c463e915a04c2da4edf141594bd910e31c49fdc893fb6f7e",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/compatibility/lookup_error_builtin.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "lookup error builtin: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.024169499998606625,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\lookup_error_builtin.py\", line 4, in <module>\n    assert builtins.LookupError is LookupError\n                                              ^\nAttributeError: module 'builtins' has no attribute 'LookupError'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\lookup_error_builtin.py\", line 4, in <module>\n    assert builtins.LookupError is LookupError\nAttributeError: module 'builtins' has no attribute 'LookupError'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25334140000086336,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "sharppy_failure": 1
+  }
+}

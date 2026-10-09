@@ -29,7 +29,8 @@ internal static class FrameChecks
 
         interpreter.Execute("def scope_probe(value):\n    return value\n");
         var probe = (PyFunction)interpreter.GetGlobalVariable("scope_probe");
-        var scopeFrame = new PyFrame(probe.CodeObject, new PyObject[] { SmallIntCache.One },
+        var probeCode = probe.CodeObject ?? throw new InvalidOperationException("Missing probe code");
+        var scopeFrame = new PyFrame(probeCode, new PyObject[] { SmallIntCache.One },
             new PyScopeChain(probe.GlobalsDict, "probe"));
         var localScope = scopeFrame.LocalScope ?? throw new InvalidOperationException("Missing function scope");
         var variables = localScope.Variables;
@@ -50,12 +51,12 @@ internal static class FrameChecks
             throw new InvalidOperationException("Initial locals key cache changed values");
         try
         {
-            probe.CodeObject.VarNames[0] = "renamed";
+            probeCode.VarNames[0] = "renamed";
             observed = (PyDict)scopeFrame.GetAttribute("f_locals");
             if (((PyInt)observed.GetItem(new PyString("renamed"))).Value != 1)
                 throw new InvalidOperationException("Locals key cache retained a stale metadata name");
-            probe.CodeObject.VarNames.Add("later");
-            var resized = new PyFrame(probe.CodeObject, new PyObject[] { SmallIntCache.One },
+            probeCode.VarNames.Add("later");
+            var resized = new PyFrame(probeCode, new PyObject[] { SmallIntCache.One },
                 new PyScopeChain(probe.GlobalsDict, "probe"));
             resized.LocalsPlus[1] = new PyInt(2);
             observed = (PyDict)resized.GetAttribute("f_locals");
@@ -64,8 +65,8 @@ internal static class FrameChecks
         }
         finally
         {
-            probe.CodeObject.VarNames[0] = "value";
-            if (probe.CodeObject.VarNames.Count > 1) probe.CodeObject.VarNames.RemoveAt(1);
+            probeCode.VarNames[0] = "value";
+            if (probeCode.VarNames.Count > 1) probeCode.VarNames.RemoveAt(1);
         }
     }
 }

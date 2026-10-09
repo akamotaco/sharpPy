@@ -13,6 +13,7 @@ Python 소스를 토큰화하고 PEG 파서로 AST를 생성한 뒤, 컴파일�
 - [6차 scope dictionary 지연 생성](docs/reports/2026-10-09/lazy_scope_analysis.md)
 - [7차 locals 이름 키 재사용](docs/reports/2026-10-09/locals_key_cache_analysis.md)
 - [8차 class namespace·호출 실패 상태](docs/reports/2026-10-09/class_namespace_analysis.md)
+- [9차 class Exception Table·offset 정합성](docs/reports/2026-10-09/class_exception_table_analysis.md)
 - [문서 보관 안내](docs/archive/2026-10-09/INDEX.md)
 - [기존 프로젝트 설명](docs/archive/2026-10-09/readme.md)
 - [라이선스](LICENSE)

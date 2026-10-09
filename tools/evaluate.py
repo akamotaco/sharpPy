@@ -70,6 +70,10 @@ def main():
             "tests/type_new_dict_subclass_regression.py",
             "tests/call_failure_state_regression.py",
             "tests/class_closure_mapping_regression.py",
+            "tests/class_exception_table_regression.py",
+            "tests/class_nested_state_regression.py",
+            "tests/exception_offset_regression.py",
+            "tests/compatibility/lookup_error_builtin.py",
         "examples/hello.py", "examples/advanced.py",
     ]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONHASHSEED="0")

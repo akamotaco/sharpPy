@@ -1,0 +1,559 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "scope": "Code-unit table presence, valid byte ranges and protected BINARY_OP/RAISE_VARARGS presence; raw layout differences retained, not full table equivalence",
+  "source_sha256": "20e8eb3bbadab6c19079ff671fa0e99531b2e5f06f98382c6cde723a20348d4e",
+  "dll_sha256": "f41519ce6717d8adeb1ac54bb69b0c88bd216d3852be3bc02fe360a7d0e804dc",
+  "reference": [
+    {
+      "path": "<module>",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": false,
+      "protected_raise": false,
+      "code_bytes": 372,
+      "entries": [
+        {
+          "start": 244,
+          "end": 264,
+          "target": 280,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 280,
+          "end": 324,
+          "target": 330,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 328,
+          "end": 330,
+          "target": 330,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    },
+    {
+      "path": "<module>/Handled",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": true,
+      "protected_raise": true,
+      "code_bytes": 182,
+      "entries": [
+        {
+          "start": 12,
+          "end": 22,
+          "target": 38,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 22,
+          "end": 38,
+          "target": 138,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 38,
+          "end": 48,
+          "target": 94,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 48,
+          "end": 74,
+          "target": 84,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 74,
+          "end": 84,
+          "target": 138,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 84,
+          "end": 94,
+          "target": 94,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 94,
+          "end": 100,
+          "target": 138,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 138,
+          "end": 176,
+          "target": 176,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    },
+    {
+      "path": "<module>/Normal",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": false,
+      "protected_raise": true,
+      "code_bytes": 166,
+      "entries": [
+        {
+          "start": 12,
+          "end": 16,
+          "target": 88,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 16,
+          "end": 50,
+          "target": 122,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 88,
+          "end": 116,
+          "target": 116,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 116,
+          "end": 122,
+          "target": 122,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 122,
+          "end": 160,
+          "target": 160,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    },
+    {
+      "path": "<module>/Outer",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": false,
+      "protected_raise": true,
+      "code_bytes": 236,
+      "entries": [
+        {
+          "start": 12,
+          "end": 128,
+          "target": 128,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 128,
+          "end": 142,
+          "target": 148,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 142,
+          "end": 146,
+          "target": 192,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 146,
+          "end": 148,
+          "target": 148,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 148,
+          "end": 154,
+          "target": 192,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 192,
+          "end": 230,
+          "target": 230,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    },
+    {
+      "path": "<module>/Outer/Plain",
+      "table_present": false,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": false,
+      "protected_raise": false,
+      "code_bytes": 16,
+      "entries": []
+    },
+    {
+      "path": "<module>/Outer/divided",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": true,
+      "protected_raise": false,
+      "code_bytes": 44,
+      "entries": [
+        {
+          "start": 4,
+          "end": 12,
+          "target": 14,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 14,
+          "end": 32,
+          "target": 38,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 36,
+          "end": 38,
+          "target": 38,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    },
+    {
+      "path": "<module>/Outer/InnerHandled",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": false,
+      "protected_raise": true,
+      "code_bytes": 136,
+      "entries": [
+        {
+          "start": 12,
+          "end": 28,
+          "target": 28,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 28,
+          "end": 42,
+          "target": 48,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 42,
+          "end": 46,
+          "target": 92,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 46,
+          "end": 48,
+          "target": 48,
+          "depth": 1,
+          "lasti": true
+        },
+        {
+          "start": 48,
+          "end": 54,
+          "target": 92,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 92,
+          "end": 130,
+          "target": 130,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    },
+    {
+      "path": "<module>/Propagated",
+      "table_present": true,
+      "offset_conversion_valid": true,
+      "bounds_valid": true,
+      "protected_binary_op": false,
+      "protected_raise": true,
+      "code_bytes": 72,
+      "entries": [
+        {
+          "start": 12,
+          "end": 28,
+          "target": 28,
+          "depth": 0,
+          "lasti": false
+        },
+        {
+          "start": 28,
+          "end": 66,
+          "target": 66,
+          "depth": 1,
+          "lasti": true
+        }
+      ]
+    }
+  ],
+  "sharppy": {
+    "code_units": [
+      {
+        "path": "<module>",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "code_bytes": 484,
+        "entries": [
+          {
+            "start": 312,
+            "end": 338,
+            "target": 376,
+            "depth": 0,
+            "lasti": false
+          }
+        ]
+      },
+      {
+        "path": "<module>/Handled",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": true,
+        "protected_raise": true,
+        "code_bytes": 198,
+        "entries": [
+          {
+            "start": 10,
+            "end": 20,
+            "target": 38,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 20,
+            "end": 48,
+            "target": 148,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 48,
+            "end": 86,
+            "target": 96,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 96,
+            "end": 106,
+            "target": 148,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 112,
+            "end": 148,
+            "target": 148,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 186,
+            "end": 198,
+            "target": 148,
+            "depth": 1,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/Normal",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": true,
+        "code_bytes": 176,
+        "entries": [
+          {
+            "start": 10,
+            "end": 14,
+            "target": 50,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 14,
+            "end": 78,
+            "target": 126,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 90,
+            "end": 126,
+            "target": 126,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 164,
+            "end": 176,
+            "target": 126,
+            "depth": 1,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/Outer",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": true,
+        "code_bytes": 280,
+        "entries": [
+          {
+            "start": 10,
+            "end": 162,
+            "target": 168,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 164,
+            "end": 166,
+            "target": 168,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 168,
+            "end": 182,
+            "target": 230,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 186,
+            "end": 188,
+            "target": 230,
+            "depth": 1,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/Outer/Plain",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "code_bytes": 18,
+        "entries": []
+      },
+      {
+        "path": "<module>/Outer/divided",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": true,
+        "protected_raise": false,
+        "code_bytes": 56,
+        "entries": [
+          {
+            "start": 2,
+            "end": 12,
+            "target": 12,
+            "depth": 0,
+            "lasti": false
+          }
+        ]
+      },
+      {
+        "path": "<module>/Outer/InnerHandled",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": true,
+        "code_bytes": 138,
+        "entries": [
+          {
+            "start": 10,
+            "end": 26,
+            "target": 26,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 26,
+            "end": 40,
+            "target": 88,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 44,
+            "end": 46,
+            "target": 88,
+            "depth": 1,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/Propagated",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": true,
+        "code_bytes": 112,
+        "entries": [
+          {
+            "start": 10,
+            "end": 26,
+            "target": 62,
+            "depth": 0,
+            "lasti": false
+          }
+        ]
+      }
+    ],
+    "nonempty_tables_distinct": true
+  },
+  "matching": true
+}

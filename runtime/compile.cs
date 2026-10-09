@@ -6551,10 +6551,10 @@ namespace SharpPy
             var savedVarNames = _varNames;
             var savedCellVars = _cellVars;
             var savedFreeVars = _freeVars;
-            // Performance: Eliminated LINQ
-            var savedExceptionTable = new List<ExceptionTableEntry>(_exceptionTable); // Preserve Exception Table entries
+            var savedExceptionTable = _exceptionTable;
             var savedCurrentSymbolTable = _currentSymbolTable;
             var savedIsInFunction = _isInFunction;  // CPython 3.12: Save function context flag
+            var savedIsInClassBody = _isInClassBody;
 
             // CPython 3.12: Find class symbol table for this class
             SymbolTable? classSymbolTable = null;
@@ -6613,8 +6613,9 @@ namespace SharpPy
             // Example: def outer(): x=1; class Inner: def get(self): return x
             // In this case, Inner's class body receives 'x' as a free variable.
             _freeVars = classFreeVars != null ? new List<string>(classFreeVars) : new List<string>();
-            // Keep existing Exception Table entries instead of resetting
-            // _exceptionTable = new List<ExceptionTableEntry>(); // Removed: This was causing Exception Table entry loss
+            // Each code unit owns its table; nested compilation must not mutate
+            // the parent unit's state. Assembly replaces this with the final table.
+            _exceptionTable = new List<ExceptionTableEntry>();
 
             // CPython 3.12: Class bodies compile statements in class scope, NOT function scope
             // This is critical for proper STORE_NAME emission for decorated methods (@property, etc.)
@@ -6761,7 +6762,8 @@ namespace SharpPy
                     kwDefaults: null,
                     flags: 0,
                     fileName: _currentFileName,
-                    sourceLines: _sourceLines
+                    sourceLines: _sourceLines,
+                    exceptionTable: _exceptionTable
                 );
                 
                 return codeObject;
@@ -6769,7 +6771,6 @@ namespace SharpPy
             finally
             {
                 // Restore compilation state
-                _instructionSequence = savedInstructionSequence;
                 _instructionSequence = savedInstructionSequence;  // CFG PATH: Restore InstructionSequence
                 _constants = savedConstants;
                 _names = savedNames;
@@ -6785,7 +6786,7 @@ namespace SharpPy
                 _isInFunction = savedIsInFunction;
 
                 // CPython 3.12: Restore class body context flag
-                _isInClassBody = false;
+                _isInClassBody = savedIsInClassBody;
             }
         }
         

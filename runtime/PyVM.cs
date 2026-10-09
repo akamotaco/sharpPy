@@ -555,8 +555,7 @@ namespace SharpPy
         {
             // CPython 3.12: Exception table uses byte offsets, but InstructionPointer is instruction index
             // CRITICAL: Must account for inline cache sizes when converting to byte offset!
-            // WRONG: currentByteOffset = InstructionPointer * 2 (doesn't account for inline cache)
-            // RIGHT: Use PyCodeObject.InstructionIndexToByteOffset which sums actual instruction word counts
+            // CACHE and EXTENDED_ARG already occupy words in the final array.
             var currentByteOffset = Code.InstructionIndexToByteOffset(InstructionPointer);
 
             #if DEBUG_LOG

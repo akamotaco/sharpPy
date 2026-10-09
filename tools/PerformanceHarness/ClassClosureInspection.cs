@@ -8,7 +8,8 @@ internal static class ClassClosureInspection
         interpreter.Execute(File.ReadAllText(path), path, false, false, false);
         return new[] { "observed", "local_name", "prepared" }.Select(name =>
         {
-            var parent = ((PyFunction)interpreter.GetGlobalVariable(name)).CodeObject;
+            var parent = ((PyFunction)interpreter.GetGlobalVariable(name)).CodeObject
+                ?? throw new InvalidOperationException("Missing compiled function code");
             var body = parent.Constants.OfType<PyCodeObject>().Single(code => code.Name == "<class_body_Body>");
             var pairs = new List<int[]>();
             for (int i = 0; i + 1 < body.Instructions.Count; i++)

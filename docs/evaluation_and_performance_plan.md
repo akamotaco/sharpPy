@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [10차 LookupError 분석](reports/2026-10-09/lookup_error_analysis.md)에서 누락된 builtins 등록을 보완했다. 실제 CPython 3.12와 생성·상속·예외 포착을 비교했고 Release 전체 평가의 기존 결과를 유지했다. 다음 구조적 후보는 module namespace 저장소 통합이며 wrapper의 일부 조회만 수정하는 방식은 views/mutation 정합성을 해결하지 못한다.
+
 - 확인: 전용 CPython 3.12.15 환경 생성, 표준 모듈 import 및 간단 계산 실행.
 - 확인: .NET SDK 10.0.401 설치, 프로젝트 대상은 net8.0.
 - 확인: 기존 벤치마크의 반복량 차이, 측정 방식 보강 필요, 일부 테스트의 출력 기반 실패 집계.
@@ -138,3 +140,4 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 - 추가 확인: [6차 lazy scope 분석](reports/2026-10-09/lazy_scope_analysis.md)에서 최적화 함수의 매개변수 scope 복사를 제거하고 C# dictionary 조회 시 fast locals/cells를 갱신한다. 기본 eval/exec도 같은 관찰 경로를 사용한다. 함수 호출 작업 할당량은 5차 대비 약 20.5% 감소했으며 시간 개선은 미확정이다. 다음 후보는 관찰 경로 workload, class/module mapping의 identity·mutation과 hidden locals 회귀다.
 - 추가 확인: [7차 이름 키 재사용](reports/2026-10-09/locals_key_cache_analysis.md)에서 locals/frame 관찰 workload를 추가하고 code object의 이름 키를 재사용했다. 관찰 할당량은 각각 약 35.3%/45.7% 감소했으며 시간 개선은 미확정이다. 보관한 module locals의 stale 읽기와 class locals mapping 차이를 별도 회귀 fixture로 확인했다. 다음 후보는 class namespace의 실제 mapping 노출과 module wrapper의 생성·삭제·views 동기화다.
 - 추가 확인: [8차 class namespace 분석](reports/2026-10-09/class_namespace_analysis.md)에서 실제 mapping 노출, 삭제·fallback, dict subclass 입력, 실패한 호출 상태 정리를 수정했다. class closure opcode 쌍과 일부 metadata를 실제 CPython 3.12.15와 비교했다. class locals 관찰 할당량은 약 66.9% 감소했다. 다음 후보는 class body Exception Table 전달과 module wrapper의 live namespace 동기화다.
+- 추가 확인: [9차 Exception Table 분석](reports/2026-10-09/class_exception_table_analysis.md)에서 class table 전달, 중첩 컴파일 상태 복원 및 최종 word 배열의 cache 중복 계산을 수정했다. 실제 CPP metadata의 table 유무·보호 opcode·offset 범위를 비교했다. 예외 workload의 할당량은 동일하고 시간 개선은 변동 때문에 미확정이다. 다음 후보는 module live namespace 및 LookupError/기존 class free-variable 호환성이다.

@@ -88,3 +88,13 @@ def class_locals_observation(n):
         for i in range(n):
             total = total + locals()['i']
     return Body.total
+
+
+def exception_handling(n):
+    result = 0
+    for i in range(n):
+        try:
+            10 // 0
+        except ZeroDivisionError:
+            result = result + i
+    return result

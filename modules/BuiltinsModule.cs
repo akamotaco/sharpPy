@@ -74,6 +74,7 @@ namespace SharpPy.Modules
             module.ModuleDict["StopIteration"] = PyType.StopIterationType;
             module.ModuleDict["TypeError"] = PyType.TypeErrorType;
             module.ModuleDict["ValueError"] = PyType.ValueErrorType;
+            module.ModuleDict["LookupError"] = PyType.LookupErrorType;
             module.ModuleDict["KeyError"] = PyType.KeyErrorType;
             module.ModuleDict["IndexError"] = PyType.IndexErrorType;
             module.ModuleDict["AttributeError"] = PyType.AttributeErrorType;
