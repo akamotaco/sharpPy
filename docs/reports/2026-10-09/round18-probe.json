@@ -1,0 +1,622 @@
+﻿{
+    "after":  {
+                  "summary":  [
+                                  {
+                                      "operation":  "length",
+                                      "median_ms":  0.02175,
+                                      "q1_ms":  0.0216,
+                                      "q3_ms":  0.022,
+                                      "allocated_bytes":  [
+                                                              0
+                                                          ]
+                                  },
+                                  {
+                                      "operation":  "copy",
+                                      "median_ms":  5.89405,
+                                      "q1_ms":  5.6829,
+                                      "q3_ms":  6.496,
+                                      "allocated_bytes":  [
+                                                              15632000
+                                                          ]
+                                  },
+                                  {
+                                      "operation":  "construct",
+                                      "median_ms":  10.3378,
+                                      "q1_ms":  8.2448,
+                                      "q3_ms":  12.5537,
+                                      "allocated_bytes":  [
+                                                              15648000
+                                                          ]
+                                  }
+                              ],
+                  "raw":  [
+                              {
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                  "results":  [
+                                                  {
+                                                      "operation":  "length",
+                                                      "iterations":  10000,
+                                                      "milliseconds":  [
+                                                                           0.0749,
+                                                                           0.0222,
+                                                                           0.0247,
+                                                                           0.0216,
+                                                                           0.0218,
+                                                                           0.0219,
+                                                                           0.0217,
+                                                                           0.0216,
+                                                                           0.0217,
+                                                                           0.0219
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0
+                                                                          ]
+                                                  },
+                                                  {
+                                                      "operation":  "copy",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           6.8847,
+                                                                           6.1727,
+                                                                           6.3833,
+                                                                           6.496,
+                                                                           5.9729,
+                                                                           6.5347,
+                                                                           6.6736,
+                                                                           7.4992,
+                                                                           7.1225,
+                                                                           7.1515
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000
+                                                                          ]
+                                                  },
+                                                  {
+                                                      "operation":  "construct",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           8.4306,
+                                                                           8.2448,
+                                                                           9.1728,
+                                                                           8.9369,
+                                                                           8.5546,
+                                                                           8.6006,
+                                                                           8.1029,
+                                                                           8.4001,
+                                                                           7.6953,
+                                                                           8.8456
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000
+                                                                          ]
+                                                  }
+                                              ]
+                              },
+                              {
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                  "results":  [
+                                                  {
+                                                      "operation":  "length",
+                                                      "iterations":  10000,
+                                                      "milliseconds":  [
+                                                                           0.0222,
+                                                                           0.022,
+                                                                           0.0221,
+                                                                           0.0216,
+                                                                           0.0217,
+                                                                           0.0219,
+                                                                           0.0212,
+                                                                           0.0214,
+                                                                           0.0213,
+                                                                           0.0215
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0
+                                                                          ]
+                                                  },
+                                                  {
+                                                      "operation":  "copy",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           5.9131,
+                                                                           5.7403,
+                                                                           5.6379,
+                                                                           5.7705,
+                                                                           5.6829,
+                                                                           6.1057,
+                                                                           5.7298,
+                                                                           5.781,
+                                                                           7.2098,
+                                                                           6.4243
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000
+                                                                          ]
+                                                  },
+                                                  {
+                                                      "operation":  "construct",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           12.5537,
+                                                                           12.0108,
+                                                                           12.9353,
+                                                                           13.2084,
+                                                                           12.6726,
+                                                                           14.9077,
+                                                                           5.77,
+                                                                           3.8895,
+                                                                           3.5965,
+                                                                           4.3002
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000
+                                                                          ]
+                                                  }
+                                              ]
+                              },
+                              {
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                  "results":  [
+                                                  {
+                                                      "operation":  "length",
+                                                      "iterations":  10000,
+                                                      "milliseconds":  [
+                                                                           0.0222,
+                                                                           0.0221,
+                                                                           0.022,
+                                                                           0.0217,
+                                                                           0.0216,
+                                                                           0.0219,
+                                                                           0.0217,
+                                                                           0.0215,
+                                                                           0.0214,
+                                                                           0.0219
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0,
+                                                                              0
+                                                                          ]
+                                                  },
+                                                  {
+                                                      "operation":  "copy",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           5.5581,
+                                                                           5.7953,
+                                                                           5.875,
+                                                                           5.6288,
+                                                                           5.1937,
+                                                                           5.4693,
+                                                                           6.1032,
+                                                                           5.7119,
+                                                                           5.5907,
+                                                                           5.5766
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000,
+                                                                              15632000
+                                                                          ]
+                                                  },
+                                                  {
+                                                      "operation":  "construct",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           14.8234,
+                                                                           12.4246,
+                                                                           12.9289,
+                                                                           12.4884,
+                                                                           12.2461,
+                                                                           12.1528,
+                                                                           11.8045,
+                                                                           11.5028,
+                                                                           13.278,
+                                                                           5.6356
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000
+                                                                          ]
+                                                  }
+                                              ]
+                              }
+                          ]
+              },
+    "before":  {
+                   "summary":  [
+                                   {
+                                       "operation":  "length",
+                                       "median_ms":  0.02035,
+                                       "q1_ms":  0.0201,
+                                       "q3_ms":  0.0207,
+                                       "allocated_bytes":  [
+                                                               0
+                                                           ]
+                                   },
+                                   {
+                                       "operation":  "copy",
+                                       "median_ms":  8.2682,
+                                       "q1_ms":  7.6464,
+                                       "q3_ms":  9.3305,
+                                       "allocated_bytes":  [
+                                                               12432000
+                                                           ]
+                                   },
+                                   {
+                                       "operation":  "construct",
+                                       "median_ms":  3.4921,
+                                       "q1_ms":  3.307,
+                                       "q3_ms":  3.9705,
+                                       "allocated_bytes":  [
+                                                               15640000
+                                                           ]
+                                   }
+                               ],
+                   "raw":  [
+                               {
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                   "results":  [
+                                                   {
+                                                       "operation":  "length",
+                                                       "iterations":  10000,
+                                                       "milliseconds":  [
+                                                                            0.0239,
+                                                                            0.0203,
+                                                                            0.02,
+                                                                            0.0201,
+                                                                            0.0198,
+                                                                            0.0202,
+                                                                            0.0198,
+                                                                            0.0198,
+                                                                            0.0198,
+                                                                            0.02
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0
+                                                                           ]
+                                                   },
+                                                   {
+                                                       "operation":  "copy",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            9.525,
+                                                                            8.5942,
+                                                                            9.0824,
+                                                                            9.4008,
+                                                                            9.8266,
+                                                                            9.3617,
+                                                                            9.877,
+                                                                            9.6763,
+                                                                            9.3305,
+                                                                            9.4512
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000
+                                                                           ]
+                                                   },
+                                                   {
+                                                       "operation":  "construct",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            3.1455,
+                                                                            3.7118,
+                                                                            3.4477,
+                                                                            3.5365,
+                                                                            3.5813,
+                                                                            3.9705,
+                                                                            3.9684,
+                                                                            4.0868,
+                                                                            4.1201,
+                                                                            3.6192
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000
+                                                                           ]
+                                                   }
+                                               ]
+                               },
+                               {
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                   "results":  [
+                                                   {
+                                                       "operation":  "length",
+                                                       "iterations":  10000,
+                                                       "milliseconds":  [
+                                                                            0.0217,
+                                                                            0.0209,
+                                                                            0.0212,
+                                                                            0.0207,
+                                                                            0.0207,
+                                                                            0.0276,
+                                                                            0.0203,
+                                                                            0.0204,
+                                                                            0.0204,
+                                                                            0.0206
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0
+                                                                           ]
+                                                   },
+                                                   {
+                                                       "operation":  "copy",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            7.8853,
+                                                                            7.6464,
+                                                                            7.8687,
+                                                                            8.2824,
+                                                                            8.0989,
+                                                                            7.81,
+                                                                            8.1557,
+                                                                            8.5092,
+                                                                            8.6362,
+                                                                            9.1031
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000
+                                                                           ]
+                                                   },
+                                                   {
+                                                       "operation":  "construct",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            8.0869,
+                                                                            4.0092,
+                                                                            4.649,
+                                                                            3.8991,
+                                                                            3.3635,
+                                                                            3.2517,
+                                                                            3.3334,
+                                                                            3.4388,
+                                                                            3.306,
+                                                                            3.2365
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000
+                                                                           ]
+                                                   }
+                                               ]
+                               },
+                               {
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                   "results":  [
+                                                   {
+                                                       "operation":  "length",
+                                                       "iterations":  10000,
+                                                       "milliseconds":  [
+                                                                            0.0212,
+                                                                            0.0205,
+                                                                            0.0203,
+                                                                            0.0204,
+                                                                            0.0202,
+                                                                            0.0204,
+                                                                            0.0201,
+                                                                            0.0202,
+                                                                            0.0202,
+                                                                            0.0205
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0,
+                                                                               0
+                                                                           ]
+                                                   },
+                                                   {
+                                                       "operation":  "copy",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            8.254,
+                                                                            8.5358,
+                                                                            7.6832,
+                                                                            7.2097,
+                                                                            7.0823,
+                                                                            7.3703,
+                                                                            7.1698,
+                                                                            7.3925,
+                                                                            7.4744,
+                                                                            7.4544
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000,
+                                                                               12432000
+                                                                           ]
+                                                   },
+                                                   {
+                                                       "operation":  "construct",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            11.6094,
+                                                                            10.1384,
+                                                                            3.6946,
+                                                                            3.3593,
+                                                                            3.2261,
+                                                                            3.3544,
+                                                                            3.307,
+                                                                            3.231,
+                                                                            3.2821,
+                                                                            3.3654
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000
+                                                                           ]
+                                                   }
+                                               ]
+                               }
+                           ]
+               },
+    "metadata":  {
+                     "before_dll_sha256":  "51629435753DB2E0ED5E56D9F4C1A5A3078C57D73B6FE99766D250F392445056",
+                     "after_dll_sha256":  "1E9F678B6C99CE0D7D2FB2A915325D4FC3053C229D939519B34D52B251E31E19",
+                     "samples_per_process":  10,
+                     "baseline_commit":  "fb5afe5",
+                     "warmups_per_process":  10,
+                     "process_pairs":  3
+                 }
+}

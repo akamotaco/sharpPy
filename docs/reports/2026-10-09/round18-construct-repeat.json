@@ -1,0 +1,226 @@
+﻿{
+    "before":  {
+                   "median_ms":  7.8181,
+                   "q1_ms":  7.5408,
+                   "raw":  [
+                               {
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                   "results":  [
+                                                   {
+                                                       "operation":  "construct",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            7.4838,
+                                                                            8.0703,
+                                                                            7.9178,
+                                                                            7.8684,
+                                                                            7.839,
+                                                                            7.6199,
+                                                                            7.2803,
+                                                                            7.2632,
+                                                                            7.8197,
+                                                                            7.4681
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000
+                                                                           ]
+                                                   }
+                                               ]
+                               },
+                               {
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                   "results":  [
+                                                   {
+                                                       "operation":  "construct",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            7.844,
+                                                                            8.0908,
+                                                                            8.167,
+                                                                            7.8799,
+                                                                            7.7719,
+                                                                            7.3808,
+                                                                            7.8025,
+                                                                            7.1722,
+                                                                            7.6969,
+                                                                            7.6946
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000
+                                                                           ]
+                                                   }
+                                               ]
+                               },
+                               {
+                                   "namespace_size":  100,
+                                   "warmups":  10,
+                                   "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                   "results":  [
+                                                   {
+                                                       "operation":  "construct",
+                                                       "iterations":  1000,
+                                                       "milliseconds":  [
+                                                                            8.1501,
+                                                                            7.8506,
+                                                                            8.3308,
+                                                                            8.2241,
+                                                                            8.0833,
+                                                                            8.0433,
+                                                                            7.5408,
+                                                                            7.8165,
+                                                                            7.3773,
+                                                                            7.6535
+                                                                        ],
+                                                       "allocated_bytes":  [
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000,
+                                                                               15640000
+                                                                           ]
+                                                   }
+                                               ]
+                               }
+                           ],
+                   "q3_ms":  8.0433
+               },
+    "after":  {
+                  "median_ms":  7.53095,
+                  "q1_ms":  7.2927,
+                  "raw":  [
+                              {
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                  "results":  [
+                                                  {
+                                                      "operation":  "construct",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           7.8499,
+                                                                           7.7833,
+                                                                           8.2448,
+                                                                           7.7193,
+                                                                           8.1686,
+                                                                           7.5622,
+                                                                           7.8642,
+                                                                           7.4459,
+                                                                           7.441,
+                                                                           7.558
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000
+                                                                          ]
+                                                  }
+                                              ]
+                              },
+                              {
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                  "results":  [
+                                                  {
+                                                      "operation":  "construct",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           7.0577,
+                                                                           7.4761,
+                                                                           7.4967,
+                                                                           7.811,
+                                                                           7.6053,
+                                                                           7.5336,
+                                                                           7.2927,
+                                                                           7.1672,
+                                                                           6.9899,
+                                                                           7.029
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000
+                                                                          ]
+                                                  }
+                                              ]
+                              },
+                              {
+                                  "namespace_size":  100,
+                                  "warmups":  10,
+                                  "scope":  "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+                                  "results":  [
+                                                  {
+                                                      "operation":  "construct",
+                                                      "iterations":  1000,
+                                                      "milliseconds":  [
+                                                                           7.4589,
+                                                                           7.545,
+                                                                           7.0443,
+                                                                           7.9073,
+                                                                           7.6858,
+                                                                           7.6678,
+                                                                           7.0186,
+                                                                           7.2541,
+                                                                           7.3316,
+                                                                           7.5283
+                                                                       ],
+                                                      "allocated_bytes":  [
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000,
+                                                                              15648000
+                                                                          ]
+                                                  }
+                                              ]
+                              }
+                          ],
+                  "q3_ms":  7.7193
+              }
+}

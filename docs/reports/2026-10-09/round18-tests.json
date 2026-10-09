@@ -1,0 +1,1070 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.21538029999646824,
+    "failure_markers": []
+  },
+  "git": "fb5afe509caa99ccb70f635c8f10a4c84263fff4",
+  "git_status": " M tests/module_mapping_clear_regression.py\n M tools/PerformanceHarness/Program.cs\n M tools/evaluate.py\n M type/PyDict.cs\n?? tests/compatibility/module_mapping_copy_order.py\n?? tests/module_mapping_observation_regression.py\n",
+  "dll_sha256": "1e9f678b6c99ce0d7d2fb2a915325d4fc3053c229d939519b34d52b251e31e19",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests\\level10_integration.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Function + Comprehension + Exception ===\n[5.0, 10.0, 15.0]\nCannot divide by zero\n\n=== Class + Generator ===\n0 1 4 9 16 \n\n=== Nested Data Structures ===\nAlice: 25\nBob: 30\n\n=== Complex Function Call ===\nhello\n<hello>\nHELLO\n]OLLEH[\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04226609999750508,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Function + Comprehension + Exception ===\n[5.0, 10.0, 15.0]\nCannot divide by zero\n\n=== Class + Generator ===\n0 1 4 9 16 \n\n=== Nested Data Structures ===\nAlice: 25\nBob: 30\n\n=== Complex Function Call ===\nhello\n<hello>\nHELLO\n]OLLEH[\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.29547879999881843,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level11_exceptions_advanced.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Test 1: Simple Exception Chaining ===\nCaught: original\n__cause__: cause\n\n=== Test 2: Nested Exception Chaining ===\nCaught: outer\n__cause__: inner\n\n=== Test 3: __cause__ Type Check ===\nCaught type: TypeError\nCause type: ValueError\nCause value: inner\n\n=== Test 4: Exception Group ===\nCaught ValueError in exception group\n\n=== All tests passed! ===\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.036071099995751865,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Test 1: Simple Exception Chaining ===\nCaught: original\n__cause__: cause\n\n=== Test 2: Nested Exception Chaining ===\nCaught: outer\n__cause__: inner\n\n=== Test 3: __cause__ Type Check ===\nCaught type: TypeError\nCause type: ValueError\nCause value: inner\n\n=== Test 4: Exception Group ===\nCaught ValueError in exception group\n\n=== All tests passed! ===\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25850939999509137,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level12_indexing_slicing.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Test 1: Basic Negative Indexing ===\nList: [10, 20, 30, 40, 50]\nlst[-1] = 50\nlst[-2] = 40\nlst[-5] = 10\n\n=== Test 2: Negative Index Out of Bounds ===\nCorrectly raised IndexError: list index out of range\n\n=== Test 3: Basic Slicing ===\nnums[2:5] = [2, 3, 4]\nnums[:5] = [0, 1, 2, 3, 4]\nnums[5:] = [5, 6, 7, 8, 9]\nnums[:] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\n\n=== Test 4: Negative Slice Indices ===\nnums[-5:-2] = [5, 6, 7]\nnums[-5:] = [5, 6, 7, 8, 9]\nnums[:-5] = [0, 1, 2, 3, 4]\n\n=== Test 5: Step Slicing ===\nnums[::2] = [0, 2, 4, 6, 8]\nnums[1::2] = [1, 3, 5, 7, 9]\nnums[::3] = [0, 3, 6, 9]\nnums[2:8:2] = [2, 4, 6]\n\n=== Test 6: Negative Step (Reverse) ===\nnums[::-1] = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]\nnums[::-2] = [9, 7, 5, 3, 1]\nnums[8:2:-1] = [8, 7, 6, 5, 4, 3]\n\n=== Test 7: Empty Slices ===\nnums[5:5] = []\nnums[5:3] = []\nnums[3:5:-1] = []\n\n=== Test 8: Out of Bounds Slices ===\nnums[10:20] = []\nnums[100:200] = []\nnums[-100:5] = [0, 1, 2, 3, 4]\nnums[5:100] = [5, 6, 7, 8, 9]\n\n=== Test 9: Tuple Negative Indexing ===\ntup[-1] = 500\ntup[-3] = 300\n\n=== Test 10: String Negative Indexing ===\ns[-1] = n\ns[-6] = P\n\n=== Test 11: String Slicing ===\ntext[0:5] = Hello\ntext[6:] = World\ntext[::-1] = dlroW olleH\ntext[::2] = HloWrd\n\n=== Test 12: Assignment with Negative Index ===\nAfter arr[-1]=99, arr[-2]=88: [1, 2, 3, 88, 99]\n\n=== Test 13: Complex Slice Patterns ===\ndata[::5] = [0, 5, 10, 15]\ndata[2::3] = [2, 5, 8, 11, 14, 17]\ndata[-10:-1:2] = [10, 12, 14, 16, 18]\n\n=== Test 14: Single Element List ===\nsingle[-1] = 42\nsingle[0:1] = [42]\nsingle[1:] = []\n\n=== Test 15: Empty List ===\nempty[:] = []\nempty[0:0] = []\nCorrectly raised IndexError for empty[0]\n\n=== All Tests Completed ===\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.042813600004592445,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Test 1: Basic Negative Indexing ===\nList: [10, 20, 30, 40, 50]\nlst[-1] = 50\nlst[-2] = 40\nlst[-5] = 10\n\n=== Test 2: Negative Index Out of Bounds ===\nCorrectly raised IndexError: list index out of range\n\n=== Test 3: Basic Slicing ===\nnums[2:5] = [2, 3, 4]\nnums[:5] = [0, 1, 2, 3, 4]\nnums[5:] = [5, 6, 7, 8, 9]\nnums[:] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\n\n=== Test 4: Negative Slice Indices ===\nnums[-5:-2] = [5, 6, 7]\nnums[-5:] = [5, 6, 7, 8, 9]\nnums[:-5] = [0, 1, 2, 3, 4]\n\n=== Test 5: Step Slicing ===\nnums[::2] = [0, 2, 4, 6, 8]\nnums[1::2] = [1, 3, 5, 7, 9]\nnums[::3] = [0, 3, 6, 9]\nnums[2:8:2] = [2, 4, 6]\n\n=== Test 6: Negative Step (Reverse) ===\nnums[::-1] = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]\nnums[::-2] = [9, 7, 5, 3, 1]\nnums[8:2:-1] = [8, 7, 6, 5, 4, 3]\n\n=== Test 7: Empty Slices ===\nnums[5:5] = []\nnums[5:3] = []\nnums[3:5:-1] = []\n\n=== Test 8: Out of Bounds Slices ===\nnums[10:20] = []\nnums[100:200] = []\nnums[-100:5] = [0, 1, 2, 3, 4]\nnums[5:100] = [5, 6, 7, 8, 9]\n\n=== Test 9: Tuple Negative Indexing ===\ntup[-1] = 500\ntup[-3] = 300\n\n=== Test 10: String Negative Indexing ===\ns[-1] = n\ns[-6] = P\n\n=== Test 11: String Slicing ===\ntext[0:5] = Hello\ntext[6:] = World\ntext[::-1] = dlroW olleH\ntext[::2] = HloWrd\n\n=== Test 12: Assignment with Negative Index ===\nAfter arr[-1]=99, arr[-2]=88: [1, 2, 3, 88, 99]\n\n=== Test 13: Complex Slice Patterns ===\ndata[::5] = [0, 5, 10, 15]\ndata[2::3] = [2, 5, 8, 11, 14, 17]\ndata[-10:-1:2] = [10, 12, 14, 16, 18]\n\n=== Test 14: Single Element List ===\nsingle[-1] = 42\nsingle[0:1] = [42]\nsingle[1:] = []\n\n=== Test 15: Empty List ===\nempty[:] = []\nempty[0:0] = []\nCorrectly raised IndexError for empty[0]\n\n=== All Tests Completed ===\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2757368999955361,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level1_literals.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "Integers: 42 -10 0 1000000\nFloats: 3.14 -2.5 0.0\nStrings: hello world\nBooleans: True False\nNone: None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039745699999912176,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "Integers: 42 -10 0 1000000\nFloats: 3.14 -2.5 0.0\nStrings: hello world\nBooleans: True False\nNone: None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25044489999709185,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level2_operators.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Arithmetic ===\n10 + 5 = 15\n10 - 5 = 5\n10 * 5 = 50\n10 / 5 = 2.0\n10 // 3 = 3\n10 % 3 = 1\n2 ** 3 = 8\n\n=== Comparison ===\n5 == 5: True\n5 != 3: True\n5 > 3: True\n5 >= 5: True\n3 < 5: True\n3 <= 3: True\n\n=== Logical ===\nTrue and False: False\nTrue or False: True\nnot True: False\nnot False: True\n\n=== Bitwise ===\n5 & 3: 1\n5 | 3: 7\n5 ^ 3: 6\n5 << 1: 10\n5 >> 1: 2\n~5: -6\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03607289999490604,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Arithmetic ===\n10 + 5 = 15\n10 - 5 = 5\n10 * 5 = 50\n10 / 5 = 2.0\n10 // 3 = 3\n10 % 3 = 1\n2 ** 3 = 8\n\n=== Comparison ===\n5 == 5: True\n5 != 3: True\n5 > 3: True\n5 >= 5: True\n3 < 5: True\n3 <= 3: True\n\n=== Logical ===\nTrue and False: False\nTrue or False: True\nnot True: False\nnot False: True\n\n=== Bitwise ===\n5 & 3: 1\n5 | 3: 7\n5 ^ 3: 6\n5 << 1: 10\n5 >> 1: 2\n~5: -6\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2525231000036001,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level3_variables.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Simple Assignment ===\nx = 10\n\n=== Multiple Assignment ===\na, b = 1 2\nc = d = 5 5\n\n=== Augmented Assignment ===\nx = 10\nx += 5 -> 15\nx -= 3 -> 12\nx *= 2 -> 24\nx //= 4 -> 6\n\n=== Sequence Unpacking ===\np, q, r = 1 2 3\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03775840000162134,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Simple Assignment ===\nx = 10\n\n=== Multiple Assignment ===\na, b = 1 2\nc = d = 5 5\n\n=== Augmented Assignment ===\nx = 10\nx += 5 -> 15\nx -= 3 -> 12\nx *= 2 -> 24\nx //= 4 -> 6\n\n=== Sequence Unpacking ===\np, q, r = 1 2 3\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24690449999616249,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level4_control_if.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Simple If ===\nx is greater than 5\n\n=== If-Else ===\ny is not greater than 5\n\n=== If-Elif-Else ===\nz is equal to 5\n\n=== Nested If ===\nBoth conditions true\n\n=== Multiple Conditions ===\nc is between 10 and 20\nc is 15 or 20\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03913519999332493,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Simple If ===\nx is greater than 5\n\n=== If-Else ===\ny is not greater than 5\n\n=== If-Elif-Else ===\nz is equal to 5\n\n=== Nested If ===\nBoth conditions true\n\n=== Multiple Conditions ===\nc is between 10 and 20\nc is 15 or 20\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24633629999880213,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level4_control_loops.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== While Loop ===\ni = 0\ni = 1\ni = 2\n\n=== For Loop ===\nj = 0\nj = 1\nj = 2\n\n=== For Loop with List ===\napple\nbanana\ncherry\n\n=== Break ===\nk = 0\nk = 1\nk = 2\nk = 3\nk = 4\n\n=== Continue ===\nm = 0\nm = 1\nm = 3\nm = 4\n\n=== Nested Loops ===\n(0, 0)\n(0, 1)\n(1, 0)\n(1, 1)\n\n=== While with Break ===\nn = 0\nn = 1\nn = 2\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.042642200001864694,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== While Loop ===\ni = 0\ni = 1\ni = 2\n\n=== For Loop ===\nj = 0\nj = 1\nj = 2\n\n=== For Loop with List ===\napple\nbanana\ncherry\n\n=== Break ===\nk = 0\nk = 1\nk = 2\nk = 3\nk = 4\n\n=== Continue ===\nm = 0\nm = 1\nm = 3\nm = 4\n\n=== Nested Loops ===\n(0, 0)\n(0, 1)\n(1, 0)\n(1, 1)\n\n=== While with Break ===\nn = 0\nn = 1\nn = 2\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25892559999920195,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level5_functions_advanced.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Default Parameters ===\nHello, World!\nHello, Alice!\n\n=== Multiple Defaults ===\nBob, age 0, from Unknown\nCharlie, age 25, from Unknown\nDiana, age 30, from NYC\n\n=== Keyword Arguments ===\nEve, age 28, from LA\n\n=== *args ===\nsum_all(1, 2, 3) = 6\nsum_all(1, 2, 3, 4, 5) = 15\n\n=== **kwargs ===\nname: Frank\nage: 35\njob: Engineer\n\n=== Complex Function ===\na = 1\nb = 2\nargs = (3, 4)\nkwargs = {'x': 10, 'y': 20}\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03906060000008438,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Default Parameters ===\nHello, World!\nHello, Alice!\n\n=== Multiple Defaults ===\nBob, age 0, from Unknown\nCharlie, age 25, from Unknown\nDiana, age 30, from NYC\n\n=== Keyword Arguments ===\nEve, age 28, from LA\n\n=== *args ===\nsum_all(1, 2, 3) = 6\nsum_all(1, 2, 3, 4, 5) = 15\n\n=== **kwargs ===\nname: Frank\nage: 35\njob: Engineer\n\n=== Complex Function ===\na = 1\nb = 2\nargs = (3, 4)\nkwargs = {'x': 10, 'y': 20}\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2658420000007027,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level5_functions_basic.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Simple Function ===\nHello!\n\n=== Function with Parameters ===\nadd(5, 3) = 8\n\n=== Multiple Return Values ===\nmin = 1 max = 9\n\n=== Local Variables ===\ncalculate() = 30\n\n=== Nested Function Calls ===\nsquare(5) = 25\n\n=== Function Without Return ===\nno_return() = None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.040092099996400066,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Simple Function ===\nHello!\n\n=== Function with Parameters ===\nadd(5, 3) = 8\n\n=== Multiple Return Values ===\nmin = 1 max = 9\n\n=== Local Variables ===\ncalculate() = 30\n\n=== Nested Function Calls ===\nsquare(5) = 25\n\n=== Function Without Return ===\nno_return() = None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26068369999848073,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level6_classes_basic.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Simple Class ===\nBuddy says Woof!\n\n=== Multiple Attributes ===\nI am Alice, 25 years old\n\n=== Class Methods ===\nadd(5, 3) = 8\nmultiply(4, 6) = 24\n\n=== Instance Variables ===\nCount: 2\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039879399999335874,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Simple Class ===\nBuddy says Woof!\n\n=== Multiple Attributes ===\nI am Alice, 25 years old\n\n=== Class Methods ===\nadd(5, 3) = 8\nmultiply(4, 6) = 24\n\n=== Instance Variables ===\nCount: 2\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2754075999982888,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level7_comprehensions.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== List Comprehension ===\nSquares: [0, 1, 4, 9, 16]\nEvens: [0, 2, 4, 6, 8]\nMatrix: [[0, 1, 2], [1, 2, 3], [2, 3, 4]]\n\n=== Dict Comprehension ===\nSquare dict: {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}\n\n=== Set Comprehension ===\nUnique squares: {16, 1, 4, 9}\n\n=== Complex Comprehension ===\nWord lengths: [5, 5, 6]\nDivisible by 2 and 3: [0, 6, 12, 18]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039765699999406934,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== List Comprehension ===\nSquares: [0, 1, 4, 9, 16]\nEvens: [0, 2, 4, 6, 8]\nMatrix: [[0, 1, 2], [1, 2, 3], [2, 3, 4]]\n\n=== Dict Comprehension ===\nSquare dict: {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}\n\n=== Set Comprehension ===\nUnique squares: {1, 4, 9, 16}\n\n=== Complex Comprehension ===\nWord lengths: [5, 5, 6]\nDivisible by 2 and 3: [0, 6, 12, 18]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2671648000032292,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level8_generators.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Simple Generator ===\n0\n1\n2\n3\n4\n\n=== Fibonacci Generator ===\n0 1 1 2 3 5 8 \n\n=== Generator Expression ===\n0 1 4 9 16 \n\n=== Generator Protocol ===\nSent 0, got None\nSent 1, got None\nSent 2, got None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04429510000045411,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Simple Generator ===\n0\n1\n2\n3\n4\n\n=== Fibonacci Generator ===\n0 1 1 2 3 5 8 \n\n=== Generator Expression ===\n0 1 4 9 16 \n\n=== Generator Protocol ===\nSent 0, got None\nSent 1, got None\nSent 2, got None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27626730000338284,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests\\level9_exceptions.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Basic Try-Except ===\nResult: 5.0\n\n=== Try-Except with Error ===\nCaught division by zero!\n\n=== Multiple Except ===\nValueError caught!\n\n=== Try-Except-Else ===\nNo error, z = 5.0\n\n=== Try-Except-Finally ===\nIn try block, a = 5\nIn finally block\n\n=== Raising Exceptions ===\nCaught: Custom error message\n\n=== Nested Try-Except ===\nInner except: division by zero\nOuter except: re-caught\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04320159999770112,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Basic Try-Except ===\nResult: 5.0\n\n=== Try-Except with Error ===\nCaught division by zero!\n\n=== Multiple Except ===\nValueError caught!\n\n=== Try-Except-Else ===\nNo error, z = 5.0\n\n=== Try-Except-Finally ===\nIn try block, a = 5\nIn finally block\n\n=== Raising Exceptions ===\nCaught: Custom error message\n\n=== Nested Try-Except ===\nInner except: division by zero\nOuter except: re-caught\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26031679999869084,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_comprehensive_exception_handling.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Comprehensive Exception Handling Test ===\n\n1. Basic try-except-else-finally (no exception):\n  In try block\n  In else block\n  In finally block\n\n2. try-except-else-finally (with exception):\n  In try block\n  In except block\n  In finally block\n\n3. Multiple except blocks:\n  In try block\n  In ValueError except: test error\n  In finally block\n\n4. Nested try-except:\n  Outer try\n    Inner try\n    Inner except: inner error\n  After inner try-except\n  Outer else\n  Outer finally\n\n5. try-finally only:\n  In try block\n  In finally block\n\n6. try-except only:\n  In try block\n  In except block: test type error\n\n=== All tests completed ===\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04138239999883808,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Comprehensive Exception Handling Test ===\n\n1. Basic try-except-else-finally (no exception):\n  In try block\n  In else block\n  In finally block\n\n2. try-except-else-finally (with exception):\n  In try block\n  In except block\n  In finally block\n\n3. Multiple except blocks:\n  In try block\n  In ValueError except: test error\n  In finally block\n\n4. Nested try-except:\n  Outer try\n    Inner try\n    Inner except: inner error\n  After inner try-except\n  Outer else\n  Outer finally\n\n5. try-finally only:\n  In try block\n  In finally block\n\n6. try-except only:\n  In try block\n  In except block: test type error\n\n=== All tests completed ===\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25867619999917224,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_comprehensive_python312.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "======================================================================\nCOMPREHENSIVE PYTHON 3.12 FEATURE TEST\n======================================================================\n✅ F-string features\n✅ Match statement\n✅ Walrus operator\n✅ Type hints\n✅ Comprehensions\n✅ Iterator functions\n✅ String methods\n✅ List methods\n✅ Dict methods\n✅ Set operations\n✅ Lambda functions\n✅ Decorators\n✅ Context managers\n✅ Generators\n✅ Class features\n✅ Property decorator\n✅ Class and static methods\n✅ Exception handling\n\n======================================================================\nTEST SUMMARY\n======================================================================\n✅ Passed: 18\n❌ Failed: 0\n⏭️  Skipped: 0\n\n======================================================================\n🎉 ALL TESTS PASSED!\n======================================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04764160000195261,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "======================================================================\nCOMPREHENSIVE PYTHON 3.12 FEATURE TEST\n======================================================================\n✅ F-string features\n✅ Match statement\n✅ Walrus operator\n✅ Type hints\n✅ Comprehensions\n✅ Iterator functions\n✅ String methods\n✅ List methods\n✅ Dict methods\n✅ Set operations\n✅ Lambda functions\n✅ Decorators\n✅ Context managers\n✅ Generators\n✅ Class features\n✅ Property decorator\n✅ Class and static methods\n✅ Exception handling\n\n======================================================================\nTEST SUMMARY\n======================================================================\n✅ Passed: 18\n❌ Failed: 0\n⏭️  Skipped: 0\n\n======================================================================\n🎉 ALL TESTS PASSED!\n======================================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.34725690000050236,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_global_variable.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "\n==================================================\nSharpPy Global Variable Test\n==================================================\n\n=== Test 1: Global Read Only ===\n  _current_chapter is None (correct)\n=== Test 1 PASSED ===\n\n=== Test 2: Global Read Then Write ===\n  Before: _current_chapter = None\n  _current_chapter is None, setting to 'chapter_0'\n  After: _current_chapter = chapter_0\n=== Test 2 PASSED ===\n\n=== Test 3: Load Chapter Pattern ===\n  Loading chapter: chapter_1\n  Saving player data before chapter transition...\n  Clearing previous chapter: chapter_0\n  Chapter 'chapter_1' loaded successfully.\n=== Test 3 PASSED ===\n\n=== Test 4: Global Counter ===\n  Before: _counter = 0\n  After increment: _counter = 1\n  After increment: _counter = 2\n=== Test 4 PASSED ===\n\n=== Test 5: Shared Global State ===\n  Initial: 0\n  After increment: 1\n  After increment: 2\n=== Test 5 PASSED ===\n\n=== Test 6: Global Declaration Position ===\n  Local vars: x=10, y=20\n  _position_test = initial\n  _position_test = modified\n=== Test 6 PASSED ===\n\n==================================================\nAll tests completed\n==================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03567579999798909,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "\n==================================================\nSharpPy Global Variable Test\n==================================================\n\n=== Test 1: Global Read Only ===\n  _current_chapter is None (correct)\n=== Test 1 PASSED ===\n\n=== Test 2: Global Read Then Write ===\n  Before: _current_chapter = None\n  _current_chapter is None, setting to 'chapter_0'\n  After: _current_chapter = chapter_0\n=== Test 2 PASSED ===\n\n=== Test 3: Load Chapter Pattern ===\n  Loading chapter: chapter_1\n  Saving player data before chapter transition...\n  Clearing previous chapter: chapter_0\n  Chapter 'chapter_1' loaded successfully.\n=== Test 3 PASSED ===\n\n=== Test 4: Global Counter ===\n  Before: _counter = 0\n  After increment: _counter = 1\n  After increment: _counter = 2\n=== Test 4 PASSED ===\n\n=== Test 5: Shared Global State ===\n  Initial: 0\n  After increment: 1\n  After increment: 2\n=== Test 5 PASSED ===\n\n=== Test 6: Global Declaration Position ===\n  Local vars: x=10, y=20\n  _position_test = initial\n  _position_test = modified\n=== Test 6 PASSED ===\n\n==================================================\nAll tests completed\n==================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27895129999524215,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_nested_super.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "\n==================================================\nSharpPy Nested Function Super() Test\n(Matching real code structure)\n==================================================\n\n=== Test 1: Direct Call ===\n[Asset.instantiate] instance_id=42\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\nResult: instance_id=42\n=== Test 1 PASSED ===\n\n=== Test 2: Module Level Nested Function ===\n[Asset.instantiate] instance_id=100\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n[Asset.instantiate] instance_id=200\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\nResult: 2 items created\n=== Test 2 PASSED ===\n\n=== Test 3: Class Method Nested Function ===\n[Asset.instantiate] instance_id=1\n[Location.instantiate] location_id=1, region_id=0\n[Location.add_object] added Wardrobe\n[Asset.instantiate] instance_id=1000\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n[Asset.instantiate] instance_id=1001\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n[LinaRoom.instantiate] 2 items added to wardrobe\n=== Test 3 PASSED ===\n\n=== Test 4: Closure with Outer Variable ===\n[Asset.instantiate] instance_id=999\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n  Added to wardrobe 999\n[Asset.instantiate] instance_id=1000\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n  Added to wardrobe 999\nResult: 2 items created\n=== Test 4 PASSED ===\n\n==================================================\nAll tests completed\n==================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.052675300001283176,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "\n==================================================\nSharpPy Nested Function Super() Test\n(Matching real code structure)\n==================================================\n\n=== Test 1: Direct Call ===\n[Asset.instantiate] instance_id=42\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\nResult: instance_id=42\n=== Test 1 PASSED ===\n\n=== Test 2: Module Level Nested Function ===\n[Asset.instantiate] instance_id=100\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n[Asset.instantiate] instance_id=200\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\nResult: 2 items created\n=== Test 2 PASSED ===\n\n=== Test 3: Class Method Nested Function ===\n[Asset.instantiate] instance_id=1\n[Location.instantiate] location_id=1, region_id=0\n[Location.add_object] added Wardrobe\n[Asset.instantiate] instance_id=1000\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n[Asset.instantiate] instance_id=1001\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n[LinaRoom.instantiate] 2 items added to wardrobe\n=== Test 3 PASSED ===\n\n=== Test 4: Closure with Outer Variable ===\n[Asset.instantiate] instance_id=999\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n  Added to wardrobe 999\n[Asset.instantiate] instance_id=1000\n[Item.instantiate] name=선드레스\n[Clothing.instantiate] category=clothing\n[Sundress.instantiate] done\n  Added to wardrobe 999\nResult: 2 items created\n=== Test 4 PASSED ===\n\n==================================================\nAll tests completed\n==================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2922543000022415,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_python312_advanced_features.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Python 3.12 ADVANCED Features Test ===\n\n🧪 1. Property Decorator System Tests\n  📖 Getting temperature: 0\nInitial temperature: 0\n  ✏️ Setting temperature: 25.5\n  📖 Getting temperature: 25.5\nAfter setting: Alice at 25.5°C\n  ✅ Validation works: Temperature cannot be below absolute zero\n  🗑️ Deleting temperature\n  📖 Getting temperature: 0\nAfter deletion: 0\nReadonly data: Secret\n\n🧪 2. Custom Descriptor Tests\nDescriptor values: Test, 42\n  ✅ Descriptor validation: Invalid value: -5\n\n🧪 3. Complex Function Signature Tests\nFunction result: {'pos_only': 1, 'normal': 'normal', 'default': 'default', 'args': (), 'kw_only': 'keyword', 'kw_default': 'kw', 'kwargs': {'extra_kw': 'extra'}}\n\n🧪 4. Attribute Access Control Tests\nDynamic attribute: test\nAccess log: ['SET: dynamic_attr = test', 'GET: dynamic_attr', 'DEL: dynamic_attr']\n\n🧪 5. Iterator/Generator Tests\nCustom iterator: [1, 2, 3]\nFibonacci: [0, 1, 1, 2, 3, 5, 8, 13]\nDelegated generator: [0, 1, 2, 0, 1, 1, 2, 3, 100, 200, 300]\n\n🧪 6. Exception Handling Tests\n  💥 Caught: Wrapped error\n  📋 Error code: 500\n  🔗 Caused by: Original error\n\n🧪 7. Magic Methods Tests\nVector math: <1, 2, 3> + <4, 5, 6> = <5, 7, 9>\nScalar multiply: <1, 2, 3> * 2 = <2, 4, 6>\nVector comparison: <1, 2, 3> < <4, 5, 6> = True\n\n🧪 8. Context Manager Tests\n  🔓 Acquiring resource: Database\n  🔓 Acquiring resource: Cache\n  📊 Using Handle_Database and Handle_Cache\n  🔒 Releasing resource: Cache\n    🧹 Cache cleanup\n  🔒 Releasing resource: Database\n    🧹 DB cleanup\nContext result: Success\n\n🧪 9. Container Protocol Tests\nContainer length: 5\nContainer slice [1:3]: [2, 3]\nContains 3: True\nAfter append: [1, 2, 3, 4, 5, 6]\n\n🧪 10. Generator Expression in Complex Context\nComplex generator: [0, 4, 16, 36, 64]\nNested generator: [(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]\n\n============================================================\n🎉 ALL PYTHON 3.12 ADVANCED FEATURES TESTED SUCCESSFULLY!\n============================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04340789999696426,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Python 3.12 ADVANCED Features Test ===\n\n🧪 1. Property Decorator System Tests\n  📖 Getting temperature: 0\nInitial temperature: 0\n  ✏️ Setting temperature: 25.5\n  📖 Getting temperature: 25.5\nAfter setting: Alice at 25.5°C\n  ✅ Validation works: Temperature cannot be below absolute zero\n  🗑️ Deleting temperature\n  📖 Getting temperature: 0\nAfter deletion: 0\nReadonly data: Secret\n\n🧪 2. Custom Descriptor Tests\nDescriptor values: Test, 42\n  ✅ Descriptor validation: Invalid value: -5\n\n🧪 3. Complex Function Signature Tests\nFunction result: {'pos_only': 1, 'normal': 'normal', 'default': 'default', 'args': (), 'kw_only': 'keyword', 'kw_default': 'kw', 'kwargs': {'extra_kw': 'extra'}}\n\n🧪 4. Attribute Access Control Tests\nDynamic attribute: test\nAccess log: ['SET: dynamic_attr = test', 'GET: dynamic_attr', 'DEL: dynamic_attr']\n\n🧪 5. Iterator/Generator Tests\nCustom iterator: [1, 2, 3]\nFibonacci: [0, 1, 1, 2, 3, 5, 8, 13]\nDelegated generator: [0, 1, 2, 0, 1, 1, 2, 3, 100, 200, 300]\n\n🧪 6. Exception Handling Tests\n  💥 Caught: Wrapped error\n  📋 Error code: 500\n  🔗 Caused by: Original error\n\n🧪 7. Magic Methods Tests\nVector math: <1, 2, 3> + <4, 5, 6> = <5, 7, 9>\nScalar multiply: <1, 2, 3> * 2 = <2, 4, 6>\nVector comparison: <1, 2, 3> < <4, 5, 6> = True\n\n🧪 8. Context Manager Tests\n  🔓 Acquiring resource: Database\n  🔓 Acquiring resource: Cache\n  📊 Using Handle_Database and Handle_Cache\n  🔒 Releasing resource: Cache\n    🧹 Cache cleanup\n  🔒 Releasing resource: Database\n    🧹 DB cleanup\nContext result: Success\n\n🧪 9. Container Protocol Tests\nContainer length: 5\nContainer slice [1:3]: [2, 3]\nContains 3: True\nAfter append: [1, 2, 3, 4, 5, 6]\n\n🧪 10. Generator Expression in Complex Context\nComplex generator: [0, 4, 16, 36, 64]\nNested generator: [(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]\n\n============================================================\n🎉 ALL PYTHON 3.12 ADVANCED FEATURES TESTED SUCCESSFULLY!\n============================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3547108000057051,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_python312_missing_features.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Python 3.12 MISSING Features Comprehensive Test ===\n\n🧪 1. PEP 695: Type Parameter Syntax Tests\nStack operations: hello, 42\nPoint created: (3.14, 2.71)\n✅ Type parameter syntax tests (limited) passed\n\n🧪 2. PEP 701: Enhanced F-string Tests\nBasic f-string: Hello world!\nComplex f-string: Sum: 18\nMethod call f-string: Capitalized: PYTHON\nMulti-line f-string: Data summary:\n- Key: value\n- Number: 42\n- Total: 2 items\n✅ Enhanced f-string tests passed\n\n🧪 3. Advanced Pattern Matching Tests\n  Case 1: Positive integer: 42\n  Case 2: Negative integer: -17\n  Case 3: Zero\n  Case 4: Short string: hello\n  Case 5: Long string: python programming\n  Case 6: List with middle: first=1, last=5, middle=3 items\n  Case 7: Single item list: 42\n  Case 8: Empty list\n  Case 9: Person: Alice, age 30\n  Case 10: Error object: Something went wrong\n  Case 11: Unknown pattern: dict\n✅ Advanced pattern matching tests passed\n\n🧪 4. Async/Await Advanced Patterns Tests\n  Simulating async patterns (full async support pending)\n  - Async context managers: conceptually implemented\n  - Async generators: conceptually implemented\n  - Async comprehensions: pending full async support\n✅ Async/await pattern tests (simulated) passed\n\n🧪 5. Walrus Operator Advanced Tests\n  Data length 10 is greater than 5\n  While loop with walrus: [2, 4, 6]\n  List comprehension with walrus: [25, 36, 49, 64, 81]\n  Match with walrus: 42 doubled is 84\n✅ Walrus operator advanced tests passed\n\n🧪 6. @override Decorator Tests\n  Parent method: parent_method\n  Child method: child_method (overriding parent_method)\n  Override marker: True\n✅ @override decorator tests (simulated) passed\n\n🧪 7. Exception Groups Tests\n  Collected 3 exceptions:\n    - ValueError: Value error 0\n    - TypeError: Type error 1\n    - RuntimeError: Runtime error 2\n  Exception groups: 1 ValueError, 1 TypeError, 1 RuntimeError\n  Total errors handled: 3\n✅ Exception groups tests (simulated) passed\n\n🧪 8. Advanced Dataclass Features Tests\n  Point 1: Point(x=3.14, y=2.71)\n  Point 2: Point(x=3.14, y=2.71)\n  Equal: True\n  Different: False\n  Has __slots__: True\n  Modified Point 1: Point(x=5.0, y=2.71)\n✅ Advanced dataclass features tests (simulated) passed\n\n🧪 9. Buffer Protocol & Memoryview Tests\n  Original data: bytearray(b'Hello, World!')\n  Memoryview length: 13\n  Memoryview itemsize: 1\n  Modified data: bytearray(b'hello, world!')\n  Memoryview slice: <memory at 0x000002A72FC6D000>\n  Read-only memoryview: <memory at 0x000002A72FC6D000>\n  Read-only slice: <memory at 0x000002A72FC6D180>\n✅ Buffer protocol & memoryview tests passed\n\n🧪 10. Union Type Operator Tests\n  process_value(42) -> Integer: 84\n  process_value('hello') -> String: HELLO\n  process_value(None) -> None value\n  process_value([1, 2, 3]) -> Unknown type: list\n  process_value(3.14) -> Unknown type: float\n  is_int_or_str(42) -> True\n  is_int_or_str('test') -> True\n  is_int_or_str(3.14) -> False\n  is_int_or_str(None) -> False\n✅ Union type operator tests (simulated) passed\n\n🧪 11. Integration Test: Combining Multiple Features\n  Integration test results:\n    1. Non-empty list with 5 items: [1, 2, 3]...\n    2. String 'python' has 6 characters\n    3. Dict with keys: ['name', 'value']\n    4. None value encountered\n    5. Other: list\n✅ Integration test passed\n\n======================================================================\n🎉 PYTHON 3.12 MISSING FEATURES TEST COMPLETED!\n======================================================================\n\n📋 Test Coverage Summary:\n  1. ✅ Type Parameter Syntax (PEP 695) - Limited support\n  2. ✅ Enhanced F-strings (PEP 701) - Basic support\n  3. ✅ Advanced Pattern Matching - Full support\n  4. ✅ Async/Await Patterns - Conceptual support\n  5. ✅ Walrus Operator Advanced - Full support\n  6. ✅ @override Decorator (PEP 698) - Simulated\n  7. ✅ Exception Groups (PEP 654) - Simulated\n  8. ✅ Advanced Dataclass Features - Simulated\n  9. ✅ Buffer Protocol & Memoryview - Full support\n 10. ✅ Union Type Operator - Simulated\n 11. ✅ Integration Test - Passed\n\n🚀 SharpPy Python 3.12 Compatibility Assessment Complete!\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.047273299998778384,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "=== Python 3.12 MISSING Features Comprehensive Test ===\n\n🧪 1. PEP 695: Type Parameter Syntax Tests\nStack operations: hello, 42\nPoint created: (3.14, 2.71)\n✅ Type parameter syntax tests (limited) passed\n\n🧪 2. PEP 701: Enhanced F-string Tests\nBasic f-string: Hello world!\nComplex f-string: Sum: 18\nMethod call f-string: Capitalized: PYTHON\nMulti-line f-string: Data summary:\n- Key: value\n- Number: 42\n- Total: 2 items\n✅ Enhanced f-string tests passed\n\n🧪 3. Advanced Pattern Matching Tests\n  Case 1: Positive integer: 42\n  Case 2: Negative integer: -17\n  Case 3: Zero\n  Case 4: Short string: hello\n  Case 5: Long string: python programming\n  Case 6: List with middle: first=1, last=5, middle=3 items\n  Case 7: Single item list: 42\n  Case 8: Empty list\n  Case 9: Person: Alice, age 30\n  Case 10: Error object: Something went wrong\n  Case 11: Unknown pattern: dict\n✅ Advanced pattern matching tests passed\n\n🧪 4. Async/Await Advanced Patterns Tests\n  Simulating async patterns (full async support pending)\n  - Async context managers: conceptually implemented\n  - Async generators: conceptually implemented\n  - Async comprehensions: pending full async support\n✅ Async/await pattern tests (simulated) passed\n\n🧪 5. Walrus Operator Advanced Tests\n  Data length 10 is greater than 5\n  While loop with walrus: [2, 4, 6]\n  List comprehension with walrus: [25, 36, 49, 64, 81]\n  Match with walrus: 42 doubled is 84\n✅ Walrus operator advanced tests passed\n\n🧪 6. @override Decorator Tests\n  Parent method: parent_method\n  Child method: child_method (overriding parent_method)\n  Override marker: False\n✅ @override decorator tests (simulated) passed\n\n🧪 7. Exception Groups Tests\n  Collected 3 exceptions:\n    - ValueError: Value error 0\n    - TypeError: Type error 1\n    - RuntimeError: Runtime error 2\n  Exception groups: 1 ValueError, 1 TypeError, 1 RuntimeError\n  Total errors handled: 3\n✅ Exception groups tests (simulated) passed\n\n🧪 8. Advanced Dataclass Features Tests\n  Point 1: Point(x=3.14, y=2.71)\n  Point 2: Point(x=3.14, y=2.71)\n  Equal: True\n  Different: False\n  Has __slots__: True\n  Modified Point 1: Point(x=5.0, y=2.71)\n✅ Advanced dataclass features tests (simulated) passed\n\n🧪 9. Buffer Protocol & Memoryview Tests\n  Original data: bytearray(b'Hello, World!')\n  Memoryview length: 13\n  Memoryview itemsize: 1\n  Modified data: bytearray(b'Hello, World!')\n  Memoryview slice: <memory at 0xE2DBA9>\n  Read-only memoryview: <memory at 0x3F9B8F5>\n  Read-only slice: <memory at 0x3C780A2>\n✅ Buffer protocol & memoryview tests passed\n\n🧪 10. Union Type Operator Tests\n  process_value(42) -> Integer: 84\n  process_value('hello') -> String: HELLO\n  process_value(None) -> None value\n  process_value([1, 2, 3]) -> Unknown type: list\n  process_value(3.14) -> Unknown type: float\n  is_int_or_str(42) -> True\n  is_int_or_str('test') -> True\n  is_int_or_str(3.14) -> False\n  is_int_or_str(None) -> False\n✅ Union type operator tests (simulated) passed\n\n🧪 11. Integration Test: Combining Multiple Features\n  Integration test results:\n    1. Non-empty list with 5 items: [1, 2, 3]...\n    2. String 'python' has 6 characters\n    3. Dict with keys: ['name', 'value']\n    4. None value encountered\n    5. Other: list\n✅ Integration test passed\n\n======================================================================\n🎉 PYTHON 3.12 MISSING FEATURES TEST COMPLETED!\n======================================================================\n\n📋 Test Coverage Summary:\n  1. ✅ Type Parameter Syntax (PEP 695) - Limited support\n  2. ✅ Enhanced F-strings (PEP 701) - Basic support\n  3. ✅ Advanced Pattern Matching - Full support\n  4. ✅ Async/Await Patterns - Conceptual support\n  5. ✅ Walrus Operator Advanced - Full support\n  6. ✅ @override Decorator (PEP 698) - Simulated\n  7. ✅ Exception Groups (PEP 654) - Simulated\n  8. ✅ Advanced Dataclass Features - Simulated\n  9. ✅ Buffer Protocol & Memoryview - Full support\n 10. ✅ Union Type Operator - Simulated\n 11. ✅ Integration Test - Passed\n\n🚀 SharpPy Python 3.12 Compatibility Assessment Complete!\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.36073339999711607,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "test_ultimate_complex_features.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "=== Python 3.12 ULTIMATE Complex Features Test ===\n🚀 EnhancedMeta creating enhanced class: BaseProcessor\n🔍 ValidationMeta processing class: BaseProcessor\n🏗️ LoggingMeta creating class: BaseProcessor\n✅ ValidationMeta completed: BaseProcessor\n🚀 EnhancedMeta creating enhanced class: DataProcessor\n🔍 ValidationMeta processing class: DataProcessor\n🏗️ LoggingMeta creating class: DataProcessor\n✅ ValidationMeta completed: DataProcessor\n🚀 EnhancedMeta creating enhanced class: NumberProcessor\n🔍 ValidationMeta processing class: NumberProcessor\n🏗️ LoggingMeta creating class: NumberProcessor\n✅ ValidationMeta completed: NumberProcessor\n🚀 EnhancedMeta creating enhanced class: StringProcessor\n🔍 ValidationMeta processing class: StringProcessor\n🏗️ LoggingMeta creating class: StringProcessor\n✅ ValidationMeta completed: StringProcessor\n\n============================================================\n🚀 ULTIMATE COMPLEX FEATURES TEST\n============================================================\n🎬 Starting processing session: Ultimate Test\n\n1. Testing DataProcessor with all features:\n🏗️ Creating DataProcessor: MainProcessor\n  ✏️ Setting name = MainProcessor\n  🔄 Transformed to: Mainprocessor\n  ✅ name set successfully\n  🔐 ContextMixin initialized\n  💾 SerializableMixin initialized\n  🕐 TimestampMixin initialized at 1791544685.7426353\n  ✏️ Setting threshold = 2.5\n  🔄 Transformed to: 2.5\n  ✅ threshold set successfully\n  👀 Getting name: Mainprocessor\n   Original name: Mainprocessor\n  ✏️ Setting name = enhanced processor\n  🔄 Transformed to: Enhanced Processor\n  ✅ name set successfully\n  👀 Getting name: Enhanced Processor\n   Transformed name: Enhanced Processor\n  👀 Getting name: Enhanced Processor\n  👀 Getting threshold: 2.5\n   Statistics: {'name': 'Enhanced Processor', 'processed_count': 0, 'age_seconds': 0.0, 'results_count': 0, 'threshold': 2.5}\n  📋 Calling DataProcessor.advanced_process\n  🚀 Advanced processing with multiplier 3.0\n  🚪 Entering context for DataProcessor\n  📋 Calling DataProcessor.process_batch\n  👀 Getting name: Enhanced Processor\n  🏭 Enhanced Processor processing batch of 7 items\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 1: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 1 → 2.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 2: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 2 → 5.0\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 3: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 3 → 7.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating hello: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'hello' → 'HELLO'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 4.5: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 4.5 → 11.25\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating None: ❌\n  ❌ Invalid item skipped: None\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating world: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'world' → 'WORLD'\n  🚪 Exiting context for DataProcessor\n  📝 Cached result for advanced_process\n  ⚡ advanced_process executed in 0.0000s\n   First run results: [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']\n  📋 Calling DataProcessor.advanced_process\n  🚀 Advanced processing with multiplier 3.0\n  🚪 Entering context for DataProcessor\n  📋 Calling DataProcessor.process_batch\n  👀 Getting name: Enhanced Processor\n  🏭 Enhanced Processor processing batch of 7 items\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 1: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 1 → 2.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 2: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 2 → 5.0\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 3: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 3 → 7.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating hello: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'hello' → 'HELLO'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 4.5: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 4.5 → 11.25\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating None: ❌\n  ❌ Invalid item skipped: None\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating world: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'world' → 'WORLD'\n  🚪 Exiting context for DataProcessor\n  📝 Cached result for advanced_process\n  ⚡ advanced_process executed in 0.0000s\n   Cached run results: [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']\n   Serialized: {'processed_count': 12, 'results': [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD', 7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']}\n\n2. Testing inheritance hierarchy:\n🏗️ Creating DataProcessor: NumberCruncher\n  ✏️ Setting name = NumberCruncher\n  🔄 Transformed to: Numbercruncher\n  ✅ name set successfully\n  🔐 ContextMixin initialized\n  💾 SerializableMixin initialized\n  🕐 TimestampMixin initialized at 1791544685.7426353\n  ✏️ Setting threshold = 1.5\n  🔄 Transformed to: 1.5\n  ✅ threshold set successfully\n  🔢 NumberProcessor specialized with precision=3\n  🚪 Entering context for NumberProcessor\n  📋 Calling NumberProcessor.process_batch\n  👀 Getting name: Numbercruncher\n  🏭 Numbercruncher processing batch of 4 items\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 1: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 1 → 1.5\n  📊 Number specialized: 1 → 1.5\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 2.7: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 2.7 → 4.050000000000001\n  📊 Number specialized: 2.7 → 4.05\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 3.14: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 3.14 → 4.71\n  📊 Number specialized: 3.14 → 4.71\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 4.999: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 4.999 → 7.4985\n  📊 Number specialized: 4.999 → 7.498\n   Number processing results: [1.5, 4.05, 4.71, 7.498]\n  🚪 Exiting context for NumberProcessor\n🏗️ Creating DataProcessor: TextProcessor\n  ✏️ Setting name = TextProcessor\n  🔄 Transformed to: Textprocessor\n  ✅ name set successfully\n  🔐 ContextMixin initialized\n  💾 SerializableMixin initialized\n  🕐 TimestampMixin initialized at 1791544685.7426353\n  ✏️ Setting threshold = 1.0\n  🔄 Transformed to: 1.0\n  ✅ threshold set successfully\n  📝 StringProcessor specialized with case_style=title\n  🚪 Entering context for StringProcessor\n  📋 Calling StringProcessor.process_batch\n  👀 Getting name: Textprocessor\n  🏭 Textprocessor processing batch of 4 items\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating hello: ✅\n  📋 Calling StringProcessor.process_item\n  🔤 String specialized: 'hello' → 'Hello'\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating world: ✅\n  📋 Calling StringProcessor.process_item\n  🔤 String specialized: 'world' → 'World'\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating 123: ✅\n  📋 Calling StringProcessor.process_item\n  🔤 String specialized: '123' → '123'\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating None: ❌\n  ❌ Invalid item skipped: None\n   String processing results: ['Hello', 'World', '123']\n  🚪 Exiting context for StringProcessor\n\n3. Testing MRO (Method Resolution Order):\n   DataProcessor MRO: ['DataProcessor', 'BaseProcessor', 'ABC', 'TimestampMixin', 'SerializableMixin', 'ContextMixin', 'object']\n   NumberProcessor MRO: ['NumberProcessor', 'DataProcessor', 'BaseProcessor', 'ABC', 'TimestampMixin', 'SerializableMixin', 'ContextMixin', 'object']\n\n4. Testing metaclass inheritance chain:\n   DataProcessor metaclass: EnhancedMeta\n   Metaclass MRO: ['EnhancedMeta', 'ValidationMeta', 'LoggingMeta', 'ABCMeta', 'type', 'object']\n\n5. Testing validation and error handling:\n  ✏️ Setting threshold = -1\n  🔄 Transformed to: -1.0\n   ✅ Validation error caught: Invalid value for threshold: -1.0\n  📋 Calling DataProcessor.advanced_process\n  🚀 Advanced processing with multiplier not a float\n  🚪 Entering context for DataProcessor\n  📋 Calling DataProcessor.process_batch\n  👀 Getting name: Enhanced Processor\n  🏭 Enhanced Processor processing batch of 10 items\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating n: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'n' → 'N'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating o: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'o' → 'O'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating t: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 't' → 'T'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating  : ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed ' ' → ' '\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating a: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'a' → 'A'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating  : ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed ' ' → ' '\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating l: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'l' → 'L'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating i: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'i' → 'I'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating s: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 's' → 'S'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating t: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 't' → 'T'\n  🚪 Exiting context for DataProcessor\n  📝 Cached result for advanced_process\n  ⚡ advanced_process executed in 0.0000s\n\n6. Final statistics:\n  👀 Getting name: Enhanced Processor\n  👀 Getting name: Enhanced Processor\n  👀 Getting threshold: 2.5\n   DataProcessor(name='Enhanced Processor', processed=22): {'name': 'Enhanced Processor', 'processed_count': 22, 'age_seconds': 0.0, 'results_count': 22, 'threshold': 2.5}\n  👀 Getting name: Numbercruncher\n  👀 Getting name: Numbercruncher\n  👀 Getting threshold: 1.5\n   DataProcessor(name='Numbercruncher', processed=4): {'name': 'Numbercruncher', 'processed_count': 4, 'age_seconds': 0.0, 'results_count': 0, 'threshold': 1.5}\n  👀 Getting name: Textprocessor\n  👀 Getting name: Textprocessor\n  👀 Getting threshold: 1.0\n   DataProcessor(name='Textprocessor', processed=3): {'name': 'Textprocessor', 'processed_count': 3, 'age_seconds': 0.0, 'results_count': 0, 'threshold': 1.0}\n🎬 Session Ultimate Test completed in 0.0000s\n\n============================================================\n🎉 ALL ULTIMATE COMPLEX FEATURES TESTED SUCCESSFULLY!\n============================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.05812839999998687,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for Enum:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for ReprEnum:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for IntEnum:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for StrEnum:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for FlagBoundary:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for Flag:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <staticmethod(<function _generate_next_value_>)>\n[TYPE_NEW DEBUG]   Type: staticmethod\n[TYPE_NEW DEBUG]   It's a staticmethod!\n[TYPE_NEW DEBUG]   Callable: <function _generate_next_value_>\n[TYPE_NEW DEBUG] After PyClass creation for IntFlag:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: staticmethod\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <function _generate_next_value_>\n[TYPE_NEW DEBUG]   Type: function\n[TYPE_NEW DEBUG] After PyClass creation for EnumCheck:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: function\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: function\n[TYPE_NEW DEBUG] Setting classDict['_generate_next_value_']\n[TYPE_NEW DEBUG]   Value: <function _generate_next_value_>\n[TYPE_NEW DEBUG]   Type: function\n[TYPE_NEW DEBUG] After PyClass creation for RegexFlag:\n[TYPE_NEW DEBUG]   classDict['_generate_next_value_'] type: function\n[TYPE_NEW DEBUG]   newClass.ClassDict['_generate_next_value_'] type: function\n=== Python 3.12 ULTIMATE Complex Features Test ===\n🚀 EnhancedMeta creating enhanced class: BaseProcessor\n🔍 ValidationMeta processing class: BaseProcessor\n🏗️ LoggingMeta creating class: BaseProcessor\n✅ ValidationMeta completed: BaseProcessor\n🚀 EnhancedMeta creating enhanced class: DataProcessor\n🔍 ValidationMeta processing class: DataProcessor\n🏗️ LoggingMeta creating class: DataProcessor\n✅ ValidationMeta completed: DataProcessor\n🚀 EnhancedMeta creating enhanced class: NumberProcessor\n🔍 ValidationMeta processing class: NumberProcessor\n🏗️ LoggingMeta creating class: NumberProcessor\n✅ ValidationMeta completed: NumberProcessor\n🚀 EnhancedMeta creating enhanced class: StringProcessor\n🔍 ValidationMeta processing class: StringProcessor\n🏗️ LoggingMeta creating class: StringProcessor\n✅ ValidationMeta completed: StringProcessor\n\n============================================================\n🚀 ULTIMATE COMPLEX FEATURES TEST\n============================================================\n🎬 Starting processing session: Ultimate Test\n\n1. Testing DataProcessor with all features:\n🏗️ Creating DataProcessor: MainProcessor\n  ✏️ Setting name = MainProcessor\n  🔄 Transformed to: Mainprocessor\n  ✅ name set successfully\n  🔐 ContextMixin initialized\n  💾 SerializableMixin initialized\n  🕐 TimestampMixin initialized at 1791544687.1597922\n  ✏️ Setting threshold = 2.5\n  🔄 Transformed to: 2.5\n  ✅ threshold set successfully\n  👀 Getting name: Mainprocessor\n   Original name: Mainprocessor\n  ✏️ Setting name = enhanced processor\n  🔄 Transformed to: Enhanced Processor\n  ✅ name set successfully\n  👀 Getting name: Enhanced Processor\n   Transformed name: Enhanced Processor\n  👀 Getting name: Enhanced Processor\n  👀 Getting threshold: 2.5\n   Statistics: {'name': 'Enhanced Processor', 'processed_count': 0, 'age_seconds': 0.0013897418975830078, 'results_count': 0, 'threshold': 2.5}\n  📋 Calling DataProcessor.advanced_process\n  🚀 Advanced processing with multiplier 3.0\n  🚪 Entering context for DataProcessor\n  📋 Calling DataProcessor.process_batch\n  👀 Getting name: Enhanced Processor\n  🏭 Enhanced Processor processing batch of 7 items\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 1: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 1 → 2.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 2: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 2 → 5.0\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 3: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 3 → 7.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating hello: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'hello' → 'HELLO'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 4.5: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 4.5 → 11.25\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating None: ❌\n  ❌ Invalid item skipped: None\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating world: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'world' → 'WORLD'\n  🚪 Exiting context for DataProcessor\n  📝 Cached result for advanced_process\n  ⚡ advanced_process executed in 0.0026s\n   First run results: [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']\n  📋 Calling DataProcessor.advanced_process\n  🚀 Advanced processing with multiplier 3.0\n  🚪 Entering context for DataProcessor\n  📋 Calling DataProcessor.process_batch\n  👀 Getting name: Enhanced Processor\n  🏭 Enhanced Processor processing batch of 7 items\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 1: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 1 → 2.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 2: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 2 → 5.0\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 3: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 3 → 7.5\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating hello: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'hello' → 'HELLO'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating 4.5: ✅\n  📋 Calling DataProcessor.process_item\n  👀 Getting threshold: 2.5\n  🔢 Processed 4.5 → 11.25\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating None: ❌\n  ❌ Invalid item skipped: None\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating world: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'world' → 'WORLD'\n  🚪 Exiting context for DataProcessor\n  📝 Cached result for advanced_process\n  ⚡ advanced_process executed in 0.0012s\n   Cached run results: [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']\n   Serialized: {'processed_count': 12, 'results': [7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD', 7.5, 15.0, 22.5, 'HELLO', 33.75, 'WORLD']}\n\n2. Testing inheritance hierarchy:\n🏗️ Creating DataProcessor: NumberCruncher\n  ✏️ Setting name = NumberCruncher\n  🔄 Transformed to: Numbercruncher\n  ✅ name set successfully\n  🔐 ContextMixin initialized\n  💾 SerializableMixin initialized\n  🕐 TimestampMixin initialized at 1791544687.1670177\n  ✏️ Setting threshold = 1.5\n  🔄 Transformed to: 1.5\n  ✅ threshold set successfully\n  🔢 NumberProcessor specialized with precision=3\n  🚪 Entering context for NumberProcessor\n  📋 Calling NumberProcessor.process_batch\n  👀 Getting name: Numbercruncher\n  🏭 Numbercruncher processing batch of 4 items\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 1: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 1 → 1.5\n  📊 Number specialized: 1 → 1.5\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 2.7: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 2.7 → 4.050000000000001\n  📊 Number specialized: 2.7 → 4.05\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 3.14: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 3.14 → 4.71\n  📊 Number specialized: 3.14 → 4.71\n  📋 Calling NumberProcessor.validate_input\n  🔍 Validating 4.999: ✅\n  📋 Calling NumberProcessor.process_item\n  📋 Calling NumberProcessor.process_item\n  👀 Getting threshold: 1.5\n  🔢 Processed 4.999 → 7.4985\n  📊 Number specialized: 4.999 → 7.498\n   Number processing results: [1.5, 4.05, 4.71, 7.498]\n  🚪 Exiting context for NumberProcessor\n🏗️ Creating DataProcessor: TextProcessor\n  ✏️ Setting name = TextProcessor\n  🔄 Transformed to: Textprocessor\n  ✅ name set successfully\n  🔐 ContextMixin initialized\n  💾 SerializableMixin initialized\n  🕐 TimestampMixin initialized at 1791544687.168933\n  ✏️ Setting threshold = 1.0\n  🔄 Transformed to: 1.0\n  ✅ threshold set successfully\n  📝 StringProcessor specialized with case_style=title\n  🚪 Entering context for StringProcessor\n  📋 Calling StringProcessor.process_batch\n  👀 Getting name: Textprocessor\n  🏭 Textprocessor processing batch of 4 items\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating hello: ✅\n  📋 Calling StringProcessor.process_item\n  🔤 String specialized: 'hello' → 'Hello'\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating world: ✅\n  📋 Calling StringProcessor.process_item\n  🔤 String specialized: 'world' → 'World'\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating 123: ✅\n  📋 Calling StringProcessor.process_item\n  🔤 String specialized: '123' → '123'\n  📋 Calling StringProcessor.validate_input\n  🔍 Validating None: ❌\n  ❌ Invalid item skipped: None\n   String processing results: ['Hello', 'World', '123']\n  🚪 Exiting context for StringProcessor\n\n3. Testing MRO (Method Resolution Order):\n   DataProcessor MRO: ['DataProcessor', 'BaseProcessor', 'ABC', 'TimestampMixin', 'SerializableMixin', 'ContextMixin', 'object']\n   NumberProcessor MRO: ['NumberProcessor', 'DataProcessor', 'BaseProcessor', 'ABC', 'TimestampMixin', 'SerializableMixin', 'ContextMixin', 'object']\n\n4. Testing metaclass inheritance chain:\n   DataProcessor metaclass: EnhancedMeta\n   Metaclass MRO: ['EnhancedMeta', 'ValidationMeta', 'LoggingMeta', 'ABCMeta', 'type', 'object']\n\n5. Testing validation and error handling:\n  ✏️ Setting threshold = -1\n  🔄 Transformed to: -1.0\n   ✅ Validation error caught: Invalid value for threshold: -1.0\n  📋 Calling DataProcessor.advanced_process\n  🚀 Advanced processing with multiplier not a float\n  🚪 Entering context for DataProcessor\n  📋 Calling DataProcessor.process_batch\n  👀 Getting name: Enhanced Processor\n  🏭 Enhanced Processor processing batch of 10 items\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating n: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'n' → 'N'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating o: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'o' → 'O'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating t: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 't' → 'T'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating  : ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed ' ' → ' '\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating a: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'a' → 'A'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating  : ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed ' ' → ' '\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating l: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'l' → 'L'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating i: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 'i' → 'I'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating s: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 's' → 'S'\n  📋 Calling DataProcessor.validate_input\n  🔍 Validating t: ✅\n  📋 Calling DataProcessor.process_item\n  📝 Processed 't' → 'T'\n  🚪 Exiting context for DataProcessor\n  📝 Cached result for advanced_process\n  ⚡ advanced_process executed in 0.0015s\n\n6. Final statistics:\n  👀 Getting name: Enhanced Processor\n  👀 Getting name: Enhanced Processor\n  👀 Getting threshold: 2.5\n   DataProcessor(name='Enhanced Processor', processed=22): {'name': 'Enhanced Processor', 'processed_count': 22, 'age_seconds': 0.011877059936523438, 'results_count': 22, 'threshold': 2.5}\n  👀 Getting name: Numbercruncher\n  👀 Getting name: Numbercruncher\n  👀 Getting threshold: 1.5\n   DataProcessor(name='Numbercruncher', processed=4): {'name': 'Numbercruncher', 'processed_count': 4, 'age_seconds': 0.004763603210449219, 'results_count': 0, 'threshold': 1.5}\n  👀 Getting name: Textprocessor\n  👀 Getting name: Textprocessor\n  👀 Getting threshold: 1.0\n   DataProcessor(name='Textprocessor', processed=3): {'name': 'Textprocessor', 'processed_count': 3, 'age_seconds': 0.0029366016387939453, 'results_count': 0, 'threshold': 1.0}\n🎬 Session Ultimate Test completed in 0.0141s\n\n============================================================\n🎉 ALL ULTIMATE COMPLEX FEATURES TESTED SUCCESSFULLY!\n============================================================\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 1.4387256000045454,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/binary_inplace_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "binary in-place regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04310249999980442,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "binary in-place regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3033265999983996,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/inplace_special_lookup.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "PASS: instance_attribute_is_ignored\nPASS: getattribute_is_bypassed\nPASS: getattr_cannot_invent_operator\nPASS: operator_error_is_propagated\nPASS: attribute_error_is_propagated\nPASS: static_operator\nPASS: class_operator\nPASS: property_operator\nPASS: descriptor_operator\nPASS: descriptor_error_is_propagated\nPASS: noncallable_operator\nPASS: inherited_operator_changes_are_visible\nPASS: deleting_inherited_operator_uses_fallback\nPASS: int_subclass_operator\nFailed: 0\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.040474299996276386,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "PASS: instance_attribute_is_ignored\nPASS: getattribute_is_bypassed\nPASS: getattr_cannot_invent_operator\nPASS: operator_error_is_propagated\nPASS: attribute_error_is_propagated\nPASS: static_operator\nPASS: class_operator\nPASS: property_operator\nPASS: descriptor_operator\nPASS: descriptor_error_is_propagated\nPASS: noncallable_operator\nPASS: inherited_operator_changes_are_visible\nPASS: deleting_inherited_operator_uses_fallback\nPASS: int_subclass_operator\nFailed: 0\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.30493030000070576,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/function_creation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "function creation regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.042155900002398994,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "function creation regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2858877000035136,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/scope_binding_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "scope binding regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04551740000169957,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "scope binding regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.28004710000095656,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/builtin_descriptor_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "builtin descriptor regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.041518900005030446,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "builtin descriptor regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26627390000066953,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/frame_lifetime_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "frame lifetime regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04137119999359129,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "frame lifetime regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2812562999970396,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/locals_observation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "locals observation regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04097400000318885,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "locals observation regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.28650659999402706,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/cell_delete_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "cell delete regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03986810000060359,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "cell delete regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26376429999800166,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dynamic_locals_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dynamic locals regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03923880000365898,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dynamic locals regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26809420000063255,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/namespace_locals_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "namespace locals regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03920960000687046,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "namespace locals regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2738879000025918,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/locals_refresh_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "locals refresh regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03982779999932973,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "locals refresh regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2776148999982979,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/class_locals_mapping_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class locals mapping regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03849459999764804,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "class locals mapping regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27266299999610055,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/prepared_namespace_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "prepared namespace regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04174490000150399,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "prepared namespace regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.30519850000564475,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/type_new_dict_subclass_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "type new dict subclass regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.0394321999992826,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "type new dict subclass regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26844079999864334,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/call_failure_state_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "call failure state regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.040290400000230875,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "call failure state regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.268929300000309,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/class_closure_mapping_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class closure mapping regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04259839999576798,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "class closure mapping regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2909241999950609,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/class_exception_table_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class exception table regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04040619999432238,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "class exception table regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.28156489999673795,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/class_nested_state_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "class nested state regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04396629999973811,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "class nested state regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2775556999986293,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/exception_offset_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "exception offset regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.043585300001723226,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "exception offset regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27284259999578353,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/lookup_error_builtin.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "lookup error builtin: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039688299999397714,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "lookup error builtin: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2763288999994984,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict pop order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03967460000421852,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict pop order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2681374000021606,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dict_views_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict views: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.039583899997523986,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict views: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2843170999985887,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dict_iterator_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict iterator: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04048519999923883,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict iterator: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26510029999917606,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/dict_cursor_mutation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "dict cursor mutation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.04304270000284305,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "dict cursor mutation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27919480000127805,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/module_mapping_mutation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping mutations: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03278359999967506,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "module mapping mutations: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3514472000024398,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping clear: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.033264300000155345,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "module mapping clear: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2606471999970381,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/module_mapping_live_reads_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping live reads: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029871400001866277,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "module mapping live reads: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2637782999954652,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/module_mapping_observation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping observation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02945739999995567,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "module mapping observation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2767311999996309,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "examples/hello.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "Hello, World!\nHello, SharpPy!\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03891070000099717,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "Hello, World!\nHello, SharpPy!\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26387850000173785,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "examples/advanced.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "Woof!\nMeow!\nIt's a dog!\nIt's a cat!\nHELLO, WORLD\nExecution time: 0.0 seconds\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.042957099998602644,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "Woof!\nMeow!\nIt's a dog!\nIt's a cat!\nHELLO, WORLD\nExecution time: 0.007448673248291016 seconds\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3196121000000858,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "--test-generator-kwargs",
+      "status": "no_reported_failure",
+      "reference": null,
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "============================================================\nC# Generator 키워드 인자 테스트\n============================================================\n\n[TEST 1] 기본 Generator 키워드 인자\n  PASS\n\n[TEST 2] 클래스 메서드 Generator 키워드 인자\n  PASS\n\n[TEST 3] Eval로 Generator 생성 후 C#에서 Next 호출\n  Generator 생성됨: <generator object at 0x198698e>\n[Tree.chop] equipment={'item_id': 54, 'unique_id': 'axe'}\n  Next() 결과: <dict object at 0x25bb5ff>\n  PASS\n\n[TEST 4] 복잡한 키워드 인자 (중첩 딕셔너리)\n  PASS\n\n============================================================\n테스트 결과: 4 PASSED, 0 FAILED\n============================================================\n>>> 모든 테스트 통과 - 버그가 현재 코드에서 재현되지 않음\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2767641000027652,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "--test-pymethod-kwargs",
+      "status": "no_reported_failure",
+      "reference": null,
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "============================================================\nPyMethod kwargs 전달 버그 테스트\n============================================================\n\n[TEST 1] getattr + kwargs + generator (핵심 버그)\n  PASS\n\n[TEST 2] 직접 메서드 호출 (obj.method())\n  PASS\n\n[TEST 3] 클로저 내부에서 kwargs 전달\n  PASS\n\n[TEST 4] morld 정확한 패턴 (클로저 + 파라미터)\ncall_instance_method: equipment={'key': 'morld'}\n_call_method: equipment={'key': 'morld'}\ngenerator_method called: equipment={'key': 'morld'}\nresult={'key': 'morld'}\n  PASS\n\n[TEST 4] 일반 함수 (Generator 아님)\n  PASS\n\n============================================================\n테스트 결과: 5 PASSED, 0 FAILED\n============================================================\n>>> 모든 테스트 통과\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2869853999945917,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "matching_output": 47,
+    "output_difference": 4,
+    "no_reported_failure": 2
+  }
+}

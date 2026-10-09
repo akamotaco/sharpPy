@@ -3,6 +3,52 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--globals-observation-probe")
+{
+    var observedBindings = new Dictionary<string, PyObject>();
+    var observedValue = new PyInt(7);
+    for (int i = 0; i < 100; i++) observedBindings["seed_" + i] = observedValue;
+    var observedGlobals = new PyGlobalsDict(observedBindings);
+    var observationResults = new List<object>();
+    foreach (string operation in args.Length > 1 ? new[] { args[1] } : new[] { "length", "copy", "construct" })
+    {
+        if (operation != "length" && operation != "copy" && operation != "construct")
+            throw new ArgumentException($"Unknown observation operation: {operation}");
+        int operationCount = operation == "length" ? 10000 : 1000;
+        void ObserveGlobals()
+        {
+            PyDict last = observedGlobals;
+            for (int i = 0; i < operationCount; i++)
+            {
+                if (operation == "length")
+                {
+                    if (observedGlobals.Length() != 100) throw new InvalidOperationException("length probe failed");
+                }
+                else last = operation == "copy" ? observedGlobals.Copy() : new PyGlobalsDict(observedBindings);
+            }
+            if (last.Length() != 100) throw new InvalidOperationException("observation probe failed");
+            GC.KeepAlive(last);
+        }
+        for (int i = 0; i < 10; i++) ObserveGlobals();
+        var observationTimes = new double[10];
+        var observationAllocations = new long[10];
+        for (int i = 0; i < 10; i++)
+        {
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            long started = Stopwatch.GetTimestamp();
+            ObserveGlobals();
+            observationTimes[i] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            observationAllocations[i] = GC.GetAllocatedBytesForCurrentThread() - allocated;
+        }
+        observationResults.Add(new { operation, iterations = operationCount,
+            milliseconds = observationTimes, allocated_bytes = observationAllocations });
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { namespace_size = 100, warmups = 10,
+        scope = "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+        results = observationResults }));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--globals-read-probe")
 {
     var readBindings = new Dictionary<string, PyObject>();

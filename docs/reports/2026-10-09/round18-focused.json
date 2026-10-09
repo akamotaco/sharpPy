@@ -1,0 +1,123 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+  "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+  "dotnet_info": {
+    "exit_code": 0,
+    "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "stderr": "",
+    "timed_out": false,
+    "process_seconds": 0.21032089999789605,
+    "failure_markers": []
+  },
+  "git": "fb5afe509caa99ccb70f635c8f10a4c84263fff4",
+  "git_status": " M tests/module_mapping_clear_regression.py\n M tools/evaluate.py\n M type/PyDict.cs\n?? tests/compatibility/module_mapping_copy_order.py\n?? tests/module_mapping_observation_regression.py\n",
+  "dll_sha256": "1e9f678b6c99ce0d7d2fb2a915325d4fc3053c229d939519b34d52b251e31e19",
+  "timeout": 30,
+  "cases": [
+    {
+      "name": "tests/module_mapping_observation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping observation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03168220000225119,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "module mapping observation: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.28042859999550274,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping clear: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03127939999831142,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "module mapping clear: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2517135000016424,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_mapping_retained_views.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping retained views: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.038613200005784165,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_retained_views.py\", line 7, in <module>\n    assert 'module_view_value' in list(keys)\n                                            ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_retained_views.py\", line 7, in <module>\n    assert 'module_view_value' in list(keys)\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24951270000019576,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_mapping_copy_order.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping copy order: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.026837999997951556,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_copy_order.py\", line 12, in <module>\n    check_order()\n    ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_copy_order.py\", line 10, in check_order\n    assert keys == ['ordered_second', 'ordered_first']\n                                                      ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_copy_order.py\", line 10, in <module>\n        assert keys == ['ordered_second', 'ordered_first']\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2506591999990633,
+        "failure_markers": []
+      }
+    },
+    {
+      "name": "tests/compatibility/module_mapping_popitem.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "module mapping popitem: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03881099999853177,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_popitem.py\", line 10, in <module>\n    raise AssertionError('popitem must remove the module binding')\n                                                                  ^\nAssertionError: popitem must remove the module binding\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_popitem.py\", line 10, in <module>\n        raise AssertionError('popitem must remove the module binding')\nAssertionError: popitem must remove the module binding\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2393755000011879,
+        "failure_markers": []
+      }
+    }
+  ],
+  "counts": {
+    "matching_output": 2,
+    "sharppy_failure": 3
+  }
+}

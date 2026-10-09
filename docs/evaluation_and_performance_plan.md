@@ -125,6 +125,8 @@ Release로 한 번 빌드한 산출물을 사용한다. 빌드·복원·코드 �
 
 ## 현재 확인과 미확정 사항
 
+- 추가 확인: [18차 module observation 분석](reports/2026-10-09/module_mapping_observation_analysis.md)에서 길이·진리값·copy의 최신 binding 관찰을 보완했다. wrapper 생성당 8B와 copy의 key 객체 할당이 추가돼 호환성 개선으로 평가한다. view iteration, copy의 삭제/재삽입 및 mixed-key 순서는 아직 불일치이며 실패 fixture를 유지한다.
+
 - 추가 확인: [17차 module live 조회 분석](reports/2026-10-09/module_mapping_live_read_analysis.md)에서 string key GetItem/Get/Contains 및 builtin storage read를 원본 namespace에 연결했다. 기존 module_locals_live가 통과한다. native 조회 중앙값은 약 59.2% 감소했지만 VM 개선은 미확정이며 Length/Copy/view iteration과 raw storage 관찰은 아직 통합되지 않았다.
 
 - 추가 확인: [16차 module mutation 분석](reports/2026-10-09/module_mapping_mutation_analysis.md)에서 pop/del/clear/setdefault/update/|=의 원본 반영과 stale 전체 replay를 수정했다. 실제 Python namespace_update workload의 중앙값은 약 16.2% 감소했다. 일반 live 조회와 popitem은 아직 실패하며 저장소 통합 후보로 유지한다.

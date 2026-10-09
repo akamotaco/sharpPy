@@ -933,7 +933,7 @@ namespace SharpPy
         /// 딕셔너리의 얕은 복사본 생성
         /// Python 3.7+: 삽입 순서 보장
         /// </summary>
-        public PyDict Copy()
+        public virtual PyDict Copy()
         {
             var newDict = new PyDict();
             // 삽입 순서대로 복사
@@ -1136,6 +1136,7 @@ namespace SharpPy
     public class PyGlobalsDict : PyDict
     {
         private readonly Dictionary<string, PyObject> _globalScopeVariables;
+        private int _nonStringCount;
 
         public PyGlobalsDict(Dictionary<string, PyObject> globalScopeVariables)
             : base()
@@ -1174,7 +1175,9 @@ namespace SharpPy
         public override void SetItem(PyObject key, PyObject value)
         {
             // CPython 3.12: Setting globals()[key] = value modifies the module namespace
+            int before = base.Length();
             base.SetItem(key, value);
+            if (key is not PyString) _nonStringCount += base.Length() - before;
 
             // Sync back to global scope
             if (key is PyString strKey)
@@ -1185,7 +1188,12 @@ namespace SharpPy
 
         public override PyObject DelItem(PyObject key)
         {
-            if (key is not PyString name) return base.DelItem(key);
+            if (key is not PyString name)
+            {
+                var result = base.DelItem(key);
+                _nonStringCount--;
+                return result;
+            }
             if (!_globalScopeVariables.Remove(name.Value)) throw PyKeyError.Create(key.ToRepr());
             if (base.ContainsKey(key)) base.DelItem(key);
             return PyNone.Instance;
@@ -1193,7 +1201,13 @@ namespace SharpPy
 
         public override PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
-            if (key is not PyString name) return base.Pop(key, defaultValue);
+            if (key is not PyString name)
+            {
+                int before = base.Length();
+                var result = base.Pop(key, defaultValue);
+                _nonStringCount += base.Length() - before;
+                return result;
+            }
             bool found = _globalScopeVariables.Remove(name.Value, out var value);
             if (base.ContainsKey(key)) base.DelItem(key);
             if (found) return value;
@@ -1204,12 +1218,19 @@ namespace SharpPy
         public override PyNone Clear()
         {
             _globalScopeVariables.Clear();
+            _nonStringCount = 0;
             return base.Clear();
         }
 
         public override PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
-            if (key is not PyString name) return base.SetDefault(key, defaultValue);
+            if (key is not PyString name)
+            {
+                int before = base.Length();
+                var result = base.SetDefault(key, defaultValue);
+                _nonStringCount += base.Length() - before;
+                return result;
+            }
             if (_globalScopeVariables.TryGetValue(name.Value, out var value))
             {
                 base.SetItem(key, value);
@@ -1252,6 +1273,28 @@ namespace SharpPy
             if (other is not PyDict) return PyNotImplemented.Instance;
             Update(other);
             return this;
+        }
+
+        public override int Length() => _globalScopeVariables.Count + _nonStringCount;
+        public override bool IsTrue() => Length() != 0;
+        public override bool PyBoolValue() => IsTrue();
+        public override PyBool AsBool() => PyBool.FromBool(IsTrue());
+
+        public override PyDict Copy()
+        {
+            var copy = new PyDict(_globalScopeVariables);
+            if (_nonStringCount != 0)
+                foreach (var key in _keys)
+                    if (key is not PyString) copy.SetItem(key, _dict[key]);
+            return copy;
+        }
+
+        public override PyTuple PopItem()
+        {
+            // String-key popitem synchronization still requires an ordered shared store.
+            var result = base.PopItem();
+            if (result.Items[0] is not PyString) _nonStringCount--;
+            return result;
         }
     }
 }
