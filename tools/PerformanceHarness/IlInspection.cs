@@ -73,7 +73,10 @@ internal static class IlInspection
             .Select(type => new { type = type.FullName,
                 fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                     .Select(field => new { field.Name, type = field.FieldType.ToString() }).ToArray() }).ToArray();
-        return new { scope = "Selected SharpPy method IL; allocation/call frequencies and runtime transitive boxing are not measured", methods = results, compiler_closures = closures,
+        return new { scope = "Selected SharpPy method IL; allocation/call frequencies and runtime transitive boxing are not measured",
+            instruction_size_bytes = System.Runtime.CompilerServices.Unsafe.SizeOf<ByteCodeInstruction>(),
+            instruction_contains_references = System.Runtime.CompilerServices.RuntimeHelpers.IsReferenceOrContainsReferences<ByteCodeInstruction>(),
+            methods = results, compiler_closures = closures,
             allocation_probes = AllocationProbes() };
     }
 

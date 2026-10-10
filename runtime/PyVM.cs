@@ -1,4 +1,4 @@
-﻿// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
+// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
 
 using SharpPy.Core;
 
@@ -1334,7 +1334,7 @@ namespace SharpPy
                             throw pendingExc; // This will be caught by the exception handler below
                         }
 
-                        var result = ExecuteInstruction(frame, instruction);
+                        var result = ExecuteInstruction(frame, instruction.OpCode, instruction.Argument);
 
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
@@ -1664,10 +1664,10 @@ namespace SharpPy
 
         // Keep captured function-creation state out of the instruction dispatcher.
         // Otherwise the C# compiler allocates a display class for every opcode.
-        private void ExecuteMakeFunction(PyFrame frame, ByteCodeInstruction instruction)
+        private void ExecuteMakeFunction(PyFrame frame, int argument)
         {
             // CPython 3.12 compatible function creation with full flags support
-            var flags = instruction.Argument;
+            var flags = argument;
 
             PyCell[] closure = null;
             PyTuple defaults = null;
@@ -2052,9 +2052,9 @@ namespace SharpPy
             }
         }
 
-        private PyObject ExecuteInstruction(PyFrame frame, ByteCodeInstruction instruction)
+        private PyObject ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, int argument)
         {
-            switch (instruction.OpCode)
+            switch (opcode)
             {
                 case ByteCodeOp.NOP:
                     // 아무것도 하지 않음
@@ -2073,7 +2073,7 @@ namespace SharpPy
                 case ByteCodeOp.COPY:
                     // CPython 3.12: Copy the Nth element from stack top (1-indexed)
                     // COPY 1 = copy TOS (top of stack), COPY 2 = copy TOS-1, etc.
-                    var copyIndex = instruction.Argument;
+                    var copyIndex = argument;
                     if (frame.ValueStack.Count == 0)
                     {
                         throw PyRuntimeError.Create($"COPY: Stack empty when trying to copy index {copyIndex}. This may be caused by incorrect match-case bytecode generation.");
@@ -2112,7 +2112,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.SWAP: // SWAP(n) - TOS와 TOS-(n-1) 교환
-                    var oparg = instruction.Argument;
+                    var oparg = argument;
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 SWAP({oparg}): Stack.Count = {frame.ValueStack.Count}");
                     if (frame.ValueStack.Count > 0)
@@ -2139,9 +2139,9 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_CONST:
-                    var constant = frame.Code.Constants[instruction.Argument];
+                    var constant = frame.Code.Constants[argument];
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_CONST: 인덱스 {instruction.Argument}, 값 {constant} (타입: {constant?.GetType().Name})");
+                    Console.WriteLine($"🔍 LOAD_CONST: 인덱스 {argument}, 값 {constant} (타입: {constant?.GetType().Name})");
                     // Performance: Eliminated LINQ - manual constant array formatting
                     var constPairs = new string[frame.Code.Constants.Count];
                     for (int i = 0; i < frame.Code.Constants.Count; i++)
@@ -2157,7 +2157,7 @@ namespace SharpPy
                     // CPython 3.12: Python/generated_cases.c.h lines 1708-1770
                     // LOAD_NAME checks LOCALS() first (which is ClassLocalsDict in class body),
                     // then GLOBALS(), then BUILTINS()
-                    var name = frame.Code.Names[instruction.Argument];
+                    var name = frame.Code.Names[argument];
                     PyObject? value = null;
 
                     #if DEBUG_LOG
@@ -2199,7 +2199,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_FAST:
                     // CPython 3.12: Direct array access for local variables
-                    var argIndex = instruction.Argument;
+                    var argIndex = argument;
                     if (argIndex < frame.LocalsPlus.Length)
                     {
                         var fastValue = frame.LocalsPlus[argIndex];
@@ -2219,7 +2219,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_FAST_AND_CLEAR:
                     // CPython 3.12 PEP 709: Load variable and clear it (set to PyNull)
-                    var clearArgIndex = instruction.Argument;
+                    var clearArgIndex = argument;
                     if (clearArgIndex < frame.LocalsPlus.Length)
                     {
                         var clearValue = frame.LocalsPlus[clearArgIndex];
@@ -2235,7 +2235,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_FAST_CHECK:
                     // CPython 3.12: LOAD_FAST_CHECK - Load fast local with NULL check (same as LOAD_FAST)
-                    var checkIndex = instruction.Argument;
+                    var checkIndex = argument;
                     if (checkIndex < frame.LocalsPlus.Length)
                     {
                         var checkValue = frame.LocalsPlus[checkIndex];
@@ -2263,7 +2263,7 @@ namespace SharpPy
 
                 case ByteCodeOp.STORE_FAST:
                     // CPython 3.12: Direct array access for fast locals
-                    var storeIndex = instruction.Argument;
+                    var storeIndex = argument;
                     if (storeIndex < frame.LocalsPlus.Length)
                     {
                         var storeVal = frame.ValueStack.Pop();
@@ -2277,7 +2277,7 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_FAST:
                     // CPython 3.12: Delete fast local variable - set to PyNull
-                    var deleteFastIndex = instruction.Argument;
+                    var deleteFastIndex = argument;
                     if (deleteFastIndex < frame.LocalsPlus.Length)
                     {
                         // Set to PyNull to mark as deleted/uninitialized
@@ -2290,7 +2290,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_NAME:
-                    var storeName = frame.Code.Names[instruction.Argument];
+                    var storeName = frame.Code.Names[argument];
                     var storeValue = frame.ValueStack.Pop();
 
                     // CPython 3.12: If executing class body with __prepare__ dict subclass,
@@ -2310,7 +2310,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.DELETE_NAME:
-                    var deleteName = frame.Code.Names[instruction.Argument];
+                    var deleteName = frame.Code.Names[argument];
                     if (frame.ClassLocalsDict != null)
                     {
                         DeleteNamespaceName(frame, deleteName);
@@ -2333,7 +2333,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_GLOBAL:
                     // CPython 3.12: oparg encoding: (nameIndex << 1) | pushNull
-                    int globalOparg = instruction.Argument;
+                    int globalOparg = argument;
                     bool pushNull = (globalOparg & 1) == 1;
                     int globalNameIndex = globalOparg >> 1;
 
@@ -2420,7 +2420,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_GLOBAL_BUILTIN:
-                    var globalBuiltinName = frame.Code.Names[instruction.Argument];
+                    var globalBuiltinName = frame.Code.Names[argument];
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL_BUILTIN({globalBuiltinName}): Direct builtin lookup");
                     #endif
@@ -2460,14 +2460,14 @@ namespace SharpPy
                     bool identityResult = ReferenceEquals(isLeft, isRight);
 
                     // arg determines inversion: 0 = is, 1 = is not
-                    if (instruction.Argument == 1)
+                    if (argument == 1)
                         identityResult = !identityResult;
 
                     frame.ValueStack.Push(PyBool.FromBool(identityResult));
                     break;
 
                 case ByteCodeOp.STORE_GLOBAL:
-                    var storeGlobalName = frame.Code.Names[instruction.Argument];
+                    var storeGlobalName = frame.Code.Names[argument];
                     var storeGlobalValue = frame.ValueStack.Pop();
                     // STORE_GLOBAL must always store to GlobalScope, not CurrentScope
                     frame.ScopeChain.GlobalScope.SetVariable(storeGlobalName, storeGlobalValue);
@@ -2478,7 +2478,7 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_GLOBAL:
                     // CPython 3.12: Delete global variable
-                    var deleteGlobalName = frame.Code.Names[instruction.Argument];
+                    var deleteGlobalName = frame.Code.Names[argument];
                     if (frame.ScopeChain.GlobalScope?.Variables.Remove(deleteGlobalName) == true)
                     {
                         #if DEBUG_LOG
@@ -2533,7 +2533,7 @@ namespace SharpPy
 
                 case ByteCodeOp.BINARY_OP:
                     // CPython 3.12+ unified binary operation
-                    var operation = (BinaryOpType)instruction.Argument;
+                    var operation = (BinaryOpType)argument;
                     var right = frame.ValueStack.Pop();
                     var left = frame.ValueStack.Pop();
 
@@ -2585,7 +2585,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.CALL:
-                    ExecuteCall(frame, instruction.Argument);
+                    ExecuteCall(frame, argument);
                     break;
 
                 // Specialized Method Calls - CPython 3.12 Adaptive Specialization
@@ -2632,7 +2632,7 @@ namespace SharpPy
 
                 case ByteCodeOp.CALL_FUNCTION_EX:
                     // CPython 3.12: Extended function call with *args and **kwargs
-                    var hasKwargs = (instruction.Argument & 1) != 0;
+                    var hasKwargs = (argument & 1) != 0;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"[CALL_FUNCTION_EX] hasKwargs={hasKwargs}, stack size={frame.ValueStack.Count}, frame={frame.Code.Name}");
@@ -2766,7 +2766,7 @@ namespace SharpPy
                     // CPython 3.12: Merge dictionaries for **kwargs unpacking
                     // Stack before: [target_dict, source_dict]
                     // Stack after: [merged_dict]
-                    var mergeCount = instruction.Argument;
+                    var mergeCount = argument;
 
                     // Get the source dictionary from stack (TOS)
                     var sourceDict = frame.ValueStack.Pop();
@@ -2804,7 +2804,7 @@ namespace SharpPy
                 // Duplicate CALL case removed (was CALL_FUNCTION_KW)
 
                 case ByteCodeOp.MAKE_FUNCTION:
-                    ExecuteMakeFunction(frame, instruction);
+                    ExecuteMakeFunction(frame, argument);
                     break;
 
                 case ByteCodeOp.LOAD_ATTR:
@@ -2813,7 +2813,7 @@ namespace SharpPy
                     // If pushNull=1: Push two values [self/NULL, method/attr] for method call optimization
                     // If pushNull=0: Push one value [attr] for simple attribute access
                     {
-                        int attrOparg = instruction.Argument;
+                        int attrOparg = argument;
                         bool pushNullForMethod = (attrOparg & 1) == 1;
                         int attrNameIndex = attrOparg >> 1;
 
@@ -2963,7 +2963,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.STORE_ATTR:
-                    var setAttrName = frame.Code.Names[instruction.Argument];
+                    var setAttrName = frame.Code.Names[argument];
                     var setObj = frame.ValueStack.Pop();
                     var setAttrValue = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
@@ -2972,7 +2972,7 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_ATTR:
                     // CPython 3.12: Delete attribute from object
-                    var delAttrName = frame.Code.Names[instruction.Argument];
+                    var delAttrName = frame.Code.Names[argument];
                     var delObj = frame.ValueStack.Pop();
                     // 기존 Attribute 시스템 사용!
                     delObj.DelAttribute(delAttrName);
@@ -2988,7 +2988,7 @@ namespace SharpPy
                     // CPython 3.12: super() attribute access
                     // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
                     // oparg format: (name_index << 1) | method_flag
-                    int superOparg = instruction.Argument;
+                    int superOparg = argument;
                     int superMethodFlag = superOparg & 1;  // Low bit: method flag
                     int superAttrIndex = superOparg >> 1;  // High bits: name index
                     var superAttrName = frame.Code.Names[superAttrIndex];
@@ -3237,7 +3237,7 @@ namespace SharpPy
                     {
                         // CPython 3.12: POP_JUMP_IF_NONE uses relative offset from next instruction
                         int currentPosNone = frame.InstructionPointer;
-                        int relativeOffsetNone = instruction.Argument;
+                        int relativeOffsetNone = argument;
                         int targetInstructionIndexNone = currentPosNone + 1 + relativeOffsetNone;
                         // Subtract 1 because main loop will increment
                         frame.InstructionPointer = targetInstructionIndexNone - 1;
@@ -3251,7 +3251,7 @@ namespace SharpPy
                     {
                         // CPython 3.12: POP_JUMP_IF_NOT_NONE uses relative offset from next instruction
                         int currentPosNotNone = frame.InstructionPointer;
-                        int relativeOffsetNotNone = instruction.Argument;
+                        int relativeOffsetNotNone = argument;
                         int targetInstructionIndexNotNone = currentPosNotNone + 1 + relativeOffsetNotNone;
                         // Subtract 1 because main loop will increment
                         frame.InstructionPointer = targetInstructionIndexNotNone - 1;
@@ -3313,7 +3313,7 @@ namespace SharpPy
 
                         if (isInstance)
                         {
-                            var positionalCount = instruction.Argument;
+                            var positionalCount = argument;
 
                             // CPython 3.12 behavior: Extract attribute values based on keyword names tuple
                             if (classKwNames is PyTuple classKwNamesTuple && classKwNamesTuple.Items.Length > 0 &&
@@ -3417,7 +3417,7 @@ namespace SharpPy
 
                 case ByteCodeOp.RETURN_CONST:
                     // CPython 3.12: Return constant value directly
-                    var constValue = frame.Code.Constants[instruction.Argument];
+                    var constValue = frame.Code.Constants[argument];
                     // 🔧 함수 종료 시 scope cleanup
                     if (frame.ScopeChain.CurrentScope?.Type == ScopeType.Local)
                     {
@@ -3487,7 +3487,7 @@ namespace SharpPy
                     {
                         // CPython 3.12: POP_JUMP_IF_TRUE uses relative offset from next instruction (same as POP_JUMP_IF_FALSE)
                         int currentPosJump = frame.InstructionPointer;
-                        int relativeOffset = instruction.Argument;
+                        int relativeOffset = argument;
                         int targetInstructionIndex = currentPosJump + 1 + relativeOffset;
                         #if DEBUG_LOG
                         Console.WriteLine($"   → JUMPING: from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
@@ -3514,7 +3514,7 @@ namespace SharpPy
                     {
                         // CPython 3.12: POP_JUMP_IF_FALSE uses relative offset from next instruction
                         int currentPosJump = frame.InstructionPointer;
-                        int relativeOffset = instruction.Argument;
+                        int relativeOffset = argument;
                         int targetInstructionIndex = currentPosJump + 1 + relativeOffset;
                         #if DEBUG_LOG
                         Console.WriteLine($"   → JUMPING: from {currentPosJump} + 1 + {relativeOffset} to instr {targetInstructionIndex}");
@@ -3535,7 +3535,7 @@ namespace SharpPy
                     // CPython 3.12: JUMP_FORWARD uses relative offset from next instruction
                     // argument is the number of instructions to skip forward
                     int currentPos = frame.InstructionPointer;
-                    int jumpOffset = instruction.Argument;
+                    int jumpOffset = argument;
                     // Target = current instruction + 1 (next) + jump offset
                     int targetPos = currentPos + 1 + jumpOffset;
 
@@ -3550,7 +3550,7 @@ namespace SharpPy
                 case ByteCodeOp.JUMP:
                     // CPython 3.12: JUMP can jump forward or backward (determined by assembler)
                     // The argument is the absolute target instruction offset
-                    int jumpTarget = instruction.Argument;
+                    int jumpTarget = argument;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔄 JUMP: from instr {frame.InstructionPointer} to instr {jumpTarget}");
@@ -3563,7 +3563,7 @@ namespace SharpPy
                 case ByteCodeOp.JUMP_NO_INTERRUPT:
                     // CPython 3.12: JUMP_NO_INTERRUPT is like JUMP but without interrupt check
                     // In SharpPy, we don't have interrupt checks, so it's identical to JUMP
-                    int jumpNoIntTarget = instruction.Argument;
+                    int jumpNoIntTarget = argument;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔄 JUMP_NO_INTERRUPT: from instr {frame.InstructionPointer} to instr {jumpNoIntTarget}");
@@ -3583,7 +3583,7 @@ namespace SharpPy
                     // SharpPy: IP points to current instruction, incremented at loop end
                     //   - Same formula: target = (IP+1) - delta
                     //   - But main loop will ++, so set IP = target - 1
-                    int jumpBackNoIntDelta = instruction.Argument;
+                    int jumpBackNoIntDelta = argument;
                     int jumpBackNoIntTarget = (frame.InstructionPointer + 1) - jumpBackNoIntDelta;
 
                     #if DEBUG_VM_LOG
@@ -3602,11 +3602,11 @@ namespace SharpPy
                     int targetInstrPos;
 
                     #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔧 JUMP_BACKWARD: currentIP={currentInstrPos}, arg={instruction.Argument}");
+                    Console.WriteLine($"🔧 JUMP_BACKWARD: currentIP={currentInstrPos}, arg={argument}");
                     #endif
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 JUMP_BACKWARD Debug: currentInstrPos={currentInstrPos}, instruction.Argument={instruction.Argument}");
+                    Console.WriteLine($"🔧 JUMP_BACKWARD Debug: currentInstrPos={currentInstrPos}, argument={argument}");
                     Console.WriteLine($"    현재 instruction: {frame.Code.Instructions[currentInstrPos].OpCode} (arg: {frame.Code.Instructions[currentInstrPos].Argument})");
 
                     // 실제 바이트코드에서 JUMP_BACKWARD 위치 찾기
@@ -3626,7 +3626,7 @@ namespace SharpPy
                     if (frame.Code is PyQuickenedCodeObject quickenedJumpCode)
                     {
                         // Quickened Code: instruction offset 사용
-                        targetInstrPos = quickenedJumpCode.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument);
+                        targetInstrPos = quickenedJumpCode.CalculateJumpBackwardTarget(currentInstrPos, argument);
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
                         #endif
@@ -3637,7 +3637,7 @@ namespace SharpPy
                     else
                     {
                         // 레거시 방식: PyJumpBackwardUtil 사용
-                        targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument, frame.Code.Instructions);
+                        targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, argument, frame.Code.Instructions);
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    🔙 JUMP_BACKWARD: Legacy (Util) {currentInstrPos} → {targetInstrPos}");
                         #endif
@@ -3687,7 +3687,7 @@ namespace SharpPy
                 // CPython-style Container Building Opcodes (Phase 1)
                 case ByteCodeOp.BUILD_LIST:
                     // Performance: Use array with reverse index instead of Insert(0, ...) which is O(n²)
-                    var listSize = instruction.Argument;
+                    var listSize = argument;
                     var listItems = new PyObject[listSize];
                     for (int i = listSize - 1; i >= 0; i--)
                     {
@@ -3698,7 +3698,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BUILD_TUPLE:
-                    var tupleSize = instruction.Argument;
+                    var tupleSize = argument;
                     var tupleItems = new PyObject[tupleSize];
                     for (int i = tupleSize - 1; i >= 0; i--)
                     {
@@ -3712,7 +3712,7 @@ namespace SharpPy
                     // CPython 3.12 LIST_EXTEND: extend the list at TOS1 with the iterable at TOS
                     // CPython: Python/bytecodes.c line 1507, _PyList_Extend calls list_extend
                     // list_extend uses PyObject_GetIter for generic iterables (Objects/listobject.c)
-                    var extendArg = instruction.Argument; // Should be 1 for this case
+                    var extendArg = argument; // Should be 1 for this case
                     var extendIterable = frame.ValueStack.Pop(); // Pop iterable from top
 
                     // The list should now be on top of the stack
@@ -3740,7 +3740,7 @@ namespace SharpPy
 
                 case ByteCodeOp.BUILD_SLICE:
                     // Build slice object - argument is 2 or 3
-                    var sliceArgCount = instruction.Argument;
+                    var sliceArgCount = argument;
                     if (sliceArgCount == 2)
                     {
                         // Stack: [start, stop] -> [slice(start, stop)]
@@ -3993,7 +3993,7 @@ namespace SharpPy
                 // Duplicate BINARY_SUBSCR case removed
 
                 case ByteCodeOp.BUILD_SET:
-                    var setSize = instruction.Argument;
+                    var setSize = argument;
                     var pySet = new PySet();
                     for (int i = 0; i < setSize; i++)
                     {
@@ -4003,7 +4003,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.BUILD_MAP:
-                    var mapSize = instruction.Argument;
+                    var mapSize = argument;
                     var pyDict = new PyDict();
                     // Python 3.7+: dict는 삽입 순서를 보장해야 함
                     // 스택은 LIFO이므로 pop한 쌍들을 임시 리스트에 저장 후 역순으로 추가
@@ -4026,7 +4026,7 @@ namespace SharpPy
                     // CPython 3.12: Build dict from keys tuple and values on stack
                     // Stack: value1, value2, ..., valueN, keys_tuple
                     // TOS is keys tuple, TOS1...TOSN are values
-                    var constKeyCount = instruction.Argument;
+                    var constKeyCount = argument;
                     var constKeysTuple = frame.ValueStack.Pop() as PyTuple;
                     if (constKeysTuple == null)
                         throw new InvalidOperationException("BUILD_CONST_KEY_MAP: keys must be a tuple");
@@ -4060,7 +4060,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"'dict' object expected for ** unpacking, got '{dictUpdateSource?.GetTypeName() ?? "null"}'");
                     }
                     // stack[-(arg)]에 있는 dict를 가져옴 (arg=1이면 현재 TOS)
-                    var dictUpdateArg = instruction.Argument;
+                    var dictUpdateArg = argument;
                     var dictUpdateTarget = frame.ValueStack.PeekAt(dictUpdateArg - 1) as PyDict;
                     if (dictUpdateTarget == null)
                     {
@@ -4204,7 +4204,7 @@ namespace SharpPy
                         if (frame.Code is PyQuickenedCodeObject quickenedCode)
                         {
                             // Quickened Code: instruction offset 사용
-                            int forIterQuickenedTarget = quickenedCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
+                            int forIterQuickenedTarget = quickenedCode.CalculateForIterTarget(frame.InstructionPointer, argument);
 
                             #if DEBUG_LOG
                             Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterQuickenedTarget} (QuickenedCode)");
@@ -4218,9 +4218,9 @@ namespace SharpPy
                             // INLINE_CACHE_ENTRIES_FOR_ITER = 1 (one CACHE instruction)
                             // Jump amount = 1 + oparg + 1 = oparg + 2 instruction indices
                             // Main loop will ++, so set to: current + oparg + 2 - 1 = current + oparg + 1
-                            int targetIndex = frame.InstructionPointer + instruction.Argument + 1;
+                            int targetIndex = frame.InstructionPointer + argument + 1;
                             #if DEBUG_VM_LOG
-                            Console.WriteLine($"    🔚 FOR_ITER: Jumping from IP={frame.InstructionPointer} to IP={targetIndex + 1} (no-optimize, arg={instruction.Argument})");
+                            Console.WriteLine($"    🔚 FOR_ITER: Jumping from IP={frame.InstructionPointer} to IP={targetIndex + 1} (no-optimize, arg={argument})");
                             #endif
                             frame.InstructionPointer = targetIndex; // main loop will increment
                         }
@@ -4228,7 +4228,7 @@ namespace SharpPy
                         {
                             // CPython 3.12 호환: FOR_ITER arg → current_instruction + arg + 1 위치로 점프
                             // 메인 루프에서 +1하므로 실제로는 current + arg로 설정
-                            int forIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
+                            int forIterTargetInstrPos = frame.InstructionPointer + argument;
 
                             #if DEBUG_LOG
                             Console.WriteLine($"🔚 FOR_ITER: Jumping to position {forIterTargetInstrPos} (CPython 3.12 compatible)");
@@ -4272,7 +4272,7 @@ namespace SharpPy
                             if (frame.Code is PyQuickenedCodeObject quickenedListCode)
                             {
                                 // Quickened Code: instruction offset 사용
-                                int listQuickenedTarget = quickenedListCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
+                                int listQuickenedTarget = quickenedListCode.CalculateForIterTarget(frame.InstructionPointer, argument);
 
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listQuickenedTarget} (QuickenedCode)");
@@ -4282,7 +4282,7 @@ namespace SharpPy
                             else
                             {
                                 // CPython 3.12 호환: FOR_ITER_LIST arg → current_instruction + arg + 1 위치로 점프
-                                int listIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
+                                int listIterTargetInstrPos = frame.InstructionPointer + argument;
 
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🔚 FOR_ITER_LIST: Jumping to position {listIterTargetInstrPos} (CPython 3.12 compatible)");
@@ -4322,7 +4322,7 @@ namespace SharpPy
                             if (frame.Code is PyQuickenedCodeObject quickenedTupleCode)
                             {
                                 // Quickened Code: instruction offset 사용
-                                int tupleQuickenedTarget = quickenedTupleCode.CalculateForIterTarget(frame.InstructionPointer, instruction.Argument);
+                                int tupleQuickenedTarget = quickenedTupleCode.CalculateForIterTarget(frame.InstructionPointer, argument);
 
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleQuickenedTarget} (QuickenedCode)");
@@ -4332,7 +4332,7 @@ namespace SharpPy
                             else
                             {
                                 // CPython 3.12 호환: FOR_ITER_TUPLE arg → current_instruction + arg + 1 위치로 점프
-                                int tupleIterTargetInstrPos = frame.InstructionPointer + instruction.Argument;
+                                int tupleIterTargetInstrPos = frame.InstructionPointer + argument;
 
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🔚 FOR_ITER_TUPLE: Jumping to position {tupleIterTargetInstrPos} (CPython 3.12 compatible)");
@@ -4373,14 +4373,14 @@ namespace SharpPy
                 case ByteCodeOp.COMPARE_OP:
                     var compareRight = frame.ValueStack.Pop();
                     var compareLeft = frame.ValueStack.Pop();
-                    var compareResult = CompareOperation(compareLeft, compareRight, instruction.Argument);
+                    var compareResult = CompareOperation(compareLeft, compareRight, argument);
                     frame.ValueStack.Push(compareResult);
                     break;
 
                 case ByteCodeOp.CONTAINS_OP:
                     var containsRight = frame.ValueStack.Pop();
                     var containsLeft = frame.ValueStack.Pop();
-                    var containsResult = ContainsOperation(containsLeft, containsRight, instruction.Argument);
+                    var containsResult = ContainsOperation(containsLeft, containsRight, argument);
                     frame.ValueStack.Push(containsResult);
                     break;
 
@@ -4763,7 +4763,7 @@ namespace SharpPy
                     #endif
 
                     // CPython 3.12: CHECK_EG_MATCH 동적 스택 검증
-                    var checkEgMatchRequiredStack = StackEffectAnalyzer.GetMinStackRequirement(ByteCodeOp.CHECK_EG_MATCH, instruction.Argument);
+                    var checkEgMatchRequiredStack = StackEffectAnalyzer.GetMinStackRequirement(ByteCodeOp.CHECK_EG_MATCH, argument);
                     if (frame.ValueStack.Count < checkEgMatchRequiredStack)
                     {
                         #if DEBUG_LOG
@@ -4794,11 +4794,11 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RAISE_VARARGS:
-                    // instruction.Argument indicates the number of arguments to the raise statement
+                    // argument indicates the number of arguments to the raise statement
                     // 0: bare raise (reraise)
                     // 1: raise exc
                     // 2: raise exc from cause
-                    if (instruction.Argument == 2)
+                    if (argument == 2)
                     {
                         // raise exc from cause - exception chaining
                         // Stack: TOS = cause, TOS1 = exc
@@ -4909,7 +4909,7 @@ namespace SharpPy
                         PyTraceBack_Here(frame, pyExToThrow);
                         throw pyExToThrow;
                     }
-                    else if (instruction.Argument == 1)
+                    else if (argument == 1)
                     {
                         // raise exception_instance or exception_class
                         var raisedException = frame.ValueStack.Pop();
@@ -5062,7 +5062,7 @@ namespace SharpPy
                             throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
                         }
                     }
-                    else if (instruction.Argument == 0)
+                    else if (argument == 0)
                     {
                         // bare raise - same as RERAISE
                         if (frame.LastException != null)
@@ -5214,7 +5214,7 @@ namespace SharpPy
                     // - exc: exception to reraise (top of stack)
                     // - values[oparg]: oparg values below exc (e.g., lasti for cleanup)
                     // - After reraise: exc is popped and raised, values are left on stack if oparg > 0
-                    var reraiseArg = instruction.Argument;
+                    var reraiseArg = argument;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 RERAISE: arg={reraiseArg}, stack size={frame.ValueStack.Count}");
@@ -5292,7 +5292,7 @@ namespace SharpPy
 
                 // F-String Support (PEP 701)
                 case ByteCodeOp.FORMAT_VALUE:
-                    var formatOption = instruction.Argument;
+                    var formatOption = argument;
 
                     PyString formattedString;
 
@@ -5341,7 +5341,7 @@ namespace SharpPy
                 case ByteCodeOp.BUILD_STRING:
                     // CPython 3.12: BUILD_STRING joins already-formatted PyString values
                     // Performance: Use array with reverse index instead of Insert(0, ...) which is O(n²)
-                    var stringCount = instruction.Argument;
+                    var stringCount = argument;
                     var stringParts = new string[stringCount];
                     for (int i = stringCount - 1; i >= 0; i--)
                     {
@@ -5354,7 +5354,7 @@ namespace SharpPy
 
                 case ByteCodeOp.UNPACK_SEQUENCE:
                     // CPython 3.12 compatible tuple/sequence unpacking
-                    var unpackCount = instruction.Argument;
+                    var unpackCount = argument;
                     var sequence = frame.ValueStack.Pop();
 
                     // Unpack the sequence into individual elements
@@ -5446,8 +5446,8 @@ namespace SharpPy
                     // CPython 3.12: Python/ceval.c lines 1105-1112 (bytecodes.c)
                     // CPython 3.12: Python/ceval.c lines 1950-2040 (unpack_iterable function)
                     // Argument encodes: lower 8 bits = count before star, upper 8 bits = count after star
-                    var countBefore = instruction.Argument & 0xFF;
-                    var countAfter = (instruction.Argument >> 8) & 0xFF;
+                    var countBefore = argument & 0xFF;
+                    var countAfter = (argument >> 8) & 0xFF;
 
                     var unpackExSequence = frame.ValueStack.Pop();
 
@@ -5559,7 +5559,7 @@ namespace SharpPy
                     // Implements: __import__(name, globals(), locals(), fromlist, level)
                     var fromlist = frame.ValueStack.Pop(); // TOS
                     var level = frame.ValueStack.Pop();    // TOS1
-                    var moduleName = ((PyString)frame.Code.Constants[instruction.Argument]).Value;
+                    var moduleName = ((PyString)frame.Code.Constants[argument]).Value;
 
                     // Extract level as integer (0 for absolute, 1+ for relative)
                     int importLevel = 0;
@@ -5587,7 +5587,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.IMPORT_FROM:
-                    var itemName = ((PyString)frame.Code.Constants[instruction.Argument]).Value;
+                    var itemName = ((PyString)frame.Code.Constants[argument]).Value;
                     if (frame.ValueStack.Count == 0)
                     {
                         throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");
@@ -5757,7 +5757,7 @@ namespace SharpPy
                     // CPython 3.12 호환: LIST_APPEND i
                     // 스택: [..., list, ..., item] → [..., list, ...]
                     #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔧 LIST_APPEND {instruction.Argument}: Stack before pop = {frame.ValueStack.Count}");
+                    Console.WriteLine($"🔧 LIST_APPEND {argument}: Stack before pop = {frame.ValueStack.Count}");
                     if (frame.ValueStack.Count > 0)
                     {
                         // Performance: Eliminated LINQ - manual stack preview
@@ -5778,9 +5778,9 @@ namespace SharpPy
                     #endif
 
                     // CPython 3.12: LIST_APPEND i에서 타겟 리스트 찾기
-                    var targetDepth = instruction.Argument - 1; // 0-based 인덱스
+                    var targetDepth = argument - 1; // 0-based 인덱스
                     #if DEBUG_VM_LOG
-                    Console.WriteLine($"    Looking for list at depth {targetDepth} (arg={instruction.Argument})");
+                    Console.WriteLine($"    Looking for list at depth {targetDepth} (arg={argument})");
                     #endif
 
                     if (frame.ValueStack.Count <= targetDepth)
@@ -5843,7 +5843,7 @@ namespace SharpPy
                     var setItem = frame.ValueStack.Pop();
 
                     // CPython 3.12: SET_ADD i에서 타겟 set 찾기 (LIST_APPEND와 동일한 방식)
-                    var setTargetDepth = instruction.Argument - 1; // 0-based 인덱스
+                    var setTargetDepth = argument - 1; // 0-based 인덱스
 
                     if (frame.ValueStack.Count <= setTargetDepth)
                     {
@@ -5890,7 +5890,7 @@ namespace SharpPy
 
                     // CPython: MAP_ADD oparg는 dict까지의 스택 거리
                     // oparg=2: 2단계 아래, oparg=3: 3단계 아래, etc.
-                    var dictDepth = instruction.Argument;
+                    var dictDepth = argument;
 
                     if (frame.ValueStack.Count >= dictDepth)
                     {
@@ -5938,7 +5938,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_FROM_DICT_OR_DEREF:
                     var closureMapping = frame.ValueStack.Pop();
-                    var closureOperand = frame.ResolveDerefOperand(instruction.Argument);
+                    var closureOperand = frame.ResolveDerefOperand(argument);
                     var closureNameKey = new PyString(closureOperand.Name);
                     PyObject mappedClosureValue = LookupNamespaceMapping(closureMapping, closureNameKey);
                     if (mappedClosureValue != null)
@@ -5955,7 +5955,7 @@ namespace SharpPy
                 case ByteCodeOp.LOAD_DEREF:
                     // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
                     // Need to convert to SharpPy Cells index
-                    var loadLocalsPlusOffset = instruction.Argument;
+                    var loadLocalsPlusOffset = argument;
                     int loadNlocals = frame.Code.VarNames.Count;
                     int loadNcellvars = frame.Code.CellVars.Count;
                     int loadNfreevars = frame.Code.FreeVars.Count;
@@ -6048,7 +6048,7 @@ namespace SharpPy
 
                 case ByteCodeOp.STORE_DEREF:
                     // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
-                    var storeLocalsPlusOffset = instruction.Argument;
+                    var storeLocalsPlusOffset = argument;
                     var storeDerefValue = frame.ValueStack.Pop();
                     int storeNlocals = frame.Code.VarNames.Count;
                     int storeNcellvars = frame.Code.CellVars.Count;
@@ -6101,7 +6101,7 @@ namespace SharpPy
 
                 case ByteCodeOp.DELETE_DEREF:
                     // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
-                    var deleteLocalsPlusOffset = instruction.Argument;
+                    var deleteLocalsPlusOffset = argument;
                     int deleteNlocals = frame.Code.VarNames.Count;
                     int deleteNcellvars = frame.Code.CellVars.Count;
                     int deleteNfreevars = frame.Code.FreeVars.Count;
@@ -6155,7 +6155,7 @@ namespace SharpPy
 
                 case ByteCodeOp.LOAD_CLOSURE:
                     // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
-                    var closureLocalsPlusOffset = instruction.Argument;
+                    var closureLocalsPlusOffset = argument;
                     int closureNlocals = frame.Code.VarNames.Count;
                     int closureNcellvars = frame.Code.CellVars.Count;
                     int closureNfreevars = frame.Code.FreeVars.Count;
@@ -6216,7 +6216,7 @@ namespace SharpPy
 
                 case ByteCodeOp.COPY_FREE_VARS:
                     // CPython 3.12: COPY_FREE_VARS initializes free variable cells from closure
-                    var freeVarCount = instruction.Argument;
+                    var freeVarCount = argument;
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 COPY_FREE_VARS: Initializing {freeVarCount} free variables");
                     #endif
@@ -6254,7 +6254,7 @@ namespace SharpPy
                     // CPython 3.12: After fix_cell_offsets(), argument is localsplus offset
                     // CPython localsplus layout: [varnames(0..nlocals-1) | cellvars(nlocals..nlocals+ncellvars-1) | freevars(...)]
                     // SharpPy Cells layout: [freevars(0..nfreevars-1) | cellvars(nfreevars..nfreevars+ncellvars-1)]
-                    var localsPlusOffset = instruction.Argument;
+                    var localsPlusOffset = argument;
                     int nlocals = frame.Code.VarNames.Count;
                     int ncellvars = frame.Code.CellVars.Count;
                     int nfreevars = frame.Code.FreeVars.Count;
@@ -6404,7 +6404,7 @@ namespace SharpPy
                     // Stack: TOS = value to send, TOS1 = receiver (iterator/generator)
                     // bytecodes.c:825-872
                     #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔍 SEND: IP={frame.InstructionPointer}, Stack.Count = {frame.ValueStack.Count}, Arg={instruction.Argument}");
+                    Console.WriteLine($"🔍 SEND: IP={frame.InstructionPointer}, Stack.Count = {frame.ValueStack.Count}, Arg={argument}");
                     #endif
                     var sendValue = frame.ValueStack.Pop();
                     var receiver = frame.ValueStack.Peek(); // Keep receiver on stack
@@ -6477,7 +6477,7 @@ namespace SharpPy
                         // - Final: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    🛑 SEND: StopIteration raised, value={stopIter.Value}");
-                        Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by oparg={instruction.Argument}");
+                        Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by oparg={argument}");
                         #endif
 
                         // Push StopIteration value to stack (receiver stays on stack for END_SEND)
@@ -6488,7 +6488,7 @@ namespace SharpPy
 
                         // Jump forward: IP += (INLINE_CACHE_ENTRIES_SEND + oparg)
                         // Example: IP=36 + (1 + 4) = 41, main loop IP++ → 42 (END_SEND)
-                        frame.InstructionPointer += INLINE_CACHE_ENTRIES_SEND + instruction.Argument;
+                        frame.InstructionPointer += INLINE_CACHE_ENTRIES_SEND + argument;
 
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    🛑 SEND: After jump, IP={frame.InstructionPointer} (will become {frame.InstructionPointer + 1} after main loop increment)");
@@ -6542,7 +6542,7 @@ namespace SharpPy
 
                 case ByteCodeOp.CALL_INTRINSIC_1:
                     var intrinsicArg1 = frame.ValueStack.Pop();
-                    var intrinsicResult1 = ExecuteIntrinsicFunction1(instruction.Argument, intrinsicArg1);
+                    var intrinsicResult1 = ExecuteIntrinsicFunction1(argument, intrinsicArg1);
                     frame.ValueStack.Push(intrinsicResult1);
                     break;
 
@@ -6551,14 +6551,14 @@ namespace SharpPy
                     // Stack: [..., arg1, arg2] -> pop arg2 first, then arg1
                     var intrinsic2_arg2 = frame.ValueStack.Pop();  // TOS (second argument)
                     var intrinsic2_arg1 = frame.ValueStack.Pop();  // TOS-1 (first argument)
-                    var result2 = ExecuteIntrinsicFunction2(instruction.Argument, intrinsic2_arg1, intrinsic2_arg2);
+                    var result2 = ExecuteIntrinsicFunction2(argument, intrinsic2_arg1, intrinsic2_arg2);
                     frame.ValueStack.Push(result2);
                     break;
 
                 case ByteCodeOp.KW_NAMES:
                     // CPython 3.12: KW_NAMES sets the names for keyword arguments
                     // The argument is an index into the constants table containing a tuple of keyword names
-                    var kwNamesIndex = instruction.Argument;
+                    var kwNamesIndex = argument;
                     var kwNamesTuple = frame.Code.Constants[kwNamesIndex];
 
                     // Store keyword names tuple for the following CALL instruction
@@ -6572,7 +6572,7 @@ namespace SharpPy
                     throw new InvalidOperationException("EXTENDED_ARG should be handled in the main execution loop");
 
                 default:
-                    throw PyNotImplementedError.Create($"OpCode {instruction.OpCode} not implemented");
+                    throw PyNotImplementedError.Create($"OpCode {opcode} not implemented");
             }
 
             return null;
