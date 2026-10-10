@@ -7780,7 +7780,6 @@ namespace SharpPy
             // 6. Await the result (yield from pattern)
             // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
             // CPython: ADD_YIELD_FROM(c, loc, 1);  // await=1
-            EmitLoadConst(PyNone.Instance);
             CompileYieldFrom(isAwait: true);  // This will emit SEND/YIELD_VALUE/RESUME sequence
 
             // 7. Pop exception handler block
@@ -8231,10 +8230,6 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
 
-            // Check if try block ends with unconditional terminator (RETURN/RAISE)
-            // CPython 3.12: Python/flowgraph.c - avoid emitting unreachable code
-            bool tryEndsWithTerminator = _instructionSequence.EndsWithTerminator();
-
             // NOTE: Don't pop FINALLY_TRY yet! Except handlers need to see it too.
             // CPython: pop happens AFTER compiler_try_except returns (compile.c:3263)
 
@@ -8266,31 +8261,13 @@ namespace SharpPy
                 }
             }
 
-            // 5. Try block completed successfully - JUMP to skip handlers
-            // CPython 3.12: Both module-level and function-level use JUMP to skip handlers
-            //               RETURN_CONST is only added at the END of the module
-            // NOTE: This is crucial for nested try-except blocks!
-            // CRITICAL: Don't add JUMP if try block ends with unconditional terminator (RETURN/RAISE/etc)
-            // CPython 3.12: Python/flowgraph.c - unreachable code elimination
-            if (!tryEndsWithTerminator)
-            {
-                if (hasFinally)
-                {
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
-                }
-                else
-                {
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
-                }
-            }
+            // A return in the final conditional branch does not terminate every path.
+            // Always emit the skip; CFG reachability removes it after an unconditional return.
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP,
+                hasFinally ? finallyLabel : endLabel, _currentLineNumber);
 
-            // 6. Exception handler entry
-            // CRITICAL: exceptLabel must point to the FIRST REAL INSTRUCTION after pseudo-instructions are removed
-            // In CPython 3.12, the exception handler always starts with PUSH_EXC_INFO
-            // SETUP_CLEANUP is a pseudo-instruction that gets removed by flowgraph, so we need to
-            // place exceptLabel AFTER it, directly at PUSH_EXC_INFO
-            // CPython: Python/compile.c:3357-3360
-
+            // Exception labels precede setup pseudo-instructions so all incoming
+            // edges establish the handler's cleanup scope.
             if (hasExceptHandlers)
             {
                 // CPython pattern (Python/compile.c:3394-3397):
@@ -8302,9 +8279,8 @@ namespace SharpPy
                 _instructionSequence.UseLabel(exceptLabel);
 
                 // SETUP_CLEANUP protects the exception handlers themselves
-                // (if an exception occurs in a handler, jump to cleanup or finally-except)
-                var handlerCleanupTarget = hasFinally ? finallyExceptLabel : cleanupLabel;
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, handlerCleanupTarget, _currentLineNumber);
+                // Restore exception state before propagating to any enclosing finally.
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
 
                 // Push exception info to start exception handling
                 _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
@@ -8474,6 +8450,8 @@ namespace SharpPy
             if (hasFinally)
             {
                 _instructionSequence.UseLabel(finallyLabel);
+                if (hasExceptHandlers)
+                    _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
 
                 // Compile finally block (normal execution path)
                 foreach (var stmt in tryStmt.FinalBody)
@@ -8486,12 +8464,10 @@ namespace SharpPy
 
                 // 10. Finally block (exception path) - offset 120 in CPython disassembly
                 // This executes when an exception occurs in except handler
-                // CRITICAL: Same as except handlers, place label AFTER SETUP_CLEANUP
+                // Establish the cleanup scope on entry to the exceptional finally path.
                 // SETUP_CLEANUP to protect finally block itself
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, finallyExceptCleanupLabel, _currentLineNumber);
-
-                // NOW place the finallyExceptLabel at PUSH_EXC_INFO
                 _instructionSequence.UseLabel(finallyExceptLabel);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, finallyExceptCleanupLabel, _currentLineNumber);
 
                 // PUSH_EXC_INFO to save exception state
                 _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
@@ -9044,7 +9020,6 @@ namespace SharpPy
             // 4. Await the __aenter__() result (yield from pattern)
             // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
             // CPython: ADD_YIELD_FROM(c, loc, 1);
-            EmitLoadConst(PyNone.Instance);
             CompileYieldFrom(isAwait: true);
 
             // 5. Setup exception handler with SETUP_WITH
@@ -9095,7 +9070,6 @@ namespace SharpPy
 
             // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
             // CPython: ADD_YIELD_FROM(c, loc, 1);
-            EmitLoadConst(PyNone.Instance);
             CompileYieldFrom(isAwait: true);
 
             // CPython: ADDOP(c, loc, POP_TOP);
@@ -9122,7 +9096,6 @@ namespace SharpPy
 
             // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
             // CPython: ADD_YIELD_FROM(c, loc, 1);
-            EmitLoadConst(PyNone.Instance);
             CompileYieldFrom(isAwait: true);
 
             // CPython: compiler_with_except_finish(c, cleanup);

@@ -222,6 +222,7 @@ namespace SharpPy
             HashSet<int> blockStarts,
             Dictionary<string, int> labelToOffset)
         {
+            var handlerDepths = ExceptionStackDepth.Analyze(instrSeq);
             // Performance: Eliminated LINQ - replaced OrderBy().ToList() with manual sorting
             var sortedStarts = new List<int>(blockStarts);
             sortedStarts.Sort();
@@ -320,20 +321,9 @@ namespace SharpPy
                                 // Now push the handler to the current block's stack (after copying)
                                 exceptStack.Push(handlerBlock);
 
-                                // CPython 3.12 exception table semantics:
-                                // - SETUP_FINALLY: depth=0 (pop all), lasti=false (don't preserve)
-                                // - SETUP_CLEANUP: depth=1 (keep exception), lasti=true (preserve for reraise)
-                                // - SETUP_WITH: depth=1, lasti=true
-                                if (instr.OpCode == ByteCodeOp.SETUP_CLEANUP || instr.OpCode == ByteCodeOp.SETUP_WITH)
-                                {
-                                    handlerBlock.PreserveLasti = true;
-                                    handlerBlock.ExceptionDepth = 1;
-                                }
-                                else // SETUP_FINALLY
-                                {
-                                    handlerBlock.PreserveLasti = false;
-                                    handlerBlock.ExceptionDepth = 0;
-                                }
+                                // Preserve the value stack at setup; cleanup/with also save lasti.
+                                handlerBlock.PreserveLasti = instr.OpCode != ByteCodeOp.SETUP_FINALLY;
+                                handlerBlock.ExceptionDepth = handlerDepths.GetValueOrDefault(j);
                             }
                         }
                         // SKIP: Don't add pseudo-instruction to bytecode

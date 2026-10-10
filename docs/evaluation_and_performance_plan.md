@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[52차 결과](reports/2026-10-10/exception_stack_depth_analysis.md): 51차를 `1393896`으로 커밋했다. SETUP 시점의 스택 깊이를 계산하고 정확히 unwind해 표현식 yield의 throw를 수정했다. 합류 검사가 드러낸 try/finally·async 컴파일 오류와 with의 GeneratorExit 처리도 수정했다. 기본 96개·Godot 24개 통과, protected yield의 depth/lasti CPython 일치. 예외 1만 회 할당 120만 B 감소. 다음은 처리 완료된 예외가 __context__에 남는 기존 문제이며 별도 실패 fixture로 보존한다.
+
 [51차 결과](reports/2026-10-10/generator_throw_resume_analysis.md): 50차를 ddec605로 커밋했다. generator.throw에서 yield 위치를 유지하고 정상 send 결과를 스택에 넣지 않아 루프 중간 조기 종료를 수정했다. 기본 94개·Godot 22개 통과. 남은 `100 + (yield i)` 실패는 CFG의 고정 exception depth 및 VM의 비표준 unwind와 연결돼 있어 다음 최우선 과제로 삼는다. 별도 실패 재현은 통과 목록에 포함하지 않는다.
 
 [50차 결과](reports/2026-10-10/cache_dispatch_analysis.md): 49차를 a4da1e9로 커밋했다. CACHE word의 offset은 유지하면서 불필요한 소스 위치 조회·dispatcher 호출을 생략한다. 측정한 덧셈/함수호출/속성 workload 중앙값 17.1%/15.0%/46.1% 단축. 별도 재현에서 기존 generator.throw의 루프 중간 조기 종료를 발견했으며 다음 최우선 수정 대상이다. 이 실패는 CACHE 수정 전후 모두 존재한다.

@@ -14,6 +14,7 @@ parser.add_argument('--dotnet', required=True)
 parser.add_argument('--harness', default='tools/PerformanceHarness/bin/Release/net8.0/PerformanceHarness.dll')
 parser.add_argument('--source', default='tests/class_exception_table_regression.py')
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--check-yield-depth', action='store_true')
 args = parser.parse_args()
 if sys.version_info[:2] != (3, 12):
     parser.error('Requires CPython 3.12')
@@ -36,6 +37,9 @@ def visit(code, parent=''):
                         0 <= e['target'] < len(code.co_code) and e['depth'] >= 0 and
                         e['start'] % 2 == e['end'] % 2 == e['target'] % 2 == 0 for e in entries),
         protected_binary_op=covered('BINARY_OP'), protected_raise=covered('RAISE_VARARGS'),
+        protected_yields=[next((dict(depth=e['depth'], lasti=e['lasti']) for e in entries
+                                if e['start'] <= i.offset < e['end']), None)
+                          for i in instructions if i.opname == 'YIELD_VALUE'],
         code_bytes=len(code.co_code), entries=entries))
     for child in code.co_consts:
         if isinstance(child, types.CodeType):
@@ -47,11 +51,14 @@ result = subprocess.run([args.dotnet, args.harness, '--exception-table-inspect',
                         cwd=root, env=env, capture_output=True, encoding='utf-8', check=True)
 actual = json.loads(result.stdout.splitlines()[-1])
 fields = ('path', 'table_present', 'bounds_valid', 'offset_conversion_valid', 'protected_binary_op', 'protected_raise')
+if args.check_yield_depth:
+    fields += ('protected_yields',)
 summarize = lambda rows: {r['path']: {k: r[k] for k in fields} for r in rows}
 matching = summarize(reference) == summarize(actual['code_units']) and actual['nonempty_tables_distinct']
 report = dict(python=sys.version, scope='Code-unit table presence, valid byte ranges and protected BINARY_OP/RAISE_VARARGS presence; raw layout differences retained, not full table equivalence',
     source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
     dll_sha256=hashlib.sha256((root/args.harness).with_name('sharppy.dll').read_bytes()).hexdigest(),
+    check_yield_depth=args.check_yield_depth,
     reference=reference, sharppy=actual, matching=matching)
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')

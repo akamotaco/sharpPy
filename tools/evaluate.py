@@ -115,6 +115,8 @@ def main():
             "tests/generator_wide_jump_regression.py",
             "tests/cache_execution_regression.py",
             "tests/compatibility/generator_throw_loop_resume.py",
+            "tests/compatibility/generator_throw_expression_stack.py",
+            "tests/exception_stack_depth_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",

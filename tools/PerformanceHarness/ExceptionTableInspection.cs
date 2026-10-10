@@ -41,6 +41,12 @@ internal static class ExceptionTableInspection
                     entry.StartOffset % 2 == 0 && entry.EndOffset % 2 == 0 && entry.HandlerOffset % 2 == 0),
                 protected_binary_op = Covered(ByteCodeOp.BINARY_OP),
                 protected_raise = Covered(ByteCodeOp.RAISE_VARARGS),
+                protected_yields = code.Instructions.Select((instruction, index) => (instruction, index))
+                    .Where(pair => pair.instruction.OpCode == ByteCodeOp.YIELD_VALUE)
+                    .Select(pair => code.ExceptionTable.FirstOrDefault(entry =>
+                        entry.StartOffset <= pair.index * PyCodeObject.INSTRUCTION_WORD_SIZE &&
+                        pair.index * PyCodeObject.INSTRUCTION_WORD_SIZE < entry.EndOffset))
+                    .Select(entry => entry == null ? null : new { depth = entry.Depth, lasti = entry.Lasti }).ToArray(),
                 code_bytes = length,
                 entries = code.ExceptionTable.Select(entry => new { start = entry.StartOffset,
                     end = entry.EndOffset, target = entry.HandlerOffset, depth = entry.Depth, lasti = entry.Lasti }).ToArray()

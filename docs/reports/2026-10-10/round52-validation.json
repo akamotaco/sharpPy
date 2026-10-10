@@ -1,0 +1,1954 @@
+{
+  "baseline_commit": "1393896",
+  "reference": "CPython 3.12.15",
+  "default_status_counts": {
+    "matching_output": 91,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "godot": {
+    "source_build": true,
+    "fixtures_passed": 24,
+    "native_range_helpers_passed": true
+  },
+  "depth_comparison": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "scope": "Code-unit table presence, valid byte ranges and protected BINARY_OP/RAISE_VARARGS presence; raw layout differences retained, not full table equivalence",
+    "source_sha256": "8a3da5071448fb60bda21a1a348a54acb54afc902284491880d75c69f910d17e",
+    "dll_sha256": "2a720ee9c0966c91deb5d05b5fa216e5af01305c5149a4d337da1d635823a2c4",
+    "check_yield_depth": true,
+    "reference": [
+      {
+        "path": "<module>",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": true,
+        "protected_yields": [],
+        "code_bytes": 1388,
+        "entries": [
+          {
+            "start": 360,
+            "end": 386,
+            "target": 582,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 388,
+            "end": 448,
+            "target": 650,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 450,
+            "end": 484,
+            "target": 694,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 530,
+            "end": 532,
+            "target": 798,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 532,
+            "end": 582,
+            "target": 856,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 582,
+            "end": 644,
+            "target": 644,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 644,
+            "end": 650,
+            "target": 650,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 650,
+            "end": 688,
+            "target": 688,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 688,
+            "end": 694,
+            "target": 694,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 694,
+            "end": 704,
+            "target": 770,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 704,
+            "end": 750,
+            "target": 760,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 760,
+            "end": 770,
+            "target": 770,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 776,
+            "end": 786,
+            "target": 792,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 786,
+            "end": 790,
+            "target": 798,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 790,
+            "end": 792,
+            "target": 792,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 792,
+            "end": 798,
+            "target": 798,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 798,
+            "end": 850,
+            "target": 850,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 850,
+            "end": 856,
+            "target": 856,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 856,
+            "end": 866,
+            "target": 912,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 866,
+            "end": 892,
+            "target": 902,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 902,
+            "end": 912,
+            "target": 912,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 1190,
+            "end": 1204,
+            "target": 1248,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 1204,
+            "end": 1222,
+            "target": 1222,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 1222,
+            "end": 1232,
+            "target": 1240,
+            "depth": 4,
+            "lasti": true
+          },
+          {
+            "start": 1232,
+            "end": 1246,
+            "target": 1248,
+            "depth": 1,
+            "lasti": false
+          },
+          {
+            "start": 1248,
+            "end": 1258,
+            "target": 1328,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 1258,
+            "end": 1308,
+            "target": 1318,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 1318,
+            "end": 1328,
+            "target": 1328,
+            "depth": 2,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/conditional",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 44,
+        "entries": [
+          {
+            "start": 4,
+            "end": 8,
+            "target": 14,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 14,
+            "end": 32,
+            "target": 38,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 36,
+            "end": 38,
+            "target": 38,
+            "depth": 1,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/nested",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": true,
+        "protected_raise": false,
+        "protected_yields": [
+          {
+            "depth": 2,
+            "lasti": false
+          }
+        ],
+        "code_bytes": 356,
+        "entries": [
+          {
+            "start": 4,
+            "end": 62,
+            "target": 352,
+            "depth": 0,
+            "lasti": true
+          },
+          {
+            "start": 64,
+            "end": 128,
+            "target": 186,
+            "depth": 2,
+            "lasti": false
+          },
+          {
+            "start": 128,
+            "end": 186,
+            "target": 352,
+            "depth": 0,
+            "lasti": true
+          },
+          {
+            "start": 186,
+            "end": 204,
+            "target": 288,
+            "depth": 3,
+            "lasti": true
+          },
+          {
+            "start": 204,
+            "end": 268,
+            "target": 278,
+            "depth": 3,
+            "lasti": true
+          },
+          {
+            "start": 268,
+            "end": 278,
+            "target": 294,
+            "depth": 2,
+            "lasti": false
+          },
+          {
+            "start": 278,
+            "end": 288,
+            "target": 288,
+            "depth": 3,
+            "lasti": true
+          },
+          {
+            "start": 288,
+            "end": 294,
+            "target": 294,
+            "depth": 2,
+            "lasti": false
+          },
+          {
+            "start": 294,
+            "end": 346,
+            "target": 346,
+            "depth": 3,
+            "lasti": true
+          },
+          {
+            "start": 346,
+            "end": 352,
+            "target": 352,
+            "depth": 0,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/Context",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 24,
+        "entries": []
+      },
+      {
+        "path": "<module>/Context/__enter__",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 48,
+        "entries": []
+      },
+      {
+        "path": "<module>/Context/__exit__",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 88,
+        "entries": []
+      },
+      {
+        "path": "<module>/managed",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": true,
+        "protected_raise": false,
+        "protected_yields": [
+          {
+            "depth": 2,
+            "lasti": true
+          }
+        ],
+        "code_bytes": 162,
+        "entries": [
+          {
+            "start": 4,
+            "end": 54,
+            "target": 158,
+            "depth": 0,
+            "lasti": true
+          },
+          {
+            "start": 54,
+            "end": 112,
+            "target": 134,
+            "depth": 2,
+            "lasti": true
+          },
+          {
+            "start": 112,
+            "end": 134,
+            "target": 158,
+            "depth": 0,
+            "lasti": true
+          },
+          {
+            "start": 134,
+            "end": 144,
+            "target": 152,
+            "depth": 4,
+            "lasti": true
+          },
+          {
+            "start": 144,
+            "end": 158,
+            "target": 158,
+            "depth": 0,
+            "lasti": true
+          }
+        ]
+      },
+      {
+        "path": "<module>/FailingExit",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 24,
+        "entries": []
+      },
+      {
+        "path": "<module>/FailingExit/__enter__",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 6,
+        "entries": []
+      },
+      {
+        "path": "<module>/FailingExit/__exit__",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "protected_yields": [],
+        "code_bytes": 24,
+        "entries": []
+      }
+    ],
+    "sharppy": {
+      "code_units": [
+        {
+          "path": "<module>",
+          "table_present": true,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": true,
+          "protected_yields": [],
+          "code_bytes": 1630,
+          "entries": [
+            {
+              "start": 426,
+              "end": 452,
+              "target": 514,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 452,
+              "end": 576,
+              "target": 724,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 626,
+              "end": 628,
+              "target": 630,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 628,
+              "end": 642,
+              "target": 922,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 642,
+              "end": 646,
+              "target": 986,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 646,
+              "end": 648,
+              "target": 922,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 676,
+              "end": 680,
+              "target": 772,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 682,
+              "end": 688,
+              "target": 724,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 688,
+              "end": 770,
+              "target": 772,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 782,
+              "end": 828,
+              "target": 838,
+              "depth": 2,
+              "lasti": true
+            },
+            {
+              "start": 864,
+              "end": 870,
+              "target": 922,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 870,
+              "end": 984,
+              "target": 986,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 996,
+              "end": 1034,
+              "target": 1044,
+              "depth": 1,
+              "lasti": true
+            },
+            {
+              "start": 1394,
+              "end": 1408,
+              "target": 1472,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 1408,
+              "end": 1426,
+              "target": 1444,
+              "depth": 2,
+              "lasti": true
+            },
+            {
+              "start": 1426,
+              "end": 1470,
+              "target": 1472,
+              "depth": 1,
+              "lasti": false
+            },
+            {
+              "start": 1482,
+              "end": 1532,
+              "target": 1542,
+              "depth": 2,
+              "lasti": true
+            }
+          ]
+        },
+        {
+          "path": "<module>/conditional",
+          "table_present": true,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 56,
+          "entries": [
+            {
+              "start": 2,
+              "end": 10,
+              "target": 12,
+              "depth": 0,
+              "lasti": false
+            }
+          ]
+        },
+        {
+          "path": "<module>/nested",
+          "table_present": true,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": true,
+          "protected_raise": false,
+          "protected_yields": [
+            {
+              "depth": 2,
+              "lasti": false
+            }
+          ],
+          "code_bytes": 366,
+          "entries": [
+            {
+              "start": 4,
+              "end": 62,
+              "target": 362,
+              "depth": 0,
+              "lasti": true
+            },
+            {
+              "start": 62,
+              "end": 126,
+              "target": 128,
+              "depth": 2,
+              "lasti": false
+            },
+            {
+              "start": 126,
+              "end": 146,
+              "target": 298,
+              "depth": 2,
+              "lasti": false
+            },
+            {
+              "start": 146,
+              "end": 210,
+              "target": 220,
+              "depth": 3,
+              "lasti": true
+            },
+            {
+              "start": 210,
+              "end": 220,
+              "target": 362,
+              "depth": 0,
+              "lasti": true
+            },
+            {
+              "start": 220,
+              "end": 230,
+              "target": 298,
+              "depth": 2,
+              "lasti": false
+            },
+            {
+              "start": 230,
+              "end": 242,
+              "target": 362,
+              "depth": 0,
+              "lasti": true
+            },
+            {
+              "start": 242,
+              "end": 248,
+              "target": 298,
+              "depth": 2,
+              "lasti": false
+            },
+            {
+              "start": 248,
+              "end": 360,
+              "target": 362,
+              "depth": 0,
+              "lasti": true
+            }
+          ]
+        },
+        {
+          "path": "<module>/Context",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 26,
+          "entries": []
+        },
+        {
+          "path": "<module>/Context/__enter__",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 48,
+          "entries": []
+        },
+        {
+          "path": "<module>/Context/__exit__",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 92,
+          "entries": []
+        },
+        {
+          "path": "<module>/managed",
+          "table_present": true,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": true,
+          "protected_raise": false,
+          "protected_yields": [
+            {
+              "depth": 2,
+              "lasti": true
+            }
+          ],
+          "code_bytes": 172,
+          "entries": [
+            {
+              "start": 4,
+              "end": 54,
+              "target": 168,
+              "depth": 0,
+              "lasti": true
+            },
+            {
+              "start": 54,
+              "end": 112,
+              "target": 130,
+              "depth": 2,
+              "lasti": true
+            },
+            {
+              "start": 112,
+              "end": 166,
+              "target": 168,
+              "depth": 0,
+              "lasti": true
+            }
+          ]
+        },
+        {
+          "path": "<module>/FailingExit",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 26,
+          "entries": []
+        },
+        {
+          "path": "<module>/FailingExit/__enter__",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 6,
+          "entries": []
+        },
+        {
+          "path": "<module>/FailingExit/__exit__",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "protected_yields": [],
+          "code_bytes": 26,
+          "entries": []
+        }
+      ],
+      "nonempty_tables_distinct": true
+    },
+    "matching": true
+  },
+  "performance": {
+    "addition": {
+      "before": {
+        "process_medians_ms": [
+          4.38635,
+          4.2616,
+          4.30715
+        ],
+        "runs": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 476.3443,
+            "results": [
+              {
+                "name": "addition",
+                "expected": 49995000,
+                "milliseconds": [
+                  4.8163,
+                  4.7098,
+                  4.6896,
+                  4.6222,
+                  6.5798,
+                  3.9247,
+                  3.9758,
+                  4.1505,
+                  4.0931,
+                  4.0776
+                ],
+                "allocated_bytes": [
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 478.4554,
+            "results": [
+              {
+                "name": "addition",
+                "expected": 49995000,
+                "milliseconds": [
+                  4.5762,
+                  4.5722,
+                  4.5856,
+                  4.5031,
+                  6.2924,
+                  3.9025,
+                  3.8799,
+                  3.9131,
+                  4.0201,
+                  3.8891
+                ],
+                "allocated_bytes": [
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 470.7364,
+            "results": [
+              {
+                "name": "addition",
+                "expected": 49995000,
+                "milliseconds": [
+                  4.5474,
+                  4.6779,
+                  4.657,
+                  4.5989,
+                  6.4498,
+                  3.9507,
+                  3.8808,
+                  3.9187,
+                  4.0669,
+                  4.042
+                ],
+                "allocated_bytes": [
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          4.3715,
+          3.92605,
+          4.20825
+        ],
+        "runs": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 482.3122,
+            "results": [
+              {
+                "name": "addition",
+                "expected": 49995000,
+                "milliseconds": [
+                  4.6313,
+                  4.6618,
+                  4.6911,
+                  4.6097,
+                  6.3256,
+                  4.1333,
+                  3.8685,
+                  3.8369,
+                  3.8863,
+                  4.0333
+                ],
+                "allocated_bytes": [
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 482.2742,
+            "results": [
+              {
+                "name": "addition",
+                "expected": 49995000,
+                "milliseconds": [
+                  4.4806,
+                  4.5694,
+                  4.4932,
+                  3.9749,
+                  5.2586,
+                  3.7753,
+                  3.81,
+                  3.8002,
+                  3.8326,
+                  3.8772
+                ],
+                "allocated_bytes": [
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 479.5289,
+            "results": [
+              {
+                "name": "addition",
+                "expected": 49995000,
+                "milliseconds": [
+                  4.5796,
+                  4.5541,
+                  4.5752,
+                  4.5632,
+                  5.9783,
+                  3.8114,
+                  3.82,
+                  3.8525,
+                  3.8519,
+                  3.8624
+                ],
+                "allocated_bytes": [
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280,
+                  801280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "exception_handling": {
+      "before": {
+        "process_medians_ms": [
+          100.0959,
+          100.74539999999999,
+          102.381
+        ],
+        "runs": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 461.1592,
+            "results": [
+              {
+                "name": "exception_handling",
+                "expected": 49995000,
+                "milliseconds": [
+                  97.7707,
+                  98.9435,
+                  100.1092,
+                  100.2173,
+                  100.1047,
+                  99.7724,
+                  100.0871,
+                  99.5319,
+                  100.3891,
+                  100.7196
+                ],
+                "allocated_bytes": [
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 468.8899,
+            "results": [
+              {
+                "name": "exception_handling",
+                "expected": 49995000,
+                "milliseconds": [
+                  100.3409,
+                  100.6629,
+                  100.4116,
+                  101.0485,
+                  100.8279,
+                  101.2787,
+                  100.9276,
+                  99.662,
+                  100.9837,
+                  99.6783
+                ],
+                "allocated_bytes": [
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 495.458,
+            "results": [
+              {
+                "name": "exception_handling",
+                "expected": 49995000,
+                "milliseconds": [
+                  104.0099,
+                  104.467,
+                  100.7356,
+                  102.8786,
+                  101.8834,
+                  106.06,
+                  103.0991,
+                  100.5567,
+                  101.3825,
+                  98.9519
+                ],
+                "allocated_bytes": [
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280,
+                  9841280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          99.37209999999999,
+          97.1031,
+          99.81309999999999
+        ],
+        "runs": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 458.7679,
+            "results": [
+              {
+                "name": "exception_handling",
+                "expected": 49995000,
+                "milliseconds": [
+                  97.114,
+                  97.133,
+                  100.1875,
+                  97.1255,
+                  99.9783,
+                  102.7117,
+                  99.246,
+                  99.4982,
+                  99.7038,
+                  98.9639
+                ],
+                "allocated_bytes": [
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 477.9283,
+            "results": [
+              {
+                "name": "exception_handling",
+                "expected": 49995000,
+                "milliseconds": [
+                  97.3391,
+                  98.3797,
+                  97.0936,
+                  96.8922,
+                  97.5186,
+                  97.1126,
+                  96.8389,
+                  96.9453,
+                  97.3511,
+                  97.0223
+                ],
+                "allocated_bytes": [
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 489.5949,
+            "results": [
+              {
+                "name": "exception_handling",
+                "expected": 49995000,
+                "milliseconds": [
+                  97.321,
+                  97.8145,
+                  100.3997,
+                  102.1712,
+                  102.3107,
+                  101.849,
+                  100.8993,
+                  97.5893,
+                  97.6263,
+                  99.2265
+                ],
+                "allocated_bytes": [
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280,
+                  8641280
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "known_gap": {
+    "fixture": "tests/compatibility/exception_context_after_handler.py",
+    "baseline": "sharppy_failure",
+    "after": "sharppy_failure",
+    "reference": "pass"
+  },
+  "fixture_sha256": {
+    "tests\\exception_stack_depth_regression.py": "8a3da5071448fb60bda21a1a348a54acb54afc902284491880d75c69f910d17e",
+    "tests\\compatibility\\generator_throw_expression_stack.py": "8ca3209d5438bbc81459a6d31a2d7bac673bb8689c2b331d0987f327d581e56a",
+    "tests\\compatibility\\exception_context_after_handler.py": "38bdc0895a20cc5d61dacbb9cf2dcaae9abbe8285e091d20835dad2c23d19925"
+  }
+}
