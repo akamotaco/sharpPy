@@ -1231,6 +1231,51 @@ namespace SharpPy
 
         #region Iterator Protocol
 
+        // Shared by Python instances and class objects (metaclass slots).
+        internal PyObject InvokeIteratorMethod(PyObject method)
+        {
+            PyObject iterator;
+            // Python functions have fixed binding: avoid a temporary PyMethod.
+            if (method is PyFunction function)
+                iterator = function.Call(new PyObject[] { this }, null);
+            else
+            {
+                PyObject bound;
+                try { bound = BindSpecialMethod(method); }
+                catch (PythonException)
+                {
+                    // slot_tp_iter clears lookup errors before trying __getitem__.
+                    // Errors from calling the resolved __iter__ still propagate.
+                    try
+                    {
+                        var getitem = LookupSpecialMethodUncached("__getitem__");
+                        if (getitem != null)
+                        {
+                            BindSpecialMethod(getitem);
+                            return new PyGenericIterator(this);
+                        }
+                    }
+                    catch (PythonException) { }
+                    throw PyTypeError.Create($"'{GetPyType().Name}' object is not iterable");
+                }
+                if (bound is PyNone) throw PyTypeError.Create($"'{GetPyType().Name}' object is not iterable");
+                iterator = bound.Call(Array.Empty<PyObject>(), null);
+            }
+            if (!iterator.IsIterator)
+                throw PyTypeError.Create($"iter() returned non-iterator of type '{iterator.GetPyType().Name}'");
+            return iterator;
+        }
+
+        internal PyObject InvokeNextMethod()
+        {
+            var method = LookupSpecialMethodUncached("__next__");
+            if (method == null)
+                throw PyTypeError.Create($"'{GetPyType().Name}' object is not an iterator");
+            if (method is PyFunction function)
+                return function.Call(new PyObject[] { this }, null);
+            return BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+        }
+
         // Equivalent to a non-null tp_iternext slot; do not invoke descriptors.
         internal virtual bool IsIterator => false;
 

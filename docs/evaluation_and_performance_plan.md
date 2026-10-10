@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[59차 결과](reports/2026-10-10/metaclass_iterator_analysis.md): 58차를 `cc36b07`로 커밋했다. metaclass iteration의 descriptor·반환 검증·None 차단·sequence fallback과 클래스 자체의 next를 공통 프로토콜에 연결했다. 기본 112개·Godot 소스 통합 40개 통과. 임시 bound method 제거로 iter+next 1만 회 할당 800,000 B 감소. 다음은 수정 전후 모두 실패하는 직접 `__class__` 참조의 implicit cell 생성과 명시적 metaclass 메서드 바인딩 조사다.
+
 [58차 결과](reports/2026-10-10/iterator_protocol_analysis.md): 57차를 `49a37ea`로 커밋했다. 사용자 객체의 iter 특수 메서드 조회·반환값 검증과 sequence fallback의 오류 전파·영구 종료를 맞췄다. 기본 110개·Godot 소스 통합 38개 통과. iter 호출 1만 회 할당 240,000 B 감소, 측정 시간은 약 1.2% 증가하며 표본 범위가 겹친다. 다음은 별도 실패 fixture로 보존한 metaclass iterator 반환값 검증이다.
 
 [57차 결과](reports/2026-10-10/generator_send_protocol_analysis.md): 56차를 `9ae7747`로 커밋했다. SEND의 None/값 전송 경로를 구분하고 사용자 __next__의 타입 lookup·descriptor 바인딩을 맞췄다. 기본 106개·Godot 34개 통과. Python iterator next 벤치마크 약 4.9% 단축, 1만 회 할당 24만 B 감소. 다음은 __iter__의 special lookup과 반환 iterator 검증이며 별도 실패 fixture로 보존한다.

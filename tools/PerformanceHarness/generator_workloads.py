@@ -63,3 +63,19 @@ def iterator_acquisition(n):
     for i in range(n):
         total += next(iter(iterator))
     return total
+
+
+class IterableMeta(type):
+    def __iter__(cls):
+        return iter(range(1))
+
+
+class ClassIterable(metaclass=IterableMeta):
+    pass
+
+
+def metaclass_iteration(n):
+    total = 0
+    for i in range(n):
+        total += i + next(iter(ClassIterable))
+    return total

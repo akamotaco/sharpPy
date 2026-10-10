@@ -321,65 +321,19 @@ namespace SharpPy
             return baseType;
         }
 
-        // CPython 3.12: Override GetIterator to check metaclass __iter__
+        // Class objects use the iteration slots of their metaclass.
         public override PyObject GetIterator()
         {
-            // Check if metaclass has __iter__ method
-            if (Metaclass != null)
-            {
-                // Check metaclass's ClassDict directly
-                if (Metaclass is PyClass metaClass && metaClass.ClassDict.TryGetValue("__iter__", out PyObject iterMethod))
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ found __iter__ in metaclass ClassDict");
-                    #endif
-
-                    if (iterMethod.IsCallable())
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → calling __iter__ with this class as argument");
-                        #endif
-                        // Call metaclass's __iter__ with this class as argument
-                        var iterResult = iterMethod.Call(new PyObject[] { this }, null);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → __iter__ returned: {iterResult?.GetTypeName()}");
-                        #endif
-                        return iterResult;
-                    }
-                }
-
-                // Also check metaclass MRO (e.g., if EnumType inherits from type)
-                for (int i = 1; i < Metaclass.MRO.Count; i++)
-                {
-                    var metaBase = Metaclass.MRO[i];
-                    if (metaBase is PyClass metaPyClass && metaPyClass.ClassDict.TryGetValue("__iter__", out PyObject metaIterMethod))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ found __iter__ in metaclass MRO ({metaBase.Name})");
-                        #endif
-
-                        if (metaIterMethod.IsCallable())
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → calling metaclass MRO __iter__ with this class as argument");
-                            #endif
-                            var iterResult = metaIterMethod.Call(new PyObject[] { this }, null);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → __iter__ returned: {iterResult?.GetTypeName()}");
-                            #endif
-                            return iterResult;
-                        }
-                    }
-                }
-
-                #if DEBUG_LOG
-                Console.WriteLine($"   ❌ No __iter__ found in metaclass or its MRO");
-                #endif
-            }
-
-            // Fall back to base behavior (which throws "not iterable" error)
-            return base.GetIterator();
+            var method = LookupSpecialMethodUncached("__iter__");
+            if (method != null) return InvokeIteratorMethod(method);
+            if (LookupSpecialMethodUncached("__getitem__") != null)
+                return new PyGenericIterator(this);
+            throw PyTypeError.Create($"'{GetPyType().Name}' object is not iterable");
         }
+
+        internal override bool IsIterator => LookupSpecialMethodUncached("__next__") != null;
+
+        public override PyObject Next() => InvokeNextMethod();
 
         // 클래스 attribute 접근
         public override PyObject GetAttribute(string name)
@@ -1418,32 +1372,7 @@ namespace SharpPy
         public override PyObject GetIterator()
         {
             var method = LookupSpecialMethodUncached("__iter__");
-            if (method != null)
-            {
-                PyObject bound;
-                try { bound = BindSpecialMethod(method); }
-                catch (PythonException)
-                {
-                    // slot_tp_iter clears lookup errors before trying __getitem__.
-                    // Errors from calling the resolved __iter__ still propagate.
-                    try
-                    {
-                        var getitem = LookupSpecialMethodUncached("__getitem__");
-                        if (getitem != null)
-                        {
-                            BindSpecialMethod(getitem);
-                            return new PyGenericIterator(this);
-                        }
-                    }
-                    catch (PythonException) { }
-                    return base.GetIterator();
-                }
-                if (bound is PyNone) return base.GetIterator();
-                var iterator = bound.Call(Array.Empty<PyObject>(), null);
-                if (!iterator.IsIterator)
-                    throw PyTypeError.Create($"iter() returned non-iterator of type '{iterator.GetTypeName()}'");
-                return iterator;
-            }
+            if (method != null) return InvokeIteratorMethod(method);
 
             // Builtin dict subclasses store their mapping separately.
             if (_dictStorage != null) return _dictStorage.GetIterator();
@@ -1457,15 +1386,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method
         /// </summary>
-        public override PyObject Next()
-        {
-            // tp_iternext resolves __next__ on the type, bypassing instance
-            // attributes and __getattribute__, while binding descriptors normally.
-            var method = LookupSpecialMethodUncached("__next__");
-            if (method == null)
-                throw PyTypeError.Create($"'{GetTypeName()}' object is not an iterator");
-            return BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-        }
+        public override PyObject Next() => InvokeNextMethod();
 
         /// <summary>
         /// CPython 3.12: Helper to call a magic method if it exists

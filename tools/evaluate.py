@@ -128,6 +128,8 @@ def main():
             "tests/compatibility/generator_delegate_iterator.py",
             "tests/generator_send_protocol_regression.py",
             "tests/iter_protocol_regression.py",
+            "tests/metaclass_iterator_protocol_regression.py",
+            "tests/compatibility/metaclass_invalid_iterator.py",
             "tests/sequence_iterator_protocol_regression.py",
             "tests/compatibility/generator_invalid_iterator.py",
             "tests/compatibility/iterator_lookup_error_fallback.py",
