@@ -1744,59 +1744,25 @@ namespace SharpPy
                     kwDefaults.Add(PyNone.Instance);
             }
 
-            // CPython 3.12: CO_COROUTINE flag for async functions
-            flags |= PyCodeObject.CO_COROUTINE;
+            // Scope analysis distinguishes await-only coroutines from async
+            // generators, including a yield removed as unreachable by the CFG.
+            var functionTable = _symbolTableBuilder?.LookupSymbolTable(asyncFunc);
+            flags |= functionTable?.IsGenerator == true
+                ? PyCodeObject.CO_ASYNC_GENERATOR : PyCodeObject.CO_COROUTINE;
 
-            // Use new CompilerFunctionBody following CPython pattern
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars);
             compiler.SetSourceLocation(_currentFileName, _sourceLines);
-
-            // CPython 3.12: Pass symbol table context to nested compiler
+            compiler._symbolTableBuilder = _symbolTableBuilder;
+            if (functionTable != null)
+                compiler.SetSymbolTableContext(functionTable);
             if (_symbolTable != null)
-            {
-                // Get the function's symbol table from root children
-                // Symbol table names for functions include prefix like "<function:name>" or "<async function:name>"
-                var funcSymbolTable = _symbolTable.GetChildren().FirstOrDefault(child => child.GetName().Contains(asyncFunc.Name));
-                if (funcSymbolTable != null)
-                {
-                    compiler.SetSymbolTableContext(funcSymbolTable);
-                }
                 compiler.SetRootSymbolTable(_symbolTable);
-            }
 
-            var codeObject = compiler.CompilerFunctionBody(
+            return compiler.CompilerFunctionBody(
                 asyncFunc.Body, asyncFunc.Name, paramNames,
                 defaults, kwDefaults, freeVars, cellVars,
                 flags, argCount, posonlyArgCount, kwonlyArgCount);
-
-            // CPython 3.12: Async generator detection (yield in async function)
-            if (codeObject.IsGenerator())
-            {
-                // Set CO_ASYNC_GENERATOR and clear CO_GENERATOR
-                var newFlags = codeObject.Flags | PyCodeObject.CO_ASYNC_GENERATOR;
-                newFlags &= ~PyCodeObject.CO_GENERATOR;
-
-                codeObject = new PyCodeObject(
-                    codeObject.Name,
-                    codeObject.Instructions,
-                    codeObject.Constants,
-                    codeObject.Names,
-                    codeObject.VarNames,
-                    codeObject.ArgCount,
-                    codeObject.PosonlyArgCount,
-                    0,
-                    codeObject.FreeVars,
-                    codeObject.CellVars,
-                    codeObject.DefaultValues,
-                    null,
-                    newFlags,
-                    codeObject.FileName,
-                    codeObject.SourceLines
-                );
-            }
-
-            return codeObject;
         }
         
         /// <summary>
@@ -10133,9 +10099,8 @@ namespace SharpPy
             CompileExpression(lambda.Body);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
-            // Get final instructions for lambda
-            // Lambda has no generator flags (lambdas cannot be generators in Python)
-            var lambdaInstructions = GetFinalInstructions(0);
+            int lambdaFlags = lambdaTable?.IsGenerator == true ? PyCodeObject.CO_GENERATOR : 0;
+            var lambdaInstructions = GetFinalInstructions(lambdaFlags);
 
             // Restore original compiler context
             _instructionSequence = tempInstructionSequence;
@@ -10166,7 +10131,7 @@ namespace SharpPy
                 cellVars, // Set CellVars for closure support
                 defaultValues: defaultValues, // CPython 3.12: Pass default values
                 kwDefaults: null,
-                flags: 0,
+                flags: lambdaFlags,
                 fileName: _currentFileName,
                 sourceLines: _sourceLines
             );

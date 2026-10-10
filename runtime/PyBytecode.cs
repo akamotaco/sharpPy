@@ -764,14 +764,11 @@ namespace SharpPy
         public override string ToString() => $"<code object {Name}>";
         
         /// <summary>
-        /// 제너레이터 함수인지 확인 (yield 또는 yield from 명령어 포함 여부)
+        /// Test the synchronous generator flag determined by scope analysis.
         /// </summary>
         public bool IsGenerator()
         {
-            // Determined by scope analysis, even when every yield is unreachable.
-            // Legacy async/lambda compilation still detects yielding code here.
-            return (Flags & CO_GENERATOR) != 0 ||
-                Instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            return (Flags & CO_GENERATOR) != 0;
         }
         
         /// <summary>

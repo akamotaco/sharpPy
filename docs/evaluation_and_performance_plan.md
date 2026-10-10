@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[67차 결과](reports/2026-10-11/generator_kind_flags.md): 66차를 `bafc2cd`로 커밋했다. async/generator lambda의 종류를 scope에서 정하고 IsGenerator의 명령열 검색을 제거했다. async code object 재생성도 제거해 예외 table과 keyword-only metadata를 보존한다. 기본 126개·Godot 소스 통합 55개 통과. 두 호출 workload에서 1만 회 할당 720,072 B 감소, closure_access 시간 약 11.7% 감소. 실제 CPython 3.12의 lambda StopIteration 처리를 확인해 불필요한 wrapper를 추가하지 않았다. 다음은 별도 재현으로 남긴 coroutine 최초 send/재개 처리다.
 [66차 결과](reports/2026-10-11/unbound_variable_and_closure_access.md): 65차를 `206930d`로 커밋했다. 미초기화 local/cell/free variable의 예외 타입·메시지·name, 빈 cell 초기화 및 del-only scope를 맞췄다. nonlocal 저장·삭제의 잘못된 offset 방출을 수정하고 공통 resolver로 closure 접근의 임시 목록 할당을 제거했다. 기본 125개·Godot 소스 통합 54개 통과. 읽기/갱신 workload 측정 시간 약 19.7%/18.7%, 1만 회 할당 1,200,176/960,176 B 감소. 다음은 async/lambda 플래그 및 남은 generator 판정 검색 조사다.
 [65차 결과](reports/2026-10-11/finally_scope_analysis.md): 64차를 `e8d2be5`로 커밋했다. FINALLY_TRY 수명과 누락된 TRY_EXCEPT/FINALLY_END 범위를 수정해 continue/finally 스택 오류 및 중첩 finally 중복 실행을 해결했다. 기본 123개·Godot 소스 통합 52개와 CFG native probe 통과. 실행 중 할당은 동일하며 속도 개선은 주장하지 않는다. 다음은 미초기화 지역 변수의 정확한 예외 타입·메시지 처리다.
 [64차 결과](reports/2026-10-11/cfg_reachability_analysis.md): 63차를 `faa5daa`로 커밋했다. CFG의 실제 edge를 따라 도달 불가 명령을 제거하고 generator 플래그를 우선 확인한다. 기본 120개·Godot 소스 통합 49개와 CFG native probe 통과. generator 반복은 측정 시간 약 4.5%, 할당 720,144 B 감소했고 cleanup workload 할당은 동일하다. async/lambda 검색 fallback은 남는다. 기존 continue/finally 스택 오류와 nested finally 중복 실행을 별도 재현으로 보존했으며, 다음은 unwind frame 수명 조사다.

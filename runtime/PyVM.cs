@@ -6088,7 +6088,7 @@ namespace SharpPy
                     var yieldValue = frame.ValueStack.Pop();
 
                     // yield는 제너레이터에서만 사용 가능
-                    if (!frame.Code.IsGenerator())
+                    if (!frame.Code.IsGenerator() && !frame.Code.IsCoroutine() && !frame.Code.IsAsyncGenerator())
                     {
                         throw PySyntaxError.Create("'yield' outside function");
                     }
@@ -7848,7 +7848,7 @@ namespace SharpPy
 
             // For simple functions with no complex features, use direct execution
             if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 &&
-                !code.IsGenerator() && !code.IsCoroutine())
+                !code.IsGenerator() && !code.IsCoroutine() && !code.IsAsyncGenerator())
             {
                 try
                 {
@@ -7921,7 +7921,7 @@ namespace SharpPy
 
             // For simple functions with no complex features, use direct execution
             if (code.CellVars?.Count == 0 && code.FreeVars?.Count == 0 &&
-                !code.IsGenerator() && !code.IsCoroutine())
+                !code.IsGenerator() && !code.IsCoroutine() && !code.IsAsyncGenerator())
             {
                 try
                 {

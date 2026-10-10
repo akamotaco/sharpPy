@@ -1,0 +1,1275 @@
+{
+  "previous_commit": "bafc2cd",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 121,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "expanded": [
+    {
+      "name": "tests/generator_kind_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "generator kind flags: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.044647300004726276,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "generator kind flags: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.29045059997588396,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "native": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "godot": {
+    "default_fixtures": 17,
+    "additional_fixtures": 38,
+    "passed": true
+  },
+  "performance": {
+    "constant_return": {
+      "before": {
+        "process_medians_ms": [
+          13.224499999999999,
+          12.942350000000001,
+          13.1522
+        ],
+        "median_ms": 13.1522,
+        "allocated_bytes": [
+          8321336.0,
+          8321336.0,
+          8321336.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 391.4955,
+            "results": [
+              {
+                "name": "constant_return",
+                "expected": 49995000,
+                "milliseconds": [
+                  13.1795,
+                  13.3098,
+                  13.2015,
+                  13.69,
+                  13.3302,
+                  13.4123,
+                  12.951,
+                  13.235,
+                  12.9297,
+                  13.214
+                ],
+                "allocated_bytes": [
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 387.6796,
+            "results": [
+              {
+                "name": "constant_return",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.8292,
+                  13.0385,
+                  12.8633,
+                  13.0451,
+                  12.7902,
+                  12.9646,
+                  12.9201,
+                  13.0563,
+                  12.8043,
+                  12.9691
+                ],
+                "allocated_bytes": [
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 387.2187,
+            "results": [
+              {
+                "name": "constant_return",
+                "expected": 49995000,
+                "milliseconds": [
+                  13.0472,
+                  13.175,
+                  12.9809,
+                  13.3779,
+                  13.1025,
+                  13.2482,
+                  13.1294,
+                  13.4593,
+                  12.9935,
+                  13.437
+                ],
+                "allocated_bytes": [
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336,
+                  8321336
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          12.69835,
+          12.08125,
+          13.12415
+        ],
+        "median_ms": 12.69835,
+        "allocated_bytes": [
+          7601264.0,
+          7601264.0,
+          7601264.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 391.8732,
+            "results": [
+              {
+                "name": "constant_return",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.3516,
+                  12.0952,
+                  12.5228,
+                  12.622,
+                  12.6008,
+                  13.0616,
+                  12.8633,
+                  12.9759,
+                  12.7747,
+                  12.7816
+                ],
+                "allocated_bytes": [
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 384.5976,
+            "results": [
+              {
+                "name": "constant_return",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.0609,
+                  11.9642,
+                  12.1792,
+                  11.8434,
+                  11.8532,
+                  12.1874,
+                  12.1016,
+                  12.1806,
+                  11.9776,
+                  13.0875
+                ],
+                "allocated_bytes": [
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 397.0428,
+            "results": [
+              {
+                "name": "constant_return",
+                "expected": 49995000,
+                "milliseconds": [
+                  13.293,
+                  13.1137,
+                  13.1346,
+                  12.8474,
+                  12.9313,
+                  13.3024,
+                  13.104,
+                  13.3829,
+                  12.9973,
+                  13.3123
+                ],
+                "allocated_bytes": [
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264,
+                  7601264
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "closure_access": {
+      "before": {
+        "process_medians_ms": [
+          9.30925,
+          9.4707,
+          9.489
+        ],
+        "median_ms": 9.4707,
+        "allocated_bytes": [
+          7763752.0,
+          7763752.0,
+          7763752.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 387.3234,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.4868,
+                  9.2917,
+                  9.548,
+                  9.2562,
+                  9.5162,
+                  9.1657,
+                  9.195,
+                  9.5751,
+                  9.3268,
+                  9.2307
+                ],
+                "allocated_bytes": [
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 389.0675,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.569,
+                  9.1012,
+                  9.4179,
+                  9.1588,
+                  9.6302,
+                  9.5235,
+                  9.3401,
+                  9.5754,
+                  9.3298,
+                  9.6285
+                ],
+                "allocated_bytes": [
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 394.8021,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.3868,
+                  9.4564,
+                  10.3344,
+                  9.2763,
+                  9.5947,
+                  9.501,
+                  9.4583,
+                  9.7404,
+                  9.477,
+                  9.6615
+                ],
+                "allocated_bytes": [
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          8.45575,
+          8.320450000000001,
+          8.36675
+        ],
+        "median_ms": 8.36675,
+        "allocated_bytes": [
+          7043680.0,
+          7043680.0,
+          7043680.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 384.3706,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  8.5095,
+                  8.6843,
+                  8.4156,
+                  8.3911,
+                  8.4901,
+                  8.3757,
+                  8.4957,
+                  8.3004,
+                  8.5686,
+                  8.4214
+                ],
+                "allocated_bytes": [
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 366.0033,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  8.2781,
+                  8.4961,
+                  8.3414,
+                  8.2876,
+                  8.3933,
+                  8.2995,
+                  8.4557,
+                  8.2278,
+                  8.4248,
+                  8.2036
+                ],
+                "allocated_bytes": [
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 392.4722,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  8.4934,
+                  8.4755,
+                  8.2405,
+                  8.3864,
+                  8.3471,
+                  8.1262,
+                  8.3879,
+                  8.344,
+                  8.6984,
+                  8.2095
+                ],
+                "allocated_bytes": [
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680,
+                  7043680
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "known_preexisting_failures": {
+    "coroutine_initial_send.py": {
+      "cpython": {
+        "exit_code": 0,
+        "stdout": "11\n",
+        "stderr": ""
+      },
+      "before": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_initial_send.py\", line ?, in <module>\n    # Line information not available\nRuntimeError: Stack is empty\n--- C# Exception Details ---\nSystem.InvalidOperationException: Stack is empty\n   at SharpPy.PyStack.Pop() in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyStack.cs:line 44\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, Int32 argument) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 2047\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1335\n   at SharpPy.Core.PyCoroutine.Send(PyObject value) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyCoroutine.cs:line 182\n   at SharpPy.Core.PyCoroutine.<>c.<InitializeCoroutineDescriptors>b__1_0(PyObject self, PyObject[] args, PyDict kwargs) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyCoroutine.cs:line 51\n   at SharpPy.PyBoundMethodDescriptor.Call(PyObject[] args, PyDict kwargs) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyDescriptor.cs:line 127\n   at SharpPy.PyVM.ExecuteCall(PyFrame frame, Int32 callArgCount) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1612\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, Int32 argument) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 2568\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1335\n   at SharpPy.PyVM.ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 935\n   at SharpPy.IntegratedPythonInterpreter.Execute(String sourceCode, String fileName, Boolean showTokenize, Boolean showAst, Boolean showBytecode, CompileMode mode) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyInterpreter.cs:line 217\n   at SharpPy.Core.FileExecutor.ExecuteFile(String pythonFile, Boolean showTokenize, Boolean showAst, Boolean showBytecode, Boolean compileOnly) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\FileExecutor.cs:line 62\n",
+        "stderr": ""
+      },
+      "after": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_initial_send.py\", line ?, in <module>\n    # Line information not available\nRuntimeError: Stack is empty\n--- C# Exception Details ---\nSystem.InvalidOperationException: Stack is empty\n   at SharpPy.PyStack.Pop() in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyStack.cs:line 44\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, Int32 argument) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 2047\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1335\n   at SharpPy.Core.PyCoroutine.Send(PyObject value) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyCoroutine.cs:line 182\n   at SharpPy.Core.PyCoroutine.<>c.<InitializeCoroutineDescriptors>b__1_0(PyObject self, PyObject[] args, PyDict kwargs) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyCoroutine.cs:line 51\n   at SharpPy.PyBoundMethodDescriptor.Call(PyObject[] args, PyDict kwargs) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\PyDescriptor.cs:line 127\n   at SharpPy.PyVM.ExecuteCall(PyFrame frame, Int32 callArgCount) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1612\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, Int32 argument) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 2568\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1335\n   at SharpPy.PyVM.ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 935\n   at SharpPy.IntegratedPythonInterpreter.Execute(String sourceCode, String fileName, Boolean showTokenize, Boolean showAst, Boolean showBytecode, CompileMode mode) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyInterpreter.cs:line 217\n   at SharpPy.Core.FileExecutor.ExecuteFile(String pythonFile, Boolean showTokenize, Boolean showAst, Boolean showBytecode, Boolean compileOnly) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\FileExecutor.cs:line 62\n",
+        "stderr": ""
+      }
+    },
+    "async_generator_kwdefaults.py": {
+      "cpython": {
+        "exit_code": 0,
+        "stdout": "{'count': 3}\n",
+        "stderr": ""
+      },
+      "before": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\async_generator_kwdefaults.py\", line 4, in <module>\n    print(values.__kwdefaults__)\n    ^\nAttributeError: 'function' object has no attribute '__kwdefaults__'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\async_generator_kwdefaults.py\", line 4, in <module>\n    print(values.__kwdefaults__)\n    ^\nAttributeError: 'function' object has no attribute '__kwdefaults__'\n",
+        "stderr": ""
+      },
+      "after": {
+        "exit_code": 1,
+        "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\async_generator_kwdefaults.py\", line 4, in <module>\n    print(values.__kwdefaults__)\n    ^\nAttributeError: 'function' object has no attribute '__kwdefaults__'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\async_generator_kwdefaults.py\", line 4, in <module>\n    print(values.__kwdefaults__)\n    ^\nAttributeError: 'function' object has no attribute '__kwdefaults__'\n",
+        "stderr": ""
+      }
+    }
+  },
+  "exception_table_comparisons": {
+    "before": {
+      "matching": false,
+      "bounds_and_offsets_valid": true,
+      "presence_differences": [
+        {
+          "cpython_path": "<module>/<lambda>",
+          "sharppy_path": "<module>/<lambda_2>",
+          "cpython": true,
+          "sharppy": false
+        },
+        {
+          "cpython_path": "<module>/values",
+          "sharppy_path": "<module>/values",
+          "cpython": true,
+          "sharppy": false
+        },
+        {
+          "cpython_path": "<module>/first/same",
+          "sharppy_path": "<module>/first/same",
+          "cpython": true,
+          "sharppy": false
+        }
+      ]
+    },
+    "after": {
+      "matching": false,
+      "bounds_and_offsets_valid": true,
+      "presence_differences": [
+        {
+          "cpython_path": "<module>/<lambda>",
+          "sharppy_path": "<module>/<lambda_2>",
+          "cpython": true,
+          "sharppy": false
+        }
+      ]
+    }
+  }
+}

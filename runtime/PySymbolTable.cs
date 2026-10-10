@@ -274,8 +274,8 @@ namespace SharpPy
         // Corresponds to PyDict_SetItem(st->st_blocks, ste->ste_id, ste) in symtable.c:142
         // Uses ConditionalWeakTable for O(1) lookup without boxing, based on reference equality
         // (equivalent to CPython's pointer-based identity comparison)
-        private ConditionalWeakTable<Expression, SymbolTable> _astNodeToSymbolTable
-            = new ConditionalWeakTable<Expression, SymbolTable>();
+        private ConditionalWeakTable<ASTNode, SymbolTable> _astNodeToSymbolTable
+            = new ConditionalWeakTable<ASTNode, SymbolTable>();
 
         // CPython 3.12: st->st_stack - scope stack for nested scope tracking
         // Used for symtable_extend_namedexpr_scope (symtable.c:1906)
@@ -1923,6 +1923,7 @@ namespace SharpPy
             var functionTable = new SymbolTable($"<async function:{func.Name}>", SymbolTableType.Function);
             // CPython 3.12: Mark async functions as coroutines
             functionTable.IsCoroutine = true;
+            _astNodeToSymbolTable.Add(func, functionTable);
             _currentTable?.AddChild(functionTable);
 
             var savedTable = _currentTable;
@@ -2466,7 +2467,9 @@ namespace SharpPy
         /// Lookup symbol table for a given AST node (comprehension/generator expression)
         /// Corresponds to PySymtable_Lookup in Python/symtable.c:381-400
         /// </summary>
-        public SymbolTable? LookupSymbolTable(Expression astNode)
+        public SymbolTable? LookupSymbolTable(Expression astNode) => LookupSymbolTable((ASTNode)astNode);
+
+        public SymbolTable? LookupSymbolTable(ASTNode astNode)
         {
             if (_astNodeToSymbolTable.TryGetValue(astNode, out var table))
             {
