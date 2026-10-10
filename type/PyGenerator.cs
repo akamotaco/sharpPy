@@ -168,18 +168,23 @@ namespace SharpPy
                     #endif
 
                     // CPython pattern: YIELD_VALUE left IP pointing at itself
-                    // We need to move to RESUME (next instruction) before executing
+                    // Normal next/send moves to RESUME; throw stays at the yield
+                    // so exception lookup and traceback use the suspended site.
                     // Python/bytecodes.c:911-927 - YIELD_VALUE does NOT increment IP
                     // Objects/genobject.c:230 - Resume executes from saved IP, which will be incremented by main loop
-                    _frame.InstructionPointer++;  // Move from YIELD_VALUE to RESUME
+                    if (_frame.PendingException == null)
+                        _frame.InstructionPointer++;  // Normal resume starts after YIELD_VALUE.
 
                     #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Generator Resume: IP after increment: {_frame.InstructionPointer}");
                     Console.WriteLine($"    Pushing sentValue: {_sentValue}");
                     #endif
 
-                    // Now push sent value for RESUME + POP_TOP pattern
-                    _frame.ValueStack.Push(_sentValue);
+                    // Normal resume supplies the yield expression's result.
+                    // An injected exception resumes at the suspended yield and
+                    // has no expression result to leave on the value stack.
+                    if (_frame.PendingException == null)
+                        _frame.ValueStack.Push(_sentValue);
 
                     #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Generator Resume: After push, stack size: {_frame.ValueStack.Count}");
