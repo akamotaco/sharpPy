@@ -132,6 +132,7 @@ def main():
             "tests/class_lexical_closure_regression.py",
             "tests/super_name_analysis_regression.py",
             "tests/super_frame_regression.py",
+            "tests/constant_return_cleanup_regression.py",
             "tests/compatibility/super_captured_first_argument.py",
             "tests/compatibility/super_alias_class_cell.py",
             "tests/compatibility/metaclass_bound_method_closure.py",

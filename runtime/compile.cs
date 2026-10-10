@@ -2591,13 +2591,15 @@ namespace SharpPy
                         #endif
 
                         var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-                        bool preserveTos = (ret.Value != null);
+                        bool constantReturn = ret.Value == null || ret.Value is ConstantExpression ||
+                            ret.Value is NameExpression { Name: "None" };
+                        bool preserveTos = !constantReturn;
 
-                        // Compile return value first (if exists)
-                        if (ret.Value != null)
-                        {
+                        // Constants have no evaluation side effects and RETURN_CONST
+                        // reads them directly after cleanup. Do not carry a spare
+                        // value through finally/with/loop unwinding.
+                        if (preserveTos)
                             CompileExpression(ret.Value);
-                        }
 
                         // Unwind ALL fblocks (findLoop = false means unwind everything)
                         UnwindFBlockStack(ref loc, preserveTos, findLoop: false);
@@ -7408,11 +7410,10 @@ namespace SharpPy
                 _currentFileName
             ));
 
-            // CPython: ADDOP_LOAD_CONST(c, NO_LOCATION, Py_None);
-            EmitLoadConst(PyNone.Instance);
-
-            // CPython: ADDOP(c, NO_LOCATION, RETURN_VALUE);
-            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            // Function compilation already emits its explicit/implicit return.
+            // Keep a fallback only when the body can still fall through.
+            if (!_instructionSequence.EndsWithTerminator())
+                EmitInstruction(ByteCodeOp.RETURN_CONST, GetOrAddConstant(PyNone.Instance));
 
             // CPython: USE_LABEL(c, handler);
             _instructionSequence.UseLabel(handlerLabel);
