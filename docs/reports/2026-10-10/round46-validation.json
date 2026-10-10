@@ -1,0 +1,325 @@
+{
+  "baseline_commit": "688d46e",
+  "scope": "offset conversion microbenchmark, not whole VM speed",
+  "tiered_compilation": false,
+  "before": {
+    "results": [
+      {
+        "size": 16,
+        "count": 10000,
+        "milliseconds": [
+          0.0483,
+          0.0482,
+          0.0482,
+          0.0482,
+          0.0572,
+          0.0541,
+          0.0541,
+          0.0541,
+          0.0581,
+          0.0542
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "size": 1024,
+        "count": 10000,
+        "milliseconds": [
+          2.4845,
+          2.4351,
+          2.419,
+          2.4169,
+          2.4488,
+          2.4377,
+          2.9318,
+          2.4433,
+          2.4241,
+          2.4255
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "size": 16384,
+        "count": 10000,
+        "milliseconds": [
+          36.2981,
+          36.1506,
+          35.9941,
+          36.2057,
+          36.1821,
+          38.2704,
+          36.0907,
+          36.0332,
+          36.6759,
+          36.3748
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "after": {
+    "results": [
+      {
+        "size": 16,
+        "count": 10000,
+        "milliseconds": [
+          0.014,
+          0.0142,
+          0.014,
+          0.0141,
+          0.014,
+          0.014,
+          0.014,
+          0.014,
+          0.014,
+          0.014
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "size": 1024,
+        "count": 10000,
+        "milliseconds": [
+          0.0141,
+          0.0141,
+          0.0141,
+          0.0141,
+          0.0141,
+          0.0141,
+          0.0142,
+          0.0141,
+          0.0141,
+          0.0141
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "size": 16384,
+        "count": 10000,
+        "milliseconds": [
+          0.014,
+          0.014,
+          0.014,
+          0.014,
+          0.0141,
+          0.014,
+          0.014,
+          0.0141,
+          0.014,
+          0.0141
+        ],
+        "allocated_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "cpython_wide_instruction_counts": {
+    "CACHE": 331,
+    "EXTENDED_ARG": 52,
+    "FOR_ITER": 1,
+    "JUMP_BACKWARD": 2
+  },
+  "exception_tables": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "scope": "Code-unit table presence, valid byte ranges and protected BINARY_OP/RAISE_VARARGS presence; raw layout differences retained, not full table equivalence",
+    "source_sha256": "4f27c4a1f36d60b181ce0ac790541a036850486b20f21805df519f7b04a828fc",
+    "dll_sha256": "fbaf5654a84461c5a93d978bd14f1f3239a98eef228922eed6f8bc8a958b9929",
+    "reference": [
+      {
+        "path": "<module>",
+        "table_present": false,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": false,
+        "protected_raise": false,
+        "code_bytes": 78,
+        "entries": []
+      },
+      {
+        "path": "<module>/wide",
+        "table_present": true,
+        "offset_conversion_valid": true,
+        "bounds_valid": true,
+        "protected_binary_op": true,
+        "protected_raise": true,
+        "code_bytes": 3304,
+        "entries": [
+          {
+            "start": 8,
+            "end": 3180,
+            "target": 3180,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 3180,
+            "end": 3198,
+            "target": 3262,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 3198,
+            "end": 3242,
+            "target": 3252,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 3242,
+            "end": 3252,
+            "target": 3284,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 3252,
+            "end": 3262,
+            "target": 3262,
+            "depth": 1,
+            "lasti": true
+          },
+          {
+            "start": 3262,
+            "end": 3268,
+            "target": 3284,
+            "depth": 0,
+            "lasti": false
+          },
+          {
+            "start": 3284,
+            "end": 3298,
+            "target": 3298,
+            "depth": 1,
+            "lasti": true
+          }
+        ]
+      }
+    ],
+    "sharppy": {
+      "code_units": [
+        {
+          "path": "<module>",
+          "table_present": false,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": false,
+          "protected_raise": false,
+          "code_bytes": 108,
+          "entries": []
+        },
+        {
+          "path": "<module>/wide",
+          "table_present": true,
+          "offset_conversion_valid": true,
+          "bounds_valid": true,
+          "protected_binary_op": true,
+          "protected_raise": true,
+          "code_bytes": 3316,
+          "entries": [
+            {
+              "start": 6,
+              "end": 3174,
+              "target": 3174,
+              "depth": 0,
+              "lasti": false
+            },
+            {
+              "start": 3174,
+              "end": 3192,
+              "target": 3290,
+              "depth": 1,
+              "lasti": true
+            },
+            {
+              "start": 3192,
+              "end": 3248,
+              "target": 3260,
+              "depth": 1,
+              "lasti": true
+            },
+            {
+              "start": 3260,
+              "end": 3272,
+              "target": 3290,
+              "depth": 1,
+              "lasti": true
+            }
+          ]
+        }
+      ],
+      "nonempty_tables_distinct": true
+    },
+    "matching": true
+  },
+  "evaluation_summary": {
+    "matching_output": 86,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  }
+}

@@ -23,10 +23,16 @@ internal static class RangeConstructionProbe
         var results = new List<object>();
         var builtin = new PyBuiltinFunction("range");
         var arguments = new PyObject[] { new PyInt(1), new PyInt(1025), new PyInt(2) };
+        var oneArgument = new PyObject[] { new PyInt(512) };
+        var twoArguments = new PyObject[] { new PyInt(1), new PyInt(513) };
+        var boolArguments = new PyObject[] { PyBool.False, PyBool.True, PyBool.True };
+        var huge = System.Numerics.BigInteger.Pow(10, 100);
+        var bigArguments = new PyObject[] { new PyInt(huge), new PyInt(huge + 512) };
         var source = new PyRange(1, 1025, 2);
         var slice = new PySlice(PyNone.Instance, PyNone.Instance, new PyInt(2));
         var index = new PyInt(3);
-        foreach (string operation in new[] { "construct", "builtin", "slice", "index" })
+        foreach (string operation in new[] { "construct", "builtin", "slice", "index",
+            "builtin_one", "builtin_two", "builtin_bool", "builtin_big" })
         {
             const int count = 10000;
             void Batch()
@@ -37,6 +43,10 @@ internal static class RangeConstructionProbe
                     {
                         "construct" => new PyRange(1, 1025, 2),
                         "builtin" => builtin.Call(arguments, null),
+                        "builtin_one" => builtin.Call(oneArgument, null),
+                        "builtin_two" => builtin.Call(twoArguments, null),
+                        "builtin_bool" => builtin.Call(boolArguments, null),
+                        "builtin_big" => builtin.Call(bigArguments, null),
                         "slice" => source.GetItem(slice),
                         _ => source.GetItem(index)
                     };
@@ -44,7 +54,7 @@ internal static class RangeConstructionProbe
                 {
                     if (((PyInt)result).Value != 7) throw new InvalidOperationException("range index");
                 }
-                else if (result.Length() != (operation == "slice" ? 256 : 512))
+                else if (result.Length() != (operation == "slice" ? 256 : operation == "builtin_bool" ? 1 : 512))
                     throw new InvalidOperationException("range construction");
                 GC.KeepAlive(result);
             }

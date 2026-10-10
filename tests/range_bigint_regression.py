@@ -113,3 +113,27 @@ expect_error(lambda: range(Index('start', huge), Index('stop', huge + 1), Index(
              ValueError, 'range() arg 3 must not be zero')
 assert calls == ['start', 'stop', 'step']
 print('range bigint: PASS')
+
+# Constructor conversion must stop at the first failure, including the
+# less common bool / __index__ paths used alongside ordinary int arguments.
+class BadIndex:
+    def __index__(self):
+        calls.append('bad')
+        return 'bad'
+
+for args, expected_calls in (
+    ((BadIndex(),), ['bad']),
+    ((BadIndex(), Index('stop', 4)), ['bad']),
+    ((Index('start', 0), BadIndex(), Index('step', 1)), ['start', 'bad']),
+    ((Index('start', 0), Index('stop', 4), BadIndex()), ['start', 'stop', 'bad']),
+):
+    calls.clear()
+    expect_error(lambda: range(*args), TypeError, '__index__ returned non-int (type str)')
+    assert calls == expected_calls
+calls.clear()
+assert list(range(Index('stop', 3))) == [0, 1, 2]
+assert calls == ['stop']
+assert list(range(True)) == [0]
+assert list(range(False, True)) == [0]
+expect_error(lambda: range(False, True, False), ValueError, 'range() arg 3 must not be zero')
+print('range constructor conversion: PASS')

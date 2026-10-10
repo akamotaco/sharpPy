@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--instruction-offset-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(InstructionOffsetProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--range-extended-check")
 {
     RangeConstructionProbe.VerifyExtended();

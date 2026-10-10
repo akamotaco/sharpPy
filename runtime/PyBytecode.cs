@@ -807,57 +807,26 @@ namespace SharpPy
             return instructionIndex * INSTRUCTION_WORD_SIZE;
         }
 
-        // CPython 3.12: Convert byte offset to instruction index, accounting for inline cache
-        // Reverse of InstructionIndexToByteOffset
-        // CRITICAL: Must scan through instructions and accumulate word counts until we reach target byte offset
-        // BUG FIX: Instructions array ALREADY contains CACHE instructions as separate entries
-        // So we should NOT add GetInlineCacheSize() - just count each instruction as 1 word (or more for EXTENDED_ARG)
-        // Reference: docs/offset_vs_index_analysis.md
-        // Reference: Python/assemble.c:150-161
+        // Final assembly stores CACHE and EXTENDED_ARG as individual words.
+        // This is the inverse of InstructionIndexToByteOffset, not a CFG scan.
         public int ByteOffsetToInstructionIndex(int byteOffset)
         {
             if (byteOffset < 0)
-            {
                 throw new ArgumentOutOfRangeException(nameof(byteOffset),
                     $"Byte offset {byteOffset} must be non-negative");
-            }
 
-            int currentByteOffset = 0;
-            for (int i = 0; i < Instructions.Count; i++)
-            {
-                if (currentByteOffset == byteOffset)
-                {
-                    return i;
-                }
+            int index = byteOffset / INSTRUCTION_WORD_SIZE;
+            if (index >= Instructions.Count)
+                throw new ArgumentOutOfRangeException(nameof(byteOffset),
+                    $"Byte offset {byteOffset} exceeds code size {(long)Instructions.Count * INSTRUCTION_WORD_SIZE}");
 
-                // CRITICAL FIX: The Instructions array ALREADY has CACHE instructions inserted
-                // So we should count each instruction individually (including CACHE as 1 word each)
-                // CPython 3.12: Python/assemble.c:150-161 - iterate through final bytecode array
-                // Each instruction in the array is exactly 1 word (CACHE, EXTENDED_ARG, and regular instructions)
-                // WRONG: CountInstructionWords() includes inline cache which is already separate instructions!
-                // RIGHT: Each instruction in Instructions array is 1 word
-                currentByteOffset += INSTRUCTION_WORD_SIZE;
+            if (byteOffset % INSTRUCTION_WORD_SIZE != 0)
+                throw new ArgumentException(
+                    $"[{Name}] Byte offset {byteOffset} does not align with an instruction boundary. " +
+                    $"Previous instruction at byte offset {index * INSTRUCTION_WORD_SIZE}, " +
+                    $"next instruction at byte offset {(long)(index + 1) * INSTRUCTION_WORD_SIZE}");
 
-                if (currentByteOffset > byteOffset)
-                {
-                    // DEBUG: Print instructions around the problematic offset
-                    Console.WriteLine($"[DEBUG ByteOffsetToInstructionIndex] Looking for offset {byteOffset}");
-                    Console.WriteLine($"[DEBUG] Instructions around index {i}:");
-                    for (int j = Math.Max(0, i - 3); j < Math.Min(Instructions.Count, i + 5); j++)
-                    {
-                        int offset = j * INSTRUCTION_WORD_SIZE;  // Each instruction is 1 word
-                        Console.WriteLine($"  [{j}] offset={offset}: {Instructions[j].OpCode}");
-                    }
-
-                    throw new ArgumentException(
-                        $"[{Name}] Byte offset {byteOffset} does not align with an instruction boundary. " +
-                        $"Previous instruction at byte offset {currentByteOffset - INSTRUCTION_WORD_SIZE}, " +
-                        $"next instruction at byte offset {currentByteOffset}");
-                }
-            }
-
-            throw new ArgumentOutOfRangeException(nameof(byteOffset),
-                $"Byte offset {byteOffset} exceeds code size {currentByteOffset}");
+            return index;
         }
     }
 
