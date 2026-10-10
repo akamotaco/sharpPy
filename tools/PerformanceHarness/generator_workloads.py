@@ -25,3 +25,33 @@ def generator_close(n):
         g.close()
         total += i
     return total
+
+
+def delegated(n):
+    yield from range(n)
+
+
+def generator_delegation(n):
+    total = 0
+    for value in delegated(n):
+        total += value
+    return total
+
+
+class PythonIterator:
+    def __init__(self):
+        self.value = 0
+    def __iter__(self):
+        return self
+    def __next__(self):
+        value = self.value
+        self.value += 1
+        return value
+
+
+def python_iterator(n):
+    iterator = PythonIterator()
+    total = 0
+    for i in range(n):
+        total += next(iterator)
+    return total

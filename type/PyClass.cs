@@ -1502,32 +1502,12 @@ namespace SharpPy
         /// </summary>
         public override PyObject Next()
         {
-            // Try to call __next__ method if it exists
-            // Check instance dict first
-            if (InstanceDict.ContainsKey("__next__"))
-            {
-                var nextMethod = InstanceDict["__next__"];
-                return nextMethod.Call(new PyObject[0], null);
-            }
-
-            // Then check class hierarchy
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__next__"))
-                {
-                    var method = customClass.ClassDict["__next__"];
-                    if (method is PyFunction func)
-                    {
-                        // Bind to instance
-                        var boundMethod = new PyMethod(this, func);
-                        return boundMethod.Call(new PyObject[0], null);
-                    }
-                    break;
-                }
-            }
-
-            // No __next__ method found
-            return base.Next();
+            // tp_iternext resolves __next__ on the type, bypassing instance
+            // attributes and __getattribute__, while binding descriptors normally.
+            var method = LookupSpecialMethodUncached("__next__");
+            if (method == null)
+                throw PyTypeError.Create($"'{GetTypeName()}' object is not an iterator");
+            return BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
         }
 
         /// <summary>

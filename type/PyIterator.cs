@@ -150,6 +150,8 @@ namespace SharpPy
             return item;
         }
 
+        public override string GetTypeName() => "list_iterator";
+
         public override PyString ToRepr() => new PyString($"<list_iterator object>");
     }
 

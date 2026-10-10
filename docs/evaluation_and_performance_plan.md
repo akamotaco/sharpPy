@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[57차 결과](reports/2026-10-10/generator_send_protocol_analysis.md): 56차를 `9ae7747`로 커밋했다. SEND의 None/값 전송 경로를 구분하고 사용자 __next__의 타입 lookup·descriptor 바인딩을 맞췄다. 기본 106개·Godot 34개 통과. Python iterator next 벤치마크 약 4.9% 단축, 1만 회 할당 24만 B 감소. 다음은 __iter__의 special lookup과 반환 iterator 검증이며 별도 실패 fixture로 보존한다.
+
 [56차 결과](reports/2026-10-10/generator_delegation_close_analysis.md): 55차를 `2960df4`로 커밋했다. yield from의 내부 iterator를 먼저 닫고 그 오류를 바깥 handler/finally에 전달한다. CLEANUP_THROW와 예외 주입 스택을 CPython 규칙에 맞췄다. 기본 104개·Godot 32개 통과. 측정 할당량은 동일하며 직접 close 시간은 약 1.4% 증가했다. 다음은 send 없는 사용자 iterator의 SEND 경로다. close 속성 조회 오류의 unraisable 처리와 특수 재진입 차이도 보고서에 남겼다.
 
 [55차 결과](reports/2026-10-10/generator_close_analysis.md): 54차를 `05557b7`로 커밋했다. 직접 실행 generator의 close 예외 전파·종료 거부·재진입·시작 전 종료를 맞추고 GeneratorExit builtin과 빈 args를 수정했다. 기본 102개·Godot 30개 통과. close 벤치마크 시간 약 12% 감소, 1만 회 할당 약 64만 B 감소. 일반 generator 반복 시간은 약 0.7% 증가했다. 다음은 yield from의 하위 iterator 종료 순서이며 별도 실패 fixture로 보존한다.

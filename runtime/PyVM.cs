@@ -6401,39 +6401,14 @@ namespace SharpPy
                     {
                         PyObject sendResult;
 
-                        // CPython pattern: if (Py_IsNone(v) && PyIter_Check(receiver))
-                        // If value is None and receiver is iterator, call next
-                        if (sendValue is PyNone && receiver is PyIterator receiverIter)
-                        {
-                            sendResult = receiverIter.Next();
-                        }
-                        // If receiver is a generator, send value to it
+                        // None uses the iterator protocol, including Python-defined
+                        // iterators. A non-None value requires send; its errors propagate.
+                        if (sendValue is PyNone)
+                            sendResult = receiver.Next();
                         else if (receiver is PyGenerator gen)
-                        {
                             sendResult = gen.Send(sendValue);
-                        }
                         else
-                        {
-                            // Try to call .send() method using GetAttribute
-                            // CPython: retval = PyObject_CallMethodOneArg(receiver, &_Py_ID(send), v);
-                            try
-                            {
-                                var sendMethod = receiver.GetAttribute("send");
-                                sendResult = sendMethod.Call(new PyObject[] { sendValue }, null);
-                            }
-                            catch (PythonException pyEx) when (pyEx.PyException is PyAttributeError)
-                            {
-                                // Fallback to iterator protocol
-                                if (receiver is PyIterator receiverIterFallback)
-                                {
-                                    sendResult = receiverIterFallback.Next();
-                                }
-                                else
-                                {
-                                    throw PyTypeError.Create($"SEND: receiver {receiver.GetType().Name} is not a generator or iterator");
-                                }
-                            }
-                        }
+                            sendResult = receiver.GetAttribute("send").Call(new PyObject[] { sendValue }, null);
 
                         // CPython: Push result to stack (receiver stays on stack)
                         frame.ValueStack.Push(sendResult);

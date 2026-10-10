@@ -125,6 +125,8 @@ def main():
             "tests/generator_close_regression.py",
             "tests/compatibility/generator_close_delegation.py",
             "tests/generator_delegation_close_regression.py",
+            "tests/compatibility/generator_delegate_iterator.py",
+            "tests/generator_send_protocol_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",
