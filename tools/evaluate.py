@@ -130,6 +130,8 @@ def main():
             "tests/iter_protocol_regression.py",
             "tests/metaclass_iterator_protocol_regression.py",
             "tests/class_lexical_closure_regression.py",
+            "tests/super_name_analysis_regression.py",
+            "tests/compatibility/super_alias_class_cell.py",
             "tests/compatibility/metaclass_bound_method_closure.py",
             "tests/compatibility/metaclass_invalid_iterator.py",
             "tests/sequence_iterator_protocol_regression.py",

@@ -124,28 +124,6 @@ namespace SharpPy
                 AnalyzeStatement(statement);
             }
             
-            // CPython 3.12: Check for super() calls and add __class__ as free variable
-#if DEBUG_LOG
-            Console.WriteLine($"  🔍 Checking function {func.Name} for super() calls...");
-#endif
-            var hasSuperCalls = PythonCompiler.ContainsSuperCalls(func.Body);
-#if DEBUG_LOG
-            Console.WriteLine($"  🔍 Super calls detection result for {func.Name}: {hasSuperCalls}");
-#endif
-            if (hasSuperCalls && !_usedVars.Contains("__class__"))
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"  ✅ Found super() call in {func.Name}, adding __class__ as free variable");
-#endif
-                _usedVars.Add("__class__");
-            }
-            else if (hasSuperCalls)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"  ⚠️ Super() calls found but __class__ already in _usedVars for {func.Name}");
-#endif
-            }
-            
             // Free variables: used but not defined locally AND exist in outer scope (CPython 3.12 방식)
             // Only variables that exist in the outer scope can be free variables
             // Exclude global variables - they should use LOAD_GLOBAL, not LOAD_DEREF
@@ -157,12 +135,6 @@ namespace SharpPy
                 {
                     freeVars.Add(varName);
                 }
-            }
-            
-            // CPython 3.12: __class__ is always available in class body scope
-            if (hasSuperCalls && !freeVars.Contains("__class__"))
-            {
-                freeVars.Add("__class__");
             }
             
             // Cell variables: analyze nested functions to see what they reference
@@ -313,6 +285,7 @@ namespace SharpPy
                     if (!SharpPy.Generated.PyParser.IsKeyword(name.Name))
                     {
                         _usedVars.Add(name.Name);
+                        if (name.Name == "super") _usedVars.Add("__class__");
                     }
                     break;
                     
@@ -512,7 +485,6 @@ namespace SharpPy
             }
         }
 
-        // Note: HasSuperCalls methods removed - now using ContainsSuperCalls instead for consistency
     }
 
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
@@ -4144,16 +4116,6 @@ namespace SharpPy
                         }
                     }
 
-                    // CPython 3.12: If function or its nested functions contain super() calls, ensure __class__ is in freeVars
-                    // This handles cases like: def method(self): def inner(): return super().__repr__()
-                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__"))
-                    {
-                        freeVars.Add("__class__");
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  ✅ Added __class__ to freeVars due to super() calls in function or nested functions (symbol table path)");
-                        #endif
-                    }
-
                     // CPython 3.12: Save current symbol table context BEFORE switching to function scope
                     // Python/compile.c:2227 - compiler_enter_scope is called AFTER compiler_default_arguments
                     // Default arguments must be compiled in the ENCLOSING scope (module/class/function),
@@ -4178,15 +4140,6 @@ namespace SharpPy
                     var (oldFreeVars, oldCellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
                     freeVars.AddRange(oldFreeVars);
                     cellVars.AddRange(oldCellVars);
-
-                    // CPython 3.12: If function contains super() calls, ensure __class__ is in freeVars
-                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__"))
-                    {
-                        freeVars.Add("__class__");
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  ✅ Added __class__ to freeVars due to super() calls");
-                        #endif
-                    }
                 }
             }
 
@@ -4363,19 +4316,6 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   Available from outer scopes: [{string.Join(", ", availableOuterVars)}]");
                 #endif
-
-                // CPython 3.12: Check for zero-argument super() calls and add __class__ as referenced variable
-                // NOTE: We check ContainsSuperCalls() first, then add __class__ even if not in availableOuterVars
-                // This handles the case where we're compiling a method inside a class body that has __class__ cell
-                if (ContainsSuperCalls(func.Body))
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   Function contains super() calls - adding __class__ as referenced variable");
-                    #endif
-                    referencedVars.Add("__class__");
-                    // Also add __class__ to availableOuterVars so it can be resolved as a free variable
-                    availableOuterVars.Add("__class__");
-                }
 
                 // Variables that are referenced but not defined locally become free variables
                 foreach (var refVar in referencedVars)
@@ -6793,7 +6733,8 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// Check if class body contains super() calls (without arguments)
+        /// Legacy public AST query for zero-argument super calls.
+        /// Compilation uses symbol analysis instead of this query.
         /// </summary>
         public static bool ContainsSuperCalls(List<Statement> statements)
         {

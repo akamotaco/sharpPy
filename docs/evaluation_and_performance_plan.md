@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[61차 결과](reports/2026-10-11/super_name_analysis.md): 60차를 `f39cc36`로 커밋했다. 함수 scope의 super 이름 읽기를 implicit class 사용으로 분석하고, AST 재검색 및 compiler의 강제 free variable 추가를 제거했다. 기본 116개·Godot 소스 통합 44개 통과. 기존 workload의 할당은 동일하며 실행 시간 차이는 표본 범위가 겹친다. 다음은 self가 캡처된 메서드에서 실패하는 인자 없는 super의 frame/cell 조회와 오류 처리다.
+
 [60차 결과](reports/2026-10-11/class_lexical_closure_analysis.md): 59차를 `6b21479`로 커밋했다. 직접 `__class__` 참조의 implicit cell을 심볼 분석에서 생성하고, 메서드 바인딩의 함수·closure 복제와 덮어쓰기를 제거했다. 클래스 namespace 대입도 해당 scope를 따르도록 수정했다. 기본 114개·Godot 소스 통합 42개 통과. class cell이 있는 metaclass 호출 1만 회 할당 10,640,000 B 감소, 측정 시간 약 16.6% 감소. 다음은 별도 실패 fixture로 보존한 `super` alias의 implicit cell 분석이다.
 
 [59차 결과](reports/2026-10-10/metaclass_iterator_analysis.md): 58차를 `cc36b07`로 커밋했다. metaclass iteration의 descriptor·반환 검증·None 차단·sequence fallback과 클래스 자체의 next를 공통 프로토콜에 연결했다. 기본 112개·Godot 소스 통합 40개 통과. 임시 bound method 제거로 iter+next 1만 회 할당 800,000 B 감소. 다음은 수정 전후 모두 실패하는 직접 `__class__` 참조의 implicit cell 생성과 명시적 metaclass 메서드 바인딩 조사다.
