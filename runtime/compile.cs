@@ -8168,11 +8168,18 @@ namespace SharpPy
                 #endif
             }
 
+            if (hasExceptHandlers)
+                PushFBlock(new SourceLocation(_currentLineNumber, _currentColumnOffset),
+                    FBlockType.TRY_EXCEPT, exceptLabel, Label.NoLabel);
+
             // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
             foreach (var stmt in tryStmt.Body)
             {
                 CompileStatement(stmt);
             }
+
+            if (hasExceptHandlers)
+                PopFBlock(FBlockType.TRY_EXCEPT, exceptLabel);
 
             // NOTE: Don't pop FINALLY_TRY yet! Except handlers need to see it too.
             // CPython: pop happens AFTER compiler_try_except returns (compile.c:3263)
@@ -8372,14 +8379,6 @@ namespace SharpPy
                 _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
                 _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
                 _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
-
-                // 8.5. Pop FINALLY_TRY fblock after all except handlers complete
-                // CPython: pop happens after compiler_try_except returns (compile.c:3263)
-                // This is where the try/except/finally structure ends and normal finally begins
-                if (hasFinally)
-                {
-                    PopFBlock(FBlockType.FINALLY_TRY, finallyLabel);
-                }
             }
             else
             {
@@ -8393,6 +8392,8 @@ namespace SharpPy
             // 9. Finally block (normal path) - offset 18 in CPython disassembly
             if (hasFinally)
             {
+                // The protected try/except scope ends before either finally copy.
+                PopFBlock(FBlockType.FINALLY_TRY, finallyLabel);
                 _instructionSequence.UseLabel(finallyLabel);
                 if (hasExceptHandlers)
                     _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
@@ -8416,11 +8417,16 @@ namespace SharpPy
                 // PUSH_EXC_INFO to save exception state
                 _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
 
+                PushFBlock(new SourceLocation(_currentLineNumber, _currentColumnOffset),
+                    FBlockType.FINALLY_END, finallyExceptLabel, Label.NoLabel);
+
                 // Compile finally block again (exception execution path)
                 foreach (var stmt in tryStmt.FinalBody)
                 {
                     CompileStatement(stmt);
                 }
+
+                PopFBlock(FBlockType.FINALLY_END, finallyExceptLabel);
 
                 // RERAISE the exception after finally completes
                 _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);

@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[65차 결과](reports/2026-10-11/finally_scope_analysis.md): 64차를 `e8d2be5`로 커밋했다. FINALLY_TRY 수명과 누락된 TRY_EXCEPT/FINALLY_END 범위를 수정해 continue/finally 스택 오류 및 중첩 finally 중복 실행을 해결했다. 기본 123개·Godot 소스 통합 52개와 CFG native probe 통과. 실행 중 할당은 동일하며 속도 개선은 주장하지 않는다. 다음은 미초기화 지역 변수의 정확한 예외 타입·메시지 처리다.
 [64차 결과](reports/2026-10-11/cfg_reachability_analysis.md): 63차를 `faa5daa`로 커밋했다. CFG의 실제 edge를 따라 도달 불가 명령을 제거하고 generator 플래그를 우선 확인한다. 기본 120개·Godot 소스 통합 49개와 CFG native probe 통과. generator 반복은 측정 시간 약 4.5%, 할당 720,144 B 감소했고 cleanup workload 할당은 동일하다. async/lambda 검색 fallback은 남는다. 기존 continue/finally 스택 오류와 nested finally 중복 실행을 별도 재현으로 보존했으며, 다음은 unwind frame 수명 조사다.
 [63차 결과](reports/2026-10-11/constant_return_optimization.md): 62차를 `9520ba0`로 커밋했다. bytecode 완전 일치가 아닌 결과 보존과 비용 감소를 기준으로, 상수 반환의 여분 적재·cleanup 보존 및 generator의 중복 종료 명령을 제거했다. 기본 119개·Godot 소스 통합 47개 통과. 두 반환 workload의 시간 약 3.9%/6.4% 감소, 할당 동일. 예외 테이블 구조 비교 불일치는 실행 회귀와 구분해 기록했다. 다음은 CFG terminator 판정과 도달 불가 명령 조사다.
 

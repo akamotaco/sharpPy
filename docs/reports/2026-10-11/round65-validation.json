@@ -1,0 +1,1327 @@
+{
+  "previous_commit": "e8d2be5",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 118,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "targeted": [
+    {
+      "name": "tests/compatibility/continue_finally_stack.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "2 [0, 1, 2, 3]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.0386251000163611,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "2 [0, 1, 2, 3]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.29254490000312217,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/nested_finally_return_duplicate.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "7 ['inner', 'live', 'outer']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03144399999291636,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "7 ['inner', 'live', 'outer']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27941819999250583,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/constant_return_cleanup_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "constant return cleanup regression passed\nsuspended constant return exception regression passed\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03257949999533594,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "constant return cleanup regression passed\nsuspended constant return exception regression passed\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3139987999747973,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/cfg_reachability_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "CFG reachability: PASS ['live', 'outer', 0, 1, 2, 3, 'generator-finally', 'resumed']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.032015400007367134,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "CFG reachability: PASS ['live', 'outer', 0, 1, 2, 3, 'generator-finally', 'resumed']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.30176670002401806,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "expanded": [
+    {
+      "name": "tests/finally_scope_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "finally scope lifetime: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.044754100003046915,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "finally scope lifetime: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3028585000138264,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "native": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "godot": {
+    "default_fixtures": 17,
+    "additional_fixtures": 35,
+    "passed": true
+  },
+  "performance": {
+    "generator_close": {
+      "before": {
+        "process_medians_ms": [
+          289.20399999999995,
+          287.23019999999997,
+          286.89035
+        ],
+        "median_ms": 287.23019999999997,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 459.1978,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  288.6769,
+                  290.6947,
+                  289.2091,
+                  289.1989,
+                  289.1146,
+                  290.1245,
+                  287.9944,
+                  289.1852,
+                  296.6479,
+                  293.6407
+                ],
+                "allocated_bytes": [
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 469.1014,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  287.8478,
+                  290.198,
+                  286.6772,
+                  286.5214,
+                  286.5982,
+                  285.5619,
+                  287.7162,
+                  286.7442,
+                  288.1776,
+                  288.2551
+                ],
+                "allocated_bytes": [
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 473.7233,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  285.4619,
+                  286.3305,
+                  293.9762,
+                  286.7541,
+                  286.8777,
+                  286.903,
+                  285.9117,
+                  288.2938,
+                  287.0834,
+                  287.6463
+                ],
+                "allocated_bytes": [
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          286.55174999999997,
+          287.96320000000003,
+          286.874
+        ],
+        "median_ms": 286.874,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 461.8898,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  290.4077,
+                  285.7815,
+                  287.8233,
+                  287.6437,
+                  285.176,
+                  286.5106,
+                  285.7158,
+                  289.1999,
+                  286.5929,
+                  285.1161
+                ],
+                "allocated_bytes": [
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 464.5337,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  288.102,
+                  289.406,
+                  288.4662,
+                  288.3147,
+                  292.9539,
+                  286.7949,
+                  287.1935,
+                  286.599,
+                  287.8244,
+                  287.5476
+                ],
+                "allocated_bytes": [
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 462.0051,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  290.5178,
+                  288.815,
+                  287.2474,
+                  286.7012,
+                  286.7852,
+                  286.4202,
+                  285.0053,
+                  285.4724,
+                  287.9331,
+                  286.9628
+                ],
+                "allocated_bytes": [
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256,
+                  27361256
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generator_iteration": {
+      "before": {
+        "process_medians_ms": [
+          60.455600000000004,
+          60.89605,
+          60.429
+        ],
+        "median_ms": 60.455600000000004,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 463.7999,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  59.4922,
+                  60.717,
+                  61.3272,
+                  58.959,
+                  60.7636,
+                  60.5437,
+                  59.1324,
+                  60.3675,
+                  58.9881,
+                  60.9048
+                ],
+                "allocated_bytes": [
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 478.4408,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  61.3349,
+                  60.3801,
+                  61.0409,
+                  61.1061,
+                  59.4954,
+                  60.7512,
+                  61.4017,
+                  58.9578,
+                  61.5267,
+                  60.6434
+                ],
+                "allocated_bytes": [
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 464.1436,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  60.9338,
+                  59.5286,
+                  60.8862,
+                  60.7832,
+                  58.9587,
+                  60.5165,
+                  60.3415,
+                  59.556,
+                  61.0738,
+                  59.9333
+                ],
+                "allocated_bytes": [
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          60.876,
+          61.17695,
+          61.1456
+        ],
+        "median_ms": 61.1456,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 465.9462,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  61.6003,
+                  60.092,
+                  60.9216,
+                  60.8304,
+                  59.0333,
+                  61.4511,
+                  61.1929,
+                  60.5459,
+                  62.0056,
+                  60.6834
+                ],
+                "allocated_bytes": [
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 461.5956,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  60.7406,
+                  61.7543,
+                  61.9357,
+                  60.4048,
+                  62.0619,
+                  61.193,
+                  60.0145,
+                  61.3208,
+                  59.8294,
+                  61.1609
+                ],
+                "allocated_bytes": [
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 462.2953,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  61.0306,
+                  59.6336,
+                  61.0541,
+                  60.3237,
+                  61.5531,
+                  61.4015,
+                  60.0997,
+                  61.2371,
+                  61.2552,
+                  62.2047
+                ],
+                "allocated_bytes": [
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424,
+                  6242424
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "exception_table_comparison": {
+    "matching": false,
+    "bounds_and_offsets_valid": true,
+    "differences": [
+      {
+        "path": "<module>/return_cleanup_error",
+        "field": "protected_raise",
+        "cpython": true,
+        "sharppy": false
+      },
+      {
+        "path": "<module>/suspended",
+        "field": "protected_yields",
+        "cpython": [
+          {
+            "depth": 0,
+            "lasti": true
+          },
+          {
+            "depth": 1,
+            "lasti": true
+          }
+        ],
+        "sharppy": [
+          {
+            "depth": 0,
+            "lasti": true
+          },
+          {
+            "depth": 0,
+            "lasti": true
+          }
+        ]
+      }
+    ],
+    "before_inspection": "Failed: baseline harness exited 3762504530; no baseline table report produced"
+  },
+  "next_known_difference": [
+    {
+      "name": "tests/compatibility/unbound_fast_local.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.029107199981808662,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "NameError local variable 'value' referenced before assignment\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.27113740000640973,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ]
+}
