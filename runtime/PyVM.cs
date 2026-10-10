@@ -3660,23 +3660,20 @@ namespace SharpPy
                         #endif
                     }
 
-                    // Debug: Check what instruction will be executed at target
+                    #if DEBUG_LOG
+                    // Diagnostic inspection must not allocate on every loop back edge.
                     if (targetInstrPos >= 0 && targetInstrPos < frame.Code.Instructions.Count)
                     {
                         var targetInstruction = frame.Code.Instructions[targetInstrPos];
-                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Target instruction at {targetInstrPos}: {targetInstruction.OpCode} (arg: {targetInstruction.Argument})");
-                        #endif
 
                         // Verify this is a valid loop target (FOR_ITER for loops, various opcodes for WHILE loops)
-                        var invalidTargets = new[] { ByteCodeOp.RETURN_VALUE, ByteCodeOp.RETURN_CONST, ByteCodeOp.RAISE_VARARGS };
-                        if (invalidTargets.Contains(targetInstruction.OpCode))
+                        if (targetInstruction.OpCode is ByteCodeOp.RETURN_VALUE or ByteCodeOp.RETURN_CONST or ByteCodeOp.RAISE_VARARGS)
                         {
-                            #if DEBUG_LOG
                             Console.WriteLine($"⚠️ Warning: JUMP_BACKWARD targeting potentially invalid instruction {targetInstruction.OpCode}");
-                            #endif
                         }
                     }
+                    #endif
 
                     // CPython 3.12 호환: 점프 후 main loop가 ++하므로 -1 필요
                     // 하지만 FOR_ITER같은 경우는 target이 정확해야 함

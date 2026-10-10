@@ -112,6 +112,7 @@ def main():
             "tests/range_bigint_regression.py",
             "tests/range_slice_step_regression.py",
             "tests/instruction_offsets_regression.py",
+            "tests/generator_wide_jump_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",

@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[47차 결과](reports/2026-10-10/jump_backward_allocation_analysis.md): 45·46차를 826f64e로 커밋했다. 일반 JUMP_BACKWARD 계산은 이미 상수 시간이었지만 Release에 디버그용 배열 생성이 남아 있었다. 이를 제거해 루프 back edge당 40B 할당을 없앴다. 전체 92개 평가와 Godot 기존 17개·신규 큰 generator 회귀 통과. 다음은 실행 instruction 표현의 크기와 복사 비용 측정이다.
+
 [46차 결과](reports/2026-10-10/instruction_offset_analysis.md): VM 구조 검증으로 우선순위를 옮겼다. 큰 함수의 jump/CACHE/EXTENDED_ARG/예외 동작은 CPython과 일치했고, 핸들러 byte offset→instruction index의 불필요한 선형 순회를 상수 시간 계산으로 줄였다. 전체 91개 평가 및 Godot 소스 빌드·신규 회귀 통과. 다음은 별도 점프 변환 호출 경로와 더 큰 jump/generator 경계 검증이다.
 
 [45차 조사](reports/2026-10-10/range_constructor_analysis.md): 44차는 688d46e로 커밋했다. range 생성 최적화 후보들은 성능 효과가 작거나 다른 경로가 느려져 제외했다. 런타임 소스 변경 없이 인수 개수·bool·큰 정수 성능 측정과 변환 실패 순서 회귀를 보강했다. 수정 fixture의 실제 CPython 비교 및 Godot 소스 빌드·실행 통과. 생성 비용은 미해결이며 후속 JIT 분석이 필요하다.
