@@ -4979,9 +4979,9 @@ namespace SharpPy
                     {
                         _freeVars.Add(name);
                     }
-                    // CPython 3.12: Free vars come after varnames in localsplus
+                    // Emit cell/free index; FixCellOffsets resolves the final localsplus offset.
                     var freeIndex = _freeVars.IndexOf(name);
-                    var derefIndex = _varNames.Count + freeIndex;
+                    var derefIndex = _cellVars.Count + freeIndex;
                     EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                     #if DEBUG_LOG
                     Console.WriteLine($"    → STORE_DEREF for nonlocal var: {name} (freeIndex {freeIndex}, derefIndex {derefIndex})");
@@ -5005,11 +5005,11 @@ namespace SharpPy
                 }
 
                 // 자유 변수 처리 (Phase 2)
-                // CPython 3.12: Free vars come after varnames in localsplus
+                // Emit cell/free index; FixCellOffsets resolves the final localsplus offset.
                 if (_freeVars.Contains(name))
                 {
                     var freeIndex = _freeVars.IndexOf(name);
-                    var derefIndex = _varNames.Count + freeIndex;
+                    var derefIndex = _cellVars.Count + freeIndex;
                     EmitInstruction(ByteCodeOp.STORE_DEREF, derefIndex);
                     #if DEBUG_LOG
                     Console.WriteLine($"    → STORE_DEREF for free var: {name} (freeIndex {freeIndex}, derefIndex {derefIndex})");
@@ -5062,7 +5062,7 @@ namespace SharpPy
                     var freeIndex = _freeVars.IndexOf(name);
                     if (freeIndex >= 0)
                     {
-                        EmitInstruction(ByteCodeOp.DELETE_DEREF, freeIndex);
+                        EmitInstruction(ByteCodeOp.DELETE_DEREF, _cellVars.Count + freeIndex);
                         #if DEBUG_LOG
                         Console.WriteLine($"    → DELETE_DEREF for nonlocal var: {name} (free index {freeIndex})");
                         #endif
@@ -5079,7 +5079,7 @@ namespace SharpPy
                 }
 
                 // 지역 변수: DELETE_FAST 사용
-                var varIndex = _varNames.IndexOf(name);
+                var varIndex = GetOrAddVarName(name);
                 if (varIndex >= 0)
                 {
                     EmitInstruction(ByteCodeOp.DELETE_FAST, varIndex);

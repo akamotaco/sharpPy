@@ -449,7 +449,7 @@ namespace SharpPy
                     // Analyze all delete targets
                     foreach (var target in deleteStmt.Targets)
                     {
-                        AnalyzeExpression(target);
+                        AnalyzeAssignmentTarget(target);
                     }
                     break;
 

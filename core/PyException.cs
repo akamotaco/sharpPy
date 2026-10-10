@@ -308,13 +308,36 @@ namespace SharpPy
 
     public class PyNameError : PyException
     {
+        private PyObject _name = PyNone.Instance;
         public PyNameError(string message) : base(message) { }
+
+        public override PyObject GetAttribute(string name) =>
+            name == "name" ? _name : base.GetAttribute(name);
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "name") _name = value;
+            else base.SetAttribute(name, value);
+        }
+
+        public override void DelAttribute(string name)
+        {
+            if (name == "name") _name = PyNone.Instance;
+            else base.DelAttribute(name);
+        }
+
         public override PyType GetPyType() => PyType.NameErrorType;
         public override string GetTypeName() => "NameError";
 
         public new static System.Exception Create(string message)
         {
             var pyException = new PyNameError(message);
+            return new PythonException(pyException);
+        }
+        public static System.Exception Create(string message, string name)
+        {
+            var pyException = new PyNameError(message);
+            pyException.SetAttribute("name", new PyString(name));
             return new PythonException(pyException);
         }
     }

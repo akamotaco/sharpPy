@@ -1,0 +1,1201 @@
+{
+  "previous_commit": "206930d",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 120,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "expanded_final": [
+    {
+      "name": "tests/unbound_variable_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndeleted-local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-missing UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-only-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nlocal-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nparameter-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-cell-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nfree-read NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-delete NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-deleted NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nmixed-store-delete UnboundLocalError cannot access local variable 'alpha' where it is not associated with a value None\nexcept-target UnboundLocalError cannot access local variable 'error' where it is not associated with a value None\ncomprehension-restore UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nunbound variable regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.044741999998223037,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndeleted-local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-missing UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-only-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nlocal-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nparameter-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-cell-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nfree-read NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-delete NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-deleted NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nmixed-store-delete UnboundLocalError cannot access local variable 'alpha' where it is not associated with a value None\nexcept-target UnboundLocalError cannot access local variable 'error' where it is not associated with a value None\ncomprehension-restore UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nunbound variable regression: PASS\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2946419999934733,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "native": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "godot": {
+    "default_fixtures": 17,
+    "additional_fixtures": 37,
+    "passed": true
+  },
+  "performance": {
+    "closure_access": {
+      "before": {
+        "process_medians_ms": [
+          12.311,
+          12.260750000000002,
+          12.38795
+        ],
+        "median_ms": 12.311,
+        "allocated_bytes": [
+          8963928.0,
+          8963928.0,
+          8963928.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 398.6531,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.4909,
+                  12.4008,
+                  12.4543,
+                  12.3677,
+                  12.4561,
+                  12.0764,
+                  12.2543,
+                  12.0297,
+                  12.1125,
+                  11.9086
+                ],
+                "allocated_bytes": [
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 405.188,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  11.7479,
+                  12.1229,
+                  12.2075,
+                  12.426,
+                  12.5773,
+                  12.2856,
+                  12.5635,
+                  12.2359,
+                  12.3147,
+                  12.064
+                ],
+                "allocated_bytes": [
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 403.0991,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.4562,
+                  12.8253,
+                  12.6467,
+                  12.4524,
+                  12.5034,
+                  12.1783,
+                  12.3235,
+                  12.1556,
+                  12.2509,
+                  12.1176
+                ],
+                "allocated_bytes": [
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928,
+                  8963928
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          9.9158,
+          9.887550000000001,
+          9.4725
+        ],
+        "median_ms": 9.887550000000001,
+        "allocated_bytes": [
+          7763752.0,
+          7763752.0,
+          7763752.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 398.2445,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  11.7887,
+                  10.3615,
+                  10.0376,
+                  9.8317,
+                  9.8941,
+                  9.7046,
+                  9.8782,
+                  9.9984,
+                  9.767,
+                  9.9375
+                ],
+                "allocated_bytes": [
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 397.8339,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.6636,
+                  9.2559,
+                  9.4894,
+                  9.4044,
+                  9.6465,
+                  10.2429,
+                  10.1115,
+                  10.1451,
+                  10.3432,
+                  10.3764
+                ],
+                "allocated_bytes": [
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 393.7001,
+            "results": [
+              {
+                "name": "closure_access",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.4364,
+                  9.5695,
+                  9.8828,
+                  9.3696,
+                  9.751,
+                  9.3529,
+                  9.4488,
+                  9.4962,
+                  9.3812,
+                  9.5076
+                ],
+                "allocated_bytes": [
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752,
+                  7763752
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "nonlocal_update": {
+      "before": {
+        "process_medians_ms": [
+          15.131250000000001,
+          15.550049999999999,
+          15.6145
+        ],
+        "median_ms": 15.550049999999999,
+        "allocated_bytes": [
+          9123976.0,
+          9123976.0,
+          9123976.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 396.0678,
+            "results": [
+              {
+                "name": "nonlocal_update",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.352,
+                  14.973,
+                  15.3158,
+                  15.0616,
+                  15.2009,
+                  14.7655,
+                  14.6612,
+                  15.0266,
+                  15.3075,
+                  15.5894
+                ],
+                "allocated_bytes": [
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 398.6779,
+            "results": [
+              {
+                "name": "nonlocal_update",
+                "expected": 49995000,
+                "milliseconds": [
+                  14.9076,
+                  14.9284,
+                  15.5557,
+                  15.5444,
+                  15.7799,
+                  15.5978,
+                  15.6213,
+                  15.4245,
+                  15.6217,
+                  15.4598
+                ],
+                "allocated_bytes": [
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 404.0432,
+            "results": [
+              {
+                "name": "nonlocal_update",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.7159,
+                  15.6553,
+                  15.8481,
+                  15.4008,
+                  15.6146,
+                  15.4466,
+                  15.7417,
+                  14.7869,
+                  15.6144,
+                  14.9624
+                ],
+                "allocated_bytes": [
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976,
+                  9123976
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "process_medians_ms": [
+          12.77265,
+          12.648499999999999,
+          12.5917
+        ],
+        "median_ms": 12.648499999999999,
+        "allocated_bytes": [
+          8163800.0,
+          8163800.0,
+          8163800.0
+        ],
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 401.5138,
+            "results": [
+              {
+                "name": "nonlocal_update",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.654,
+                  12.8511,
+                  12.9835,
+                  13.4448,
+                  13.1124,
+                  12.7971,
+                  12.7482,
+                  12.5873,
+                  12.6815,
+                  12.611
+                ],
+                "allocated_bytes": [
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 389.7134,
+            "results": [
+              {
+                "name": "nonlocal_update",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.9786,
+                  12.9991,
+                  12.8814,
+                  12.6062,
+                  12.8953,
+                  12.3987,
+                  12.3626,
+                  12.3012,
+                  12.578,
+                  12.6908
+                ],
+                "allocated_bytes": [
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 391.7407,
+            "results": [
+              {
+                "name": "nonlocal_update",
+                "expected": 49995000,
+                "milliseconds": [
+                  12.6321,
+                  12.5513,
+                  12.3907,
+                  12.1027,
+                  12.4357,
+                  12.2881,
+                  12.9246,
+                  12.7755,
+                  13.2102,
+                  12.7343
+                ],
+                "allocated_bytes": [
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800,
+                  8163800
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

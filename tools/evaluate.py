@@ -135,6 +135,8 @@ def main():
             "tests/constant_return_cleanup_regression.py",
             "tests/cfg_reachability_regression.py",
             "tests/finally_scope_regression.py",
+            "tests/unbound_variable_regression.py",
+            "tests/compatibility/unbound_fast_local.py",
             "tests/compatibility/continue_finally_stack.py",
             "tests/compatibility/nested_finally_return_duplicate.py",
             "tests/compatibility/super_captured_first_argument.py",
