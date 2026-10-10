@@ -768,8 +768,10 @@ namespace SharpPy
         /// </summary>
         public bool IsGenerator()
         {
-            return Instructions.Any(inst => 
-                inst.OpCode == ByteCodeOp.YIELD_VALUE); // CPython 3.12: YIELD_FROM removed
+            // Determined by scope analysis, even when every yield is unreachable.
+            // Legacy async/lambda compilation still detects yielding code here.
+            return (Flags & CO_GENERATOR) != 0 ||
+                Instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
         }
         
         /// <summary>

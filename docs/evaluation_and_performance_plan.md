@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[64차 결과](reports/2026-10-11/cfg_reachability_analysis.md): 63차를 `faa5daa`로 커밋했다. CFG의 실제 edge를 따라 도달 불가 명령을 제거하고 generator 플래그를 우선 확인한다. 기본 120개·Godot 소스 통합 49개와 CFG native probe 통과. generator 반복은 측정 시간 약 4.5%, 할당 720,144 B 감소했고 cleanup workload 할당은 동일하다. async/lambda 검색 fallback은 남는다. 기존 continue/finally 스택 오류와 nested finally 중복 실행을 별도 재현으로 보존했으며, 다음은 unwind frame 수명 조사다.
 [63차 결과](reports/2026-10-11/constant_return_optimization.md): 62차를 `9520ba0`로 커밋했다. bytecode 완전 일치가 아닌 결과 보존과 비용 감소를 기준으로, 상수 반환의 여분 적재·cleanup 보존 및 generator의 중복 종료 명령을 제거했다. 기본 119개·Godot 소스 통합 47개 통과. 두 반환 workload의 시간 약 3.9%/6.4% 감소, 할당 동일. 예외 테이블 구조 비교 불일치는 실행 회귀와 구분해 기록했다. 다음은 CFG terminator 판정과 도달 불가 명령 조사다.
 
 [62차 결과](reports/2026-10-11/super_frame_and_bytecode_analysis.md): 61차를 `a5c5fb2`로 커밋했다. super의 frame cell 인덱스·캡처된 첫 인자·오류 순서를 맞춰 기본 118개·Godot 소스 통합 46개를 통과했다. bytecode 직접 비교에서 공개 opcode 129개 번호는 일치하지만 BINARY_OP 인자 12개와 일부 명령 배치·stack 동작이 다름을 확인했다. 다음은 상수 반환·generator 종료의 중복 명령 제거 검토다. 성능 workload의 할당은 동일하며 유의한 시간 개선은 주장하지 않는다.

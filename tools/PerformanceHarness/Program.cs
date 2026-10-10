@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--cfg-reachability-check")
+{
+    Console.WriteLine(JsonSerializer.Serialize(CfgReachabilityProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--bytecode-inspect")
 {
     Console.WriteLine(JsonSerializer.Serialize(BytecodeInspection.Inspect(args[1])));

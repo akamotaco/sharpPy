@@ -548,26 +548,30 @@ namespace SharpPy
                 block.Predecessors = 0;
             }
 
-            // Entry block always has 1 predecessor (the caller)
-            if (EntryBlock != null)
+            // Next is layout order, not an unconditional execution edge. Only
+            // traverse edges from reachable blocks, so dead cycles stay dead.
+            var pending = new Stack<BasicBlock>();
+            void Visit(BasicBlock? target)
             {
-                EntryBlock.Predecessors = 1;
+                if (target != null && target.Predecessors++ == 0)
+                    pending.Push(target);
             }
 
-            // Count predecessors based on control flow
-            for (BasicBlock? b = EntryBlock; b != null; b = b.Next)
+            Visit(EntryBlock);
+            while (pending.Count > 0)
             {
-                // Fallthrough to next block
-                if (b.Next != null)
+                var block = pending.Pop();
+                foreach (var instruction in block.Instructions)
                 {
-                    b.Next.Predecessors++;
+                    Visit(instruction.TargetBlock);
+                    // SETUP_* has already been removed. Its handler edges are
+                    // carried by protected instructions, including YIELD_VALUE.
+                    Visit(instruction.ExceptBlock);
                 }
 
-                // Jump successors
-                foreach (var successor in b.Successors)
-                {
-                    successor.Predecessors++;
-                }
+                if (block.Instructions.Count == 0 ||
+                    !PyFlowGraph.IsUnconditionalJump(block.Instructions[block.Instructions.Count - 1].OpCode))
+                    Visit(block.Next);
             }
 
 #if DEBUG_COMPILER_LOG

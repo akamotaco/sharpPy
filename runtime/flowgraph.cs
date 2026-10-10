@@ -31,12 +31,9 @@ namespace SharpPy
             var blockStarts = FindBlockBoundaries(instrSeq);
 
             // Phase 3: Create basic blocks from instruction ranges
-            var indexToBlock = CreateBasicBlocks(cfg, instrSeq, blockStarts, labelToOffset);
+            CreateBasicBlocks(cfg, instrSeq, blockStarts, labelToOffset);
 
-            // Phase 4: Link blocks together (set successors and next)
-            LinkBlocks(cfg, instrSeq, indexToBlock);
-
-            // Phase 5: Link ALL blocks via Next in AllBlocks order (creation order)
+            // Phase 4: Link ALL blocks via Next in AllBlocks order (creation order)
             // CPython: Python/flowgraph.c:243 - g->g_curblock->b_next = block
             // AllBlocks contains blocks in the order they were created (= InstructionSequence order after sorting)
 #if DEBUG_LOG
@@ -54,11 +51,13 @@ namespace SharpPy
 #endif
             }
 
+            LinkBlocks(cfg);
+
             // NOTE: Exception handler propagation is already done in CreateBasicBlocks (Phase 3)
             // during instruction processing. No need for a separate phase.
             // CPython's label_exception_targets() happens during CFG build, not after.
 
-            // Phase 6: Calculate predecessors and eliminate unreachable code
+            // Phase 5: Calculate predecessors and eliminate unreachable code
             // CPython 3.12: Python/flowgraph.c:1600-1610
             cfg.CalculatePredecessors();
             cfg.EliminateUnreachableCode();
@@ -593,16 +592,12 @@ namespace SharpPy
         // ExceptBlock (BasicBlock reference) is set directly during CFG building
 
         /// <summary>
-        /// Link blocks together: set successors and next pointers
-        /// Also resolve jump targets from instruction indices to actual block references
+        /// Populate normal successors using resolved block references.
         /// </summary>
-        private static void LinkBlocks(
-            ControlFlowGraph cfg,
-            InstructionSequence instrSeq,
-            Dictionary<int, BasicBlock> indexToBlock)
+        private static void LinkBlocks(ControlFlowGraph cfg)
         {
             // For each block, link to successors
-            // NOTE: block.Next is already set globally in CreateBasicBlocks() for ALL blocks
+            // Next has already been linked in layout order by Build().
             // Here we only set Successors (control flow targets), not Next (iteration order)
             for (int i = 0; i < cfg.AllBlocks.Count; i++)
             {
@@ -619,8 +614,7 @@ namespace SharpPy
                 // Set jump successors
                 if (IsJumpInstruction(lastInstr.OpCode))
                 {
-                    int targetIndex = lastInstr.Argument;
-                    if (indexToBlock.TryGetValue(targetIndex, out var targetBlock))
+                    if (lastInstr.TargetBlock is BasicBlock targetBlock)
                     {
                         block.Successors.Add(targetBlock);
                     }
@@ -655,15 +649,20 @@ namespace SharpPy
                    op == ByteCodeOp.POP_JUMP_IF_TRUE ||
                    op == ByteCodeOp.POP_JUMP_IF_NONE ||
                    op == ByteCodeOp.POP_JUMP_IF_NOT_NONE ||
-                   op == ByteCodeOp.FOR_ITER;
+                   op == ByteCodeOp.FOR_ITER ||
+                   op == ByteCodeOp.SEND;
         }
 
-        private static bool IsUnconditionalJump(ByteCodeOp op)
+        internal static bool IsUnconditionalJump(ByteCodeOp op)
         {
-            return op == ByteCodeOp.JUMP_FORWARD ||
+            return op == ByteCodeOp.JUMP ||
+                   op == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                   op == ByteCodeOp.JUMP_FORWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
                    op == ByteCodeOp.RETURN_VALUE ||
+                   op == ByteCodeOp.RETURN_CONST ||
+                   op == ByteCodeOp.RERAISE ||
                    op == ByteCodeOp.RAISE_VARARGS;  // CPython: RAISE_VARARGS never returns
         }
 
