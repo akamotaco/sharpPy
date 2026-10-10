@@ -706,6 +706,16 @@ namespace SharpPy
                     }
                 }
 
+                // The exception metadata above is the last consumer of CFG
+                // references. Clear only the emitted copy so the code object
+                // does not keep the compiler's block graph alive.
+                if (instr.TargetBlock != null || instr.ExceptBlock != null)
+                {
+                    instr.TargetBlock = null;
+                    instr.ExceptBlock = null;
+                    instructions[i] = instr;
+                }
+
                 // This is the final expanded array, not CFG instructions.
                 // CACHE/EXTENDED_ARG entries are counted by their own iterations.
                 currentByteOffset += PyCodeObject.INSTRUCTION_WORD_SIZE;

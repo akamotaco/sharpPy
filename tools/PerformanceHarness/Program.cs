@@ -3,6 +3,13 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--cfg-retention-inspect")
+{
+    Console.WriteLine(JsonSerializer.Serialize(CfgRetentionInspection.Inspect(args[1],
+        args.Length > 2 && args[2] == "--require-detached")));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--instruction-offset-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(InstructionOffsetProbe.Run()));
