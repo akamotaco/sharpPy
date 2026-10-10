@@ -108,6 +108,10 @@ namespace SharpPy
         public bool IsGenerator { get; set; }
         public bool IsCoroutine { get; set; }
 
+        // Separate from the class namespace: methods capture the defining class,
+        // even when the class body assigns an attribute named __class__.
+        internal Symbol ImplicitClassCell { get; set; }
+
         /// <summary>
         /// CPython 3.12: ste_comprehension - comprehension type for PEP 709 inlining
         /// </summary>
@@ -937,6 +941,15 @@ namespace SharpPy
                     break;  // Stop searching, will be marked as GLOBAL
                 }
 
+                if (parent.Type == SymbolTableType.Class && name == "__class__")
+                {
+                    return parent.ImplicitClassCell ??= new Symbol(name)
+                    {
+                        Scope = SymbolScope.Cell,
+                        Flags = SymbolFlags.Assigned
+                    };
+                }
+
                 if (parent.GetSymbols().TryGetValue(name, out var symbol))
                 {
 #if DEBUG_COMPILER_LOG
@@ -1196,6 +1209,9 @@ namespace SharpPy
                     var childFreeVars = child.FindFreeVariables();
                     foreach (var freeVar in childFreeVars)
                     {
+                        if (table.Type == SymbolTableType.Class && freeVar == "__class__" &&
+                            table.ImplicitClassCell != null) continue;
+
                         // Check if this variable is LOCAL in the current (parent) scope
                         var parentSymbol = table.Lookup(freeVar);
                         if (parentSymbol == null || (parentSymbol.Scope != SymbolScope.Local && parentSymbol.Scope != SymbolScope.Cell))
@@ -1268,6 +1284,9 @@ namespace SharpPy
                     Console.WriteLine($"      {kvp.Key}: Scope={kvp.Value.Scope}, Flags={kvp.Value.Flags}");
                 }
 #endif
+
+                // Class namespace bindings are not cells for methods.
+                if (table.Type == SymbolTableType.Class) return;
 
                 foreach (var child in table.GetChildren())
                 {
@@ -1389,6 +1408,9 @@ namespace SharpPy
 
                 foreach (var freeVar in childFreeVars)
                 {
+                    if (parent.Type == SymbolTableType.Class && freeVar == "__class__" &&
+                        parent.ImplicitClassCell != null) continue;
+
                     // Check if parent has this variable
                     var parentSymbol = parent.Lookup(freeVar);
                     if (parentSymbol == null)
@@ -2077,24 +2099,6 @@ namespace SharpPy
 
             // CPython 3.12: Push onto scope stack (symtable.c:331)
             _scopeStack.Push(_currentTable);
-
-            // CPython 3.12: If class body or any method contains super() calls,
-            // add __class__ as an implicit CELL variable in the class scope BEFORE analyzing methods.
-            // This ensures that when methods' ResolveFreeVariables runs, it can find __class__ in parent.
-            // Python/symtable.c: symtable_add_def_helper() with DEF_CELL flag
-            if (PythonCompiler.ContainsSuperCalls(cls.Body))
-            {
-                // Define __class__ as CELL in class scope
-                _currentTable.DefineSymbol("__class__", SymbolFlags.Assigned);
-                var symbols = _currentTable.GetSymbols();
-                if (symbols.TryGetValue("__class__", out var classSymbol))
-                {
-                    classSymbol.Scope = SymbolScope.Cell;
-#if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"  ✅ Pre-added __class__ as CELL in class scope '{cls.Name}' due to super() calls");
-#endif
-                }
-            }
 
             // Analyze class body
             foreach (var stmt in cls.Body)

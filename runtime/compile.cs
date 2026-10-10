@@ -4951,6 +4951,17 @@ namespace SharpPy
 
         private void EmitStoreName(string name)
         {
+            if (_isInClassBody)
+            {
+                var symbol = _currentSymbolTable?.Lookup(name);
+                if (symbol?.Scope == SymbolScope.Free)
+                    EmitStoreDeref(name);
+                else
+                    EmitInstruction(symbol?.IsGlobal() == true ? ByteCodeOp.STORE_GLOBAL : ByteCodeOp.STORE_NAME,
+                        AddName(name));
+                return;
+            }
+
             // 함수 내부에서는 지역변수로 등록하고 STORE_FAST 사용
             if (_isInFunction)
             {
@@ -6637,21 +6648,12 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.COPY_FREE_VARS, _freeVars.Count);
             }
 
-            // Check if class body contains super() calls and add __class__ cell variable if needed
-            if (ContainsSuperCalls(body))
+            // The symbol analysis requests this cell for a nested __class__
+            // reference (including the implicit reference used by super()).
+            if (classSymbolTable?.ImplicitClassCell != null)
             {
-                #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔍 Detected super() calls in class {className}, adding __class__ cell variable");
-                #endif
                 _cellVars.Add("__class__");
-
-                // Generate MAKE_CELL instruction for __class__ cell variable
-                // CPython 3.12: __class__ cell variable uses index 0 (first cellVar)
-                var cellVarIndex = 0; // __class__ is always the first (index 0) cell variable
-                #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔧 Generating MAKE_CELL for __class__ at cell index {cellVarIndex}");
-                #endif
-                EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
+                EmitInstruction(ByteCodeOp.MAKE_CELL, 0);
             }
 
             // CPython 3.12: RESUME instruction after COPY_FREE_VARS and MAKE_CELL

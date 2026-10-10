@@ -129,6 +129,8 @@ def main():
             "tests/generator_send_protocol_regression.py",
             "tests/iter_protocol_regression.py",
             "tests/metaclass_iterator_protocol_regression.py",
+            "tests/class_lexical_closure_regression.py",
+            "tests/compatibility/metaclass_bound_method_closure.py",
             "tests/compatibility/metaclass_invalid_iterator.py",
             "tests/sequence_iterator_protocol_regression.py",
             "tests/compatibility/generator_invalid_iterator.py",

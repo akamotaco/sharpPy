@@ -514,61 +514,8 @@ public partial class PyFunction : PyObject, IDescriptor
             return this; // unbound function
         }
             
-        // CPython 3.12: Handle __class__ cell dynamic binding for metaclass methods
-        // Optimized: Use cached HasClassCell instead of FreeVars.Contains("__class__")
-        if (instance is PyClass metaclassInstance && CodeObject?.HasClassCell == true)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 CPython 3.12: Metaclass method binding detected");
-            Console.WriteLine($"   Method: {Name}");
-            Console.WriteLine($"   Binding to metaclass: {metaclassInstance}");
-            #endif
-
-            // Create a copy of this function with adjusted __class__ cell for the target metaclass
-            if (Closure != null && Closure.Length > 0)
-            {
-                var adjustedClosure = new PyCell[Closure.Length];
-                Array.Copy(Closure, adjustedClosure, Closure.Length);
-
-                // Optimized: Use cached ClassCellIndex instead of FreeVars.IndexOf("__class__")
-                var classIndex = CodeObject.ClassCellIndex;
-                // Note: ClassCellIndex is combined index (CellVars.Count + freeIndex)
-                // For closure array, we need the index relative to FreeVars
-                var closureIndex = classIndex - CodeObject.CellVars.Count;
-                if (closureIndex >= 0 && closureIndex < adjustedClosure.Length)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   Original __class__ cell: {adjustedClosure[closureIndex]?.Value}");
-                    #endif
-                    adjustedClosure[closureIndex] = new PyCell(metaclassInstance);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ Updated __class__ cell[{closureIndex}] to {metaclassInstance}");
-                    #endif
-                    
-                    // Create a new function with the adjusted closure
-                    var adjustedFunction = new PyFunction(Name, Implementation, DefiningModule, TypeParams, adjustedClosure, CodeObject);
-                    // CPython 3.12: Preserve GlobalsDict and ParentScope
-                    adjustedFunction.GlobalsDict = this.GlobalsDict;
-                    adjustedFunction.ParentScope = this.ParentScope;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   🔧 Preserved GlobalsDict and ParentScope:");
-                    Console.WriteLine($"      GlobalsDict: {(this.GlobalsDict == null ? "null" : $"{this.GlobalsDict.Count} items")}");
-                    Console.WriteLine($"      ParentScope: {(this.ParentScope == null ? "null" : this.ParentScope.GlobalScope?.Name ?? "no global")}");
-                    #endif
-
-                    var boundMethod = new PyMethod(instance, adjustedFunction);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning bound method with adjusted __class__ cell");
-                    #endif
-                    return boundMethod; // bound method with correct __class__
-                }
-            }
-            #if DEBUG_LOG
-            Console.WriteLine($"   ⚠️  Could not adjust __class__ cell (no closure or invalid index)");
-            #endif
-        }
-        
+        // A method retains its function and lexical closure when bound.
+        // Objects/funcobject.c: func_descr_get returns PyMethod_New(func, obj).
         var normalBoundMethod = new PyMethod(instance, this);
         #if DEBUG_LOG
         Console.WriteLine($"   → returning normal bound method");
