@@ -70,6 +70,7 @@ namespace SharpPy.Modules
 
             // Exception types (most important for enum module)
             module.ModuleDict["BaseException"] = PyType.BaseExceptionType;
+            module.ModuleDict["GeneratorExit"] = PyType.GeneratorExitType;
             module.ModuleDict["Exception"] = PyType.ExceptionType;
             module.ModuleDict["StopIteration"] = PyType.StopIterationType;
             module.ModuleDict["TypeError"] = PyType.TypeErrorType;

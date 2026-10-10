@@ -106,6 +106,8 @@ namespace SharpPy
             #if DEBUG_GENERATOR_LOG
             Console.WriteLine($"🔄 PyGenerator.Next() called, _finished: {_finished}, _started: {_started}");
             #endif
+            if (_frame.State == PyFrame.FrameState.Executing)
+                throw PyValueError.Create("generator already executing");
             if (_finished)
                 throw PyStopIteration.Create();
 
@@ -129,6 +131,7 @@ namespace SharpPy
                 // Fall through to execute the frame - VM will pick up the pending exception
             }
 
+            _frame.State = PyFrame.FrameState.Executing;
             try
             {
                 if (!_started)
@@ -248,6 +251,10 @@ namespace SharpPy
                 _finished = true;
                 throw;
             }
+            finally
+            {
+                _frame.State = _finished ? PyFrame.FrameState.Completed : PyFrame.FrameState.Suspended;
+            }
         }
 
         /// <summary>
@@ -330,6 +337,8 @@ namespace SharpPy
                 thrownException.PyException.__traceback__ = tb;
             }
 
+            if (_frame.State == PyFrame.FrameState.Executing)
+                throw PyValueError.Create("generator already executing");
             _thrownException = thrownException;
 
             try
@@ -397,34 +406,30 @@ namespace SharpPy
         /// </summary>
         public PyNone Close()
         {
-            if (_finished)
+            if (_frame.State == PyFrame.FrameState.Executing)
+                throw PyValueError.Create("generator already executing");
+            if (_finished || !_started)
+            {
+                _finished = true;
+                _frame.State = PyFrame.FrameState.Completed;
                 return PyNone.Instance;
+            }
 
+            // gen_close injects an argumentless GeneratorExit directly. It does
+            // not use the public throw() argument normalization path.
+            _thrownException = new PythonException(new PyGeneratorExit());
             try
             {
-                Throw(PyType.GeneratorExitType);
+                Next();
             }
-            catch (PythonException ex) when (ex.PyException is PyGeneratorExit)
+            catch (PythonException ex) when (ex.PyException is PyGeneratorExit or PyStopIteration)
             {
-                // GeneratorExit 예외가 발생하면 정상 종료
-                _finished = true;
                 return PyNone.Instance;
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // StopIteration도 정상 종료로 처리
-                _finished = true;
-                return PyNone.Instance;
-            }
-            catch (Exception)
-            {
-                // 다른 예외가 발생하면 RuntimeError로 변환
-                _finished = true;
-                throw PyRuntimeError.Create("generator ignored GeneratorExit");
             }
 
-            _finished = true;
-            return PyNone.Instance;
+            // A yielded value means the generator ignored the exit request.
+            // It remains suspended and may still be resumed or closed again.
+            throw PyRuntimeError.Create("generator ignored GeneratorExit");
         }
 
         #endregion

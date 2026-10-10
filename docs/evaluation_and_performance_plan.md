@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[55차 결과](reports/2026-10-10/generator_close_analysis.md): 54차를 `05557b7`로 커밋했다. 직접 실행 generator의 close 예외 전파·종료 거부·재진입·시작 전 종료를 맞추고 GeneratorExit builtin과 빈 args를 수정했다. 기본 102개·Godot 30개 통과. close 벤치마크 시간 약 12% 감소, 1만 회 할당 약 64만 B 감소. 일반 generator 반복 시간은 약 0.7% 증가했다. 다음은 yield from의 하위 iterator 종료 순서이며 별도 실패 fixture로 보존한다.
+
 [54차 결과](reports/2026-10-10/caller_exception_state_analysis.md): 53차를 `165ef9e`로 커밋했다. 실행 스택에서 처리 중인 예외만 조회해 callee의 bare raise와 context, sys 예외 관찰 및 generator 재개 상태를 맞췄다. 기본 100개·Godot 28개 통과. 측정 workload의 할당량은 동일하고 예외 시간 차이는 약 0.1%. 다음은 generator.close의 cleanup 예외 전파 오류이며 별도 실패 fixture로 보존한다.
 
 [53차 결과](reports/2026-10-10/handled_exception_state_analysis.md): 52차를 `d38f35f`로 커밋했다. handler 진입 전 CurrentException 덮어쓰기를 제거하고 bare raise를 RAISE_VARARGS 0으로 맞췄다. 이전 예외 복원·GeneratorExit 상태·오류 메시지를 검증해 기본 98개, Godot 26개 통과. 다음은 호출자와 피호출자 사이의 handled exception 공유이며 별도 실패 fixture로 보존한다.

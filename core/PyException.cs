@@ -50,7 +50,7 @@ namespace SharpPy
         public override PyString ToStr()
         {
             if (Args.Length == 0)
-                return new PyString("");
+                return PyString.Empty;
             if (Args.Length == 1)
                 return Args[0].ToStr();
             return new PyString($"({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
@@ -679,7 +679,9 @@ namespace SharpPy
     /// </summary>
     public class PyGeneratorExit : PyBaseException
     {
-        public PyGeneratorExit(string message = "generator exit") : base(message)
+        public PyGeneratorExit() : base(Array.Empty<PyObject>()) { }
+
+        public PyGeneratorExit(string message) : base(message)
         {
         }
 

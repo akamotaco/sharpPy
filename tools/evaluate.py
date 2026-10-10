@@ -121,6 +121,8 @@ def main():
             "tests/exception_state_regression.py",
             "tests/compatibility/exception_state_in_callee.py",
             "tests/exception_caller_state_regression.py",
+            "tests/compatibility/generator_close_exception.py",
+            "tests/generator_close_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",
