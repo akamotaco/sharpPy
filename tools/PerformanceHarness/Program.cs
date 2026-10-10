@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--bytecode-inspect")
+{
+    Console.WriteLine(JsonSerializer.Serialize(BytecodeInspection.Inspect(args[1])));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--cfg-retention-inspect")
 {
     Console.WriteLine(JsonSerializer.Serialize(CfgRetentionInspection.Inspect(args[1],
@@ -361,7 +367,7 @@ var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_
 if (args.Length > 3)
 {
     string selected = args[3];
-    if (!workloads.Contains(selected) && selected != "generator_iteration" && selected != "generator_close" && selected != "generator_delegation" && selected != "python_iterator" && selected != "iterator_acquisition" && selected != "metaclass_iteration" && selected != "classcell_binding") throw new ArgumentException($"Unknown workload: {selected}");
+    if (!workloads.Contains(selected) && selected != "generator_iteration" && selected != "generator_close" && selected != "generator_delegation" && selected != "python_iterator" && selected != "iterator_acquisition" && selected != "metaclass_iteration" && selected != "classcell_binding" && selected != "super_lookup") throw new ArgumentException($"Unknown workload: {selected}");
     workloads = new[] { selected };
 }
 long sum = (long)iterations * (iterations - 1) / 2;

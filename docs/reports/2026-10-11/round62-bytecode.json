@@ -1,0 +1,1271 @@
+{
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "reference_physical_opcodes": 129,
+  "matching_number_count": 129,
+  "missing": [],
+  "different_numbers": {},
+  "sharp_only": {
+    "UNARY_POSITIVE": 13
+  },
+  "binary_operand_count": 26,
+  "binary_operand_differences": {
+    "AND": {
+      "cpython": 1,
+      "sharppy": 11,
+      "symbol": "&"
+    },
+    "FLOOR_DIVIDE": {
+      "cpython": 2,
+      "sharppy": 4,
+      "symbol": "//"
+    },
+    "LSHIFT": {
+      "cpython": 3,
+      "sharppy": 7,
+      "symbol": "<<"
+    },
+    "MATRIX_MULTIPLY": {
+      "cpython": 4,
+      "sharppy": 12,
+      "symbol": "@"
+    },
+    "MULTIPLY": {
+      "cpython": 5,
+      "sharppy": 2,
+      "symbol": "*"
+    },
+    "MODULO": {
+      "cpython": 6,
+      "sharppy": 5,
+      "symbol": "%"
+    },
+    "OR": {
+      "cpython": 7,
+      "sharppy": 9,
+      "symbol": "|"
+    },
+    "POWER": {
+      "cpython": 8,
+      "sharppy": 6,
+      "symbol": "**"
+    },
+    "RSHIFT": {
+      "cpython": 9,
+      "sharppy": 8,
+      "symbol": ">>"
+    },
+    "SUBTRACT": {
+      "cpython": 10,
+      "sharppy": 1,
+      "symbol": "-"
+    },
+    "TRUE_DIVIDE": {
+      "cpython": 11,
+      "sharppy": 3,
+      "symbol": "/"
+    },
+    "XOR": {
+      "cpython": 12,
+      "sharppy": 10,
+      "symbol": "^"
+    }
+  },
+  "samples": [
+    {
+      "constants_normalized_equal": false,
+      "sharppy_constants": [
+        "<code:add>",
+        "<code:select>",
+        "<code:loop>",
+        "<code:protected>",
+        "<code:delegated>",
+        "None"
+      ],
+      "cpython_constants": [
+        "<code:add>",
+        "<code:select>",
+        "<code:loop>",
+        "<code:protected>",
+        "<code:delegated>",
+        "None"
+      ],
+      "name": "<module>",
+      "same_instruction_words": false,
+      "sharppy": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 1
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 2
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 2
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 3
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 3
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 4
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 4
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 5
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        }
+      ],
+      "cpython": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 1
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 2
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 2
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 3
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 3
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 4
+        },
+        {
+          "opcode": 132,
+          "name": "MAKE_FUNCTION",
+          "arg": 0
+        },
+        {
+          "opcode": 90,
+          "name": "STORE_NAME",
+          "arg": 4
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 5
+        }
+      ]
+    },
+    {
+      "constants_normalized_equal": true,
+      "sharppy_constants": [],
+      "cpython_constants": [
+        "None"
+      ],
+      "name": "<module>/add",
+      "same_instruction_words": true,
+      "sharppy": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 122,
+          "name": "BINARY_OP",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        }
+      ],
+      "cpython": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 122,
+          "name": "BINARY_OP",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        }
+      ]
+    },
+    {
+      "constants_normalized_equal": false,
+      "sharppy_constants": [
+        "1",
+        "2"
+      ],
+      "cpython_constants": [
+        "None",
+        "1",
+        "2"
+      ],
+      "name": "<module>/select",
+      "same_instruction_words": false,
+      "sharppy": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 114,
+          "name": "POP_JUMP_IF_FALSE",
+          "arg": 2
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 1
+        }
+      ],
+      "cpython": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 114,
+          "name": "POP_JUMP_IF_FALSE",
+          "arg": 1
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 2
+        }
+      ]
+    },
+    {
+      "constants_normalized_equal": true,
+      "sharppy_constants": [
+        "0"
+      ],
+      "cpython_constants": [
+        "None",
+        "0"
+      ],
+      "name": "<module>/loop",
+      "same_instruction_words": false,
+      "sharppy": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 125,
+          "name": "STORE_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 116,
+          "name": "LOAD_GLOBAL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 171,
+          "name": "CALL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 68,
+          "name": "GET_ITER",
+          "arg": 0
+        },
+        {
+          "opcode": 93,
+          "name": "FOR_ITER",
+          "arg": 7
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 125,
+          "name": "STORE_FAST",
+          "arg": 2
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 2
+        },
+        {
+          "opcode": 122,
+          "name": "BINARY_OP",
+          "arg": 13
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 125,
+          "name": "STORE_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 140,
+          "name": "JUMP_BACKWARD",
+          "arg": 9
+        },
+        {
+          "opcode": 4,
+          "name": "END_FOR",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        }
+      ],
+      "cpython": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 125,
+          "name": "STORE_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 116,
+          "name": "LOAD_GLOBAL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 171,
+          "name": "CALL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 68,
+          "name": "GET_ITER",
+          "arg": 0
+        },
+        {
+          "opcode": 93,
+          "name": "FOR_ITER",
+          "arg": 7
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 125,
+          "name": "STORE_FAST",
+          "arg": 2
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 2
+        },
+        {
+          "opcode": 122,
+          "name": "BINARY_OP",
+          "arg": 13
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 125,
+          "name": "STORE_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 140,
+          "name": "JUMP_BACKWARD",
+          "arg": 9
+        },
+        {
+          "opcode": 4,
+          "name": "END_FOR",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 1
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        }
+      ]
+    },
+    {
+      "constants_normalized_equal": false,
+      "sharppy_constants": [
+        "10",
+        "1",
+        "None"
+      ],
+      "cpython_constants": [
+        "None",
+        "10",
+        "-1"
+      ],
+      "name": "<module>/protected",
+      "same_instruction_words": false,
+      "sharppy": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 122,
+          "name": "BINARY_OP",
+          "arg": 4
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        },
+        {
+          "opcode": 110,
+          "name": "JUMP_FORWARD",
+          "arg": 20
+        },
+        {
+          "opcode": 35,
+          "name": "PUSH_EXC_INFO",
+          "arg": 0
+        },
+        {
+          "opcode": 116,
+          "name": "LOAD_GLOBAL",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 36,
+          "name": "CHECK_EXC_MATCH",
+          "arg": 0
+        },
+        {
+          "opcode": 114,
+          "name": "POP_JUMP_IF_FALSE",
+          "arg": 8
+        },
+        {
+          "opcode": 1,
+          "name": "POP_TOP",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 11,
+          "name": "UNARY_NEGATIVE",
+          "arg": 0
+        },
+        {
+          "opcode": 99,
+          "name": "SWAP",
+          "arg": 2
+        },
+        {
+          "opcode": 89,
+          "name": "POP_EXCEPT",
+          "arg": 0
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        },
+        {
+          "opcode": 89,
+          "name": "POP_EXCEPT",
+          "arg": 0
+        },
+        {
+          "opcode": 110,
+          "name": "JUMP_FORWARD",
+          "arg": 4
+        },
+        {
+          "opcode": 119,
+          "name": "RERAISE",
+          "arg": 0
+        },
+        {
+          "opcode": 120,
+          "name": "COPY",
+          "arg": 3
+        },
+        {
+          "opcode": 89,
+          "name": "POP_EXCEPT",
+          "arg": 0
+        },
+        {
+          "opcode": 119,
+          "name": "RERAISE",
+          "arg": 1
+        },
+        {
+          "opcode": 9,
+          "name": "NOP",
+          "arg": 0
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 2
+        }
+      ],
+      "cpython": [
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 9,
+          "name": "NOP",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 1
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 122,
+          "name": "BINARY_OP",
+          "arg": 2
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        },
+        {
+          "opcode": 35,
+          "name": "PUSH_EXC_INFO",
+          "arg": 0
+        },
+        {
+          "opcode": 116,
+          "name": "LOAD_GLOBAL",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 36,
+          "name": "CHECK_EXC_MATCH",
+          "arg": 0
+        },
+        {
+          "opcode": 114,
+          "name": "POP_JUMP_IF_FALSE",
+          "arg": 3
+        },
+        {
+          "opcode": 1,
+          "name": "POP_TOP",
+          "arg": 0
+        },
+        {
+          "opcode": 89,
+          "name": "POP_EXCEPT",
+          "arg": 0
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 2
+        },
+        {
+          "opcode": 119,
+          "name": "RERAISE",
+          "arg": 0
+        },
+        {
+          "opcode": 120,
+          "name": "COPY",
+          "arg": 3
+        },
+        {
+          "opcode": 89,
+          "name": "POP_EXCEPT",
+          "arg": 0
+        },
+        {
+          "opcode": 119,
+          "name": "RERAISE",
+          "arg": 1
+        }
+      ]
+    },
+    {
+      "constants_normalized_equal": false,
+      "sharppy_constants": [
+        "None"
+      ],
+      "cpython_constants": [
+        "None"
+      ],
+      "name": "<module>/delegated",
+      "same_instruction_words": false,
+      "sharppy": [
+        {
+          "opcode": 75,
+          "name": "RETURN_GENERATOR",
+          "arg": 0
+        },
+        {
+          "opcode": 1,
+          "name": "POP_TOP",
+          "arg": 0
+        },
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 116,
+          "name": "LOAD_GLOBAL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 171,
+          "name": "CALL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 69,
+          "name": "GET_YIELD_FROM_ITER",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 123,
+          "name": "SEND",
+          "arg": 3
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 150,
+          "name": "YIELD_VALUE",
+          "arg": 2
+        },
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 2
+        },
+        {
+          "opcode": 134,
+          "name": "JUMP_BACKWARD_NO_INTERRUPT",
+          "arg": 5
+        },
+        {
+          "opcode": 5,
+          "name": "END_SEND",
+          "arg": 0
+        },
+        {
+          "opcode": 1,
+          "name": "POP_TOP",
+          "arg": 0
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 83,
+          "name": "RETURN_VALUE",
+          "arg": 0
+        },
+        {
+          "opcode": 55,
+          "name": "CLEANUP_THROW",
+          "arg": 0
+        },
+        {
+          "opcode": 140,
+          "name": "JUMP_BACKWARD",
+          "arg": 7
+        },
+        {
+          "opcode": 173,
+          "name": "CALL_INTRINSIC_1",
+          "arg": 3
+        },
+        {
+          "opcode": 119,
+          "name": "RERAISE",
+          "arg": 1
+        }
+      ],
+      "cpython": [
+        {
+          "opcode": 75,
+          "name": "RETURN_GENERATOR",
+          "arg": 0
+        },
+        {
+          "opcode": 1,
+          "name": "POP_TOP",
+          "arg": 0
+        },
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 0
+        },
+        {
+          "opcode": 116,
+          "name": "LOAD_GLOBAL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 124,
+          "name": "LOAD_FAST",
+          "arg": 0
+        },
+        {
+          "opcode": 171,
+          "name": "CALL",
+          "arg": 1
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 69,
+          "name": "GET_YIELD_FROM_ITER",
+          "arg": 0
+        },
+        {
+          "opcode": 100,
+          "name": "LOAD_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 123,
+          "name": "SEND",
+          "arg": 3
+        },
+        {
+          "opcode": 0,
+          "name": "CACHE",
+          "arg": 0
+        },
+        {
+          "opcode": 150,
+          "name": "YIELD_VALUE",
+          "arg": 2
+        },
+        {
+          "opcode": 151,
+          "name": "RESUME",
+          "arg": 2
+        },
+        {
+          "opcode": 134,
+          "name": "JUMP_BACKWARD_NO_INTERRUPT",
+          "arg": 5
+        },
+        {
+          "opcode": 5,
+          "name": "END_SEND",
+          "arg": 0
+        },
+        {
+          "opcode": 1,
+          "name": "POP_TOP",
+          "arg": 0
+        },
+        {
+          "opcode": 121,
+          "name": "RETURN_CONST",
+          "arg": 0
+        },
+        {
+          "opcode": 55,
+          "name": "CLEANUP_THROW",
+          "arg": 0
+        },
+        {
+          "opcode": 140,
+          "name": "JUMP_BACKWARD",
+          "arg": 5
+        },
+        {
+          "opcode": 173,
+          "name": "CALL_INTRINSIC_1",
+          "arg": 3
+        },
+        {
+          "opcode": 119,
+          "name": "RERAISE",
+          "arg": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SharpPy.Modules;
@@ -3749,107 +3749,30 @@ namespace SharpPy
         {
             if (args.Length == 0)
             {
-                // super() with no arguments - try to use __class__ cell variable
-                // This is a simplified implementation - in CPython, this requires frame introspection
-                #if DEBUG_LOG
-                Console.WriteLine("🔍 super() called with no arguments, attempting __class__ cell lookup");
-                #endif
-                
-                // CPython 3.12: Look for __class__ cell variable in current frame
-                var currentFrame = PyVM.CurrentFrame;
-                if (currentFrame != null)
-                {
-                    // CPython 3.12: __class__ can be in FreeVars (from parent) or CellVars (local)
-                    // Optimized: Use cached ClassCellIndex instead of IndexOf calls
-                    int classIndex = currentFrame.Code.ClassCellIndex;
-                    #if DEBUG_LOG
-                    if (classIndex >= 0)
-                        Console.WriteLine($"🔍 Found __class__ at cached ClassCellIndex={classIndex}");
-                    #endif
+                // CPython 3.12: super_init_without_args. SharpPy keeps Cells in
+                // freevars-first order, separate from the ordinary local values.
+                var frame = PyVM.CurrentFrame;
+                if (frame == null || frame.Code.ArgCount - frame.Code.KwonlyArgCount == 0)
+                    throw PyRuntimeError.Create("super(): no arguments");
 
-                    if (classIndex >= 0)
-                    {
-                        // Try to get the __class__ value from cell variables
-                        if (currentFrame.Cells != null && classIndex < currentFrame.Cells.Length)
-                        {
-                            var classCell = currentFrame.Cells[classIndex];
-                            if (classCell != null && classCell.Value != null)
-                            {
-                                var classValue = classCell.Value;
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔍 Retrieved __class__ from cell[{classIndex}]: {classValue}");
-                                #endif
-                                
-                                // CPython 3.12: __class__ cell value is already correct
-                                // Each metaclass method sees its own class in __class__
-                                
-                                // CPython 3.12: zero-argument super() needs __class__ and first parameter
-                                // CPython uses LOAD_FAST 0 - always the first parameter, regardless of name
-                                // (could be 'self', 'cls', 'metacls', or any other name)
-                                PyObject instance = null;
-                                if (currentFrame.LocalsPlus.Length > 0)
-                                {
-                                    // CPython bytecode: LOAD_FAST 0 - get first parameter by index
-                                    var firstValue = currentFrame.LocalsPlus[0];
-                                    if (!PyNull.IsNull(firstValue))
-                                    {
-                                        instance = firstValue;
-                                        #if DEBUG_LOG
-                                        var firstParam = currentFrame.Code.VarNames[0];
-                                        Console.WriteLine($"🔍 Found first parameter '{firstParam}': {instance}");
-                                        #endif
-                                    }
-                                }
+                var code = frame.Code;
+                PyObject instance = frame.LocalsPlus[0];
+                if (code.CellVarIndexMap.TryGetValue(code.VarNames[0], out int firstCell))
+                    instance = frame.Cells[code.FreeVars.Count + firstCell].Value;
+                if (PyNull.IsNull(instance))
+                    throw PyRuntimeError.Create("super(): arg[0] deleted");
 
-                                // CPython 3.12: super() with no arguments requires both __class__ and self/cls
-                                if (instance == null)
-                                {
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔍 No self/cls parameter found in current frame");
-                                    #endif
-                                    throw PyRuntimeError.Create("super(): no arguments");
-                                }
-
-                                if (classValue is PyType pyType)
-                                {
-                                    // Create a proper super proxy object for PyType
-                                    return new PySuper(pyType, instance);
-                                }
-                                else if (classValue is PyClass pyClass)
-                                {
-                                    // Create a proper super proxy object for PyClass
-                                    // PyClass inherits from PyType, so we can use it directly
-                                    return new PySuper(pyClass, instance);
-                                }
-                                else
-                                {
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔍 __class__ cell contains non-type value: {classValue.GetType().Name}");
-                                    #endif
-                                }
-                            }
-                        }
-                        
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 __class__ cell found but not initialized (cell[{classIndex}])");
-                        #endif
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 No __class__ found in current frame");
-                        #endif
-                        #if DEBUG_LOG
-                        // Performance: Eliminated LINQ - direct string.Join works with collections
-                        Console.WriteLine($"   FreeVars: [{string.Join(", ", currentFrame.Code.FreeVars)}]");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   CellVars: [{string.Join(", ", currentFrame.Code.CellVars)}]");
-                        #endif
-                    }
-                }
-                
-                throw PyTypeError.Create("super(): __class__ cell not found - zero-argument super() requires compile-time __class__ cell generation");
+                // Only a free __class__ cell supplies the defining class.
+                if (!code.FreeVarIndexMap.TryGetValue("__class__", out int classIndex))
+                    throw PyRuntimeError.Create("super(): __class__ cell not found");
+                if (classIndex >= frame.Cells.Length || frame.Cells[classIndex] == null)
+                    throw PyRuntimeError.Create("super(): bad __class__ cell");
+                var classCell = frame.Cells[classIndex];
+                if (!classCell.HasValue)
+                    throw PyRuntimeError.Create("super(): empty __class__ cell");
+                if (classCell.Value is not PyType type)
+                    throw PyRuntimeError.Create($"super(): __class__ is not a type ({classCell.Value.GetPyType().Name})");
+                return new PySuper(type, instance);
             }
             else if (args.Length == 2)
             {

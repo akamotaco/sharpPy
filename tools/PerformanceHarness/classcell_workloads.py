@@ -13,3 +13,18 @@ def classcell_binding(n):
     for i in range(n):
         total += BindingTarget.value(i)
     return total
+
+class LookupBase:
+    def value(self, value):
+        return value
+class LookupChild(LookupBase):
+    def value(self, value):
+        factory = super
+        return factory().value(value)
+
+def super_lookup(n):
+    obj = LookupChild()
+    total = 0
+    for i in range(n):
+        total += obj.value(i)
+    return total

@@ -308,10 +308,10 @@ namespace SharpPy
         // =============================================================================
     }
 
-    // CPython 3.12 정확한 BINARY_OP 연산 타입 (CPython 순서와 100% 일치)
+    // SharpPy BINARY_OP operands differ from CPython for ordinary operations.
     public enum BinaryOpType : byte
     {
-        // CPython 3.12 정확한 순서 (Python/bytecodes.c BINARY_OP_* 순서)
+        // Compiler and VM share this ordering; this is not a CPython import format.
         ADD = 0,                  // +  (덧셈) ✅ 이미 정확
         SUBTRACT = 1,             // -  (뺄셈) - was 10
         MULTIPLY = 2,             // *  (곱셈) - was 5
@@ -328,7 +328,7 @@ namespace SharpPy
 
         // CPython 3.12: In-place operations (NB_INPLACE_*)
         // Python/bytecodes.c: BINARY_OP opcode with arg >= 13 means in-place
-        // Note: CPython uses non-sequential values for in-place ops!
+        // In-place values below match CPython 3.12 NB_INPLACE_* numbering.
         INPLACE_ADD = 13,              // +=  (인플레이스 덧셈)
         INPLACE_AND = 14,              // &=  (인플레이스 비트 AND)
         INPLACE_FLOOR_DIVIDE = 15,     // //= (인플레이스 바닥 나눗셈)
