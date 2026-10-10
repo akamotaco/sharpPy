@@ -176,18 +176,17 @@ namespace SharpPy
                     // Python/bytecodes.c:911-927 - YIELD_VALUE does NOT increment IP
                     // Objects/genobject.c:230 - Resume executes from saved IP, which will be incremented by main loop
                     if (_frame.PendingException == null)
-                        _frame.InstructionPointer++;  // Normal resume starts after YIELD_VALUE.
-
-                    #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Generator Resume: IP after increment: {_frame.InstructionPointer}");
-                    Console.WriteLine($"    Pushing sentValue: {_sentValue}");
-                    #endif
-
-                    // Normal resume supplies the yield expression's result.
-                    // An injected exception resumes at the suspended yield and
-                    // has no expression result to leave on the value stack.
-                    if (_frame.PendingException == null)
+                    {
+                        _frame.InstructionPointer++;
                         _frame.ValueStack.Push(_sentValue);
+                    }
+                    else
+                    {
+                        // gen_send_ex2 supplies a value even for an injected exception.
+                        // Exception depth discards it for ordinary yields; yield-from
+                        // cleanup retains it as last_sent_val beside the iterator.
+                        _frame.ValueStack.Push(PyNone.Instance);
+                    }
 
                     #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Generator Resume: After push, stack size: {_frame.ValueStack.Count}");
@@ -415,9 +414,41 @@ namespace SharpPy
                 return PyNone.Instance;
             }
 
+            PythonException closeError = null;
+            int resumeIndex = _frame.InstructionPointer + 1;
+            if (resumeIndex < _frame.Code.Instructions.Count &&
+                _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
+                _frame.Code.Instructions[resumeIndex].Argument >= 2)
+            {
+                var receiver = _frame.ValueStack.Peek();
+                _frame.State = PyFrame.FrameState.Executing;
+                try
+                {
+                    if (receiver is PyGenerator generator)
+                        generator.Close();
+                    else
+                    {
+                        PyObject close = null;
+                        try { close = receiver.GetAttribute("close"); }
+                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                        close?.Call(Array.Empty<PyObject>(), null);
+                    }
+                }
+                catch (PythonException error)
+                {
+                    // Resume the outer frame with the delegate's error so its
+                    // handlers/finally run before the error reaches the caller.
+                    closeError = error;
+                }
+                finally
+                {
+                    _frame.State = PyFrame.FrameState.Suspended;
+                }
+            }
+
             // gen_close injects an argumentless GeneratorExit directly. It does
             // not use the public throw() argument normalization path.
-            _thrownException = new PythonException(new PyGeneratorExit());
+            _thrownException = closeError ?? new PythonException(new PyGeneratorExit());
             try
             {
                 Next();

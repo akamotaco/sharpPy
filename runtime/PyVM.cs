@@ -4432,13 +4432,17 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.CLEANUP_THROW:
-                    // CPython 3.12: CLEANUP_THROW is used in yield from exception handling
-                    // This opcode is part of the exception handling for generators
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔍 CLEANUP_THROW: Cleaning up after throw in generator");
-                    #endif
-                    // For now, just clear any exception state
-                    // The actual throw handling will be in the SEND opcode
+                    // CPython: (sub_iter, last_sent_val, exc -- None, value).
+                    var cleanupException = (PyBaseException)frame.ValueStack.Pop();
+                    if (cleanupException is PyStopIteration stopped)
+                    {
+                        frame.ValueStack.Pop(); // last_sent_val
+                        frame.ValueStack.Pop(); // sub_iter
+                        frame.ValueStack.Push(PyNone.Instance);
+                        frame.ValueStack.Push(stopped.Value);
+                    }
+                    else
+                        throw new PythonException(cleanupException, fromReraise: true);
                     break;
 
                 case ByteCodeOp.BEFORE_WITH:
