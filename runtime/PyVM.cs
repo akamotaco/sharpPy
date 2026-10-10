@@ -820,7 +820,7 @@ namespace SharpPy
             // }
             foreach (var frame in Instance._frameStack)
             {
-                var exception = frame.CurrentException ?? frame.LastException;
+                var exception = frame.CurrentException;
                 if (exception != null)
                 {
                     return exception;
@@ -4775,6 +4775,9 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RAISE_VARARGS:
+                    // Resolve the active caller chain, including a resumed generator's
+                    // own handler state. LastException is not handled exception state.
+                    var handledException = GetTopmostException();
                     // argument indicates the number of arguments to the raise statement
                     // 0: bare raise (reraise)
                     // 1: raise exc
@@ -4860,9 +4863,9 @@ namespace SharpPy
 
                         // CPython 3.12: Implicit exception chaining - set __context__ before __cause__
                         // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
-                        if (frame.CurrentException != null && frame.CurrentException != excInstance)
+                        if (handledException != null && handledException != excInstance)
                         {
-                            excInstance.__context__ = frame.CurrentException;
+                            excInstance.__context__ = handledException;
                         }
 
                         // Set __cause__ attribute (explicit chaining)
@@ -4901,9 +4904,9 @@ namespace SharpPy
                         {
                             // CPython 3.12: Implicit exception chaining
                             // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
-                            if (frame.CurrentException != null && frame.CurrentException != pyEx)
+                            if (handledException != null && handledException != pyEx)
                             {
-                                pyEx.__context__ = frame.CurrentException;
+                                pyEx.__context__ = handledException;
                             }
 
                             // Already an exception instance
@@ -4924,9 +4927,9 @@ namespace SharpPy
                             if (instance is PyException instanceException)
                             {
                                 // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != instanceException)
+                                if (handledException != null && handledException != instanceException)
                                 {
-                                    instanceException.__context__ = frame.CurrentException;
+                                    instanceException.__context__ = handledException;
                                 }
 
                                 frame.LastException = instanceException;
@@ -4951,9 +4954,9 @@ namespace SharpPy
                             else if (builtinException is PyException pyExInstance)
                             {
                                 // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != pyExInstance)
+                                if (handledException != null && handledException != pyExInstance)
                                 {
-                                    pyExInstance.__context__ = frame.CurrentException;
+                                    pyExInstance.__context__ = handledException;
                                 }
 
                                 frame.LastException = pyExInstance;
@@ -4977,9 +4980,9 @@ namespace SharpPy
                             if (userException is PyException pyUserExInstance)
                             {
                                 // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != pyUserExInstance)
+                                if (handledException != null && handledException != pyUserExInstance)
                                 {
-                                    pyUserExInstance.__context__ = frame.CurrentException;
+                                    pyUserExInstance.__context__ = handledException;
                                 }
 
                                 frame.LastException = pyUserExInstance;
@@ -5022,9 +5025,9 @@ namespace SharpPy
                                 }
 
                                 // CPython 3.12: Implicit exception chaining
-                                if (frame.CurrentException != null && frame.CurrentException != wrappedException)
+                                if (handledException != null && handledException != wrappedException)
                                 {
-                                    wrappedException.__context__ = frame.CurrentException;
+                                    wrappedException.__context__ = handledException;
                                 }
 
                                 frame.LastException = wrappedException;
@@ -5046,8 +5049,8 @@ namespace SharpPy
                     else if (argument == 0)
                     {
                         // Bare raise uses the currently handled exception, not the last raised one.
-                        if (frame.CurrentException != null)
-                            throw new PythonException(frame.CurrentException, fromReraise: true);
+                        if (handledException != null)
+                            throw new PythonException(handledException, fromReraise: true);
                         else
                             throw new PythonException(new PyRuntimeError("No active exception to reraise"));
                     }

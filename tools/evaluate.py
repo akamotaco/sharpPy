@@ -119,6 +119,8 @@ def main():
             "tests/exception_stack_depth_regression.py",
             "tests/compatibility/exception_context_after_handler.py",
             "tests/exception_state_regression.py",
+            "tests/compatibility/exception_state_in_callee.py",
+            "tests/exception_caller_state_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",

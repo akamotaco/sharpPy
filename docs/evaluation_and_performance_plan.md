@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[54차 결과](reports/2026-10-10/caller_exception_state_analysis.md): 53차를 `165ef9e`로 커밋했다. 실행 스택에서 처리 중인 예외만 조회해 callee의 bare raise와 context, sys 예외 관찰 및 generator 재개 상태를 맞췄다. 기본 100개·Godot 28개 통과. 측정 workload의 할당량은 동일하고 예외 시간 차이는 약 0.1%. 다음은 generator.close의 cleanup 예외 전파 오류이며 별도 실패 fixture로 보존한다.
+
 [53차 결과](reports/2026-10-10/handled_exception_state_analysis.md): 52차를 `d38f35f`로 커밋했다. handler 진입 전 CurrentException 덮어쓰기를 제거하고 bare raise를 RAISE_VARARGS 0으로 맞췄다. 이전 예외 복원·GeneratorExit 상태·오류 메시지를 검증해 기본 98개, Godot 26개 통과. 다음은 호출자와 피호출자 사이의 handled exception 공유이며 별도 실패 fixture로 보존한다.
 
 [52차 결과](reports/2026-10-10/exception_stack_depth_analysis.md): 51차를 `1393896`으로 커밋했다. SETUP 시점의 스택 깊이를 계산하고 정확히 unwind해 표현식 yield의 throw를 수정했다. 합류 검사가 드러낸 try/finally·async 컴파일 오류와 with의 GeneratorExit 처리도 수정했다. 기본 96개·Godot 24개 통과, protected yield의 depth/lasti CPython 일치. 예외 1만 회 할당 120만 B 감소. 다음은 처리 완료된 예외가 __context__에 남는 기존 문제이며 별도 실패 fixture로 보존한다.
