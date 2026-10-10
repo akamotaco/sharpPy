@@ -135,6 +135,17 @@ namespace SharpPy
         /// </summary>
         public (int start, int stop, int step) Indices(int length) => NormalizeIndices(length, false);
 
+        // The caller has already converted an exact int-sized step. Bounds
+        // still use __index__, in start/stop order, after the zero-step check.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal (int start, int stop, int step) Indices(int length, int step)
+        {
+            if (step == 0) throw PyValueError.Create("slice step cannot be zero");
+            int start = GetBoundValue(Start, step < 0 ? int.MaxValue : 0);
+            int stop = GetBoundValue(Stop, step < 0 ? int.MinValue : int.MaxValue);
+            return AdjustStorageIndices(length, start, stop, step);
+        }
+
         // Array/List-backed sequences only observe selected items. With int-sized
         // storage, a larger stride selects at most one item. Do not use this
         // clipping for range steps or memoryview stride metadata.

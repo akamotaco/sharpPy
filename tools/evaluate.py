@@ -110,6 +110,7 @@ def main():
             "tests/range_slice_indices_regression.py",
             "tests/range_native_boundary_regression.py",
             "tests/range_bigint_regression.py",
+            "tests/range_slice_step_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",

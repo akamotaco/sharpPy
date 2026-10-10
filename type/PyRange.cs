@@ -105,11 +105,14 @@ namespace SharpPy
             // Keep ordinary native slices on the allocation-free int normalizer.
             // A callback step must use ExactIndices so it is evaluated only once.
             ulong nativeLength = this is PyBigRange ? ulong.MaxValue : LengthUnsigned();
-            if (nativeLength <= int.MaxValue &&
-                (slice.Step == PyNone.Instance || slice.Step is PyBool ||
-                 slice.Step is PyInt s && s.Value.GetBitLength() < 32))
+            if (nativeLength <= int.MaxValue)
             {
-                var (a, b, stride) = slice.Indices((int)nativeLength);
+                int step;
+                if (slice.Step is PyInt s && s.Value.GetBitLength() < 32) step = (int)s.Value;
+                else if (slice.Step == PyNone.Instance) step = 1;
+                else if (slice.Step is PyBool boolean) step = boolean.Value ? 1 : 0;
+                else return SliceExact(slice);
+                var (a, b, stride) = slice.Indices((int)nativeLength, step);
                 // Products of normalized int indices and an int step, plus
                 // an int start, fit in Int64 without overflow checks.
                 if (NativeStart == (int)NativeStart && NativeStep == (int)NativeStep)
