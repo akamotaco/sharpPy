@@ -67,7 +67,7 @@ namespace SharpPy
             // Unbound method call: 첫 번째 인자가 self여야 함
             if (args.Length < 1)
             {
-                throw PyTypeError.Create($"descriptor '{Name}' of '{OwnerType.Name}' object needs an argument");
+                throw PyTypeError.Create($"unbound method {OwnerType.Name}.{Name}() needs an argument");
             }
 
             var self = args[0];

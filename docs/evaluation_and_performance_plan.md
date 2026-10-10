@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[42차 결과](reports/2026-10-10/slice_indices_bigint_analysis.md): 임의 정밀도 slice 정규화를 추가하고 slice.indices의 500개 조합·callback/예외 순서를 CPython과 대조했다. 기본 87개와 Godot 소스 통합 회귀 15개 통과. 기존 range/sequence slice probe 54개 조건에서 할당은 동일하다. 다음은 일반 long 경로를 유지하는 range의 큰 정수 표현과 직접 순회 호출부 정리다. range 큰 step 최소 재현은 아직 미해결이다.
+
 [41차 결과](reports/2026-10-10/range_native_boundary_analysis.md): range 확장 조사 중 발견한 signed-long 경계 길이·반복 종료·인덱스 문제를 먼저 수정했다. 기본 86개와 Godot 소스 통합 회귀 14개 통과. 반복자 할당은 8B 감소했고 GetValues 할당은 유지했다. 일부 길이 조회 비용 증가는 보고서에 기록했다. 임의 정밀도 step과 len/slice 한계는 후속 과제다.
 
 [40차 결과](reports/2026-10-10/memoryview_large_step_analysis.md): memoryview 큰 step·native stride·중첩 대입을 맞추고 sys.maxsize를 바로잡았다. 기본 85개와 Godot 소스 통합 회귀 13개 통과. native view 생성·slice 할당은 기존과 같으며 읽기·쓰기 시간 범위도 겹친다. 다음은 range의 임의 정밀도 step이다.

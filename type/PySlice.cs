@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace SharpPy
@@ -83,8 +84,54 @@ namespace SharpPy
 
         #region Slice Operations
 
+        internal static PyObject IndicesMethod(PyObject self, PyObject[] args, PyDict kwargs)
+        {
+            if (self is not PySlice slice)
+                throw PyTypeError.Create($"descriptor 'indices' for 'slice' objects doesn't apply to a '{self.GetTypeName()}' object");
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("slice.indices() takes no keyword arguments");
+            if (args.Length != 1)
+                throw PyTypeError.Create($"slice.indices() takes exactly one argument ({args.Length} given)");
+            var length = PyObject.TryGetIndex(args[0]);
+            if (length == null)
+                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+            var (start, stop, step) = slice.ExactIndices(length.Value);
+            return new PyTuple(new PyInt(start), new PyInt(stop), new PyInt(step));
+        }
+
+        // CPython _PySlice_GetLongIndices: preserve the step and length exactly.
+        // Array-backed sequences use StorageIndices instead of this path.
+        internal (BigInteger start, BigInteger stop, BigInteger step) ExactIndices(BigInteger length)
+        {
+            if (length.Sign < 0) throw PyValueError.Create("length should not be negative");
+            BigInteger step = Step == PyNone.Instance ? BigInteger.One : ExactIndex(Step);
+            if (step.IsZero) throw PyValueError.Create("slice step cannot be zero");
+            bool negative = step.Sign < 0;
+            BigInteger lower = negative ? BigInteger.MinusOne : BigInteger.Zero;
+            BigInteger upper = negative ? length - 1 : length;
+            BigInteger start = ExactBound(Start, length, lower, upper, negative ? upper : lower);
+            BigInteger stop = ExactBound(Stop, length, lower, upper, negative ? lower : upper);
+            return (start, stop, step);
+        }
+
+        private static BigInteger ExactIndex(PyObject value)
+        {
+            var index = PyObject.TryGetIndex(value);
+            if (index == null)
+                throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+            return index.Value;
+        }
+
+        private static BigInteger ExactBound(PyObject value, BigInteger length,
+            BigInteger lower, BigInteger upper, BigInteger defaultValue)
+        {
+            if (value == PyNone.Instance) return defaultValue;
+            BigInteger index = ExactIndex(value);
+            return index.Sign < 0 ? BigInteger.Max(index + length, lower) : BigInteger.Min(index, upper);
+        }
+
         /// <summary>
-        /// 슬라이스를 실제 인덱스로 변환 (Python indices 메서드)
+        /// Legacy int-sized C# helper; Python slice.indices uses ExactIndices.
         /// </summary>
         public (int start, int stop, int step) Indices(int length) => NormalizeIndices(length, false);
 

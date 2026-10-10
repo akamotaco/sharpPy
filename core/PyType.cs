@@ -940,6 +940,8 @@ namespace SharpPy
                         InitializeMappingProxyTypeDescriptors();
                     else if (Name == "BaseException")
                         InitializeBaseExceptionTypeDescriptors();
+                    else if (Name == "slice")
+                        TypeDict["indices"] = new PyMethodDescriptor("indices", this, PySlice.IndicesMethod);
                     break;
             }
 
