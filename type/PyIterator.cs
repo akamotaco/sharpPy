@@ -229,8 +229,11 @@ namespace SharpPy
         public PyRangeIterator(PyRange range)
         {
             if (range == null) throw new ArgumentNullException(nameof(range));
-            _current = range.Start;
-            _step = range.Step;
+            // Public C# callers must obtain arbitrary-precision iterators via GetIterator.
+            if (range is PyBigRange)
+                throw new ArgumentException("Use range.GetIterator() for an arbitrary-precision range", nameof(range));
+            _current = range.NativeStart;
+            _step = range.NativeStep;
             _remaining = range.LengthUnsigned();
         }
 

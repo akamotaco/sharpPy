@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[43차 진행 중](reports/2026-10-10/range_bigint_work_in_progress.md): 큰 정수용 range 구현을 연결했고 Godot 소스 빌드·17개 회귀는 통과했다. 사용자가 Smart App Control을 끈 후 일반 Release 빌드와 실제 CPython 3.12.15 대조를 재개했다. 기본 89개는 완전 일치 84개·변동값 제외 일치 3개·C# 검사 2개 통과다. Godot 전후 측정에서 할당은 유지했지만 일반 slice 약 13% 지연과 builtin 생성 비용이 남아 있다. 변경은 미커밋이며 일반 경로 최적화와 C# 공개 API 검토를 마쳐야 한다.
+
 [42차 결과](reports/2026-10-10/slice_indices_bigint_analysis.md): 임의 정밀도 slice 정규화를 추가하고 slice.indices의 500개 조합·callback/예외 순서를 CPython과 대조했다. 기본 87개와 Godot 소스 통합 회귀 15개 통과. 기존 range/sequence slice probe 54개 조건에서 할당은 동일하다. 다음은 일반 long 경로를 유지하는 range의 큰 정수 표현과 직접 순회 호출부 정리다. range 큰 step 최소 재현은 아직 미해결이다.
 
 [41차 결과](reports/2026-10-10/range_native_boundary_analysis.md): range 확장 조사 중 발견한 signed-long 경계 길이·반복 종료·인덱스 문제를 먼저 수정했다. 기본 86개와 Godot 소스 통합 회귀 14개 통과. 반복자 할당은 8B 감소했고 GetValues 할당은 유지했다. 일부 길이 조회 비용 증가는 보고서에 기록했다. 임의 정밀도 step과 len/slice 한계는 후속 과제다.

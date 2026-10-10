@@ -959,6 +959,7 @@ namespace SharpPy
         // while invalid hint return values and other exceptions propagate.
         internal long LengthHint(long defaultValue)
         {
+            if (this is PyRange range) return range.PythonLength();
             try
             {
                 var lengthMethod = LookupSpecialMethodUncached("__len__");

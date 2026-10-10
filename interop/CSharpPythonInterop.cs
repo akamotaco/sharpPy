@@ -192,8 +192,8 @@ namespace SharpPy.Interop
                         break;
                         
                     case PyRange range:
-                        for (long i = range.Start; i < range.Stop; i += range.Step)
-                            yield return new PyInt(i);
+                        foreach (var item in range.GetValues())
+                            yield return item;
                         break;
                         
                     case SharpPy.PyString str:

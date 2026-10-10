@@ -410,6 +410,9 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
+            if (args[0] is PyRange range)
+                return new PyInt(range.PythonLength());
+
             try
             {
                 return new PyInt(args[0].Length());
@@ -445,27 +448,29 @@ namespace SharpPy
 
         // === 핵심 내장 함수들 ===
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private static PyObject CallRange(PyObject[] args, PyDict kwargs = null)
         {
-            return args.Length switch
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("range() takes no keyword arguments");
+            if (args.Length == 0)
+                throw PyTypeError.Create("range expected at least 1 argument, got 0");
+            if (args.Length > 3)
+                throw PyTypeError.Create($"range expected at most 3 arguments, got {args.Length}");
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            static BigInteger Index(PyObject value)
             {
-                1 => args[0] switch
-                {
-                    PyInt stop => PyRange.Create((long)stop.Value),
-                    _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
-                },
-                2 => (args[0], args[1]) switch
-                {
-                    (PyInt start, PyInt stop) => PyRange.Create((long)start.Value, (long)stop.Value),
-                    _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
-                },
-                3 => (args[0], args[1], args[2]) switch
-                {
-                    (PyInt start, PyInt stop, PyInt step) => PyRange.Create((long)start.Value, (long)stop.Value, (long)step.Value),
-                    _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
-                },
-                _ => throw PyTypeError.Create($"range expected at most 3 arguments, got {args.Length}")
-            };
+                var integer = PyObject.TryGetIndex(value);
+                if (integer == null)
+                    throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+                return integer.Value;
+            }
+            if (args.Length == 1) return PyRange.Create(BigInteger.Zero, Index(args[0]), BigInteger.One);
+            var start = Index(args[0]);
+            var stop = Index(args[1]);
+            var step = args.Length == 3 ? Index(args[2]) : BigInteger.One;
+            return PyRange.Create(start, stop, step);
         }
 
         private static PyObject CallEnumerate(PyObject[] args, PyDict kwargs = null)

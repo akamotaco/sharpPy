@@ -3,6 +3,19 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--range-extended-check")
+{
+    RangeConstructionProbe.VerifyExtended();
+    Console.WriteLine("range C# helpers: PASS");
+    return;
+}
+
+if (args.Length > 0 && args[0] == "--range-construction-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(RangeConstructionProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--range-boundary-check")
 {
     RangeIterationProbe.VerifyBoundaries();

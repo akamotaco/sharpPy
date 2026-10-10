@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace SharpPy
 {
@@ -10,9 +11,13 @@ namespace SharpPy
     {
         #region Core Properties
 
-        public long Start { get; }
-        public long Stop { get; }
-        public long Step { get; }
+        internal readonly long NativeStart;
+        internal readonly long NativeStop;
+        internal readonly long NativeStep;
+        public virtual BigInteger Start => NativeStart;
+        public virtual BigInteger Stop => NativeStop;
+        public virtual BigInteger Step => NativeStep;
+        internal virtual BigInteger ExactLength => LengthUnsigned();
 
         public PyRange(long stop) : this(0, stop, 1) { }
 
@@ -23,13 +28,21 @@ namespace SharpPy
             if (step == 0)
                 throw PyValueError.Create("range() arg 3 must not be zero");
 
-            Start = start;
-            Stop = stop;
-            Step = step;
+            NativeStart = start;
+            NativeStop = stop;
+            NativeStep = step;
         }
 
         public override PyType GetPyType() => PyType.RangeType;
         public override string GetTypeName() => "range";
+
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "start" => new PyInt(Start),
+            "stop" => new PyInt(Stop),
+            "step" => new PyInt(Step),
+            _ => base.GetAttribute(name)
+        };
 
         #endregion
 
@@ -39,9 +52,7 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            if (Start == 0 && Step == 1)
-                return new PyString($"range({Stop})");
-            else if (Step == 1)
+            if (Step == 1)
                 return new PyString($"range({Start}, {Stop})");
             else
                 return new PyString($"range({Start}, {Stop}, {Step})");
@@ -79,33 +90,79 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetItem(PyObject index)
         {
-            if (index is PyInt pyInt)
-            {
-                return GetItem((long)pyInt.Value);
-            }
-            else if (index is PySlice slice)
-            {
-                var length = Length();
-                var (start, stop, step) = slice.Indices(length);
-
-                // CPython compute_slice maps the normalized boundaries directly.
-                // Reuse them: GetLength(length) would invoke __index__ again.
-                long newStart = Start + start * Step;
-                long newStep = Step * step;
-                long newStop = Start + stop * Step;
-
-                return new PyRange(newStart, newStop, newStep);
-            }
-            else
-            {
+            if (index is PyInt integer)
+                return GetIntegerItem(integer.Value);
+            if (index is PySlice slice) return SliceRange(slice);
+            integer = PyObject.TryGetIndex(index);
+            if (integer == null)
                 throw PyTypeError.Create($"range indices must be integers or slices, not {index.GetTypeName()}");
+            return GetIntegerItem(integer.Value);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private PyRange SliceRange(PySlice slice)
+        {
+            // Keep ordinary native slices on the allocation-free int normalizer.
+            // A callback step must use ExactIndices so it is evaluated only once.
+            ulong nativeLength = this is PyBigRange ? ulong.MaxValue : LengthUnsigned();
+            if (nativeLength <= int.MaxValue &&
+                (slice.Step == PyNone.Instance || slice.Step is PyBool ||
+                 slice.Step is PyInt s && s.Value.GetBitLength() < 32))
+            {
+                var (a, b, stride) = slice.Indices((int)nativeLength);
+                // Products of normalized int indices and an int step, plus
+                // an int start, fit in Int64 without overflow checks.
+                if (NativeStart == (int)NativeStart && NativeStep == (int)NativeStep)
+                    return new PyRange(NativeStart + a * NativeStep,
+                        NativeStart + b * NativeStep, NativeStep * stride);
+                return MapWideSlice(a, b, stride);
             }
+            return SliceExact(slice);
+        }
+
+        private PyRange MapWideSlice(int a, int b, int stride)
+        {
+            try
+            {
+                return new PyRange(checked(NativeStart + a * NativeStep),
+                    checked(NativeStart + b * NativeStep), checked(NativeStep * stride));
+            }
+            catch (OverflowException)
+            {
+                // Reuse normalized values; do not repeat Python callbacks.
+                return Create(Start + a * Step, Start + b * Step, Step * stride);
+            }
+        }
+
+        private PyRange SliceExact(PySlice slice)
+        {
+            var (start, stop, step) = slice.ExactIndices(ExactLength);
+            return Create(Start + start * Step, Start + stop * Step, Step * step);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private PyInt GetIntegerItem(BigInteger index)
+        {
+            if (this is not PyBigRange && FitsLong(index)) return GetNativeItem((long)index);
+            return GetExactItem(index);
+        }
+
+        protected PyInt GetExactItem(BigInteger index)
+        {
+            var length = ExactLength;
+            if (index.Sign < 0) index += length;
+            if (index.Sign < 0 || index >= length)
+                throw PyIndexError.Create("range object index out of range");
+            return new PyInt(Start + index * Step);
         }
 
         /// <summary>
         /// 인덱스 접근 range[i] (internal helper)
         /// </summary>
-        public PyInt GetItem(long index)
+        public virtual PyInt GetItem(long index) => GetNativeItem(index);
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private PyInt GetNativeItem(long index)
         {
             ulong length = LengthUnsigned();
             ulong position;
@@ -122,7 +179,7 @@ namespace SharpPy
                 throw PyIndexError.Create("range object index out of range");
 
             // The validated element lies between the signed-long endpoints.
-            return new PyInt(unchecked((long)((ulong)Start + position * (ulong)Step)));
+            return new PyInt(unchecked((long)((ulong)NativeStart + position * (ulong)NativeStep)));
         }
 
         /// <summary>
@@ -130,25 +187,10 @@ namespace SharpPy
         /// </summary>
         public PyRange GetSlice(long? start = null, long? stop = null, long? step = null)
         {
-            var length = LengthLong();
-            var sliceStep = step ?? 1;
-
-            if (sliceStep == 0)
-                throw PyValueError.Create("slice step cannot be zero");
-
-            var actualStart = start ?? (sliceStep > 0 ? 0 : length - 1);
-            var actualStop = stop ?? (sliceStep > 0 ? length : -1);
-
-            // 음수 인덱스 정규화
-            if (actualStart < 0) actualStart += length;
-            if (actualStop < 0) actualStop += length;
-
-            // 슬라이스 범위를 실제 range 값으로 변환
-            var newStart = Start + Math.Max(0, actualStart) * Step;
-            var newStop = Start + Math.Min(length, actualStop) * Step;
-            var newStep = Step * sliceStep;
-
-            return new PyRange(newStart, newStop, newStep);
+            return (PyRange)GetItem(new PySlice(
+                start.HasValue ? new PyInt(start.Value) : PyNone.Instance,
+                stop.HasValue ? new PyInt(stop.Value) : PyNone.Instance,
+                step.HasValue ? new PyInt(step.Value) : PyNone.Instance));
         }
 
         /// <summary>
@@ -206,22 +248,22 @@ namespace SharpPy
         /// <summary>
         /// range의 모든 값을 열거
         /// </summary>
-        public IEnumerable<PyInt> GetValues()
+        public virtual IEnumerable<PyInt> GetValues()
         {
-            if (Step > 0)
+            if (NativeStep > 0)
             {
-                for (long current = Start; current < Stop; current = unchecked(current + Step))
+                for (long current = NativeStart; current < NativeStop; current = unchecked(current + NativeStep))
                 {
                     yield return new PyInt(current);
-                    if (unchecked((ulong)Stop - (ulong)current) <= (ulong)Step) yield break;
+                    if (unchecked((ulong)NativeStop - (ulong)current) <= (ulong)NativeStep) yield break;
                 }
             }
             else
             {
-                for (long current = Start; current > Stop; current = unchecked(current + Step))
+                for (long current = NativeStart; current > NativeStop; current = unchecked(current + NativeStep))
                 {
                     yield return new PyInt(current);
-                    if (unchecked((ulong)current - (ulong)Stop) <= unchecked(0UL - (ulong)Step)) yield break;
+                    if (unchecked((ulong)current - (ulong)NativeStop) <= unchecked(0UL - (ulong)NativeStep)) yield break;
                 }
             }
         }
@@ -274,19 +316,19 @@ namespace SharpPy
         {
             // CPython get_len_of_range: unsigned differences cover the full
             // signed endpoint span, including long.MinValue as a negative step.
-            if (Step > 0)
+            if (NativeStep > 0)
             {
-                if (Start >= Stop) return 0;
-                return 1 + unchecked((ulong)Stop - 1 - (ulong)Start) / (ulong)Step;
+                if (NativeStart >= NativeStop) return 0;
+                return 1 + unchecked((ulong)NativeStop - 1 - (ulong)NativeStart) / (ulong)NativeStep;
             }
             else
             {
-                if (Start <= Stop) return 0;
-                return 1 + unchecked((ulong)Start - 1 - (ulong)Stop) / unchecked(0UL - (ulong)Step);
+                if (NativeStart <= NativeStop) return 0;
+                return 1 + unchecked((ulong)NativeStart - 1 - (ulong)NativeStop) / unchecked(0UL - (ulong)NativeStep);
             }
         }
 
-        public long LengthLong()
+        public virtual long LengthLong()
         {
             ulong length = LengthUnsigned();
             if (length > long.MaxValue)
@@ -302,7 +344,15 @@ namespace SharpPy
             return (int)len;
         }
 
-        public override bool PyBoolValue() => Step > 0 ? Start < Stop : Start > Stop;
+        internal virtual long PythonLength()
+        {
+            ulong length = LengthUnsigned();
+            if (length > (ulong)nint.MaxValue)
+                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+            return (long)length;
+        }
+
+        public override bool PyBoolValue() => NativeStep > 0 ? NativeStart < NativeStop : NativeStart > NativeStop;
 
         #endregion
 
@@ -377,6 +427,18 @@ namespace SharpPy
         /// </summary>
         public static PyRange Create(long start, long stop, long step) => new PyRange(start, stop, step);
 
+        // BigInteger excludes the sign bit, including for negative values.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static bool FitsLong(BigInteger value) => value.GetBitLength() < 64;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static PyRange Create(BigInteger start, BigInteger stop, BigInteger step)
+        {
+            if (FitsLong(start) && FitsLong(stop) && FitsLong(step))
+                return new PyRange((long)start, (long)stop, (long)step);
+            return new PyBigRange(start, stop, step);
+        }
+
         #endregion
 
         #region Evaluate Method (NotImplementedException)
@@ -407,7 +469,7 @@ namespace SharpPy
             if (Step > 0)
                 return new PyInt(Start);
             else
-                return new PyInt(Start + (LengthLong() - 1) * Step);
+                return new PyInt(Start + (ExactLength - 1) * Step);
         }
 
         /// <summary>
@@ -419,7 +481,7 @@ namespace SharpPy
                 throw PyValueError.Create("max() arg is an empty sequence");
 
             if (Step > 0)
-                return new PyInt(Start + (LengthLong() - 1) * Step);
+                return new PyInt(Start + (ExactLength - 1) * Step);
             else
                 return new PyInt(Start);
         }

@@ -57,7 +57,8 @@
   <!-- They generate PyTokenizer.cs and PyParser.cs which are directly included in the build -->
 
   <!-- Tokenizer Generation (Phase 1) -->
-  <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser">
+  <!-- Opt-in use of checked-in generated sources when grammar/tools are unchanged. -->
+  <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser" Condition="'$(SkipCodeGeneration)' != 'true'">
     <Message Text="Generating tokenizer from Grammar/Tokens..." Importance="high" />
     <Exec Command="dotnet run --project SharpPy.Tokens --tokens Grammar/Tokens --output Generated/PyTokens.cs"
           ContinueOnError="false"
@@ -65,7 +66,7 @@
   </Target>
 
   <!-- ASDL + PEG Parser Generation (Phase 2) -->
-  <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
+  <Target Name="GenerateParser" BeforeTargets="BeforeBuild" Condition="'$(SkipCodeGeneration)' != 'true'">
     <Message Text="Generating AST types and PEG parser from ASDL + Grammar..." Importance="high" />
     <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python_cs.gram --asdl Grammar/Python.asdl --output-ast Generated/AstTypes.cs --output-parser Generated/PyParser.cs"
           ContinueOnError="false"

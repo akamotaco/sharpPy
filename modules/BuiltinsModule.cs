@@ -217,7 +217,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
-            return new PyInt(args[0].Length());
+            return new PyInt(args[0] is PyRange range ? range.PythonLength() : args[0].Length());
         }
 
         /// <summary>
