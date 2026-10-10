@@ -7680,27 +7680,7 @@ namespace SharpPy
         {
             // 1. Native coroutine 확인 (PyCoroutine)
             if (obj is SharpPy.Core.PyCoroutine coroutine)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"✅ GET_AWAITABLE: Native coroutine {coroutine}");
-                #endif
-
-                // For now, immediately execute the coroutine using our event loop
-                // In a real implementation, this would be scheduled properly
-                var eventLoop = new SharpPy.Modules.SimpleEventLoop(this);
-                try
-                {
-                    return eventLoop.RunUntilComplete(coroutine);
-                }
-                catch (Exception ex)
-                {
-                    // If execution fails, fall back to awaiter
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"Coroutine execution failed: {ex.Message}");
-                    #endif
-                    return coroutine.GetAwaiter();
-                }
-            }
+                return coroutine.GetAwaiter();
 
             // 2. Generator-based coroutine 확인 (__await__ 메서드 존재)
             try

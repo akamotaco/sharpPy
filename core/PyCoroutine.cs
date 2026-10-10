@@ -90,8 +90,6 @@ namespace SharpPy.Core
         private readonly PyVM _vm;
         private bool _started = false;
         private bool _finished = false;
-        private PyObject? _result = null;
-        private int _lastInstructionPointer = 0;
         private bool _warningShown = false;
 
         public string Name { get; }
@@ -150,54 +148,39 @@ namespace SharpPy.Core
         /// </summary>
         public PyObject Send(PyObject? value = null)
         {
+            if (State == CoroutineState.Running)
+                throw PyValueError.Create("coroutine already executing");
             if (_finished)
-            {
-                throw PyStopIteration.Create(new PyString("coroutine already finished"));
-            }
-            
+                throw PyRuntimeError.Create("cannot reuse already awaited coroutine");
+            if (!_started && value != null && value != PyNone.Instance)
+                throw PyTypeError.Create("can't send non-None value to a just-started coroutine");
+
+            // gen_send_ex2 supplies a value on both initial entry and resume.
+            // YIELD_VALUE leaves SharpPy's instruction pointer at the yield.
+            _frame.InstructionPointer = _started ? _frame.InstructionPointer + 1 : 0;
+            _frame.ValueStack.Push(value ?? PyNone.Instance);
+            _started = true;
+            _frame.State = PyFrame.FrameState.Executing;
+            State = CoroutineState.Running;
+            PyObject result;
             try
             {
-                if (!_started)
-                {
-                    // 첫 번째 실행
-                    _frame.InstructionPointer = 0;
-                    _frame.State = PyFrame.FrameState.Executing;
-                    State = CoroutineState.Running;
-                    _started = true;
-                }
-                else
-                {
-                    // 재개 실행
-                    _frame.InstructionPointer = _lastInstructionPointer;
-                    _frame.State = PyFrame.FrameState.Executing;
-                    State = CoroutineState.Running;
-                    
-                    // yield가 있었다면 값을 스택에 푸시
-                    if (value != null)
-                    {
-                        _frame.ValueStack.Push(value);
-                    }
-                }
-                
-                var result = _vm.ExecuteFrame(_frame);
-                
-                // 정상 완료
-                _frame.State = PyFrame.FrameState.Completed;
-                State = CoroutineState.Closed;
-                _finished = true;
-                _result = result ?? PyNone.Instance;
-                
-                throw PyStopIteration.Create(_result);
+                result = _vm.ExecuteFrame(_frame) ?? PyNone.Instance;
             }
             catch (PyYieldException yieldEx)
             {
-                // yield로 인한 일시 중단
                 _frame.State = PyFrame.FrameState.Suspended;
                 State = CoroutineState.Suspended;
-                _lastInstructionPointer = _frame.InstructionPointer;
-                
                 return yieldEx.Value ?? PyNone.Instance;
             }
+            catch (PythonException)
+            {
+                Close();
+                throw;
+            }
+
+            Close();
+            throw PyStopIteration.Create(result);
         }
         
         /// <summary>

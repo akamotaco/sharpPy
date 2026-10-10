@@ -137,6 +137,8 @@ def main():
             "tests/finally_scope_regression.py",
             "tests/unbound_variable_regression.py",
             "tests/generator_kind_regression.py",
+            "tests/coroutine_send_regression.py",
+            "tests/compatibility/coroutine_initial_send.py",
             "tests/compatibility/unbound_fast_local.py",
             "tests/compatibility/continue_finally_stack.py",
             "tests/compatibility/nested_finally_return_duplicate.py",

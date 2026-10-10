@@ -405,7 +405,10 @@ public partial class PyFunction : PyObject, IDescriptor
         var defaults = GetDefaults();
 
         // 코루틴 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
+        var scope = GlobalsDict != null
+            ? new PyScopeChain(GlobalsDict, CodeObject.Name)
+            : ParentScope ?? new PyScopeChain();
+        var frame = new PyFrame(CodeObject, args, scope, Closure, null, defaults);
         frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
 
         return new SharpPy.Core.PyCoroutine(frame, vm, Name);

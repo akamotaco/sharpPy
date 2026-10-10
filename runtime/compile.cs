@@ -3676,6 +3676,7 @@ namespace SharpPy
                 case AwaitExpression await:
                     CompileExpression(await.Value);
                     EmitInstruction(ByteCodeOp.GET_AWAITABLE);
+                    CompileYieldFrom(isAwait: true);
                     break;
                     
                 case FStringExpression fstring:
