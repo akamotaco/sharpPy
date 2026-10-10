@@ -1414,88 +1414,45 @@ namespace SharpPy
             return base.Contains(item);
         }
 
-        // CPython 3.12: Objects/abstract.c:2859-2864 (PyObject_GetIter)
-        // Support iteration via __iter__ method or dict storage
+        // CPython 3.12: PyObject_GetIter / slot_tp_iter.
         public override PyObject GetIterator()
         {
-            // Try to call __iter__ method if it exists (takes precedence)
-            try
+            var method = LookupSpecialMethodUncached("__iter__");
+            if (method != null)
             {
-                // Check instance dict first
-                if (InstanceDict.ContainsKey("__iter__"))
+                PyObject bound;
+                try { bound = BindSpecialMethod(method); }
+                catch (PythonException)
                 {
-                    var iterMethod = InstanceDict["__iter__"];
-                    return iterMethod.Call(new PyObject[0], null);
-                }
-
-                // Then check class hierarchy (both PyClass and PyType)
-                foreach (var mroType in InstanceType.MRO)
-                {
-                    // CPython 3.12: Check PyClass (user-defined classes)
-                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__iter__"))
+                    // slot_tp_iter clears lookup errors before trying __getitem__.
+                    // Errors from calling the resolved __iter__ still propagate.
+                    try
                     {
-                        var method = customClass.ClassDict["__iter__"];
-                        if (method is PyFunction func)
+                        var getitem = LookupSpecialMethodUncached("__getitem__");
+                        if (getitem != null)
                         {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            return boundMethod.Call(new PyObject[0], null);
+                            BindSpecialMethod(getitem);
+                            return new PyGenericIterator(this);
                         }
-                        break;
                     }
-                    // CPython 3.12: Check PyType (builtin types like list, dict)
-                    // This is critical for list subclasses that inherit __iter__ from list
-                    else if (mroType.TypeDict.TryGetValue("__iter__", out var method))
-                    {
-                        // Handle PyMethodDescriptor from builtin types
-                        if (method is PyMethodDescriptor descriptor)
-                        {
-                            // Call the descriptor with self as first argument
-                            return descriptor.Call(new PyObject[] { this }, null);
-                        }
-                        else if (method is PyFunction func)
-                        {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            return boundMethod.Call(new PyObject[0], null);
-                        }
-                        break;
-                    }
+                    catch (PythonException) { }
+                    return base.GetIterator();
                 }
-            }
-            catch (Exception ex)
-            {
-                // An exception raised by __iter__ is not an invalid return value.
-                if (ex is PythonException) throw;
-                throw PyTypeError.Create($"iter() returned non-iterator of type '{GetTypeName()}': {ex.Message}");
-            }
-
-            // Fall back to dict storage if this is a dict subclass
-            if (_dictStorage != null)
-            {
-                return _dictStorage.GetIterator();
+                if (bound is PyNone) return base.GetIterator();
+                var iterator = bound.Call(Array.Empty<PyObject>(), null);
+                if (!iterator.IsIterator)
+                    throw PyTypeError.Create($"iter() returned non-iterator of type '{iterator.GetTypeName()}'");
+                return iterator;
             }
 
-            // CPython 3.12: Objects/abstract.c - PyObject_GetIter fallback to PySeqIter_New
-            // If no __iter__ method, check for __getitem__ (sequence protocol)
-            // Try to check if __getitem__ exists
-            try
-            {
-                var getitemAttr = GetAttribute("__getitem__");
-                if (getitemAttr != null && getitemAttr.IsCallable())
-                {
-                    // Object has __getitem__, create a generic iterator
-                    return new PyGenericIterator(this);
-                }
-            }
-            catch (PythonException)
-            {
-                // __getitem__ doesn't exist, fall through to error
-            }
-
-            // No __iter__ or __getitem__ method found
+            // Builtin dict subclasses store their mapping separately.
+            if (_dictStorage != null) return _dictStorage.GetIterator();
+            if (LookupSpecialMethodUncached("__getitem__") != null)
+                return new PyGenericIterator(this);
             return base.GetIterator();
         }
+
+        internal override bool IsIterator => LookupSpecialMethodUncached("__next__") != null;
 
         /// <summary>
         /// CPython 3.12: Get next item by calling __next__ method

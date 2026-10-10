@@ -47,6 +47,8 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.IteratorType;
         public override string GetTypeName() => "iterator";
 
+        internal override bool IsIterator => true;
+
         /// <summary>
         /// 다음 값 반환 (Python __next__ 메서드)
         /// </summary>
@@ -380,50 +382,31 @@ namespace SharpPy
     /// </summary>
     public class PyGenericIterator : PyIterator
     {
-        private readonly PyObject _sequence;
-        private int _index;
-        private static int _totalCallCount = 0;
+        private PyObject _sequence;
+        private long _index;
 
         public PyGenericIterator(PyObject sequence)
         {
             _sequence = sequence ?? throw new ArgumentNullException(nameof(sequence));
-            _index = 0;
-#if SHARPPY_DEBUG
-            Console.WriteLine($"[DEBUG] PyGenericIterator created for {_sequence.GetTypeName()}");
-#endif
         }
 
         public override PyObject Next()
         {
-            _totalCallCount++;
-#if SHARPPY_DEBUG
-            if (_totalCallCount % 1000 == 0)
-            {
-                Console.WriteLine($"[DEBUG] PyGenericIterator.Next() called {_totalCallCount} times total");
-            }
-            if (_index % 100 == 0 && _index > 0)
-            {
-                Console.WriteLine($"[DEBUG] PyGenericIterator.Next(): _index={_index} for {_sequence.GetTypeName()}");
-            }
-#endif
+            if (_sequence == null) throw PyStopIteration.Create();
+            if (_index == long.MaxValue) throw PyOverflowError.Create("iter index too large");
             try
             {
-                var result = _sequence.GetAttribute("__getitem__").Call(new PyObject[] { new PyInt(_index) }, null);
+                var method = _sequence.LookupSpecialMethodUncached("__getitem__");
+                var result = method != null
+                    ? _sequence.BindSpecialMethod(method).Call(new PyObject[] { new PyInt(_index) }, null)
+                    : _sequence.GetItem(new PyInt(_index));
                 _index++;
                 return result;
             }
-            catch (PythonException ex) when (ex.PyException is PyIndexError)
+            catch (PythonException ex) when (ex.PyException is PyIndexError || ex.PyException is PyStopIteration)
             {
-#if SHARPPY_DEBUG
-                Console.WriteLine($"[DEBUG] PyGenericIterator.Next(): IndexError at _index={_index}, raising StopIteration");
-#endif
-                throw PyStopIteration.Create();
-            }
-            catch (Exception ex)
-            {
-#if SHARPPY_DEBUG
-                Console.WriteLine($"[DEBUG] PyGenericIterator.Next(): Exception at _index={_index}: {ex.GetType().Name}");
-#endif
+                // Sequence exhaustion is permanent and releases the sequence.
+                _sequence = null;
                 throw PyStopIteration.Create();
             }
         }

@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[58차 결과](reports/2026-10-10/iterator_protocol_analysis.md): 57차를 `49a37ea`로 커밋했다. 사용자 객체의 iter 특수 메서드 조회·반환값 검증과 sequence fallback의 오류 전파·영구 종료를 맞췄다. 기본 110개·Godot 소스 통합 38개 통과. iter 호출 1만 회 할당 240,000 B 감소, 측정 시간은 약 1.2% 증가하며 표본 범위가 겹친다. 다음은 별도 실패 fixture로 보존한 metaclass iterator 반환값 검증이다.
+
 [57차 결과](reports/2026-10-10/generator_send_protocol_analysis.md): 56차를 `9ae7747`로 커밋했다. SEND의 None/값 전송 경로를 구분하고 사용자 __next__의 타입 lookup·descriptor 바인딩을 맞췄다. 기본 106개·Godot 34개 통과. Python iterator next 벤치마크 약 4.9% 단축, 1만 회 할당 24만 B 감소. 다음은 __iter__의 special lookup과 반환 iterator 검증이며 별도 실패 fixture로 보존한다.
 
 [56차 결과](reports/2026-10-10/generator_delegation_close_analysis.md): 55차를 `2960df4`로 커밋했다. yield from의 내부 iterator를 먼저 닫고 그 오류를 바깥 handler/finally에 전달한다. CLEANUP_THROW와 예외 주입 스택을 CPython 규칙에 맞췄다. 기본 104개·Godot 32개 통과. 측정 할당량은 동일하며 직접 close 시간은 약 1.4% 증가했다. 다음은 send 없는 사용자 iterator의 SEND 경로다. close 속성 조회 오류의 unraisable 처리와 특수 재진입 차이도 보고서에 남겼다.

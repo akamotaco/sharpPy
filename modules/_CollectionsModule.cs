@@ -394,6 +394,8 @@ namespace SharpPy.Modules
         }
 
         public override string GetTypeName() => "deque_iterator";
+        internal override bool IsIterator => true;
+        public override PyObject GetIterator() => this;
 
         public override PyObject Next()
         {

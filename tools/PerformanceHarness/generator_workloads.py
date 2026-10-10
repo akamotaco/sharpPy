@@ -1,4 +1,4 @@
-﻿def values(n):
+def values(n):
     for i in range(n):
         yield i
 
@@ -54,4 +54,12 @@ def python_iterator(n):
     total = 0
     for i in range(n):
         total += next(iterator)
+    return total
+
+
+def iterator_acquisition(n):
+    iterator = PythonIterator()
+    total = 0
+    for i in range(n):
+        total += next(iter(iterator))
     return total

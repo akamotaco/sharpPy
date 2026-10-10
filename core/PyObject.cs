@@ -1231,6 +1231,9 @@ namespace SharpPy
 
         #region Iterator Protocol
 
+        // Equivalent to a non-null tp_iternext slot; do not invoke descriptors.
+        internal virtual bool IsIterator => false;
+
         /// <summary>
         /// 이터레이터 객체 반환 (__iter__)
         /// </summary>
