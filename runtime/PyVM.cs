@@ -1262,6 +1262,14 @@ namespace SharpPy
                         continue; // Skip to next instruction
                     }
 
+                    // CACHE words occupy offsets but do not execute Python code.
+                    // Keep pending generator exceptions on the normal handling path.
+                    if (instruction.OpCode == ByteCodeOp.CACHE && extendedArg == 0 && frame.PendingException == null)
+                    {
+                        frame.InstructionPointer++;
+                        continue;
+                    }
+
                     // Apply accumulated extended argument to current instruction
                     // Create modified instruction with combined argument
                     if (extendedArg != 0)

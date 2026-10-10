@@ -2,6 +2,8 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[50차 결과](reports/2026-10-10/cache_dispatch_analysis.md): 49차를 a4da1e9로 커밋했다. CACHE word의 offset은 유지하면서 불필요한 소스 위치 조회·dispatcher 호출을 생략한다. 측정한 덧셈/함수호출/속성 workload 중앙값 17.1%/15.0%/46.1% 단축. 별도 재현에서 기존 generator.throw의 루프 중간 조기 종료를 발견했으며 다음 최우선 수정 대상이다. 이 실패는 CACHE 수정 전후 모두 존재한다.
+
 [49차 결과](reports/2026-10-10/cfg_retention_analysis.md): 48차를 ae7c2c8로 커밋했다. 예외 테이블 생성 후 최종 instruction의 CFG 참조를 끊어 컴파일 자료 유지 경로를 제거했다. 33개 코드 객체의 실행 메타데이터 해시는 동일하고 최종 배열에서 도달하는 CFG 블록은 0개다. 전체 92개 및 Godot 회귀 20개 통과. 다음은 CACHE dispatch와 소스 위치 갱신 비용 조사다.
 
 [48차 결과](reports/2026-10-10/instruction_dispatch_analysis.md): 47차를 cbc1b20로 커밋했다. 40B instruction 전체 대신 opcode·인자만 private dispatcher에 전달한다. 측정한 덧셈·함수 호출 약 9.5%, comprehension 약 11.9% 단축, 할당 동일. 공개 IR과 예외/소스 메타데이터는 유지한다. 다음은 최종 배열의 메타데이터 유지량 및 instruction fetch 비용 조사다.
