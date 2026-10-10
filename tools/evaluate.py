@@ -117,6 +117,8 @@ def main():
             "tests/compatibility/generator_throw_loop_resume.py",
             "tests/compatibility/generator_throw_expression_stack.py",
             "tests/exception_stack_depth_regression.py",
+            "tests/compatibility/exception_context_after_handler.py",
+            "tests/exception_state_regression.py",
             "tests/compatibility/range_large_step.py",
             "tests/slice_indices_bigint_regression.py",
             "tests/sequence_large_step_regression.py",

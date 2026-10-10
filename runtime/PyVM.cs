@@ -1407,7 +1407,7 @@ namespace SharpPy
                             #endif
 
                             frame.LastException = pyEx.PyException;
-                            frame.CurrentException = pyEx.PyException;
+                            // PUSH_EXC_INFO saves the previous handled exception before replacing it.
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 Exception handled: jumping to handler at offset {handlerOffset.Value}");
                             #endif
@@ -4575,7 +4575,7 @@ namespace SharpPy
                     }
 
                     // Update frame's current exception
-                    if (newExc is PyException pyExc)
+                    if (newExc is PyBaseException pyExc)
                     {
                         frame.CurrentException = pyExc;
                     }
@@ -5045,11 +5045,11 @@ namespace SharpPy
                     }
                     else if (argument == 0)
                     {
-                        // bare raise - same as RERAISE
-                        if (frame.LastException != null)
-                            throw new PythonException(frame.LastException);
+                        // Bare raise uses the currently handled exception, not the last raised one.
+                        if (frame.CurrentException != null)
+                            throw new PythonException(frame.CurrentException, fromReraise: true);
                         else
-                            throw new PythonException(new PyRuntimeError("No active exception to re-raise"));
+                            throw new PythonException(new PyRuntimeError("No active exception to reraise"));
                     }
                     break;
 

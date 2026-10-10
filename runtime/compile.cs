@@ -9786,8 +9786,8 @@ namespace SharpPy
             }
             else
             {
-                // bare raise - re-raise current exception
-                EmitInstruction(ByteCodeOp.RERAISE);
+                // CPython: bare raise reads handled exception state, not the value stack.
+                EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0);
             }
         }
         private void CompileDelete(DeleteStatement delete)

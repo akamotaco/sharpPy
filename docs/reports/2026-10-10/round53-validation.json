@@ -1,0 +1,27 @@
+{
+  "baseline_commit": "d38f35f",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "default_status_counts": {
+    "matching_output": 93,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "godot": {
+    "source_build": true,
+    "passed_fixtures": 26,
+    "native_range_helpers": true
+  },
+  "baseline_regressions": "Both context_after_handler and exception_state_regression fail",
+  "known_gap": {
+    "fixture": "tests/compatibility/exception_state_in_callee.py",
+    "reference": "pass",
+    "baseline": "fails: bare raise returns normally",
+    "after": "fails: RuntimeError instead of caller exception"
+  },
+  "performance": "Not benchmarked; no new per-call allocation introduced",
+  "fixtures": {
+    "tests\\compatibility\\exception_context_after_handler.py": "38bdc0895a20cc5d61dacbb9cf2dcaae9abbe8285e091d20835dad2c23d19925",
+    "tests\\exception_state_regression.py": "9fdd8a8aca714486be105336c522ffcb30d5bea86c14cc8b8efe965ad1009be8",
+    "tests\\compatibility\\exception_state_in_callee.py": "9e2555536713f5765d7727745e441f242c605c81fd2f2b1892c57fbb68142f44"
+  }
+}
