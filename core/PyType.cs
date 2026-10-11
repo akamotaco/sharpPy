@@ -1624,7 +1624,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__repr__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString($"<class '{type.Name}'>");
+                    return type.TypeRepr();
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -2737,6 +2737,21 @@ namespace SharpPy
         #endregion
 
         #region String Representation
+
+        internal PyString TypeRepr()
+        {
+            // type_repr reads type metadata directly, bypassing metaclass hooks.
+            string module = Module;
+            string qualname = Name;
+            if (this is PyClass cls)
+            {
+                module = cls.ClassDict.GetValueOrDefault("__module__") is PyString mod ? mod.Value : null;
+                if (cls.ClassDict.GetValueOrDefault("__qualname__") is PyString qual)
+                    qualname = qual.Value;
+            }
+            return new PyString(module != null && module != "builtins"
+                ? $"<class '{module}.{qualname}'>" : $"<class '{Name}'>");
+        }
 
         public override PyString ToRepr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
         public override PyString ToStr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");

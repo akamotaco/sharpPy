@@ -386,6 +386,13 @@ namespace SharpPy
         // 클래스 attribute 접근
         public override PyObject GetAttribute(string name)
         {
+            // _Py_type_getattro_impl: metatype data descriptors precede the
+            // class namespace, including descriptors inherited by the metatype.
+            var metaAttribute = Metaclass == null ? null : MROUtils.LookupAttribute(Metaclass.MRO, name);
+            if (metaAttribute != null && PyClassInstance.IsDescriptor(metaAttribute) &&
+                PyClassInstance.IsDataDescriptor(metaAttribute))
+                return PyClassInstance.CallDescriptorGet(metaAttribute, this, Metaclass);
+
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClass.GetAttribute: {Name}.{name}");
             #endif

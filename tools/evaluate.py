@@ -95,6 +95,8 @@ def main():
         *[str(path.relative_to(ROOT)) for path in sorted((ROOT / "tests").glob("level*.py"))],
         *[str(path.relative_to(ROOT)) for path in sorted(ROOT.glob("test_*.py"))],
         "tests/binary_inplace_regression.py",
+        "tests/metaclass_attribute_regression.py",
+        "tests/compatibility/metaclass_attribute_remaining.py",
         "tests/dict_key_identity_regression.py",
         "tests/dict_hash_protocol_regression.py",
         "tests/compatibility/numeric_dict_hash.py",
