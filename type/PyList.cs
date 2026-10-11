@@ -164,24 +164,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"sort() takes no positional arguments ({args.Length} given)");
                     var list = GetListStorage(self);
 
-                    PyObject? key = null;
-                    bool reverse = false;
-
-                    if (kwargs != null)
-                    {
-                        var keyStr = new PyString("key");
-                        var reverseStr = new PyString("reverse");
-
-                        if (kwargs.Contains(keyStr).Value)
-                            key = kwargs.GetItem(keyStr);
-
-                        if (kwargs.Contains(reverseStr).Value)
-                        {
-                            var reverseObj = kwargs.GetItem(reverseStr);
-                            reverse = reverseObj.PyBoolValue();
-                        }
-                    }
-
+                    ParseSortKeywords(kwargs, out var key, out bool reverse);
                     list.Sort(key, reverse);
                     return PyNone.Instance;
                 },
@@ -572,76 +555,78 @@ namespace SharpPy
             _items.Reverse();
         }
 
+        internal static void ParseSortKeywords(PyDict kwargs, out PyObject key, out bool reverse)
+        {
+            key = null;
+            reverse = false;
+            PyObject reverseArg = null;
+            if (kwargs != null)
+            {
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    if (pair.Key is not PyString name)
+                        throw PyTypeError.Create("keywords must be strings");
+                    if (name.Value == "key") key = pair.Value;
+                    else if (name.Value == "reverse") reverseArg = pair.Value;
+                    else throw PyTypeError.Create($"'{name.Value}' is an invalid keyword argument for sort()");
+                }
+            }
+            if (reverseArg != null)
+                reverse = reverseArg.IsTrue();
+        }
+
         public void Sort(PyObject? key = null, bool reverse = false)
         {
-            // CPython 3.12: list.sort(*, key=None, reverse=False)
-            if (key == null || key == PyNone.Instance)
+            var saved = _items;
+            if ((key == null || key == PyNone.Instance) && saved.Count < 64)
             {
-                // No key function: direct comparison
-                _items.Sort((a, b) =>
+                if (saved.Count < 2) return;
+                _items = new List<PyObject>();
+                if (reverse) saved.Reverse();
+                try
                 {
-                    try
-                    {
-                        var result = a.RichCompare(b, CompareOp.LT);
-                        if (result is PyBool boolResult)
-                        {
-                            return boolResult.Value ? -1 :
-                                   (a.RichCompare(b, CompareOp.GT) is PyBool gt && gt.Value ? 1 : 0);
-                        }
-                        return 0;
-                    }
-                    catch
-                    {
-                        return 0;
-                    }
-                });
-            }
-            else
-            {
-                // CPython 3.12: Apply key function to all elements
-                var keysAndValues = new List<(PyObject key, PyObject value)>();
-
-                for (int i = 0; i < _items.Count; i++)
-                {
-                    var keyResult = key.Call(new[] { _items[i] }, null);
-                    keysAndValues.Add((keyResult, _items[i]));
+                    PyListSort.SortSmall(saved);
+                    if (_items.Capacity != 0)
+                        throw PyValueError.Create("list modified during sort");
                 }
-
-                // Sort by keys
-                keysAndValues.Sort((a, b) =>
+                finally
                 {
-                    try
-                    {
-                        var result = a.key.RichCompare(b.key, CompareOp.LT);
-                        if (result is PyBool boolResult)
-                        {
-                            return boolResult.Value ? -1 :
-                                   (a.key.RichCompare(b.key, CompareOp.GT) is PyBool gt && gt.Value ? 1 : 0);
-                        }
-                        return 0;
-                    }
-                    catch
-                    {
-                        return 0;
-                    }
-                });
-
-                // Extract sorted values
-                _items.Clear();
-                foreach (var (_, value) in keysAndValues)
-                {
-                    _items.Add(value);
+                    if (reverse) saved.Reverse();
+                    _items = saved;
                 }
+                return;
             }
-
-            // CPython 3.12: Apply reverse if requested
-            if (reverse)
+            var values = saved.ToArray();
+            _items = new List<PyObject>();
+            bool reversed = false;
+            try
             {
-                _items.Reverse();
+                var keys = values;
+                if (key != null && key != PyNone.Instance)
+                {
+                    keys = new PyObject[values.Length];
+                    for (int i = 0; i < values.Length; i++)
+                        keys[i] = key.Call(new[] { values[i] }, null);
+                }
+                if (reverse)
+                {
+                    Array.Reverse(values);
+                    if (!ReferenceEquals(keys, values)) Array.Reverse(keys);
+                    reversed = true;
+                }
+                new PyListSort(keys, values).Sort();
+                if (_items.Capacity != 0)
+                    throw PyValueError.Create("list modified during sort");
+            }
+            finally
+            {
+                if (reversed) Array.Reverse(values);
+                saved.Clear();
+                saved.AddRange(values);
+                _items = saved;
             }
         }
 
-        // 동등성 비교
         private static bool AreEqual(PyObject a, PyObject b)
         {
             if (a == b) return true;

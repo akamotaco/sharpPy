@@ -103,6 +103,7 @@ def main():
         "tests/comparison_container_regression.py",
         "tests/native_comparison_slots_regression.py",
         "tests/type_setattr_binding_regression.py",
+        "tests/sort_protocol_regression.py",
         "tests/compatibility/comparison_class_setattr.py",
         "tests/compatibility/comparison_remaining_slots.py",
         "tests/compatibility/integer_subclass_comparison_dispatch.py",

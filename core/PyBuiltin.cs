@@ -596,110 +596,17 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"sorted expected exactly 1 arguments ({args.Length} given)");
 
-            var iterable = args[0];
-            PyObject keyFunc = null;
-            var reverse = false;
-
-            // kwargs 처리
-            if (kwargs != null)
-            {
-                try
-                {
-                    var keyValue = kwargs.GetItem(new PyString("key"));
-                    keyFunc = keyValue != PyNone.Instance ? keyValue : null;
-                }
-                catch { }
-
-                try
-                {
-                    var reverseValue = kwargs.GetItem(new PyString("reverse"));
-                    reverse = reverseValue.PyBoolValue();
-                }
-                catch { }
-
-                // 예상치 못한 키워드 인수 체크
-                foreach (var kvp in kwargs.InternalDict)
-                {
-                    if (kvp.Key is PyString keyStr)
-                    {
-                        if (keyStr.Value != "key" && keyStr.Value != "reverse")
-                        {
-                            throw PyTypeError.Create($"'{keyStr.Value}' is an invalid keyword argument for sorted()");
-                        }
-                    }
-                }
-            }
-
-            var items = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
-
+            // CPython materializes the iterable before list.sort parses keywords.
+            var result = new PyList();
+            var iterator = args[0].GetIterator();
             try
             {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
+                while (true) result.Append(iterator.Next());
             }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            // key 함수가 있으면 키 값과 함께 정렬
-            if (keyFunc != null)
-            {
-                // Performance: Eliminated LINQ - manual loop instead of Select().ToList()
-                var keysAndItems = new System.Collections.Generic.List<(PyObject Item, PyObject Key)>();
-                for (int i = 0; i < items.Count; i++)
-                {
-                    var item = items[i];
-                    var key = keyFunc.Call(new PyObject[] { item }, null);
-                    keysAndItems.Add((item, key));
-                }
-
-                try
-                {
-                    keysAndItems.Sort((a, b) =>
-                    {
-                        var cmpResult = a.Key.RichCompare(b.Key, PyObject.CompareOp.LT);
-                        var result = ((PyBool)cmpResult).Value ? -1 :
-                                   ((PyBool)a.Key.RichCompare(b.Key, PyObject.CompareOp.GT)).Value ? 1 : 0;
-                        return reverse ? -result : result;
-                    });
-                }
-                catch
-                {
-                    throw PyTypeError.Create("'<' not supported between instances");
-                }
-
-                // Performance: Eliminated LINQ - manual loop instead of Select().ToList()
-                items.Clear();
-                for (int i = 0; i < keysAndItems.Count; i++)
-                {
-                    items.Add(keysAndItems[i].Item);
-                }
-            }
-            else
-            {
-                // 간단한 정렬 (비교 가능한 객체만)
-                try
-                {
-                    items.Sort((a, b) =>
-                    {
-                        var cmpResult = a.RichCompare(b, PyObject.CompareOp.LT);
-                        var result = ((PyBool)cmpResult).Value ? -1 :
-                                   ((PyBool)a.RichCompare(b, PyObject.CompareOp.GT)).Value ? 1 : 0;
-                        return reverse ? -result : result;
-                    });
-                }
-                catch
-                {
-                    throw PyTypeError.Create("'<' not supported between instances");
-                }
-            }
-
-            // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
-            return new PyList(items.ToArray());
+            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+            PyList.ParseSortKeywords(kwargs, out var key, out bool reverse);
+            result.Sort(key, reverse);
+            return result;
         }
 
         private static PyObject CallReversed(PyObject[] args, PyDict kwargs = null)
