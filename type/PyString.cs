@@ -1839,7 +1839,7 @@ namespace SharpPy
             return other switch
             {
                 PyString otherStr => PyBool.FromBool(Value == otherStr.Value),
-                _ => PyBool.False
+                _ => PyNotImplemented.Instance
             };
         }
 
@@ -1852,7 +1852,7 @@ namespace SharpPy
             return other switch
             {
                 PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) < 0),
-                _ => throw PyTypeError.Create($"'<' not supported between instances of 'str' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance
             };
         }
 
@@ -1861,7 +1861,7 @@ namespace SharpPy
             return other switch
             {
                 PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) <= 0),
-                _ => throw PyTypeError.Create($"'<=' not supported between instances of 'str' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance
             };
         }
 
@@ -1870,7 +1870,7 @@ namespace SharpPy
             return other switch
             {
                 PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) > 0),
-                _ => throw PyTypeError.Create($"'>' not supported between instances of 'str' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance
             };
         }
 
@@ -1879,7 +1879,7 @@ namespace SharpPy
             return other switch
             {
                 PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) >= 0),
-                _ => throw PyTypeError.Create($"'>=' not supported between instances of 'str' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance
             };
         }
 

@@ -2216,6 +2216,9 @@ namespace SharpPy
     /// </summary>
     public class PyTupleSubclass : PyTuple, IInstanceDictAccessor
     {
+        public override PyObject RichCompare(PyObject other, CompareOp op) =>
+            TryCompareSpecial(other, op, PyType.TupleType) ?? base.RichCompare(other, op);
+
         public PyClass InstanceType { get; }
         public Dictionary<string, PyObject> InstanceDict { get; }
         public PyObject[] ConstructorArgs { get; set; }

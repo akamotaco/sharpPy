@@ -33,6 +33,33 @@ namespace SharpPy
         public static void InitializeIntDescriptors()
         {
             var intType = PyType.IntType;
+            string[] comparisonNames = { "__lt__", "__le__", "__eq__", "__ne__", "__gt__", "__ge__" };
+            for (int i = 0; i < comparisonNames.Length; i++)
+            {
+                string name = comparisonNames[i];
+                var op = (CompareOp)i;
+                intType.TypeDict[name] = new PyWrapperDescriptor(name, intType,
+                    (self, args, kwargs) => {
+                        var left = self as PyInt ?? (self as PyIntSubclass)?.GetIntValue();
+                        if (left == null && self is not PyBool)
+                            throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
+                        if (kwargs != null && kwargs.Length() != 0)
+                            throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                        var right = args[0] as PyInt ?? (args[0] as PyIntSubclass)?.GetIntValue();
+                        if (right == null && args[0] is not PyBool)
+                            return PyNotImplemented.Instance;
+                        var a = left != null ? left.Value : (((PyBool)self).Value ? BigInteger.One : BigInteger.Zero);
+                        var b = right != null ? right.Value : (((PyBool)args[0]).Value ? BigInteger.One : BigInteger.Zero);
+                        int order = a.CompareTo(b);
+                        return PyBool.FromBool(op switch {
+                            CompareOp.LT => order < 0, CompareOp.LE => order <= 0,
+                            CompareOp.EQ => order == 0, CompareOp.NE => order != 0,
+                            CompareOp.GT => order > 0, _ => order >= 0
+                        });
+                    });
+            }
             intType.TypeDict["__hash__"] = new PyWrapperDescriptor(
                 "__hash__", intType,
                 (self, args, kwargs) => {
