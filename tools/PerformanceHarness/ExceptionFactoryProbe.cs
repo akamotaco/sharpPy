@@ -3,22 +3,24 @@ using SharpPy;
 
 internal static class ExceptionFactoryProbe
 {
-    internal static object Run(bool includeMappedErrors = false)
+    internal static object Run(bool includeMappedErrors = false, bool includeDirectoryErrors = false)
     {
         const int iterations = 100000;
         var builtin = PyBuiltinsModule.Instance;
         var results = new List<object>();
-        foreach (var name in new[] { "OSError", "ValueError" })
+        foreach (var name in new[] { "OSError", "FileNotFoundError", "ValueError" })
         foreach (var arity in new[] { 1, 2 })
-        foreach (var code in arity == 1 ? new[] { 0 } : includeMappedErrors ? new[] { 999, 1, 2, 13, 17 } : new[] { 999 })
+        foreach (var code in arity == 1 ? new[] { 0 } : includeDirectoryErrors ? new[] { 999, 1, 2, 13, 17, 20, 21 } : includeMappedErrors ? new[] { 999, 1, 2, 13, 17 } : new[] { 999 })
         foreach (var path in new[] { "create", "call", "lookup_call" })
         {
-            var type = name == "OSError" ? PyType.OSErrorType : PyType.ValueErrorType;
+            var type = name == "OSError" ? PyType.OSErrorType :
+                name == "FileNotFoundError" ? PyType.FileNotFoundErrorType : PyType.ValueErrorType;
             PyObject[] args = arity == 1 ? new PyObject[] { new PyString("message") } :
                 new PyObject[] { new PyInt(code), new PyString("message") };
             string expectedType = name == "OSError" && arity == 2 ? code switch
             {
-                2 => "FileNotFoundError", 1 or 13 => "PermissionError", 17 => "FileExistsError", _ => "OSError"
+                2 => "FileNotFoundError", 1 or 13 => "PermissionError", 17 => "FileExistsError",
+                20 => "NotADirectoryError", 21 => "IsADirectoryError", _ => "OSError"
             } : name;
             PyObject RunBatch()
             {

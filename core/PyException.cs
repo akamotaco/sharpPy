@@ -1003,7 +1003,8 @@ namespace SharpPy
         {
             if (kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("OSError() takes no keyword arguments");
-            args = NormalizeWindowsArguments(args);
+            if (args.Length >= 4 && args.Length <= 5)
+                args = NormalizeWindowsArguments(args);
             if (args.Length >= 2 && args.Length <= 5)
             {
                 if (args[0] is PyInt number)
@@ -1023,7 +1024,7 @@ namespace SharpPy
 
         internal PyOSError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs)
         {
-            if (!normalized)
+            if (!normalized && args.Length >= 4 && args.Length <= 5)
             {
                 args = NormalizeWindowsArguments(args);
                 Args = args;

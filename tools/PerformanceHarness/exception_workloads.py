@@ -30,3 +30,11 @@ def os_error_fallback(n):
         error = OSError(999, "message")
         total += i
     return total
+
+
+def os_error_winerror(n):
+    total = 0
+    for i in range(n):
+        error = OSError(999, "message", "source", 267)
+        total += i
+    return total
