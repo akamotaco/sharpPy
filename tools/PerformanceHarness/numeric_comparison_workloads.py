@@ -24,3 +24,27 @@ def integer_compare(n):
         if i < limit and limit > i and i != limit and limit != i:
             total += i
     return total
+
+
+class _Number(int):
+    pass
+
+
+def int_subclass_compare(n):
+    number = _Number(10)
+    limit = 20
+    total = 0
+    for i in range(n):
+        if number < limit and number <= limit and number != limit and number > 0:
+            total += i
+    return total
+
+
+def int_subclass_float_compare(n):
+    number = _Number(10)
+    limit = 20.5
+    total = 0
+    for i in range(n):
+        if number < limit and number <= limit and number != limit and number > 0.0:
+            total += i
+    return total

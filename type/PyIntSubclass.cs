@@ -92,99 +92,12 @@ namespace SharpPy
 
         #region Comparison Operations - Delegate to PyInt
 
-        protected override PyObject PyEquals(PyObject other)
+        public override PyObject RichCompare(PyObject other, CompareOp op)
         {
-            // CPython 3.12: Objects/longobject.c:3150-3173 (long_richcompare)
-            // IntEnum (int subclass) should compare equal to int with same value
-            if (other is PyIntSubclass otherSub)
-                other = otherSub._intValue;
-            // Delegate to PyInt's RichCompare for proper value comparison
-            return _intValue.RichCompare(other, CompareOp.EQ);
-        }
-
-        protected override PyObject PyLess(PyObject other)
-        {
-            if (other is PyIntSubclass otherSub)
-                other = otherSub._intValue;
-
-            // CPython 3.12: Objects/longobject.c - int subclass comparison
-            // Extract int value for comparison
-            long thisValue = (long)_intValue.Value;
-            long otherValue;
-
-            if (other is PyInt otherInt)
-                otherValue = (long)otherInt.Value;
-            else if (other is PyFloat otherFloat)
-                return thisValue < otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
-            else
-                throw PyTypeError.Create($"'<' not supported between instances of 'int' and '{other.GetTypeName()}'");
-
-            return thisValue < otherValue ? PyBool.True : PyBool.False;
-        }
-
-        protected override PyObject PyLessEqual(PyObject other)
-        {
-            if (other is PyIntSubclass otherSub)
-                other = otherSub._intValue;
-
-            // CPython 3.12: Objects/longobject.c - int subclass comparison
-            long thisValue = (long)_intValue.Value;
-            long otherValue;
-
-            if (other is PyInt otherInt)
-                otherValue = (long)otherInt.Value;
-            else if (other is PyFloat otherFloat)
-                return thisValue <= otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
-            else
-                throw PyTypeError.Create($"'<=' not supported between instances of 'int' and '{other.GetTypeName()}'");
-
-            return thisValue <= otherValue ? PyBool.True : PyBool.False;
-        }
-
-        protected override PyObject PyGreater(PyObject other)
-        {
-            if (other is PyIntSubclass otherSub)
-                other = otherSub._intValue;
-
-            // CPython 3.12: Objects/longobject.c - int subclass comparison
-            long thisValue = (long)_intValue.Value;
-            long otherValue;
-
-            if (other is PyInt otherInt)
-                otherValue = (long)otherInt.Value;
-            else if (other is PyFloat otherFloat)
-                return thisValue > otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
-            else
-                throw PyTypeError.Create($"'>' not supported between instances of 'int' and '{other.GetTypeName()}'");
-
-            return thisValue > otherValue ? PyBool.True : PyBool.False;
-        }
-
-        protected override PyObject PyGreaterEqual(PyObject other)
-        {
-            if (other is PyIntSubclass otherSub)
-                other = otherSub._intValue;
-
-            // CPython 3.12: Objects/longobject.c - int subclass comparison
-            long thisValue = (long)_intValue.Value;
-            long otherValue;
-
-            if (other is PyInt otherInt)
-                otherValue = (long)otherInt.Value;
-            else if (other is PyFloat otherFloat)
-                return thisValue >= otherFloat.Value ? PyBool.True : PyBool.False;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
-            else
-                throw PyTypeError.Create($"'>=' not supported between instances of 'int' and '{other.GetTypeName()}'");
-
-            return thisValue >= otherValue ? PyBool.True : PyBool.False;
+            // Use the full payload and dispatch the operation only once.
+            if (other is PyIntSubclass otherSubclass)
+                other = otherSubclass._intValue;
+            return _intValue.RichCompare(other, op);
         }
 
         #endregion

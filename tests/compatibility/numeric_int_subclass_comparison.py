@@ -1,4 +1,4 @@
-"""Pending: inherited int subclass comparisons must preserve the full payload."""
+"""Inherited int subclass comparisons must preserve the full payload."""
 class Number(int):
     pass
 

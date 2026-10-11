@@ -97,6 +97,8 @@ def main():
         "tests/binary_inplace_regression.py",
         "tests/dict_key_identity_regression.py",
         "tests/numeric_mixed_comparison_regression.py",
+        "tests/integer_subclass_comparison_regression.py",
+        "tests/compatibility/numeric_int_subclass_comparison.py",
         "tests/inplace_special_lookup.py",
         "tests/function_creation_regression.py",
         "tests/scope_binding_regression.py",

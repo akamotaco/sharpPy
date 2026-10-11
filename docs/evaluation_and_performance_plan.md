@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[90차 결과](reports/2026-10-12/integer_subclass_comparison.md): 89차 `956dd3e`를 커밋하고 `origin/work/oserror-compatibility`에 푸시했다. int 하위 타입의 Int64 축소와 중복 비교 분기를 제거하고 기본 int/float/bool의 반대 방향 비교를 연결했다. 676개 조합·전체 157개·Godot 30개 통과. 최종 네 workload의 할당은 동일하고 시간 범위는 겹친다. 초기 하위 타입/float +1.44%는 재측정에서 +0.22%가 됐지만 원인은 확정하지 않는다. 사용자 비교 재정의·하위 타입 우선 호출의 실패 fixture를 보존했으며 VM과 컨테이너의 공통 비교 판정이 다음 대상이다.
 [89차 결과](reports/2026-10-11/numeric_mixed_comparison.md): 88차를 `3533981`로 커밋했다. 수치 키 조사에서 발견한 기본 int/float 비교의 정밀도 손실을 먼저 수정했다. 577개 조합의 양방향 6종 비교, 전체 155개·Godot 28개 통과. 정확한 큰 정수의 임시 BigInteger 생성을 제거해 기존 세 workload의 할당을 유지했고 시간 범위는 겹친다. int 하위 타입의 Int64 축소·반대편 비교와 동등 수치 키의 dict 해시 불일치를 실패 fixture로 보존했으며 순서대로 후속 검증한다.
 [88차 결과](reports/2026-10-11/dict_key_identity.md): 87차를 `9629fe0`으로 커밋했다. dict에서 같은 키 객체의 동등 비교를 생략해 NaN 및 사용자 비교 예외의 조회·갱신·삭제를 CPython과 맞췄다. 기본 154개·Godot 27개 통과. 기존 dict 두 workload 시간 변화는 -0.78%/-0.09%이며 범위가 겹쳐 속도 개선은 주장하지 않는다. 다음은 수치 키 해시 계약과 저장된 전체 해시·키 참조 구조, 다른 객체의 비교 callback 및 재진입 검증이다.
 [87차 결과](reports/2026-10-11/integer_hash_protocol.md): 86차를 `2b71fa8`로 커밋했다. 정수 hash()를 native-width Python 해시와 사용자 callback에 연결하고 errno와 경로를 공유했다. builtin wrapper 임시 바인딩 및 작은 반환 정수 생성을 제거해 두 workload에서 각각 10만 회당 400만 B 감소했다. 기본 153개·Godot 관련 26개 통과. 85→86 비용 분리에서 native 생성의 일관된 증가는 없었지만 VM 일반 생성 +2.72%가 재현돼 원인은 미확정이다. dict의 32-bit 해시·동등 비교 callback과 큰 문자열 파싱은 후속 과제로 유지한다.

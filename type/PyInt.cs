@@ -568,6 +568,7 @@ namespace SharpPy
                 PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
                 PyFloat otherFloat => PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
+                PyIntSubclass otherSubclass => PyBool.FromBool(Value == otherSubclass.GetIntValue().Value),
                 _ => PyBool.False
             };
         }
@@ -585,6 +586,8 @@ namespace SharpPy
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) > 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value < (otherBool.Value ? 1 : 0));
+            if (other is PyIntSubclass otherSubclass)
+                return PyBool.FromBool(Value < otherSubclass.GetIntValue().Value);
 
             // Return NotImplemented to allow other object's __gt__ to be tried
             return PyNotImplemented.Instance;
@@ -599,6 +602,8 @@ namespace SharpPy
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) >= 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0));
+            if (other is PyIntSubclass otherSubclass)
+                return PyBool.FromBool(Value <= otherSubclass.GetIntValue().Value);
 
             // Return NotImplemented to allow other object's __ge__ to be tried
             return PyNotImplemented.Instance;
@@ -613,6 +618,8 @@ namespace SharpPy
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) < 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value > (otherBool.Value ? 1 : 0));
+            if (other is PyIntSubclass otherSubclass)
+                return PyBool.FromBool(Value > otherSubclass.GetIntValue().Value);
 
             // Return NotImplemented to allow other object's __lt__ to be tried
             return PyNotImplemented.Instance;
@@ -628,6 +635,8 @@ namespace SharpPy
                 return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) <= 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0));
+            if (other is PyIntSubclass otherSubclass)
+                return PyBool.FromBool(Value >= otherSubclass.GetIntValue().Value);
 
             // CPython: If other type doesn't handle comparison, return NotImplemented
             // This allows the other object's __le__ method to be tried

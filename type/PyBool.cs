@@ -47,6 +47,7 @@ namespace SharpPy
                 PyBool otherBool => FromBool(Value == otherBool.Value),
                 PyInt otherInt => FromBool((Value ? 1 : 0) == otherInt.Value),
                 PyFloat otherFloat => FromBool((Value ? 1.0 : 0.0) == otherFloat.Value),
+                PyIntSubclass otherSubclass => FromBool((Value ? 1 : 0) == otherSubclass.GetIntValue().Value),
                 _ => False
             };
         }
@@ -62,6 +63,7 @@ namespace SharpPy
                 PyBool otherBool => FromBool(!Value && otherBool.Value), // False < True
                 PyInt otherInt => FromBool((Value ? 1 : 0) < otherInt.Value),
                 PyFloat otherFloat => FromBool((Value ? 1.0 : 0.0) < otherFloat.Value),
+                PyIntSubclass otherSubclass => FromBool((Value ? 1 : 0) < otherSubclass.GetIntValue().Value),
                 _ => throw PyTypeError.Create($"'<' not supported between instances of 'bool' and '{other.GetTypeName()}'")
             };
         }
@@ -73,6 +75,7 @@ namespace SharpPy
                 PyBool otherBool => FromBool(!Value || otherBool.Value), // False <= anything, True <= True
                 PyInt otherInt => FromBool((Value ? 1 : 0) <= otherInt.Value),
                 PyFloat otherFloat => FromBool((Value ? 1.0 : 0.0) <= otherFloat.Value),
+                PyIntSubclass otherSubclass => FromBool((Value ? 1 : 0) <= otherSubclass.GetIntValue().Value),
                 _ => throw PyTypeError.Create($"'<=' not supported between instances of 'bool' and '{other.GetTypeName()}'")
             };
         }
@@ -84,6 +87,7 @@ namespace SharpPy
                 PyBool otherBool => FromBool(Value && !otherBool.Value), // True > False
                 PyInt otherInt => FromBool((Value ? 1 : 0) > otherInt.Value),
                 PyFloat otherFloat => FromBool((Value ? 1.0 : 0.0) > otherFloat.Value),
+                PyIntSubclass otherSubclass => FromBool((Value ? 1 : 0) > otherSubclass.GetIntValue().Value),
                 _ => throw PyTypeError.Create($"'>' not supported between instances of 'bool' and '{other.GetTypeName()}'")
             };
         }
@@ -95,6 +99,7 @@ namespace SharpPy
                 PyBool otherBool => FromBool(Value || !otherBool.Value), // True >= anything, False >= False
                 PyInt otherInt => FromBool((Value ? 1 : 0) >= otherInt.Value),
                 PyFloat otherFloat => FromBool((Value ? 1.0 : 0.0) >= otherFloat.Value),
+                PyIntSubclass otherSubclass => FromBool((Value ? 1 : 0) >= otherSubclass.GetIntValue().Value),
                 _ => throw PyTypeError.Create($"'>=' not supported between instances of 'bool' and '{other.GetTypeName()}'")
             };
         }

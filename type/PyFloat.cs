@@ -401,6 +401,7 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(Value == otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1.0 : 0.0)),
+                PyIntSubclass otherSubclass => PyBool.FromBool(CompareToInteger(Value, otherSubclass.GetIntValue().Value) == 0),
                 _ => PyBool.False
             };
         }
@@ -417,6 +418,7 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(Value < otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) < 0),
                 PyBool otherBool => PyBool.FromBool(Value < (otherBool.Value ? 1.0 : 0.0)),
+                PyIntSubclass otherSubclass => PyBool.FromBool(CompareToInteger(Value, otherSubclass.GetIntValue().Value) < 0),
                 _ => throw PyTypeError.Create($"'<' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -429,6 +431,7 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(Value <= otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) <= 0),
                 PyBool otherBool => PyBool.FromBool(Value <= (otherBool.Value ? 1.0 : 0.0)),
+                PyIntSubclass otherSubclass => PyBool.FromBool(CompareToInteger(Value, otherSubclass.GetIntValue().Value) <= 0),
                 _ => throw PyTypeError.Create($"'<=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -441,6 +444,7 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(Value > otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) > 0),
                 PyBool otherBool => PyBool.FromBool(Value > (otherBool.Value ? 1.0 : 0.0)),
+                PyIntSubclass otherSubclass => PyBool.FromBool(CompareToInteger(Value, otherSubclass.GetIntValue().Value) > 0),
                 _ => throw PyTypeError.Create($"'>' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
@@ -453,6 +457,7 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(Value >= otherFloat.Value),
                 PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) >= 0),
                 PyBool otherBool => PyBool.FromBool(Value >= (otherBool.Value ? 1.0 : 0.0)),
+                PyIntSubclass otherSubclass => PyBool.FromBool(CompareToInteger(Value, otherSubclass.GetIntValue().Value) >= 0),
                 _ => throw PyTypeError.Create($"'>=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
         }
