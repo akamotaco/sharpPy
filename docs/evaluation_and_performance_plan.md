@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[83차 결과](reports/2026-10-11/blocking_io_written_state.md): 82차를 `e24adae`으로 커밋했다. BlockingIOError 선택과 세 번째 인자, OSError 전체의 characters_written 설정·삭제·오류·재진입을 맞췄다. 기존 filename2 슬롯을 공유해 일반 생성 할당은 유지했다. 기본 149개·Godot 관련 22개 통과. 최종 시간은 기존 세 workload에서 약 2.5~3.1% 증가해 추가 조사가 남는다. int 하위 타입의 errno/winerror 불일치를 별도 실패 fixture로 보존했으며 다음 호환성 수정 대상이다.
 [82차 결과](reports/2026-10-11/os_error_normalization_dispatch.md): 81차를 `52e3f7c`으로 커밋했다. 생성·호출·builtin 조회 비용을 분리하고, 인자 4~5개에서만 Windows 정규화를 호출하도록 바꿨다. 직접 생성은 OSError 한 인자 약 10.1%·FileNotFoundError 약 14.4% 감소, 할당 동일. 기본 148개·Godot 관련 21개 통과. VM 차이는 -0.95%/+0.94%/+0.83%이며 범위가 겹쳐 전체 속도 개선과 이전 2.4% 증가 원인 해결을 주장하지 않는다. 다음은 BlockingIOError의 characters_written 호환성이다.
 [81차 결과](reports/2026-10-11/os_error_directory_subtypes.md): 80차를 `2d39f9e`으로 커밋했다. NotADirectoryError/IsADirectoryError와 errno 20/21 선택을 추가해 Windows 오류 267도 올바른 타입을 고른다. 기본 148개·Godot 기본 및 관련 21개 통과. 할당 동일, 6쌍 측정에서 fallback +1.0%·일반 생성 +2.4% 관측으로 원인 조사가 남는다. 다음 확장 전에 생성/호출/조회 비용을 분리한다. BlockingIOError의 characters_written은 별도 실패 fixture로 보존했다.
 [80차 결과](reports/2026-10-11/os_error_winerror_translation.md): 79차를 `acaa18a`으로 커밋했다. Windows 정수 winerror의 errno 변환, HRESULT/Winsock 매핑, 32-bit 경계와 인자 보존을 CPython 3.12.15에 맞췄다. 기본 147개·Godot 기본 및 관련 20개 통과. 기존 생성 경로 할당 동일, 시간 범위 겹침. 아직 없는 errno 하위 타입은 별도 실패 fixture로 보존하며 다음에 보완한다.

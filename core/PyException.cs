@@ -948,7 +948,50 @@ namespace SharpPy
     /// </summary>
     public class PyOSError : PyException
     {
-        private PyObject _errno, _strerror, _filename, _filename2, _winerror;
+        private PyObject _errno, _strerror, _filename, _winerror;
+        // Most errors have no characters_written. Share the filename2 slot so
+        // ordinary OSError instances keep their existing size and allocations.
+        private object _filename2;
+        private sealed class WrittenState
+        {
+            internal PyObject Filename2;
+            internal long Value;
+        }
+        private PyObject Filename2
+        {
+            get => _filename2 is WrittenState state ? state.Filename2 : (PyObject)_filename2;
+            set { if (_filename2 is WrittenState state) state.Filename2 = value; else _filename2 = value; }
+        }
+        private void SetWritten(long value)
+        {
+            if (value == -1) _filename2 = Filename2;
+            else if (_filename2 is WrittenState state) state.Value = value;
+            else _filename2 = new WrittenState { Filename2 = Filename2, Value = value };
+        }
+        private static long AsWrittenCount(PyObject value)
+        {
+            var index = TryGetIndex(value);
+            if (index == null)
+                throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            if (index.Value < nint.MinValue || index.Value > nint.MaxValue)
+                throw PyValueError.Create($"cannot fit '{value.GetTypeName()}' into an index-sized integer");
+            return (long)index.Value;
+        }
+        private static bool IsNumber(PyObject value) =>
+            value is PyInt or PyBool or PyIntSubclass or PyFloat or PyComplex ||
+            value.LookupSpecialMethodUncached("__index__") != null ||
+            value.LookupSpecialMethodUncached("__int__") != null ||
+            value.LookupSpecialMethodUncached("__float__") != null;
+
+        private static bool IsBlockingErrno(System.Numerics.BigInteger code)
+        {
+            if (OperatingSystem.IsWindows())
+                return code == 11 || (code >= 10035 && code <= 10037);
+            if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS() ||
+                OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst() || OperatingSystem.IsFreeBSD())
+                return code == 35 || code == 36 || code == 37;
+            return code == 11 || code == 114 || code == 115; // Linux / Android
+        }
 
         // CPython 3.12 PC/errmap.h and oserror_parse_args. Windows C long is
         // 32-bit even on a 64-bit host. Never mutate the caller's argument array.
@@ -1014,6 +1057,7 @@ namespace SharpPy
                     if (number.Value == 17) return new PyFileExistsError(args, null, true);
                     if (number.Value == 20) return new PyNotADirectoryError(args, null, true);
                     if (number.Value == 21) return new PyIsADirectoryError(args, null, true);
+                    if (IsBlockingErrno(number.Value)) return new PyBlockingIOError(args, null, true);
                 }
                 // bool is a Python int subclass, but has a separate CLR representation.
                 else if (args[0] is PyBool { Value: true })
@@ -1035,8 +1079,13 @@ namespace SharpPy
             if (OperatingSystem.IsWindows() && args.Length >= 4) _winerror = args[3];
             if (args.Length >= 3 && args[2] != PyNone.Instance)
             {
+                if (GetType() == typeof(PyBlockingIOError) && IsNumber(args[2]))
+                {
+                    SetWritten(AsWrittenCount(args[2]));
+                    return;
+                }
                 _filename = args[2];
-                if (args.Length == 5 && args[4] != PyNone.Instance) _filename2 = args[4];
+                if (args.Length == 5 && args[4] != PyNone.Instance) Filename2 = args[4];
                 Args = new[] { args[0], args[1] };
             }
         }
@@ -1047,7 +1096,8 @@ namespace SharpPy
             "errno" => _errno ?? PyNone.Instance,
             "strerror" => _strerror ?? PyNone.Instance,
             "filename" => _filename ?? PyNone.Instance,
-            "filename2" => _filename2 ?? PyNone.Instance,
+            "filename2" => Filename2 ?? PyNone.Instance,
+            "characters_written" => _filename2 is WrittenState state ? SmallIntCache.GetOrCreate(state.Value) : throw PyAttributeError.Create("characters_written"),
             "winerror" when OperatingSystem.IsWindows() => _winerror ?? PyNone.Instance,
             _ => base.GetAttribute(name)
         };
@@ -1059,7 +1109,8 @@ namespace SharpPy
                 case "errno": _errno = value; break;
                 case "strerror": _strerror = value; break;
                 case "filename": _filename = value; break;
-                case "filename2": _filename2 = value; break;
+                case "filename2": Filename2 = value; break;
+                case "characters_written": SetWritten(AsWrittenCount(value)); break;
                 case "winerror" when OperatingSystem.IsWindows(): _winerror = value; break;
                 default: base.SetAttribute(name, value); break;
             }
@@ -1072,7 +1123,11 @@ namespace SharpPy
                 case "errno": _errno = null; break;
                 case "strerror": _strerror = null; break;
                 case "filename": _filename = null; break;
-                case "filename2": _filename2 = null; break;
+                case "filename2": Filename2 = null; break;
+                case "characters_written":
+                    if (_filename2 is not WrittenState) throw PyAttributeError.Create("characters_written");
+                    SetWritten(-1);
+                    break;
                 case "winerror" when OperatingSystem.IsWindows(): _winerror = null; break;
                 default: base.DelAttribute(name); break;
             }
@@ -1088,7 +1143,7 @@ namespace SharpPy
                 if (_filename != null)
                 {
                     text += ": " + _filename.ToRepr().Value;
-                    if (_filename2 != null) text += " -> " + _filename2.ToRepr().Value;
+                    if (Filename2 != null) text += " -> " + Filename2.ToRepr().Value;
                 }
                 return new PyString(text);
             }
@@ -1104,6 +1159,13 @@ namespace SharpPy
             var pyException = new PyOSError(message);
             return new PythonException(pyException);
         }
+    }
+
+    public class PyBlockingIOError : PyOSError
+    {
+        internal PyBlockingIOError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "BlockingIOError";
+        public override PyType GetPyType() => PyType.BlockingIOErrorType;
     }
 
     public class PyNotADirectoryError : PyOSError

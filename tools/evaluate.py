@@ -148,6 +148,7 @@ def main():
             "tests/os_error_subtype_regression.py",
             "tests/os_error_winerror_regression.py",
             "tests/os_error_directory_regression.py",
+            "tests/blocking_io_arguments_regression.py",
             "tests/compatibility/exception_specialized_arguments.py",
             "tests/compatibility/coroutine_throw_empty_args.py",
             "tests/generator_throw_delegation_regression.py",

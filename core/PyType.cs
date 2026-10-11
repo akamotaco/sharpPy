@@ -258,6 +258,7 @@ namespace SharpPy
         public static readonly PyType RecursionErrorType = new PyType("RecursionError", new[] { RuntimeErrorType });
 
         public static readonly PyType OSErrorType = new PyType("OSError", new[] { ExceptionType });
+        public static readonly PyType BlockingIOErrorType = new PyType("BlockingIOError", new[] { OSErrorType });
         public static readonly PyType FileNotFoundErrorType = new PyType("FileNotFoundError", new[] { OSErrorType });
         public static readonly PyType PermissionErrorType = new PyType("PermissionError", new[] { OSErrorType });
         public static readonly PyType FileExistsErrorType = new PyType("FileExistsError", new[] { OSErrorType });
@@ -743,6 +744,8 @@ namespace SharpPy
                     return new PyStopIteration(args);
                 case "AssertionError":
                     return new PyAssertionError(args, kwargs);
+                case "BlockingIOError":
+                    return new PyBlockingIOError(args, kwargs);
                 case "OSError":
                     return PyOSError.FromArguments(args, kwargs);
                 case "FileNotFoundError":
