@@ -1,0 +1,2597 @@
+{
+  "base_commit": "e1eb5e7d481dc0ebfdc161023fa11d84f98c1fd7",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 125,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "cases": [
+    {
+      "name": "tests\\level10_integration.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level11_exceptions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level12_indexing_slicing.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level1_literals.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level2_operators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level3_variables.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_if.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_loops.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level6_classes_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level7_comprehensions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level8_generators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level9_exceptions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_exception_handling.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_python312.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_global_variable.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_nested_super.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_advanced_features.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_missing_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "test_ultimate_complex_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "tests/binary_inplace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/inplace_special_lookup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/function_creation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/scope_binding_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/builtin_descriptor_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bound_method_attributes_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_alias_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_release_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_index_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_slice_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_large_bounds_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytes_comparison_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_assignment_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_native_boundary_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/instruction_offsets_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_wide_jump_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cache_execution_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_loop_resume.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_expression_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_stack_depth_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_context_after_handler.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_state_in_callee.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_caller_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_exception.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_delegation.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_delegation_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_delegate_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_send_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/iter_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/metaclass_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_lexical_closure_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_name_analysis_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_frame_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/constant_return_cleanup_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cfg_reachability_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/finally_scope_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/unbound_variable_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_kind_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_initial_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/unbound_fast_local.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/continue_finally_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/nested_finally_return_duplicate.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_captured_first_argument.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_alias_class_cell.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_bound_method_closure.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/iterator_lookup_error_fallback.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/range_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_indices_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_iterable_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_slice_reentry_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/stop_iteration_arguments_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_update_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/operator_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_callback_order.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_read_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_mutation_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_delete_compaction_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_step_iteration_overflow.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytes_slice_equality.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/frame_lifetime_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cell_delete_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dynamic_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/namespace_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_refresh_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_locals_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/prepared_namespace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/type_new_dict_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/call_failure_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_closure_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_exception_table_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_nested_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_offset_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/lookup_error_builtin.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_views_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_iterator_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_cursor_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_live_reads_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/hello.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/advanced.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "--test-generator-kwargs",
+      "status": "no_reported_failure"
+    },
+    {
+      "name": "--test-pymethod-kwargs",
+      "status": "no_reported_failure"
+    }
+  ],
+  "new_regressions": [
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.024928800005000085,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25742380000883713,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "pause\n7\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.0230745000008028,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "pause\n7\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2285693000012543,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "before": [
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.022470900003099814,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "nested-start yield ready\nnested-value AttributeError 'iterator' object has no attribute 'send'\nnested-return RuntimeError cannot reuse already awaited coroutine\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type iterator\nwrapper-bases ('iterator', 'object')\nwrapper-iterator True True True\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\coroutine_wrapper_send_regression.py\", line 22, in <module>\n    c = outer()\n    ^\nAttributeError: 'iterator' object has no attribute 'send'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\coroutine_wrapper_send_regression.py\", line 22, in <module>\n    c = outer()\n    ^\nAttributeError: 'iterator' object has no attribute 'send'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24863399998866953,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "pause\n7\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.021922399988397956,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "pause\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_nested_send.py\", line 16, in <module>\n    c.send(7)\n    ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_nested_send.py\", line 11, in outer\n    return await inner()\n           ^\nAttributeError: 'iterator' object has no attribute 'send'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_nested_send.py\", line 18, in <module>\n        print(error.value)\n        ^\nAttributeError: 'iterator' object has no attribute 'send'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2257666999939829,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "generic_correctness": [
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.024081400013528764,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25333279999904335,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "pause\n7\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.021973099996102974,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "pause\n7\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23075459999381565,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "pending": [
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03409339999780059,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n[]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2487449000182096,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "pending_before": [
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02247859997441992,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n[]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.22083720000227913,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot_additional": [
+    {
+      "fixture": "bytearray_slice_reentry_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "cache_execution_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "cfg_reachability_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "class_lexical_closure_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "constant_return_cleanup_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "continue_finally_stack.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_initial_send.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_nested_send.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_send_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_wrapper_send_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_caller_state_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_context_after_handler.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_stack_depth_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_state_in_callee.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_state_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "finally_scope_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_close_delegation.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_close_exception.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_close_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_delegate_iterator.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_delegation_close_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_invalid_iterator.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_kind_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_send_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_throw_expression_stack.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_throw_loop_resume.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_wide_jump_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "instruction_offsets_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "iter_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "iterator_lookup_error_fallback.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "metaclass_bound_method_closure.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "metaclass_invalid_iterator.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "metaclass_iterator_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "nested_finally_return_duplicate.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "range_slice_step_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "sequence_iterator_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_alias_class_cell.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_captured_first_argument.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_frame_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_name_analysis_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "unbound_fast_local.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "unbound_variable_regression.py",
+      "matches_cpython": true
+    }
+  ],
+  "godot_default_fixture_count": 17,
+  "godot_default_pass": true,
+  "cfg": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "performance": {
+    "control": {
+      "round67": {
+        "median_ms": 54.1319,
+        "process_medians_ms": [
+          54.1319,
+          53.808099999999996,
+          54.24305
+        ],
+        "median_allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 402.4889,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.1764,
+                  54.1748,
+                  54.0364,
+                  54.2077,
+                  54.089,
+                  54.2978,
+                  53.6951,
+                  53.7799,
+                  54.3207,
+                  53.8273
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 396.4679,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.284,
+                  54.2616,
+                  54.2593,
+                  53.8323,
+                  53.9908,
+                  53.7254,
+                  53.7028,
+                  53.5,
+                  53.7839,
+                  53.5066
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 406.165,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.9231,
+                  54.3399,
+                  54.3734,
+                  54.1243,
+                  53.6239,
+                  54.3077,
+                  53.8658,
+                  53.9004,
+                  54.5785,
+                  54.1784
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "before": {
+        "median_ms": 54.427800000000005,
+        "process_medians_ms": [
+          54.427800000000005,
+          54.1606,
+          54.462599999999995
+        ],
+        "median_allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 403.3965,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.4171,
+                  54.5759,
+                  54.5914,
+                  54.4543,
+                  54.1905,
+                  54.4382,
+                  54.3659,
+                  54.567,
+                  54.4174,
+                  54.0722
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 398.3421,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.6045,
+                  53.9089,
+                  54.0701,
+                  54.2259,
+                  54.3337,
+                  54.0953,
+                  54.4195,
+                  53.9986,
+                  54.2689,
+                  53.9812
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 398.1676,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.3843,
+                  54.1917,
+                  54.3253,
+                  54.4374,
+                  54.7541,
+                  54.8513,
+                  54.4878,
+                  54.1202,
+                  54.7622,
+                  54.7979
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "await-ablation": {
+        "median_ms": 54.15,
+        "process_medians_ms": [
+          54.09455,
+          54.15,
+          54.3071
+        ],
+        "median_allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 405.3924,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.6021,
+                  54.0029,
+                  55.0159,
+                  54.004,
+                  54.0093,
+                  54.1113,
+                  54.0492,
+                  54.0778,
+                  54.4173,
+                  54.3605
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 399.1485,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  62.4472,
+                  54.4061,
+                  54.5009,
+                  54.2086,
+                  53.8945,
+                  54.1301,
+                  54.038,
+                  53.8286,
+                  54.1699,
+                  53.9423
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 403.98,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.2799,
+                  54.1479,
+                  54.3898,
+                  54.1915,
+                  54.2591,
+                  54.3343,
+                  54.0682,
+                  54.656,
+                  54.5273,
+                  54.4446
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "median_ms": 54.526250000000005,
+        "process_medians_ms": [
+          54.526250000000005,
+          54.46365,
+          54.9005
+        ],
+        "median_allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 406.8605,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  55.4474,
+                  54.8565,
+                  54.0325,
+                  54.8286,
+                  54.4739,
+                  54.2855,
+                  54.7948,
+                  54.3673,
+                  54.5786,
+                  53.9978
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 397.9572,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.7049,
+                  54.2803,
+                  54.2613,
+                  54.1006,
+                  54.566,
+                  54.9215,
+                  54.7577,
+                  54.0748,
+                  54.8554,
+                  54.3613
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 406.5717,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  55.8207,
+                  55.0661,
+                  55.1635,
+                  54.6466,
+                  55.1705,
+                  57.2957,
+                  54.1094,
+                  54.0546,
+                  54.7349,
+                  54.3652
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "coroutine": {
+      "generic": {
+        "median_ms": 294.67825,
+        "process_medians_ms": [
+          294.67825,
+          295.14784999999995,
+          293.88665000000003
+        ],
+        "median_allocated_bytes": 45754600.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 408.2114,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  293.1999,
+                  294.4674,
+                  293.5053,
+                  293.9439,
+                  296.0306,
+                  295.3393,
+                  295.1587,
+                  295.7675,
+                  294.6112,
+                  294.7453
+                ],
+                "allocated_bytes": [
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45755136,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600
+                ],
+                "gc_collections": [
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 405.8231,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  294.3277,
+                  294.7852,
+                  293.1243,
+                  292.9293,
+                  293.3478,
+                  297.616,
+                  298.9413,
+                  298.3712,
+                  297.4079,
+                  295.5105
+                ],
+                "allocated_bytes": [
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45755136,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600
+                ],
+                "gc_collections": [
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 411.1465,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  295.7759,
+                  293.9174,
+                  293.8559,
+                  295.7627,
+                  296.4344,
+                  292.6481,
+                  292.5853,
+                  293.11,
+                  293.1791,
+                  295.3515
+                ],
+                "allocated_bytes": [
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45755136,
+                  45754600,
+                  45754600,
+                  45754600,
+                  45754600
+                ],
+                "gc_collections": [
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "median_ms": 295.4418,
+        "process_medians_ms": [
+          295.4418,
+          296.442,
+          295.0665
+        ],
+        "median_allocated_bytes": 45034600.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 404.9579,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  294.4762,
+                  295.9773,
+                  296.9386,
+                  294.3493,
+                  293.8181,
+                  296.5111,
+                  295.7488,
+                  295.8401,
+                  294.7591,
+                  295.1348
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 404.0519,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  292.8263,
+                  292.2556,
+                  297.8964,
+                  303.6408,
+                  300.3057,
+                  299.5005,
+                  299.9936,
+                  293.4858,
+                  292.1837,
+                  294.9876
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 411.5215,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  295.4899,
+                  295.2373,
+                  294.5413,
+                  294.2938,
+                  294.0179,
+                  294.4431,
+                  295.9743,
+                  295.3855,
+                  295.497,
+                  294.8957
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

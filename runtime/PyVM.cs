@@ -6125,6 +6125,9 @@ namespace SharpPy
                             sendResult = receiver.Next();
                         else if (receiver is PyGenerator gen)
                             sendResult = gen.Send(sendValue);
+                        else if (receiver is SharpPy.Core.PyCoroutineAwaiter wrapper &&
+                                 receiver.GetType() == typeof(SharpPy.Core.PyCoroutineAwaiter))
+                            sendResult = wrapper.Send(sendValue);
                         else
                             sendResult = receiver.GetAttribute("send").Call(new PyObject[] { sendValue }, null);
 

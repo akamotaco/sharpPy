@@ -46,13 +46,12 @@ namespace SharpPy.Core
             corType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", corType,
                 (self, args, kwargs) => {
-                    if (args.Length > 1)
-                        throw PyTypeError.Create("send() takes at most 1 argument");
                     if (self is not PyCoroutine coroutine)
                         throw PyTypeError.Create($"descriptor 'send' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
-                    return coroutine.Send(args.Length == 0 ? null : args[0]);
+                    CheckSendArguments("coroutine", args, kwargs);
+                    return coroutine.Send(args[0]);
                 },
-                minArgs: 0, maxArgs: 1
+                minArgs: 1, maxArgs: 1
             );
 
             // close method descriptor
@@ -85,6 +84,14 @@ namespace SharpPy.Core
 
         public override string GetTypeName() => "coroutine";
         public override PyType GetPyType() => PyType.CoroutineType;
+
+        internal static void CheckSendArguments(string typeName, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{typeName}.send() takes no keyword arguments");
+            if (args.Length != 1)
+                throw PyTypeError.Create($"{typeName}.send() takes exactly one argument ({args.Length} given)");
+        }
 
         private readonly PyFrame _frame;
         private readonly PyVM _vm;
@@ -218,7 +225,48 @@ namespace SharpPy.Core
     /// </summary>
     public class PyCoroutineAwaiter : PyIterator
     {
+        private static readonly PyType WrapperType = new PyType("coroutine_wrapper", new[] { PyType.ObjectType });
+
+        static PyCoroutineAwaiter()
+        {
+            WrapperType.TypeDict["send"] = new PyMethodDescriptor("send", WrapperType,
+                (self, args, kwargs) => {
+                    if (self is not PyCoroutineAwaiter wrapper)
+                        throw PyTypeError.Create($"descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    PyCoroutine.CheckSendArguments("coroutine_wrapper", args, kwargs);
+                    return wrapper.Send(args[0]);
+                }, minArgs: 1, maxArgs: 1);
+            WrapperType.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", WrapperType,
+                (self, args, kwargs) => {
+                    CheckIteratorArguments(self, args, kwargs, "__iter__");
+                    return self;
+                }, minArgs: 0, maxArgs: 0);
+            WrapperType.TypeDict["__next__"] = new PyMethodDescriptor("__next__", WrapperType,
+                (self, args, kwargs) => {
+                    CheckIteratorArguments(self, args, kwargs, "__next__");
+                    return ((PyCoroutineAwaiter)self).Next();
+                }, minArgs: 0, maxArgs: 0);
+        }
+
+        private static void CheckIteratorArguments(PyObject self, PyObject[] args, PyDict kwargs, string name)
+        {
+            if (self is not PyCoroutineAwaiter)
+                throw PyTypeError.Create($"descriptor '{name}' requires a 'coroutine_wrapper' object but received a '{self.GetTypeName()}'");
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+            if (args.Length != 0)
+                throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+        }
+
         private readonly PyCoroutine _coroutine;
+
+        public override string GetTypeName() => "coroutine_wrapper";
+        public override PyType GetPyType() => WrapperType;
+        public override bool IsCallable() => false;
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+            => throw PyTypeError.Create("'coroutine_wrapper' object is not callable");
+
+        public PyObject Send(PyObject value) => _coroutine.Send(value);
         
         public PyCoroutineAwaiter(PyCoroutine coroutine)
         {

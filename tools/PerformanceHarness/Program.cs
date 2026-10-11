@@ -373,7 +373,7 @@ var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_
 if (args.Length > 3)
 {
     string selected = args[3];
-    if (!workloads.Contains(selected) && selected != "generator_iteration" && selected != "generator_close" && selected != "generator_delegation" && selected != "python_iterator" && selected != "iterator_acquisition" && selected != "metaclass_iteration" && selected != "classcell_binding" && selected != "super_lookup" && selected != "constant_return" && selected != "constant_cleanup" && selected != "closure_access" && selected != "nonlocal_update") throw new ArgumentException($"Unknown workload: {selected}");
+    if (!workloads.Contains(selected) && selected != "generator_iteration" && selected != "generator_close" && selected != "generator_delegation" && selected != "python_iterator" && selected != "iterator_acquisition" && selected != "metaclass_iteration" && selected != "classcell_binding" && selected != "super_lookup" && selected != "constant_return" && selected != "constant_cleanup" && selected != "closure_access" && selected != "nonlocal_update" && selected != "coroutine_send") throw new ArgumentException($"Unknown workload: {selected}");
     workloads = new[] { selected };
 }
 long sum = (long)iterations * (iterations - 1) / 2;
