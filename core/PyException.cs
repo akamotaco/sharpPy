@@ -950,27 +950,82 @@ namespace SharpPy
     {
         private PyObject _errno, _strerror, _filename, _filename2, _winerror;
 
+        // CPython 3.12 PC/errmap.h and oserror_parse_args. Windows C long is
+        // 32-bit even on a 64-bit host. Never mutate the caller's argument array.
+        private static PyObject[] NormalizeWindowsArguments(PyObject[] args)
+        {
+            if (!OperatingSystem.IsWindows() || args.Length < 4 || args.Length > 5)
+                return args;
+            int code;
+            if (args[3] is PyInt number)
+            {
+                if (number.Value < int.MinValue || number.Value > int.MaxValue)
+                    throw PyOverflowError.Create("Python int too large to convert to C long");
+                code = (int)number.Value;
+            }
+            else if (args[3] is PyBool boolean) code = boolean.Value ? 1 : 0;
+            else return args;
+            var translated = (PyObject[])args.Clone();
+            translated[0] = new PyInt(WindowsErrorToErrno(code));
+            return translated;
+        }
+
+        private static int WindowsErrorToErrno(int code)
+        {
+            // FACILITY_WIN32 HRESULT and Winsock errno aliases.
+            if ((code & 0xffff0000L) == 0x80070000L) code &= 0xffff;
+            if (code >= 10000 && code < 12000)
+                return code is 10004 or 10009 or 10013 or 10014 or 10022 or 10024
+                    ? code - 10000 : code;
+            return code switch
+            {
+                2 or 3 or 15 or 18 or 53 or 67 or 161 or 206 => 2, // ENOENT
+                10 => 7, // E2BIG
+                11 or >= 188 and <= 202 => 8, // ENOEXEC
+                6 or 114 or 130 => 9, // EBADF
+                128 or 129 => 10, // ECHILD
+                89 or 164 or 215 => 11, // EAGAIN
+                7 or 8 or 9 or 1816 => 12, // ENOMEM
+                5 or 16 or >= 19 and <= 36 or 65 or 82 or 83 or 108 or 132 or 158 or 167 => 13,
+                80 or 183 => 17, // EEXIST
+                17 => 18, // EXDEV
+                267 => 20, // ENOTDIR
+                4 => 24, // EMFILE
+                112 => 28, // ENOSPC
+                109 or 232 => 32, // EPIPE
+                145 => 41, // ENOTEMPTY (Windows CRT)
+                1113 => 42, // EILSEQ (Windows CRT)
+                _ => 22 // EINVAL, including unknown errors
+            };
+        }
+
         internal static PyOSError FromArguments(PyObject[] args, PyDict kwargs)
         {
             if (kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("OSError() takes no keyword arguments");
+            args = NormalizeWindowsArguments(args);
             if (args.Length >= 2 && args.Length <= 5)
             {
                 if (args[0] is PyInt number)
                 {
-                    if (number.Value == 2) return new PyFileNotFoundError(args, null);
-                    if (number.Value == 1 || number.Value == 13) return new PyPermissionError(args, null);
-                    if (number.Value == 17) return new PyFileExistsError(args, null);
+                    if (number.Value == 2) return new PyFileNotFoundError(args, null, true);
+                    if (number.Value == 1 || number.Value == 13) return new PyPermissionError(args, null, true);
+                    if (number.Value == 17) return new PyFileExistsError(args, null, true);
                 }
                 // bool is a Python int subclass, but has a separate CLR representation.
                 else if (args[0] is PyBool { Value: true })
-                    return new PyPermissionError(args, null);
+                    return new PyPermissionError(args, null, true);
             }
-            return new PyOSError(args, null);
+            return new PyOSError(args, null, true);
         }
 
-        internal PyOSError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        internal PyOSError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs)
         {
+            if (!normalized)
+            {
+                args = NormalizeWindowsArguments(args);
+                Args = args;
+            }
             if (args.Length < 2 || args.Length > 5) return;
             _errno = args[0];
             _strerror = args[1];
@@ -1050,14 +1105,14 @@ namespace SharpPy
 
     public class PyPermissionError : PyOSError
     {
-        internal PyPermissionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+        internal PyPermissionError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
         public override string GetTypeName() => "PermissionError";
         public override PyType GetPyType() => PyType.PermissionErrorType;
     }
 
     public class PyFileExistsError : PyOSError
     {
-        internal PyFileExistsError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+        internal PyFileExistsError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
         public override string GetTypeName() => "FileExistsError";
         public override PyType GetPyType() => PyType.FileExistsErrorType;
     }
@@ -1067,7 +1122,7 @@ namespace SharpPy
     /// </summary>
     public class PyFileNotFoundError : PyOSError
     {
-        internal PyFileNotFoundError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+        internal PyFileNotFoundError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
 
         public PyFileNotFoundError(string message = "") : base(message) { }
 

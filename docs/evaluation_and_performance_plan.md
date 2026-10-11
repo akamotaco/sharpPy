@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[80차 결과](reports/2026-10-11/os_error_winerror_translation.md): 79차를 `acaa18a`으로 커밋했다. Windows 정수 winerror의 errno 변환, HRESULT/Winsock 매핑, 32-bit 경계와 인자 보존을 CPython 3.12.15에 맞췄다. 기본 147개·Godot 기본 및 관련 20개 통과. 기존 생성 경로 할당 동일, 시간 범위 겹침. 아직 없는 errno 하위 타입은 별도 실패 fixture로 보존하며 다음에 보완한다.
 [79차 결과](reports/2026-10-11/os_error_dispatch_performance.md): 78차를 `2bc60a0`으로 커밋했다. OSError의 일반 정수 검사를 bool보다 앞에 배치해 직접 생성 비용을 줄였다(errno 999 약 7.4%). VM 전체의 유의한 개선은 확인하지 못했으며, 이전 약 5% 증가는 동일 1만 회 조건에서도 재현되지 않아 원인을 확정하지 않는다. 기본 146개·Godot 소스 통합 75개 통과, 할당 동일. 다음은 Windows winerror 변환 호환성이다.
 [78차 결과](reports/2026-10-11/os_error_filesystem_subtypes.md): 77차 `0688409` 이후 PermissionError/FileExistsError 등록과 errno 1/13/17 선택을 구현했다. 기본 146개·Godot 소스 통합 75개 통과. 할당은 동일하지만 6쌍 측정에서 대조군 시간이 약 4.8%/5.2% 증가했다. 원인은 미확정이며 다음 확장보다 이 회귀 관측의 원인 분리를 우선한다. Windows 오류 코드 변환 등은 계속 미해결이다.
 [77차 결과](reports/2026-10-11/os_error_arguments.md): 76차를 `d0a1064`로 커밋했다. OSError/FileNotFoundError의 위치 인자·전용 속성·출력을 구현하고 errno 2를 기존 FileNotFoundError 타입에 연결했다. 기본 145개·Godot 소스 통합 74개 통과. 두 예외 각각 1만 회 생성 시 총 480,000 B 감소, 시간 범위는 겹친다. 다음은 다른 errno 하위 타입 선택과 정수 winerror 변환이며 별도 실패 fixture로 보존했다.
