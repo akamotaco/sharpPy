@@ -948,7 +948,85 @@ namespace SharpPy
     /// </summary>
     public class PyOSError : PyException
     {
+        private PyObject _errno, _strerror, _filename, _filename2, _winerror;
+
+        internal static PyOSError FromArguments(PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("OSError() takes no keyword arguments");
+            if (args.Length >= 2 && args.Length <= 5 && args[0] is PyInt number && number.Value == 2)
+                return new PyFileNotFoundError(args, null);
+            return new PyOSError(args, null);
+        }
+
+        internal PyOSError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        {
+            if (args.Length < 2 || args.Length > 5) return;
+            _errno = args[0];
+            _strerror = args[1];
+            if (OperatingSystem.IsWindows() && args.Length >= 4) _winerror = args[3];
+            if (args.Length >= 3 && args[2] != PyNone.Instance)
+            {
+                _filename = args[2];
+                if (args.Length == 5 && args[4] != PyNone.Instance) _filename2 = args[4];
+                Args = new[] { args[0], args[1] };
+            }
+        }
+
         public PyOSError(string message = "") : base(message) { }
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "errno" => _errno ?? PyNone.Instance,
+            "strerror" => _strerror ?? PyNone.Instance,
+            "filename" => _filename ?? PyNone.Instance,
+            "filename2" => _filename2 ?? PyNone.Instance,
+            "winerror" when OperatingSystem.IsWindows() => _winerror ?? PyNone.Instance,
+            _ => base.GetAttribute(name)
+        };
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            switch (name)
+            {
+                case "errno": _errno = value; break;
+                case "strerror": _strerror = value; break;
+                case "filename": _filename = value; break;
+                case "filename2": _filename2 = value; break;
+                case "winerror" when OperatingSystem.IsWindows(): _winerror = value; break;
+                default: base.SetAttribute(name, value); break;
+            }
+        }
+
+        public override void DelAttribute(string name)
+        {
+            switch (name)
+            {
+                case "errno": _errno = null; break;
+                case "strerror": _strerror = null; break;
+                case "filename": _filename = null; break;
+                case "filename2": _filename2 = null; break;
+                case "winerror" when OperatingSystem.IsWindows(): _winerror = null; break;
+                default: base.DelAttribute(name); break;
+            }
+        }
+
+        public override PyString ToStr()
+        {
+            bool windowsError = OperatingSystem.IsWindows() && _winerror != null;
+            var code = windowsError ? _winerror : _errno;
+            if (_filename != null || (code != null && _strerror != null))
+            {
+                var text = $"[{(windowsError ? "WinError" : "Errno")} {(code ?? PyNone.Instance).ToStr().Value}] {(_strerror ?? PyNone.Instance).ToStr().Value}";
+                if (_filename != null)
+                {
+                    text += ": " + _filename.ToRepr().Value;
+                    if (_filename2 != null) text += " -> " + _filename2.ToRepr().Value;
+                }
+                return new PyString(text);
+            }
+            return base.ToStr();
+        }
+
 
         public override string GetTypeName() => "OSError";
         public override PyType GetPyType() => PyType.OSErrorType;
@@ -965,6 +1043,8 @@ namespace SharpPy
     /// </summary>
     public class PyFileNotFoundError : PyOSError
     {
+        internal PyFileNotFoundError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyFileNotFoundError(string message = "") : base(message) { }
 
         public override string GetTypeName() => "FileNotFoundError";

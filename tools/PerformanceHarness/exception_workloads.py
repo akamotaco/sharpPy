@@ -13,3 +13,12 @@ def lookup_exception_construction(n):
         second = AttributeError("message")
         total += i
     return total
+
+
+def os_error_construction(n):
+    total = 0
+    for i in range(n):
+        first = OSError("message")
+        second = FileNotFoundError("message")
+        total += i
+    return total

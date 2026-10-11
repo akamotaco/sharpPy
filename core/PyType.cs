@@ -739,9 +739,9 @@ namespace SharpPy
                 case "AssertionError":
                     return new PyAssertionError(args, kwargs);
                 case "OSError":
-                    return new PyOSError(message);
+                    return PyOSError.FromArguments(args, kwargs);
                 case "FileNotFoundError":
-                    return new PyFileNotFoundError(message);
+                    return new PyFileNotFoundError(args, kwargs);
                 case "BaseExceptionGroup":
                     {
                         // BaseExceptionGroup(message, exceptions) - handle the special constructor
