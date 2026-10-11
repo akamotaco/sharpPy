@@ -1,4 +1,4 @@
-"""Pending: coroutine.throw must delegate to the suspended await iterator."""
+"""Regression: coroutine.throw must delegate to the suspended await iterator."""
 class Pause:
     def __await__(self):
         try:

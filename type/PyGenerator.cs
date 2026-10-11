@@ -290,114 +290,12 @@ namespace SharpPy
         /// </summary>
         public PyObject Throw(PyObject excType, PyObject? value = null, PyObject? traceback = null)
         {
-            if (_finished)
-                throw PyStopIteration.Create();
-
-            // CPython 3.12: Extract traceback from exception instance if provided
-            // genobject.c:544: tb = PyException_GetTraceback(val)
-            PyTraceback? tb = null;
-            PythonException thrownException;
-
-            // CPython 3.12 호환: 다양한 예외 타입 처리
-            if (excType is PyType exceptionType)
-            {
-                var exc = CreateExceptionFromType(exceptionType, value);
-                thrownException = exc as PythonException ?? new PythonException(new PyRuntimeError(exc.Message));
-            }
-            else if (excType is PyBuiltinType builtinType)
-            {
-                // 내장 예외 타입 (ValueError, TypeError 등) 처리
-                var exc = CreateExceptionFromBuiltinType(builtinType, value);
-                thrownException = exc as PythonException ?? new PythonException(new PyRuntimeError(exc.Message));
-            }
-            else if (excType is PyException exception)
-            {
-                thrownException = new PythonException(exception);
-                // Extract existing traceback from exception instance
-                tb = exception.__traceback__;
-            }
-            else
-            {
-                throw PyTypeError.Create("throw() arg 1 must be exception type or instance");
-            }
-
-            // CPython 3.12: If traceback argument provided, use it
-            // genobject.c:514-521: Replace None with NULL, validate traceback
-            if (traceback != null && traceback is PyTraceback pyTb)
-            {
-                tb = pyTb;
-            }
-
-            // CPython 3.12: Attach traceback to exception before throwing
-            // genobject.c:556: PyErr_Restore(typ, val, tb)
-            // This preserves the traceback through the generator throw
-            if (tb != null)
-            {
-                thrownException.PyException.__traceback__ = tb;
-            }
-
+            var thrownException = PySuspensionException.Normalize(excType, value, traceback);
             if (_frame.State == PyFrame.FrameState.Executing)
                 throw PyValueError.Create("generator already executing");
+            if (_finished) throw thrownException;
             _thrownException = thrownException;
-
-            try
-            {
-                return Next();
-            }
-            catch (Exception)
-            {
-                _finished = true;
-                throw;
-            }
-        }
-
-        private System.Exception CreateExceptionFromType(PyType excType, PyObject? value)
-        {
-            var message = value?.ToStr()?.Value ?? "generator exception";
-
-            // 기본적인 예외 타입들만 처리
-            // CPython 3.12: Objects/genobject.c:284-340 (CreateExceptionFromType equivalent)
-            if (excType == PyType.StopIterationType)
-                return PyStopIteration.Create();
-            if (excType == PyType.GeneratorExitType)
-                return PyGeneratorExit.Create(message);
-            if (excType == PyType.ValueErrorType)
-                return PyValueError.Create(message);
-            if (excType == PyType.TypeErrorType)
-                return PyTypeError.Create(message);
-            if (excType == PyType.RuntimeErrorType)
-                return PyRuntimeError.Create(message);
-
-            return PyRuntimeError.Create($"generator exception: {message}");
-        }
-
-        private System.Exception CreateExceptionFromBuiltinType(PyBuiltinType builtinType, PyObject? value)
-        {
-            var message = value?.ToStr()?.Value ?? "generator exception";
-            
-            // PyBuiltinType의 Name 속성 사용 (예: "ValueError")
-            var typeName = builtinType.Name;
-            
-            switch (typeName)
-            {
-                case "ValueError":
-                case "class 'ValueError'":  // SharpPy에서 나타나는 형태
-                    return PyValueError.Create(message);
-                case "TypeError":
-                case "class 'TypeError'":
-                    return PyTypeError.Create(message);
-                case "RuntimeError":
-                case "class 'RuntimeError'":
-                    return PyRuntimeError.Create(message);
-                case "StopIteration":
-                case "class 'StopIteration'":
-                    return PyStopIteration.Create();
-                case "GeneratorExit":
-                case "class 'GeneratorExit'":
-                    return PyGeneratorExit.Create(message);
-                default:
-                    return PyRuntimeError.Create($"generator exception: {message}");
-            }
+            return Next();
         }
 
         /// <summary>

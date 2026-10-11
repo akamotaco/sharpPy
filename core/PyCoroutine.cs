@@ -54,6 +54,14 @@ namespace SharpPy.Core
                 minArgs: 1, maxArgs: 1
             );
 
+            corType.TypeDict["throw"] = new PyMethodDescriptor("throw", corType,
+                (self, args, kwargs) => {
+                    if (self is not PyCoroutine coroutine)
+                        throw PyTypeError.Create($"descriptor 'throw' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    CheckThrowArguments("coroutine", args, kwargs);
+                    return coroutine.Throw(args);
+                }, minArgs: 1, maxArgs: 3);
+
             // close method descriptor
             corType.TypeDict["close"] = new PyMethodDescriptor(
                 "close", corType,
@@ -98,6 +106,16 @@ namespace SharpPy.Core
                 throw PyTypeError.Create($"{typeName}.close() takes no keyword arguments");
             if (args.Length != 0)
                 throw PyTypeError.Create($"{typeName}.close() takes no arguments ({args.Length} given)");
+        }
+
+        internal static void CheckThrowArguments(string typeName, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{typeName}.throw() takes no keyword arguments");
+            if (args.Length < 1)
+                throw PyTypeError.Create("throw expected at least 1 argument, got 0");
+            if (args.Length > 3)
+                throw PyTypeError.Create($"throw expected at most 3 arguments, got {args.Length}");
         }
 
         private readonly PyFrame _frame;
@@ -212,13 +230,38 @@ namespace SharpPy.Core
                 return;
             }
 
-            PythonException closeError = null;
-            int resumeIndex = _frame.InstructionPointer + 1;
-            if (resumeIndex < _frame.Code.Instructions.Count &&
-                _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
-                _frame.Code.Instructions[resumeIndex].Argument >= 2)
+            var closeError = CloseReceiver(GetAwaitReceiver());
+
+            // Keep the yield instruction as the exception-table lookup site.
+            if (State == CoroutineState.Running)
+                throw PyValueError.Create("coroutine already executing");
+            _frame.PendingException = closeError ?? new PythonException(new PyGeneratorExit());
+            try
             {
-                var receiver = _frame.ValueStack.Peek();
+                Send(PyNone.Instance);
+            }
+            catch (PythonException error) when (error.PyException is PyGeneratorExit or PyStopIteration)
+            {
+                return;
+            }
+            // A coroutine which yields during close remains suspended.
+            throw PyRuntimeError.Create("coroutine ignored GeneratorExit");
+        }
+
+        private PyObject GetAwaitReceiver()
+        {
+            if (!_started || _finished) return null;
+            int resumeIndex = _frame.InstructionPointer + 1;
+            return resumeIndex < _frame.Code.Instructions.Count &&
+                _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
+                _frame.Code.Instructions[resumeIndex].Argument >= 2
+                ? _frame.ValueStack.Peek() : null;
+        }
+
+        private PythonException CloseReceiver(PyObject receiver)
+        {
+            if (receiver != null)
+            {
                 var savedState = State;
                 var savedFrameState = _frame.State;
                 State = CoroutineState.Running;
@@ -241,7 +284,7 @@ namespace SharpPy.Core
                 }
                 catch (PythonException error)
                 {
-                    closeError = error;
+                    return error;
                 }
                 finally
                 {
@@ -250,20 +293,69 @@ namespace SharpPy.Core
                 }
             }
 
-            // Keep the yield instruction as the exception-table lookup site.
+            return null;
+        }
+
+        internal PyObject Throw(PyObject[] args)
+        {
+            var receiver = GetAwaitReceiver();
+            if (receiver != null)
+            {
+                var type = args[0] as PyType ?? args[0].GetPyType();
+                if (type.IsSubclassOf(PyType.GeneratorExitType))
+                {
+                    var closeError = CloseReceiver(receiver);
+                    if (closeError != null) return ResumeException(closeError);
+                }
+                else
+                {
+                    // Lookup failures leave the outer coroutine suspended; only errors
+                    // from calling the delegate are injected at its await instruction.
+                    bool nativeGenerator = receiver.GetType() == typeof(PyGenerator);
+                    bool nativeWrapper = receiver.GetType() == typeof(PyCoroutineAwaiter);
+                    PyObject method = null;
+                    if (!nativeGenerator && !nativeWrapper)
+                    {
+                        try { method = receiver.GetAttribute("throw"); }
+                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                    }
+                    if (nativeGenerator || nativeWrapper || method != null)
+                    {
+                        var savedState = State;
+                        var savedFrameState = _frame.State;
+                        State = CoroutineState.Running;
+                        _frame.State = PyFrame.FrameState.Executing;
+                        PythonException delegateError;
+                        try
+                        {
+                            if (nativeGenerator)
+                                return ((PyGenerator)receiver).Throw(args[0],
+                                    args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null);
+                            if (nativeWrapper) return ((PyCoroutineAwaiter)receiver).Throw(args);
+                            return method.Call(args, null);
+                        }
+                        catch (PythonException error) { delegateError = error; }
+                        finally
+                        {
+                            State = savedState;
+                            _frame.State = savedFrameState;
+                        }
+                        return ResumeException(delegateError);
+                    }
+                }
+            }
+            return ResumeException(PySuspensionException.Normalize(args[0],
+                args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null));
+        }
+
+        private PyObject ResumeException(PythonException error)
+        {
             if (State == CoroutineState.Running)
                 throw PyValueError.Create("coroutine already executing");
-            _frame.PendingException = closeError ?? new PythonException(new PyGeneratorExit());
-            try
-            {
-                Send(PyNone.Instance);
-            }
-            catch (PythonException error) when (error.PyException is PyGeneratorExit or PyStopIteration)
-            {
-                return;
-            }
-            // A coroutine which yields during close remains suspended.
-            throw PyRuntimeError.Create("coroutine ignored GeneratorExit");
+            if (_finished)
+                throw PyRuntimeError.Create("cannot reuse already awaited coroutine");
+            _frame.PendingException = error;
+            return Send(PyNone.Instance);
         }
 
         private void Complete()
@@ -274,7 +366,7 @@ namespace SharpPy.Core
         }
 
         // Note: GetAttribute is inherited from PyObject, which uses GenericGetAttribute
-        // All coroutine methods (send, close, __await__) are registered as descriptors in PyType.CoroutineType
+        // All coroutine methods (send, throw, close, __await__) are registered as descriptors in PyType.CoroutineType
 
         public override string ToString()
         {
@@ -300,6 +392,13 @@ namespace SharpPy.Core
 
         static PyCoroutineAwaiter()
         {
+            WrapperType.TypeDict["throw"] = new PyMethodDescriptor("throw", WrapperType,
+                (self, args, kwargs) => {
+                    if (self is not PyCoroutineAwaiter wrapper)
+                        throw PyTypeError.Create($"descriptor 'throw' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    PyCoroutine.CheckThrowArguments("coroutine_wrapper", args, kwargs);
+                    return wrapper._coroutine.Throw(args);
+                }, minArgs: 1, maxArgs: 3);
             WrapperType.TypeDict["close"] = new PyMethodDescriptor("close", WrapperType,
                 (self, args, kwargs) => {
                     if (self is not PyCoroutineAwaiter wrapper)
@@ -347,6 +446,7 @@ namespace SharpPy.Core
 
         public PyObject Send(PyObject value) => _coroutine.Send(value);
         public void Close() => _coroutine.Close();
+        internal PyObject Throw(PyObject[] args) => _coroutine.Throw(args);
         
         public PyCoroutineAwaiter(PyCoroutine coroutine)
         {
