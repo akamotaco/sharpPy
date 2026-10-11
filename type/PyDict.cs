@@ -458,31 +458,11 @@ namespace SharpPy
         #region Core Properties
 
         // PyObject를 키로 사용하기 위한 사용자 정의 비교기
-        private class PyObjectEqualityComparer : IEqualityComparer<PyObject>
-        {
-            public bool Equals(PyObject x, PyObject y)
-            {
-                // dict lookup accepts the stored key itself without calling __eq__.
-                if (ReferenceEquals(x, y)) return true;
-                if (x == null || y == null) return false;
-                return CompareBool(x, y, CompareOp.EQ);
-            }
-
-            public int GetHashCode(PyObject obj)
-            {
-                return obj?.ToHash() ?? 0;
-            }
-        }
-
-        private static readonly PyObjectEqualityComparer KeyComparer = new PyObjectEqualityComparer();
-
-        // Python 3.7+: dict는 삽입 순서를 보장해야 함
-        // C# Dictionary는 순서 보장 안 함 → List + Dictionary 혼합 사용
-        protected readonly Dictionary<PyObject, PyObject> _dict;  // O(1) 조회용
+        protected readonly PyDictionaryStorage _dict;  // O(1) 조회용
         protected readonly List<PyObject> _keys;  // 삽입 순서 보관
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
-        internal Dictionary<PyObject, PyObject> InternalDict => _dict;
+        internal PyDictionaryStorage InternalDict => _dict;
         // Bypass Python __getitem__ overrides while allowing internal storage adapters.
         internal virtual bool TryGetStoredValue(PyObject key, out PyObject value) => _dict.TryGetValue(key, out value);
         internal List<PyObject>.Enumerator GetStorageKeyEnumerator() => _keys.GetEnumerator();
@@ -500,19 +480,19 @@ namespace SharpPy
             // Python 3.7+: 삽입 순서 보장하여 반환
             foreach (var key in _keys)
             {
-                yield return new KeyValuePair<PyObject, PyObject>(key, _dict[key]);
+                yield return new KeyValuePair<PyObject, PyObject>(key, _dict.StoredValue(key));
             }
         }
 
         public PyDict()
         {
-            _dict = new Dictionary<PyObject, PyObject>(KeyComparer);
+            _dict = new PyDictionaryStorage();
             _keys = new OrderedKeyList();
         }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(KeyComparer);
+            _dict = new PyDictionaryStorage();
             _keys = new OrderedKeyList();
             foreach (var kv in items)
             {
@@ -524,7 +504,7 @@ namespace SharpPy
 
         public PyDict(Dictionary<PyObject, PyObject> items)
         {
-            _dict = new Dictionary<PyObject, PyObject>(items, KeyComparer);
+            _dict = new PyDictionaryStorage(items);
             _keys = new OrderedKeyList(items.Keys);
         }
 
@@ -555,7 +535,7 @@ namespace SharpPy
             for (int i = 0; i < _keys.Count; i++)
             {
                 keyReprs[i] = _keys[i].ToRepr().Value;
-                valueReprs[i] = _dict[_keys[i]].ToRepr().Value;
+                valueReprs[i] = _dict.StoredValue(_keys[i]).ToRepr().Value;
 
                 if (i > 0) totalLength += 2; // ", "
                 totalLength += keyReprs[i].Length;
@@ -612,11 +592,12 @@ namespace SharpPy
             if (_dict.Count != otherDict._dict.Count)
                 return false;
 
-            foreach (var kv in _dict)
+            int position = 0;
+            while (_dict.NextEntry(ref position, out var entry))
             {
-                if (!otherDict._dict.ContainsKey(kv.Key))
+                if (!otherDict._dict.TryGetKnownHash(entry.Key, entry.Hash, out var value))
                     return false;
-                if (!CompareBool(kv.Value, otherDict._dict[kv.Key], CompareOp.EQ))
+                if (!CompareBool(entry.Value, value, CompareOp.EQ))
                     return false;
             }
             return true;
@@ -643,12 +624,7 @@ namespace SharpPy
         /// </summary>
         public override void SetItem(PyObject key, PyObject value)
         {
-            // 새 키인 경우에만 _keys에 추가 (삽입 순서 보장)
-            if (!_dict.ContainsKey(key))
-            {
-                AddOrderedKey(key);
-            }
-            _dict[key] = value;
+            if (_dict.Set(key, value)) AddOrderedKey(key);
         }
 
         /// <summary>
@@ -657,10 +633,10 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject DelItem(PyObject key)
         {
-            if (!_dict.Remove(key))
+            if (!_dict.Remove(key, out _, out var storedKey))
                 throw PyKeyError.Create(key);
 
-            RemoveOrderedKey(key);
+            RemoveOrderedKey(storedKey);
             return PyNone.Instance;
         }
 
@@ -669,7 +645,7 @@ namespace SharpPy
             // Use the same Python equality as lookup storage; List.Remove uses CLR equality.
             for (int i = 0; i < _keys.Count; i++)
             {
-                if (ReferenceEquals(_keys[i], key) || KeyComparer.Equals(_keys[i], key))
+                if (ReferenceEquals(_keys[i], key))
                 {
                     RemoveOrderedKeyAt(i);
                     break;
@@ -710,9 +686,14 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
-            if (_dict.Remove(key, out PyObject value))
+            if (_dict.Count == 0)
             {
-                RemoveOrderedKey(key);
+                if (defaultValue != null) return defaultValue;
+                throw PyKeyError.Create(key);
+            }
+            if (_dict.Remove(key, out PyObject value, out var storedKey))
+            {
+                RemoveOrderedKey(storedKey);
                 return value;
             }
 
@@ -733,8 +714,8 @@ namespace SharpPy
 
             // Python 3.7+: LIFO (Last-In-First-Out) - 마지막 삽입된 키
             var lastKey = _keys[_keys.Count - 1];
-            var value = _dict[lastKey];
-            _dict.Remove(lastKey);
+            var value = _dict.StoredValue(lastKey);
+            _dict.Remove(lastKey, out _, out _, knownHash: true);
             RemoveOrderedKeyAt(_keys.Count - 1, trimTail: true);
             return TupleCache.CreatePair(lastKey, value);
         }
@@ -759,19 +740,25 @@ namespace SharpPy
             // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
             if (other is PyDict otherDict)
             {
+                if (ReferenceEquals(this, otherDict)) return PyNone.Instance;
+                if (_dict.Count == 0 && otherDict._dict.CanCloneForMerge)
+                {
+                    _dict.CopyFrom(otherDict._dict);
+                    ClearOrderedKeys();
+                    foreach (var key in otherDict._keys) AddOrderedKey(key);
+                    return PyNone.Instance;
+                }
                 // CPython 3.12: Objects/dictobject.c:2811-2990 (dict_merge)
                 // Line 2967: PyDict_SetItem (does NOT call __setitem__, updates storage directly)
                 // For dict subclasses, PyDict_SetItem updates internal storage directly,
                 // bypassing user-defined __setitem__
-                foreach (var key in otherDict._keys)
+                _dict.PrepareMerge(otherDict._dict.Count);
+                int position = 0, originalSize = otherDict._dict.EntriesUsed;
+                while (otherDict._dict.NextEntry(ref position, out var entry))
                 {
-                    var value = otherDict._dict[key];
-                    // Direct storage update (bypass __setitem__)
-                    if (!_dict.ContainsKey(key))
-                    {
-                        AddOrderedKey(key);
-                    }
-                    _dict[key] = value;
+                    if (_dict.SetKnownHash(entry.Key, entry.Value, entry.Hash)) AddOrderedKey(entry.Key);
+                    if (originalSize != otherDict._dict.EntriesUsed)
+                        throw PyRuntimeError.Create("dict mutated during update");
                 }
             }
             else if (other is PyMappingProxy mappingProxy)
@@ -794,11 +781,7 @@ namespace SharpPy
                     #endif
 
                     // Direct storage update (bypass __setitem__)
-                    if (!_dict.ContainsKey(pyKey))
-                    {
-                        AddOrderedKey(pyKey);
-                    }
-                    _dict[pyKey] = value;
+                    if (_dict.Set(pyKey, value)) AddOrderedKey(pyKey);
                 }
             }
             else
@@ -814,14 +797,9 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
-            if (_dict.TryGetValue(key, out PyObject value))
-                return value;
-
-            var newValue = defaultValue ?? PyNone.Instance;
-            // 새 키이므로 _keys에 추가 (삽입 순서 보장)
-            AddOrderedKey(key);
-            _dict[key] = newValue;
-            return newValue;
+            var value = _dict.SetDefault(key, defaultValue ?? PyNone.Instance, out bool added);
+            if (added) AddOrderedKey(key);
+            return value;
         }
 
         #endregion
@@ -855,7 +833,7 @@ namespace SharpPy
             var values = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
-                values[i] = _dict[_keys[i]];
+                values[i] = _dict.StoredValue(_keys[i]);
             }
             return ListCache.Create(values);
         }
@@ -871,7 +849,7 @@ namespace SharpPy
             var items = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
-                items[i] = TupleCache.CreatePair(_keys[i], _dict[_keys[i]]);
+                items[i] = TupleCache.CreatePair(_keys[i], _dict.StoredValue(_keys[i]));
             }
             return ListCache.Create(items);
         }
@@ -970,14 +948,20 @@ namespace SharpPy
         /// </summary>
         public virtual PyDict Copy()
         {
+            if (!_dict.CanCloneForCopy)
+            {
+                var compact = new PyDict();
+                compact.Update(this);
+                return compact;
+            }
             return new PyDict(_dict, _keys);
         }
 
-        private PyDict(Dictionary<PyObject, PyObject> items, List<PyObject> keys)
+        private PyDict(PyDictionaryStorage items, List<PyObject> keys)
         {
             // The identical comparer lets Dictionary reuse stored hashes. Keep the
             // Python insertion order separately: CLR deletion reuses entry slots.
-            _dict = new Dictionary<PyObject, PyObject>(items, KeyComparer);
+            _dict = items.Clone();
             _keys = new OrderedKeyList(keys);
         }
 
@@ -1106,7 +1090,7 @@ namespace SharpPy
             // Copy self's items (maintain insertion order)
             foreach (var key in _keys)
             {
-                result._dict[key] = _dict[key];
+                result._dict.SetKnownHash(key, _dict.StoredValue(key), _dict.StoredHash(key));
                 result.AddOrderedKey(key);
             }
 
@@ -1114,11 +1098,8 @@ namespace SharpPy
             // PyDict_Merge(result, other, 1)
             foreach (var key in otherDict._keys)
             {
-                if (!result._dict.ContainsKey(key))
-                {
+                if (result._dict.SetKnownHash(key, otherDict._dict.StoredValue(key), otherDict._dict.StoredHash(key)))
                     result.AddOrderedKey(key);
-                }
-                result._dict[key] = otherDict._dict[key];
             }
 
             return result;
@@ -1141,11 +1122,8 @@ namespace SharpPy
             // PyDict_Merge(self, other, 1) - 1 means override existing keys
             foreach (var key in otherDict._keys)
             {
-                if (!_dict.ContainsKey(key))
-                {
+                if (_dict.SetKnownHash(key, otherDict._dict.StoredValue(key), otherDict._dict.StoredHash(key)))
                     AddOrderedKey(key);
-                }
-                _dict[key] = otherDict._dict[key];
             }
 
             // CPython: Objects/dictobject.c:3191 - Return self

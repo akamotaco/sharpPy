@@ -362,7 +362,7 @@ namespace SharpPy
     public class PyDictValueIterator : PyDictIterator
     {
         public PyDictValueIterator(PyDict dict) : base(dict) { }
-        protected override PyObject Project(PyObject key, PyDict dictionary) => dictionary.InternalDict[key];
+        protected override PyObject Project(PyObject key, PyDict dictionary) => dictionary.InternalDict.StoredValue(key);
         public override PyString ToRepr() => new PyString("<dict_valueiterator object>");
     }
 
@@ -373,7 +373,7 @@ namespace SharpPy
     {
         public PyDictItemIterator(PyDict dict) : base(dict) { }
         protected override PyObject Project(PyObject key, PyDict dictionary) =>
-            TupleCache.CreatePair(key, dictionary.InternalDict[key]);
+            TupleCache.CreatePair(key, dictionary.InternalDict.StoredValue(key));
         public override PyString ToRepr() => new PyString("<dict_itemiterator object>");
     }
 

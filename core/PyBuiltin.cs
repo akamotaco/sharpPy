@@ -53,7 +53,7 @@ namespace SharpPy
         public PyObject[] ProcessArguments(PyObject[] args, PyDict kwargs)
         {
             var result = new PyObject[Parameters.Count];
-            var kwDict = kwargs?.InternalDict ?? new Dictionary<PyObject, PyObject>();
+            var kwDict = kwargs?.InternalDict ?? new PyDictionaryStorage();
 
             // 위치 인수 처리
             for (int i = 0; i < Math.Min(args.Length, Parameters.Count); i++)
@@ -1105,13 +1105,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"hash() takes exactly one argument ({args.Length} given)");
 
-            long hash = args[0] switch
-            {
-                PyInt number => PyInt.PythonHash(number.Value),
-                PyBool boolean => boolean.Value ? 1 : 0,
-                PyIntSubclass subclass => subclass.GetPythonHash(),
-                _ => args[0].ToHash()
-            };
+            long hash = args[0].GetPythonHash();
             return SmallIntCache.GetOrCreate(hash);
         }
 
@@ -1785,7 +1779,9 @@ namespace SharpPy
             // Fast path: if obj is already a dict, copy it
             if (obj is PyDict existingDict)
             {
-                return existingDict.Copy();
+                var copy = new PyDict();
+                copy.Update(existingDict);
+                return copy;
             }
 
             // CPython 3.12: Mapping protocol - check if obj has keys() method

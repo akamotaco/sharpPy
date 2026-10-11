@@ -12,6 +12,7 @@ namespace SharpPy
         // For subclasses of builtin types (IntEnum, StrEnum, etc.), this stores the actual subclass type
         // If null, GetPyType() returns the default type for this object
         protected PyType? _customType;
+        internal bool HasCustomType => _customType != null;
 
         // CPython 3.12: Include/object.h:350 - Py_TYPE(op) macro
         // Returns ob_type if set, otherwise returns default type
@@ -101,6 +102,60 @@ namespace SharpPy
         }
 
         public override int GetHashCode() => ToHash();
+
+        internal virtual long GetPythonHash()
+        {
+            if (_customType == null)
+            {
+                if (this is PyInt number) return PyInt.PythonHash(number.Value);
+                if (this is PyBool boolean) return boolean.Value ? 1 : 0;
+                if (this is PyFloat real) return real.PythonHash();
+                if (this is PyString || this is PyNone) return ToHash();
+            }
+            var method = LookupSpecialMethodUncached("__hash__");
+            if (method != null)
+            {
+                if (method == PyNone.Instance)
+                    throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
+                PyObject bound;
+                try { bound = BindSpecialMethod(method); }
+                catch (PythonException) { throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'"); }
+                var result = bound.Call(Array.Empty<PyObject>(), null);
+                var integer = result as PyInt ?? (result as PyIntSubclass)?.GetIntValue();
+                System.Numerics.BigInteger value;
+                if (integer != null) value = integer.Value;
+                else if (result is PyBool flag) value = flag.Value ? 1 : 0;
+                else throw PyTypeError.Create("__hash__ method should return an integer");
+                long hash = value < nint.MinValue || value > nint.MaxValue ? PyInt.PythonHash(value) : (long)value;
+                return hash == -1 ? -2 : hash;
+            }
+            if (this is PyTuple tuple)
+            {
+                // CPython tuplehash, native-width xxHash mixing.
+                if (IntPtr.Size == 8)
+                {
+                    ulong acc = 2870177450012600261UL;
+                    foreach (var item in tuple.Items)
+                    {
+                        acc = unchecked(acc + (ulong)item.GetPythonHash() * 14029467366897019727UL);
+                        acc = (acc << 31) | (acc >> 33);
+                        acc = unchecked(acc * 11400714785074694791UL);
+                    }
+                    acc = unchecked(acc + ((ulong)tuple.Items.Length ^ (2870177450012600261UL ^ 3527539UL)));
+                    return acc == ulong.MaxValue ? 1546275796 : unchecked((long)acc);
+                }
+                uint small = 374761393U;
+                foreach (var item in tuple.Items)
+                {
+                    small = unchecked(small + (uint)item.GetPythonHash() * 2246822519U);
+                    small = (small << 13) | (small >> 19);
+                    small = unchecked(small * 2654435761U);
+                }
+                small = unchecked(small + ((uint)tuple.Items.Length ^ (374761393U ^ 3527539U)));
+                return small == uint.MaxValue ? 1546275796 : unchecked((int)small);
+            }
+            return ToHash();
+        }
 
         #endregion
 

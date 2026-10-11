@@ -376,6 +376,25 @@ namespace SharpPy
             return new BigInteger(value).CompareTo(integer);
         }
 
+        internal long PythonHash()
+        {
+            if (double.IsNaN(Value)) return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
+            if (double.IsInfinity(Value)) return Value > 0 ? 314159 : -314159;
+            ulong bits = unchecked((ulong)BitConverter.DoubleToInt64Bits(Value));
+            int exponent = (int)((bits >> 52) & 2047);
+            ulong mantissa = bits & ((1UL << 52) - 1);
+            int shift;
+            if (exponent == 0) shift = -1074;
+            else { mantissa |= 1UL << 52; shift = exponent - 1023 - 52; }
+            int width = IntPtr.Size == 8 ? 61 : 31;
+            ulong modulus = (1UL << width) - 1;
+            mantissa %= modulus;
+            shift = (shift % width + width) % width;
+            ulong hash = ((mantissa << shift) & modulus) | (mantissa >> (width - shift));
+            long signed = (bits >> 63) == 0 ? (long)hash : -(long)hash;
+            return signed == -1 ? -2 : signed;
+        }
+
         public override int ToHash()
         {
             // Python과 같은 방식으로 해시 계산

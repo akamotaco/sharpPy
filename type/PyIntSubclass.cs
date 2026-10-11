@@ -262,7 +262,7 @@ namespace SharpPy
         // Native-width Python hash for observable hash() and OSError errnomap.
         // ToHash remains the existing CLR dictionary hash until numeric key
         // hashing and equality can be changed together.
-        internal long GetPythonHash()
+        internal override long GetPythonHash()
         {
             var method = LookupSpecialMethodUncached("__hash__");
             PyObject result;
