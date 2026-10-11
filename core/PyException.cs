@@ -1068,6 +1068,78 @@ namespace SharpPy
             return new PyOSError(args, null, true);
         }
 
+        // Only int subclasses need Python hash/equality dispatch. Keep this table
+        // lazy so ordinary int construction retains its allocation-free lookup.
+        private static class SubclassErrnoMap
+        {
+            internal static readonly System.Collections.Generic.Dictionary<long, (PyInt Key, PyType Type)> Entries = Build();
+            private static System.Collections.Generic.Dictionary<long, (PyInt Key, PyType Type)> Build()
+            {
+                var map = new System.Collections.Generic.Dictionary<long, (PyInt Key, PyType Type)>();
+                void Add(long code, PyType type) => map[code] = (SmallIntCache.GetOrCreate(code), type);
+                Add(1, PyType.PermissionErrorType);
+                Add(13, PyType.PermissionErrorType);
+                Add(2, PyType.FileNotFoundErrorType);
+                Add(17, PyType.FileExistsErrorType);
+                Add(20, PyType.NotADirectoryErrorType);
+                Add(21, PyType.IsADirectoryErrorType);
+                Add(3, PyType.ProcessLookupErrorType);
+                Add(4, PyType.InterruptedErrorType);
+                Add(10, PyType.ChildProcessErrorType);
+                Add(32, PyType.BrokenPipeErrorType);
+                bool windows = OperatingSystem.IsWindows();
+                bool bsd = OperatingSystem.IsMacOS() || OperatingSystem.IsIOS() ||
+                    OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst() || OperatingSystem.IsFreeBSD();
+                Add(bsd ? 35 : 11, PyType.BlockingIOErrorType);
+                Add(windows ? 10035 : bsd ? 35 : 11, PyType.BlockingIOErrorType);
+                Add(windows ? 10036 : bsd ? 36 : 115, PyType.BlockingIOErrorType);
+                Add(windows ? 10037 : bsd ? 37 : 114, PyType.BlockingIOErrorType);
+                Add(windows ? 10058 : bsd ? 58 : 108, PyType.BrokenPipeErrorType);
+                Add(windows ? 10053 : bsd ? 53 : 103, PyType.ConnectionAbortedErrorType);
+                Add(windows ? 10061 : bsd ? 61 : 111, PyType.ConnectionRefusedErrorType);
+                Add(windows ? 10054 : bsd ? 54 : 104, PyType.ConnectionResetErrorType);
+                Add(windows ? 10060 : bsd ? 60 : 110, PyType.TimeoutErrorType);
+                return map;
+            }
+        }
+
+        private static PyOSError FromIntegerSubclass(PyIntSubclass number, PyObject[] args)
+        {
+            var method = number.LookupSpecialMethodUncached("__hash__");
+            // slot_tp_hash replaces lookup/binding errors with HashNotImplemented;
+            // errors from invoking an already bound method must still propagate.
+            try { if (method != null) method = number.BindSpecialMethod(method); }
+            catch (PythonException) { method = null; }
+            if (method == null || method == PyNone.Instance)
+                throw PyTypeError.Create($"unhashable type: '{number.GetTypeName()}'");
+            var result = method.Call(Array.Empty<PyObject>(), null);
+            var hashValue = result as PyInt ?? (result as PyIntSubclass)?.GetIntValue();
+            System.Numerics.BigInteger value;
+            if (hashValue != null) value = hashValue.Value;
+            else if (result is PyBool boolean) value = boolean.Value ? 1 : 0;
+            else throw PyTypeError.Create("__hash__ method should return an integer");
+            // slot_tp_hash preserves a signed native-width return value; only
+            // overflow is reduced using long_hash. -1 is the error sentinel.
+            long hash = value < nint.MinValue || value > nint.MaxValue
+                ? PyInt.PythonHash(value) : (long)value;
+            if (hash == -1) hash = -2;
+            if (!SubclassErrnoMap.Entries.TryGetValue(hash, out var entry))
+                return new PyOSError(args, null, true);
+
+            // Every errnomap key is a distinct small positive int, so its hash
+            // equals its value. At most one equality call can be observable.
+            method = number.LookupSpecialMethodUncached("__eq__");
+            // slot_tp_richcompare clears lookup/binding errors and returns
+            // NotImplemented, letting the builtin int comparison take over.
+            try { if (method != null) method = number.BindSpecialMethod(method); }
+            catch (PythonException) { method = null; }
+            result = method == null ? PyNotImplemented.Instance
+                : method.Call(new PyObject[] { entry.Key }, null);
+            bool equal = result == PyNotImplemented.Instance
+                ? number.GetIntValue().Value == hash : result.IsTrue();
+            return equal ? (PyOSError)entry.Type.Call(args, null) : new PyOSError(args, null, true);
+        }
+
         internal static PyOSError FromArguments(PyObject[] args, PyDict kwargs)
         {
             if (kwargs != null && kwargs.Length() != 0)
@@ -1089,6 +1161,8 @@ namespace SharpPy
                 // bool is a Python int subclass, but has a separate CLR representation.
                 else if (args[0] is PyBool { Value: true })
                     return new PyPermissionError(args, null, true);
+                else if (args[0] is PyIntSubclass subclass)
+                    return FromIntegerSubclass(subclass, args);
             }
             return new PyOSError(args, null, true);
         }

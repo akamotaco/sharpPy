@@ -11,6 +11,16 @@ namespace SharpPy
     /// </summary>
     public class PyInt : PyObject
     {
+        // Python's numeric hash has native signed width, unlike CLR GetHashCode.
+        private static readonly BigInteger PythonHashModulus =
+            (BigInteger.One << (IntPtr.Size == 8 ? 61 : 31)) - 1;
+
+        internal static long PythonHash(BigInteger value)
+        {
+            long hash = (long)(value % PythonHashModulus);
+            return hash == -1 ? -2 : hash;
+        }
+
         static PyInt()
         {
             InitializeIntDescriptors();
@@ -23,6 +33,20 @@ namespace SharpPy
         public static void InitializeIntDescriptors()
         {
             var intType = PyType.IntType;
+            intType.TypeDict["__hash__"] = new PyWrapperDescriptor(
+                "__hash__", intType,
+                (self, args, kwargs) => {
+                    var number = self as PyInt ?? (self as PyIntSubclass)?.GetIntValue();
+                    if (number == null && self is not PyBool)
+                        throw PyTypeError.Create($"descriptor '__hash__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("wrapper __hash__() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    if (number != null) return new PyInt(PythonHash(number.Value));
+                    return new PyInt(((PyBool)self).Value ? 1 : 0);
+                });
+
 
             // CPython 3.12: Objects/longobject.c:5598-5605, 5652-5684 - long_new / long_subtype_new
             // __new__(cls, x=0, /) - Create a new int object

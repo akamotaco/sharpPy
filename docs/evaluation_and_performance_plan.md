@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[86차 결과](reports/2026-10-11/os_error_errno_subclass.md): 85차를 `121e21c`로 커밋했다. errno int 하위 타입의 hash/eq·descriptor 오류·NotImplemented·진리값·비교 키 identity를 CPython과 맞추고 int.__hash__, 암시적 hash=None, MRO 해시 조회를 보완했다. 기본 152개·Godot 관련 25개 통과. 기존 네 workload 할당은 동일하며 일반 생성·정수 하위 타입 생성에서 각각 약 +1.42% 관측의 원인은 미확정이다. 다음은 생성 비용 분리 조사와 일반 hash/dict의 기존 하위 타입 callback 누락이며 큰 문자열 파싱 실패도 유지한다.
 [85차 결과](reports/2026-10-11/os_error_remaining_types.md): 84차를 `b47ab97`로 커밋했다. OSError의 남은 native 하위 타입 9개와 errno 매핑, ConnectionError 부모 catch를 연결했다. 기본 151개·Godot 관련 24개 검증. 기존 세 workload의 할당량은 동일하며 시간 변화는 +0.42%/+1.06%/-0.38%, 프로세스 범위가 겹친다. errno int 하위 타입의 hash/eq 조회 의미는 다음 단계로 유지한다.
 [84차 결과](reports/2026-10-11/os_error_winerror_int_subclass.md): 83차를 `51b3bf1`으로 커밋했다. winerror int 하위 타입을 callback 없이 변환하고, 하위 타입 생성·repr의 큰 정수 축소를 제거했다. 기본 150개·Godot 관련 23개 통과. 기존 네 workload의 할당은 동일하며 시간 범위는 겹친다(winerror 중앙값 +2.4% 관측). errno 선택은 CPython의 사용자 정의 hash/eq 호출을 보존해야 하므로 별도 실패 fixture로 남겼다. 다음은 이 조회 의미이며 큰 문자열 파싱도 미해결로 추적한다.
 [83차 결과](reports/2026-10-11/blocking_io_written_state.md): 82차를 `e24adae`으로 커밋했다. BlockingIOError 선택과 세 번째 인자, OSError 전체의 characters_written 설정·삭제·오류·재진입을 맞췄다. 기존 filename2 슬롯을 공유해 일반 생성 할당은 유지했다. 기본 149개·Godot 관련 22개 통과. 최종 시간은 기존 세 workload에서 약 2.5~3.1% 증가해 추가 조사가 남는다. int 하위 타입의 errno/winerror 불일치를 별도 실패 fixture로 보존했으며 다음 호환성 수정 대상이다.

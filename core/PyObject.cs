@@ -223,62 +223,28 @@ namespace SharpPy
         /// </summary>
         public virtual bool IsTrue()
         {
-            // CPython 3.12: Objects/object.c:1678-1683
-            // Fast path for True/False/None
-            if (this == PyBool.True)
-                return true;
-            if (this == PyBool.False)
-                return false;
-            if (this == PyNone.Instance)
-                return false;
-
-            // CPython 3.12: Objects/object.c:1684-1686
-            // Try __bool__ method (tp_as_number->nb_bool)
-            try
+            if (this is PyBool boolean) return boolean.Value;
+            if (this == PyNone.Instance) return false;
+            var method = LookupSpecialMethodUncached("__bool__");
+            if (method != null)
             {
-                var boolAttr = PyGetAttribute("__bool__");
-                if (boolAttr != null && boolAttr != PyNone.Instance)
-                {
-                    var result = boolAttr.Call(new PyObject[0], null);
-                    if (result is PyBool boolResult)
-                        return boolResult.Value;
-                    if (result is PyInt intResult)
-                        return intResult.Value != 0;
-                    // Invalid __bool__ return type
-                    throw PyTypeError.Create("__bool__ should return bool or int");
-                }
+                var result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (result is PyBool truth) return truth.Value;
+                throw PyTypeError.Create($"__bool__ should return bool, returned {result.GetTypeName()}");
             }
-            catch (Exception ex) when (ex is PyAttributeError || ex.GetType().Name == "PyAttributeError")
+            method = LookupSpecialMethodUncached("__len__");
+            if (method != null)
             {
-                // __bool__ not found, try __len__
+                var result = BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                var length = TryGetIndex(result);
+                if (length == null)
+                    throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
+                if (length.Value.Sign < 0) throw PyValueError.Create("__len__() should return >= 0");
+                if (length.Value > nint.MaxValue)
+                    throw PyOverflowError.Create($"cannot fit '{result.GetTypeName()}' into an index-sized integer");
+                return !length.Value.IsZero;
             }
-
-            // CPython 3.12: Objects/object.c:1687-1692
-            // Try __len__ method (tp_as_mapping->mp_length or tp_as_sequence->sq_length)
-            try
-            {
-                var lenAttr = PyGetAttribute("__len__");
-                if (lenAttr != null && lenAttr != PyNone.Instance)
-                {
-                    var result = lenAttr.Call(new PyObject[0], null);
-                    if (result is PyInt intResult)
-                    {
-                        // CPython 3.12: Objects/object.c:1696
-                        // Return true if length > 0
-                        return intResult.Value > 0;
-                    }
-                    // Invalid __len__ return type
-                    throw PyTypeError.Create("__len__ should return an integer");
-                }
-            }
-            catch (Exception ex) when (ex is PyAttributeError || ex.GetType().Name == "PyAttributeError")
-            {
-                // __len__ not found
-            }
-
-            // CPython 3.12: Objects/object.c:1694
-            // Default: all objects are true
-            return true;
+            return PyBoolValue();
         }
 
         #endregion

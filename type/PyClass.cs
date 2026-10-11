@@ -77,6 +77,11 @@ namespace SharpPy
             {
                 ClassDict = new Dictionary<string, PyObject>();
             }
+            // Defining equality without an explicit hash disables inherited hashing.
+            // CPython type_ready_set_hash / inherit_slots; do this at creation,
+            // not during lookup (later assignment of __eq__ has different semantics).
+            if (ClassDict.ContainsKey("__eq__") && !ClassDict.ContainsKey("__hash__"))
+                ClassDict["__hash__"] = PyNone.Instance;
             TypeParams = typeParams;
             
             // __type_params__ 속성 설정
@@ -233,6 +238,9 @@ namespace SharpPy
                 // 특수 메서드 슬롯 상속
                 foreach (var slotMethod in SlotDefs.InheritableSlots)
                 {
+                    // Hash lookup must follow the MRO: copying int.__hash__ here
+                    // would hide an earlier Python mixin's hash (or hash=None).
+                    if (slotMethod == "__hash__") continue;
                     // 현재 클래스에 없고 부모에 있으면 상속
                     if (!TypeDict.ContainsKey(slotMethod) &&
                         baseType.TypeDict.TryGetValue(slotMethod, out var method))
