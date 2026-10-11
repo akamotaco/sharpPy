@@ -462,7 +462,8 @@ namespace SharpPy
         {
             public bool Equals(PyObject x, PyObject y)
             {
-                if (x == null && y == null) return true;
+                // dict lookup accepts the stored key itself without calling __eq__.
+                if (ReferenceEquals(x, y)) return true;
                 if (x == null || y == null) return false;
                 return ((PyBool)x.RichCompare(y, CompareOp.EQ)).Value;
             }
