@@ -831,7 +831,7 @@ namespace SharpPy
         {
             if (x == null && y == null) return true;
             if (x == null || y == null) return false;
-            return ((PyBool)x.RichCompare(y, PyObject.CompareOp.EQ)).Value;
+            return PyObject.CompareBool(x, y, PyObject.CompareOp.EQ);
         }
 
         public int GetHashCode(PyObject obj)

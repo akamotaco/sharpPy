@@ -465,7 +465,7 @@ namespace SharpPy
                 // dict lookup accepts the stored key itself without calling __eq__.
                 if (ReferenceEquals(x, y)) return true;
                 if (x == null || y == null) return false;
-                return ((PyBool)x.RichCompare(y, CompareOp.EQ)).Value;
+                return CompareBool(x, y, CompareOp.EQ);
             }
 
             public int GetHashCode(PyObject obj)
@@ -616,7 +616,7 @@ namespace SharpPy
             {
                 if (!otherDict._dict.ContainsKey(kv.Key))
                     return false;
-                if (!((PyBool)otherDict._dict[kv.Key].RichCompare(kv.Value, CompareOp.EQ)).Value)
+                if (!CompareBool(kv.Value, otherDict._dict[kv.Key], CompareOp.EQ))
                     return false;
             }
             return true;

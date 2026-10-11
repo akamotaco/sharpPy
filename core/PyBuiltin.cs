@@ -848,7 +848,7 @@ namespace SharpPy
                     while (true)
                     {
                         var item = iterator.Next();
-                        if (((PyBool)item.RichCompare(min, PyObject.CompareOp.LT)).Value)
+                        if (PyObject.CompareBool(item, min, PyObject.CompareOp.LT))
                             min = item;
                     }
                 }
@@ -867,7 +867,7 @@ namespace SharpPy
                 var min = args[0];
                 for (int i = 1; i < args.Length; i++)
                 {
-                    if (((PyBool)args[i].RichCompare(min, PyObject.CompareOp.LT)).Value)
+                    if (PyObject.CompareBool(args[i], min, PyObject.CompareOp.LT))
                         min = args[i];
                 }
                 return min;
@@ -892,7 +892,7 @@ namespace SharpPy
                     while (true)
                     {
                         var item = iterator.Next();
-                        if (((PyBool)item.RichCompare(max, PyObject.CompareOp.GT)).Value)
+                        if (PyObject.CompareBool(item, max, PyObject.CompareOp.GT))
                             max = item;
                     }
                 }
@@ -911,7 +911,7 @@ namespace SharpPy
                 var max = args[0];
                 for (int i = 1; i < args.Length; i++)
                 {
-                    if (((PyBool)args[i].RichCompare(max, PyObject.CompareOp.GT)).Value)
+                    if (PyObject.CompareBool(args[i], max, PyObject.CompareOp.GT))
                         max = args[i];
                 }
                 return max;

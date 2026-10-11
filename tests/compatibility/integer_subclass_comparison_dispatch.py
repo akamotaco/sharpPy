@@ -1,4 +1,4 @@
-"""Pending: Python overrides and strict-subclass reflected priority."""
+"""Python overrides and strict-subclass reflected priority."""
 class Number(int):
     def __eq__(self, other):
         print('Number.eq')

@@ -73,9 +73,9 @@ namespace SharpPy
             return other switch
             {
                 PySlice otherSlice => PyBool.FromBool(
-                    Start.RichCompare(otherSlice.Start, CompareOp.EQ).PyBoolValue() &&
-                    Stop.RichCompare(otherSlice.Stop, CompareOp.EQ).PyBoolValue() &&
-                    Step.RichCompare(otherSlice.Step, CompareOp.EQ).PyBoolValue()),
+                    CompareBool(Start, otherSlice.Start, CompareOp.EQ) &&
+                    CompareBool(Stop, otherSlice.Stop, CompareOp.EQ) &&
+                    CompareBool(Step, otherSlice.Step, CompareOp.EQ)),
                 _ => PyBool.False
             };
         }

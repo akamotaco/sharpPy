@@ -44,12 +44,12 @@ namespace SharpPy
                 var result = Ops[i] switch
                 {
                     // CPython: PyObject_RichCompare(left, right, oparg>>4)
-                    GeneratedEq _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.EQ),
-                    GeneratedNotEq _ => leftVal.RichCompare(rightVal, PyObject.CompareOp.NE),
-                    GeneratedLt _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.LT),
-                    GeneratedLtE _   => leftVal.RichCompare(rightVal, PyObject.CompareOp.LE),
-                    GeneratedGt _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.GT),
-                    GeneratedGtE _   => leftVal.RichCompare(rightVal, PyObject.CompareOp.GE),
+                    GeneratedEq _    => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.EQ),
+                    GeneratedNotEq _ => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.NE),
+                    GeneratedLt _    => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.LT),
+                    GeneratedLtE _   => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.LE),
+                    GeneratedGt _    => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.GT),
+                    GeneratedGtE _   => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.GE),
 
                     // CPython: IS_OP - int res = Py_Is(left, right) ^ oparg
                     GeneratedIs _    => ReferenceEquals(leftVal, rightVal) ? PyBool.True : PyBool.False,
@@ -63,8 +63,8 @@ namespace SharpPy
                 };
 
                 // Short-circuit: if this comparison is false, return false immediately
-                if (!result.ToBool())
-                    return PyBool.False;
+                if (i == Ops.Count - 1 || !result.IsTrue())
+                    return result;
 
                 // For next iteration, the right value becomes the left value
                 leftVal = rightVal;
@@ -127,12 +127,12 @@ namespace SharpPy
                 var result = Operators[i] switch
                 {
                     // CPython: PyObject_RichCompare(left, right, oparg>>4)
-                    GeneratedEq _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.EQ),
-                    GeneratedNotEq _ => leftVal.RichCompare(rightVal, PyObject.CompareOp.NE),
-                    GeneratedLt _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.LT),
-                    GeneratedLtE _   => leftVal.RichCompare(rightVal, PyObject.CompareOp.LE),
-                    GeneratedGt _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.GT),
-                    GeneratedGtE _   => leftVal.RichCompare(rightVal, PyObject.CompareOp.GE),
+                    GeneratedEq _    => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.EQ),
+                    GeneratedNotEq _ => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.NE),
+                    GeneratedLt _    => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.LT),
+                    GeneratedLtE _   => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.LE),
+                    GeneratedGt _    => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.GT),
+                    GeneratedGtE _   => PyObject.Compare(leftVal, rightVal, PyObject.CompareOp.GE),
 
                     // CPython: IS_OP - int res = Py_Is(left, right) ^ oparg
                     GeneratedIs _    => ReferenceEquals(leftVal, rightVal) ? PyBool.True : PyBool.False,
@@ -146,10 +146,8 @@ namespace SharpPy
                 };
 
                 // Short-circuit: if this comparison is false, return false
-                if (!result.ToBool())
-                {
-                    return PyBool.False;
-                }
+                if (i == Operators.Count - 1 || !result.IsTrue())
+                    return result;
 
                 // For next iteration, the right value becomes the left value
                 leftVal = rightVal;

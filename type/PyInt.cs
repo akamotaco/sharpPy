@@ -560,6 +560,12 @@ namespace SharpPy
 
         public override int ToHash() => Value.GetHashCode();
 
+        protected override PyObject PyNotEquals(PyObject other)
+        {
+            var result = PyEquals(other);
+            return result is PyBool equal ? PyBool.FromBool(!equal.Value) : result;
+        }
+
         protected override PyObject PyEquals(PyObject other)
         {
             return other switch
@@ -569,7 +575,7 @@ namespace SharpPy
                 PyFloat otherFloat => PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
                 PyIntSubclass otherSubclass => PyBool.FromBool(Value == otherSubclass.GetIntValue().Value),
-                _ => PyBool.False
+                _ => PyNotImplemented.Instance
             };
         }
 

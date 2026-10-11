@@ -29,52 +29,6 @@ namespace SharpPy
 
         public override int ToHash() => 0; // None은 항상 같은 해시값
 
-        protected override PyObject PyEquals(PyObject other)
-        {
-            // None은 오직 None과만 같다
-            return PyBool.FromBool(other is PyNone);
-        }
-
-        #endregion
-
-        #region Comparison Operations (None은 자기 자신과만 비교 가능)
-
-        protected override PyObject PyLess(PyObject other)
-        {
-            return other switch
-            {
-                PyNone => PyBool.False, // None < None은 False
-                _ => throw PyTypeError.Create($"'<' not supported between instances of 'NoneType' and '{other.GetTypeName()}'")
-            };
-        }
-
-        protected override PyObject PyLessEqual(PyObject other)
-        {
-            return other switch
-            {
-                PyNone => PyBool.True, // None <= None은 True
-                _ => throw PyTypeError.Create($"'<=' not supported between instances of 'NoneType' and '{other.GetTypeName()}'")
-            };
-        }
-
-        protected override PyObject PyGreater(PyObject other)
-        {
-            return other switch
-            {
-                PyNone => PyBool.False, // None > None은 False
-                _ => throw PyTypeError.Create($"'>' not supported between instances of 'NoneType' and '{other.GetTypeName()}'")
-            };
-        }
-
-        protected override PyObject PyGreaterEqual(PyObject other)
-        {
-            return other switch
-            {
-                PyNone => PyBool.True, // None >= None은 True
-                _ => throw PyTypeError.Create($"'>=' not supported between instances of 'NoneType' and '{other.GetTypeName()}'")
-            };
-        }
-
         #endregion
 
         #region Truth Value

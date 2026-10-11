@@ -647,15 +647,7 @@ namespace SharpPy
             if (a == b) return true;
             if (a == null || b == null) return false;
 
-            try
-            {
-                var result = a.RichCompare(b, PyObject.CompareOp.EQ);
-                return result is PyBool boolResult && boolResult.Value;
-            }
-            catch
-            {
-                return false;
-            }
+            return CompareBool(a, b, CompareOp.EQ);
         }
 
         // CPython 3.12: Use descriptor protocol for attribute access
@@ -923,8 +915,7 @@ namespace SharpPy
                 // CPython: Objects/listobject.c:2730-2747 - Search for first index where items differ
                 for (int i = 0; i < _items.Count; i++)
                 {
-                    var eq = _items[i].RichCompare(otherList._items[i], CompareOp.EQ);
-                    if (eq is PyBool e && !e.Value)
+                    if (!CompareBool(_items[i], otherList._items[i], CompareOp.EQ))
                         return PyBool.FromBool(op == CompareOp.NE);
                 }
 
@@ -936,11 +927,10 @@ namespace SharpPy
             for (int i = 0; i < minLen; i++)
             {
                 // First check if items are equal
-                var eq = _items[i].RichCompare(otherList._items[i], CompareOp.EQ);
-                if (eq is PyBool e && !e.Value)
+                if (!CompareBool(_items[i], otherList._items[i], CompareOp.EQ))
                 {
                     // Items differ - compare using the actual operator
-                    return _items[i].RichCompare(otherList._items[i], op);
+                    return Compare(_items[i], otherList._items[i], op);
                 }
                 // Items are equal, continue to next pair
             }

@@ -73,7 +73,7 @@ namespace SharpPy
             return PyBool.False;
         }
 
-        private static PyBool Equal(PyObject left, PyObject right) => ReferenceEquals(left, right)
-            ? PyBool.True : (PyBool)left.RichCompare(right, CompareOp.EQ);
+        private static PyBool Equal(PyObject left, PyObject right) =>
+            PyBool.FromBool(CompareBool(left, right, CompareOp.EQ));
     }
 }

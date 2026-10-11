@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--comparison-cache-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(ComparisonCacheProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--exception-factory-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(ExceptionFactoryProbe.Run(args.Contains("--mapped-errno"), args.Contains("--directory-errno"))));
@@ -391,7 +397,7 @@ var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_
 if (args.Length > 3)
 {
     string selected = args[3];
-    if (!workloads.Contains(selected) && selected != "generator_iteration" && selected != "generator_close" && selected != "generator_delegation" && selected != "python_iterator" && selected != "iterator_acquisition" && selected != "metaclass_iteration" && selected != "classcell_binding" && selected != "super_lookup" && selected != "constant_return" && selected != "constant_cleanup" && selected != "closure_access" && selected != "nonlocal_update" && selected != "coroutine_send" && selected != "exception_construction" && selected != "lookup_exception_construction" && selected != "os_error_construction" && selected != "os_error_fallback" && selected != "os_error_winerror" && selected != "int_subclass_construction" && selected != "os_error_subclass_lookup" && selected != "integer_hash" && selected != "mixed_compare_small" && selected != "mixed_compare_large" && selected != "integer_compare" && selected != "int_subclass_compare" && selected != "int_subclass_float_compare") throw new ArgumentException($"Unknown workload: {selected}");
+    if (!workloads.Contains(selected) && selected != "generator_iteration" && selected != "generator_close" && selected != "generator_delegation" && selected != "python_iterator" && selected != "iterator_acquisition" && selected != "metaclass_iteration" && selected != "classcell_binding" && selected != "super_lookup" && selected != "constant_return" && selected != "constant_cleanup" && selected != "closure_access" && selected != "nonlocal_update" && selected != "coroutine_send" && selected != "exception_construction" && selected != "lookup_exception_construction" && selected != "os_error_construction" && selected != "os_error_fallback" && selected != "os_error_winerror" && selected != "int_subclass_construction" && selected != "os_error_subclass_lookup" && selected != "integer_hash" && selected != "mixed_compare_small" && selected != "mixed_compare_large" && selected != "integer_compare" && selected != "int_subclass_compare" && selected != "int_subclass_float_compare" && selected != "user_compare") throw new ArgumentException($"Unknown workload: {selected}");
     workloads = new[] { selected };
 }
 long sum = (long)iterations * (iterations - 1) / 2;

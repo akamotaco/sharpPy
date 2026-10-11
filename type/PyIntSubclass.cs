@@ -94,6 +94,8 @@ namespace SharpPy
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
+            var result = TryCompareSpecial(other, op, PyType.IntType);
+            if (result != null) return result;
             // Use the full payload and dispatch the operation only once.
             if (other is PyIntSubclass otherSubclass)
                 other = otherSubclass._intValue;

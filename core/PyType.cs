@@ -153,6 +153,9 @@ namespace SharpPy
         /// </summary>
         public ulong TypeVersionTag => _typeVersionTag;
 
+        // Includes ancestor edits, unlike a single type's version tag.
+        internal static ulong ComparisonCacheEpoch { get; private set; } = 1;
+
         /// <summary>
         /// Invalidate type cache when ClassDict changes (CPython: type_modified)
         /// CPython reference: Objects/typeobject.c:420-522 (type_modified)
@@ -161,6 +164,7 @@ namespace SharpPy
         {
             // Assign new version tag to invalidate cache
             _typeVersionTag = _nextVersionTag++;
+            ComparisonCacheEpoch++;
 
             // TODO: Invalidate subclasses recursively
             // CPython iterates through type_list and invalidates all subclasses

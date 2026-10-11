@@ -3459,7 +3459,7 @@ namespace SharpPy
                 // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
                     var truthValue = frame.ValueStack.Pop();
-                    bool isTruthy = truthValue.PyBoolValue();
+                    bool isTruthy = truthValue.IsTrue();
                     #if DEBUG_LOG
                     // Debug: Console.WriteLine($"🔄 POP_JUMP_IF_TRUE: popped value = {truthValue}, isTruthy = {isTruthy}");
                     #endif
@@ -3486,7 +3486,7 @@ namespace SharpPy
 
                 case ByteCodeOp.POP_JUMP_IF_FALSE:
                     var falseValue = frame.ValueStack.Pop();
-                    bool isFalsy = !falseValue.PyBoolValue();
+                    bool isFalsy = !falseValue.IsTrue();
                     #if DEBUG_LOG
                     // Debug: Console.WriteLine($"🔄 POP_JUMP_IF_FALSE: popped value = {falseValue}, isFalsy = {isFalsy}");
                     #endif
@@ -4377,7 +4377,7 @@ namespace SharpPy
 
                 case ByteCodeOp.UNARY_NOT:
                     var notValue = frame.ValueStack.Pop();
-                    var boolResult = notValue.PyBoolValue() ? PyBool.False : PyBool.True;
+                    var boolResult = notValue.IsTrue() ? PyBool.False : PyBool.True;
                     frame.ValueStack.Push(boolResult);
                     break;
 
@@ -6707,62 +6707,17 @@ namespace SharpPy
             if (operation == CompareOp.IS_NOT)
                 return IsNotOperation(left, right);
 
-            // CPython 3.12: Objects/object.c:813-878 - PyObject_RichCompare
-            // Try left operand's comparison method
-            var result = operation switch
+            var op = operation switch
             {
-                CompareOp.EQ => left.RichCompare(right, PyObject.CompareOp.EQ),
-                CompareOp.NE => left.RichCompare(right, PyObject.CompareOp.NE),
-                CompareOp.LT => left.RichCompare(right, PyObject.CompareOp.LT),
-                CompareOp.LE => left.RichCompare(right, PyObject.CompareOp.LE),
-                CompareOp.GT => left.RichCompare(right, PyObject.CompareOp.GT),
-                CompareOp.GE => left.RichCompare(right, PyObject.CompareOp.GE),
-                CompareOp.EXC_MATCH => left.RichCompare(right, PyObject.CompareOp.EQ),
+                CompareOp.EQ or CompareOp.EXC_MATCH => PyObject.CompareOp.EQ,
+                CompareOp.NE => PyObject.CompareOp.NE,
+                CompareOp.LT => PyObject.CompareOp.LT,
+                CompareOp.LE => PyObject.CompareOp.LE,
+                CompareOp.GT => PyObject.CompareOp.GT,
+                CompareOp.GE => PyObject.CompareOp.GE,
                 _ => throw PyNotImplementedError.Create($"Compare operation {compareOp} not implemented")
             };
-
-            // CPython: If left returns NotImplemented, try right's reversed operation
-            // Objects/object.c:868-876
-            if (result == PyNotImplemented.Instance)
-            {
-                // Get reversed operation: < ↔ >, <= ↔ >=
-                var reversedOp = operation switch
-                {
-                    CompareOp.LT => PyObject.CompareOp.GT,
-                    CompareOp.LE => PyObject.CompareOp.GE,
-                    CompareOp.GT => PyObject.CompareOp.LT,
-                    CompareOp.GE => PyObject.CompareOp.LE,
-                    CompareOp.EQ => PyObject.CompareOp.EQ,
-                    CompareOp.NE => PyObject.CompareOp.NE,
-                    _ => throw PyNotImplementedError.Create($"Cannot reverse operation {operation}")
-                };
-
-                result = right.RichCompare(left, reversedOp);
-
-                // Both declined: identity for equality, TypeError for ordering.
-                if (result == PyNotImplemented.Instance)
-                {
-                    // CPython do_richcompare falls back to identity for EQ/NE
-                    // when neither operand implements the comparison.
-                    if (operation == CompareOp.EQ)
-                        return PyBool.FromBool(ReferenceEquals(left, right));
-                    if (operation == CompareOp.NE)
-                        return PyBool.FromBool(!ReferenceEquals(left, right));
-                    var opStr = operation switch
-                    {
-                        CompareOp.LT => "<",
-                        CompareOp.LE => "<=",
-                        CompareOp.GT => ">",
-                        CompareOp.GE => ">=",
-                        CompareOp.EQ => "==",
-                        CompareOp.NE => "!=",
-                        _ => operation.ToString()
-                    };
-                    throw PyTypeError.Create($"'{opStr}' not supported between instances of '{left.GetTypeName()}' and '{right.GetTypeName()}'");
-                }
-            }
-
-            return result;
+            return PyObject.Compare(left, right, op);
         }
 
         private PyObject IsNotOperation(PyObject left, PyObject right)

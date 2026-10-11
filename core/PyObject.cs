@@ -156,33 +156,33 @@ namespace SharpPy
 
         protected virtual PyObject PyEquals(PyObject other)
         {
-            return PyBool.FromBool(ReferenceEquals(this, other));
+            return ReferenceEquals(this, other) ? PyBool.True : PyNotImplemented.Instance;
         }
 
         protected virtual PyObject PyNotEquals(PyObject other)
         {
-            var result = PyEquals(other);
-            return result is PyBool b ? PyBool.FromBool(!b.Value) : PyBool.True;
+            var result = RichCompare(other, CompareOp.EQ);
+            return result == PyNotImplemented.Instance ? result : PyBool.FromBool(!result.IsTrue());
         }
 
         protected virtual PyObject PyLess(PyObject other)
         {
-            throw PyTypeError.Create($"'<' not supported between instances of '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         protected virtual PyObject PyLessEqual(PyObject other)
         {
-            throw PyTypeError.Create($"'<=' not supported between instances of '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         protected virtual PyObject PyGreater(PyObject other)
         {
-            throw PyTypeError.Create($"'>' not supported between instances of '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         protected virtual PyObject PyGreaterEqual(PyObject other)
         {
-            throw PyTypeError.Create($"'>=' not supported between instances of '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         public virtual PyObject RichCompare(PyObject other, CompareOp op)
@@ -197,6 +197,113 @@ namespace SharpPy
                 CompareOp.GE => PyGreaterEqual(other),
                 _ => throw PyValueError.Create($"Invalid comparison operator: {op}")
             };
+        }
+
+        // RichCompare is a single type's slot; Compare resolves both operands.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static PyObject Compare(PyObject left, PyObject right, CompareOp op)
+        {
+            // Exact builtin numbers always handle each other without Python callbacks.
+            if (left._customType == null && right._customType == null &&
+                IsExactNumber(left) && IsExactNumber(right))
+                return left.RichCompare(right, op);
+            return ResolveComparison(left, right, op);
+        }
+
+        private static PyObject ResolveComparison(PyObject left, PyObject right, CompareOp op)
+        {
+            var leftType = left.GetPyType();
+            var rightType = right.GetPyType();
+            bool reverseFirst = !ReferenceEquals(leftType, rightType) && rightType.MRO.Contains(leftType);
+            PyObject result;
+            if (reverseFirst)
+            {
+                result = right.RichCompare(left, ReverseComparison(op));
+                if (result != PyNotImplemented.Instance) return result;
+            }
+            result = left.RichCompare(right, op);
+            if (result != PyNotImplemented.Instance) return result;
+            if (!reverseFirst)
+            {
+                result = right.RichCompare(left, ReverseComparison(op));
+                if (result != PyNotImplemented.Instance) return result;
+            }
+            if (op == CompareOp.EQ) return PyBool.FromBool(ReferenceEquals(left, right));
+            if (op == CompareOp.NE) return PyBool.FromBool(!ReferenceEquals(left, right));
+            string symbol = op switch
+            {
+                CompareOp.LT => "<", CompareOp.LE => "<=",
+                CompareOp.GT => ">", CompareOp.GE => ">=",
+                _ => throw PyValueError.Create($"Invalid comparison operator: {op}")
+            };
+            throw PyTypeError.Create($"'{symbol}' not supported between instances of '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+        }
+
+        private static bool IsExactNumber(PyObject value)
+        {
+            var type = value.GetType();
+            return type == typeof(PyInt) || type == typeof(PyFloat) || type == typeof(PyBool);
+        }
+
+        private static CompareOp ReverseComparison(CompareOp op) => op switch
+        {
+            CompareOp.LT => CompareOp.GT, CompareOp.LE => CompareOp.GE,
+            CompareOp.GT => CompareOp.LT, CompareOp.GE => CompareOp.LE,
+            _ => op
+        };
+
+        public static bool CompareBool(PyObject left, PyObject right, CompareOp op)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                if (op == CompareOp.EQ) return true;
+                if (op == CompareOp.NE) return false;
+            }
+            return Compare(left, right, op).IsTrue();
+        }
+
+        // A null result means no method was found, not Python NotImplemented.
+        internal PyObject TryCompareSpecial(PyObject other, CompareOp op, PyType nativeBase = null)
+        {
+            if ((uint)op >= 6) throw PyValueError.Create($"Invalid comparison operator: {op}");
+            var type = GetPyType();
+            var method = type is PyClass cls
+                ? cls.LookupComparisonMethod(op, nativeBase)
+                : FindComparisonMethod(type, op, nativeBase);
+            if (method == null) return null;
+            // Exact Python functions bind by prepending self. Avoid two temporary objects.
+            if (method.GetType() == typeof(PyFunction))
+                return method.Call(new PyObject[] { this, other }, null);
+            PyObject bound;
+            try { bound = BindSpecialMethod(method); }
+            catch (PythonException) { return PyNotImplemented.Instance; }
+            // CPython slot_tp_richcompare clears binding errors, but not call errors.
+            return bound.Call(new PyObject[] { other }, null);
+        }
+
+        internal static PyObject FindComparisonMethod(PyType owner, CompareOp op, PyType nativeBase)
+        {
+            string name = op switch
+            {
+                CompareOp.LT => "__lt__", CompareOp.LE => "__le__",
+                CompareOp.EQ => "__eq__", CompareOp.NE => "__ne__",
+                CompareOp.GT => "__gt__", CompareOp.GE => "__ge__",
+                _ => throw PyValueError.Create($"Invalid comparison operator: {op}")
+            };
+            PyObject method = null;
+            foreach (var type in owner.MRO)
+            {
+                // The native slot wins over mixins later in the MRO.
+                if (ReferenceEquals(type, nativeBase)) return null;
+                if (type is PyClass cls)
+                {
+                    // ClassDict is the class's own namespace; copied native slots
+                    // in TypeDict must not shadow later MRO entries.
+                    if (cls.ClassDict.TryGetValue(name, out method)) break;
+                }
+                else if (type.TypeDict.TryGetValue(name, out method)) break;
+            }
+            return method;
         }
 
         #endregion
@@ -597,6 +704,7 @@ namespace SharpPy
             else if (this is PyClass customType)
             {
                 customType.ClassDict[name] = value;
+                customType.InvalidateTypeCache();
             }
             else
             {
@@ -1334,7 +1442,7 @@ namespace SharpPy
                     {
                         var current = iterator.Next();
                         // CPython: Use rich comparison for equality check
-                        if (((PyBool)current.RichCompare(item, CompareOp.EQ)).Value)
+                        if (CompareBool(current, item, CompareOp.EQ))
                         {
                             return PyBool.True;
                         }

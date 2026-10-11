@@ -239,81 +239,27 @@ namespace SharpPy
             return hash;
         }
 
-        protected override PyObject PyEquals(PyObject other)
+        public override PyObject RichCompare(PyObject other, CompareOp op)
         {
-            return other switch
+            if (other is not PyTuple tuple) return PyNotImplemented.Instance;
+            int count = Math.Min(Items.Length, tuple.Items.Length);
+            for (int i = 0; i < count; i++)
             {
-                PyTuple otherTuple => PyBool.FromBool(CheckTupleEquality(otherTuple)),
-                _ => PyBool.False
-            };
-        }
-
-        // Performance: Eliminated LINQ (.Zip + .All) - manual comparison
-        private bool CheckTupleEquality(PyTuple otherTuple)
-        {
-            if (Items.Length != otherTuple.Items.Length)
-                return false;
-
-            for (int i = 0; i < Items.Length; i++)
-            {
-                if (!((PyBool)Items[i].RichCompare(otherTuple.Items[i], CompareOp.EQ)).Value)
-                    return false;
+                if (CompareBool(Items[i], tuple.Items[i], CompareOp.EQ)) continue;
+                if (op == CompareOp.EQ) return PyBool.False;
+                if (op == CompareOp.NE) return PyBool.True;
+                return Compare(Items[i], tuple.Items[i], op);
             }
-            return true;
-        }
-
-        #endregion
-
-        #region Comparison Operations
-
-        protected override PyObject PyLess(PyObject other)
-        {
-            return other switch
+            return op switch
             {
-                PyTuple otherTuple => PyBool.FromBool(CompareTuples(otherTuple) < 0),
-                _ => throw PyTypeError.Create($"'<' not supported between instances of 'tuple' and '{other.GetTypeName()}'")
+                CompareOp.EQ => PyBool.FromBool(Items.Length == tuple.Items.Length),
+                CompareOp.NE => PyBool.FromBool(Items.Length != tuple.Items.Length),
+                CompareOp.LT => PyBool.FromBool(Items.Length < tuple.Items.Length),
+                CompareOp.LE => PyBool.FromBool(Items.Length <= tuple.Items.Length),
+                CompareOp.GT => PyBool.FromBool(Items.Length > tuple.Items.Length),
+                CompareOp.GE => PyBool.FromBool(Items.Length >= tuple.Items.Length),
+                _ => throw PyValueError.Create($"Invalid comparison operator: {op}")
             };
-        }
-
-        protected override PyObject PyLessEqual(PyObject other)
-        {
-            return other switch
-            {
-                PyTuple otherTuple => PyBool.FromBool(CompareTuples(otherTuple) <= 0),
-                _ => throw PyTypeError.Create($"'<=' not supported between instances of 'tuple' and '{other.GetTypeName()}'")
-            };
-        }
-
-        protected override PyObject PyGreater(PyObject other)
-        {
-            return other switch
-            {
-                PyTuple otherTuple => PyBool.FromBool(CompareTuples(otherTuple) > 0),
-                _ => throw PyTypeError.Create($"'>' not supported between instances of 'tuple' and '{other.GetTypeName()}'")
-            };
-        }
-
-        protected override PyObject PyGreaterEqual(PyObject other)
-        {
-            return other switch
-            {
-                PyTuple otherTuple => PyBool.FromBool(CompareTuples(otherTuple) >= 0),
-                _ => throw PyTypeError.Create($"'>=' not supported between instances of 'tuple' and '{other.GetTypeName()}'")
-            };
-        }
-
-        private int CompareTuples(PyTuple other)
-        {
-            int minLength = Math.Min(Items.Length, other.Items.Length);
-            for (int i = 0; i < minLength; i++)
-            {
-                var cmpResult = Items[i].RichCompare(other.Items[i], CompareOp.LT);
-                if (((PyBool)cmpResult).Value) return -1;
-                
-                cmpResult = Items[i].RichCompare(other.Items[i], CompareOp.GT);
-                if (((PyBool)cmpResult).Value) return 1;
-            }
-            return Items.Length.CompareTo(other.Items.Length);
         }
 
         #endregion
@@ -445,7 +391,7 @@ namespace SharpPy
             // Performance: Eliminated LINQ (.Any) - manual search
             for (int i = 0; i < Items.Length; i++)
             {
-                if (((PyBool)Items[i].RichCompare(item, CompareOp.EQ)).Value)
+                if (CompareBool(Items[i], item, CompareOp.EQ))
                     return PyBool.True;
             }
             return PyBool.False;
@@ -460,7 +406,7 @@ namespace SharpPy
             
             for (int i = start; i < actualStop && i < Items.Length; i++)
             {
-                if (((PyBool)Items[i].RichCompare(value, CompareOp.EQ)).Value)
+                if (CompareBool(Items[i], value, CompareOp.EQ))
                     return new PyInt(i);
             }
             
@@ -476,7 +422,7 @@ namespace SharpPy
             int count = 0;
             for (int i = 0; i < Items.Length; i++)
             {
-                if (((PyBool)Items[i].RichCompare(value, CompareOp.EQ)).Value)
+                if (CompareBool(Items[i], value, CompareOp.EQ))
                     count++;
             }
             return new PyInt(count);

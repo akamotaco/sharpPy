@@ -37,7 +37,7 @@ namespace SharpPy
 
             // Convert internal dict to PyDict and delegate comparison
             var pyDict = new PyDict(_mapping);
-            return pyDict.RichCompare(otherToCompare, op);
+            return Compare(pyDict, otherToCompare, op);
         }
 
         #region Dictionary-like operations (read-only)

@@ -48,3 +48,18 @@ def int_subclass_float_compare(n):
         if number < limit and number <= limit and number != limit and number > 0.0:
             total += i
     return total
+
+
+class _Comparable:
+    def __lt__(self, other):
+        return True
+
+
+def user_compare(n):
+    left = _Comparable()
+    right = _Comparable()
+    total = 0
+    for i in range(n):
+        if left < right:
+            total += i
+    return total

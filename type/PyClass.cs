@@ -45,6 +45,38 @@ namespace SharpPy
         }
 
         public Dictionary<string, PyObject> ClassDict { get; }
+
+        private ComparisonMisses _comparisonMisses;
+
+        private sealed class ComparisonMisses
+        {
+            internal ulong Epoch;
+            internal PyType NativeBase;
+            internal int Missing;
+        }
+
+        internal PyObject LookupComparisonMethod(CompareOp op, PyType nativeBase)
+        {
+            var cache = _comparisonMisses;
+            ulong epoch = ComparisonCacheEpoch;
+            int bit = 1 << (int)op;
+            bool valid = cache != null && cache.Epoch == epoch && ReferenceEquals(cache.NativeBase, nativeBase);
+            if (valid && (cache.Missing & bit) != 0) return null;
+            var method = FindComparisonMethod(this, op, nativeBase);
+            // Only cache misses: callbacks stay live and no removed function is retained.
+            if (method == null)
+            {
+                cache ??= _comparisonMisses = new ComparisonMisses();
+                if (!valid)
+                {
+                    cache.Epoch = epoch;
+                    cache.NativeBase = nativeBase;
+                    cache.Missing = 0;
+                }
+                cache.Missing |= bit;
+            }
+            return method;
+        }
         public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
         public PyClass? Metaclass { get; set; } // Metaclass information for type() calls
 
@@ -705,12 +737,13 @@ namespace SharpPy
                         "__eq__" => new PyBuiltinMethod("__eq__", (self, args) => {
                             if (args.Length != 1)
                                 throw PyTypeError.Create($"__eq__() takes exactly 1 argument ({args.Length} given)");
-                            return self.RichCompare(args[0], PyObject.CompareOp.EQ);
+                            return ReferenceEquals(self, args[0]) ? PyBool.True : PyNotImplemented.Instance;
                         }, 2),
                         "__ne__" => new PyBuiltinMethod("__ne__", (self, args) => {
                             if (args.Length != 1)
                                 throw PyTypeError.Create($"__ne__() takes exactly 1 argument ({args.Length} given)");
-                            return self.RichCompare(args[0], PyObject.CompareOp.NE);
+                            var result = self.RichCompare(args[0], PyObject.CompareOp.EQ);
+                            return result == PyNotImplemented.Instance ? result : PyBool.FromBool(!result.IsTrue());
                         }, 2),
                         _ => null
                     };
@@ -2164,61 +2197,9 @@ namespace SharpPy
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
-            // CPython 3.12: Try to call __eq__, __ne__, __lt__, __le__, __gt__, __ge__ methods
-            string methodName = op switch
-            {
-                CompareOp.EQ => "__eq__",
-                CompareOp.NE => "__ne__",
-                CompareOp.LT => "__lt__",
-                CompareOp.LE => "__le__",
-                CompareOp.GT => "__gt__",
-                CompareOp.GE => "__ge__",
-                _ => null
-            };
-
-            if (methodName != null)
-            {
-                try
-                {
-                    // Look for comparison method in class MRO
-                    foreach (var mroType in InstanceType.MRO)
-                    {
-                        if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(methodName, out PyObject compareMethod))
-                        {
-                            // Found comparison method, call it with self and other
-                            if (compareMethod is PyFunction func)
-                            {
-                                var boundMethod = new PyMethod(this, func);
-                                var result = boundMethod.Call(new PyObject[] { other }, null);
-
-                                // Preserve NotImplemented for reflected comparison
-                                // and the caller's equality/ordering fallback.
-                                return result;
-                            }
-                            else if (compareMethod.IsCallable())
-                            {
-                                var result = compareMethod.Call(new PyObject[] { this, other }, null);
-
-                                return result;
-                            }
-                            break;
-                        }
-                        // Stop before reaching object type to avoid default comparison
-                        if (mroType.Name == "object")
-                        {
-                            break;
-                        }
-                    }
-                }
-                catch (PythonException)
-                {
-                    throw; // Re-throw Python exceptions
-                }
-            }
-
-            // Fall back to base comparison (identity-based for EQ/NE)
-            return base.RichCompare(other, op);
+            return TryCompareSpecial(other, op) ?? base.RichCompare(other, op);
         }
+
     }
 
     #endregion
