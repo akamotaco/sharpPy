@@ -22,3 +22,11 @@ def os_error_construction(n):
         second = FileNotFoundError("message")
         total += i
     return total
+
+
+def os_error_fallback(n):
+    total = 0
+    for i in range(n):
+        error = OSError(999, "message")
+        total += i
+    return total

@@ -259,6 +259,9 @@ namespace SharpPy
 
         public static readonly PyType OSErrorType = new PyType("OSError", new[] { ExceptionType });
         public static readonly PyType FileNotFoundErrorType = new PyType("FileNotFoundError", new[] { OSErrorType });
+        public static readonly PyType PermissionErrorType = new PyType("PermissionError", new[] { OSErrorType });
+        public static readonly PyType FileExistsErrorType = new PyType("FileExistsError", new[] { OSErrorType });
+
         public static readonly PyType EOFErrorType = new PyType("EOFError", new[] { ExceptionType });
         public static readonly PyType MemoryErrorType = new PyType("MemoryError", new[] { ExceptionType });
         public static readonly PyType UnicodeErrorType = new PyType("UnicodeError", new[] { ValueErrorType });
@@ -742,6 +745,10 @@ namespace SharpPy
                     return PyOSError.FromArguments(args, kwargs);
                 case "FileNotFoundError":
                     return new PyFileNotFoundError(args, kwargs);
+                case "PermissionError":
+                    return new PyPermissionError(args, kwargs);
+                case "FileExistsError":
+                    return new PyFileExistsError(args, kwargs);
                 case "BaseExceptionGroup":
                     {
                         // BaseExceptionGroup(message, exceptions) - handle the special constructor

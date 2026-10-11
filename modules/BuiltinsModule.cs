@@ -95,6 +95,8 @@ namespace SharpPy.Modules
             module.ModuleDict["BufferError"] = PyType.BufferErrorType;
             module.ModuleDict["OSError"] = PyType.OSErrorType;
             module.ModuleDict["FileNotFoundError"] = PyType.FileNotFoundErrorType;
+            module.ModuleDict["PermissionError"] = PyType.PermissionErrorType;
+            module.ModuleDict["FileExistsError"] = PyType.FileExistsErrorType;
             module.ModuleDict["EOFError"] = PyType.EOFErrorType;
             module.ModuleDict["MemoryError"] = PyType.MemoryErrorType;
             module.ModuleDict["UnicodeError"] = PyType.UnicodeErrorType;

@@ -954,8 +954,20 @@ namespace SharpPy
         {
             if (kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("OSError() takes no keyword arguments");
-            if (args.Length >= 2 && args.Length <= 5 && args[0] is PyInt number && number.Value == 2)
-                return new PyFileNotFoundError(args, null);
+            if (args.Length >= 2 && args.Length <= 5)
+            {
+                // bool is a Python int subclass, but has a separate CLR representation.
+                if (args[0] is PyBool boolean)
+                {
+                    if (boolean.Value) return new PyPermissionError(args, null);
+                }
+                else if (args[0] is PyInt number)
+                {
+                    if (number.Value == 2) return new PyFileNotFoundError(args, null);
+                    if (number.Value == 1 || number.Value == 13) return new PyPermissionError(args, null);
+                    if (number.Value == 17) return new PyFileExistsError(args, null);
+                }
+            }
             return new PyOSError(args, null);
         }
 
@@ -1036,6 +1048,20 @@ namespace SharpPy
             var pyException = new PyOSError(message);
             return new PythonException(pyException);
         }
+    }
+
+    public class PyPermissionError : PyOSError
+    {
+        internal PyPermissionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+        public override string GetTypeName() => "PermissionError";
+        public override PyType GetPyType() => PyType.PermissionErrorType;
+    }
+
+    public class PyFileExistsError : PyOSError
+    {
+        internal PyFileExistsError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+        public override string GetTypeName() => "FileExistsError";
+        public override PyType GetPyType() => PyType.FileExistsErrorType;
     }
 
     /// <summary>
