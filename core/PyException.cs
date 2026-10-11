@@ -1011,6 +1011,8 @@ namespace SharpPy
                     if (number.Value == 2) return new PyFileNotFoundError(args, null, true);
                     if (number.Value == 1 || number.Value == 13) return new PyPermissionError(args, null, true);
                     if (number.Value == 17) return new PyFileExistsError(args, null, true);
+                    if (number.Value == 20) return new PyNotADirectoryError(args, null, true);
+                    if (number.Value == 21) return new PyIsADirectoryError(args, null, true);
                 }
                 // bool is a Python int subclass, but has a separate CLR representation.
                 else if (args[0] is PyBool { Value: true })
@@ -1101,6 +1103,20 @@ namespace SharpPy
             var pyException = new PyOSError(message);
             return new PythonException(pyException);
         }
+    }
+
+    public class PyNotADirectoryError : PyOSError
+    {
+        internal PyNotADirectoryError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "NotADirectoryError";
+        public override PyType GetPyType() => PyType.NotADirectoryErrorType;
+    }
+
+    public class PyIsADirectoryError : PyOSError
+    {
+        internal PyIsADirectoryError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "IsADirectoryError";
+        public override PyType GetPyType() => PyType.IsADirectoryErrorType;
     }
 
     public class PyPermissionError : PyOSError
