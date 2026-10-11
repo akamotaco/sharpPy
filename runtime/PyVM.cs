@@ -8556,6 +8556,7 @@ namespace SharpPy
                 case "IndexError": return typeof(PyIndexError);
                 case "NameError": return typeof(PyNameError);
                 case "OSError": return typeof(PyOSError);
+                case "ConnectionError": return typeof(PyConnectionError);
                 case "IOError": return typeof(PyOSError);  // In Python 3, IOError is an alias for OSError
                 case "ZeroDivisionError": return typeof(PyZeroDivisionError);
                 case "OverflowError": return typeof(PyOverflowError);

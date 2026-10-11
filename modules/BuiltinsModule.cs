@@ -94,6 +94,15 @@ namespace SharpPy.Modules
             module.ModuleDict["UnboundLocalError"] = PyType.UnboundLocalErrorType;
             module.ModuleDict["BufferError"] = PyType.BufferErrorType;
             module.ModuleDict["OSError"] = PyType.OSErrorType;
+            module.ModuleDict["ConnectionError"] = PyType.ConnectionErrorType;
+            module.ModuleDict["BrokenPipeError"] = PyType.BrokenPipeErrorType;
+            module.ModuleDict["ConnectionAbortedError"] = PyType.ConnectionAbortedErrorType;
+            module.ModuleDict["ConnectionRefusedError"] = PyType.ConnectionRefusedErrorType;
+            module.ModuleDict["ConnectionResetError"] = PyType.ConnectionResetErrorType;
+            module.ModuleDict["ChildProcessError"] = PyType.ChildProcessErrorType;
+            module.ModuleDict["InterruptedError"] = PyType.InterruptedErrorType;
+            module.ModuleDict["ProcessLookupError"] = PyType.ProcessLookupErrorType;
+            module.ModuleDict["TimeoutError"] = PyType.TimeoutErrorType;
             module.ModuleDict["BlockingIOError"] = PyType.BlockingIOErrorType;
             module.ModuleDict["FileNotFoundError"] = PyType.FileNotFoundErrorType;
             module.ModuleDict["PermissionError"] = PyType.PermissionErrorType;

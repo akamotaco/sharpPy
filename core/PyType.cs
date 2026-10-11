@@ -258,6 +258,15 @@ namespace SharpPy
         public static readonly PyType RecursionErrorType = new PyType("RecursionError", new[] { RuntimeErrorType });
 
         public static readonly PyType OSErrorType = new PyType("OSError", new[] { ExceptionType });
+        public static readonly PyType ConnectionErrorType = new PyType("ConnectionError", new[] { OSErrorType });
+        public static readonly PyType BrokenPipeErrorType = new PyType("BrokenPipeError", new[] { ConnectionErrorType });
+        public static readonly PyType ConnectionAbortedErrorType = new PyType("ConnectionAbortedError", new[] { ConnectionErrorType });
+        public static readonly PyType ConnectionRefusedErrorType = new PyType("ConnectionRefusedError", new[] { ConnectionErrorType });
+        public static readonly PyType ConnectionResetErrorType = new PyType("ConnectionResetError", new[] { ConnectionErrorType });
+        public static readonly PyType ChildProcessErrorType = new PyType("ChildProcessError", new[] { OSErrorType });
+        public static readonly PyType InterruptedErrorType = new PyType("InterruptedError", new[] { OSErrorType });
+        public static readonly PyType ProcessLookupErrorType = new PyType("ProcessLookupError", new[] { OSErrorType });
+        public static readonly PyType TimeoutErrorType = new PyType("TimeoutError", new[] { OSErrorType });
         public static readonly PyType BlockingIOErrorType = new PyType("BlockingIOError", new[] { OSErrorType });
         public static readonly PyType FileNotFoundErrorType = new PyType("FileNotFoundError", new[] { OSErrorType });
         public static readonly PyType PermissionErrorType = new PyType("PermissionError", new[] { OSErrorType });
@@ -744,6 +753,24 @@ namespace SharpPy
                     return new PyStopIteration(args);
                 case "AssertionError":
                     return new PyAssertionError(args, kwargs);
+                case "ConnectionError":
+                    return new PyConnectionError(args, kwargs);
+                case "BrokenPipeError":
+                    return new PyBrokenPipeError(args, kwargs);
+                case "ConnectionAbortedError":
+                    return new PyConnectionAbortedError(args, kwargs);
+                case "ConnectionRefusedError":
+                    return new PyConnectionRefusedError(args, kwargs);
+                case "ConnectionResetError":
+                    return new PyConnectionResetError(args, kwargs);
+                case "ChildProcessError":
+                    return new PyChildProcessError(args, kwargs);
+                case "InterruptedError":
+                    return new PyInterruptedError(args, kwargs);
+                case "ProcessLookupError":
+                    return new PyProcessLookupError(args, kwargs);
+                case "TimeoutError":
+                    return new PyTimeoutError(args, kwargs);
                 case "BlockingIOError":
                     return new PyBlockingIOError(args, kwargs);
                 case "OSError":

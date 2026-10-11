@@ -1044,6 +1044,30 @@ namespace SharpPy
             };
         }
 
+        // Remaining entries from CPython 3.12 exceptions.c errnomap. Windows
+        // uses Winsock values for socket errors, not the CRT errno constants.
+        private static PyOSError FromRemainingErrno(System.Numerics.BigInteger value, PyObject[] args)
+        {
+            if (value < 3 || value > 10061) return new PyOSError(args, null, true);
+            int code = (int)value;
+            switch (code)
+            {
+                case 3: return new PyProcessLookupError(args, null, true);
+                case 4: return new PyInterruptedError(args, null, true);
+                case 10: return new PyChildProcessError(args, null, true);
+                case 32: return new PyBrokenPipeError(args, null, true);
+            }
+            bool windows = OperatingSystem.IsWindows();
+            bool bsd = OperatingSystem.IsMacOS() || OperatingSystem.IsIOS() ||
+                OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst() || OperatingSystem.IsFreeBSD();
+            if (code == (windows ? 10058 : bsd ? 58 : 108)) return new PyBrokenPipeError(args, null, true);
+            if (code == (windows ? 10053 : bsd ? 53 : 103)) return new PyConnectionAbortedError(args, null, true);
+            if (code == (windows ? 10061 : bsd ? 61 : 111)) return new PyConnectionRefusedError(args, null, true);
+            if (code == (windows ? 10054 : bsd ? 54 : 104)) return new PyConnectionResetError(args, null, true);
+            if (code == (windows ? 10060 : bsd ? 60 : 110)) return new PyTimeoutError(args, null, true);
+            return new PyOSError(args, null, true);
+        }
+
         internal static PyOSError FromArguments(PyObject[] args, PyDict kwargs)
         {
             if (kwargs != null && kwargs.Length() != 0)
@@ -1060,6 +1084,7 @@ namespace SharpPy
                     if (number.Value == 20) return new PyNotADirectoryError(args, null, true);
                     if (number.Value == 21) return new PyIsADirectoryError(args, null, true);
                     if (IsBlockingErrno(number.Value)) return new PyBlockingIOError(args, null, true);
+                    return FromRemainingErrno(number.Value, args);
                 }
                 // bool is a Python int subclass, but has a separate CLR representation.
                 else if (args[0] is PyBool { Value: true })
@@ -1161,6 +1186,69 @@ namespace SharpPy
             var pyException = new PyOSError(message);
             return new PythonException(pyException);
         }
+    }
+
+    public class PyConnectionError : PyOSError
+    {
+        internal PyConnectionError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "ConnectionError";
+        public override PyType GetPyType() => PyType.ConnectionErrorType;
+    }
+
+    public class PyBrokenPipeError : PyConnectionError
+    {
+        internal PyBrokenPipeError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "BrokenPipeError";
+        public override PyType GetPyType() => PyType.BrokenPipeErrorType;
+    }
+
+    public class PyConnectionAbortedError : PyConnectionError
+    {
+        internal PyConnectionAbortedError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "ConnectionAbortedError";
+        public override PyType GetPyType() => PyType.ConnectionAbortedErrorType;
+    }
+
+    public class PyConnectionRefusedError : PyConnectionError
+    {
+        internal PyConnectionRefusedError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "ConnectionRefusedError";
+        public override PyType GetPyType() => PyType.ConnectionRefusedErrorType;
+    }
+
+    public class PyConnectionResetError : PyConnectionError
+    {
+        internal PyConnectionResetError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "ConnectionResetError";
+        public override PyType GetPyType() => PyType.ConnectionResetErrorType;
+    }
+
+    public class PyChildProcessError : PyOSError
+    {
+        internal PyChildProcessError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "ChildProcessError";
+        public override PyType GetPyType() => PyType.ChildProcessErrorType;
+    }
+
+    public class PyInterruptedError : PyOSError
+    {
+        internal PyInterruptedError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "InterruptedError";
+        public override PyType GetPyType() => PyType.InterruptedErrorType;
+    }
+
+    public class PyProcessLookupError : PyOSError
+    {
+        internal PyProcessLookupError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "ProcessLookupError";
+        public override PyType GetPyType() => PyType.ProcessLookupErrorType;
+    }
+
+    public class PyTimeoutError : PyOSError
+    {
+        internal PyTimeoutError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }
+        public override string GetTypeName() => "TimeoutError";
+        public override PyType GetPyType() => PyType.TimeoutErrorType;
     }
 
     public class PyBlockingIOError : PyOSError
