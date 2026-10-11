@@ -1524,18 +1524,13 @@ namespace SharpPy
             );
 
             // type.__new__ - CPython type_new
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyStaticBuiltinMethod(
                 "__new__",
-                typeType,
-                (self, args, kwargs) => {
+                (args, kwargs) => {
                     // CPython 3.12: type.__new__(metacls, name, bases, namespace)
-                    // args[0] = metacls (the class to create, usually type or a subclass)
-                    // args[1] = name (str)
-                    // args[2] = bases (tuple)
-                    // args[3] = namespace (dict)
 
-                    if (args.Length < 4)
-                        throw PyTypeError.Create($"type.__new__() takes exactly 4 arguments ({args.Length} given)");
+                    if (args.Length != 4)
+                        throw PyTypeError.Create($"type.__new__() takes exactly 3 arguments ({Math.Max(0, args.Length - 1)} given)");
 
                     var metacls = args[0];
                     var nameArg = args[1];
@@ -1588,9 +1583,7 @@ namespace SharpPy
                     // If metacls is not type, we might need to set a custom metaclass
                     // For now, PyClass always uses type as metaclass (standard behavior)
                     return newClass;
-                },
-                minArgs: 4,
-                maxArgs: 4
+                }
             );
 
             // type.__setattr__(cls, name, value) - CPython type_setattro
@@ -2626,13 +2619,8 @@ namespace SharpPy
             // CPython: attribute = _PyType_Lookup(type, name)
             //
             // CPython 3.12: Objects/typeobject.c:4844 - attribute = _PyType_Lookup(type, name)
-            // Special case: If this == metatype (e.g., type accessing its own attributes),
-            // skip Step 2 because we already searched in Step 1.
-            // This prevents finding the same descriptor twice with different invocation contexts.
-            bool skipSelfLookup = (this == metatype);
-
             // Phase 3: Check TypeDict (unified storage)
-            if (!skipSelfLookup && TypeDict != null && TypeDict.TryGetValue(name, out var typeDictAttr))
+            if (TypeDict != null && TypeDict.TryGetValue(name, out var typeDictAttr))
             {
                 // Found in TypeDict - check if it's a descriptor
                 if (typeDictAttr is IDescriptor localDescriptor)
@@ -2645,8 +2633,6 @@ namespace SharpPy
             }
 
             // Check PyClass.GetTypeAttribute() for wrapper descriptors
-            // Skip if this == metatype (already searched in Step 1)
-            if (!skipSelfLookup)
             {
                 var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
                 if (typeAttr != null)

@@ -97,10 +97,9 @@ namespace SharpPy
                         // Found attribute - check if it's a descriptor
                         if (attr is IDescriptor descriptor)
                         {
-                            // CPython 3.12: Objects/typeobject.c:4835-4838
-                            // meta_get(meta_attribute, (PyObject *)type, (PyObject *)metatype)
-                            // First arg is the type object itself (not NULL!)
-                            return descriptor.Get(this, metatype);
+                            // Data descriptors bind through the metatype; other
+                            // descriptors are found on type itself and stay unbound.
+                            return descriptor.Get(descriptor.IsDataDescriptor() ? this : null, metatype);
                         }
                         return attr;
                     }

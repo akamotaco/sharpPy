@@ -102,6 +102,8 @@ def main():
         "tests/integer_comparison_fastpath_regression.py",
         "tests/comparison_container_regression.py",
         "tests/native_comparison_slots_regression.py",
+        "tests/type_setattr_binding_regression.py",
+        "tests/compatibility/comparison_class_setattr.py",
         "tests/compatibility/comparison_remaining_slots.py",
         "tests/compatibility/integer_subclass_comparison_dispatch.py",
         "tests/compatibility/numeric_int_subclass_comparison.py",

@@ -204,7 +204,9 @@ namespace SharpPy
             throw PyAttributeError.Create($"can't delete attribute '{Name}' of '{OwnerType.Name}' objects");
         }
 
-        public bool IsDataDescriptor() => _setter != null;
+        // Native getset descriptors have a setting slot even when it only
+        // rejects writes. Read-only attributes still take data precedence.
+        public bool IsDataDescriptor() => true;
 
         public override string ToString() => $"<attribute '{Name}' of '{OwnerType.Name}' objects>";
     }
