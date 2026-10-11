@@ -1,0 +1,2166 @@
+{
+  "base_commit": "689e698a13f648f046125189cb2e9c67cddeaf19",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 134,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "cases": [
+    {
+      "name": "tests\\level10_integration.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level11_exceptions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level12_indexing_slicing.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level1_literals.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level2_operators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level3_variables.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_if.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_loops.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level6_classes_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level7_comprehensions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level8_generators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level9_exceptions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_exception_handling.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_python312.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_global_variable.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_nested_super.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_advanced_features.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_missing_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "test_ultimate_complex_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "tests/binary_inplace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/inplace_special_lookup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/function_creation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/scope_binding_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/builtin_descriptor_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bound_method_attributes_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_alias_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_release_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_index_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_slice_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_large_bounds_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytes_comparison_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_assignment_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_native_boundary_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/instruction_offsets_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_wide_jump_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cache_execution_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_loop_resume.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_expression_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_stack_depth_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_context_after_handler.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_state_in_callee.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_caller_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_exception.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_delegation.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_delegation_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_delegate_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_send_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/iter_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/metaclass_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_lexical_closure_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_name_analysis_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_frame_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/constant_return_cleanup_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cfg_reachability_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/finally_scope_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/unbound_variable_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_kind_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_throw_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_throw_delegation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_yield_from.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_delegation.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/unraisable_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_lookup_error.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/unraisable_traceback_format.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_initial_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/unbound_fast_local.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/continue_finally_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/nested_finally_return_duplicate.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_captured_first_argument.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_alias_class_cell.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_bound_method_closure.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/iterator_lookup_error_fallback.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/range_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_indices_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_iterable_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_slice_reentry_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/stop_iteration_arguments_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_update_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/operator_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_callback_order.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_read_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_mutation_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_delete_compaction_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_step_iteration_overflow.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytes_slice_equality.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/frame_lifetime_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cell_delete_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dynamic_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/namespace_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_refresh_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_locals_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/prepared_namespace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/type_new_dict_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/call_failure_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_closure_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_exception_table_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_nested_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_offset_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/lookup_error_builtin.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_views_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_iterator_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_cursor_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_live_reads_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/hello.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/advanced.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "--test-generator-kwargs",
+      "status": "no_reported_failure"
+    },
+    {
+      "name": "--test-pymethod-kwargs",
+      "status": "no_reported_failure"
+    }
+  ],
+  "new_cases": [
+    {
+      "name": "tests/generator_throw_delegation_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.028251599986106157,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2636874000017997,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_yield_from.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\ninner caught\nresult 31\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.031496699986746535,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\ninner caught\nresult 31\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25343009998323396,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "before": [
+    {
+      "name": "tests/generator_throw_delegation_regression.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.027723200008040294,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "start yield inner\nthrow ValueError sent\nresume return None\ncleanup ['outer']\nstart yield inner\nthrow ValueError \nresume return None\ncleanup ['outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nLookupFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nCallFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nFinish yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested ValueError nested\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nclose-start yield iterator\nclose-throw GeneratorExit \nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw GeneratorExit \ndirect-close-resume return None\nreentry-start yield iterator\nreentry-throw ValueError x\nreentry-resume return None\nsend-start yield first\nsend-throw ValueError x\nsend-value return None\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.3060708999983035,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_yield_from.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\ninner caught\nresult 31\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.024544799991417676,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nescaped sent\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25341420000768267,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "default_fixtures": 17,
+    "additional": [
+      {
+        "name": "bytearray_slice_reentry_regression.py",
+        "matching": true,
+        "expected": "bytearray slice reentry: PASS\n",
+        "actual": "bytearray slice reentry: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "cache_execution_regression.py",
+        "matching": true,
+        "expected": "cache traceback: 5\ncache generator: ['caught', 18, 4]\n",
+        "actual": "cache traceback: 5\ncache generator: ['caught', 18, 4]\n",
+        "adjustment": null
+      },
+      {
+        "name": "cfg_reachability_regression.py",
+        "matching": true,
+        "expected": "CFG reachability: PASS ['live', 'outer', 0, 1, 2, 3, 'generator-finally', 'resumed']\n",
+        "actual": "CFG reachability: PASS ['live', 'outer', 0, 1, 2, 3, 'generator-finally', 'resumed']\n",
+        "adjustment": null
+      },
+      {
+        "name": "class_lexical_closure_regression.py",
+        "matching": true,
+        "expected": "class lexical closure regression passed\nclass cell identity and unused-cell checks passed\n",
+        "actual": "class lexical closure regression passed\nclass cell identity and unused-cell checks passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "constant_return_cleanup_regression.py",
+        "matching": true,
+        "expected": "constant return cleanup regression passed\nsuspended constant return exception regression passed\n",
+        "actual": "constant return cleanup regression passed\nsuspended constant return exception regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "continue_finally_stack.py",
+        "matching": true,
+        "expected": "2 [0, 1, 2, 3]\n",
+        "actual": "2 [0, 1, 2, 3]\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_close_cleanup.py",
+        "matching": true,
+        "expected": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "actual": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_close_lookup_error.py",
+        "matching": true,
+        "expected": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+        "actual": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_close_regression.py",
+        "matching": true,
+        "expected": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "actual": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_initial_send.py",
+        "matching": true,
+        "expected": "11\n",
+        "actual": "11\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_nested_send.py",
+        "matching": true,
+        "expected": "pause\n7\n",
+        "actual": "pause\n7\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_send_regression.py",
+        "matching": true,
+        "expected": "initial-value TypeError can't send non-None value to a just-started coroutine\ninitial-none return 11\ncompleted RuntimeError cannot reuse already awaited coroutine\nclosed RuntimeError cannot reuse already awaited coroutine\nstart yield first\nreceived-first 7\nresume-value yield second\nreceived-second None\nawait-result 23\nresume-none return 24\nresume-finished RuntimeError cannot reuse already awaited coroutine\nnested-start yield first\nreceived-first None\nnested-first yield second\nreceived-second None\nawait-result 23\nnested-second return 24\nempty return None\nfailure ValueError body error\nfailure-reuse RuntimeError cannot reuse already awaited coroutine\nreentry ValueError coroutine already executing\nouter return 31\nstop RuntimeError coroutine raised StopIteration\nstop-reuse RuntimeError cannot reuse already awaited coroutine\nnested-caught body error\nnested-failure return 41\nclosure-start yield first\nreceived-first None\nclosure-first yield second\nreceived-second None\nclosure-second return 53\ncoroutine send regression complete\n",
+        "actual": "initial-value TypeError can't send non-None value to a just-started coroutine\ninitial-none return 11\ncompleted RuntimeError cannot reuse already awaited coroutine\nclosed RuntimeError cannot reuse already awaited coroutine\nstart yield first\nreceived-first 7\nresume-value yield second\nreceived-second None\nawait-result 23\nresume-none return 24\nresume-finished RuntimeError cannot reuse already awaited coroutine\nnested-start yield first\nreceived-first None\nnested-first yield second\nreceived-second None\nawait-result 23\nnested-second return 24\nempty return None\nfailure ValueError body error\nfailure-reuse RuntimeError cannot reuse already awaited coroutine\nreentry ValueError coroutine already executing\nouter return 31\nstop RuntimeError coroutine raised StopIteration\nstop-reuse RuntimeError cannot reuse already awaited coroutine\nnested-caught body error\nnested-failure return 41\nclosure-start yield first\nreceived-first None\nclosure-first yield second\nreceived-second None\nclosure-second return 53\ncoroutine send regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_delegation.py",
+        "matching": true,
+        "expected": "paused\ndelegate caught sent\ncoroutine cleanup\nresult 13\n",
+        "actual": "paused\ndelegate caught sent\ncoroutine cleanup\nresult 13\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_regression.py",
+        "matching": true,
+        "expected": "start yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nstart yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nnested-start yield pause\nnested-throw yield caught-pause\nnested-return return 13\nclass-start yield pause\nclass-throw yield caught-pause\nclass-return return 13\nclass-events [('caught', 'sent'), 'delegate-finally', 'worker-finally', ('caught', 'nested'), 'delegate-finally', 'worker-finally', ('caught', ''), 'delegate-finally', 'worker-finally']\nunstarted-identity True\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nMissing yield iterator-pause\ninject ValueError value\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nReceiver yield iterator-pause\nraw-args (ValueError('value'),)\ninject yield delegate-value\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nLookupFailure yield iterator-pause\ninject LookupError lookup\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nCallFailure yield iterator-pause\ninject LookupError call\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nFinish yield iterator-pause\ninject return 29\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nraw-start yield iterator-pause\nraw-args (42,)\nraw-invalid yield delegate-value\nmissing-start yield iterator-pause\nmissing-inject TypeError exceptions must be classes or instances deriving from BaseException, not int\nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError \nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError instance\nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nreentrant-start yield iterator-pause\nreentrant-send ValueError coroutine already executing\nreentrant-throw yield reentrant-yield\nreentrant-resume yield iterator-pause\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine.throw() takes no keyword arguments\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine_wrapper.throw() takes no keyword arguments\nconstructor-start yield iterator-pause\nconstructor-throw return constructor\nconstructor-reuse RuntimeError cannot reuse already awaited coroutine\ntraceback-preserved True True\nclose-error-start yield iterator-pause\nclose-error-throw return close-error\ngenerator-start yield ready\ngenerator-caught ValueError \ngenerator-throw yield handled\ngenerator-finished ValueError \ngenerator-start yield ready\ngenerator-caught ValueError direct\ngenerator-throw yield handled\ngenerator-finished ValueError direct\ngenerator-start yield ready\ngenerator-throw GeneratorExit \ngenerator-finished GeneratorExit \ngenerator-start yield ready\ngenerator-throw TypeError exceptions must be classes or instances deriving from BaseException, not int\ngenerator-finished TypeError exceptions must be classes or instances deriving from BaseException, not int\n",
+        "actual": "start yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nstart yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nnested-start yield pause\nnested-throw yield caught-pause\nnested-return return 13\nclass-start yield pause\nclass-throw yield caught-pause\nclass-return return 13\nclass-events [('caught', 'sent'), 'delegate-finally', 'worker-finally', ('caught', 'nested'), 'delegate-finally', 'worker-finally', ('caught', ''), 'delegate-finally', 'worker-finally']\nunstarted-identity True\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nMissing yield iterator-pause\ninject ValueError value\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nReceiver yield iterator-pause\nraw-args (ValueError('value'),)\ninject yield delegate-value\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nLookupFailure yield iterator-pause\ninject LookupError lookup\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nCallFailure yield iterator-pause\ninject LookupError call\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nFinish yield iterator-pause\ninject return 29\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nraw-start yield iterator-pause\nraw-args (42,)\nraw-invalid yield delegate-value\nmissing-start yield iterator-pause\nmissing-inject TypeError exceptions must be classes or instances deriving from BaseException, not int\nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError \nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError instance\nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nreentrant-start yield iterator-pause\nreentrant-send ValueError coroutine already executing\nreentrant-throw yield reentrant-yield\nreentrant-resume yield iterator-pause\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine.throw() takes no keyword arguments\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine_wrapper.throw() takes no keyword arguments\nconstructor-start yield iterator-pause\nconstructor-throw return constructor\nconstructor-reuse RuntimeError cannot reuse already awaited coroutine\ntraceback-preserved True True\nclose-error-start yield iterator-pause\nclose-error-throw return close-error\ngenerator-start yield ready\ngenerator-caught ValueError \ngenerator-throw yield handled\ngenerator-finished ValueError \ngenerator-start yield ready\ngenerator-caught ValueError direct\ngenerator-throw yield handled\ngenerator-finished ValueError direct\ngenerator-start yield ready\ngenerator-throw GeneratorExit \ngenerator-finished GeneratorExit \ngenerator-start yield ready\ngenerator-throw TypeError exceptions must be classes or instances deriving from BaseException, not int\ngenerator-finished TypeError exceptions must be classes or instances deriving from BaseException, not int\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_yield_from.py",
+        "matching": true,
+        "expected": "paused\ninner caught\nresult 31\n",
+        "actual": "paused\ninner caught\nresult 31\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_wrapper_send_regression.py",
+        "matching": true,
+        "expected": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "actual": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_caller_state_regression.py",
+        "matching": true,
+        "expected": "caller and generator exception state: PASS\n",
+        "actual": "caller and generator exception state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_context_after_handler.py",
+        "matching": true,
+        "expected": "exception context restored: PASS\n",
+        "actual": "exception context restored: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_stack_depth_regression.py",
+        "matching": true,
+        "expected": "[('caught', 'first'), ('finally', 0, 0), ('value', 107), ('finally', 0, 1), ('caught', 'third'), ('finally', 1, 0), ('finally', 1, 1)]\n['handler', 'finally', 'handler', 'else', 'finally', 'else', 'else', 'finally']\n['once']\n['enter', 'ValueError', 'enter', 'GeneratorExit']\n[(0, 'exit failure'), (1, 'exit failure')]\nexception stack depth: passed\n",
+        "actual": "[('caught', 'first'), ('finally', 0, 0), ('value', 107), ('finally', 0, 1), ('caught', 'third'), ('finally', 1, 0), ('finally', 1, 1)]\n['handler', 'finally', 'handler', 'else', 'finally', 'else', 'else', 'finally']\n['once']\n['enter', 'ValueError', 'enter', 'GeneratorExit']\n[(0, 'exit failure'), (1, 'exit failure')]\nexception stack depth: passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_state_in_callee.py",
+        "matching": true,
+        "expected": "caller exception state: PASS\n",
+        "actual": "caller exception state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_state_regression.py",
+        "matching": true,
+        "expected": "handled exception state: PASS\n",
+        "actual": "handled exception state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "finally_scope_regression.py",
+        "matching": true,
+        "expected": "finally scope lifetime: PASS\n",
+        "actual": "finally scope lifetime: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_close_delegation.py",
+        "matching": true,
+        "expected": "generator delegated close: PASS\n",
+        "actual": "generator delegated close: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_close_exception.py",
+        "matching": true,
+        "expected": "generator close exception: PASS\n",
+        "actual": "generator close exception: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_close_regression.py",
+        "matching": true,
+        "expected": "generator close state: PASS\n",
+        "actual": "generator close state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_delegate_iterator.py",
+        "matching": true,
+        "expected": "generator delegate iterator: PASS\n",
+        "actual": "generator delegate iterator: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_delegation_close_regression.py",
+        "matching": true,
+        "expected": "delegated generator close: PASS\ndelegated close callbacks: PASS\n",
+        "actual": "delegated generator close: PASS\ndelegated close callbacks: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_invalid_iterator.py",
+        "matching": true,
+        "expected": "yield from iterator validation: PASS\n",
+        "actual": "yield from iterator validation: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_kind_regression.py",
+        "matching": true,
+        "expected": "generator kind flags: PASS\n",
+        "actual": "generator kind flags: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_send_protocol_regression.py",
+        "matching": true,
+        "expected": "generator SEND protocol: PASS\nSEND value and descriptor errors: PASS\n",
+        "actual": "generator SEND protocol: PASS\nSEND value and descriptor errors: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_throw_delegation_regression.py",
+        "matching": true,
+        "expected": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "actual": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_throw_expression_stack.py",
+        "matching": true,
+        "expected": "generator throw expression stack: PASS\n",
+        "actual": "generator throw expression stack: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_throw_loop_resume.py",
+        "matching": true,
+        "expected": "generator throw loop resume: PASS\ngenerator throw nested/send/close: PASS\n",
+        "actual": "generator throw loop resume: PASS\ngenerator throw nested/send/close: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_wide_jump_regression.py",
+        "matching": true,
+        "expected": "wide generator: 300 [10, 0, 610, 300]\nwide generator: 14000 [10, 0, 28010, 14000]\n",
+        "actual": "wide generator: 300 [10, 0, 610, 300]\nwide generator: 14000 [10, 0, 28010, 14000]\n",
+        "adjustment": null
+      },
+      {
+        "name": "instruction_offsets_regression.py",
+        "matching": true,
+        "expected": "wide jumps and exception offsets: PASS\n",
+        "actual": "wide jumps and exception offsets: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "iter_protocol_regression.py",
+        "matching": true,
+        "expected": "iter protocol regression passed\n",
+        "actual": "iter protocol regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "iterator_lookup_error_fallback.py",
+        "matching": true,
+        "expected": "iterator lookup error fallback passed\n",
+        "actual": "iterator lookup error fallback passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "metaclass_bound_method_closure.py",
+        "matching": true,
+        "expected": "metaclass lexical closure passed\n",
+        "actual": "metaclass lexical closure passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "metaclass_invalid_iterator.py",
+        "matching": true,
+        "expected": "metaclass iterator validation passed\n",
+        "actual": "metaclass iterator validation passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "metaclass_iterator_protocol_regression.py",
+        "matching": true,
+        "expected": "metaclass iterator protocol passed\n",
+        "actual": "metaclass iterator protocol passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "nested_finally_return_duplicate.py",
+        "matching": true,
+        "expected": "7 ['inner', 'live', 'outer']\n",
+        "actual": "7 ['inner', 'live', 'outer']\n",
+        "adjustment": null
+      },
+      {
+        "name": "range_slice_step_regression.py",
+        "matching": true,
+        "expected": "range slice step: 1800 28800000000000000000000000000000000000000000000000000000000000000000000004991374256218208043596695771656\n",
+        "actual": "range slice step: 1800 28800000000000000000000000000000000000000000000000000000000000000000000004991374256218208043596695771656\n",
+        "adjustment": null
+      },
+      {
+        "name": "sequence_iterator_protocol_regression.py",
+        "matching": true,
+        "expected": "sequence iterator regression passed\n",
+        "actual": "sequence iterator regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_alias_class_cell.py",
+        "matching": true,
+        "expected": "super alias class cell passed\n",
+        "actual": "super alias class cell passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_captured_first_argument.py",
+        "matching": true,
+        "expected": "super captured first argument passed\n",
+        "actual": "super captured first argument passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_frame_regression.py",
+        "matching": true,
+        "expected": "super frame regression passed\n",
+        "actual": "super frame regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_name_analysis_regression.py",
+        "matching": true,
+        "expected": "super name analysis regression passed\nsuper cell scope suppression passed\n",
+        "actual": "super name analysis regression passed\nsuper cell scope suppression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "unbound_fast_local.py",
+        "matching": true,
+        "expected": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+        "actual": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+        "adjustment": null
+      },
+      {
+        "name": "unbound_variable_regression.py",
+        "matching": true,
+        "expected": "local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndeleted-local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-missing UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-only-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nlocal-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nparameter-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-cell-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nfree-read NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-delete NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-deleted NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nmixed-store-delete UnboundLocalError cannot access local variable 'alpha' where it is not associated with a value None\nexcept-target UnboundLocalError cannot access local variable 'error' where it is not associated with a value None\ncomprehension-restore UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nunbound variable regression: PASS\n",
+        "actual": "local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndeleted-local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-missing UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-only-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nlocal-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nparameter-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-cell-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nfree-read NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-delete NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-deleted NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nmixed-store-delete UnboundLocalError cannot access local variable 'alpha' where it is not associated with a value None\nexcept-target UnboundLocalError cannot access local variable 'error' where it is not associated with a value None\ncomprehension-restore UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nunbound variable regression: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "unraisable_close_regression.py",
+        "matching": true,
+        "expected": "original-hook True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'coroutine exit', 'coroutine finally']\nambient-preserved True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'generator exit', 'generator finally']\nambient-preserved True\nreadonly readonly attribute\nreadonly readonly attribute\ndefault-result None\ndefault-text \"Exception ignored in: 'target'\\nValueError: message\\n\"\nargs-repr UnraisableHookArgs(exc_type=None, exc_value=None, exc_traceback=None, err_msg=None, object=None)\nhook-arguments sys.unraisablehook() takes exactly one argument (0 given)\nhook-arguments sys.unraisablehook argument type must be UnraisableHookArgs\nhook-arguments sys.unraisablehook() takes exactly one argument (2 given)\nhook-arguments sys.unraisablehook() takes no keyword arguments\nnone None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nmissing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nfailing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: <hook> RuntimeError: hook failed\nnot-callable None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: 17 TypeError: 'int' object is not callable\nbroken-stderr None\ndirect-write-error write failed\ndisabled-stderr None\nfield-counts 5 5 0\nconstructor-error structseq() missing required argument 'sequence' (pos 1)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (4-sequence given)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (6-sequence given)\nconstructor-error constructor requires a sequence\nconstructor-error UnraisableHookArgs() takes a dict as second arg, if any\nconstructor-error 'bad' is an invalid keyword argument for structseq()\nconstructor-error argument for structseq() given by name ('sequence') and position (1)\nconstructor-keywords True\nformat-failures 'message: <object repr() failed>\\nValueError: <exception str() failed>\\n'\ncustom-exception-name 'custom message:\\ncustom.CustomError\\n'\nother-close None\n['coroutine exit', 'coroutine finally']\nother-close-error call error\n['coroutine finally']\nother-close None\n['generator exit', 'generator finally']\nother-close-error call error\n['generator finally']\nunraisable close regression complete\n",
+        "actual": "original-hook True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'coroutine exit', 'coroutine finally']\nambient-preserved True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'generator exit', 'generator finally']\nambient-preserved True\nreadonly readonly attribute\nreadonly readonly attribute\ndefault-result None\ndefault-text \"Exception ignored in: 'target'\\nValueError: message\\n\"\nargs-repr UnraisableHookArgs(exc_type=None, exc_value=None, exc_traceback=None, err_msg=None, object=None)\nhook-arguments sys.unraisablehook() takes exactly one argument (0 given)\nhook-arguments sys.unraisablehook argument type must be UnraisableHookArgs\nhook-arguments sys.unraisablehook() takes exactly one argument (2 given)\nhook-arguments sys.unraisablehook() takes no keyword arguments\nnone None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nmissing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nfailing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: <hook> RuntimeError: hook failed\nnot-callable None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: 17 TypeError: 'int' object is not callable\nbroken-stderr None\ndirect-write-error write failed\ndisabled-stderr None\nfield-counts 5 5 0\nconstructor-error structseq() missing required argument 'sequence' (pos 1)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (4-sequence given)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (6-sequence given)\nconstructor-error constructor requires a sequence\nconstructor-error UnraisableHookArgs() takes a dict as second arg, if any\nconstructor-error 'bad' is an invalid keyword argument for structseq()\nconstructor-error argument for structseq() given by name ('sequence') and position (1)\nconstructor-keywords True\nformat-failures 'message: <object repr() failed>\\nValueError: <exception str() failed>\\n'\ncustom-exception-name 'custom message:\\ncustom.CustomError\\n'\nother-close None\n['coroutine exit', 'coroutine finally']\nother-close-error call error\n['coroutine finally']\nother-close None\n['generator exit', 'generator finally']\nother-close-error call error\n['generator finally']\nunraisable close regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "unraisable_traceback_format.py",
+        "matching": true,
+        "expected": "Exception ignored in: <pause>\nTraceback (most recent call last):\n  File \"res://unraisable_traceback_format.py\", line 14, in close\n    raise ValueError(\"lookup\")\nValueError: lookup\n",
+        "actual": "Exception ignored in: <pause>\nTraceback (most recent call last):\n  File \"res://unraisable_traceback_format.py\", line 14, in close\n    raise ValueError(\"lookup\")\nValueError: lookup\n",
+        "adjustment": {
+          "from": "C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\unraisable_traceback_format.py",
+          "to": "res://unraisable_traceback_format.py"
+        }
+      }
+    ]
+  },
+  "cfg": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "performance": {
+    "generator_close": {
+      "before": {
+        "milliseconds": 283.30495,
+        "process_median_range": [
+          278.02144999999996,
+          283.81600000000003
+        ],
+        "allocated_bytes": 27361184.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 473.2342,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  277.6356,
+                  287.06,
+                  285.9031,
+                  284.1181,
+                  282.4918,
+                  291.7019,
+                  292.2343,
+                  280.8932,
+                  278.888,
+                  282.1607
+                ],
+                "allocated_bytes": [
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 512.4633,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  284.2292,
+                  287.2785,
+                  274.4878,
+                  284.0613,
+                  276.5171,
+                  283.5707,
+                  286.1329,
+                  271.9184,
+                  282.4116,
+                  286.8957
+                ],
+                "allocated_bytes": [
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 492.8301,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  275.5584,
+                  280.5721,
+                  278.1303,
+                  278.4299,
+                  277.2154,
+                  281.36,
+                  271.1681,
+                  272.258,
+                  277.9126,
+                  287.2546
+                ],
+                "allocated_bytes": [
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "milliseconds": 275.13424999999995,
+        "process_median_range": [
+          273.10055,
+          275.27465
+        ],
+        "allocated_bytes": 27361184.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 513.9544,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  277.3209,
+                  273.6151,
+                  273.8744,
+                  276.8849,
+                  265.3366,
+                  270.6963,
+                  276.3941,
+                  272.2246,
+                  280.3657,
+                  276.478
+                ],
+                "allocated_bytes": [
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 492.1013,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  274.2398,
+                  283.1961,
+                  276.3095,
+                  273.3377,
+                  265.6703,
+                  272.5449,
+                  271.3647,
+                  277.9714,
+                  284.5834,
+                  285.1873
+                ],
+                "allocated_bytes": [
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 488.5955,
+            "results": [
+              {
+                "name": "generator_close",
+                "expected": 49995000,
+                "milliseconds": [
+                  272.7742,
+                  272.819,
+                  266.6397,
+                  266.3791,
+                  276.2763,
+                  273.6731,
+                  273.3821,
+                  268.7165,
+                  276.4536,
+                  274.7233
+                ],
+                "allocated_bytes": [
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184,
+                  27361184
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "time_change_percent": -2.8840653860795817
+    },
+    "generator_iteration": {
+      "before": {
+        "milliseconds": 55.55285,
+        "process_median_range": [
+          55.08905,
+          57.0247
+        ],
+        "allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 469.0636,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  57.8297,
+                  57.499,
+                  58.6734,
+                  56.5504,
+                  58.5447,
+                  56.0461,
+                  55.0062,
+                  54.3065,
+                  54.73,
+                  60.508
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 433.2907,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  56.5898,
+                  55.3418,
+                  55.5079,
+                  54.672,
+                  53.9746,
+                  54.5979,
+                  54.8363,
+                  54.281,
+                  55.5109,
+                  55.8166
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 439.7078,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  55.4452,
+                  55.49,
+                  55.0359,
+                  54.7402,
+                  57.4023,
+                  55.8474,
+                  55.6157,
+                  55.7235,
+                  56.0303,
+                  55.2159
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "milliseconds": 56.8545,
+        "process_median_range": [
+          55.4204,
+          62.98995
+        ],
+        "allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 427.3572,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  57.3246,
+                  63.9354,
+                  58.5828,
+                  55.5606,
+                  55.5779,
+                  55.7419,
+                  56.6202,
+                  58.1765,
+                  57.0888,
+                  56.4755
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 426.65,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  55.2311,
+                  55.3937,
+                  55.9021,
+                  55.8825,
+                  56.7609,
+                  55.3768,
+                  54.3303,
+                  55.4471,
+                  55.2687,
+                  55.5238
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 453.9885,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  62.4824,
+                  62.5857,
+                  64.383,
+                  66.1868,
+                  64.401,
+                  63.3942,
+                  60.2325,
+                  60.6937,
+                  66.4924,
+                  61.6616
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "time_change_percent": 2.3430841081960807
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""Pending: throw must traverse yield-from inside an __await__ generator."""
+"""Regression: throw must traverse yield-from inside an __await__ generator."""
 def inner():
     try:
         yield 'paused'

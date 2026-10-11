@@ -141,6 +141,8 @@ def main():
             "tests/coroutine_wrapper_send_regression.py",
             "tests/coroutine_close_regression.py",
             "tests/coroutine_throw_regression.py",
+            "tests/generator_throw_delegation_regression.py",
+            "tests/compatibility/coroutine_throw_yield_from.py",
             "tests/compatibility/coroutine_throw_delegation.py",
             "tests/unraisable_close_regression.py",
             "tests/compatibility/coroutine_close_lookup_error.py",

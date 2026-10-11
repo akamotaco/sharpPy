@@ -290,7 +290,48 @@ namespace SharpPy
         /// </summary>
         public PyObject Throw(PyObject excType, PyObject? value = null, PyObject? traceback = null)
         {
-            var thrownException = PySuspensionException.Normalize(excType, value, traceback);
+            var receiver = GetYieldFromReceiver();
+            if (receiver != null)
+            {
+                var type = excType as PyType ?? excType.GetPyType();
+                if (type.IsSubclassOf(PyType.GeneratorExitType))
+                {
+                    var closeError = CloseReceiver(receiver);
+                    if (closeError != null) return ResumeException(closeError);
+                }
+                else
+                {
+                    bool nativeGenerator = receiver.GetType() == typeof(PyGenerator);
+                    PyObject method = null;
+                    if (!nativeGenerator)
+                    {
+                        try { method = receiver.GetAttribute("throw"); }
+                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                    }
+                    if (nativeGenerator || method != null)
+                    {
+                        var savedState = _frame.State;
+                        _frame.State = PyFrame.FrameState.Executing;
+                        PythonException delegateError;
+                        try
+                        {
+                            if (nativeGenerator)
+                                return ((PyGenerator)receiver).Throw(excType, value, traceback);
+                            var args = traceback != null ? new[] { excType, value ?? PyNone.Instance, traceback } :
+                                value != null ? new[] { excType, value } : new[] { excType };
+                            return method.Call(args, null);
+                        }
+                        catch (PythonException error) { delegateError = error; }
+                        finally { _frame.State = savedState; }
+                        return ResumeException(delegateError);
+                    }
+                }
+            }
+            return ResumeException(PySuspensionException.Normalize(excType, value, traceback));
+        }
+
+        private PyObject ResumeException(PythonException thrownException)
+        {
             if (_frame.State == PyFrame.FrameState.Executing)
                 throw PyValueError.Create("generator already executing");
             if (_finished) throw thrownException;
@@ -298,27 +339,21 @@ namespace SharpPy
             return Next();
         }
 
-        /// <summary>
-        /// generator.close() - 제너레이터 종료
-        /// </summary>
-        public PyNone Close()
+        private PyObject GetYieldFromReceiver()
         {
-            if (_frame.State == PyFrame.FrameState.Executing)
-                throw PyValueError.Create("generator already executing");
-            if (_finished || !_started)
-            {
-                _finished = true;
-                _frame.State = PyFrame.FrameState.Completed;
-                return PyNone.Instance;
-            }
-
-            PythonException closeError = null;
+            if (!_started || _finished) return null;
             int resumeIndex = _frame.InstructionPointer + 1;
-            if (resumeIndex < _frame.Code.Instructions.Count &&
+            return resumeIndex < _frame.Code.Instructions.Count &&
                 _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
-                _frame.Code.Instructions[resumeIndex].Argument >= 2)
+                _frame.Code.Instructions[resumeIndex].Argument >= 2
+                ? _frame.ValueStack.Peek() : null;
+        }
+
+        private PythonException CloseReceiver(PyObject receiver)
+        {
+            if (receiver != null)
             {
-                var receiver = _frame.ValueStack.Peek();
+                var savedState = _frame.State;
                 _frame.State = PyFrame.FrameState.Executing;
                 try
                 {
@@ -337,13 +372,32 @@ namespace SharpPy
                 {
                     // Resume the outer frame with the delegate's error so its
                     // handlers/finally run before the error reaches the caller.
-                    closeError = error;
+                    return error;
                 }
                 finally
                 {
-                    _frame.State = PyFrame.FrameState.Suspended;
+                    _frame.State = savedState;
                 }
             }
+
+            return null;
+        }
+
+        /// <summary>
+        /// generator.close() - 제너레이터 종료
+        /// </summary>
+        public PyNone Close()
+        {
+            if (_frame.State == PyFrame.FrameState.Executing)
+                throw PyValueError.Create("generator already executing");
+            if (_finished || !_started)
+            {
+                _finished = true;
+                _frame.State = PyFrame.FrameState.Completed;
+                return PyNone.Instance;
+            }
+
+            var closeError = CloseReceiver(GetYieldFromReceiver());
 
             // gen_close injects an argumentless GeneratorExit directly. It does
             // not use the public throw() argument normalization path.
