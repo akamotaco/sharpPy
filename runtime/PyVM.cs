@@ -4905,7 +4905,7 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 RAISE_VARARGS: raisedException type = {raisedException?.GetType().Name}, value = {raisedException}");
                         #endif
-                        if (raisedException is PyException pyEx)
+                        if (raisedException is PyBaseException pyEx)
                         {
                             // CPython 3.12: Implicit exception chaining
                             // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
@@ -4929,7 +4929,7 @@ namespace SharpPy
                             #endif
 
                             var instance = pyType.Call(Array.Empty<PyObject>());
-                            if (instance is PyException instanceException)
+                            if (instance is PyBaseException instanceException)
                             {
                                 // CPython 3.12: Implicit exception chaining
                                 if (handledException != null && handledException != instanceException)

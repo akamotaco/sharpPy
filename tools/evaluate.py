@@ -139,6 +139,8 @@ def main():
             "tests/generator_kind_regression.py",
             "tests/coroutine_send_regression.py",
             "tests/coroutine_wrapper_send_regression.py",
+            "tests/coroutine_close_regression.py",
+            "tests/compatibility/coroutine_close_cleanup.py",
             "tests/compatibility/coroutine_nested_send.py",
             "tests/compatibility/coroutine_initial_send.py",
             "tests/compatibility/unbound_fast_local.py",

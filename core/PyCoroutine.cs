@@ -58,10 +58,9 @@ namespace SharpPy.Core
             corType.TypeDict["close"] = new PyMethodDescriptor(
                 "close", corType,
                 (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("close() takes no arguments");
                     if (self is not PyCoroutine coroutine)
                         throw PyTypeError.Create($"descriptor 'close' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    CheckCloseArguments("coroutine", args, kwargs);
                     coroutine.Close();
                     return PyNone.Instance;
                 },
@@ -91,6 +90,14 @@ namespace SharpPy.Core
                 throw PyTypeError.Create($"{typeName}.send() takes no keyword arguments");
             if (args.Length != 1)
                 throw PyTypeError.Create($"{typeName}.send() takes exactly one argument ({args.Length} given)");
+        }
+
+        internal static void CheckCloseArguments(string typeName, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{typeName}.close() takes no keyword arguments");
+            if (args.Length != 0)
+                throw PyTypeError.Create($"{typeName}.close() takes no arguments ({args.Length} given)");
         }
 
         private readonly PyFrame _frame;
@@ -164,7 +171,10 @@ namespace SharpPy.Core
 
             // gen_send_ex2 supplies a value on both initial entry and resume.
             // YIELD_VALUE leaves SharpPy's instruction pointer at the yield.
-            _frame.InstructionPointer = _started ? _frame.InstructionPointer + 1 : 0;
+            if (!_started)
+                _frame.InstructionPointer = 0;
+            else if (_frame.PendingException == null)
+                _frame.InstructionPointer++;
             _frame.ValueStack.Push(value ?? PyNone.Instance);
             _started = true;
             _frame.State = PyFrame.FrameState.Executing;
@@ -182,11 +192,11 @@ namespace SharpPy.Core
             }
             catch (PythonException)
             {
-                Close();
+                Complete();
                 throw;
             }
 
-            Close();
+            Complete();
             throw PyStopIteration.Create(result);
         }
         
@@ -196,7 +206,67 @@ namespace SharpPy.Core
         public void Close()
         {
             if (_finished) return;
-            
+            if (!_started)
+            {
+                Complete();
+                return;
+            }
+
+            PythonException closeError = null;
+            int resumeIndex = _frame.InstructionPointer + 1;
+            if (resumeIndex < _frame.Code.Instructions.Count &&
+                _frame.Code.Instructions[resumeIndex].OpCode == ByteCodeOp.RESUME &&
+                _frame.Code.Instructions[resumeIndex].Argument >= 2)
+            {
+                var receiver = _frame.ValueStack.Peek();
+                var savedState = State;
+                var savedFrameState = _frame.State;
+                State = CoroutineState.Running;
+                _frame.State = PyFrame.FrameState.Executing;
+                try
+                {
+                    if (receiver is PyGenerator generator)
+                        generator.Close();
+                    else if (receiver is PyCoroutineAwaiter wrapper &&
+                             receiver.GetType() == typeof(PyCoroutineAwaiter))
+                        wrapper.Close();
+                    else
+                    {
+                        PyObject close = null;
+                        try { close = receiver.GetAttribute("close"); }
+                        catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                        close?.Call(Array.Empty<PyObject>(), null);
+                    }
+                }
+                catch (PythonException error)
+                {
+                    closeError = error;
+                }
+                finally
+                {
+                    State = savedState;
+                    _frame.State = savedFrameState;
+                }
+            }
+
+            // Keep the yield instruction as the exception-table lookup site.
+            if (State == CoroutineState.Running)
+                throw PyValueError.Create("coroutine already executing");
+            _frame.PendingException = closeError ?? new PythonException(new PyGeneratorExit());
+            try
+            {
+                Send(PyNone.Instance);
+            }
+            catch (PythonException error) when (error.PyException is PyGeneratorExit or PyStopIteration)
+            {
+                return;
+            }
+            // A coroutine which yields during close remains suspended.
+            throw PyRuntimeError.Create("coroutine ignored GeneratorExit");
+        }
+
+        private void Complete()
+        {
             State = CoroutineState.Closed;
             _finished = true;
             _frame.State = PyFrame.FrameState.Completed;
@@ -229,6 +299,14 @@ namespace SharpPy.Core
 
         static PyCoroutineAwaiter()
         {
+            WrapperType.TypeDict["close"] = new PyMethodDescriptor("close", WrapperType,
+                (self, args, kwargs) => {
+                    if (self is not PyCoroutineAwaiter wrapper)
+                        throw PyTypeError.Create($"descriptor 'close' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
+                    PyCoroutine.CheckCloseArguments("coroutine_wrapper", args, kwargs);
+                    wrapper.Close();
+                    return PyNone.Instance;
+                }, minArgs: 0, maxArgs: 0);
             WrapperType.TypeDict["send"] = new PyMethodDescriptor("send", WrapperType,
                 (self, args, kwargs) => {
                     if (self is not PyCoroutineAwaiter wrapper)
@@ -267,6 +345,7 @@ namespace SharpPy.Core
             => throw PyTypeError.Create("'coroutine_wrapper' object is not callable");
 
         public PyObject Send(PyObject value) => _coroutine.Send(value);
+        public void Close() => _coroutine.Close();
         
         public PyCoroutineAwaiter(PyCoroutine coroutine)
         {

@@ -1,0 +1,1999 @@
+{
+  "base_commit": "7559718101a982e1dca3b01bc2ac7dadfb4a5256",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 127,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "cases": [
+    {
+      "name": "tests\\level10_integration.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level11_exceptions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level12_indexing_slicing.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level1_literals.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level2_operators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level3_variables.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_if.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_loops.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level6_classes_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level7_comprehensions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level8_generators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level9_exceptions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_exception_handling.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_python312.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_global_variable.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_nested_super.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_advanced_features.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_missing_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "test_ultimate_complex_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "tests/binary_inplace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/inplace_special_lookup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/function_creation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/scope_binding_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/builtin_descriptor_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bound_method_attributes_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_alias_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_release_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_index_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_slice_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_large_bounds_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytes_comparison_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_assignment_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_native_boundary_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/instruction_offsets_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_wide_jump_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cache_execution_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_loop_resume.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_expression_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_stack_depth_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_context_after_handler.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_state_in_callee.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_caller_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_exception.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_delegation.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_delegation_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_delegate_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_send_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/iter_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/metaclass_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_lexical_closure_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_name_analysis_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_frame_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/constant_return_cleanup_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cfg_reachability_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/finally_scope_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/unbound_variable_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_kind_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_initial_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/unbound_fast_local.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/continue_finally_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/nested_finally_return_duplicate.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_captured_first_argument.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_alias_class_cell.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_bound_method_closure.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/iterator_lookup_error_fallback.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/range_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_indices_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_iterable_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_slice_reentry_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/stop_iteration_arguments_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_update_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/operator_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_callback_order.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_read_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_mutation_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_delete_compaction_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_step_iteration_overflow.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytes_slice_equality.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/frame_lifetime_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cell_delete_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dynamic_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/namespace_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_refresh_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_locals_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/prepared_namespace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/type_new_dict_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/call_failure_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_closure_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_exception_table_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_nested_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_offset_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/lookup_error_builtin.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_views_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_iterator_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_cursor_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_live_reads_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/hello.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/advanced.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "--test-generator-kwargs",
+      "status": "no_reported_failure"
+    },
+    {
+      "name": "--test-pymethod-kwargs",
+      "status": "no_reported_failure"
+    }
+  ],
+  "new_regressions": [
+    {
+      "name": "tests/coroutine_close_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02336960000684485,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.24948900000890717,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.021809500001836568,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.221513500000583,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "before": [
+    {
+      "name": "tests/coroutine_close_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.025902099994709715,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order []\nrepeat AttributeError 'coroutine_wrapper' object has no attribute 'close'\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper AttributeError 'coroutine_wrapper' object has no attribute 'close'\ncleanup-order []\nrepeat AttributeError 'coroutine_wrapper' object has no attribute 'close'\nclosed-reuse return None\ncustom-start bare\ncustom-close None\ncustom-events []\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close None\ncustom-events []\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close None\ncustom-events []\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close None\nignoring-events []\nignoring-second-close None\nignoring-final-events []\nignoring-repeat None\nignoring-start paused\nignoring-first-close None\nignoring-events []\nignoring-resume RuntimeError cannot reuse already awaited coroutine\nignoring-final-events []\nignoring-repeat None\nbody-reentry None\nbody-completion return 9\nbody-completed-close None\ninvalid-close close() takes no arguments\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\coroutine_close_regression.py\", line 136, in <module>\n    obj.close(*args, **kwargs)\n    ^\nAttributeError: 'coroutine_wrapper' object has no attribute 'close'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\coroutine_close_regression.py\", line 138, in <module>\n                print(\"invalid-close\", str(error))\n                ^\nAttributeError: 'coroutine_wrapper' object has no attribute 'close'\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2639647000178229,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.022122900001704693,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nNone\n[]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.21970479999436066,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_lookup_error.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.022917900001630187,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nclose-result None\n[]\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23955690002185293,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "pending": [
+    {
+      "name": "tests/compatibility/coroutine_close_lookup_error.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.02907029999187216,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "paused\nclose-error ValueError lookup error\n[('body', 'ValueError'), 'finally']\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.23917439999058843,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot_additional": [
+    {
+      "fixture": "bytearray_slice_reentry_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "cache_execution_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "cfg_reachability_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "class_lexical_closure_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "constant_return_cleanup_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "continue_finally_stack.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_close_cleanup.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_close_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_initial_send.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_nested_send.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_send_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "coroutine_wrapper_send_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_caller_state_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_context_after_handler.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_stack_depth_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_state_in_callee.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "exception_state_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "finally_scope_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_close_delegation.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_close_exception.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_close_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_delegate_iterator.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_delegation_close_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_invalid_iterator.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_kind_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_send_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_throw_expression_stack.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_throw_loop_resume.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "generator_wide_jump_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "instruction_offsets_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "iter_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "iterator_lookup_error_fallback.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "metaclass_bound_method_closure.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "metaclass_invalid_iterator.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "metaclass_iterator_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "nested_finally_return_duplicate.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "range_slice_step_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "sequence_iterator_protocol_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_alias_class_cell.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_captured_first_argument.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_frame_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "super_name_analysis_regression.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "unbound_fast_local.py",
+      "matches_cpython": true
+    },
+    {
+      "fixture": "unbound_variable_regression.py",
+      "matches_cpython": true
+    }
+  ],
+  "godot_default_fixture_count": 17,
+  "godot_default_pass": true,
+  "cfg": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "performance": {
+    "generator_iteration": {
+      "before": {
+        "median_ms": 53.9327,
+        "process_medians_ms": [
+          53.9327,
+          53.5339,
+          53.992599999999996
+        ],
+        "median_allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 395.8027,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  55.1759,
+                  54.4922,
+                  54.3391,
+                  53.769,
+                  54.2592,
+                  54.0964,
+                  52.8603,
+                  53.5755,
+                  53.7394,
+                  53.1528
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 397.2142,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.2656,
+                  53.6588,
+                  53.4664,
+                  53.1406,
+                  53.256,
+                  53.7714,
+                  52.9225,
+                  53.6014,
+                  53.7017,
+                  53.4538
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 400.2598,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.2856,
+                  54.3631,
+                  54.4781,
+                  53.8304,
+                  53.5931,
+                  53.5682,
+                  53.9711,
+                  53.9545,
+                  54.0141,
+                  54.1749
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "median_ms": 54.1927,
+        "process_medians_ms": [
+          54.4249,
+          53.862700000000004,
+          54.1927
+        ],
+        "median_allocated_bytes": 6242352.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 394.4595,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.9787,
+                  54.7961,
+                  54.6733,
+                  54.4091,
+                  54.5106,
+                  54.4407,
+                  53.8804,
+                  54.3752,
+                  54.1232,
+                  53.866
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 396.0377,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  53.9365,
+                  53.9627,
+                  53.7889,
+                  53.3417,
+                  53.6393,
+                  53.975,
+                  53.6278,
+                  53.4971,
+                  54.0705,
+                  56.2509
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 395.0285,
+            "results": [
+              {
+                "name": "generator_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  54.4867,
+                  53.7703,
+                  54.1777,
+                  54.1055,
+                  53.914,
+                  54.4455,
+                  54.2251,
+                  54.2077,
+                  53.9636,
+                  54.4046
+                ],
+                "allocated_bytes": [
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352,
+                  6242352
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "coroutine_send": {
+      "before": {
+        "median_ms": 293.492,
+        "process_medians_ms": [
+          294.8501,
+          293.492,
+          292.50025
+        ],
+        "median_allocated_bytes": 45034600.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 404.6203,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  295.286,
+                  294.8155,
+                  294.0054,
+                  293.8963,
+                  294.8847,
+                  294.912,
+                  296.0691,
+                  296.878,
+                  294.4103,
+                  294.7826
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 402.403,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  291.7731,
+                  292.4307,
+                  293.5982,
+                  293.3858,
+                  297.1329,
+                  296.8867,
+                  301.8213,
+                  299.1615,
+                  292.8239,
+                  292.6746
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 406.8767,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  309.3522,
+                  297.7765,
+                  293.0897,
+                  292.6146,
+                  291.1532,
+                  291.1827,
+                  292.0868,
+                  290.5171,
+                  292.3859,
+                  306.1667
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "median_ms": 295.61275,
+        "process_medians_ms": [
+          293.90405,
+          295.61275,
+          296.91165
+        ],
+        "median_allocated_bytes": 45034600.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 404.155,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  293.1406,
+                  296.0147,
+                  291.4419,
+                  290.8896,
+                  292.0976,
+                  293.8683,
+                  294.3554,
+                  293.9398,
+                  294.4692,
+                  294.6466
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 401.3386,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  292.6972,
+                  292.7528,
+                  292.5094,
+                  295.2504,
+                  298.4992,
+                  296.4101,
+                  295.9751,
+                  296.6426,
+                  294.5149,
+                  297.771
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 429.1622,
+            "results": [
+              {
+                "name": "coroutine_send",
+                "expected": 49995000,
+                "milliseconds": [
+                  298.5882,
+                  296.0903,
+                  295.2371,
+                  296.7944,
+                  297.6921,
+                  297.283,
+                  299.7489,
+                  297.0289,
+                  292.9449,
+                  293.4394
+                ],
+                "allocated_bytes": [
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45035136,
+                  45034600,
+                  45034600,
+                  45034600,
+                  45034600
+                ],
+                "gc_collections": [
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    3,
+                    0,
+                    0
+                  ],
+                  [
+                    2,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[70차 결과](reports/2026-10-11/coroutine_close_cleanup.md): 69차를 `7559718`로 커밋했다. coroutine/wrapper close에 위임 종료와 GeneratorExit 주입을 연결하고, 정상 완료 상태 정리를 분리했다. 종료 중 await·재진입 순서를 실제 CPython과 비교했으며 단일 인자 raise의 BaseException 처리도 수정했다. 기본 132개·Godot 소스 통합 61개 통과. 다음은 close 속성 조회 오류의 unraisable 보고이며, 이어서 throw 위임을 검증한다.
 [69차 결과](reports/2026-10-11/coroutine_wrapper_send.md): 68차를 `e1eb5e7`로 커밋했다. coroutine_wrapper의 non-None send, 타입·반복자·인자 검사를 구현하고 VM 직접 전달로 정상 descriptor 경로 대비 1만 회 할당 720,000 B를 줄였다. 속도 개선은 주장하지 않는다. 기본 130개·Godot 소스 통합 59개 통과. 이전 generator 시간 증가는 VM 부분 복원 비교까지 기록했으며 원인 확정은 보류한다. 다음은 coroutine close의 위임·GeneratorExit 주입과 finally 정리다.
 [68차 결과](reports/2026-10-11/coroutine_entry_and_await.md): 67차를 `97e0282`로 커밋했다. coroutine 최초/재개 스택과 IP, 완료·재진입 예외, globals 보존을 수정하고 await에 기존 SEND 루프를 연결했다. native await의 즉시 이벤트 루프 실행을 제거했다. 기본 128개·Godot 소스 통합 57개 통과. 실패하던 경로의 속도 개선율은 주장하지 않는다. 다음은 중첩 await wrapper의 non-None send 전달과 종료·예외 위임이다.
 [67차 결과](reports/2026-10-11/generator_kind_flags.md): 66차를 `bafc2cd`로 커밋했다. async/generator lambda의 종류를 scope에서 정하고 IsGenerator의 명령열 검색을 제거했다. async code object 재생성도 제거해 예외 table과 keyword-only metadata를 보존한다. 기본 126개·Godot 소스 통합 55개 통과. 두 호출 workload에서 1만 회 할당 720,072 B 감소, closure_access 시간 약 11.7% 감소. 실제 CPython 3.12의 lambda StopIteration 처리를 확인해 불필요한 wrapper를 추가하지 않았다. 다음은 별도 재현으로 남긴 coroutine 최초 send/재개 처리다.
