@@ -278,7 +278,9 @@ namespace SharpPy
                 {
                     // Hash lookup must follow the MRO: copying int.__hash__ here
                     // would hide an earlier Python mixin's hash (or hash=None).
-                    if (slotMethod == "__hash__") continue;
+                    // Comparison descriptors also resolve through the MRO; do
+                    // not duplicate six native wrappers in every subclass dict.
+                    if (slotMethod is "__hash__" or "__lt__" or "__le__" or "__eq__" or "__ne__" or "__gt__" or "__ge__") continue;
                     // 현재 클래스에 없고 부모에 있으면 상속
                     if (!TypeDict.ContainsKey(slotMethod) &&
                         baseType.TypeDict.TryGetValue(slotMethod, out var method))

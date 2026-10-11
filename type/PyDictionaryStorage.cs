@@ -39,6 +39,7 @@ namespace SharpPy
         private IndexTable indices = IndexTable.Empty; // 0 empty, -1 deleted, entry + 1
         private Entry[] entries = Array.Empty<Entry>();
         private int used, usable;
+        private static ulong UnsignedHash(long hash) => IntPtr.Size == 8 ? unchecked((ulong)hash) : unchecked((uint)hash);
         public int Count { get; private set; }
         internal bool CanCloneForMerge => used == Count && (indices.Length <= 8 || indices.Length / 3 < Count);
         internal bool CanCloneForCopy => Count >= used * 2 / 3;
@@ -96,7 +97,7 @@ namespace SharpPy
                 var table = indices;
                 if (table.Length == 0) { slot = 0; return -1; }
                 int mask = table.Length - 1;
-                ulong perturb = unchecked((ulong)hash);
+                ulong perturb = UnsignedHash(hash);
                 int position = (int)(perturb & (uint)mask);
                 int empty = -1;
                 while (true)
@@ -134,7 +135,7 @@ namespace SharpPy
             {
                 if (entries[i].Key == null) continue;
                 var entry = entries[i]; data[next] = entry;
-                ulong perturb = unchecked((ulong)entry.Hash);
+                ulong perturb = UnsignedHash(entry.Hash);
                 int position = (int)(perturb & (uint)(size - 1));
                 while (table[position] != 0)
                 {
@@ -183,7 +184,7 @@ namespace SharpPy
         private void FindEmpty(long hash, out int slot)
         {
             int mask = indices.Length - 1;
-            ulong perturb = unchecked((ulong)hash);
+            ulong perturb = UnsignedHash(hash);
             slot = (int)(perturb & (uint)mask);
             while (indices[slot] > 0)
             {
@@ -217,7 +218,7 @@ namespace SharpPy
         {
             position = 0;
             if (indices.Length == 0) return -1;
-            ulong perturb = unchecked((ulong)StoredHash(key));
+            ulong perturb = UnsignedHash(StoredHash(key));
             int mask = indices.Length - 1;
             position = (int)(perturb & (uint)mask);
             while (indices[position] != 0)

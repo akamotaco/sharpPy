@@ -1123,13 +1123,23 @@ namespace SharpPy
             return equal ? (PyOSError)entry.Type.Call(args, null) : new PyOSError(args, null, true);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal static PyOSError FromArguments(PyObject[] args, PyDict kwargs)
         {
             if (kwargs != null && kwargs.Length() != 0)
                 throw PyTypeError.Create("OSError() takes no keyword arguments");
-            if (args.Length >= 4 && args.Length <= 5)
+            if ((uint)(args.Length - 2) > 3)
+                return new PyOSError(args, null, true);
+            return FromStructuredArguments(args);
+        }
+
+        // One-argument construction does not inspect errno. Keep its caller
+        // free of the BigInteger spills needed by the subtype selection below.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static PyOSError FromStructuredArguments(PyObject[] args)
+        {
+            if (args.Length >= 4)
                 args = NormalizeWindowsArguments(args);
-            if (args.Length >= 2 && args.Length <= 5)
             {
                 if (args[0] is PyInt number)
                 {

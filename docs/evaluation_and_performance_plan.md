@@ -1,20 +1,28 @@
 # SharpPy 구현 평가 및 성능 개선 계획
 
-## 현재 남은 작업 (93차 완료 기준)
+## 요청한 1~6번 작업 상태 (99차)
 
-93차 코드와 검증 기록은 `3560d62`까지 `origin/work/oserror-compatibility`에 푸시했다. 아래는 현재 확인된 미해결 항목과 후속 검증 대상이다. 뒤의 회차별 기록에서 당시의 '다음 작업'은 이후 해결됐을 수 있으므로 현재 우선순위는 이 목록을 기준으로 한다.
+1~5번은 아래 개별 커밋으로 `origin/work/oserror-compatibility`에 푸시했다. 6번의 검증된 최적화와 조사 기록은 이번 커밋에 포함한다. 과거 85→86차 지연의 단일 원인은 확정하지 못했으며, 이를 해결 완료로 표시하지 않는다. 아래 상태가 과거 회차별 기록의 '다음 작업'보다 우선한다.
 
 | 순서 | 작업 | 근거·상태 |
 | --- | --- | --- |
-| 1 | 문자열의 반대편 비교, tuple 하위 타입 비교 재정의, 명시적 int.__eq__ descriptor | `tests/compatibility/comparison_remaining_slots.py`에 실패 재현 보존. 문자열부터 처리한다. |
-| 2 | 명시적 type.__setattr__의 인자 바인딩 | `tests/compatibility/comparison_class_setattr.py`에 실패 재현 보존. builtin setattr/delattr의 캐시 무효화 회귀와 구분한다. |
-| 3 | sorted/list.sort의 비교 callback 순서·반환값·예외 전파 | 공통 비교 판정 연결이 아직 남아 있다. 먼저 실제 CPython 대조 회귀를 만들고 차이를 확인한다. |
-| 4 | dict의 사용자 hash callback, 동등 int/float 키의 해시 정합성, 전체 폭 해시 저장 구조 | `int_subclass_hash_protocol.py`, `numeric_dict_hash.py`에 실패 재현 보존. 비교 중 저장소 변경·재진입도 추가 검증한다. |
-| 5 | int 하위 타입의 큰 문자열 파싱 | `tests/compatibility/int_subclass_large_string.py`의 미해결 재현을 유지한다. |
-| 6 | 비교의 잔여 비용 및 85→86 예외 생성 비용 증가 원인 | 미확정 성능 조사다. 반복 측정의 변동과 실제 퇴행을 구분하고, 할당·기계어 감소를 실행 시간 개선으로 바꾸어 주장하지 않는다. |
+| 1 | 문자열 반대편 비교·tuple 하위 타입·int 비교 descriptor | 수정·회귀·푸시 완료: `56b99ca`, [94차 보고서](reports/2026-10-12/native_comparison_slots.md). |
+| 2 | 명시적 type.__setattr__ 바인딩 | 수정·회귀·푸시 완료: `1b83a61`, [95차 보고서](reports/2026-10-12/type_descriptor_binding.md). |
+| 3 | sorted/list.sort callback·안정성·예외·mutation | 수정·회귀·푸시 완료: `8d0f495`, [96차 보고서](reports/2026-10-12/sort_protocol.md). |
+| 4 | dict 전체 폭 해시·수치 키·사용자 callback·재진입 | 수정·회귀·푸시 완료: `b948ae9`, [97차 보고서](reports/2026-10-12/dictionary_hash_storage.md). |
+| 5 | 큰 정수 문자열 파싱 | 수정·회귀·푸시 완료: `24c4f9b`, [98차 보고서](reports/2026-10-12/integer_string_parsing.md). |
+| 6 | 비교 잔여 비용·예외 생성 비용 조사 | 중복 비교 판정·descriptor 저장 제거, 한 인자 예외 경로 분리 검증 완료. 과거 지연 원인과 int/float 비교 잔여 비용은 미확정: [99차 보고서](reports/2026-10-12/performance_audit.md). |
 | 지속 | CPython 3.12 호환성 범위 확대와 구조적 최적화 후보 조사 | 전체 호환성 감사는 완료되지 않았다. 과거 미해결 기록은 후속 수정 여부를 확인한 뒤 재분류한다. |
 
-검증된 범위는 기본 회귀 161개, Godot 소스 포함 검증 34개, 최신 native 예외 검사 8개다. 프로젝트 전체의 모든 미구현·불일치를 열거한 목록이나 CPython 전체 테스트 통과를 뜻하지 않는다. 기존 결과·원시 표본·재현 스크립트는 회차별 보고서와 JSON에 보존하며, 소스 직접 포함 방식의 Godot 호환성과 CPython 결과 일치를 계속 검증한다.
+최종 기본 회귀 171개(출력 일치 166, 지정 변동 필드 3, native CLI 검사 2), Godot 소스 포함 검증 44개, 별도 native 잘못된 연산자 8개·C# 하위 타입 재정의 12개를 통과했다. 전체 CPython 테스트 통과를 뜻하지 않는다. 소스 포함 Godot 빌드와 Windows x64에서 검증했으며 모바일 실기/32비트 실행은 하지 않았다.
+
+후속 범위는 다음과 같다.
+
+- `tests/compatibility/metaclass_attribute_remaining.py`: 사용자 클래스의 명시적 type.__repr__, metaclass property 우선권, type.__dict__의 native 항목 노출.
+- 정수 문자열 제한은 기본 4,300자리 기준이다. sys의 제한 변경 API·다른 int 변환 API 전체는 별도 범위다.
+- set/frozenset의 별도 해시 저장소는 이번 dict 변경 범위에 포함하지 않았다.
+- 85→86차 지연은 새 측정에서 크기·방향이 달라 원인 미확정으로 유지한다. int 하위 타입/float 비교도 과거 비용을 완전히 회복했다고 주장하지 않는다.
+- 과거 미해결 기록의 후속 수정 여부 확인과 CPython 호환성 범위 확대를 계속한다.
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 

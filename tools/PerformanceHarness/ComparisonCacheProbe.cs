@@ -54,8 +54,25 @@ internal static class ComparisonCacheProbe
                 }
             }
         }
+        // Host subclasses must retain virtual comparison dispatch in both directions.
+        var host = new HostNumber(new PyClass("HostNumber", bases), value);
+        int hostChecks = 0;
+        foreach (PyObject.CompareOp op in Enum.GetValues<PyObject.CompareOp>())
+        {
+            if (!ReferenceEquals(PyObject.Compare(host, value, op), host.Result) ||
+                !ReferenceEquals(PyObject.Compare(value, host, op), host.Result))
+                throw new InvalidOperationException("Host comparison override was bypassed");
+            hostChecks += 2;
+        }
         return new { iterations, construction_bytes = constructionBytes,
             first_comparison_bytes = firstBytes, repeated_comparison_bytes = repeatBytes,
-            invalid_operator_checks = invalidChecks };
+            invalid_operator_checks = invalidChecks, host_override_checks = hostChecks };
+    }
+
+    private sealed class HostNumber : PyIntSubclass
+    {
+        internal readonly PyObject Result = new PyString("host comparison");
+        internal HostNumber(PyClass cls, PyInt value) : base(cls, value) { }
+        public override PyObject RichCompare(PyObject other, CompareOp op) => Result;
     }
 }

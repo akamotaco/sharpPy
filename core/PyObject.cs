@@ -259,9 +259,19 @@ namespace SharpPy
         public static PyObject Compare(PyObject left, PyObject right, CompareOp op)
         {
             // Exact builtin numbers always handle each other without Python callbacks.
-            if (left._customType == null && right._customType == null &&
-                IsExactNumber(left) && IsExactNumber(right))
-                return left.RichCompare(right, op);
+            if (left._customType == null && right._customType == null && IsExactNumber(right))
+            {
+                if (IsExactNumber(left)) return left.RichCompare(right, op);
+                if (left.GetType() == typeof(PyIntSubclass))
+                {
+                    // The builtin right operand cannot be a strict subtype of
+                    // left. Its numeric slot also accepts the integer payload
+                    // if the Python override declines, so no MRO pass is needed.
+                    var result = left.RichCompare(right, op);
+                    return result == PyNotImplemented.Instance
+                        ? right.RichCompare(left, ReverseComparison(op)) : result;
+                }
+            }
             return ResolveComparison(left, right, op);
         }
 

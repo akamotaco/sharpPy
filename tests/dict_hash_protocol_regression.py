@@ -116,6 +116,18 @@ for operation in ('get', 'set', 'pop', 'default'):
     elif operation == 'pop': result = mapping.pop(probe)
     else: result = mapping.setdefault(probe, 'default')
     print('replace', operation, result, len(mapping))
+
+# Cross the compact index table boundary, then copy and mutate both tables.
+large = {i: i for i in range(50000)}
+wide_copy = large.copy()
+del wide_copy[43690]
+wide_copy[-1] = 7
+print('wide', len(large), len(wide_copy), large[43690], wide_copy.get(43690), wide_copy[-1], large[49999])
+for code in (-2**63, -2, 2**63 - 1):
+    events.clear()
+    original = Key('wide hash', code)
+    values = {original: 'value'}
+    print('signed hash', code, values[Key('wide hash', code)], events)
 class Unhashable:
     def __eq__(self, other): return True
 try: {Unhashable(): 1}
