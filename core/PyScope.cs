@@ -115,8 +115,7 @@ namespace SharpPy
                     message = args.Length > 0 ? args[0].ToStr().Value : "";
                     return new PyAttributeError(message);
                 case "KeyError":
-                    message = args.Length > 0 ? args[0].ToStr().Value : "";
-                    return new PyKeyError(message);
+                    return new PyKeyError(args, kwargs);
                 case "IndexError":
                     message = args.Length > 0 ? args[0].ToStr().Value : "";
                     return new PyIndexError(message);

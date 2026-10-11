@@ -709,7 +709,7 @@ namespace SharpPy
                 case "IndexError":
                     return new PyIndexError(args, kwargs);
                 case "KeyError":
-                    return new PyKeyError(message);
+                    return new PyKeyError(args, kwargs);
                 case "RuntimeError":
                     return new PyRuntimeError(args, kwargs);
                 case "SystemError":

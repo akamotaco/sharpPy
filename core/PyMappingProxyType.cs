@@ -59,7 +59,7 @@ namespace SharpPy
 #endif
                 if (_mapping.TryGetValue(keyStr.Value, out var value))
                     return value;
-                throw PyKeyError.Create($"'{keyStr.Value}'");
+                throw PyKeyError.Create(key);
             }
             throw PyTypeError.Create($"mappingproxy key must be str, not '{key.GetTypeName()}'");
         }

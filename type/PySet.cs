@@ -237,7 +237,7 @@ namespace SharpPy
         public PyNone Remove(PyObject item)
         {
             if (!_items.Remove(item))
-                throw PyKeyError.Create(item.ToRepr());
+                throw PyKeyError.Create(item);
             return PyNone.Instance;
         }
 
@@ -256,7 +256,7 @@ namespace SharpPy
         public PyObject Pop()
         {
             if (_items.Count == 0)
-                throw PyKeyError.Create("pop from empty set");
+                throw PyKeyError.Create("pop from an empty set");
 
             // Performance: Eliminated LINQ (First) - use enumerator
             var item = GetFirstItem();

@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[76차 결과](reports/2026-10-11/key_error_identity_and_format.md): 75차를 `997d2bc`로 커밋했다. KeyError가 원래 key와 위치 인자를 보존하고 단일 인자는 repr로 출력하도록 수정했다. mapping/set의 사전 문자열화를 제거하고 PythonException 포맷을 지연해 raise/catch만으로 사용자 repr/str이 실행되지 않게 했다. 기본 143개·Godot 소스 통합 72개 통과. 대조군 할당은 동일하며 시간 범위는 겹친다. 다음은 OSError의 인자·전용 속성과 errno별 생성 규칙이다.
 [75차 결과](reports/2026-10-11/lookup_exception_constructors.md): 74차를 `35c2e0f`로 커밋했다. NameError/UnboundLocalError/AttributeError의 위치 인자와 name/obj 키워드·속성·오류 문구를 CPython과 맞췄다. 기본 142개·Godot 소스 통합 71개 통과. NameError와 AttributeError 각각 1만 회 생성에서 할당 총 1,120,000 B 감소. 시간 표본 범위는 겹친다. 다음은 KeyError의 key 보존과 단일 인자 repr 규칙이며 OSError 차이도 유지한다.
 [74차 결과](reports/2026-10-11/exception_constructor_arguments.md): 73차를 `1834719`로 커밋했다. 기본 예외 15종에서 원래 Python 인자 배열을 보존해 빈 args·숫자·여러 인자와 키워드 거부를 맞췄다. 기본 141개·Godot 소스 통합 70개 통과. 문자열 예외 생성 1만 회당 할당 640,000 B 감소. 다음은 NameError/AttributeError/KeyError/OSError의 개별 생성·표현 규칙이며 별도 실패 fixture로 보존했다.
 [73차 결과](reports/2026-10-11/generator_throw_delegation.md): 72차를 `689e698`로 커밋했다. generator.Throw가 yield from receiver에 먼저 예외를 위임하도록 수정하고 GeneratorExit 처리와 close의 receiver 종료 코드를 공유했다. native 재귀 위임에는 추가 인자 배열·bound method를 만들지 않는다. 기본 139개·Godot 소스 통합 68개 통과. 다음은 기존 예외 생성자의 빈 args 불일치이며 구식 throw 경고 등 후속 항목은 유지한다.

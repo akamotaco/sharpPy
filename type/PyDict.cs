@@ -633,7 +633,7 @@ namespace SharpPy
             if (_dict.TryGetValue(key, out PyObject value))
                 return value;
 
-            throw PyKeyError.Create(key.ToRepr());
+            throw PyKeyError.Create(key);
         }
 
         /// <summary>
@@ -657,7 +657,7 @@ namespace SharpPy
         public virtual PyObject DelItem(PyObject key)
         {
             if (!_dict.Remove(key))
-                throw PyKeyError.Create(key.ToRepr());
+                throw PyKeyError.Create(key);
 
             RemoveOrderedKey(key);
             return PyNone.Instance;
@@ -718,7 +718,7 @@ namespace SharpPy
             if (defaultValue != null)
                 return defaultValue;
 
-            throw PyKeyError.Create(key.ToRepr());
+            throw PyKeyError.Create(key);
         }
 
         /// <summary>
@@ -1189,7 +1189,7 @@ namespace SharpPy
         {
             if (key is not PyString name) return base.GetItem(key);
             if (_globalScopeVariables.TryGetValue(name.Value, out var value)) return value;
-            throw PyKeyError.Create(key.ToRepr());
+            throw PyKeyError.Create(key);
         }
 
         public override PyObject Get(PyObject key, PyObject defaultValue = null)
@@ -1229,7 +1229,7 @@ namespace SharpPy
                 _nonStringCount--;
                 return result;
             }
-            if (!_globalScopeVariables.Remove(name.Value)) throw PyKeyError.Create(key.ToRepr());
+            if (!_globalScopeVariables.Remove(name.Value)) throw PyKeyError.Create(key);
             if (base.ContainsKey(key)) base.DelItem(key);
             return PyNone.Instance;
         }
@@ -1247,7 +1247,7 @@ namespace SharpPy
             if (base.ContainsKey(key)) base.DelItem(key);
             if (found) return value;
             if (defaultValue != null) return defaultValue;
-            throw PyKeyError.Create(key.ToRepr());
+            throw PyKeyError.Create(key);
         }
 
         public override PyNone Clear()

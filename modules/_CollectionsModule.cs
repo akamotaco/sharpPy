@@ -91,7 +91,7 @@ namespace SharpPy.Modules
 
             // CPython: defdict_missing - call default_factory if available
             if (DefaultFactory == null)
-                throw PyKeyError.Create(key.ToRepr());
+                throw PyKeyError.Create(key);
 
             // Call default_factory() to create default value
             var defaultValue = DefaultFactory.Call(new PyObject[0], null);

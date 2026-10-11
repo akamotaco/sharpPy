@@ -491,8 +491,25 @@ namespace SharpPy
 
     public class PyKeyError : PyLookupError
     {
-        public PyKeyError(PyObject key) : base($"'{key}'") { }
+        public PyKeyError(PyObject key) : base(new[] { key }, null) { }
+        internal PyKeyError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
         public PyKeyError(string message) : base(message) { }
+        public override PyString ToStr()
+        {
+            if (Args.Length != 1) return base.ToStr();
+            var key = Args[0];
+            if (key is PyClassInstance)
+            {
+                var method = key.LookupSpecialMethodUncached("__repr__");
+                if (method != null)
+                {
+                    var result = key.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                    if (result is PyString text) return text;
+                    throw PyTypeError.Create($"__repr__ returned non-string (type {result.GetTypeName()})");
+                }
+            }
+            return key.ToRepr();
+        }
         public override PyType GetPyType() => PyType.KeyErrorType;
         public override string GetTypeName() => "KeyError";
 
@@ -816,13 +833,13 @@ namespace SharpPy
         public bool FromReraise { get; set; } = false;
 
         public PythonException(PyBaseException pyException)
-            : base(pyException.ToStr().Value)
+            : base(pyException.Message)
         {
             PyException = pyException;
         }
 
         public PythonException(PyBaseException pyException, string? fileName, int lineNumber, int columnOffset = -1)
-            : base(pyException.ToStr().Value)
+            : base(pyException.Message)
         {
             PyException = pyException;
             FileName = fileName;
@@ -832,11 +849,13 @@ namespace SharpPy
 
         // CPython 3.12: Constructor for RERAISE - preserves existing traceback
         public PythonException(PyBaseException pyException, bool fromReraise)
-            : base(pyException.ToStr().Value)
+            : base(pyException.Message)
         {
             PyException = pyException;
             FromReraise = fromReraise;
         }
+
+        public override string Message => PyException.ToStr().Value;
 
         public override string ToString()
         {

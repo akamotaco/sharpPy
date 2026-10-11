@@ -140,7 +140,7 @@ namespace SharpPy
             if (defaultValue != null)
                 return defaultValue;
 
-            throw PyKeyError.Create(key.ToRepr());
+            throw PyKeyError.Create(key);
         }
 
         /// <summary>

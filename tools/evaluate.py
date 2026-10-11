@@ -143,6 +143,7 @@ def main():
             "tests/coroutine_throw_regression.py",
             "tests/exception_constructor_arguments_regression.py",
             "tests/lookup_exception_constructor_regression.py",
+            "tests/key_error_regression.py",
             "tests/compatibility/coroutine_throw_empty_args.py",
             "tests/generator_throw_delegation_regression.py",
             "tests/compatibility/coroutine_throw_yield_from.py",
