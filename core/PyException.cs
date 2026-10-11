@@ -956,17 +956,15 @@ namespace SharpPy
                 throw PyTypeError.Create("OSError() takes no keyword arguments");
             if (args.Length >= 2 && args.Length <= 5)
             {
-                // bool is a Python int subclass, but has a separate CLR representation.
-                if (args[0] is PyBool boolean)
-                {
-                    if (boolean.Value) return new PyPermissionError(args, null);
-                }
-                else if (args[0] is PyInt number)
+                if (args[0] is PyInt number)
                 {
                     if (number.Value == 2) return new PyFileNotFoundError(args, null);
                     if (number.Value == 1 || number.Value == 13) return new PyPermissionError(args, null);
                     if (number.Value == 17) return new PyFileExistsError(args, null);
                 }
+                // bool is a Python int subclass, but has a separate CLR representation.
+                else if (args[0] is PyBool { Value: true })
+                    return new PyPermissionError(args, null);
             }
             return new PyOSError(args, null);
         }

@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--exception-factory-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(ExceptionFactoryProbe.Run(args.Contains("--mapped-errno"))));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--cfg-reachability-check")
 {
     Console.WriteLine(JsonSerializer.Serialize(CfgReachabilityProbe.Run()));
@@ -369,6 +375,18 @@ var interpreter = new IntegratedPythonInterpreter();
 var setupStart = Stopwatch.GetTimestamp();
 interpreter.Execute(source, args[0], false, false, false);
 double setupMilliseconds = Stopwatch.GetElapsedTime(setupStart).TotalMilliseconds;
+// Diagnostic only: compare lookup-table contents without changing the runtime DLL.
+if (args.Contains("--remove-os-subtype-names"))
+{
+    PyBuiltinsModule.Instance.BuiltinDict.Remove("PermissionError");
+    PyBuiltinsModule.Instance.BuiltinDict.Remove("FileExistsError");
+}
+if (args.Contains("--add-os-subtype-names"))
+{
+    PyBuiltinsModule.Instance.BuiltinDict["PermissionError"] = PyType.OSErrorType;
+    PyBuiltinsModule.Instance.BuiltinDict["FileExistsError"] = PyType.OSErrorType;
+}
+
 var workloads = new[] { "addition", "inplace_addition", "arithmetic", "function_call", "attributes", "dictionary", "dictionary_iteration", "dictionary_copy", "namespace_update", "namespace_read", "comprehension", "bound_builtin", "locals_observation", "frame_observation", "class_locals_observation", "exception_handling" };
 if (args.Length > 3)
 {
