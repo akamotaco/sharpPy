@@ -1,4 +1,4 @@
-"""Pending: the inherited exception constructor must retain empty args."""
+"""Regression: the inherited exception constructor must retain empty args."""
 async def worker(): return 1
 c = worker()
 try:

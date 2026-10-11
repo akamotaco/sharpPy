@@ -685,13 +685,13 @@ namespace SharpPy
                     }
                     return new PyInstance(); // Create basic object instance
                 case "BaseException":
-                    return new PyBaseException(message);
+                    return new PyBaseException(args, kwargs);
                 case "Exception":
-                    return new PyException(message);
+                    return new PyException(args, kwargs);
                 case "ValueError":
-                    return new PyValueError(message);
+                    return new PyValueError(args, kwargs);
                 case "TypeError":
-                    return new PyTypeError(message);
+                    return new PyTypeError(args, kwargs);
                 case "AttributeError":
                     return new PyAttributeError(message);
                 case "NameError":
@@ -699,25 +699,25 @@ namespace SharpPy
                 case "UnboundLocalError":
                     return new PyUnboundLocalError(message);
                 case "ArithmeticError":
-                    return new PyArithmeticError(message);
+                    return new PyArithmeticError(args, kwargs);
                 case "ZeroDivisionError":
-                    return new PyZeroDivisionError(message);
+                    return new PyZeroDivisionError(args, kwargs);
                 case "OverflowError":
-                    return new PyOverflowError(message);
+                    return new PyOverflowError(args, kwargs);
                 case "LookupError":
-                    return new PyLookupError(message);
+                    return new PyLookupError(args, kwargs);
                 case "IndexError":
-                    return new PyIndexError(message);
+                    return new PyIndexError(args, kwargs);
                 case "KeyError":
                     return new PyKeyError(message);
                 case "RuntimeError":
-                    return new PyRuntimeError(message);
+                    return new PyRuntimeError(args, kwargs);
                 case "SystemError":
-                    return new PySystemError(message);
+                    return new PySystemError(args, kwargs);
                 case "NotImplementedError":
-                    return new PyNotImplementedError(message);
+                    return new PyNotImplementedError(args, kwargs);
                 case "RecursionError":
-                    return new PyRecursionError(message);
+                    return new PyRecursionError(args, kwargs);
                 case "ImportError":
                     return new PyImportError(message);
                 case "ModuleNotFoundError":
@@ -731,13 +731,13 @@ namespace SharpPy
                 case "KeyboardInterrupt":
                     return new PyKeyboardInterrupt();
                 case "GeneratorExit":
-                    return new PyGeneratorExit();
+                    return new PyGeneratorExit(args, kwargs);
                 case "StopIteration":
                     if (kwargs != null && kwargs.Length() != 0)
                         throw PyTypeError.Create("StopIteration() takes no keyword arguments");
                     return new PyStopIteration(args);
                 case "AssertionError":
-                    return new PyAssertionError(message);
+                    return new PyAssertionError(args, kwargs);
                 case "OSError":
                     return new PyOSError(message);
                 case "FileNotFoundError":

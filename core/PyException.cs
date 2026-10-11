@@ -38,8 +38,10 @@ namespace SharpPy
 
         // Preserve explicit Python arguments, including the empty tuple, without
         // manufacturing a message argument or calling user __str__ methods.
-        protected PyBaseException(PyObject[] args)
+        protected internal PyBaseException(PyObject[] args, PyDict kwargs = null)
         {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{GetTypeName()}() takes no keyword arguments");
             Args = args;
             Message = args.Length > 0 && args[0] is PyString text ? text.Value : "";
         }
@@ -187,7 +189,7 @@ namespace SharpPy
 
         public PyException(string message = "", params PyObject[] args) : base(message, args) { }
 
-        protected PyException(PyObject[] args) : base(args) { }
+        protected internal PyException(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
 
         // Constructor for wrapping user-defined exceptions with class info
         public PyException(string message, PyClass? originalClass) : base(message)
@@ -269,6 +271,8 @@ namespace SharpPy
     // 타입 관련 예외들
     public class PyTypeError : PyException
     {
+        internal PyTypeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyTypeError(string message) : base(message) { }
         public override PyType GetPyType() => PyType.TypeErrorType;
         public override string GetTypeName() => "TypeError";
@@ -282,6 +286,8 @@ namespace SharpPy
 
     public class PyValueError : PyException
     {
+        internal PyValueError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyValueError(string message) : base(message) { }
         public override PyType GetPyType() => PyType.ValueErrorType;
         public override string GetTypeName() => "ValueError";
@@ -358,6 +364,8 @@ namespace SharpPy
     // 산술 예외들
     public class PyArithmeticError : PyException
     {
+        internal PyArithmeticError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyArithmeticError(string message = "") : base(message) { }
         public override PyType GetPyType() => PyType.ArithmeticErrorType;
         public override string GetTypeName() => "ArithmeticError";
@@ -371,6 +379,8 @@ namespace SharpPy
 
     public class PyZeroDivisionError : PyArithmeticError
     {
+        internal PyZeroDivisionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyZeroDivisionError(string message = "division by zero") : base(message) { }
         public override PyType GetPyType() => PyType.ZeroDivisionErrorType;
         public override string GetTypeName() => "ZeroDivisionError";
@@ -384,6 +394,8 @@ namespace SharpPy
 
     public class PyOverflowError : PyArithmeticError
     {
+        internal PyOverflowError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyOverflowError(string message = "math range error") : base(message) { }
         public override PyType GetPyType() => PyType.OverflowErrorType;
         public override string GetTypeName() => "OverflowError";
@@ -398,6 +410,8 @@ namespace SharpPy
     // 룩업 예외들
     public class PyLookupError : PyException
     {
+        internal PyLookupError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyLookupError(string message = "") : base(message) { }
         public override PyType GetPyType() => PyType.LookupErrorType;
         public override string GetTypeName() => "LookupError";
@@ -411,6 +425,8 @@ namespace SharpPy
 
     public class PyIndexError : PyLookupError
     {
+        internal PyIndexError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyIndexError(string message = "list index out of range") : base(message) { }
         public override PyType GetPyType() => PyType.IndexErrorType;
         public override string GetTypeName() => "IndexError";
@@ -445,6 +461,8 @@ namespace SharpPy
     // 런타임 예외들
     public class PyRuntimeError : PyException
     {
+        internal PyRuntimeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyRuntimeError(string message = "") : base(message) { }
         public override PyType GetPyType() => PyType.RuntimeErrorType;
         public override string GetTypeName() => "RuntimeError";
@@ -460,6 +478,8 @@ namespace SharpPy
     // Internal error in the interpreter
     public class PySystemError : PyException
     {
+        internal PySystemError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PySystemError(string message = "") : base(message) { }
         public override PyType GetPyType() => PyType.SystemErrorType;
         public override string GetTypeName() => "SystemError";
@@ -473,6 +493,8 @@ namespace SharpPy
 
     public class PyNotImplementedError : PyRuntimeError
     {
+        internal PyNotImplementedError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyNotImplementedError(string message = "method not implemented") : base(message) { }
         public override PyType GetPyType() => PyType.NotImplementedErrorType;
         public override string GetTypeName() => "NotImplementedError";
@@ -486,6 +508,8 @@ namespace SharpPy
 
     public class PyRecursionError : PyRuntimeError
     {
+        internal PyRecursionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyRecursionError(string message = "maximum recursion depth exceeded") : base(message) { }
         public override PyType GetPyType() => PyType.RecursionErrorType;
         public override string GetTypeName() => "RecursionError";
@@ -702,6 +726,8 @@ namespace SharpPy
     /// </summary>
     public class PyGeneratorExit : PyBaseException
     {
+        internal PyGeneratorExit(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyGeneratorExit() : base(Array.Empty<PyObject>()) { }
 
         public PyGeneratorExit(string message) : base(message)
@@ -808,6 +834,8 @@ namespace SharpPy
     /// </summary>
     public class PyAssertionError : PyException
     {
+        internal PyAssertionError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyAssertionError(string message = "") : base(message) { }
         
         public override string GetTypeName() => "AssertionError";
