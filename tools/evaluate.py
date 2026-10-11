@@ -99,6 +99,7 @@ def main():
         "tests/numeric_mixed_comparison_regression.py",
         "tests/integer_subclass_comparison_regression.py",
         "tests/comparison_dispatch_regression.py",
+        "tests/integer_comparison_fastpath_regression.py",
         "tests/comparison_container_regression.py",
         "tests/compatibility/integer_subclass_comparison_dispatch.py",
         "tests/compatibility/numeric_int_subclass_comparison.py",

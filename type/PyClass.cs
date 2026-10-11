@@ -55,25 +55,31 @@ namespace SharpPy
             internal int Missing;
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal PyObject LookupComparisonMethod(CompareOp op, PyType nativeBase)
         {
             var cache = _comparisonMisses;
-            ulong epoch = ComparisonCacheEpoch;
-            int bit = 1 << (int)op;
-            bool valid = cache != null && cache.Epoch == epoch && ReferenceEquals(cache.NativeBase, nativeBase);
-            if (valid && (cache.Missing & bit) != 0) return null;
+            if (cache != null && cache.Epoch == ComparisonCacheEpoch &&
+                ReferenceEquals(cache.NativeBase, nativeBase) && (cache.Missing & (1 << (int)op)) != 0)
+                return null;
+            return LookupUncachedComparison(op, nativeBase);
+        }
+
+        private PyObject LookupUncachedComparison(CompareOp op, PyType nativeBase)
+        {
             var method = FindComparisonMethod(this, op, nativeBase);
             // Only cache misses: callbacks stay live and no removed function is retained.
             if (method == null)
             {
-                cache ??= _comparisonMisses = new ComparisonMisses();
-                if (!valid)
+                var cache = _comparisonMisses ??= new ComparisonMisses();
+                ulong epoch = ComparisonCacheEpoch;
+                if (cache.Epoch != epoch || !ReferenceEquals(cache.NativeBase, nativeBase))
                 {
                     cache.Epoch = epoch;
                     cache.NativeBase = nativeBase;
                     cache.Missing = 0;
                 }
-                cache.Missing |= bit;
+                cache.Missing |= 1 << (int)op;
             }
             return method;
         }

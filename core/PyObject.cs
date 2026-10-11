@@ -212,9 +212,16 @@ namespace SharpPy
 
         private static PyObject ResolveComparison(PyObject left, PyObject right, CompareOp op)
         {
-            var leftType = left.GetPyType();
-            var rightType = right.GetPyType();
-            bool reverseFirst = !ReferenceEquals(leftType, rightType) && rightType.MRO.Contains(leftType);
+            bool reverseFirst = false;
+            // A builtin number cannot be a strict subtype of a Python int subclass.
+            // Still call both slots below: the left callback may return NotImplemented.
+            if (!(left.GetType() == typeof(PyIntSubclass) && left._customType == null &&
+                  right._customType == null && IsExactNumber(right)))
+            {
+                var leftType = left.GetPyType();
+                var rightType = right.GetPyType();
+                reverseFirst = !ReferenceEquals(leftType, rightType) && rightType.MRO.Contains(leftType);
+            }
             PyObject result;
             if (reverseFirst)
             {
@@ -263,6 +270,7 @@ namespace SharpPy
         }
 
         // A null result means no method was found, not Python NotImplemented.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal PyObject TryCompareSpecial(PyObject other, CompareOp op, PyType nativeBase = null)
         {
             if ((uint)op >= 6) throw PyValueError.Create($"Invalid comparison operator: {op}");
@@ -270,7 +278,11 @@ namespace SharpPy
             var method = type is PyClass cls
                 ? cls.LookupComparisonMethod(op, nativeBase)
                 : FindComparisonMethod(type, op, nativeBase);
-            if (method == null) return null;
+            return method == null ? null : CallComparisonMethod(method, other);
+        }
+
+        private PyObject CallComparisonMethod(PyObject method, PyObject other)
+        {
             // Exact Python functions bind by prepending self. Avoid two temporary objects.
             if (method.GetType() == typeof(PyFunction))
                 return method.Call(new PyObject[] { this, other }, null);
