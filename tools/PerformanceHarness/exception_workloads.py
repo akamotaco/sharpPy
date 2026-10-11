@@ -38,3 +38,15 @@ def os_error_winerror(n):
         error = OSError(999, "message", "source", 267)
         total += i
     return total
+
+
+class _ErrorCode(int):
+    pass
+
+
+def int_subclass_construction(n):
+    total = 0
+    for i in range(n):
+        code = _ErrorCode(i)
+        total += i
+    return total

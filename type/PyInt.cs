@@ -391,12 +391,12 @@ namespace SharpPy
 
                     // CPython 3.12: Objects/longobject.c:5605-5640 - from_bytes
                     // Get the value argument (args[1] if present, default 0)
-                    long value = 0;
+                    Py_int_t value = 0;
                     if (args.Length >= 2 && args[1] != PyNone.Instance)
                     {
                         // CPython: Line 5605-5615 - convert x to int
                         if (args[1] is PyInt pyInt)
-                            value = (long)pyInt.Value;
+                            value = pyInt.Value;
                         else if (args[1] is PyFloat pyFloat)
                             value = (long)Math.Truncate(pyFloat.Value);
                         else if (args[1] is PyBool pyBool)
@@ -409,7 +409,7 @@ namespace SharpPy
                                 baseValue = (int)baseInt.Value;
 
                             var parsed = PyInt.FromString(pyStr.Value, baseValue);
-                            value = (long)parsed.Value;
+                            value = parsed.Value;
                         }
                         else
                         {
@@ -437,7 +437,7 @@ namespace SharpPy
                         {
                             // CPython: line 5665 - newobj = (PyLongObject *)type->tp_alloc(type, n);
                             // line 5671-5674 - copy int value from tmp to newobj
-                            return new PyIntSubclass(classObj, value);
+                            return new PyIntSubclass(classObj, new PyInt(value));
                         }
                         else
                         {

@@ -1000,7 +1000,9 @@ namespace SharpPy
             if (!OperatingSystem.IsWindows() || args.Length < 4 || args.Length > 5)
                 return args;
             int code;
-            if (args[3] is PyInt number)
+            // PyLong_AsLong reads int-subclass storage without invoking conversion hooks.
+            var number = args[3] as PyInt ?? (args[3] as PyIntSubclass)?.GetIntValue();
+            if (number != null)
             {
                 if (number.Value < int.MinValue || number.Value > int.MaxValue)
                     throw PyOverflowError.Create("Python int too large to convert to C long");

@@ -338,11 +338,7 @@ namespace SharpPy
         public override double ToFloat() => _intValue.ToFloat();
         public override bool PyBoolValue() => _intValue.PyBoolValue();
         public override PyString ToStr() => _intValue.ToStr();
-        public override PyString ToRepr()
-        {
-            // CPython: 서브클래스는 기본 repr 사용하지만 타입명은 서브클래스
-            return new PyString($"{_intValue.ToInt()}");
-        }
+        public override PyString ToRepr() => _intValue.ToRepr();
 
         #endregion
 
