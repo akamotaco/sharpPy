@@ -1105,35 +1105,18 @@ namespace SharpPy
 
         private static PyOSError FromIntegerSubclass(PyIntSubclass number, PyObject[] args)
         {
-            var method = number.LookupSpecialMethodUncached("__hash__");
-            // slot_tp_hash replaces lookup/binding errors with HashNotImplemented;
-            // errors from invoking an already bound method must still propagate.
-            try { if (method != null) method = number.BindSpecialMethod(method); }
-            catch (PythonException) { method = null; }
-            if (method == null || method == PyNone.Instance)
-                throw PyTypeError.Create($"unhashable type: '{number.GetTypeName()}'");
-            var result = method.Call(Array.Empty<PyObject>(), null);
-            var hashValue = result as PyInt ?? (result as PyIntSubclass)?.GetIntValue();
-            System.Numerics.BigInteger value;
-            if (hashValue != null) value = hashValue.Value;
-            else if (result is PyBool boolean) value = boolean.Value ? 1 : 0;
-            else throw PyTypeError.Create("__hash__ method should return an integer");
-            // slot_tp_hash preserves a signed native-width return value; only
-            // overflow is reduced using long_hash. -1 is the error sentinel.
-            long hash = value < nint.MinValue || value > nint.MaxValue
-                ? PyInt.PythonHash(value) : (long)value;
-            if (hash == -1) hash = -2;
+            long hash = number.GetPythonHash();
             if (!SubclassErrnoMap.Entries.TryGetValue(hash, out var entry))
                 return new PyOSError(args, null, true);
 
             // Every errnomap key is a distinct small positive int, so its hash
             // equals its value. At most one equality call can be observable.
-            method = number.LookupSpecialMethodUncached("__eq__");
+            var method = number.LookupSpecialMethodUncached("__eq__");
             // slot_tp_richcompare clears lookup/binding errors and returns
             // NotImplemented, letting the builtin int comparison take over.
             try { if (method != null) method = number.BindSpecialMethod(method); }
             catch (PythonException) { method = null; }
-            result = method == null ? PyNotImplemented.Instance
+            var result = method == null ? PyNotImplemented.Instance
                 : method.Call(new PyObject[] { entry.Key }, null);
             bool equal = result == PyNotImplemented.Instance
                 ? number.GetIntValue().Value == hash : result.IsTrue();

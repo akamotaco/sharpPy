@@ -50,3 +50,20 @@ def int_subclass_construction(n):
         code = _ErrorCode(i)
         total += i
     return total
+
+
+def os_error_subclass_lookup(n):
+    code = _ErrorCode(2)
+    total = 0
+    for i in range(n):
+        error = OSError(code, "message")
+        total += i
+    return total
+
+
+def integer_hash(n):
+    total = 0
+    for i in range(n):
+        value = hash(2)
+        total += i
+    return total

@@ -344,6 +344,39 @@ namespace SharpPy
 
         #region Hash - Delegate to PyInt
 
+        // Native-width Python hash for observable hash() and OSError errnomap.
+        // ToHash remains the existing CLR dictionary hash until numeric key
+        // hashing and equality can be changed together.
+        internal long GetPythonHash()
+        {
+            var method = LookupSpecialMethodUncached("__hash__");
+            PyObject result;
+            if (method is PyWrapperDescriptor wrapper && method.GetType() == typeof(PyWrapperDescriptor))
+            {
+                // Exact builtin slot wrappers bind without user code. Pass the
+                // receiver directly, avoiding a temporary bound wrapper object.
+                result = wrapper._implementation(this, Array.Empty<PyObject>(), null);
+            }
+            else
+            {
+                // slot_tp_hash replaces lookup/binding errors, but not call errors.
+                try { if (method != null) method = BindSpecialMethod(method); }
+                catch (PythonException) { method = null; }
+                if (method == null || method == PyNone.Instance)
+                    throw PyTypeError.Create($"unhashable type: '{GetTypeName()}'");
+                result = method.Call(Array.Empty<PyObject>(), null);
+            }
+            var hashValue = result as PyInt ?? (result as PyIntSubclass)?.GetIntValue();
+            System.Numerics.BigInteger value;
+            if (hashValue != null) value = hashValue.Value;
+            else if (result is PyBool boolean) value = boolean.Value ? 1 : 0;
+            else throw PyTypeError.Create("__hash__ method should return an integer");
+            // Preserve signed native-width user results; reduce only on overflow.
+            long hash = value < nint.MinValue || value > nint.MaxValue
+                ? PyInt.PythonHash(value) : (long)value;
+            return hash == -1 ? -2 : hash;
+        }
+
         public override int ToHash() => _intValue.ToHash();
 
         #endregion

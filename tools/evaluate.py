@@ -150,6 +150,7 @@ def main():
             "tests/os_error_winerror_subclass_regression.py",
             "tests/os_error_remaining_types_regression.py",
             "tests/os_error_errno_subclass_regression.py",
+            "tests/integer_hash_regression.py",
             "tests/os_error_directory_regression.py",
             "tests/blocking_io_arguments_regression.py",
             "tests/compatibility/exception_specialized_arguments.py",

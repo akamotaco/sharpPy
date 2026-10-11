@@ -1,4 +1,4 @@
-"""Pending: generic hash/dict dispatch, separate from OSError's errnomap."""
+"""Pending: dict key dispatch; hash() output serves as a control."""
 class Code(int):
     def __hash__(self):
         print('hash-called')

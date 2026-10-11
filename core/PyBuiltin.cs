@@ -1193,10 +1193,19 @@ namespace SharpPy
 
         private static PyObject CallHash(PyObject[] args, PyDict kwargs = null)
         {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("hash() takes no keyword arguments");
             if (args.Length != 1)
-                throw PyTypeError.Create($"hash expected exactly 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"hash() takes exactly one argument ({args.Length} given)");
 
-            return new PyInt(args[0].ToHash());
+            long hash = args[0] switch
+            {
+                PyInt number => PyInt.PythonHash(number.Value),
+                PyBool boolean => boolean.Value ? 1 : 0,
+                PyIntSubclass subclass => subclass.GetPythonHash(),
+                _ => args[0].ToHash()
+            };
+            return SmallIntCache.GetOrCreate(hash);
         }
 
         // === 타입 변환 함수들 ===
