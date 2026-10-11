@@ -2,6 +2,7 @@
 
 ## 호스트·라이브러리 조건 (2026-10-10 추가)
 
+[75차 결과](reports/2026-10-11/lookup_exception_constructors.md): 74차를 `35c2e0f`로 커밋했다. NameError/UnboundLocalError/AttributeError의 위치 인자와 name/obj 키워드·속성·오류 문구를 CPython과 맞췄다. 기본 142개·Godot 소스 통합 71개 통과. NameError와 AttributeError 각각 1만 회 생성에서 할당 총 1,120,000 B 감소. 시간 표본 범위는 겹친다. 다음은 KeyError의 key 보존과 단일 인자 repr 규칙이며 OSError 차이도 유지한다.
 [74차 결과](reports/2026-10-11/exception_constructor_arguments.md): 73차를 `1834719`로 커밋했다. 기본 예외 15종에서 원래 Python 인자 배열을 보존해 빈 args·숫자·여러 인자와 키워드 거부를 맞췄다. 기본 141개·Godot 소스 통합 70개 통과. 문자열 예외 생성 1만 회당 할당 640,000 B 감소. 다음은 NameError/AttributeError/KeyError/OSError의 개별 생성·표현 규칙이며 별도 실패 fixture로 보존했다.
 [73차 결과](reports/2026-10-11/generator_throw_delegation.md): 72차를 `689e698`로 커밋했다. generator.Throw가 yield from receiver에 먼저 예외를 위임하도록 수정하고 GeneratorExit 처리와 close의 receiver 종료 코드를 공유했다. native 재귀 위임에는 추가 인자 배열·bound method를 만들지 않는다. 기본 139개·Godot 소스 통합 68개 통과. 다음은 기존 예외 생성자의 빈 args 불일치이며 구식 throw 경고 등 후속 항목은 유지한다.
 [72차 결과](reports/2026-10-11/coroutine_throw_delegation.md): 71차를 `5cf7f00`으로 커밋했다. coroutine/wrapper throw의 await 위임·재개·GeneratorExit 종료를 구현하고 generator의 예외 이름별 switch를 실제 생성자 기반 공통 정규화로 교체했다. 기본 137개·Godot 소스 통합 66개 통과. send/close 대조군 할당은 동일하며 작은 시간 차이를 속도 개선으로 주장하지 않는다. 다음은 __await__ 내부 yield from의 재귀 throw 위임이며, 예외 생성자 빈 args와 구식 throw 경고 차이도 실패 fixture로 보존했다.

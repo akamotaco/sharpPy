@@ -4,3 +4,12 @@ def exception_construction(n):
         error = ValueError("message")
         total += i
     return total
+
+
+def lookup_exception_construction(n):
+    total = 0
+    for i in range(n):
+        first = NameError("message")
+        second = AttributeError("message")
+        total += i
+    return total

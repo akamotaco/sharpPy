@@ -693,11 +693,11 @@ namespace SharpPy
                 case "TypeError":
                     return new PyTypeError(args, kwargs);
                 case "AttributeError":
-                    return new PyAttributeError(message);
+                    return new PyAttributeError(args, kwargs);
                 case "NameError":
-                    return new PyNameError(message);
+                    return new PyNameError(args, kwargs);
                 case "UnboundLocalError":
-                    return new PyUnboundLocalError(message);
+                    return new PyUnboundLocalError(args, kwargs);
                 case "ArithmeticError":
                     return new PyArithmeticError(args, kwargs);
                 case "ZeroDivisionError":

@@ -1,0 +1,2180 @@
+{
+  "base_commit": "35c2e0f3807ca9895f437034ce3a260a0a53ebd9",
+  "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+  "counts": {
+    "matching_output": 137,
+    "matching_except_volatile_fields": 3,
+    "no_reported_failure": 2
+  },
+  "cases": [
+    {
+      "name": "tests\\level10_integration.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level11_exceptions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level12_indexing_slicing.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level1_literals.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level2_operators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level3_variables.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_if.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level4_control_loops.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_advanced.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level5_functions_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level6_classes_basic.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level7_comprehensions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level8_generators.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests\\level9_exceptions.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_exception_handling.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_comprehensive_python312.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_global_variable.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_nested_super.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_advanced_features.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "test_python312_missing_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "test_ultimate_complex_features.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "tests/binary_inplace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/inplace_special_lookup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/function_creation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/scope_binding_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/builtin_descriptor_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bound_method_attributes_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_alias_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_release_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_index_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_slice_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_large_bounds_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytes_comparison_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_assignment_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_indices_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_native_boundary_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/range_slice_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/instruction_offsets_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_wide_jump_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cache_execution_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_loop_resume.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_throw_expression_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_stack_depth_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_context_after_handler.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_state_in_callee.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_caller_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_exception.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_close_delegation.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_delegation_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_delegate_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_send_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/iter_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/metaclass_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_lexical_closure_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_name_analysis_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/super_frame_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/constant_return_cleanup_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cfg_reachability_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/finally_scope_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/unbound_variable_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_kind_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_wrapper_send_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/coroutine_throw_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_constructor_arguments_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/lookup_exception_constructor_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_empty_args.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/generator_throw_delegation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_yield_from.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_throw_delegation.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/unraisable_close_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_lookup_error.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/unraisable_traceback_format.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_close_cleanup.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_nested_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/coroutine_initial_send.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/unbound_fast_local.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/continue_finally_stack.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/nested_finally_return_duplicate.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_captured_first_argument.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/super_alias_class_cell.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_bound_method_closure.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/metaclass_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_iterator_protocol_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/generator_invalid_iterator.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/iterator_lookup_error_fallback.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/range_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_indices_bigint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/sequence_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_iterable_assignment_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_slice_reentry_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/bytearray_bytevalue_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/stop_iteration_arguments_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_update_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_args_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/operator_length_hint_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/memoryview_large_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_large_step.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/operator_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/exception_args_length_hint.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_args_update.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/stop_iteration_message.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_callback_order.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_read_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_mutation_step_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/slice_delete_compaction_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/slice_step_iteration_overflow.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/bytes_slice_equality.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/frame_lifetime_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/cell_delete_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dynamic_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/namespace_locals_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/locals_refresh_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_locals_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/prepared_namespace_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/type_new_dict_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/call_failure_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_closure_mapping_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_exception_table_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/class_nested_state_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/exception_offset_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/compatibility/lookup_error_builtin.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_pop_order_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_copy_subclass_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_views_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_iterator_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/dict_cursor_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_mutation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_clear_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_live_reads_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "tests/module_mapping_observation_regression.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/hello.py",
+      "status": "matching_output"
+    },
+    {
+      "name": "examples/advanced.py",
+      "status": "matching_except_volatile_fields"
+    },
+    {
+      "name": "--test-generator-kwargs",
+      "status": "no_reported_failure"
+    },
+    {
+      "name": "--test-pymethod-kwargs",
+      "status": "no_reported_failure"
+    }
+  ],
+  "new_cases": [
+    {
+      "name": "tests/lookup_exception_constructor_regression.py",
+      "status": "matching_output",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "NameError ()  NameError() None\nNameError ('',)  NameError('') None\nNameError ('message',) message NameError('message') None\nNameError (17,) 17 NameError(17) None\nNameError (None,) None NameError(None) None\nNameError ('a', 2) ('a', 2) NameError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid NameError 'wrong' is an invalid keyword argument for NameError()\ninvalid NameError NameError() takes at most 1 keyword argument (2 given)\ninvalid NameError NameError() takes at most 1 keyword argument (3 given)\nUnboundLocalError ()  UnboundLocalError() None\nUnboundLocalError ('',)  UnboundLocalError('') None\nUnboundLocalError ('message',) message UnboundLocalError('message') None\nUnboundLocalError (17,) 17 UnboundLocalError(17) None\nUnboundLocalError (None,) None UnboundLocalError(None) None\nUnboundLocalError ('a', 2) ('a', 2) UnboundLocalError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid UnboundLocalError 'wrong' is an invalid keyword argument for NameError()\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (2 given)\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (3 given)\nAttributeError ()  AttributeError() None\ndefault-obj None\nAttributeError ('',)  AttributeError('') None\ndefault-obj None\nAttributeError ('message',) message AttributeError('message') None\ndefault-obj None\nAttributeError (17,) 17 AttributeError(17) None\ndefault-obj None\nAttributeError (None,) None AttributeError(None) None\ndefault-obj None\nAttributeError ('a', 2) ('a', 2) AttributeError('a', 2) None\ndefault-obj None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError AttributeError() takes at most 2 keyword arguments (3 given)\nboth-identities True True (1, 2)\nobj-set 19\nobj-deleted None\nobj-deleted-again None\nargs-independent True None changed\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for AttributeError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for AttributeError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for AttributeError()\"\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.034360499994363636,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "NameError ()  NameError() None\nNameError ('',)  NameError('') None\nNameError ('message',) message NameError('message') None\nNameError (17,) 17 NameError(17) None\nNameError (None,) None NameError(None) None\nNameError ('a', 2) ('a', 2) NameError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid NameError 'wrong' is an invalid keyword argument for NameError()\ninvalid NameError NameError() takes at most 1 keyword argument (2 given)\ninvalid NameError NameError() takes at most 1 keyword argument (3 given)\nUnboundLocalError ()  UnboundLocalError() None\nUnboundLocalError ('',)  UnboundLocalError('') None\nUnboundLocalError ('message',) message UnboundLocalError('message') None\nUnboundLocalError (17,) 17 UnboundLocalError(17) None\nUnboundLocalError (None,) None UnboundLocalError(None) None\nUnboundLocalError ('a', 2) ('a', 2) UnboundLocalError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid UnboundLocalError 'wrong' is an invalid keyword argument for NameError()\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (2 given)\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (3 given)\nAttributeError ()  AttributeError() None\ndefault-obj None\nAttributeError ('',)  AttributeError('') None\ndefault-obj None\nAttributeError ('message',) message AttributeError('message') None\ndefault-obj None\nAttributeError (17,) 17 AttributeError(17) None\ndefault-obj None\nAttributeError (None,) None AttributeError(None) None\ndefault-obj None\nAttributeError ('a', 2) ('a', 2) AttributeError('a', 2) None\ndefault-obj None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError AttributeError() takes at most 2 keyword arguments (3 given)\nboth-identities True True (1, 2)\nobj-set 19\nobj-deleted None\nobj-deleted-again None\nargs-independent True None changed\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for AttributeError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for AttributeError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for AttributeError()\"\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.26107999999658205,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "before": [
+    {
+      "name": "tests/lookup_exception_constructor_regression.py",
+      "status": "sharppy_failure",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "NameError ()  NameError() None\nNameError ('',)  NameError('') None\nNameError ('message',) message NameError('message') None\nNameError (17,) 17 NameError(17) None\nNameError (None,) None NameError(None) None\nNameError ('a', 2) ('a', 2) NameError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid NameError 'wrong' is an invalid keyword argument for NameError()\ninvalid NameError NameError() takes at most 1 keyword argument (2 given)\ninvalid NameError NameError() takes at most 1 keyword argument (3 given)\nUnboundLocalError ()  UnboundLocalError() None\nUnboundLocalError ('',)  UnboundLocalError('') None\nUnboundLocalError ('message',) message UnboundLocalError('message') None\nUnboundLocalError (17,) 17 UnboundLocalError(17) None\nUnboundLocalError (None,) None UnboundLocalError(None) None\nUnboundLocalError ('a', 2) ('a', 2) UnboundLocalError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid UnboundLocalError 'wrong' is an invalid keyword argument for NameError()\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (2 given)\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (3 given)\nAttributeError ()  AttributeError() None\ndefault-obj None\nAttributeError ('',)  AttributeError('') None\ndefault-obj None\nAttributeError ('message',) message AttributeError('message') None\ndefault-obj None\nAttributeError (17,) 17 AttributeError(17) None\ndefault-obj None\nAttributeError (None,) None AttributeError(None) None\ndefault-obj None\nAttributeError ('a', 2) ('a', 2) AttributeError('a', 2) None\ndefault-obj None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError AttributeError() takes at most 2 keyword arguments (3 given)\nboth-identities True True (1, 2)\nobj-set 19\nobj-deleted None\nobj-deleted-again None\nargs-independent True None changed\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for AttributeError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for AttributeError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for AttributeError()\"\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.03562409998266958,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 1,
+        "stdout": "NameError ('',)  NameError('') None\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\lookup_exception_constructor_regression.py\", line 6, in <module>\n    assert error.args == args\n                             ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\lookup_exception_constructor_regression.py\", line 6, in <module>\n            assert error.args == args\nAssertionError: \n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.2695716000162065,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "pending": [
+    {
+      "name": "tests/compatibility/exception_specialized_arguments.py",
+      "status": "output_difference",
+      "reference": {
+        "exit_code": 0,
+        "stdout": "NameError ()  NameError()\nAttributeError ()  AttributeError()\nKeyError ('key',) 'key' KeyError('key')\nOSError (2, 'missing') [Errno 2] missing FileNotFoundError(2, 'missing')\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.026888499996857718,
+        "failure_markers": []
+      },
+      "sharppy": {
+        "exit_code": 0,
+        "stdout": "NameError ()  NameError()\nAttributeError ()  AttributeError()\nKeyError ('key',) key KeyError('key')\nOSError ('',)  OSError('')\n",
+        "stderr": "",
+        "timed_out": false,
+        "process_seconds": 0.25749509999877773,
+        "failure_markers": []
+      },
+      "volatile_fields": null
+    }
+  ],
+  "godot": {
+    "default_fixtures": 17,
+    "additional": [
+      {
+        "name": "bytearray_slice_reentry_regression.py",
+        "matching": true,
+        "expected": "bytearray slice reentry: PASS\n",
+        "actual": "bytearray slice reentry: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "cache_execution_regression.py",
+        "matching": true,
+        "expected": "cache traceback: 5\ncache generator: ['caught', 18, 4]\n",
+        "actual": "cache traceback: 5\ncache generator: ['caught', 18, 4]\n",
+        "adjustment": null
+      },
+      {
+        "name": "cfg_reachability_regression.py",
+        "matching": true,
+        "expected": "CFG reachability: PASS ['live', 'outer', 0, 1, 2, 3, 'generator-finally', 'resumed']\n",
+        "actual": "CFG reachability: PASS ['live', 'outer', 0, 1, 2, 3, 'generator-finally', 'resumed']\n",
+        "adjustment": null
+      },
+      {
+        "name": "class_lexical_closure_regression.py",
+        "matching": true,
+        "expected": "class lexical closure regression passed\nclass cell identity and unused-cell checks passed\n",
+        "actual": "class lexical closure regression passed\nclass cell identity and unused-cell checks passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "constant_return_cleanup_regression.py",
+        "matching": true,
+        "expected": "constant return cleanup regression passed\nsuspended constant return exception regression passed\n",
+        "actual": "constant return cleanup regression passed\nsuspended constant return exception regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "continue_finally_stack.py",
+        "matching": true,
+        "expected": "2 [0, 1, 2, 3]\n",
+        "actual": "2 [0, 1, 2, 3]\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_close_cleanup.py",
+        "matching": true,
+        "expected": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "actual": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_close_lookup_error.py",
+        "matching": true,
+        "expected": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+        "actual": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_close_regression.py",
+        "matching": true,
+        "expected": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "actual": "unstarted None\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-coroutine None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\nstart paused\nclose-wrapper None\ncleanup-order ['delegate', 'worker', 'outer']\nrepeat None\nclosed-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\nexit-args ()\ncustom-close None\ncustom-events ['custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ncustom-close ValueError delegate error\ncustom-events ['broken-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\ncustom-start bare\ndelegate-reentry-close ValueError coroutine already executing\ndelegate-reentry-send ValueError coroutine already executing\nexit-args ()\ncustom-close None\ncustom-events ['reentrant-close', 'reentrant-close', 'custom']\ncustom-repeat None\ncustom-reuse RuntimeError cannot reuse already awaited coroutine\nswallow-start bare\ncaught-close-error delegate error\nswallow-close None\nswallow-reuse RuntimeError cannot reuse already awaited coroutine\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-second-close None\nignoring-final-events ['delegate', 'cleanup-await', 'delegate']\nignoring-repeat None\nignoring-start paused\nignoring-first-close RuntimeError coroutine ignored GeneratorExit\nignoring-events ['delegate', 'cleanup-await']\nignoring-resume return 71\nignoring-final-events ['delegate', 'cleanup-await', 'delegate', 'cleanup-finished']\nignoring-repeat None\nbody-reentry ValueError coroutine already executing\nbody-completion return 9\nbody-completed-close None\ninvalid-close coroutine.close() takes no arguments (1 given)\ninvalid-close coroutine.close() takes no keyword arguments\ninvalid-close coroutine_wrapper.close() takes no arguments (1 given)\ninvalid-close coroutine_wrapper.close() takes no keyword arguments\nafter-invalid-close None\nending-start bare\nafter-await 13\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nending-start bare\nending-close None\nending-events ['ending']\nending-reuse RuntimeError cannot reuse already awaited coroutine\nfinally-failure-start paused\nfinally-failure ValueError cleanup error\nfinally-failure-reuse RuntimeError cannot reuse already awaited coroutine\nraise-base-class BaseException True\nraise-base-instance True\nraise-base-class GeneratorExit True\nraise-base-instance True\ncoroutine close regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_initial_send.py",
+        "matching": true,
+        "expected": "11\n",
+        "actual": "11\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_nested_send.py",
+        "matching": true,
+        "expected": "pause\n7\n",
+        "actual": "pause\n7\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_send_regression.py",
+        "matching": true,
+        "expected": "initial-value TypeError can't send non-None value to a just-started coroutine\ninitial-none return 11\ncompleted RuntimeError cannot reuse already awaited coroutine\nclosed RuntimeError cannot reuse already awaited coroutine\nstart yield first\nreceived-first 7\nresume-value yield second\nreceived-second None\nawait-result 23\nresume-none return 24\nresume-finished RuntimeError cannot reuse already awaited coroutine\nnested-start yield first\nreceived-first None\nnested-first yield second\nreceived-second None\nawait-result 23\nnested-second return 24\nempty return None\nfailure ValueError body error\nfailure-reuse RuntimeError cannot reuse already awaited coroutine\nreentry ValueError coroutine already executing\nouter return 31\nstop RuntimeError coroutine raised StopIteration\nstop-reuse RuntimeError cannot reuse already awaited coroutine\nnested-caught body error\nnested-failure return 41\nclosure-start yield first\nreceived-first None\nclosure-first yield second\nreceived-second None\nclosure-second return 53\ncoroutine send regression complete\n",
+        "actual": "initial-value TypeError can't send non-None value to a just-started coroutine\ninitial-none return 11\ncompleted RuntimeError cannot reuse already awaited coroutine\nclosed RuntimeError cannot reuse already awaited coroutine\nstart yield first\nreceived-first 7\nresume-value yield second\nreceived-second None\nawait-result 23\nresume-none return 24\nresume-finished RuntimeError cannot reuse already awaited coroutine\nnested-start yield first\nreceived-first None\nnested-first yield second\nreceived-second None\nawait-result 23\nnested-second return 24\nempty return None\nfailure ValueError body error\nfailure-reuse RuntimeError cannot reuse already awaited coroutine\nreentry ValueError coroutine already executing\nouter return 31\nstop RuntimeError coroutine raised StopIteration\nstop-reuse RuntimeError cannot reuse already awaited coroutine\nnested-caught body error\nnested-failure return 41\nclosure-start yield first\nreceived-first None\nclosure-first yield second\nreceived-second None\nclosure-second return 53\ncoroutine send regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_delegation.py",
+        "matching": true,
+        "expected": "paused\ndelegate caught sent\ncoroutine cleanup\nresult 13\n",
+        "actual": "paused\ndelegate caught sent\ncoroutine cleanup\nresult 13\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_empty_args.py",
+        "matching": true,
+        "expected": "arguments ()\n",
+        "actual": "arguments ()\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_regression.py",
+        "matching": true,
+        "expected": "start yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nstart yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nnested-start yield pause\nnested-throw yield caught-pause\nnested-return return 13\nclass-start yield pause\nclass-throw yield caught-pause\nclass-return return 13\nclass-events [('caught', 'sent'), 'delegate-finally', 'worker-finally', ('caught', 'nested'), 'delegate-finally', 'worker-finally', ('caught', ''), 'delegate-finally', 'worker-finally']\nunstarted-identity True\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nMissing yield iterator-pause\ninject ValueError value\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nReceiver yield iterator-pause\nraw-args (ValueError('value'),)\ninject yield delegate-value\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nLookupFailure yield iterator-pause\ninject LookupError lookup\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nCallFailure yield iterator-pause\ninject LookupError call\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nFinish yield iterator-pause\ninject return 29\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nraw-start yield iterator-pause\nraw-args (42,)\nraw-invalid yield delegate-value\nmissing-start yield iterator-pause\nmissing-inject TypeError exceptions must be classes or instances deriving from BaseException, not int\nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError \nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError instance\nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nreentrant-start yield iterator-pause\nreentrant-send ValueError coroutine already executing\nreentrant-throw yield reentrant-yield\nreentrant-resume yield iterator-pause\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine.throw() takes no keyword arguments\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine_wrapper.throw() takes no keyword arguments\nconstructor-start yield iterator-pause\nconstructor-throw return constructor\nconstructor-reuse RuntimeError cannot reuse already awaited coroutine\ntraceback-preserved True True\nclose-error-start yield iterator-pause\nclose-error-throw return close-error\ngenerator-start yield ready\ngenerator-caught ValueError \ngenerator-throw yield handled\ngenerator-finished ValueError \ngenerator-start yield ready\ngenerator-caught ValueError direct\ngenerator-throw yield handled\ngenerator-finished ValueError direct\ngenerator-start yield ready\ngenerator-throw GeneratorExit \ngenerator-finished GeneratorExit \ngenerator-start yield ready\ngenerator-throw TypeError exceptions must be classes or instances deriving from BaseException, not int\ngenerator-finished TypeError exceptions must be classes or instances deriving from BaseException, not int\n",
+        "actual": "start yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nstart yield pause\nthrow-instance yield caught-pause\nresume return 13\nevents [('caught', 'sent'), 'delegate-finally', 'worker-finally']\nreuse RuntimeError cannot reuse already awaited coroutine\nreuse-invalid TypeError exceptions must be classes or instances deriving from BaseException, not int\nnested-start yield pause\nnested-throw yield caught-pause\nnested-return return 13\nclass-start yield pause\nclass-throw yield caught-pause\nclass-return return 13\nclass-events [('caught', 'sent'), 'delegate-finally', 'worker-finally', ('caught', 'nested'), 'delegate-finally', 'worker-finally', ('caught', ''), 'delegate-finally', 'worker-finally']\nunstarted-identity True\nunstarted-events []\nunstarted-reuse RuntimeError cannot reuse already awaited coroutine\nMissing yield iterator-pause\ninject ValueError value\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nReceiver yield iterator-pause\nraw-args (ValueError('value'),)\ninject yield delegate-value\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nLookupFailure yield iterator-pause\ninject LookupError lookup\nafter yield iterator-pause\nevents ['iterator-close', 'worker-finally']\nCallFailure yield iterator-pause\ninject LookupError call\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nFinish yield iterator-pause\ninject return 29\nafter RuntimeError cannot reuse already awaited coroutine\nevents ['worker-finally']\nraw-start yield iterator-pause\nraw-args (42,)\nraw-invalid yield delegate-value\nmissing-start yield iterator-pause\nmissing-inject TypeError exceptions must be classes or instances deriving from BaseException, not int\nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError \nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject ValueError instance\nmissing-events ['worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nmissing-start yield iterator-pause\nmissing-inject GeneratorExit \nmissing-events ['iterator-close', 'worker-finally']\nreentrant-start yield iterator-pause\nreentrant-send ValueError coroutine already executing\nreentrant-throw yield reentrant-yield\nreentrant-resume yield iterator-pause\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine.throw() takes no keyword arguments\nno-args TypeError throw expected at least 1 argument, got 0\ntoo-many TypeError throw expected at most 3 arguments, got 4\nkeyword TypeError coroutine_wrapper.throw() takes no keyword arguments\nconstructor-start yield iterator-pause\nconstructor-throw return constructor\nconstructor-reuse RuntimeError cannot reuse already awaited coroutine\ntraceback-preserved True True\nclose-error-start yield iterator-pause\nclose-error-throw return close-error\ngenerator-start yield ready\ngenerator-caught ValueError \ngenerator-throw yield handled\ngenerator-finished ValueError \ngenerator-start yield ready\ngenerator-caught ValueError direct\ngenerator-throw yield handled\ngenerator-finished ValueError direct\ngenerator-start yield ready\ngenerator-throw GeneratorExit \ngenerator-finished GeneratorExit \ngenerator-start yield ready\ngenerator-throw TypeError exceptions must be classes or instances deriving from BaseException, not int\ngenerator-finished TypeError exceptions must be classes or instances deriving from BaseException, not int\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_throw_yield_from.py",
+        "matching": true,
+        "expected": "paused\ninner caught\nresult 31\n",
+        "actual": "paused\ninner caught\nresult 31\n",
+        "adjustment": null
+      },
+      {
+        "name": "coroutine_wrapper_send_regression.py",
+        "matching": true,
+        "expected": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "actual": "nested-start yield ready\nnested-value yield 6\nnested-return return 30\nnested-reuse RuntimeError cannot reuse already awaited coroutine\nwrapper-type coroutine_wrapper\nwrapper-bases ('coroutine_wrapper', 'object')\nwrapper-iterator True True False\nwrapper-initial-value TypeError can't send non-None value to a just-started coroutine\nwrapper-next ready\nwrapper-second-alias yield 7\nwrapper-return return 30\nwrapper-finished-alias RuntimeError cannot reuse already awaited coroutine\ncoroutine coroutine.send() takes exactly one argument (0 given)\ncoroutine coroutine.send() takes exactly one argument (2 given)\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine coroutine.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (0 given)\ncoroutine_wrapper coroutine_wrapper.send() takes exactly one argument (2 given)\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\ncoroutine_wrapper coroutine_wrapper.send() takes no keyword arguments\nafter-invalid-arguments return 7\nwrapper-call 'coroutine_wrapper' object is not callable\ndescriptor-receiver descriptor 'send' for 'coroutine_wrapper' objects doesn't apply to a 'int' object\nfailing-start yield ready\nfailing-middle yield 2\nfailing-last ValueError after resume\nfailing-reuse RuntimeError cannot reuse already awaited coroutine\ncoroutine wrapper send regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_caller_state_regression.py",
+        "matching": true,
+        "expected": "caller and generator exception state: PASS\n",
+        "actual": "caller and generator exception state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_constructor_arguments_regression.py",
+        "matching": true,
+        "expected": "BaseException ()  BaseException() True\nBaseException ('',)  BaseException('') True\nBaseException ('message',) message BaseException('message') True\nBaseException (17,) 17 BaseException(17) True\nBaseException (None,) None BaseException(None) True\nBaseException ('a', 2) ('a', 2) BaseException('a', 2) True\nBaseException ((1, 2),) (1, 2) BaseException((1, 2)) True\nkeyword BaseException() takes no keyword arguments\nException ()  Exception() True\nException ('',)  Exception('') True\nException ('message',) message Exception('message') True\nException (17,) 17 Exception(17) True\nException (None,) None Exception(None) True\nException ('a', 2) ('a', 2) Exception('a', 2) True\nException ((1, 2),) (1, 2) Exception((1, 2)) True\nkeyword Exception() takes no keyword arguments\nTypeError ()  TypeError() True\nTypeError ('',)  TypeError('') True\nTypeError ('message',) message TypeError('message') True\nTypeError (17,) 17 TypeError(17) True\nTypeError (None,) None TypeError(None) True\nTypeError ('a', 2) ('a', 2) TypeError('a', 2) True\nTypeError ((1, 2),) (1, 2) TypeError((1, 2)) True\nkeyword TypeError() takes no keyword arguments\nValueError ()  ValueError() True\nValueError ('',)  ValueError('') True\nValueError ('message',) message ValueError('message') True\nValueError (17,) 17 ValueError(17) True\nValueError (None,) None ValueError(None) True\nValueError ('a', 2) ('a', 2) ValueError('a', 2) True\nValueError ((1, 2),) (1, 2) ValueError((1, 2)) True\nkeyword ValueError() takes no keyword arguments\nArithmeticError ()  ArithmeticError() True\nArithmeticError ('',)  ArithmeticError('') True\nArithmeticError ('message',) message ArithmeticError('message') True\nArithmeticError (17,) 17 ArithmeticError(17) True\nArithmeticError (None,) None ArithmeticError(None) True\nArithmeticError ('a', 2) ('a', 2) ArithmeticError('a', 2) True\nArithmeticError ((1, 2),) (1, 2) ArithmeticError((1, 2)) True\nkeyword ArithmeticError() takes no keyword arguments\nZeroDivisionError ()  ZeroDivisionError() True\nZeroDivisionError ('',)  ZeroDivisionError('') True\nZeroDivisionError ('message',) message ZeroDivisionError('message') True\nZeroDivisionError (17,) 17 ZeroDivisionError(17) True\nZeroDivisionError (None,) None ZeroDivisionError(None) True\nZeroDivisionError ('a', 2) ('a', 2) ZeroDivisionError('a', 2) True\nZeroDivisionError ((1, 2),) (1, 2) ZeroDivisionError((1, 2)) True\nkeyword ZeroDivisionError() takes no keyword arguments\nOverflowError ()  OverflowError() True\nOverflowError ('',)  OverflowError('') True\nOverflowError ('message',) message OverflowError('message') True\nOverflowError (17,) 17 OverflowError(17) True\nOverflowError (None,) None OverflowError(None) True\nOverflowError ('a', 2) ('a', 2) OverflowError('a', 2) True\nOverflowError ((1, 2),) (1, 2) OverflowError((1, 2)) True\nkeyword OverflowError() takes no keyword arguments\nLookupError ()  LookupError() True\nLookupError ('',)  LookupError('') True\nLookupError ('message',) message LookupError('message') True\nLookupError (17,) 17 LookupError(17) True\nLookupError (None,) None LookupError(None) True\nLookupError ('a', 2) ('a', 2) LookupError('a', 2) True\nLookupError ((1, 2),) (1, 2) LookupError((1, 2)) True\nkeyword LookupError() takes no keyword arguments\nIndexError ()  IndexError() True\nIndexError ('',)  IndexError('') True\nIndexError ('message',) message IndexError('message') True\nIndexError (17,) 17 IndexError(17) True\nIndexError (None,) None IndexError(None) True\nIndexError ('a', 2) ('a', 2) IndexError('a', 2) True\nIndexError ((1, 2),) (1, 2) IndexError((1, 2)) True\nkeyword IndexError() takes no keyword arguments\nRuntimeError ()  RuntimeError() True\nRuntimeError ('',)  RuntimeError('') True\nRuntimeError ('message',) message RuntimeError('message') True\nRuntimeError (17,) 17 RuntimeError(17) True\nRuntimeError (None,) None RuntimeError(None) True\nRuntimeError ('a', 2) ('a', 2) RuntimeError('a', 2) True\nRuntimeError ((1, 2),) (1, 2) RuntimeError((1, 2)) True\nkeyword RuntimeError() takes no keyword arguments\nSystemError ()  SystemError() True\nSystemError ('',)  SystemError('') True\nSystemError ('message',) message SystemError('message') True\nSystemError (17,) 17 SystemError(17) True\nSystemError (None,) None SystemError(None) True\nSystemError ('a', 2) ('a', 2) SystemError('a', 2) True\nSystemError ((1, 2),) (1, 2) SystemError((1, 2)) True\nkeyword SystemError() takes no keyword arguments\nNotImplementedError ()  NotImplementedError() True\nNotImplementedError ('',)  NotImplementedError('') True\nNotImplementedError ('message',) message NotImplementedError('message') True\nNotImplementedError (17,) 17 NotImplementedError(17) True\nNotImplementedError (None,) None NotImplementedError(None) True\nNotImplementedError ('a', 2) ('a', 2) NotImplementedError('a', 2) True\nNotImplementedError ((1, 2),) (1, 2) NotImplementedError((1, 2)) True\nkeyword NotImplementedError() takes no keyword arguments\nRecursionError ()  RecursionError() True\nRecursionError ('',)  RecursionError('') True\nRecursionError ('message',) message RecursionError('message') True\nRecursionError (17,) 17 RecursionError(17) True\nRecursionError (None,) None RecursionError(None) True\nRecursionError ('a', 2) ('a', 2) RecursionError('a', 2) True\nRecursionError ((1, 2),) (1, 2) RecursionError((1, 2)) True\nkeyword RecursionError() takes no keyword arguments\nAssertionError ()  AssertionError() True\nAssertionError ('',)  AssertionError('') True\nAssertionError ('message',) message AssertionError('message') True\nAssertionError (17,) 17 AssertionError(17) True\nAssertionError (None,) None AssertionError(None) True\nAssertionError ('a', 2) ('a', 2) AssertionError('a', 2) True\nAssertionError ((1, 2),) (1, 2) AssertionError((1, 2)) True\nkeyword AssertionError() takes no keyword arguments\nGeneratorExit ()  GeneratorExit() True\nGeneratorExit ('',)  GeneratorExit('') True\nGeneratorExit ('message',) message GeneratorExit('message') True\nGeneratorExit (17,) 17 GeneratorExit(17) True\nGeneratorExit (None,) None GeneratorExit(None) True\nGeneratorExit ('a', 2) ('a', 2) GeneratorExit('a', 2) True\nGeneratorExit ((1, 2),) (1, 2) GeneratorExit((1, 2)) True\nkeyword GeneratorExit() takes no keyword arguments\nidentity BaseException True []\nformat argument BaseException(Argument()) ['str', 'repr']\ncleared  BaseException()\nidentity Exception True []\nformat argument Exception(Argument()) ['str', 'repr']\ncleared  Exception()\nidentity ValueError True []\nformat argument ValueError(Argument()) ['str', 'repr']\ncleared  ValueError()\nidentity GeneratorExit True []\nformat argument GeneratorExit(Argument()) ['str', 'repr']\ncleared  GeneratorExit()\ncaught-args ()\nresult 19\ncaught-args ('',)\nresult 19\n",
+        "actual": "BaseException ()  BaseException() True\nBaseException ('',)  BaseException('') True\nBaseException ('message',) message BaseException('message') True\nBaseException (17,) 17 BaseException(17) True\nBaseException (None,) None BaseException(None) True\nBaseException ('a', 2) ('a', 2) BaseException('a', 2) True\nBaseException ((1, 2),) (1, 2) BaseException((1, 2)) True\nkeyword BaseException() takes no keyword arguments\nException ()  Exception() True\nException ('',)  Exception('') True\nException ('message',) message Exception('message') True\nException (17,) 17 Exception(17) True\nException (None,) None Exception(None) True\nException ('a', 2) ('a', 2) Exception('a', 2) True\nException ((1, 2),) (1, 2) Exception((1, 2)) True\nkeyword Exception() takes no keyword arguments\nTypeError ()  TypeError() True\nTypeError ('',)  TypeError('') True\nTypeError ('message',) message TypeError('message') True\nTypeError (17,) 17 TypeError(17) True\nTypeError (None,) None TypeError(None) True\nTypeError ('a', 2) ('a', 2) TypeError('a', 2) True\nTypeError ((1, 2),) (1, 2) TypeError((1, 2)) True\nkeyword TypeError() takes no keyword arguments\nValueError ()  ValueError() True\nValueError ('',)  ValueError('') True\nValueError ('message',) message ValueError('message') True\nValueError (17,) 17 ValueError(17) True\nValueError (None,) None ValueError(None) True\nValueError ('a', 2) ('a', 2) ValueError('a', 2) True\nValueError ((1, 2),) (1, 2) ValueError((1, 2)) True\nkeyword ValueError() takes no keyword arguments\nArithmeticError ()  ArithmeticError() True\nArithmeticError ('',)  ArithmeticError('') True\nArithmeticError ('message',) message ArithmeticError('message') True\nArithmeticError (17,) 17 ArithmeticError(17) True\nArithmeticError (None,) None ArithmeticError(None) True\nArithmeticError ('a', 2) ('a', 2) ArithmeticError('a', 2) True\nArithmeticError ((1, 2),) (1, 2) ArithmeticError((1, 2)) True\nkeyword ArithmeticError() takes no keyword arguments\nZeroDivisionError ()  ZeroDivisionError() True\nZeroDivisionError ('',)  ZeroDivisionError('') True\nZeroDivisionError ('message',) message ZeroDivisionError('message') True\nZeroDivisionError (17,) 17 ZeroDivisionError(17) True\nZeroDivisionError (None,) None ZeroDivisionError(None) True\nZeroDivisionError ('a', 2) ('a', 2) ZeroDivisionError('a', 2) True\nZeroDivisionError ((1, 2),) (1, 2) ZeroDivisionError((1, 2)) True\nkeyword ZeroDivisionError() takes no keyword arguments\nOverflowError ()  OverflowError() True\nOverflowError ('',)  OverflowError('') True\nOverflowError ('message',) message OverflowError('message') True\nOverflowError (17,) 17 OverflowError(17) True\nOverflowError (None,) None OverflowError(None) True\nOverflowError ('a', 2) ('a', 2) OverflowError('a', 2) True\nOverflowError ((1, 2),) (1, 2) OverflowError((1, 2)) True\nkeyword OverflowError() takes no keyword arguments\nLookupError ()  LookupError() True\nLookupError ('',)  LookupError('') True\nLookupError ('message',) message LookupError('message') True\nLookupError (17,) 17 LookupError(17) True\nLookupError (None,) None LookupError(None) True\nLookupError ('a', 2) ('a', 2) LookupError('a', 2) True\nLookupError ((1, 2),) (1, 2) LookupError((1, 2)) True\nkeyword LookupError() takes no keyword arguments\nIndexError ()  IndexError() True\nIndexError ('',)  IndexError('') True\nIndexError ('message',) message IndexError('message') True\nIndexError (17,) 17 IndexError(17) True\nIndexError (None,) None IndexError(None) True\nIndexError ('a', 2) ('a', 2) IndexError('a', 2) True\nIndexError ((1, 2),) (1, 2) IndexError((1, 2)) True\nkeyword IndexError() takes no keyword arguments\nRuntimeError ()  RuntimeError() True\nRuntimeError ('',)  RuntimeError('') True\nRuntimeError ('message',) message RuntimeError('message') True\nRuntimeError (17,) 17 RuntimeError(17) True\nRuntimeError (None,) None RuntimeError(None) True\nRuntimeError ('a', 2) ('a', 2) RuntimeError('a', 2) True\nRuntimeError ((1, 2),) (1, 2) RuntimeError((1, 2)) True\nkeyword RuntimeError() takes no keyword arguments\nSystemError ()  SystemError() True\nSystemError ('',)  SystemError('') True\nSystemError ('message',) message SystemError('message') True\nSystemError (17,) 17 SystemError(17) True\nSystemError (None,) None SystemError(None) True\nSystemError ('a', 2) ('a', 2) SystemError('a', 2) True\nSystemError ((1, 2),) (1, 2) SystemError((1, 2)) True\nkeyword SystemError() takes no keyword arguments\nNotImplementedError ()  NotImplementedError() True\nNotImplementedError ('',)  NotImplementedError('') True\nNotImplementedError ('message',) message NotImplementedError('message') True\nNotImplementedError (17,) 17 NotImplementedError(17) True\nNotImplementedError (None,) None NotImplementedError(None) True\nNotImplementedError ('a', 2) ('a', 2) NotImplementedError('a', 2) True\nNotImplementedError ((1, 2),) (1, 2) NotImplementedError((1, 2)) True\nkeyword NotImplementedError() takes no keyword arguments\nRecursionError ()  RecursionError() True\nRecursionError ('',)  RecursionError('') True\nRecursionError ('message',) message RecursionError('message') True\nRecursionError (17,) 17 RecursionError(17) True\nRecursionError (None,) None RecursionError(None) True\nRecursionError ('a', 2) ('a', 2) RecursionError('a', 2) True\nRecursionError ((1, 2),) (1, 2) RecursionError((1, 2)) True\nkeyword RecursionError() takes no keyword arguments\nAssertionError ()  AssertionError() True\nAssertionError ('',)  AssertionError('') True\nAssertionError ('message',) message AssertionError('message') True\nAssertionError (17,) 17 AssertionError(17) True\nAssertionError (None,) None AssertionError(None) True\nAssertionError ('a', 2) ('a', 2) AssertionError('a', 2) True\nAssertionError ((1, 2),) (1, 2) AssertionError((1, 2)) True\nkeyword AssertionError() takes no keyword arguments\nGeneratorExit ()  GeneratorExit() True\nGeneratorExit ('',)  GeneratorExit('') True\nGeneratorExit ('message',) message GeneratorExit('message') True\nGeneratorExit (17,) 17 GeneratorExit(17) True\nGeneratorExit (None,) None GeneratorExit(None) True\nGeneratorExit ('a', 2) ('a', 2) GeneratorExit('a', 2) True\nGeneratorExit ((1, 2),) (1, 2) GeneratorExit((1, 2)) True\nkeyword GeneratorExit() takes no keyword arguments\nidentity BaseException True []\nformat argument BaseException(Argument()) ['str', 'repr']\ncleared  BaseException()\nidentity Exception True []\nformat argument Exception(Argument()) ['str', 'repr']\ncleared  Exception()\nidentity ValueError True []\nformat argument ValueError(Argument()) ['str', 'repr']\ncleared  ValueError()\nidentity GeneratorExit True []\nformat argument GeneratorExit(Argument()) ['str', 'repr']\ncleared  GeneratorExit()\ncaught-args ()\nresult 19\ncaught-args ('',)\nresult 19\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_context_after_handler.py",
+        "matching": true,
+        "expected": "exception context restored: PASS\n",
+        "actual": "exception context restored: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_stack_depth_regression.py",
+        "matching": true,
+        "expected": "[('caught', 'first'), ('finally', 0, 0), ('value', 107), ('finally', 0, 1), ('caught', 'third'), ('finally', 1, 0), ('finally', 1, 1)]\n['handler', 'finally', 'handler', 'else', 'finally', 'else', 'else', 'finally']\n['once']\n['enter', 'ValueError', 'enter', 'GeneratorExit']\n[(0, 'exit failure'), (1, 'exit failure')]\nexception stack depth: passed\n",
+        "actual": "[('caught', 'first'), ('finally', 0, 0), ('value', 107), ('finally', 0, 1), ('caught', 'third'), ('finally', 1, 0), ('finally', 1, 1)]\n['handler', 'finally', 'handler', 'else', 'finally', 'else', 'else', 'finally']\n['once']\n['enter', 'ValueError', 'enter', 'GeneratorExit']\n[(0, 'exit failure'), (1, 'exit failure')]\nexception stack depth: passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_state_in_callee.py",
+        "matching": true,
+        "expected": "caller exception state: PASS\n",
+        "actual": "caller exception state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "exception_state_regression.py",
+        "matching": true,
+        "expected": "handled exception state: PASS\n",
+        "actual": "handled exception state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "finally_scope_regression.py",
+        "matching": true,
+        "expected": "finally scope lifetime: PASS\n",
+        "actual": "finally scope lifetime: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_close_delegation.py",
+        "matching": true,
+        "expected": "generator delegated close: PASS\n",
+        "actual": "generator delegated close: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_close_exception.py",
+        "matching": true,
+        "expected": "generator close exception: PASS\n",
+        "actual": "generator close exception: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_close_regression.py",
+        "matching": true,
+        "expected": "generator close state: PASS\n",
+        "actual": "generator close state: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_delegate_iterator.py",
+        "matching": true,
+        "expected": "generator delegate iterator: PASS\n",
+        "actual": "generator delegate iterator: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_delegation_close_regression.py",
+        "matching": true,
+        "expected": "delegated generator close: PASS\ndelegated close callbacks: PASS\n",
+        "actual": "delegated generator close: PASS\ndelegated close callbacks: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_invalid_iterator.py",
+        "matching": true,
+        "expected": "yield from iterator validation: PASS\n",
+        "actual": "yield from iterator validation: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_kind_regression.py",
+        "matching": true,
+        "expected": "generator kind flags: PASS\n",
+        "actual": "generator kind flags: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_send_protocol_regression.py",
+        "matching": true,
+        "expected": "generator SEND protocol: PASS\nSEND value and descriptor errors: PASS\n",
+        "actual": "generator SEND protocol: PASS\nSEND value and descriptor errors: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_throw_delegation_regression.py",
+        "matching": true,
+        "expected": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "actual": "start yield inner\ncaught sent\nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\ncaught \nthrow yield handled\nresume return 23\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nstart yield inner\nthrow GeneratorExit \nresume return None\ncleanup ['inner', 'middle', 'outer']\nMissing yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nReceiver yield iterator\nraw (ValueError('value'),)\ninject yield received\nafter yield iterator\nevents ['close', 'middle']\nLookupFailure yield iterator\ninject LookupError lookup\nafter yield iterator\nevents ['close', 'middle']\nCallFailure yield iterator\ninject LookupError call\nafter return None\nevents ['middle']\nFinish yield iterator\ninject return 37\nafter return None\nevents ['middle']\nCloseFailure yield iterator\ninject ValueError value\nafter return None\nevents ['middle']\nlookup-nested-start yield iterator\nlookup-nested LookupError lookup\nlookup-inner-resume yield iterator\nraw-start yield iterator\nraw (42,)\nraw-invalid yield received\nclose-start yield iterator\nclose-throw RuntimeError generator ignored GeneratorExit\nclose-resume return None\ndirect-close-start yield iterator\ndirect-close-throw yield close\ndirect-close-resume return 41\nreentry-start yield iterator\nreenter-next ValueError generator already executing\nreentry-throw yield reentered\nreentry-resume yield iterator\nsend-start yield first\nsend-throw yield second\nsend-value return 51\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_throw_expression_stack.py",
+        "matching": true,
+        "expected": "generator throw expression stack: PASS\n",
+        "actual": "generator throw expression stack: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_throw_loop_resume.py",
+        "matching": true,
+        "expected": "generator throw loop resume: PASS\ngenerator throw nested/send/close: PASS\n",
+        "actual": "generator throw loop resume: PASS\ngenerator throw nested/send/close: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "generator_wide_jump_regression.py",
+        "matching": true,
+        "expected": "wide generator: 300 [10, 0, 610, 300]\nwide generator: 14000 [10, 0, 28010, 14000]\n",
+        "actual": "wide generator: 300 [10, 0, 610, 300]\nwide generator: 14000 [10, 0, 28010, 14000]\n",
+        "adjustment": null
+      },
+      {
+        "name": "instruction_offsets_regression.py",
+        "matching": true,
+        "expected": "wide jumps and exception offsets: PASS\n",
+        "actual": "wide jumps and exception offsets: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "iter_protocol_regression.py",
+        "matching": true,
+        "expected": "iter protocol regression passed\n",
+        "actual": "iter protocol regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "iterator_lookup_error_fallback.py",
+        "matching": true,
+        "expected": "iterator lookup error fallback passed\n",
+        "actual": "iterator lookup error fallback passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "lookup_exception_constructor_regression.py",
+        "matching": true,
+        "expected": "NameError ()  NameError() None\nNameError ('',)  NameError('') None\nNameError ('message',) message NameError('message') None\nNameError (17,) 17 NameError(17) None\nNameError (None,) None NameError(None) None\nNameError ('a', 2) ('a', 2) NameError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid NameError 'wrong' is an invalid keyword argument for NameError()\ninvalid NameError NameError() takes at most 1 keyword argument (2 given)\ninvalid NameError NameError() takes at most 1 keyword argument (3 given)\nUnboundLocalError ()  UnboundLocalError() None\nUnboundLocalError ('',)  UnboundLocalError('') None\nUnboundLocalError ('message',) message UnboundLocalError('message') None\nUnboundLocalError (17,) 17 UnboundLocalError(17) None\nUnboundLocalError (None,) None UnboundLocalError(None) None\nUnboundLocalError ('a', 2) ('a', 2) UnboundLocalError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid UnboundLocalError 'wrong' is an invalid keyword argument for NameError()\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (2 given)\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (3 given)\nAttributeError ()  AttributeError() None\ndefault-obj None\nAttributeError ('',)  AttributeError('') None\ndefault-obj None\nAttributeError ('message',) message AttributeError('message') None\ndefault-obj None\nAttributeError (17,) 17 AttributeError(17) None\ndefault-obj None\nAttributeError (None,) None AttributeError(None) None\ndefault-obj None\nAttributeError ('a', 2) ('a', 2) AttributeError('a', 2) None\ndefault-obj None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError AttributeError() takes at most 2 keyword arguments (3 given)\nboth-identities True True (1, 2)\nobj-set 19\nobj-deleted None\nobj-deleted-again None\nargs-independent True None changed\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for AttributeError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for AttributeError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for AttributeError()\"\n",
+        "actual": "NameError ()  NameError() None\nNameError ('',)  NameError('') None\nNameError ('message',) message NameError('message') None\nNameError (17,) 17 NameError(17) None\nNameError (None,) None NameError(None) None\nNameError ('a', 2) ('a', 2) NameError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid NameError 'wrong' is an invalid keyword argument for NameError()\ninvalid NameError NameError() takes at most 1 keyword argument (2 given)\ninvalid NameError NameError() takes at most 1 keyword argument (3 given)\nUnboundLocalError ()  UnboundLocalError() None\nUnboundLocalError ('',)  UnboundLocalError('') None\nUnboundLocalError ('message',) message UnboundLocalError('message') None\nUnboundLocalError (17,) 17 UnboundLocalError(17) None\nUnboundLocalError (None,) None UnboundLocalError(None) None\nUnboundLocalError ('a', 2) ('a', 2) UnboundLocalError('a', 2) None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid UnboundLocalError 'wrong' is an invalid keyword argument for NameError()\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (2 given)\ninvalid UnboundLocalError NameError() takes at most 1 keyword argument (3 given)\nAttributeError ()  AttributeError() None\ndefault-obj None\nAttributeError ('',)  AttributeError('') None\ndefault-obj None\nAttributeError ('message',) message AttributeError('message') None\ndefault-obj None\nAttributeError (17,) 17 AttributeError(17) None\ndefault-obj None\nAttributeError (None,) None AttributeError(None) None\ndefault-obj None\nAttributeError ('a', 2) ('a', 2) AttributeError('a', 2) None\ndefault-obj None\nname-identity True ('message',)\nname-set 17\nname-deleted None\nname-deleted-again None\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError 'wrong' is an invalid keyword argument for AttributeError()\ninvalid AttributeError AttributeError() takes at most 2 keyword arguments (3 given)\nboth-identities True True (1, 2)\nobj-set 19\nobj-deleted None\nobj-deleted-again None\nargs-independent True None changed\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nexplicit-none () None\ncaught-identity True None ()\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for NameError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for NameError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for NameError()\"\nkeyword-text \"'bad'name' is an invalid keyword argument for AttributeError()\"\nkeyword-text '\\'bad\"name\\' is an invalid keyword argument for AttributeError()'\nkeyword-text \"'line\\nname' is an invalid keyword argument for AttributeError()\"\n",
+        "adjustment": null
+      },
+      {
+        "name": "metaclass_bound_method_closure.py",
+        "matching": true,
+        "expected": "metaclass lexical closure passed\n",
+        "actual": "metaclass lexical closure passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "metaclass_invalid_iterator.py",
+        "matching": true,
+        "expected": "metaclass iterator validation passed\n",
+        "actual": "metaclass iterator validation passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "metaclass_iterator_protocol_regression.py",
+        "matching": true,
+        "expected": "metaclass iterator protocol passed\n",
+        "actual": "metaclass iterator protocol passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "nested_finally_return_duplicate.py",
+        "matching": true,
+        "expected": "7 ['inner', 'live', 'outer']\n",
+        "actual": "7 ['inner', 'live', 'outer']\n",
+        "adjustment": null
+      },
+      {
+        "name": "range_slice_step_regression.py",
+        "matching": true,
+        "expected": "range slice step: 1800 28800000000000000000000000000000000000000000000000000000000000000000000004991374256218208043596695771656\n",
+        "actual": "range slice step: 1800 28800000000000000000000000000000000000000000000000000000000000000000000004991374256218208043596695771656\n",
+        "adjustment": null
+      },
+      {
+        "name": "sequence_iterator_protocol_regression.py",
+        "matching": true,
+        "expected": "sequence iterator regression passed\n",
+        "actual": "sequence iterator regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_alias_class_cell.py",
+        "matching": true,
+        "expected": "super alias class cell passed\n",
+        "actual": "super alias class cell passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_captured_first_argument.py",
+        "matching": true,
+        "expected": "super captured first argument passed\n",
+        "actual": "super captured first argument passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_frame_regression.py",
+        "matching": true,
+        "expected": "super frame regression passed\n",
+        "actual": "super frame regression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "super_name_analysis_regression.py",
+        "matching": true,
+        "expected": "super name analysis regression passed\nsuper cell scope suppression passed\n",
+        "actual": "super name analysis regression passed\nsuper cell scope suppression passed\n",
+        "adjustment": null
+      },
+      {
+        "name": "unbound_fast_local.py",
+        "matching": true,
+        "expected": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+        "actual": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+        "adjustment": null
+      },
+      {
+        "name": "unbound_variable_regression.py",
+        "matching": true,
+        "expected": "local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndeleted-local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-missing UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-only-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nlocal-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nparameter-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-cell-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nfree-read NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-delete NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-deleted NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nmixed-store-delete UnboundLocalError cannot access local variable 'alpha' where it is not associated with a value None\nexcept-target UnboundLocalError cannot access local variable 'error' where it is not associated with a value None\ncomprehension-restore UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nunbound variable regression: PASS\n",
+        "actual": "local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndeleted-local UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-missing UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-only-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nlocal-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nparameter-cell UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\ndelete-cell-twice UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nfree-read NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-delete NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nfree-deleted NameError cannot access free variable 'value' where it is not associated with a value in enclosing scope value\nmixed-store-delete UnboundLocalError cannot access local variable 'alpha' where it is not associated with a value None\nexcept-target UnboundLocalError cannot access local variable 'error' where it is not associated with a value None\ncomprehension-restore UnboundLocalError cannot access local variable 'value' where it is not associated with a value None\nunbound variable regression: PASS\n",
+        "adjustment": null
+      },
+      {
+        "name": "unraisable_close_regression.py",
+        "matching": true,
+        "expected": "original-hook True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'coroutine exit', 'coroutine finally']\nambient-preserved True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'generator exit', 'generator finally']\nambient-preserved True\nreadonly readonly attribute\nreadonly readonly attribute\ndefault-result None\ndefault-text \"Exception ignored in: 'target'\\nValueError: message\\n\"\nargs-repr UnraisableHookArgs(exc_type=None, exc_value=None, exc_traceback=None, err_msg=None, object=None)\nhook-arguments sys.unraisablehook() takes exactly one argument (0 given)\nhook-arguments sys.unraisablehook argument type must be UnraisableHookArgs\nhook-arguments sys.unraisablehook() takes exactly one argument (2 given)\nhook-arguments sys.unraisablehook() takes no keyword arguments\nnone None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nmissing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nfailing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: <hook> RuntimeError: hook failed\nnot-callable None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: 17 TypeError: 'int' object is not callable\nbroken-stderr None\ndirect-write-error write failed\ndisabled-stderr None\nfield-counts 5 5 0\nconstructor-error structseq() missing required argument 'sequence' (pos 1)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (4-sequence given)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (6-sequence given)\nconstructor-error constructor requires a sequence\nconstructor-error UnraisableHookArgs() takes a dict as second arg, if any\nconstructor-error 'bad' is an invalid keyword argument for structseq()\nconstructor-error argument for structseq() given by name ('sequence') and position (1)\nconstructor-keywords True\nformat-failures 'message: <object repr() failed>\\nValueError: <exception str() failed>\\n'\ncustom-exception-name 'custom message:\\ncustom.CustomError\\n'\nother-close None\n['coroutine exit', 'coroutine finally']\nother-close-error call error\n['coroutine finally']\nother-close None\n['generator exit', 'generator finally']\nother-close-error call error\n['generator finally']\nunraisable close regression complete\n",
+        "actual": "original-hook True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'coroutine exit', 'coroutine finally']\nambient-preserved True\npaused\npayload UnraisableHookArgs True 5 None\nexception True ('lookup error',)\ntarget True True\ntraceback True\nframe close\nhandled True\nclose None\n['hook', 'generator exit', 'generator finally']\nambient-preserved True\nreadonly readonly attribute\nreadonly readonly attribute\ndefault-result None\ndefault-text \"Exception ignored in: 'target'\\nValueError: message\\n\"\nargs-repr UnraisableHookArgs(exc_type=None, exc_value=None, exc_traceback=None, err_msg=None, object=None)\nhook-arguments sys.unraisablehook() takes exactly one argument (0 given)\nhook-arguments sys.unraisablehook argument type must be UnraisableHookArgs\nhook-arguments sys.unraisablehook() takes exactly one argument (2 given)\nhook-arguments sys.unraisablehook() takes no keyword arguments\nnone None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nmissing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in: <delegate> ValueError: lookup error\nfailing None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: <hook> RuntimeError: hook failed\nnot-callable None ['coroutine exit', 'coroutine finally']\nfallback Exception ignored in sys.unraisablehook: 17 TypeError: 'int' object is not callable\nbroken-stderr None\ndirect-write-error write failed\ndisabled-stderr None\nfield-counts 5 5 0\nconstructor-error structseq() missing required argument 'sequence' (pos 1)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (4-sequence given)\nconstructor-error UnraisableHookArgs() takes a 5-sequence (6-sequence given)\nconstructor-error constructor requires a sequence\nconstructor-error UnraisableHookArgs() takes a dict as second arg, if any\nconstructor-error 'bad' is an invalid keyword argument for structseq()\nconstructor-error argument for structseq() given by name ('sequence') and position (1)\nconstructor-keywords True\nformat-failures 'message: <object repr() failed>\\nValueError: <exception str() failed>\\n'\ncustom-exception-name 'custom message:\\ncustom.CustomError\\n'\nother-close None\n['coroutine exit', 'coroutine finally']\nother-close-error call error\n['coroutine finally']\nother-close None\n['generator exit', 'generator finally']\nother-close-error call error\n['generator finally']\nunraisable close regression complete\n",
+        "adjustment": null
+      },
+      {
+        "name": "unraisable_traceback_format.py",
+        "matching": true,
+        "expected": "Exception ignored in: <pause>\nTraceback (most recent call last):\n  File \"res://unraisable_traceback_format.py\", line 14, in close\n    raise ValueError(\"lookup\")\nValueError: lookup\n",
+        "actual": "Exception ignored in: <pause>\nTraceback (most recent call last):\n  File \"res://unraisable_traceback_format.py\", line 14, in close\n    raise ValueError(\"lookup\")\nValueError: lookup\n",
+        "adjustment": {
+          "from": "C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\unraisable_traceback_format.py",
+          "to": "res://unraisable_traceback_format.py"
+        }
+      }
+    ]
+  },
+  "cfg": {
+    "status": "PASS",
+    "terminal_cycles": 4,
+    "constant_return_boundary": true,
+    "generator_resume_and_handler": true
+  },
+  "performance": {
+    "lookup_exception_construction": {
+      "before": {
+        "milliseconds": 10.33805,
+        "process_median_range": [
+          10.077,
+          10.6578
+        ],
+        "allocated_bytes": 4561192.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 379.2549,
+            "results": [
+              {
+                "name": "lookup_exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.5842,
+                  10.5591,
+                  9.9651,
+                  10.024,
+                  10.2816,
+                  10.0993,
+                  9.8322,
+                  9.9774,
+                  10.3633,
+                  10.0547
+                ],
+                "allocated_bytes": [
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 386.217,
+            "results": [
+              {
+                "name": "lookup_exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.8139,
+                  10.4943,
+                  10.982,
+                  10.4885,
+                  10.4494,
+                  10.3869,
+                  10.7059,
+                  10.6097,
+                  11.0594,
+                  10.801
+                ],
+                "allocated_bytes": [
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 397.7563,
+            "results": [
+              {
+                "name": "lookup_exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  11.0647,
+                  10.6638,
+                  10.1212,
+                  10.1946,
+                  10.335,
+                  10.3993,
+                  10.3411,
+                  10.0029,
+                  10.5857,
+                  10.3076
+                ],
+                "allocated_bytes": [
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192,
+                  4561192
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "milliseconds": 9.91985,
+        "process_median_range": [
+          9.8812,
+          10.174050000000001
+        ],
+        "allocated_bytes": 3441192.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 381.7981,
+            "results": [
+              {
+                "name": "lookup_exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.2996,
+                  9.9021,
+                  9.8579,
+                  10.1321,
+                  11.0824,
+                  9.912,
+                  9.9277,
+                  9.7697,
+                  9.824,
+                  10.2307
+                ],
+                "allocated_bytes": [
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 381.046,
+            "results": [
+              {
+                "name": "lookup_exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.8241,
+                  9.7548,
+                  9.8358,
+                  9.7284,
+                  10.3201,
+                  9.9636,
+                  9.9932,
+                  9.8925,
+                  9.8699,
+                  10.2523
+                ],
+                "allocated_bytes": [
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 379.9112,
+            "results": [
+              {
+                "name": "lookup_exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  9.8211,
+                  10.3881,
+                  10.0433,
+                  9.8268,
+                  10.8719,
+                  10.5156,
+                  10.53,
+                  9.9376,
+                  9.911,
+                  10.3048
+                ],
+                "allocated_bytes": [
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192,
+                  3441192
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "time_change_percent": -4.045250313163518
+    },
+    "exception_construction": {
+      "before": {
+        "milliseconds": 6.775,
+        "process_median_range": [
+          6.649,
+          6.9168
+        ],
+        "allocated_bytes": 2001184.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 386.2211,
+            "results": [
+              {
+                "name": "exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  6.692,
+                  6.6186,
+                  6.682,
+                  6.6494,
+                  6.617,
+                  7.5527,
+                  6.5561,
+                  7.4929,
+                  6.629,
+                  6.6486
+                ],
+                "allocated_bytes": [
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 365.2897,
+            "results": [
+              {
+                "name": "exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  7.9008,
+                  6.5865,
+                  6.6457,
+                  6.6462,
+                  7.1449,
+                  7.3926,
+                  6.8255,
+                  6.7245,
+                  6.8392,
+                  6.5805
+                ],
+                "allocated_bytes": [
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 380.4708,
+            "results": [
+              {
+                "name": "exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  7.0304,
+                  6.717,
+                  6.9458,
+                  6.7964,
+                  6.7304,
+                  7.5747,
+                  6.7066,
+                  7.3297,
+                  7.0065,
+                  6.8878
+                ],
+                "allocated_bytes": [
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "milliseconds": 7.21165,
+        "process_median_range": [
+          6.5838,
+          7.8571
+        ],
+        "allocated_bytes": 2001184.0,
+        "raw": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 393.4196,
+            "results": [
+              {
+                "name": "exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  6.6099,
+                  6.504,
+                  8.2431,
+                  7.1964,
+                  7.517,
+                  7.3942,
+                  7.4754,
+                  6.7862,
+                  7.2269,
+                  6.5714
+                ],
+                "allocated_bytes": [
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 379.4176,
+            "results": [
+              {
+                "name": "exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  6.5793,
+                  6.6215,
+                  6.7382,
+                  6.5831,
+                  6.6139,
+                  7.5802,
+                  6.5666,
+                  6.5127,
+                  6.5845,
+                  6.5676
+                ],
+                "allocated_bytes": [
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 10,
+            "warmups": 10,
+            "setup_milliseconds": 377.9131,
+            "results": [
+              {
+                "name": "exception_construction",
+                "expected": 49995000,
+                "milliseconds": [
+                  6.7691,
+                  7.9635,
+                  6.7446,
+                  7.2967,
+                  7.7507,
+                  8.8471,
+                  9.5442,
+                  10.8914,
+                  8.1084,
+                  6.77
+                ],
+                "allocated_bytes": [
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184,
+                  2001184
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "time_change_percent": 6.445018450184481
+    }
+  }
+}

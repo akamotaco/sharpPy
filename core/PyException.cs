@@ -301,7 +301,44 @@ namespace SharpPy
 
     public class PyAttributeError : PyException
     {
+        private PyObject _name;
+        private PyObject _obj;
+
+        internal PyAttributeError(PyObject[] args, PyDict kwargs) : base(args)
+        {
+            if (kwargs == null || kwargs.Length() == 0) return;
+            if (kwargs.Length() > 2)
+                throw PyTypeError.Create($"AttributeError() takes at most 2 keyword arguments ({kwargs.Length()} given)");
+            foreach (var pair in kwargs.InternalDict)
+            {
+                if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
+                else if (pair.Key is PyString { Value: "obj" }) _obj = pair.Value;
+                else throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for AttributeError()");
+            }
+        }
+
         public PyAttributeError(string message) : base(message) { }
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "name" => _name ?? PyNone.Instance,
+            "obj" => _obj ?? PyNone.Instance,
+            _ => base.GetAttribute(name)
+        };
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "name") _name = value;
+            else if (name == "obj") _obj = value;
+            else base.SetAttribute(name, value);
+        }
+
+        public override void DelAttribute(string name)
+        {
+            if (name == "name") _name = null;
+            else if (name == "obj") _obj = null;
+            else base.DelAttribute(name);
+        }
+
         public override PyType GetPyType() => PyType.AttributeErrorType;
         public override string GetTypeName() => "AttributeError";
 
@@ -315,6 +352,18 @@ namespace SharpPy
     public class PyNameError : PyException
     {
         private PyObject _name = PyNone.Instance;
+        internal PyNameError(PyObject[] args, PyDict kwargs) : base(args)
+        {
+            if (kwargs == null || kwargs.Length() == 0) return;
+            if (kwargs.Length() > 1)
+                throw PyTypeError.Create($"NameError() takes at most 1 keyword argument ({kwargs.Length()} given)");
+            foreach (var pair in kwargs.InternalDict)
+            {
+                if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
+                else throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for NameError()");
+            }
+        }
+
         public PyNameError(string message) : base(message) { }
 
         public override PyObject GetAttribute(string name) =>
@@ -350,6 +399,8 @@ namespace SharpPy
 
     public class PyUnboundLocalError : PyNameError
     {
+        internal PyUnboundLocalError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyUnboundLocalError(string message) : base(message) { }
         public override PyType GetPyType() => PyType.UnboundLocalErrorType;
         public override string GetTypeName() => "UnboundLocalError";
