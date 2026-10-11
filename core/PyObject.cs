@@ -273,12 +273,18 @@ namespace SharpPy
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         internal PyObject TryCompareSpecial(PyObject other, CompareOp op, PyType nativeBase = null)
         {
-            if ((uint)op >= 6) throw PyValueError.Create($"Invalid comparison operator: {op}");
+            if ((uint)op >= 6) ThrowInvalidComparison(op);
             var type = GetPyType();
             var method = type is PyClass cls
                 ? cls.LookupComparisonMethod(op, nativeBase)
                 : FindComparisonMethod(type, op, nativeBase);
             return method == null ? null : CallComparisonMethod(method, other);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void ThrowInvalidComparison(CompareOp op)
+        {
+            throw PyValueError.Create($"Invalid comparison operator: {op}");
         }
 
         private PyObject CallComparisonMethod(PyObject method, PyObject other)

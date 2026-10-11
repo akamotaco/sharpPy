@@ -31,7 +31,31 @@ internal static class ComparisonCacheProbe
             Check(instance);
             repeatBytes += GC.GetAllocatedBytesForCurrentThread() - before;
         }
+        // Invalid native enum values must still fail before a cached bit is used.
+        var receivers = new PyObject[] {
+            new PyIntSubclass(new PyClass("Number", bases), value),
+            new PyClassInstance(new PyClass("Object", new[] { PyType.ObjectType }))
+        };
+        int invalidChecks = 0;
+        foreach (var receiver in receivers)
+        {
+            receiver.RichCompare(value, PyObject.CompareOp.LT);
+            foreach (int invalid in new[] { -1, 6, 32, 64 })
+            {
+                try
+                {
+                    receiver.RichCompare(value, (PyObject.CompareOp)invalid);
+                    throw new InvalidOperationException("Invalid comparison operator was accepted");
+                }
+                catch (PythonException error) when (error.PyException is PyValueError &&
+                    error.PyException.Message == $"Invalid comparison operator: {invalid}")
+                {
+                    invalidChecks++;
+                }
+            }
+        }
         return new { iterations, construction_bytes = constructionBytes,
-            first_comparison_bytes = firstBytes, repeated_comparison_bytes = repeatBytes };
+            first_comparison_bytes = firstBytes, repeated_comparison_bytes = repeatBytes,
+            invalid_operator_checks = invalidChecks };
     }
 }
