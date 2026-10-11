@@ -2511,10 +2511,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyString을 PyInt로 변환
         /// </summary>
-        public override PyInt AsInt()
-        {
-            return new PyInt(ToInt());
-        }
+        public override PyInt AsInt() => PyInt.FromString(Value);
         
         /// <summary>
         /// CPython 호환: PyString을 PyFloat로 변환

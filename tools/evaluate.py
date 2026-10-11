@@ -101,6 +101,8 @@ def main():
         "tests/compatibility/int_subclass_hash_protocol.py",
         "tests/numeric_mixed_comparison_regression.py",
         "tests/integer_subclass_comparison_regression.py",
+        "tests/integer_string_parsing_regression.py",
+        "tests/compatibility/int_subclass_large_string.py",
         "tests/comparison_dispatch_regression.py",
         "tests/integer_comparison_fastpath_regression.py",
         "tests/comparison_container_regression.py",

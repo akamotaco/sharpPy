@@ -75,57 +75,6 @@ namespace SharpPy
                 });
 
 
-            // CPython 3.12: Objects/longobject.c:5598-5605, 5652-5684 - long_new / long_subtype_new
-            // __new__(cls, x=0, /) - Create a new int object
-            // For int subclasses (IntEnum, IntFlag), this must preserve the custom type
-            // Note: __new__ is special - 'self' parameter is actually 'cls' (the type)
-            // CPython: tp_new slot, wrapped by WRAP_NEW macro (Objects/typeobject.c)
-            intType.TypeDict["__new__"] = new PyMethodDescriptor(
-                "__new__", intType,
-                (self, args, kwargs) => {
-                    // CPython: __new__ is special: 'self' is the class (cls), not an instance
-                    // When called as: int.__new__(RegexFlag, 64)
-                    // PyMethodDescriptor extracts first arg as 'self', so:
-                    //   self = RegexFlag (the class)
-                    //   args = [64] (remaining arguments)
-                    PyType cls = self as PyType ?? (self as PyClass);
-                    if (cls == null)
-                        throw PyTypeError.Create($"__new__() argument 1 must be a type, not '{self.GetTypeName()}'");
-
-                    // First arg in 'args' (if present) is the value
-                    // Reference: Objects/longobject.c::long_new
-                    long value = 0;
-                    if (args.Length > 0)
-                    {
-                        if (args[0] is PyInt intArg)
-                            value = intArg.ToLong();
-                        else if (args[0] is PyBool boolArg)
-                            value = boolArg.Value ? 1 : 0;
-                        else if (args[0] is PyString strArg)
-                            value = long.Parse(strArg.Value);
-                        else
-                            throw PyTypeError.Create($"int() argument must be a string or a number, not '{args[0].GetTypeName()}'");
-                    }
-
-                    // CPython 3.12: Objects/longobject.c:5603-5605
-                    // if (type != &PyLong_Type)
-                    //     return long_subtype_new(type, x, obase);
-                    // For int subclasses, create PyInt with custom type
-                    // CPython: long_subtype_new allocates via type->tp_alloc which sets ob_type
-                    if (cls != PyType.IntType)
-                    {
-                        // Subclass of int - preserve the custom type
-                        return new PyInt(value, cls);
-                    }
-                    else
-                    {
-                        // Plain int - no custom type needed
-                        return new PyInt(value);
-                    }
-                },
-                minArgs: 0, maxArgs: 1  // After 'self' extraction: 0-1 args (value)
-            );
-
             // CPython 3.12: Objects/longobject.c:5642-5658 - int_bit_length
             // Number of bits necessary to represent self in binary.
             // >>> bin(37)
@@ -1322,114 +1271,118 @@ namespace SharpPy
         /// Convert string to PyInt with optional base.
         /// CPython 3.12: Objects/longobject.c - PyLong_FromString() lines 2500-2700
         /// </summary>
-        public static PyInt FromString(string s, int baseValue = 10)
+        public static PyInt FromString(string original, int baseValue = 10)
         {
-            try
+            if (baseValue != 0 && (baseValue < 2 || baseValue > 36))
+                throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
+            int requestedBase = baseValue;
+            string text = original;
+            // PyUnicode_TransformDecimalAndSpaceToASCII. Allocate only for
+            // non-ASCII input; errors retain the original Unicode spelling.
+            for (int i = 0; i < text.Length; i++)
             {
-                s = s.Trim();
-
-                // Handle sign prefix (CPython: longobject.c line 2540)
-                int sign = 1;
-                if (s.Length > 0 && (s[0] == '+' || s[0] == '-'))
+                if (text[i] < 128) continue;
+                var normalized = new System.Text.StringBuilder(text.Length);
+                for (int j = 0; j < text.Length; j++)
                 {
-                    if (s[0] == '-') sign = -1;
-                    s = s.Substring(1);
-                }
-
-                // Handle base prefix (CPython: longobject.c lines 2550-2600)
-                // When base is 0, auto-detect from prefix
-                // When base is explicit, strip matching prefix if present
-                if (s.Length >= 2 && s[0] == '0')
-                {
-                    char prefix = char.ToLower(s[1]);
-                    if (prefix == 'x')
+                    char c = text[j];
+                    if (c < 128) normalized.Append(c);
+                    else if (char.IsWhiteSpace(c)) normalized.Append(' ');
+                    else
                     {
-                        if (baseValue == 0 || baseValue == 16)
+                        int digit = System.Globalization.CharUnicodeInfo.GetDecimalDigitValue(text, j);
+                        if (digit < 0) normalized.Append(c);
+                        else
                         {
-                            if (baseValue == 0) baseValue = 16;
-                            s = s.Substring(2);
-                        }
-                    }
-                    else if (prefix == 'b')
-                    {
-                        if (baseValue == 0 || baseValue == 2)
-                        {
-                            if (baseValue == 0) baseValue = 2;
-                            s = s.Substring(2);
-                        }
-                    }
-                    else if (prefix == 'o')
-                    {
-                        if (baseValue == 0 || baseValue == 8)
-                        {
-                            if (baseValue == 0) baseValue = 8;
-                            s = s.Substring(2);
+                            normalized.Append((char)('0' + digit));
+                            if (char.IsHighSurrogate(c) && j + 1 < text.Length && char.IsLowSurrogate(text[j + 1])) j++;
                         }
                     }
                 }
-
-                // Default base for auto-detect (CPython: longobject.c line 2610)
-                if (baseValue == 0) baseValue = 10;
-
-                // Handle empty string after prefix strip
-                if (string.IsNullOrEmpty(s))
-                {
-                    throw PyValueError.Create($"invalid literal for int() with base {baseValue}: '{s}'");
-                }
-
-                // Handle underscore separators (CPython 3.6+: PEP 515)
-                s = s.Replace("_", "");
-
-                // Convert string to number (CPython: longobject.c lines 2620-2700)
-                // .NET's Convert.ToInt64 only supports base 2, 8, 10, 16
-                // For other bases, use custom conversion
-                Py_int_t result;
-                if (baseValue == 2 || baseValue == 8 || baseValue == 10 || baseValue == 16)
-                {
-                    result = Convert.ToInt64(s, baseValue);
-                }
-                else
-                {
-                    result = ConvertFromBase(s, baseValue);
-                }
-                result *= sign;
-                return new PyInt(result);
+                text = normalized.ToString();
+                break;
             }
-            catch
+            int start = 0, end = text.Length;
+            while (start < end && IsIntegerSpace(text[start])) start++;
+            while (end > start && IsIntegerSpace(text[end - 1])) end--;
+            bool negative = false;
+            if (start < end && (text[start] == '+' || text[start] == '-'))
+                negative = text[start++] == '-';
+            bool leadingZero = baseValue == 0 && start < end && text[start] == '0';
+            if (start + 1 < end && text[start] == '0')
             {
-                throw PyValueError.Create($"invalid literal for int() with base {baseValue}: '{s}'");
+                int prefixBase = text[start + 1] switch { 'x' or 'X' => 16, 'b' or 'B' => 2, 'o' or 'O' => 8, _ => 0 };
+                if (prefixBase != 0 && (baseValue == 0 || baseValue == prefixBase))
+                {
+                    baseValue = prefixBase; start += 2; leadingZero = false;
+                    if (start < end && text[start] == '_') start++;
+                }
             }
+            if (baseValue == 0) baseValue = 10;
+            int digits = 0;
+            bool previousDigit = false, underscores = false, nonzero = false;
+            for (int i = start; i < end; i++)
+            {
+                if (text[i] == '_')
+                {
+                    if (!previousDigit) throw InvalidIntegerLiteral(original, requestedBase);
+                    underscores = true; previousDigit = false; continue;
+                }
+                int digit = IntegerDigit(text[i]);
+                if (digit < 0 || digit >= baseValue) throw InvalidIntegerLiteral(original, requestedBase);
+                previousDigit = true; digits++; nonzero |= digit != 0;
+            }
+            if (!previousDigit || (leadingZero && nonzero)) throw InvalidIntegerLiteral(original, requestedBase);
+            // CPython's default non-power-of-two input conversion limit.
+            if ((baseValue & (baseValue - 1)) != 0 && digits > 4300)
+                throw PyValueError.Create($"Exceeds the limit (4300 digits) for integer string conversion: value has {digits} digits; use sys.set_int_max_str_digits() to increase the limit");
+            BigInteger result;
+            if (baseValue == 10)
+            {
+                ReadOnlySpan<char> span = text.AsSpan(start, end - start);
+                if (underscores)
+                {
+                    var buffer = new char[digits];
+                    int next = 0;
+                    foreach (char c in span) if (c != '_') buffer[next++] = c;
+                    span = buffer;
+                }
+                result = ulong.TryParse(span, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out ulong small)
+                    ? new BigInteger(small)
+                    : BigInteger.Parse(span, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                // Accumulate native chunks rather than allocating a BigInteger
+                // product for every digit.
+                uint factor = (uint)baseValue;
+                int width = 1;
+                while (factor <= uint.MaxValue / (uint)baseValue) { factor *= (uint)baseValue; width++; }
+                uint chunk = 0, chunkFactor = 1;
+                int count = 0;
+                result = BigInteger.Zero;
+                for (int i = start; i < end; i++)
+                {
+                    if (text[i] == '_') continue;
+                    chunk = chunk * (uint)baseValue + (uint)IntegerDigit(text[i]);
+                    chunkFactor *= (uint)baseValue;
+                    if (++count == width)
+                    {
+                        result = result * factor + chunk;
+                        chunk = 0; chunkFactor = 1; count = 0;
+                    }
+                }
+                if (count != 0) result = result * chunkFactor + chunk;
+            }
+            return new PyInt(negative ? -result : result);
         }
 
-        /// <summary>
-        /// Convert string to long for bases not supported by Convert.ToInt64.
-        /// CPython 3.12: Objects/longobject.c lines 2620-2700
-        /// </summary>
-        private static Py_int_t ConvertFromBase(string s, int baseValue)
-        {
-            if (baseValue < 2 || baseValue > 36)
-                throw new ArgumentException($"int() base must be >= 2 and <= 36, or 0");
-
-            Py_int_t result = 0;
-            foreach (char c in s)
-            {
-                int digit;
-                if (c >= '0' && c <= '9')
-                    digit = c - '0';
-                else if (c >= 'a' && c <= 'z')
-                    digit = c - 'a' + 10;
-                else if (c >= 'A' && c <= 'Z')
-                    digit = c - 'A' + 10;
-                else
-                    throw new FormatException($"Invalid character '{c}'");
-
-                if (digit >= baseValue)
-                    throw new FormatException($"Invalid digit '{c}' for base {baseValue}");
-
-                result = result * baseValue + digit;
-            }
-            return result;
-        }
+        private static bool IsIntegerSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
+        private static int IntegerDigit(char c) => c >= '0' && c <= '9' ? c - '0' :
+            c >= 'a' && c <= 'z' ? c - 'a' + 10 : c >= 'A' && c <= 'Z' ? c - 'A' + 10 : -1;
+        private static Exception InvalidIntegerLiteral(string text, int radix) =>
+            PyValueError.Create($"invalid literal for int() with base {radix}: {new PyString(text).ToRepr().Value}");
 
         public static PyInt FromNumber(PyObject obj)
         {
