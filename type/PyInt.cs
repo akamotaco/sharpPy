@@ -566,7 +566,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/longobject.c:3200-3250 - long_richcompare
                 PyInt otherInt => PyBool.FromBool(Value == otherInt.Value),
-                PyFloat otherFloat => PyBool.FromBool((double)Value == otherFloat.Value),
+                PyFloat otherFloat => PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1 : 0)),
                 _ => PyBool.False
             };
@@ -582,7 +582,7 @@ namespace SharpPy
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value < otherInt.Value);
             if (other is PyFloat otherFloat)
-                return PyBool.FromBool((double)Value < otherFloat.Value);
+                return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) > 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value < (otherBool.Value ? 1 : 0));
 
@@ -596,7 +596,7 @@ namespace SharpPy
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value <= otherInt.Value);
             if (other is PyFloat otherFloat)
-                return PyBool.FromBool((double)Value <= otherFloat.Value);
+                return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) >= 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value <= (otherBool.Value ? 1 : 0));
 
@@ -610,7 +610,7 @@ namespace SharpPy
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value > otherInt.Value);
             if (other is PyFloat otherFloat)
-                return PyBool.FromBool((double)Value > otherFloat.Value);
+                return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) < 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value > (otherBool.Value ? 1 : 0));
 
@@ -625,7 +625,7 @@ namespace SharpPy
             if (other is PyInt otherInt)
                 return PyBool.FromBool(Value >= otherInt.Value);
             if (other is PyFloat otherFloat)
-                return PyBool.FromBool((double)Value >= otherFloat.Value);
+                return PyBool.FromBool(PyFloat.CompareToInteger(otherFloat.Value, Value) <= 0);
             if (other is PyBool otherBool)
                 return PyBool.FromBool(Value >= (otherBool.Value ? 1 : 0));
 

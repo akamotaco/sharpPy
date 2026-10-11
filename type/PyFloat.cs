@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 
 namespace SharpPy
 {
@@ -349,6 +350,32 @@ namespace SharpPy
 
         #region Hash and Equality
 
+        // Return a signed comparison value, or NaN for an unordered comparison.
+        // Only integers exactly representable as double may take the coercion path.
+        internal static double CompareToInteger(double value, BigInteger integer)
+        {
+            long bits = integer.GetBitLength();
+            if (bits <= 53)
+                return value - (double)integer;
+            if (!double.IsFinite(value))
+                return value;
+
+            // A matching integer here is too large to have a fractional double.
+            // CompareTo(long) avoids a temporary BigInteger backing array.
+            if (value >= long.MinValue && value < 9223372036854775808.0)
+                return -integer.CompareTo((long)value);
+            if (bits > 1024)
+                return -integer.Sign;
+
+            // Trailing zero bits do not consume double's 53-bit significand.
+            // Exact large integers can still use double without allocating.
+            if (BigInteger.TrailingZeroCount(integer) >= bits - 53)
+                return value - (double)integer;
+
+            // Outside Int64 every finite double is integral. Preserve all its bits.
+            return new BigInteger(value).CompareTo(integer);
+        }
+
         public override int ToHash()
         {
             // Python과 같은 방식으로 해시 계산
@@ -372,7 +399,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value == otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value == (double)otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) == 0),
                 PyBool otherBool => PyBool.FromBool(Value == (otherBool.Value ? 1.0 : 0.0)),
                 _ => PyBool.False
             };
@@ -388,7 +415,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value < otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value < (double)otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) < 0),
                 PyBool otherBool => PyBool.FromBool(Value < (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'<' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -400,7 +427,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value <= otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value <= (double)otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) <= 0),
                 PyBool otherBool => PyBool.FromBool(Value <= (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'<=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -412,7 +439,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value > otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value > (double)otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) > 0),
                 PyBool otherBool => PyBool.FromBool(Value > (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'>' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
@@ -424,7 +451,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Objects/floatobject.c:526-550 - float_richcompare
                 PyFloat otherFloat => PyBool.FromBool(Value >= otherFloat.Value),
-                PyInt otherInt => PyBool.FromBool(Value >= (double)otherInt.Value),
+                PyInt otherInt => PyBool.FromBool(CompareToInteger(Value, otherInt.Value) >= 0),
                 PyBool otherBool => PyBool.FromBool(Value >= (otherBool.Value ? 1.0 : 0.0)),
                 _ => throw PyTypeError.Create($"'>=' not supported between instances of 'float' and '{other.GetTypeName()}'")
             };
