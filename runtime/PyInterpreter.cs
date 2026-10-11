@@ -100,7 +100,13 @@ namespace SharpPy
             // CPython 3.12: Python/pythonrun.c - co_filename uses absolute path for file execution
             // Convert relative paths to absolute paths (like CPython does for __file__)
             // But keep special names like "<string>", "<stdin>", "<module>" as-is
-            if (!string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<") && !Path.IsPathRooted(fileName))
+#if GODOT
+            bool virtualPath = fileName?.StartsWith("res://", StringComparison.Ordinal) == true ||
+                               fileName?.StartsWith("user://", StringComparison.Ordinal) == true;
+#else
+            const bool virtualPath = false;
+#endif
+            if (!virtualPath && !string.IsNullOrEmpty(fileName) && !fileName.StartsWith("<") && !Path.IsPathRooted(fileName))
             {
                 fileName = Path.GetFullPath(fileName);
             }

@@ -81,6 +81,10 @@ namespace SharpPy.Modules
             module.ModuleDict["displayhook"] = new PySysFunction("displayhook");
             module.ModuleDict["__displayhook__"] = new PySysFunction("displayhook"); // Original hook
 
+            var unraisableHook = new PyBuiltinFunction("unraisablehook", PyUnraisable.DefaultHook);
+            module.ModuleDict["unraisablehook"] = unraisableHook;
+            module.ModuleDict["__unraisablehook__"] = unraisableHook;
+
             return module;
         }
 

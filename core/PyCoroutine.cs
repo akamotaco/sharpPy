@@ -235,6 +235,7 @@ namespace SharpPy.Core
                         PyObject close = null;
                         try { close = receiver.GetAttribute("close"); }
                         catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                        catch (PythonException error) { PyUnraisable.Report(error, receiver); }
                         close?.Call(Array.Empty<PyObject>(), null);
                     }
                 }
