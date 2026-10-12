@@ -133,6 +133,7 @@ def main():
         "tests/async_generator_throw_timing_regression.py",
         "tests/string_join_process_regression.py",
         "tests/frame_globals_regression.py",
+        "tests/namespace_key_callbacks_regression.py",
         "tests/source_warning_regression.py",
         "tests/compatibility/script_import/entry.py",
         "tests/cpython312_selected_regression.py",

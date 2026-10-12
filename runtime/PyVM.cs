@@ -20,7 +20,7 @@ namespace SharpPy
         public PyFrame? ParentFrame { get; set; }     // 부모 프레임 (call stack)
 
         // CPython 3.12: f_globals - Reference to module's __dict__ for import resolution
-        public Dictionary<string, PyObject> Globals { get; private set; }
+        public IDictionary<string, PyObject> Globals { get; private set; }
 
         // Helper property to access local scope from ScopeChain
         public PyScope? LocalScope => ScopeChain?.CurrentScope;
@@ -691,9 +691,9 @@ namespace SharpPy
                 ScopeChain.AssignVariable(name, value);
         }
 
-        internal void RefreshScopeLocals(Dictionary<string, PyObject> result)
+        internal void RefreshScopeLocals(IDictionary<string, PyObject> result)
         {
-            static void Sync(Dictionary<string, PyObject> result, string name, PyObject value)
+            static void Sync(IDictionary<string, PyObject> result, string name, PyObject value)
             {
                 if (value != null && !PyNull.IsNull(value)) result[name] = value;
                 else result.Remove(name);

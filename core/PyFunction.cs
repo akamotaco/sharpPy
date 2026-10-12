@@ -22,7 +22,7 @@ public partial class PyFunction : PyObject, IDescriptor
     public PyScopeChain? ParentScope { get; set; }         // 부모 스코프 (클로저용)
 
     // CPython 3.12: __globals__ attribute - function's global namespace
-    public Dictionary<string, PyObject>? GlobalsDict { get; set; }  // func.__globals__
+    public IDictionary<string, PyObject>? GlobalsDict { get; set; }  // func.__globals__
 
     // CPython 3.12 호환: __dict__ 및 __globals__ 캐시 (매번 새 객체 생성 방지)
     // Python에서 func.__dict__ is func.__dict__는 True여야 함
@@ -162,7 +162,7 @@ public partial class PyFunction : PyObject, IDescriptor
                     // Lazy-initialize and cache the globals dict wrapper
                     if (func._globalsCache == null)
                     {
-                        func._globalsCache = new PyDict(func.GlobalsDict);
+                        func._globalsCache = PyGlobalsDict.For(func.GlobalsDict);
                     }
                     return func._globalsCache;
                 }

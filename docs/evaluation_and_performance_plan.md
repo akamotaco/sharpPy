@@ -5,15 +5,19 @@
 요청된 1~6번은 123차 뒤의 소유권, 호스트 mapping, set/비교 비용, API 경계,
 float 포맷, 파일 IO를 뜻한다. CPython의 관찰 가능한 과정·결과를 기준으로 한다.
 
-- 1~2번: CLR GC와 Python 자원 해제를 구분한다. 전체 참조 카운팅을 전제하지 않으며
+- 1번: CLR GC와 Python 자원 해제를 구분한다. 전체 참조 카운팅을 전제하지 않으며
   호스트의 공개 변경 경로를 포함한 소유권 계약이 필요하다. 런타임 변경 전이다.
+- 2번: [125차 호스트 namespace](reports/2026-10-12/owned_host_namespace.md).
+  모듈/전역을 추적 가능한 IDictionary로 전환, Python 저장소를 원본으로 사용한다.
+  키 callback/순서/iterator와 host 19개 검증. legacy raw adapter 제한은 남는다.
+  owned Copy 스캔 제거, VM read 약 1.8% 지연 관측은 후속 비용으로 기록한다.
 - 3~4번: 작은 set 잔여 할당, 비교 dispatch 및 미감사 API 경계는 계속 남는다.
 - 5번: [124차 공통 포맷 구조](reports/2026-10-12/float_format_structure.md).
   기본 일반 포맷/그룹/진입점 수정, 무작위 27,000개 일치. 대상 할당 104B/회 감소.
   변경 가능한 locale 연결과 CLR 크기 한계는 별도 범위다.
 - 6번: 고정 CPython _io 소스를 확보해 열기·버퍼링·텍스트 계층을 검토 중이다.
 
-기본 225개는 220개 출력 일치, 가변 필드 제외 3개, native CLI 2개다.
+기본 226개는 221개 출력 일치, 가변 필드 제외 3개, native CLI 2개다.
 Godot 소스 빌드와 관련 포맷 회귀를 통과했다. 아래 118~123차 기록은 이전 단계다.
 
 ## 현재 후속 1~6번 작업 (118차부터)

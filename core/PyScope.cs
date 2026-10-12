@@ -20,7 +20,7 @@ namespace SharpPy
         public static PyBuiltinsModule Instance { get; private set; }
 
         // CPython 3.12: BuiltinDict is alias for ModuleDict
-        public Dictionary<string, PyObject> BuiltinDict => ModuleDict;
+        public IDictionary<string, PyObject> BuiltinDict => ModuleDict;
 
         static PyBuiltinsModule()
         {
@@ -361,8 +361,8 @@ namespace SharpPy
     public class PyScope
     {
         public ScopeType Type { get; }
-        private Dictionary<string, PyObject> _variables;
-        public virtual Dictionary<string, PyObject> Variables => _variables ??= new Dictionary<string, PyObject>();
+        private IDictionary<string, PyObject> _variables;
+        public virtual IDictionary<string, PyObject> Variables => _variables ??= CreateVariables();
         public PyScope EnclosingScope { get; }
         public string Name { get; }
         // CPython 3.12: frame->f_globals references module->md_dict
@@ -377,7 +377,7 @@ namespace SharpPy
         protected PyScope(ScopeType type, PyScope enclosingScope, string name, bool deferVariables)
         {
             Type = type;
-            if (!deferVariables) _variables = new Dictionary<string, PyObject>();
+            if (!deferVariables) _variables = CreateVariables();
             EnclosingScope = enclosingScope;
             Name = name;
             Module = null;
@@ -387,14 +387,17 @@ namespace SharpPy
         /// 모듈용 생성자: 기존 딕셔너리를 Variables로 사용
         /// CPython 3.12: Python/ceval.c - frame->f_globals points to module->md_dict
         /// </summary>
-        public PyScope(ScopeType type, Dictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "", PyModule module = null)
+        public PyScope(ScopeType type, IDictionary<string, PyObject> existingVariables, PyScope enclosingScope = null, string name = "", PyModule module = null)
         {
             Type = type;
-            _variables = existingVariables ?? new Dictionary<string, PyObject>();
+            _variables = existingVariables ?? CreateVariables();
             EnclosingScope = enclosingScope;
             Name = name;
             Module = module; // Store module for globals() to return module.__dict__
         }
+
+        private IDictionary<string, PyObject> CreateVariables() => Type == ScopeType.Global || Type == ScopeType.Module
+            ? new PyNamespace() : new Dictionary<string, PyObject>();
 
         public void SetVariable(string name, PyObject value)
         {
@@ -428,7 +431,7 @@ namespace SharpPy
         internal PyFastLocalScope(PyFrame frame, PyScope enclosingScope, string name)
             : base(ScopeType.Local, enclosingScope, name, true) => _frame = frame;
 
-        public override Dictionary<string, PyObject> Variables
+        public override IDictionary<string, PyObject> Variables
         {
             get
             {
@@ -474,7 +477,7 @@ namespace SharpPy
         /// </summary>
         // CPython 3.12: Python/ceval.c - frame->f_globals references module->md_dict
         // Constructor for module scope - requires module reference
-        public PyScopeChain(Dictionary<string, PyObject> moduleDict, string moduleName, PyModule module = null)
+        public PyScopeChain(IDictionary<string, PyObject> moduleDict, string moduleName, PyModule module = null)
         {
             // Builtin은 전역 싱글톤 모듈 (특별!)
             _builtinModule = PyBuiltinsModule.Instance;

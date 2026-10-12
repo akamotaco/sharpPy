@@ -137,7 +137,13 @@ if (args.Length > 0 && args[0] == "--globals-observation-probe")
     var observedBindings = new Dictionary<string, PyObject>();
     var observedValue = new PyInt(7);
     for (int i = 0; i < 100; i++) observedBindings["seed_" + i] = observedValue;
-    var observedGlobals = new PyGlobalsDict(observedBindings);
+    PyDict observedGlobals = new PyGlobalsDict(observedBindings);
+    if (args.Contains("--owned"))
+    {
+        var owned = new PyNamespace();
+        foreach (var pair in observedBindings) owned[pair.Key] = pair.Value;
+        observedGlobals = owned.PythonDictionary;
+    }
     var observationResults = new List<object>();
     foreach (string operation in args.Length > 1 ? new[] { args[1] } : new[] { "length", "copy", "construct" })
     {

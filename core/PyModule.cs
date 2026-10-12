@@ -97,7 +97,7 @@ public class PyModule : PyObject
 {
     public string Name { get; }
     public string FileName { get; }
-    public Dictionary<string, PyObject> ModuleDict { get; }  // __dict__ (Variable == Attribute)
+    public IDictionary<string, PyObject> ModuleDict { get; }  // __dict__ (Variable == Attribute)
     public List<string> All { get; set; }  // __all__
     public bool IsInitialized { get; private set; }
 
@@ -109,7 +109,7 @@ public class PyModule : PyObject
     {
         Name = name;
         FileName = fileName ?? $"{name}.py";
-        ModuleDict = new Dictionary<string, PyObject>();
+        ModuleDict = new PyNamespace();
         All = new List<string>();
 
         InitializeBuiltinAttributes();
@@ -408,7 +408,7 @@ public class PyModule : PyObject
         /// CPython 3.12 compatible import
         /// Implements: __import__(name, globals, locals, fromlist, level)
         /// </summary>
-        public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null, Dictionary<string, PyObject> globals = null)
+        public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null, IDictionary<string, PyObject> globals = null)
         {
             // CPython 3.12: level parameter for relative imports
             // level=0: absolute import (default)
@@ -772,7 +772,7 @@ public class PyModule : PyObject
         /// CPython 3.12 compatible relative import resolution
         /// Based on CPython's resolve_name() in Python/import.c
         /// </summary>
-        private static string ResolveRelativeImport(string moduleName, int level, Dictionary<string, PyObject> globals)
+        private static string ResolveRelativeImport(string moduleName, int level, IDictionary<string, PyObject> globals)
         {
             if (globals == null)
             {

@@ -640,7 +640,7 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private void RemoveOrderedKey(PyObject key)
+        protected void RemoveOrderedKey(PyObject key)
         {
             // Use the same Python equality as lookup storage; List.Remove uses CLR equality.
             for (int i = 0; i < _keys.Count; i++)
@@ -1149,28 +1149,35 @@ namespace SharpPy
     /// </summary>
     public class PyGlobalsDict : PyDict
     {
-        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Dictionary<string, PyObject>, PyGlobalsDict> Views = new();
-        internal static PyGlobalsDict For(Dictionary<string, PyObject> variables) => Views.GetValue(variables, source => new PyGlobalsDict(source, false));
-        internal static void Store(Dictionary<string, PyObject> variables, string name, PyObject value)
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IDictionary<string, PyObject>, PyGlobalsDict> Views = new();
+        internal static PyGlobalsDict For(IDictionary<string, PyObject> variables) => variables is PyNamespace owned ? owned.Mapping : Views.GetValue(variables, source => new PyGlobalsDict(source, false));
+        internal static void Store(IDictionary<string, PyObject> variables, string name, PyObject value)
         {
+            if (variables is PyNamespace) { variables[name] = value; return; }
             if (Views.TryGetValue(variables, out var view)) view.SetItem(StringCache.GetOrCreate(name), value);
             else variables[name] = value;
         }
-        internal static bool Delete(Dictionary<string, PyObject> variables, string name)
+        internal static bool Delete(IDictionary<string, PyObject> variables, string name)
         {
+            if (variables is PyNamespace) return variables.Remove(name);
             if (!variables.ContainsKey(name)) return false;
             if (Views.TryGetValue(variables, out var view)) view.DelItem(StringCache.GetOrCreate(name));
             else variables.Remove(name);
             return true;
         }
-        private readonly Dictionary<string, PyObject> _globalScopeVariables;
+        private readonly IDictionary<string, PyObject> _globalScopeVariables;
         private readonly bool _hostMutable;
         private int _nonStringCount;
+
+        internal PyGlobalsDict(PyNamespace variables)
+        {
+            _globalScopeVariables = variables;
+        }
 
         public PyGlobalsDict(Dictionary<string, PyObject> globalScopeVariables)
             : this(globalScopeVariables, true) { }
 
-        private PyGlobalsDict(Dictionary<string, PyObject> globalScopeVariables, bool hostMutable)
+        private PyGlobalsDict(IDictionary<string, PyObject> globalScopeVariables, bool hostMutable)
             : base()
         {
             _globalScopeVariables = globalScopeVariables;
@@ -1185,28 +1192,47 @@ namespace SharpPy
 
         public override PyObject GetItem(PyObject key)
         {
-            if (key is not PyString name) return base.GetItem(key);
-            if (_globalScopeVariables.TryGetValue(name.Value, out var value)) return value;
+            if (!CanUseHostLookup(key)) return base.GetItem(key);
+            var name = (PyString)key;
+            if (TryGetHostValue(name.Value, out var value)) return value;
             throw PyKeyError.Create(key);
         }
 
         public override PyObject Get(PyObject key, PyObject defaultValue = null)
         {
-            if (key is not PyString name) return base.Get(key, defaultValue);
-            return _globalScopeVariables.TryGetValue(name.Value, out var value)
+            if (!CanUseHostLookup(key)) return base.Get(key, defaultValue);
+            var name = (PyString)key;
+            return TryGetHostValue(name.Value, out var value)
                 ? value : defaultValue ?? PyNone.Instance;
         }
 
-        internal override bool TryGetStoredValue(PyObject key, out PyObject value) => key is PyString name
-            ? _globalScopeVariables.TryGetValue(name.Value, out value) : base.TryGetStoredValue(key, out value);
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private bool CanUseHostLookup(PyObject key) => key is PyString &&
+            (_globalScopeVariables is not PyNamespace owned ||
+             (!owned.GenericKeys && key.GetType() == typeof(PyString) && !key.HasCustomType));
 
-        public override bool ContainsKey(PyObject key) => key is PyString name
-            ? _globalScopeVariables.ContainsKey(name.Value) : base.ContainsKey(key);
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private bool TryGetHostValue(string name, out PyObject value) => _globalScopeVariables is PyNamespace owned
+            ? owned.TryGetExactString(name, out value) : _globalScopeVariables.TryGetValue(name, out value);
+
+        internal override bool TryGetStoredValue(PyObject key, out PyObject value) => CanUseHostLookup(key)
+            ? TryGetHostValue(((PyString)key).Value, out value) : base.TryGetStoredValue(key, out value);
+
+        public override bool ContainsKey(PyObject key) => CanUseHostLookup(key)
+            ? TryGetHostValue(((PyString)key).Value, out _) : base.ContainsKey(key);
 
         public override PyBool Contains(PyObject key) => PyBool.FromBool(ContainsKey(key));
 
         public override void SetItem(PyObject key, PyObject value)
         {
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                canonical.PrepareKey(key);
+                base.SetItem(key, value);
+                canonical.PrepareKey(key);
+                if (!canonical.GenericKeys) canonical.StoreFromMapping(((PyString)key).Value, value);
+                return;
+            }
             // CPython 3.12: Setting globals()[key] = value modifies the module namespace
             int before = base.Length();
             base.SetItem(key, value);
@@ -1215,25 +1241,42 @@ namespace SharpPy
             // Sync back to global scope
             if (key is PyString strKey)
             {
-                _globalScopeVariables[strKey.Value] = value;
+                if (_globalScopeVariables is PyNamespace owned) owned.StoreFromMapping(strKey.Value, value);
+                else _globalScopeVariables[strKey.Value] = value;
             }
         }
 
         public override PyObject DelItem(PyObject key)
         {
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                canonical.PrepareKey(key);
+                var result = base.DelItem(key);
+                canonical.PrepareKey(key);
+                if (!canonical.GenericKeys) canonical.RemoveFromMapping(((PyString)key).Value);
+                return result;
+            }
             if (key is not PyString name)
             {
                 var result = base.DelItem(key);
                 _nonStringCount--;
                 return result;
             }
-            if (!_globalScopeVariables.Remove(name.Value)) throw PyKeyError.Create(key);
+            if (!RemoveHost(name.Value)) throw PyKeyError.Create(key);
             if (base.ContainsKey(key)) base.DelItem(key);
             return PyNone.Instance;
         }
 
         public override PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                canonical.PrepareKey(key);
+                var result = base.Pop(key, defaultValue);
+                canonical.PrepareKey(key);
+                if (!canonical.GenericKeys) canonical.RemoveFromMapping(((PyString)key).Value);
+                return result;
+            }
             if (key is not PyString name)
             {
                 int before = base.Length();
@@ -1241,7 +1284,8 @@ namespace SharpPy
                 _nonStringCount += base.Length() - before;
                 return result;
             }
-            bool found = _globalScopeVariables.Remove(name.Value, out var value);
+            bool found = _globalScopeVariables.TryGetValue(name.Value, out var value);
+            if (found) RemoveHost(name.Value);
             if (base.ContainsKey(key)) base.DelItem(key);
             if (found) return value;
             if (defaultValue != null) return defaultValue;
@@ -1250,13 +1294,28 @@ namespace SharpPy
 
         public override PyNone Clear()
         {
-            _globalScopeVariables.Clear();
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                var result = base.Clear();
+                canonical.RebuildLookup();
+                return result;
+            }
+            if (_globalScopeVariables is PyNamespace owned) owned.ClearFromMapping();
+            else _globalScopeVariables.Clear();
             _nonStringCount = 0;
             return base.Clear();
         }
 
         public override PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                canonical.PrepareKey(key);
+                var result = base.SetDefault(key, defaultValue);
+                canonical.PrepareKey(key);
+                if (!canonical.GenericKeys) canonical.StoreFromMapping(((PyString)key).Value, result);
+                return result;
+            }
             if (key is not PyString name)
             {
                 int before = base.Length();
@@ -1276,6 +1335,29 @@ namespace SharpPy
 
         public override PyNone Update(PyObject other)
         {
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                if (ReferenceEquals(this, other)) return PyNone.Instance;
+                // Two exact-string tables cannot invoke Python equality/hash
+                // callbacks. Merge stored hashes, then update only incoming cache
+                // entries rather than rescanning the entire global namespace.
+                if (!canonical.GenericKeys && other is PyDict sourceDict)
+                {
+                    bool exactStrings = true;
+                    foreach (var pair in sourceDict.InternalDict)
+                        if (pair.Key.GetType() != typeof(PyString) || pair.Key.HasCustomType) { exactStrings = false; break; }
+                    if (exactStrings)
+                    {
+                        var result = base.Update(other);
+                        foreach (var pair in sourceDict.InternalDict)
+                            canonical.StoreFromMapping(((PyString)pair.Key).Value, pair.Value);
+                        return result;
+                    }
+                }
+                canonical.BeginBulkMutation();
+                try { return base.Update(other); }
+                finally { canonical.EndBulkMutation(); }
+            }
             // Self-update must not replay a stale snapshot over the actual namespace.
             if (ReferenceEquals(other, this) || (other is PyGlobalsDict globals &&
                 ReferenceEquals(globals._globalScopeVariables, _globalScopeVariables))) return PyNone.Instance;
@@ -1308,7 +1390,7 @@ namespace SharpPy
             return this;
         }
 
-        public override int Length() => _globalScopeVariables.Count + _nonStringCount;
+        public override int Length() => _globalScopeVariables is PyNamespace ? base.Length() : _globalScopeVariables.Count + _nonStringCount;
         public override bool IsTrue() => Length() != 0;
         public override bool PyBoolValue() => IsTrue();
         public override PyBool AsBool() => PyBool.FromBool(IsTrue());
@@ -1327,6 +1409,7 @@ namespace SharpPy
         /// </summary>
         public void SynchronizeFromHost()
         {
+            if (_globalScopeVariables is PyNamespace) return;
             for (int i = _keys.Count - 1; i >= 0; i--)
             {
                 if (_keys[i] is not PyString key) continue;
@@ -1341,10 +1424,44 @@ namespace SharpPy
             }
         }
 
+        private bool RemoveHost(string name) => _globalScopeVariables is PyNamespace owned
+            ? owned.RemoveFromMapping(name) : _globalScopeVariables.Remove(name);
+
+        internal PyObject ReadStoredKey(PyObject key) => _dict.StoredValue(key);
+        internal void ClearStringKeys()
+        {
+            for (int i = _keys.Count - 1; i >= 0; i--)
+            {
+                var key = _keys[i];
+                if (key is not PyString) continue;
+                _dict.Remove(key, out _, out _, knownHash: true);
+                RemoveOrderedKey(key);
+            }
+            ((PyNamespace)_globalScopeVariables).RebuildLookup();
+        }
+        internal int StringKeyCount()
+        {
+            int count = 0;
+            foreach (var key in _keys) if (key is PyString) count++;
+            return count;
+        }
+        internal bool RemoveName(string name)
+        {
+            if (!_dict.Remove(StringCache.GetOrCreate(name), out _, out var stored)) return false;
+            RemoveOrderedKey(stored);
+            if (_globalScopeVariables is PyNamespace owned && !owned.GenericKeys) owned.RemoveFromMapping(name);
+            return true;
+        }
+
         public override PyTuple PopItem()
         {
             var result = base.PopItem();
-            if (result.Items[0] is PyString name) _globalScopeVariables.Remove(name.Value);
+            if (_globalScopeVariables is PyNamespace canonical)
+            {
+                if (!canonical.GenericKeys) canonical.RemoveFromMapping(((PyString)result.Items[0]).Value);
+                return result;
+            }
+            if (result.Items[0] is PyString name) RemoveHost(name.Value);
             else _nonStringCount--;
             return result;
         }
