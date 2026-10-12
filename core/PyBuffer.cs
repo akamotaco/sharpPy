@@ -310,6 +310,15 @@ namespace SharpPy
         private Span<byte> StorageSpan() => _data is PyByteArray exporter
             ? exporter.BufferSpan : (byte[])_data;
 
+        // Synchronous native IO only: no Python callbacks while this span is used.
+        internal ReadOnlySpan<byte> ContiguousSpan()
+        {
+            CheckReleased();
+            if (_length > 1 && _stride != 1)
+                throw PyBufferError.Create("memoryview: underlying buffer is not C-contiguous");
+            return _length == 0 ? ReadOnlySpan<byte>.Empty : StorageSpan().Slice(_offset, _length);
+        }
+
         private void SetSlice(PySlice slice, PyObject value)
         {
             // memory_ass_sub acquires the source before invoking slice callbacks.

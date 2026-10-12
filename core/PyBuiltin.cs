@@ -3482,100 +3482,56 @@ namespace SharpPy
 
         private static PyObject CallOpen(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: open(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None)
-            if (args.Length < 1)
-                throw PyTypeError.Create("open() missing required argument: 'file'");
-
-            // Extract file argument
-            var filename = args[0].ToStr().Value;
-            var mode = "r";
-            var buffering = -1;
-            string encoding = null;
-            string errors = null;
-            string newline = null;
-            var closefd = true;
-            PyObject opener = null;
-
-            // Process positional arguments
-            if (args.Length > 1) mode = args[1].ToStr().Value;
-            if (args.Length > 2) buffering = (int)((PyInt)args[2]).Value;
-            if (args.Length > 3) encoding = args[3] != PyNone.Instance ? args[3].ToStr().Value : null;
-            if (args.Length > 4) errors = args[4] != PyNone.Instance ? args[4].ToStr().Value : null;
-            if (args.Length > 5) newline = args[5] != PyNone.Instance ? args[5].ToStr().Value : null;
-            if (args.Length > 6) closefd = args[6].PyBoolValue();
-            if (args.Length > 7) opener = args[7] != PyNone.Instance ? args[7] : null;
-
-            // Process kwargs
+            if (args.Length is 1 or 2 && (kwargs == null || kwargs.Length() == 0) &&
+                args[0] is PyString directPath && (args.Length == 1 || args[1] is PyString))
+            {
+                if (directPath.Value.Contains('\0')) throw PyValueError.Create("embedded null character");
+                return new PyFileContextManager(directPath.Value, args.Length == 1 ? "r" : ((PyString)args[1]).Value);
+            }
+            string[] names = { "file", "mode", "buffering", "encoding", "errors", "newline", "closefd", "opener" };
+            if (args.Length > names.Length) throw PyTypeError.Create($"open() takes at most 8 arguments ({args.Length} given)");
+            var values = new PyObject[8];
+            Array.Copy(args, values, args.Length);
             if (kwargs != null)
+                foreach (var pair in kwargs.InternalDict)
+                {
+                    string name = pair.Key is PyString key ? key.Value : "";
+                    int position = Array.IndexOf(names, name);
+                    if (position < 0) throw PyTypeError.Create($"'{name}' is an invalid keyword argument for open()");
+                    if (values[position] != null) throw PyTypeError.Create($"argument for open() given by name ('{name}') and position ({position + 1})");
+                    values[position] = pair.Value;
+                }
+            if (values[0] == null) throw PyTypeError.Create("open() missing required argument 'file' (pos 1)");
+            string Text(int position, string fallback = null)
             {
-                try
-                {
-                    var modeValue = kwargs.GetItem(new PyString("mode"));
-                    mode = modeValue.ToStr().Value;
-                }
-                catch { }
-
-                try
-                {
-                    var bufferingValue = kwargs.GetItem(new PyString("buffering"));
-                    buffering = (int)((PyInt)bufferingValue).Value;
-                }
-                catch { }
-
-                try
-                {
-                    var encodingValue = kwargs.GetItem(new PyString("encoding"));
-                    encoding = encodingValue != PyNone.Instance ? encodingValue.ToStr().Value : null;
-                }
-                catch { }
-
-                try
-                {
-                    var errorsValue = kwargs.GetItem(new PyString("errors"));
-                    errors = errorsValue != PyNone.Instance ? errorsValue.ToStr().Value : null;
-                }
-                catch { }
-
-                try
-                {
-                    var newlineValue = kwargs.GetItem(new PyString("newline"));
-                    newline = newlineValue != PyNone.Instance ? newlineValue.ToStr().Value : null;
-                }
-                catch { }
-
-                try
-                {
-                    var closefdValue = kwargs.GetItem(new PyString("closefd"));
-                    closefd = closefdValue.PyBoolValue();
-                }
-                catch { }
-
-                try
-                {
-                    var openerValue = kwargs.GetItem(new PyString("opener"));
-                    opener = openerValue != PyNone.Instance ? openerValue : null;
-                }
-                catch { }
-
-                // 예상치 못한 키워드 인수 체크
-                var validKeys = new[] { "mode", "buffering", "encoding", "errors", "newline", "closefd", "opener" };
-                foreach (var kvp in kwargs.InternalDict)
-                {
-                    if (kvp.Key is PyString keyStr && !validKeys.Contains(keyStr.Value))
-                    {
-                        throw PyTypeError.Create($"'{keyStr.Value}' is an invalid keyword argument for open()");
-                    }
-                }
+                var value = values[position];
+                if (value == null || (position != 1 && value is PyNone)) return fallback;
+                if (value is not PyString text) throw PyTypeError.Create($"open() argument '{names[position]}' must be str, not {value.GetTypeName()}");
+                return text.Value;
             }
-
-            // encoding 기본값 설정
-            if (encoding == null && mode.Contains("t"))
+            string mode = Text(1, "r");
+            int buffering = -1;
+            if (values[2] != null)
             {
-                encoding = "utf-8"; // 기본 텍스트 인코딩
+                var index = PyObject.TryGetIndex(values[2]);
+                if (index == null) throw PyTypeError.Create($"'{values[2].GetTypeName()}' object cannot be interpreted as an integer");
+                if (index.Value < int.MinValue || index.Value > int.MaxValue) throw PyOverflowError.Create("Python int too large to convert to C int");
+                buffering = (int)index.Value;
             }
-
-            // Create file context manager
-            return new PyFileContextManager(filename, mode);
+            string encoding = Text(3), errors = Text(4), newline = Text(5);
+            bool closefd = values[6] == null || values[6].PyBoolValue();
+            if (values[7] != null && values[7] is not PyNone) throw PyNotImplementedError.Create("file descriptor openers are not supported");
+            PyObject path = values[0];
+            if (path is not PyString && path is not PyBytes)
+            {
+                var method = path.LookupSpecialMethodUncached("__fspath__");
+                if (method == null) throw PyTypeError.Create($"expected str, bytes or os.PathLike object, not {path.GetTypeName()}");
+                path = path.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (path is not PyString && path is not PyBytes) throw PyTypeError.Create($"expected {values[0].GetTypeName()}.__fspath__() to return str or bytes, not {path.GetTypeName()}");
+            }
+            string filename = path is PyString textPath ? textPath.Value : System.Text.Encoding.UTF8.GetString(((PyBytes)path).Value);
+            if (filename.Contains('\0')) throw PyValueError.Create("embedded null character");
+            return new PyFileContextManager(filename, mode, encoding, errors, newline, buffering, closefd);
         }
 
         /// <summary>

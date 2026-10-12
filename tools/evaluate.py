@@ -125,6 +125,8 @@ def main():
         "tests/float_general_format_regression.py",
         "tests/string_format_fields_regression.py",
         "tests/warnings_dynamic_filters_regression.py",
+        "tests/file_io_regression.py",
+        "tests/compatibility/file_binary_open_remaining.py",
         "tests/integer_literal_limit_regression.py",
         "tests/compatibility/async_generator_execution_remaining.py",
         "tests/compatibility/unicode_repr_remaining.py",

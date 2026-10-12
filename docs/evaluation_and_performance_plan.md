@@ -19,9 +19,11 @@ float 포맷, 파일 IO를 뜻한다. CPython의 관찰 가능한 과정·결과
   기본 일반 포맷/그룹/진입점 수정, 무작위 27,000개 일치. 대상 할당 104B/회 감소.
   [127차 중첩 필드](reports/2026-10-12/string_format_fields.md)에서 조회·변환·확장
   순서와 format_map을 수정했다. 변경 가능한 locale 연결과 CLR 크기 한계는 남는다.
-- 6번: 고정 CPython _io 소스를 확보해 열기·버퍼링·텍스트 계층을 검토 중이다.
+- 6번: [129차 파일 IO](reports/2026-10-12/file_open_and_buffers.md).
+  eager open, binary IO, read(size), truncate, close 오류와 Godot 가상 경로 수정.
+  8KB 전체 읽기 대상 약 3.7% 단축/할당 38.5% 감소. 전체 _io 호환은 남는다.
 
-기본 227개는 222개 출력 일치, 가변 필드 제외 3개, native CLI 2개다.
+기본 230개는 225개 출력 일치, 가변 필드 제외 3개, native CLI 2개다.
 Godot 소스 빌드와 관련 포맷 회귀를 통과했다. 아래 118~123차 기록은 이전 단계다.
 
 ## 현재 후속 1~6번 작업 (118차부터)
