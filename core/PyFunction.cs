@@ -389,9 +389,7 @@ public partial class PyFunction : PyObject, IDescriptor
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // async generator enumerator 생성
-        var enumerator = new FrameGeneratorEnumerator(frame, vm);
-
-        return new SharpPy.Core.PyAsyncGenerator(enumerator, Name);
+        return new SharpPy.Core.PyAsyncGenerator(frame, vm, Name);
     }
 
     /// <summary>

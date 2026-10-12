@@ -75,6 +75,7 @@ namespace SharpPy
 
         public string Name { get; }
         public PyObject Qualname { get; }
+        internal bool IsIterableCoroutine => (_frame.Code.Flags & PyCodeObject.CO_ITERABLE_COROUTINE) != 0;
 
         public PyGenerator(PyFrame frame, PyVM vm, string name = "<generator>")
         {

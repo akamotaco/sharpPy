@@ -73,6 +73,7 @@ namespace SharpPy.Modules
             module.ModuleDict["GeneratorExit"] = PyType.GeneratorExitType;
             module.ModuleDict["Exception"] = PyType.ExceptionType;
             module.ModuleDict["StopIteration"] = PyType.StopIterationType;
+            module.ModuleDict["StopAsyncIteration"] = PyType.StopAsyncIterationType;
             module.ModuleDict["TypeError"] = PyType.TypeErrorType;
             module.ModuleDict["ValueError"] = PyType.ValueErrorType;
             module.ModuleDict["LookupError"] = PyType.LookupErrorType;

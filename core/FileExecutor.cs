@@ -59,6 +59,15 @@ namespace SharpPy.Core
                 }
                 else
                 {
+                    // The launched script's directory takes sys.path[0]; the
+                    // embedding Execute API leaves its host's search path alone.
+                    var sys = PyImportSystem.Import("sys");
+                    if (sys.ModuleDict["path"] is PyList searchPath)
+                    {
+                        var directory = IOHelper.GetDirectoryName(IOHelper.GetFullPath(pythonFile));
+                        if (searchPath.Length() == 0) searchPath.Append(new PyString(directory));
+                        else searchPath.SetItem(new PyInt(0), new PyString(directory));
+                    }
                     interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
                 }
             }

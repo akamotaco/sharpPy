@@ -13,7 +13,10 @@ internal static class BytecodeInspection
         void Visit(PyCodeObject code, string parent)
         {
             string location = parent.Length == 0 ? code.Name : parent + "/" + code.Name;
-            rows.Add(new { name = location, constants = code.Constants.Select(c =>
+            rows.Add(new { name = location, exceptionTable = code.ExceptionTable.Select(e => new {
+                start = e.StartOffset, end = e.EndOffset, handler = e.HandlerOffset,
+                depth = e.Depth, lasti = e.Lasti
+            }).ToArray(), constants = code.Constants.Select(c =>
                 c is PyCodeObject childCode ? "<code:" + childCode.Name + ">" : c.ToRepr().Value).ToArray(), instructions = code.Instructions.Select(i => new {
                 opcode = (int)i.OpCode, name = i.OpCode.ToString(), arg = i.Argument
             }).ToArray() });

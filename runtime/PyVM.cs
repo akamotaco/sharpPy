@@ -607,7 +607,7 @@ namespace SharpPy
                 "f_locals" => BuildLocalsDict(),
 
                 // f_globals: global namespace dictionary
-                "f_globals" => new PyDict(Globals),
+                "f_globals" => PyGlobalsDict.For(Globals),
 
                 // f_builtins: built-in namespace dictionary
                 "f_builtins" => ScopeChain.BuiltinModule != null
@@ -1803,8 +1803,7 @@ namespace SharpPy
                             : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
 
                         // Async generator 생성
-                        var enumerator = new FrameGeneratorEnumerator(asyncGenFrame, this);
-                        return new SharpPy.Core.PyAsyncGenerator(enumerator, pyCode.Name);
+                        return new SharpPy.Core.PyAsyncGenerator(asyncGenFrame, this, pyCode.Name);
                     });
 
                     var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
@@ -7615,114 +7614,45 @@ namespace SharpPy
         /// </summary>
         private PyObject GetAwaitable(PyObject obj)
         {
-            // 1. Native coroutine 확인 (PyCoroutine)
-            if (obj is SharpPy.Core.PyCoroutine coroutine)
-                return coroutine.GetAwaiter();
-
-            // 2. Generator-based coroutine 확인 (__await__ 메서드 존재)
-            try
-            {
-                var awaitMethod = obj.GetAttribute("__await__");
-                if (awaitMethod != null)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"✅ GET_AWAITABLE: Generator-based coroutine with __await__");
-                    #endif
-                    return awaitMethod.Call(new PyObject[0], null);
-                }
-            }
-            catch
-            {
-                // __await__ 메서드가 없거나 호출 실패
-            }
-
-            // 3. Iterator protocol이 있는 객체 확인 (generator도 여기 포함)
-            try
-            {
-                var iterator = obj.GetIterator();
-                if (iterator != null)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"✅ GET_AWAITABLE: Iterator-based awaitable");
-                    #endif
-                    return iterator;
-                }
-            }
-            catch
-            {
-                // Iterator protocol이 없음
-            }
-
-            // 4. 모든 조건을 만족하지 않으면 TypeError
-            throw PyTypeError.Create($"object {obj.GetTypeName()} can't be used in 'await' expression");
+            if (obj is SharpPy.Core.PyCoroutine coroutine) return coroutine.GetAwaiter();
+            if (obj is PyGenerator generator && generator.IsIterableCoroutine) return generator;
+            var method = obj.LookupSpecialMethodUncached("__await__");
+            if (method == null)
+                throw PyTypeError.Create($"object {obj.GetTypeName()} can't be used in 'await' expression");
+            var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            if (result is SharpPy.Core.PyCoroutine || result is PyGenerator gen && gen.IsIterableCoroutine)
+                throw PyTypeError.Create("__await__() returned a coroutine");
+            if (result is not PyIterator && result.LookupSpecialMethodUncached("__next__") == null)
+                throw PyTypeError.Create($"__await__() returned non-iterator of type '{result.GetTypeName()}'");
+            return result;
         }
 
-        /// <summary>
-        /// CPython 3.12: GET_AITER implementation (Python/bytecodes.c)
-        /// Get async iterator from an object for async for loops
-        /// </summary>
         private PyObject GetAsyncIterator(PyObject obj)
         {
-            // CPython: Call __aiter__() method to get async iterator
-            try
-            {
-                var aiterMethod = obj.GetAttribute("__aiter__");
-                if (aiterMethod != null)
-                {
-                    var aiter = aiterMethod.Call(new PyObject[0], null);
-
-                    // CPython: Verify the async iterator has __anext__ method
-                    try
-                    {
-                        var anextMethod = aiter.GetAttribute("__anext__");
-                        if (anextMethod == null)
-                        {
-                            throw PyTypeError.Create(
-                                $"'async for' received an object from __aiter__ that does not implement __anext__: {aiter.GetTypeName()}");
-                        }
-                    }
-                    catch
-                    {
-                        throw PyTypeError.Create(
-                            $"'async for' received an object from __aiter__ that does not implement __anext__: {aiter.GetTypeName()}");
-                    }
-
-                    return aiter;
-                }
-            }
-            catch (Exception ex) when (!(ex is PythonException))
-            {
-                // __aiter__ doesn't exist or failed
-            }
-
-            // CPython: TypeError if no __aiter__ method
-            throw PyTypeError.Create($"'async for' requires an object with __aiter__ method, got {obj.GetTypeName()}");
+            if (obj is SharpPy.Core.PyAsyncGenerator) return obj;
+            var method = obj.LookupSpecialMethodUncached("__aiter__");
+            if (method == null)
+                throw PyTypeError.Create($"'async for' requires an object with __aiter__ method, got {obj.GetTypeName()}");
+            var iterator = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            if (iterator.LookupSpecialMethodUncached("__anext__") == null)
+                throw PyTypeError.Create($"'async for' received an object from __aiter__ that does not implement __anext__: {iterator.GetTypeName()}");
+            return iterator;
         }
 
-        /// <summary>
-        /// CPython 3.12: GET_ANEXT implementation (Python/bytecodes.c)
-        /// Get next awaitable from async iterator
-        /// </summary>
-        private PyObject GetAsyncNext(PyObject aiter)
+        private PyObject GetAsyncNext(PyObject iterator)
         {
-            // CPython: Call __anext__() method to get awaitable
-            try
+            if (iterator is SharpPy.Core.PyAsyncGenerator generator) return generator.ANext();
+            var method = iterator.LookupSpecialMethodUncached("__anext__");
+            if (method == null)
+                throw PyTypeError.Create($"'async for' requires an iterator with __anext__ method, got {iterator.GetTypeName()}");
+            var next = iterator.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+            try { return GetAwaitable(next); }
+            catch (PythonException error)
             {
-                var anextMethod = aiter.GetAttribute("__anext__");
-                if (anextMethod != null)
-                {
-                    // Call __anext__() which should return an awaitable
-                    var awaitable = anextMethod.Call(new PyObject[0], null);
-                    return awaitable;
-                }
+                var exception = new PyTypeError($"'async for' received an invalid object from __anext__: {next.GetTypeName()}");
+                exception.SetAttribute("__cause__", error.PyException);
+                throw new PythonException(exception);
             }
-            catch (Exception ex) when (!(ex is PythonException))
-            {
-                // __anext__ doesn't exist or failed
-            }
-
-            // CPython: TypeError if no __anext__ method
-            throw PyTypeError.Create($"async iterator has no __anext__ method");
         }
 
         /// <summary>

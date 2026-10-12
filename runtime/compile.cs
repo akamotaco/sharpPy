@@ -3783,6 +3783,8 @@ namespace SharpPy
                         CompileExpression(yieldExpr.Value);
                     else
                         EmitLoadConst(PyNone.Instance);
+                    if (_currentSymbolTable.IsGenerator && _currentSymbolTable.IsCoroutine)
+                        EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_ASYNC_GEN_WRAP);
                     EmitInstruction(ByteCodeOp.YIELD_VALUE, 1); // CPython 3.12: yield_value argument 1
                     EmitInstruction(ByteCodeOp.RESUME, 1); // CPython 3.12: Resume after yield
                     // CPython 3.12: After RESUME, sent value is on stack

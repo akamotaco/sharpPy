@@ -781,22 +781,11 @@ namespace SharpPy
     /// </summary>
     public class PyStopAsyncIteration : PyException
     {
-        public PyObject Value { get; }
-
-        public PyStopAsyncIteration(PyObject value = null) : base("StopAsyncIteration")
-        {
-            Value = value ?? PyNone.Instance;
-        }
+        public PyStopAsyncIteration(PyObject value = null) : base(value == null ? Array.Empty<PyObject>() : new[] { value }, null) { }
+        public PyStopAsyncIteration(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public override PyType GetPyType() => PyType.StopAsyncIterationType;
         public override string GetTypeName() => "StopAsyncIteration";
-
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "value")
-                return Value;
-            return base.GetAttribute(name);
-        }
 
         public new static System.Exception Create(PyObject value = null)
         {
@@ -1485,6 +1474,7 @@ namespace SharpPy
     /// </summary>
     public class PyWarning : PyException
     {
+        public PyWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "Warning";
         public override PyType GetPyType() => PyType.WarningType;
@@ -1497,6 +1487,7 @@ namespace SharpPy
 
     public class PyUserWarning : PyWarning
     {
+        public PyUserWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyUserWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "UserWarning";
         public override PyType GetPyType() => PyType.UserWarningType;
@@ -1509,6 +1500,7 @@ namespace SharpPy
 
     public class PyDeprecationWarning : PyWarning
     {
+        public PyDeprecationWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyDeprecationWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "DeprecationWarning";
         public override PyType GetPyType() => PyType.DeprecationWarningType;
@@ -1521,6 +1513,7 @@ namespace SharpPy
 
     public class PyPendingDeprecationWarning : PyWarning
     {
+        public PyPendingDeprecationWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyPendingDeprecationWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "PendingDeprecationWarning";
         public override PyType GetPyType() => PyType.PendingDeprecationWarningType;
@@ -1533,6 +1526,7 @@ namespace SharpPy
 
     public class PySyntaxWarning : PyWarning
     {
+        public PySyntaxWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PySyntaxWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "SyntaxWarning";
         public override PyType GetPyType() => PyType.SyntaxWarningType;
@@ -1545,6 +1539,7 @@ namespace SharpPy
 
     public class PyRuntimeWarning : PyWarning
     {
+        public PyRuntimeWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyRuntimeWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "RuntimeWarning";
         public override PyType GetPyType() => PyType.RuntimeWarningType;
@@ -1557,6 +1552,7 @@ namespace SharpPy
 
     public class PyFutureWarning : PyWarning
     {
+        public PyFutureWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyFutureWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "FutureWarning";
         public override PyType GetPyType() => PyType.FutureWarningType;
@@ -1569,6 +1565,7 @@ namespace SharpPy
 
     public class PyImportWarning : PyWarning
     {
+        public PyImportWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyImportWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "ImportWarning";
         public override PyType GetPyType() => PyType.ImportWarningType;
@@ -1581,6 +1578,7 @@ namespace SharpPy
 
     public class PyUnicodeWarning : PyWarning
     {
+        public PyUnicodeWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyUnicodeWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "UnicodeWarning";
         public override PyType GetPyType() => PyType.UnicodeWarningType;
@@ -1593,6 +1591,7 @@ namespace SharpPy
 
     public class PyBytesWarning : PyWarning
     {
+        public PyBytesWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyBytesWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "BytesWarning";
         public override PyType GetPyType() => PyType.BytesWarningType;
@@ -1605,6 +1604,7 @@ namespace SharpPy
 
     public class PyResourceWarning : PyWarning
     {
+        public PyResourceWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
         public PyResourceWarning(string message = "") : base(message) { }
         public override string GetTypeName() => "ResourceWarning";
         public override PyType GetPyType() => PyType.ResourceWarningType;

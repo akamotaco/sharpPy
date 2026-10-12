@@ -3,7 +3,6 @@ namespace SharpPy
     internal static class PyWarnings
     {
         private const string LegacyThrowMessage = "the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.";
-        private static HashSet<string> onceMessages;
 
         internal static void DeprecatedThrow()
         {
@@ -14,29 +13,20 @@ namespace SharpPy
             int line = frame.CurrentLineNumber;
             string action = moduleName == "__main__" ? "default" : "ignore";
             long version = 0;
-            if (PyImportSystem.TryGetModule("warnings", out var warnings))
+            if (PyImportSystem.TryGetModule("warnings", out var warnings) &&
+                warnings.ModuleDict.TryGetValue("warn_explicit", out var warn))
             {
-                action = "default";
-                if (warnings.ModuleDict.TryGetValue("_filters_version", out var stamp) && stamp is PyInt integer)
-                    version = (long)integer.Value;
-                if (warnings.ModuleDict.TryGetValue("filters", out var filters) && filters is PyList list)
+                if (!globals.TryGetValue("__warningregistry__", out var registry) || registry is not PyDict)
                 {
-                    foreach (var item in list.Items)
-                    {
-                        if (item is not PyTuple filter || filter.Items.Length != 5) continue;
-                        if (filter.Items[2] is not PyType category || !PyType.DeprecationWarningType.IsSubclassOf(category)) continue;
-                        if (filter.Items[4] is PyInt number && number.Value != 0 && number.Value != line) continue;
-                        if (filter.Items[3] is PyString module && module.Value != moduleName) continue;
-                        if (filter.Items[1] is not PyNone && !filter.Items[1].GetAttribute("match").Call(new PyObject[] { new PyString(LegacyThrowMessage) }, null).IsTrue()) continue;
-                        if (filter.Items[3] is not PyNone && filter.Items[3] is not PyString && !filter.Items[3].GetAttribute("match").Call(new PyObject[] { new PyString(moduleName) }, null).IsTrue()) continue;
-                        action = filter.Items[0].ToStr().Value;
-                        break;
-                    }
+                    registry = new PyDict();
+                    PyGlobalsDict.Store(globals, "__warningregistry__", registry);
                 }
+                warn.Call(new PyObject[] { new PyString(LegacyThrowMessage), PyType.DeprecationWarningType,
+                    new PyString(frame.Code.FileName), new PyInt(line), new PyString(moduleName), registry,
+                    PyGlobalsDict.For(globals) }, null);
+                return;
             }
             if (action == "ignore") return;
-            if (action == "error") throw PyDeprecationWarning.Create(LegacyThrowMessage);
-            if (action != "always")
             {
                 if (!globals.TryGetValue("__warningregistry__", out var registryObject) || registryObject is not PyDict)
                 {
@@ -51,10 +41,9 @@ namespace SharpPy
                     registry.SetItem(versionKey, new PyInt(version));
                 }
                 var key = new PyTuple(new PyString(LegacyThrowMessage), PyType.DeprecationWarningType,
-                    new PyInt(action == "module" || action == "once" ? 0 : line));
+                    new PyInt(line));
                 if (registry.ContainsKey(key)) return;
                 registry.SetItem(key, PyBool.True);
-                if (action == "once" && !(onceMessages ??= new HashSet<string>()).Add(LegacyThrowMessage)) return;
             }
             string output = $"{frame.Code.FileName}:{line}: DeprecationWarning: {LegacyThrowMessage}\n";
             var source = frame.Code.SourceLines;

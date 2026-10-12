@@ -10,235 +10,159 @@ namespace SharpPy.Core
     /// </summary>
     public class PyAsyncGenerator : PyObject
     {
-        static PyAsyncGenerator()
-        {
-            InitializeAsyncGeneratorDescriptors();
-        }
-
-        private static void InitializeAsyncGeneratorDescriptors()
-        {
-            var agType = PyType.AsyncGeneratorType;
-
-            // __anext__ method descriptor
-            agType.TypeDict["__anext__"] = new PyMethodDescriptor(
-                "__anext__", agType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("__anext__() takes no arguments");
-                    if (self is not PyAsyncGenerator asyncGen)
-                        throw PyTypeError.Create($"descriptor '__anext__' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
-                    return asyncGen.ANext();
-                },
-                minArgs: 0, maxArgs: 0
-            );
-
-            // asend method descriptor
-            agType.TypeDict["asend"] = new PyMethodDescriptor(
-                "asend", agType,
-                (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create("asend() takes exactly one argument");
-                    if (self is not PyAsyncGenerator asyncGen)
-                        throw PyTypeError.Create($"descriptor 'asend' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
-                    return asyncGen.ASend(args[0]);
-                },
-                minArgs: 1, maxArgs: 1
-            );
-
-            // athrow method descriptor
-            agType.TypeDict["athrow"] = new PyMethodDescriptor(
-                "athrow", agType,
-                (self, args, kwargs) => {
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create("athrow() takes 1 to 3 arguments");
-                    if (self is not PyAsyncGenerator asyncGen)
-                        throw PyTypeError.Create($"descriptor 'athrow' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
-                    var value = args.Length > 1 ? args[1] : null;
-                    var tb = args.Length > 2 ? args[2] : null;
-                    return asyncGen.AThrow(args[0], value, tb);
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
-            // aclose method descriptor
-            agType.TypeDict["aclose"] = new PyMethodDescriptor(
-                "aclose", agType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create("aclose() takes no arguments");
-                    if (self is not PyAsyncGenerator asyncGen)
-                        throw PyTypeError.Create($"descriptor 'aclose' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
-                    return asyncGen.AClose();
-                },
-                minArgs: 0, maxArgs: 0
-            );
-        }
-
-        public override string GetTypeName() => "async_generator";
-        public override PyType GetPyType() => PyType.AsyncGeneratorType;
-        
-        private readonly IEnumerator<PyObject> _enumerator;
+        private readonly PyFrame _frame;
+        private readonly PyGenerator _generator;
+        internal bool Running;
         private bool _finished;
-        private PyObject _sentValue;
-        private Exception _thrownException;
-
         public string Name { get; }
         public PyObject Qualname { get; }
 
-        public PyAsyncGenerator(IEnumerator<PyObject> enumerator, string name = "<async_generator>")
+        static PyAsyncGenerator()
         {
-            _enumerator = enumerator ?? throw new ArgumentNullException(nameof(enumerator));
-            _finished = false;
+            var type = PyType.AsyncGeneratorType;
+            foreach (var name in new[] { "__aiter__", "__anext__", "asend", "athrow", "aclose" })
+                type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
+                    if (self is not PyAsyncGenerator generator)
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'async_generator' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create($"{name}() takes no keyword arguments");
+                    int minimum = name is "asend" or "athrow" ? 1 : 0;
+                    int maximum = name == "athrow" ? 3 : minimum;
+                    if (args.Length < minimum || args.Length > maximum)
+                        throw PyTypeError.Create($"{name}() takes {minimum} argument{(minimum == 1 ? "" : "s")} ({args.Length} given)");
+                    return name switch {
+                        "__aiter__" => generator,
+                        "__anext__" => generator.ANext(),
+                        "asend" => generator.ASend(args[0]),
+                        "athrow" => generator.AThrow(args[0], args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null),
+                        _ => generator.AClose()
+                    };
+                });
+        }
+
+        public PyAsyncGenerator(PyFrame frame, PyVM vm, string name = "<async_generator>")
+        {
+            _frame = frame;
+            _generator = new PyGenerator(frame, vm, name);
             Name = name;
             Qualname = new PyString(name);
         }
-
-        #region String Representation
-
+        public override PyType GetPyType() => PyType.AsyncGeneratorType;
+        public override string GetTypeName() => "async_generator";
         public override PyString ToRepr() => new PyString($"<async_generator object {Name}>");
+        public PyObject ANext() => ASend(PyNone.Instance);
+        public PyObject ASend(PyObject value) => new Awaitable(this, value, null, false);
+        public PyObject AThrow(PyObject type, PyObject value = null, PyObject tb = null) =>
+            new Awaitable(this, null, tb != null ? new[] { type, value ?? PyNone.Instance, tb } : value != null ? new[] { type, value } : new[] { type }, false);
+        public PyObject AClose() => new Awaitable(this, null, null, true);
 
-        #endregion
-
-        #region Async Generator Protocol
-
-        /// <summary>
-        /// async_generator.__anext__() 메서드 - PEP 525
-        /// </summary>
-        public PyObject ANext()
+        private sealed class Awaitable : PyIterator
         {
-            if (_finished)
+            private static readonly PyType SendType = MakeType("async_generator_asend");
+            private static readonly PyType ThrowType = MakeType("async_generator_athrow");
+            private readonly PyAsyncGenerator _owner;
+            private readonly PyObject _value;
+            private readonly PyObject[] _throwArgs;
+            private readonly bool _closing;
+            private bool _started, _closed;
+            private bool IsThrow => _closing || _throwArgs != null;
+            internal Awaitable(PyAsyncGenerator owner, PyObject value, PyObject[] throwArgs, bool closing)
+            { _owner = owner; _value = value; _throwArgs = throwArgs; _closing = closing; }
+            private static PyType MakeType(string name)
             {
-                var stopAsync = PyStopAsyncIteration.Create();
-                throw new PythonException(stopAsync);
+                var type = new PyType(name, new[] { PyType.ObjectType });
+                foreach (var method in new[] { "__await__", "__iter__", "__next__", "send", "throw", "close" })
+                    type.TypeDict[method] = new PyMethodDescriptor(method, type, (self, args, kwargs) => {
+                        if (self is not Awaitable request || request.GetPyType() != type)
+                            throw PyTypeError.Create($"descriptor '{method}' requires a '{name}' object but received a '{self.GetTypeName()}'");
+                        if (method == "send")
+                        {
+                            PyCoroutine.CheckSendArguments(name, args, kwargs);
+                            return request.Drive(args[0]);
+                        }
+                        if (method == "throw")
+                        {
+                            PyCoroutine.CheckThrowArguments(name, args, kwargs);
+                            return request.Drive(PyNone.Instance, args);
+                        }
+                        PyCoroutine.CheckCloseArguments(name + "." + method, args, kwargs);
+                        if (method == "close") { request._closed = true; return PyNone.Instance; }
+                        return method == "__next__" ? request.Next() : request;
+                    });
+                return type;
             }
-
-            try
+            public override PyType GetPyType() => IsThrow ? ThrowType : SendType;
+            public override string GetTypeName() => GetPyType().Name;
+            public override bool IsCallable() => false;
+            public override PyObject Call(PyObject[] args, PyDict kwargs = null) => throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
+            public override PyObject Next() => Drive(PyNone.Instance);
+            private PyObject Drive(PyObject sent, PyObject[] injected = null)
             {
-                if (!_enumerator.MoveNext())
+                if (_closed) throw PyRuntimeError.Create(IsThrow ? "cannot reuse already awaited aclose()/athrow()" : "cannot reuse already awaited __anext__()/asend()");
+                bool initial = !_started;
+                if (initial)
                 {
-                    _finished = true;
-                    var stopAsync = PyStopAsyncIteration.Create();
-                    throw new PythonException(stopAsync);
+                    if (_owner.Running)
+                    {
+                        _closed = true;
+                        throw PyRuntimeError.Create($"{(_closing ? "aclose" : IsThrow ? "athrow" : "anext")}(): asynchronous generator is already running");
+                    }
+                    if (_owner._finished)
+                    {
+                        _closed = true;
+                        if (IsThrow) throw PyStopIteration.Create();
+                        throw PyStopAsyncIteration.Create();
+                    }
+                    if (IsThrow && sent != PyNone.Instance && injected == null)
+                        throw PyRuntimeError.Create("can't send non-None value to a just-started coroutine");
+                    if (_closing && _owner._frame.State == PyFrame.FrameState.Created)
+                    {
+                        _owner._generator.Close(); _owner._finished = _closed = true;
+                        throw PyStopIteration.Create();
+                    }
+                    _started = true;
+                    if (!IsThrow && sent == PyNone.Instance) sent = _value;
                 }
-
-                return _enumerator.Current;
-            }
-            catch (PythonException pyEx) when (pyEx.PyException is PyStopIteration stopIter)
-            {
-                _finished = true;
-                var stopAsync = PyStopAsyncIteration.Create(stopIter.Value);
-                throw new PythonException(stopAsync);
-            }
-            catch (Exception ex)
-            {
-                _finished = true;
-                throw PyRuntimeError.Create(ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// async_generator.asend(value) 메서드 - PEP 525
-        /// </summary>
-        public PyObject ASend(PyObject value)
-        {
-            _sentValue = value;
-            return ANext();
-        }
-
-        /// <summary>
-        /// async_generator.athrow(type, value=None, tb=None) 메서드 - PEP 525
-        /// </summary>
-        public PyObject AThrow(PyObject type, PyObject value = null, PyObject tb = null)
-        {
-            // 예외를 generator에 전달
-            if (type is PyType pyType)
-            {
-                _thrownException = PyException.Create(pyType.Name);
-            }
-            else
-            {
-                _thrownException = PyException.Create(type.AsString());
-            }
-
-            try
-            {
-                return ANext();
-            }
-            catch (PythonException)
-            {
-                _finished = true;
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// async_generator.aclose() 메서드 - PEP 525
-        /// </summary>
-        public PyObject AClose()
-        {
-            if (!_finished)
-            {
+                _owner.Running = true;
+                PyObject result;
                 try
                 {
-                    // GeneratorExit 예외를 생성하여 전달
-                    var genExit = PyType.GeneratorExitType;
-                    AThrow(genExit);
+                    var arguments = injected ?? (initial ? _throwArgs : null);
+                    if (arguments != null)
+                        result = _owner._generator.Throw(arguments[0], arguments.Length > 1 ? arguments[1] : null, arguments.Length > 2 ? arguments[2] : null);
+                    else if (initial && _closing)
+                        result = _owner._generator.Throw(PyType.GeneratorExitType);
+                    else
+                    {
+                        if (_owner._frame.State == PyFrame.FrameState.Created && sent != PyNone.Instance)
+                            throw PyTypeError.Create("can't send non-None value to a just-started async generator");
+                        result = _owner._generator.Send(sent);
+                    }
                 }
-                catch (PythonException ex) when (ex.PyException.GetTypeName() == "GeneratorExit")
+                catch (PythonException error)
                 {
-                    // 정상적인 종료
+                    _closed = true; _owner.Running = false;
+                    _owner._finished = _owner._generator.IsFinished;
+                    if (error.PyException is PyStopIteration)
+                    {
+                        _owner._finished = true;
+                        if (_closing) throw PyStopIteration.Create();
+                        throw PyStopAsyncIteration.Create();
+                    }
+                    if (_closing && (error.PyException is PyGeneratorExit || error.PyException is PyStopAsyncIteration))
+                    { _owner._finished = true; throw PyStopIteration.Create(); }
+                    throw;
                 }
-                catch (PythonException ex) when (ex.PyException.GetTypeName() == "StopAsyncIteration")
+                if (result is PyAsyncGenWrappedValue wrapped)
                 {
-                    // 이미 종료됨
+                    var value = wrapped.Value;
+                    wrapped.Release();
+                    _closed = true; _owner.Running = false;
+                    if (_closing) throw PyRuntimeError.Create("async generator ignored GeneratorExit");
+                    throw PyStopIteration.Create(value);
                 }
-                finally
-                {
-                    _finished = true;
-                    _enumerator?.Dispose();
-                }
+                return result; // An inner await suspended; this request still owns execution.
             }
-            return PyNone.Instance;
         }
-
-        #endregion
-
-        #region String and Equality
-
-        public override string ToString()
-        {
-            return ToRepr().Value;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return ReferenceEquals(this, obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return RuntimeHelpers.GetHashCode(this);
-        }
-
-        #endregion
-    }
-    
-    /// <summary>
-    /// StopAsyncIteration 예외 - PEP 525
-    /// CPython 3.12의 StopAsyncIteration과 정확히 호환
-    /// </summary>
-    public class PyStopAsyncIteration : PyStopIteration
-    {
-        public PyStopAsyncIteration(PyObject value = null) : base(value)
-        {
-        }
-
-        public static new PyStopAsyncIteration Create(PyObject value = null)
-        {
-            return new PyStopAsyncIteration(value);
-        }
-
-        public override string GetTypeName() => "StopAsyncIteration";
     }
 
     /// <summary>

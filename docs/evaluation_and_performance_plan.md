@@ -19,8 +19,16 @@
 5. [116차](reports/2026-10-12/comparison_dispatch_cost.md): native 슬롯/dispatch와 VM 비용 분리.
    반복 할당 0, subclass 조회 경로 추가 비용 관측. 강제 inline 효과 없어 제외.
    VM 지연은 대조군 범위와 겹치며 과거 단일 원인은 미확정.
-6. warnings/호스트 namespace 및 라이브러리 실행 검증 확대.
-   새 async generator 실제 실행 실패도 포함한다.
+6. [117차](reports/2026-10-12/library_process_and_async_execution.md): warnings의
+   실제 C 가속 구현 과정, live f_globals, async generator 실행, iterable join,
+   Unicode repr/chr, 스크립트 경로와 Godot resource stat 수정·검증.
+   외부 C# Dictionary 직접 변경은 native 관찰 8개 중 3개 미일치로 남음.
+
+최종 기본 회귀 220개, 하위 폴더 포함 compatibility 74개 중 72개 일치·
+memoryview 실패/차이 2개. Godot 소스 포함 기본 17+관련 13개와 경로 5개 통과.
+각 항목은 별도 커밋/푸시 대상으로 처리했다. **3번 자동 해제는 미해결**이며
+5번 과거 단일 원인과 6번 호스트 직접 변경도 완료로 분류하지 않는다.
+다음은 소유권 계층, 호스트 mapping 저장소 통합, 작은 set 할당 비용 및 API 감사다.
 
 112차 이후 상태가 아래 과거 기록보다 우선한다.
 

@@ -32,36 +32,7 @@ namespace SharpPy
                     if (self is not PyString str)
                         throw PyTypeError.Create($"descriptor 'join' requires a 'str' object but received a '{self.GetTypeName()}'");
 
-                    // Use private Join method implementation
-                    var iterable = args[0];
-                    var items = new System.Collections.Generic.List<string>();
-
-                    if (iterable is PyList list)
-                    {
-                        foreach (var item in list.Items)
-                        {
-                            if (item is PyString itemStr)
-                                items.Add(itemStr.Value);
-                            else
-                                throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
-                        }
-                    }
-                    else if (iterable is PyTuple tuple)
-                    {
-                        foreach (var item in tuple.Items)
-                        {
-                            if (item is PyString itemStr)
-                                items.Add(itemStr.Value);
-                            else
-                                throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
-                        }
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create("can only join an iterable");
-                    }
-
-                    return new PyString(string.Join(str.Value, items));
+                    return str.Join(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1748,8 +1719,18 @@ namespace SharpPy
             var result = new System.Text.StringBuilder(Value.Length + 10); // Pre-allocate with some extra space
             result.Append(quoteChar);
 
-            foreach (char c in Value)
+            for (int index = 0; index < Value.Length; index++)
             {
+                char c = Value[index];
+                if (char.IsHighSurrogate(c) && char.IsSurrogatePair(Value, index))
+                {
+                    int code = char.ConvertToUtf32(Value, index);
+                    var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(Value, index);
+                    if (IsPrintableCategory(category)) result.Append(Value, index, 2);
+                    else result.Append($"\\U{code:x8}");
+                    index++;
+                    continue;
+                }
                 // Handle special characters based on CPython patterns
                 if (c == '\\')
                 {
@@ -1778,7 +1759,7 @@ namespace SharpPy
                 else if (!IsPrintableForRepr(c))
                 {
                     // Non-printable characters → hex format (following CPython's isprintable() logic)
-                    result.Append($"\\x{(int)c:x2}");
+                    result.Append(c <= 0xff ? $"\\x{(int)c:x2}" : $"\\u{(int)c:x4}");
                 }
                 else
                 {
@@ -1799,34 +1780,15 @@ namespace SharpPy
             // CPython's isprintable() logic is quite specific
             // We need to match it exactly for compatibility
 
-            var category = char.GetUnicodeCategory(c);
-
-            // Control characters are not printable
-            if (category == System.Globalization.UnicodeCategory.Control ||
-                category == System.Globalization.UnicodeCategory.Format ||
-                category == System.Globalization.UnicodeCategory.Surrogate ||
-                category == System.Globalization.UnicodeCategory.PrivateUse ||
-                category == System.Globalization.UnicodeCategory.OtherNotAssigned)
-            {
-                return false;
-            }
-
-            // Line and paragraph separators are not printable
-            if (category == System.Globalization.UnicodeCategory.LineSeparator ||
-                category == System.Globalization.UnicodeCategory.ParagraphSeparator)
-            {
-                return false;
-            }
-
-            // Special case: Non-breaking space (U+00A0) is not printable in CPython
-            if (c == '\u00A0')
-            {
-                return false;
-            }
-
-            // Other space separators might have similar rules, but let's start with this specific case
-            return true;
+            if (c < 128) return c >= ' ' && c != 127;
+            return IsPrintableCategory(char.GetUnicodeCategory(c));
         }
+
+        private static bool IsPrintableCategory(System.Globalization.UnicodeCategory category) => category is not
+            (System.Globalization.UnicodeCategory.Control or System.Globalization.UnicodeCategory.Format or
+             System.Globalization.UnicodeCategory.Surrogate or System.Globalization.UnicodeCategory.PrivateUse or
+             System.Globalization.UnicodeCategory.OtherNotAssigned or System.Globalization.UnicodeCategory.SpaceSeparator or
+             System.Globalization.UnicodeCategory.LineSeparator or System.Globalization.UnicodeCategory.ParagraphSeparator);
 
         #endregion
 
@@ -2301,21 +2263,38 @@ namespace SharpPy
 
         public PyString Join(PyObject iterable)
         {
-            if (iterable is PyList list)
+            PyObject[] values;
+            if (iterable.GetType() == typeof(PyList)) values = ((PyList)iterable).Items;
+            else if (iterable.GetType() == typeof(PyTuple)) values = ((PyTuple)iterable).Items;
+            else
             {
-                // Performance: Eliminated LINQ (.Select) - manual string extraction + Cache
-                var items = new string[list.Items.Length];
-                for (int i = 0; i < list.Items.Length; i++)
+                PyObject iterator;
+                try { iterator = iterable.GetIterator(); }
+                catch (PythonException error) when (error.PyException is PyTypeError)
+                { throw PyTypeError.Create("can only join an iterable"); }
+                // PySequence_Fast consumes the iterable before checking element
+                // types. A later iterator exception wins over an earlier non-str.
+                var cursor = iterator.GetIterator();
+                long hint = iterator.LengthHint(8);
+                if (hint > Array.MaxLength) throw PyMemoryError.Create();
+                var collected = new List<PyObject>((int)hint);
+                while (true)
                 {
-                    if (list.Items[i] is PyString str)
-                        items[i] = str.Value;
-                    else
-                        throw PyTypeError.Create($"sequence item: expected str instance, {list.Items[i].GetTypeName()} found");
+                    try { collected.Add(cursor.Next()); }
+                    catch (PythonException error) when (error.PyException is PyStopIteration) { break; }
                 }
-                return StringCache.GetOrCreate(string.Join(Value, items));
+                values = collected.ToArray();
             }
-
-            throw PyTypeError.Create($"can only join an iterable");
+            if (values.Length == 0) return StringCache.GetOrCreate("");
+            if (values.Length == 1 && values[0].GetType() == typeof(PyString)) return (PyString)values[0];
+            var strings = new string[values.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] is not PyString item)
+                    throw PyTypeError.Create($"sequence item {i}: expected str instance, {values[i].GetTypeName()} found");
+                strings[i] = item.Value;
+            }
+            return new PyString(string.Join(Value, strings));
         }
 
         #endregion
@@ -2765,95 +2744,8 @@ namespace SharpPy
 
         private PyObject Join(PyObject[] args)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
-
-            var iterable = args[0];
-            var items = new System.Collections.Generic.List<string>();
-
-            // CPython 3.12: Support all iterables (list, tuple, generator, etc.)
-            if (iterable is PyList list)
-            {
-                foreach (var item in list.Items)
-                {
-                    if (item is PyString str)
-                        items.Add(str.Value);
-                    else
-                        throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
-                }
-            }
-            else if (iterable is PyTuple tuple)
-            {
-                foreach (var item in tuple.Items)
-                {
-                    if (item is PyString str)
-                        items.Add(str.Value);
-                    else
-                        throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
-                }
-            }
-            else if (iterable is PyGenerator generator)
-            {
-                // CPython 3.12: Consume generator expression
-                while (true)
-                {
-                    try
-                    {
-                        var item = generator.Next();
-                        if (item is PyString str)
-                            items.Add(str.Value);
-                        else
-                            throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                // CPython 3.12: Try to iterate using __iter__
-                try
-                {
-                    var iterMethod = iterable.GetAttribute("__iter__");
-                    if (iterMethod != null && iterMethod != PyNone.Instance)
-                    {
-                        var iterator = iterMethod.Call(new PyObject[0], null);
-                        var nextMethod = iterator.GetAttribute("__next__");
-
-                        while (true)
-                        {
-                            try
-                            {
-                                var item = nextMethod.Call(new PyObject[0], null);
-                                if (item is PyString str)
-                                    items.Add(str.Value);
-                                else
-                                    throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
-                            }
-                            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create("can only join an iterable");
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is not PyStopIteration)
-                {
-                    throw PyTypeError.Create("can only join an iterable");
-                }
-                catch (Exception)
-                {
-                    throw PyTypeError.Create("can only join an iterable");
-                }
-            }
-
-            return new PyString(string.Join(Value, items));
+            if (args.Length != 1) throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
+            return Join(args[0]);
         }
 
         private PyObject StartsWith(PyObject[] args)

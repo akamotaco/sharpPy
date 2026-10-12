@@ -235,6 +235,19 @@ namespace SharpPy.Modules
             try
             {
                 FileSystemInfo info;
+#if GODOT
+                if (path.StartsWith("res://", StringComparison.Ordinal) || path.StartsWith("user://", StringComparison.Ordinal))
+                {
+                    if (IOHelper.FileExists(path))
+                    {
+                        using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
+                        if (file == null) throw new IOException($"Cannot read '{path}'");
+                        return new PyStatResult(0x8000 | 0x1A4, (long)file.GetLength(), Godot.FileAccess.GetModifiedTime(path));
+                    }
+                    if (IOHelper.DirExists(path)) return new PyStatResult(0x4000 | 0x1ED, 0, 0);
+                    throw new FileNotFoundException();
+                }
+#endif
                 if (IOHelper.FileExists(path))
                     info = new FileInfo(path);
                 else if (IOHelper.DirExists(path))
@@ -383,12 +396,23 @@ namespace SharpPy.Modules
     /// </summary>
     public class PyStatResult : PyObject
     {
-        private readonly FileSystemInfo _info;
+        private readonly int _mode;
+        private readonly long _size;
+        private readonly double _mtime, _ctime, _atime;
 
         public PyStatResult(FileSystemInfo info)
         {
-            _info = info;
+            _mode = info is DirectoryInfo ? 0x4000 | 0x1ED : 0x8000 | 0x1A4;
+            _size = info is FileInfo file ? file.Length : 0;
+            _mtime = ToUnixTime(info.LastWriteTime);
+            _ctime = ToUnixTime(info.CreationTime);
+            _atime = ToUnixTime(info.LastAccessTime);
         }
+
+        // Godot virtual resources expose size and modification time, but no
+        // creation/access timestamps. Keep stat results as value snapshots.
+        internal PyStatResult(int mode, long size, double mtime)
+        { _mode = mode; _size = size; _mtime = mtime; }
 
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "stat_result";
@@ -400,15 +424,15 @@ namespace SharpPy.Modules
                 case "st_mode":
                     // CPython: posixmodule.c - file mode bits
                     // S_IFDIR (0o40000) for directory, S_IFREG (0o100000) for regular file
-                    return new PyInt((_info is DirectoryInfo) ? 0x4000 | 0x1ED : 0x8000 | 0x1A4);
+                    return new PyInt(_mode);
                 case "st_size":
-                    return new PyInt(_info is FileInfo fi ? fi.Length : 0);
+                    return new PyInt(_size);
                 case "st_mtime":
-                    return new PyFloat(ToUnixTime(_info.LastWriteTime));
+                    return new PyFloat(_mtime);
                 case "st_ctime":
-                    return new PyFloat(ToUnixTime(_info.CreationTime));
+                    return new PyFloat(_ctime);
                 case "st_atime":
-                    return new PyFloat(ToUnixTime(_info.LastAccessTime));
+                    return new PyFloat(_atime);
                 case "st_ino":
                     return new PyInt(0); // inode (not available on Windows)
                 case "st_dev":
@@ -431,9 +455,7 @@ namespace SharpPy.Modules
 
         public override PyString ToRepr()
         {
-            var mode = (_info is DirectoryInfo) ? 0x4000 | 0x1ED : 0x8000 | 0x1A4;
-            var size = _info is FileInfo fi ? fi.Length : 0;
-            return new PyString($"os.stat_result(st_mode={mode}, st_ino=0, st_dev=0, st_nlink=1, st_uid=0, st_gid=0, st_size={size}, st_atime={ToUnixTime(_info.LastAccessTime)}, st_mtime={ToUnixTime(_info.LastWriteTime)}, st_ctime={ToUnixTime(_info.CreationTime)})");
+            return new PyString($"os.stat_result(st_mode={_mode}, st_ino=0, st_dev=0, st_nlink=1, st_uid=0, st_gid=0, st_size={_size}, st_atime={_atime}, st_mtime={_mtime}, st_ctime={_ctime})");
         }
 
         public override string ToString() => ToRepr().Value;

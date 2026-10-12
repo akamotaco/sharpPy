@@ -709,6 +709,18 @@ namespace SharpPy
                     return new PyBaseException(args, kwargs);
                 case "Exception":
                     return new PyException(args, kwargs);
+                case "Warning": return new PyWarning(args, kwargs);
+                case "UserWarning": return new PyUserWarning(args, kwargs);
+                case "DeprecationWarning": return new PyDeprecationWarning(args, kwargs);
+                case "PendingDeprecationWarning": return new PyPendingDeprecationWarning(args, kwargs);
+                case "SyntaxWarning": return new PySyntaxWarning(args, kwargs);
+                case "RuntimeWarning": return new PyRuntimeWarning(args, kwargs);
+                case "FutureWarning": return new PyFutureWarning(args, kwargs);
+                case "ImportWarning": return new PyImportWarning(args, kwargs);
+                case "UnicodeWarning": return new PyUnicodeWarning(args, kwargs);
+                case "BytesWarning": return new PyBytesWarning(args, kwargs);
+                case "ResourceWarning": return new PyResourceWarning(args, kwargs);
+                case "StopAsyncIteration": return new PyStopAsyncIteration(args, kwargs);
                 case "ValueError":
                     return new PyValueError(args, kwargs);
                 case "TypeError":

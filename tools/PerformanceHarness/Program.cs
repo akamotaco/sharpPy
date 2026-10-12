@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--host-namespace-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(HostNamespaceProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--comparison-dispatch-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(ComparisonDispatchProbe.Run(args.Contains("--slots-only"))));

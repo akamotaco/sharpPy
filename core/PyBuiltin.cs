@@ -1939,7 +1939,8 @@ namespace SharpPy
                 if (i.Value < 0 || i.Value > 0x10FFFF)
                     throw PyValueError.Create("chr() arg not in range(0x110000)");
                 
-                return new PyString(((char)i.Value).ToString());
+                int codepoint = (int)i.Value;
+                return new PyString(codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint));
             }
             else
             {
