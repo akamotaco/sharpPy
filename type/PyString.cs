@@ -1287,163 +1287,7 @@ namespace SharpPy
                     if (self is not PyString str)
                         throw PyTypeError.Create($"descriptor 'format' requires a 'str' object but received a '{self.GetTypeName()}'");
 
-                    // Simple implementation: use C# string.Format for basic cases
-                    // Full PEP 3101 implementation would be complex
-                    try
-                    {
-                        // Convert Python args to object array for C# formatting
-                        object[] formatArgs = new object[args.Length];
-                        for (int i = 0; i < args.Length; i++)
-                        {
-                            formatArgs[i] = args[i].ToString();
-                        }
-
-                        // Replace Python {} format with C# {0} {1} etc.
-                        string format = str.Value;
-                        int argIndex = 0;
-                        var result = new System.Text.StringBuilder();
-                        int i_pos = 0;
-
-                        while (i_pos < format.Length)
-                        {
-                            int openBrace = format.IndexOf('{', i_pos);
-                            int closeBrace = format.IndexOf('}', i_pos);
-
-                            // Handle }} escape first
-                            if ((closeBrace != -1) && (openBrace == -1 || closeBrace < openBrace))
-                            {
-                                // Check for escaped closing brace }}
-                                if (closeBrace + 1 < format.Length && format[closeBrace + 1] == '}')
-                                {
-                                    result.Append(format.Substring(i_pos, closeBrace - i_pos));
-                                    result.Append('}');
-                                    i_pos = closeBrace + 2;
-                                    continue;
-                                }
-                                else
-                                {
-                                    throw PyValueError.Create("Single '}' encountered in format string");
-                                }
-                            }
-
-                            if (openBrace == -1)
-                            {
-                                result.Append(format.Substring(i_pos));
-                                break;
-                            }
-
-                            // Check for escaped brace {{
-                            if (openBrace + 1 < format.Length && format[openBrace + 1] == '{')
-                            {
-                                result.Append(format.Substring(i_pos, openBrace - i_pos));
-                                result.Append('{');
-                                i_pos = openBrace + 2;
-                                continue;
-                            }
-
-                            result.Append(format.Substring(i_pos, openBrace - i_pos));
-
-                            closeBrace = format.IndexOf('}', openBrace);
-                            if (closeBrace == -1)
-                                throw PyValueError.Create("Single '{' encountered in format string");
-
-                            string field = format.Substring(openBrace + 1, closeBrace - openBrace - 1);
-
-                            // CPython 3.12: PEP 3101 - parse field as "field_name!conversion:format_spec"
-                            // For now, we support: {0:04x}, {name:format}, etc.
-                            string fieldName = field;
-                            string formatSpec = null;
-                            string conversion = null;
-
-                            // Parse conversion (!r, !s, !a)
-                            int conversionIdx = field.IndexOf('!');
-                            if (conversionIdx != -1)
-                            {
-                                fieldName = field.Substring(0, conversionIdx);
-                                int formatSpecIdx = field.IndexOf(':', conversionIdx);
-                                if (formatSpecIdx != -1)
-                                {
-                                    conversion = field.Substring(conversionIdx + 1, formatSpecIdx - conversionIdx - 1);
-                                    formatSpec = field.Substring(formatSpecIdx + 1);
-                                }
-                                else
-                                {
-                                    conversion = field.Substring(conversionIdx + 1);
-                                }
-                            }
-                            else
-                            {
-                                // Parse format spec
-                                int formatSpecIdx = field.IndexOf(':');
-                                if (formatSpecIdx != -1)
-                                {
-                                    fieldName = field.Substring(0, formatSpecIdx);
-                                    formatSpec = field.Substring(formatSpecIdx + 1);
-                                }
-                            }
-
-                            // Get the value to format
-                            PyObject value = null;
-                            if (string.IsNullOrEmpty(fieldName))
-                            {
-                                if (argIndex >= args.Length)
-                                    throw PyIndexError.Create("Replacement index out of range");
-                                value = args[argIndex];
-                                argIndex++;
-                            }
-                            else if (int.TryParse(fieldName, out int index))
-                            {
-                                if (index >= args.Length)
-                                    throw PyIndexError.Create("Replacement index out of range");
-                                value = args[index];
-                            }
-                            else
-                            {
-                                // Named argument - requires kwargs
-                                if (kwargs != null && kwargs.Contains(new PyString(fieldName)).Value)
-                                {
-                                    value = kwargs.GetItem(new PyString(fieldName));
-                                }
-                                else
-                                {
-                                    throw PyKeyError.Create(fieldName);
-                                }
-                            }
-
-                            // Apply conversion
-                            if (conversion != null)
-                            {
-                                value = conversion switch
-                                {
-                                    "s" => value.ToStr(),
-                                    "r" => value.ToRepr(),
-                                    "a" => value.ToRepr(), // ASCII version (simplified)
-                                    _ => throw PyValueError.Create($"Unknown conversion specifier {conversion}")
-                                };
-                            }
-
-                            // Apply format spec
-                            string formattedValue;
-                            if (formatSpec != null)
-                            {
-                                formattedValue = FormatValue(value, formatSpec);
-                            }
-                            else
-                            {
-                                formattedValue = FormatValue(value, "");
-                            }
-
-                            result.Append(formattedValue);
-
-                            i_pos = closeBrace + 1;
-                        }
-
-                        return new PyString(result.ToString());
-                    }
-                    catch (FormatException)
-                    {
-                        throw PyValueError.Create("Invalid format string");
-                    }
+                    return PyStringFormatter.Format(str.Value, args, kwargs);
                 }
             );
 
@@ -1457,12 +1301,7 @@ namespace SharpPy
                     if (self is not PyString str)
                         throw PyTypeError.Create($"descriptor 'format_map' requires a 'str' object but received a '{self.GetTypeName()}'");
 
-                    if (args[0] is not PyDict mapping)
-                        throw PyTypeError.Create("format_map() argument must be a dict");
-
-                    // Use format() implementation with empty args and mapping as kwargs
-                    var formatDescriptor = strType.TypeDict["format"] as PyMethodDescriptor;
-                    return formatDescriptor!.Call(new PyObject[] { self }, mapping);
+                    return PyStringFormatter.Format(str.Value, null, args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -2946,9 +2785,6 @@ namespace SharpPy
         // CPython 3.12: Objects/stringlib/unicode_format.h - format_spec parsing
         // PEP 3101: Format Specification Mini-Language
         // [[fill]align][sign][#][0][width][,][.precision][type]
-        private static string FormatValue(PyObject value, string formatSpec) =>
-            value.Format(StringCache.GetOrCreate(formatSpec)).Value;
-
         public static string FormatString(string value, string formatSpec)
         {
             if (string.IsNullOrEmpty(formatSpec))
