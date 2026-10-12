@@ -11,7 +11,9 @@
    index·keyword base, 공통 __new__ 변환과 오류 재현 해결.
 4. [109차](reports/2026-10-12/class_function_metadata.md): 기존 실패 3개 해결.
    일반 함수 호출의 105차 대비 약 3.4% 지연 관측은 별도 원인 조사로 남긴다.
-5. coroutine 경고·memoryview 자동 수명: 진행 예정.
+5. 부분 해결: [110차](reports/2026-10-12/coroutine_warning_and_view_lifetime.md).
+   구식 coroutine throw 경고 해결. memoryview 즉시 자동 해제는 VM 참조 수명
+   설계가 필요하여 미해결이며 alias/child 보호 회귀를 추가했다.
 6. math.isclose: 진행 예정.
 
 아래 100~105차 기록은 이전 작업의 결과이며 위 목록을 최신 상태로 사용한다.

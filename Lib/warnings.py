@@ -3,9 +3,17 @@ Simple warnings module for SharpPy
 Compatible with CPython 3.12 warnings API
 """
 
-# Filter list: (action, category, module, lineno)
-_filters = []
+# Default CPython filters. The native throw warning path shares this list.
+_filters = [
+    ('default', None, DeprecationWarning, '__main__', 0),
+    ('ignore', None, DeprecationWarning, None, 0),
+    ('ignore', None, PendingDeprecationWarning, None, 0),
+    ('ignore', None, ImportWarning, None, 0),
+    ('ignore', None, ResourceWarning, None, 0),
+]
+filters = _filters
 _default_action = "default"
+_filters_version = 0
 
 class WarningMessage:
     """Holds information about a warning message."""
@@ -37,10 +45,18 @@ def warn_explicit(message, category, filename, lineno, module=None, registry=Non
 
 def simplefilter(action, category=Warning, lineno=0, append=False):
     """Add a simple entry to the warnings filter list."""
+    global _filters_version
+    assert action in ('error', 'ignore', 'always', 'default', 'module', 'once'), 'invalid action: %r' % action
+    assert isinstance(lineno, int) and lineno >= 0, 'lineno must be an int >= 0'
+    _filters_version += 1
+    item = (action, None, category, None, lineno)
     if append:
-        _filters.append((action, category, lineno))
+        if item not in _filters:
+            _filters.append(item)
     else:
-        _filters.insert(0, (action, category, lineno))
+        if item in _filters:
+            _filters.remove(item)
+        _filters.insert(0, item)
 
 def filterwarnings(action, message="", category=Warning, module="", lineno=0, append=False):
     """Insert an entry into the warnings filter list."""
@@ -49,6 +65,8 @@ def filterwarnings(action, message="", category=Warning, module="", lineno=0, ap
 
 def resetwarnings():
     """Clear the warnings filter list."""
+    global _filters_version
+    _filters_version += 1
     _filters.clear()
 
 # Warning action types

@@ -59,6 +59,7 @@ namespace SharpPy.Core
                     if (self is not PyCoroutine coroutine)
                         throw PyTypeError.Create($"descriptor 'throw' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
                     CheckThrowArguments("coroutine", args, kwargs);
+                    if (args.Length > 1) PyWarnings.DeprecatedThrow();
                     return coroutine.Throw(args);
                 }, minArgs: 1, maxArgs: 3);
 
@@ -397,6 +398,7 @@ namespace SharpPy.Core
                     if (self is not PyCoroutineAwaiter wrapper)
                         throw PyTypeError.Create($"descriptor 'throw' for 'coroutine_wrapper' objects doesn't apply to a '{self.GetTypeName()}' object");
                     PyCoroutine.CheckThrowArguments("coroutine_wrapper", args, kwargs);
+                    if (args.Length > 1) PyWarnings.DeprecatedThrow();
                     return wrapper._coroutine.Throw(args);
                 }, minArgs: 1, maxArgs: 3);
             WrapperType.TypeDict["close"] = new PyMethodDescriptor("close", WrapperType,
