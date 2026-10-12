@@ -358,7 +358,9 @@ namespace SharpPy
                     if (args[0] is not PyString specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
-                    if (specStr.Value.Length == 0 || specStr.Value == "d")
+                    if (specStr.Value.Length == 0)
+                        return self.ToStr();
+                    if (specStr.Value == "d")
                     {
                         if (self is PyInt plain) return plain.ToStr();
                         if (self is PyIntSubclass derived) return derived.GetIntValue().ToStr();
@@ -366,11 +368,13 @@ namespace SharpPy
 
                     // CPython 3.12: Objects/longobject.c:5555-5640 - long__format__
                     // Support both PyInt and PyIntSubclass (for IntEnum, IntFlag, etc.)
-                    long value;
+                    BigInteger value;
                     if (self is PyInt intObj)
-                        value = (long)intObj.Value;
+                        value = intObj.Value;
                     else if (self is PyIntSubclass intSubclass)
-                        value = (long)intSubclass.GetIntValue().Value;
+                        value = intSubclass.GetIntValue().Value;
+                    else if (self is PyBool boolean)
+                        value = boolean.Value ? BigInteger.One : BigInteger.Zero;
                     else
                         throw PyTypeError.Create($"descriptor '__format__' requires a 'int' object but received a '{self.GetTypeName()}'");
 
@@ -500,15 +504,22 @@ namespace SharpPy
 
         #region String Representation
 
-        private string DecimalString()
+        private string DecimalString() => DecimalString(Value);
+
+        private static string DecimalString(BigInteger value)
         {
+            // Every permitted nonzero limit is at least 640 digits. Native-sized
+            // values cannot reach it, and Int64 formatting avoids BigInteger's
+            // general decimal conversion machinery.
+            long bits = value.GetBitLength();
+            if (bits < 64) return ((long)value).ToString(System.Globalization.CultureInfo.InvariantCulture);
             int limit = PyVM.Instance.IntMaxStrDigits;
             // A conservative bit bound rejects clearly oversized output before
             // expensive decimal conversion; near the boundary count the digits.
-            if (limit != 0 && Value.GetBitLength() > (long)limit * 3322 / 1000 + 2)
+            if (limit != 0 && bits > (long)limit * 3322 / 1000 + 2)
                 throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit");
-            string text = Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            int digits = text.Length - (Value.Sign < 0 ? 1 : 0);
+            string text = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            int digits = text.Length - (value.Sign < 0 ? 1 : 0);
             if (limit != 0 && digits > limit)
                 throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit");
             return text;
@@ -1207,6 +1218,23 @@ namespace SharpPy
         {
             if (value == 0) return "0";
 
+            if (baseValue is 2 or 8 or 16)
+            {
+                int shift = baseValue == 2 ? 1 : baseValue == 8 ? 3 : 4;
+                int count = checked((int)((value.GetBitLength() + shift - 1) / shift));
+                var bytes = value.ToByteArray(isUnsigned: true);
+                var output = new char[count];
+                for (int i = count - 1, bit = 0; i >= 0; i--, bit += shift)
+                {
+                    int index = bit >> 3, offset = bit & 7;
+                    int digit = bytes[index] >> offset;
+                    if (offset + shift > 8 && index + 1 < bytes.Length)
+                        digit |= bytes[index + 1] << (8 - offset);
+                    output[i] = "0123456789abcdef"[digit & (baseValue - 1)];
+                }
+                return new string(output);
+            }
+
             var digits = "0123456789abcdefghijklmnopqrstuvwxyz";
             var result = new System.Text.StringBuilder();
 
@@ -1478,171 +1506,130 @@ namespace SharpPy
         /// Format spec mini-language: [[fill]align][sign][#][0][width][,][.precision][type]
         /// Type can be: b (binary), c (character), d (decimal), o (octal), x/X (hex), n (number), '' (same as d)
         /// </summary>
-        public static string FormatInt(long value, string formatSpec)
+        public static string FormatInt(long value, string formatSpec) => FormatInt(new BigInteger(value), formatSpec);
+
+        public static string FormatInt(BigInteger value, string spec)
         {
-            if (string.IsNullOrEmpty(formatSpec))
-                return value.ToString();
-
-            // Parse format spec
-            char fill = ' ';
-            char align = '\0';  // '\0' means default
-            char sign = '-';    // default: only negative
-            bool alternate = false;
-            bool zeropad = false;
-            int width = 0;
-            bool thousands = false;
-            char type = 'd';    // default type
-
-            int i = 0;
-            int len = formatSpec.Length;
-
-            // Check for fill + align (fill is any char, align is one of <>^=)
-            if (len >= 2 && "<>=^".Contains(formatSpec[1]))
+            if (string.IsNullOrEmpty(spec)) return DecimalString(value);
+            string fill = " ";
+            char align = '>', sign = '\0', grouping = '\0', type = 'd';
+            bool explicitFill = false, explicitAlign = false, alternate = false, negativeZero = false;
+            int i = 0, width = 0, precision = -1;
+            int firstLength = char.IsSurrogatePair(spec, 0) ? 2 : 1;
+            if (spec.Length > firstLength && "<>=^".Contains(spec[firstLength]))
             {
-                fill = formatSpec[0];
-                align = formatSpec[1];
-                i = 2;
+                fill = spec.Substring(0, firstLength); align = spec[firstLength];
+                i = firstLength + 1; explicitFill = explicitAlign = true;
             }
-            else if (len >= 1 && "<>=^".Contains(formatSpec[0]))
+            else if ("<>=^".Contains(spec[0])) { align = spec[i++]; explicitAlign = true; }
+            if (i < spec.Length && "+- ".Contains(spec[i])) sign = spec[i++];
+            if (i < spec.Length && spec[i] == 'z') { negativeZero = true; i++; }
+            if (i < spec.Length && spec[i] == '#') { alternate = true; i++; }
+            if (!explicitFill && i < spec.Length && spec[i] == '0')
             {
-                align = formatSpec[0];
-                i = 1;
+                fill = "0"; if (!explicitAlign) align = '='; i++;
             }
-
-            // Sign
-            if (i < len && "+-".Contains(formatSpec[i]))
+            int ReadNumber()
             {
-                sign = formatSpec[i];
-                i++;
+                int result = 0;
+                while (i < spec.Length && char.IsDigit(spec[i]))
+                {
+                    int digit = (int)char.GetNumericValue(spec[i++]);
+                    if (result > (int.MaxValue - digit) / 10)
+                        throw PyValueError.Create("Too many decimal digits in format string");
+                    result = result * 10 + digit;
+                }
+                return result;
             }
-            else if (i < len && formatSpec[i] == ' ')
+            width = ReadNumber();
+            if (i < spec.Length && spec[i] == ',') grouping = spec[i++];
+            if (i < spec.Length && spec[i] == '_')
             {
-                sign = ' ';
-                i++;
+                if (grouping == ',') throw PyValueError.Create("Cannot specify both ',' and '_'.");
+                grouping = spec[i++];
             }
-
-            // Alternate form (#)
-            if (i < len && formatSpec[i] == '#')
+            if (i < spec.Length && spec[i] == ',' && grouping == '_')
+                throw PyValueError.Create("Cannot specify both ',' and '_'.");
+            if (i < spec.Length && spec[i] == '.')
             {
-                alternate = true;
-                i++;
+                i++; int start = i; precision = ReadNumber();
+                if (start == i) throw PyValueError.Create("Format specifier missing precision");
             }
-
-            // Zero padding (0)
-            if (i < len && formatSpec[i] == '0')
+            if (spec.Length - i > 1)
+                throw PyValueError.Create($"Invalid format specifier '{spec}' for object of type 'int'");
+            if (i < spec.Length) type = spec[i];
+            bool floating = "eEfFgG%".Contains(type);
+            bool binary = "boxX".Contains(type);
+            if (grouping != '\0' && type != 'd' && !floating && !(binary && grouping == '_'))
+                throw PyValueError.Create($"Cannot specify '{grouping}' with '{type}'.");
+            if (floating)
             {
-                zeropad = true;
-                i++;
+                double number = (double)value;
+                if (double.IsInfinity(number)) throw PyOverflowError.Create("int too large to convert to float");
+                return PyFloat.FormatFloat(number, spec);
             }
+            if (!"bcdonxX".Contains(type))
+                throw PyValueError.Create($"Unknown format code '{type}' for object of type 'int'");
+            if (precision >= 0) throw PyValueError.Create("Precision not allowed in integer format specifier");
+            if (negativeZero) throw PyValueError.Create("Negative zero coercion (z) not allowed in integer format specifier");
 
-            // Width
-            while (i < len && char.IsDigit(formatSpec[i]))
+            string digits, prefix = "";
+            int digitWidth;
+            if (type == 'c')
             {
-                width = width * 10 + (formatSpec[i] - '0');
-                i++;
+                if (sign != '\0') throw PyValueError.Create("Sign not allowed with integer format specifier 'c'");
+                if (alternate) throw PyValueError.Create("Alternate form (#) not allowed with integer format specifier 'c'");
+                if (value < 0 || value > 0x10ffff) throw PyOverflowError.Create("%c arg not in range(0x110000)");
+                int codepoint = (int)value;
+                digits = codepoint <= 0xffff ? new string((char)codepoint, 1) : char.ConvertFromUtf32(codepoint);
+                digitWidth = 1;
             }
-
-            // Grouping option (,)
-            if (i < len && formatSpec[i] == ',')
+            else
             {
-                thousands = true;
-                i++;
+                var magnitude = BigInteger.Abs(value);
+                digits = binary ? ConvertToBase(magnitude, type == 'b' ? 2 : type == 'o' ? 8 : 16) : DecimalString(magnitude);
+                if (type == 'X') digits = digits.ToUpperInvariant();
+                prefix = value.Sign < 0 ? "-" : sign == '+' ? "+" : sign == ' ' ? " " : "";
+                if (alternate && binary) prefix += type == 'b' ? "0b" : type == 'o' ? "0o" : type == 'X' ? "0X" : "0x";
+                int groupSize = binary ? 4 : 3;
+                if (grouping != '\0')
+                {
+                    int minDigits = digits.Length;
+                    if (fill == "0" && align == '=')
+                    {
+                        int wanted = Math.Max(0, width - prefix.Length);
+                        minDigits = Math.Max(minDigits, wanted - Math.Max(0, wanted - 1) / (groupSize + 1));
+                    }
+                    int groupedLength = checked(minDigits + (minDigits - 1) / groupSize);
+                    var grouped = new char[groupedLength];
+                    for (int dst = groupedLength - 1, src = digits.Length - 1, count = 0; dst >= 0; count++)
+                    {
+                        if (count != 0 && count % groupSize == 0) grouped[dst--] = grouping;
+                        grouped[dst--] = src >= 0 ? digits[src--] : '0';
+                    }
+                    digits = new string(grouped);
+                }
+                digitWidth = digits.Length;
             }
-
-            // Skip precision for integers (not used)
-            if (i < len && formatSpec[i] == '.')
+            int padding = Math.Max(0, width - prefix.Length - digitWidth);
+            if (padding == 0) return prefix + digits;
+            return string.Create(checked(prefix.Length + digits.Length + padding * fill.Length),
+                (prefix, digits, fill, align, padding), static (output, state) => {
+                    int cursor = 0;
+                    int before = state.align == '>' ? state.padding : state.align == '^' ? state.padding / 2 : 0;
+                    int middle = state.align == '=' ? state.padding : 0;
+                    Fill(output.Slice(cursor, before * state.fill.Length), state.fill);
+                    cursor += before * state.fill.Length;
+                    state.prefix.AsSpan().CopyTo(output.Slice(cursor)); cursor += state.prefix.Length;
+                    Fill(output.Slice(cursor, middle * state.fill.Length), state.fill);
+                    cursor += middle * state.fill.Length;
+                    state.digits.AsSpan().CopyTo(output.Slice(cursor)); cursor += state.digits.Length;
+                    Fill(output.Slice(cursor), state.fill);
+                });
+            static void Fill(Span<char> output, string text)
             {
-                i++;
-                while (i < len && char.IsDigit(formatSpec[i]))
-                    i++;
-            }
-
-            // Type
-            if (i < len)
-            {
-                type = formatSpec[i];
-                i++;
-            }
-
-            // Convert value based on type
-            string result;
-            string prefix = "";
-            bool isNegative = value < 0;
-            long absValue = Math.Abs(value);
-
-            switch (type)
-            {
-                case 'b':  // binary
-                    result = Convert.ToString(absValue, 2);
-                    if (alternate) prefix = "0b";
-                    break;
-                case 'c':  // character
-                    if (value < 0 || value > 0x10FFFF)
-                        throw PyOverflowError.Create("%c arg not in range(0x110000)");
-                    return char.ConvertFromUtf32((int)value);
-                case 'd':  // decimal
-                case 'n':  // number (same as d for integers)
-                case '\0': // default
-                    result = absValue.ToString();
-                    if (thousands)
-                        result = absValue.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
-                    break;
-                case 'o':  // octal
-                    result = Convert.ToString(absValue, 8);
-                    if (alternate) prefix = "0o";
-                    break;
-                case 'x':  // hex lowercase
-                    result = Convert.ToString(absValue, 16).ToLower();
-                    if (alternate) prefix = "0x";
-                    break;
-                case 'X':  // hex uppercase
-                    result = Convert.ToString(absValue, 16).ToUpper();
-                    if (alternate) prefix = "0X";
-                    break;
-                default:
-                    throw PyValueError.Create($"Unknown format code '{type}' for object of type 'int'");
-            }
-
-            // Build sign string
-            string signStr = "";
-            if (isNegative)
-                signStr = "-";
-            else if (sign == '+')
-                signStr = "+";
-            else if (sign == ' ')
-                signStr = " ";
-
-            // Apply width and alignment
-            string fullPrefix = signStr + prefix;
-            int totalLen = fullPrefix.Length + result.Length;
-
-            if (width <= totalLen)
-                return fullPrefix + result;
-
-            int padLen = width - totalLen;
-
-            // Default alignment for numbers is right-aligned
-            if (align == '\0')
-                align = zeropad ? '=' : '>';
-
-            // Apply padding
-            if (zeropad && align == '=')
-                fill = '0';
-
-            switch (align)
-            {
-                case '<':  // left-aligned
-                    return fullPrefix + result + new string(fill, padLen);
-                case '>':  // right-aligned
-                    return new string(fill, padLen) + fullPrefix + result;
-                case '=':  // pad after sign
-                    return signStr + prefix + new string(fill, padLen) + result;
-                case '^':  // centered
-                    int leftPad = padLen / 2;
-                    int rightPad = padLen - leftPad;
-                    return new string(fill, leftPad) + fullPrefix + result + new string(fill, rightPad);
-                default:
-                    return fullPrefix + result;
+                if (text.Length == 1) output.Fill(text[0]);
+                else for (int n = 0; n < output.Length; n += text.Length) text.AsSpan().CopyTo(output.Slice(n));
             }
         }
 

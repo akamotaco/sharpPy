@@ -671,6 +671,17 @@ namespace SharpPy
     // 구문 예외
     public class PySyntaxError : PyException
     {
+        private PyTuple _details;
+
+        internal static PythonException IntegerLiteralLimit(string message, string filename, int line, string source)
+        {
+            var error = new PySyntaxError(message, filename, line);
+            error._details = new PyTuple(new PyString(filename), new PyInt(line), SmallIntCache.GetOrCreate(0),
+                new PyString((source ?? "") + "\n"), new PyInt(line), SmallIntCache.GetOrCreate(0));
+            error.Args = new PyObject[] { new PyString(message), error._details };
+            return new PythonException(error);
+        }
+
         public string FileName { get; }
         public int LineNumber { get; }
 
@@ -693,6 +704,11 @@ namespace SharpPy
         {
             switch (name)
             {
+                case "msg": return new PyString(Message);
+                case "offset": return _details == null ? PyNone.Instance : _details.Items[2];
+                case "text": return _details == null ? PyNone.Instance : _details.Items[3];
+                case "end_lineno": return _details == null ? PyNone.Instance : _details.Items[4];
+                case "end_offset": return _details == null ? PyNone.Instance : _details.Items[5];
                 case "filename":
                     return new PyString(FileName);
                 case "lineno":

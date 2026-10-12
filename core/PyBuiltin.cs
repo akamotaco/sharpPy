@@ -1501,6 +1501,7 @@ namespace SharpPy
             }
             catch (Exception ex)
             {
+                if (ex is PythonException pythonError && pythonError.PyException is PySyntaxError) throw;
                 throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
             }
 

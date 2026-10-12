@@ -119,6 +119,8 @@ def main():
         "tests/set_copy_reentry_regression.py",
         "tests/compatibility/set_hash_storage_remaining.py",
         "tests/integer_digit_limit_regression.py",
+        "tests/integer_format_extended_regression.py",
+        "tests/integer_literal_limit_regression.py",
         "tests/cpython312_selected_regression.py",
         "tests/library_composition_regression.py",
         "tests/compatibility/bound_method_attributes.py",

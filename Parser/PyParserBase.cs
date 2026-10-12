@@ -565,6 +565,14 @@ namespace SharpPy.Generated
             {
                 // CPython 3.12: Parser/action_helpers.c:805-820 (_PyPegen_number_token)
                 // Arbitrary precision integer support with BigInteger
+                int limit = PyVM.Instance.IntMaxStrDigits;
+                // The parser's native integer fast path accepts arbitrarily
+                // many zeroes without invoking decimal BigInteger conversion.
+                if (limit != 0 && cleanValue.Length > limit && cleanValue.AsSpan().IndexOfAnyExcept('0') >= 0)
+                {
+                    string message = $"Exceeds the limit ({limit} digits) for integer string conversion: value has {cleanValue.Length} digits; use sys.set_int_max_str_digits() to increase the limit - Consider hexadecimal for huge integer literals to avoid decimal conversion limits.";
+                    throw PySyntaxError.IntegerLiteralLimit(message, _filename, token.Line, GetSourceLine(token.Line));
+                }
                 constant.Value = new GeneratedPyConstantInt(BigInteger.Parse(cleanValue));
             }
 

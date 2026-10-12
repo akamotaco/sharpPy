@@ -13,7 +13,9 @@
 3. [114차](reports/2026-10-12/memoryview_ownership_boundaries.md): **미해결**.
    자동 해제 9개 소유권 경계 실패를 보존, live owner 보호 7개 확인.
    컨테이너/프레임/호스트까지 연결하는 소유권 계층이 필요하다.
-4. 정수 format 및 컴파일 literal 자릿수 제한.
+4. [115차](reports/2026-10-12/integer_format_and_literals.md): BigInteger 폭/정렬/그룹,
+   컴파일 decimal literal 제한 수정. 2/8/16진 변환을 선형 비트 추출로 변경.
+   locale n 및 float formatter 전체 호환성은 별도 범위.
 5. 비교·예외 처리 비용 원인 분리.
 6. warnings/호스트 namespace 및 라이브러리 실행 검증 확대.
    새 async generator 실제 실행 실패도 포함한다.
