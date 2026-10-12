@@ -4,7 +4,9 @@
 
 1. [118차 소유권 계약 비용](reports/2026-10-12/ownership_contract_cost.md):
    필드/별도 테이블 후보 측정. 런타임 미채택, memoryview 자동 해제 미해결.
-2. 호스트 전역 저장소: 직접 변경과 복사/관찰의 동기화.
+2. [119차 호스트 snapshot](reports/2026-10-12/host_namespace_snapshots.md):
+   공개 adapter Copy의 실패 3개 해결, native 11개 일치. 외부 변경 스캔 비용 증가,
+   raw Dictionary 변경 이력/전체 저장소 통합은 미해결. VM mapping은 스캔하지 않음.
 3. 작은 set 생성·변경의 할당 증가 개선.
 4. 숫자 하위 타입 비교 dispatch 비용 선별.
 5. warnings/async generator/set API 경계의 과정 감사.

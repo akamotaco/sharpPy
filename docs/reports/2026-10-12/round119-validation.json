@@ -1,0 +1,270 @@
+{
+  "before": {
+    "namespace_size": 100,
+    "warmups": 10,
+    "scope": "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+    "results": [
+      {
+        "operation": "copy",
+        "iterations": 1000,
+        "milliseconds": [
+          0.1487,
+          0.1661,
+          0.3088,
+          0.1393,
+          0.1481,
+          0.1327,
+          0.1533,
+          0.1314,
+          0.1309,
+          0.1302
+        ],
+        "allocated_bytes": [
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000
+        ]
+      }
+    ]
+  },
+  "after": {
+    "namespace_size": 100,
+    "warmups": 10,
+    "scope": "Native length/copy/construction on a fixed namespace; excludes Python VM and external writes",
+    "results": [
+      {
+        "operation": "copy",
+        "iterations": 1000,
+        "milliseconds": [
+          2.9877,
+          2.9891,
+          3.1757,
+          2.9603,
+          2.929,
+          2.9735,
+          2.9764,
+          2.9369,
+          2.9719,
+          2.9367
+        ],
+        "allocated_bytes": [
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000,
+          3952000
+        ]
+      }
+    ]
+  },
+  "host": {
+    "scope": "Native host snapshots and explicit synchronization; use mapping mutations for ordered event semantics",
+    "cases": [
+      {
+        "name": "mapping write reaches host",
+        "expected": 2,
+        "actual": "2",
+        "matches": true
+      },
+      {
+        "name": "mapping write reaches copy",
+        "expected": 2,
+        "actual": "2",
+        "matches": true
+      },
+      {
+        "name": "direct host replacement reaches lookup",
+        "expected": 3,
+        "actual": "3",
+        "matches": true
+      },
+      {
+        "name": "direct host replacement reaches copy",
+        "expected": 3,
+        "actual": "3",
+        "matches": true
+      },
+      {
+        "name": "direct host insertion reaches length",
+        "expected": 2,
+        "actual": "2",
+        "matches": true
+      },
+      {
+        "name": "direct host insertion reaches copy length",
+        "expected": 2,
+        "actual": "2",
+        "matches": true
+      },
+      {
+        "name": "direct host deletion reaches membership",
+        "expected": 0,
+        "actual": "0",
+        "matches": true
+      },
+      {
+        "name": "direct host deletion reaches copied membership",
+        "expected": 0,
+        "actual": "0",
+        "matches": true
+      },
+      {
+        "name": "explicit synchronization reaches values",
+        "expected": 5,
+        "actual": "5",
+        "matches": true
+      },
+      {
+        "name": "host clear preserves Python non-string keys",
+        "expected": 1,
+        "actual": "1",
+        "matches": true
+      },
+      {
+        "name": "non-string value survives host clear",
+        "expected": 6,
+        "actual": "6",
+        "matches": true
+      }
+    ]
+  },
+  "regression": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.18272079998860136,
+      "failure_markers": []
+    },
+    "git": "ea516d45b28d607f95085bb935be47a75c5385e8",
+    "git_status": " M tools/PerformanceHarness/HostNamespaceProbe.cs\n M type/PyDict.cs\n",
+    "dll_sha256": "402141a8693a5e71299721e59e71b0d33eeb2bcce7d58813f8e61e6742e94419",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/frame_globals_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "identity True True\ninjected 17\nstored 23\ndeleted False\nframe globals: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.0221352000371553,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "identity True True\ninjected 17\nstored 23\ndeleted False\nframe globals: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.48153970000566915,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_observation_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping observation: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.023861499968916178,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "module mapping observation: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.539141200017184,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_mutation_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping mutations: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02391180000267923,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "module mapping mutations: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.6666650999686681,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/module_mapping_clear_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping clear: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.023241100017912686,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "module mapping clear: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.4629257000051439,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/dict_mapping_followup_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "keys [2, 3, 4, 5]\nvalues [10, 10, 10, 20]\nitems [(2, 10), (3, 10), (4, 10), (5, 20)]\nkeys False True False False False False\n['b'] ['a', 'b', 'c'] ['a'] ['a', 'c']\nitems False True False False False False\n[('b', 2)] [('a', 1), ('b', 2), ('c', 3)] [('a', 1)] [('a', 1), ('c', 3)]\nTrue\n['a']\n['mapping_order_second', 'mapping_order_first']\nTrue\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.022451099997851998,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "keys [2, 3, 4, 5]\nvalues [10, 10, 10, 20]\nitems [(2, 10), (3, 10), (4, 10), (5, 20)]\nkeys False True False False False False\n['b'] ['a', 'b', 'c'] ['a'] ['a', 'c']\nitems False True False False False False\n[('b', 2)] [('a', 1), ('b', 2), ('c', 3)] [('a', 1)] [('a', 1), ('c', 3)]\nTrue\n['a']\n['mapping_order_second', 'mapping_order_first']\nTrue\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.53635629999917,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "matching_output": 5
+    }
+  }
+}

@@ -24,6 +24,14 @@ internal static class HostNamespaceProbe
         source.Remove("value");
         Check("direct host deletion reaches membership", 0, new PyInt(view.ContainsKey(key) ? 1 : 0));
         Check("direct host deletion reaches copied membership", 0, new PyInt(view.Copy().ContainsKey(key) ? 1 : 0));
-        return new { scope = "Native host Dictionary mutations versus PyGlobalsDict; mismatches remain explicit", cases = rows };
+        source["value"] = new PyInt(5);
+        view.SynchronizeFromHost();
+        Check("explicit synchronization reaches values", 5, view.Values().Items[1]);
+        var nonString = new PyInt(99);
+        view.SetItem(nonString, new PyInt(6));
+        source.Clear();
+        Check("host clear preserves Python non-string keys", 1, new PyInt(view.Copy().Length()));
+        Check("non-string value survives host clear", 6, view.Copy().GetItem(nonString));
+        return new { scope = "Native host snapshots and explicit synchronization; use mapping mutations for ordered event semantics", cases = rows };
     }
 }

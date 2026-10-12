@@ -1150,7 +1150,7 @@ namespace SharpPy
     public class PyGlobalsDict : PyDict
     {
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Dictionary<string, PyObject>, PyGlobalsDict> Views = new();
-        internal static PyGlobalsDict For(Dictionary<string, PyObject> variables) => Views.GetValue(variables, source => new PyGlobalsDict(source));
+        internal static PyGlobalsDict For(Dictionary<string, PyObject> variables) => Views.GetValue(variables, source => new PyGlobalsDict(source, false));
         internal static void Store(Dictionary<string, PyObject> variables, string name, PyObject value)
         {
             if (Views.TryGetValue(variables, out var view)) view.SetItem(StringCache.GetOrCreate(name), value);
@@ -1164,12 +1164,17 @@ namespace SharpPy
             return true;
         }
         private readonly Dictionary<string, PyObject> _globalScopeVariables;
+        private readonly bool _hostMutable;
         private int _nonStringCount;
 
         public PyGlobalsDict(Dictionary<string, PyObject> globalScopeVariables)
+            : this(globalScopeVariables, true) { }
+
+        private PyGlobalsDict(Dictionary<string, PyObject> globalScopeVariables, bool hostMutable)
             : base()
         {
             _globalScopeVariables = globalScopeVariables;
+            _hostMutable = hostMutable;
 
             // Initialize with current global variables
             foreach (var kv in globalScopeVariables)
@@ -1310,7 +1315,30 @@ namespace SharpPy
 
         public override PyDict Copy()
         {
+            if (_hostMutable) SynchronizeFromHost();
             return base.Copy();
+        }
+
+        /// <summary>
+        /// Reconcile an externally mutated Dictionary before bulk observations.
+        /// Runtime-owned mappings use Store/Delete and need no scan. Existing
+        /// keys keep Python order; unobserved remove/reinsert history cannot be
+        /// reconstructed from a Dictionary snapshot. Prefer SetItem/DelItem.
+        /// </summary>
+        public void SynchronizeFromHost()
+        {
+            for (int i = _keys.Count - 1; i >= 0; i--)
+            {
+                if (_keys[i] is not PyString key) continue;
+                if (!_globalScopeVariables.TryGetValue(key.Value, out var value)) base.DelItem(key);
+                else if (!ReferenceEquals(_dict.StoredValue(key), value)) base.SetItem(key, value);
+            }
+            if (base.Length() == _globalScopeVariables.Count + _nonStringCount) return;
+            foreach (var pair in _globalScopeVariables)
+            {
+                var key = StringCache.GetOrCreate(pair.Key);
+                if (!base.ContainsKey(key)) base.SetItem(key, pair.Value);
+            }
         }
 
         public override PyTuple PopItem()
