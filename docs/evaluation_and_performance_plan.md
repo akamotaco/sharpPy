@@ -10,7 +10,9 @@
 2. [113차](reports/2026-10-12/set_storage_and_copy.md): 기존 set 해시·재진입 실패 해결,
    BUILD_SET 삽입 순서 및 iterable 조기 종료 수정. 공유 복사로 시간/할당 감소.
    작은 집합 생성·변경 할당 증가와 전체 API 감사는 남음.
-3. memoryview 마지막 참조 해제와 exporter 수명.
+3. [114차](reports/2026-10-12/memoryview_ownership_boundaries.md): **미해결**.
+   자동 해제 9개 소유권 경계 실패를 보존, live owner 보호 7개 확인.
+   컨테이너/프레임/호스트까지 연결하는 소유권 계층이 필요하다.
 4. 정수 format 및 컴파일 literal 자릿수 제한.
 5. 비교·예외 처리 비용 원인 분리.
 6. warnings/호스트 namespace 및 라이브러리 실행 검증 확대.
