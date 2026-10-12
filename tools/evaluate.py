@@ -98,6 +98,8 @@ def main():
         "tests/metaclass_attribute_regression.py",
         "tests/set_numeric_identity_regression.py",
         "tests/integer_digit_limit_regression.py",
+        "tests/cpython312_selected_regression.py",
+        "tests/library_composition_regression.py",
         "tests/compatibility/bound_method_attributes.py",
         "tests/compatibility/class_body_exceptions.py",
         "tests/compatibility/class_locals_mapping.py",

@@ -1,0 +1,31 @@
+{
+  "tag": "v3.12.15",
+  "commit": "e848e4b09ca4bc67c0041c9ce7526dae471d4c36",
+  "adaptation": "Unchanged selected method AST bodies; minimal assertion runner; no test.support imports.",
+  "sources": [
+    {
+      "path": "Lib/test/test_int.py",
+      "sha256": "6f4fba227e4afbd1663ea7ff8a3a9a2bcc995d1a78b30e0ac0f526daa50b5ee8",
+      "url": "https://github.com/python/cpython/blob/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Lib/test/test_int.py",
+      "methods": [
+        "IntTestCases.test_invalid_signs",
+        "IntTestCases.test_unicode",
+        "IntTestCases.test_no_args",
+        "IntTestCases.test_int_base_bad_types",
+        "IntTestCases.test_string_float"
+      ]
+    },
+    {
+      "path": "Lib/test/test_sort.py",
+      "sha256": "d488b94e23579cf4f62fee1230952a719ef82797743ff9285c3bee96e44501a2",
+      "url": "https://github.com/python/cpython/blob/e848e4b09ca4bc67c0041c9ce7526dae471d4c36/Lib/test/test_sort.py",
+      "methods": [
+        "TestDecorateSortUndecorate.test_baddecorator",
+        "TestDecorateSortUndecorate.test_key_with_exception",
+        "TestDecorateSortUndecorate.test_key_with_mutation",
+        "TestOptimizedCompares.test_not_all_tuples",
+        "TestOptimizedCompares.test_none_in_tuples"
+      ]
+    }
+  ]
+}

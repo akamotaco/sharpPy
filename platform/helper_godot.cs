@@ -109,29 +109,11 @@ namespace Godot_IO
             // Godot은 항상 슬래시를 사용하므로 단순히 결합
             var combined = string.Join("/", paths.Where(p => !string.IsNullOrEmpty(p)));
             
-            // 중복 슬래시 제거 (res:// 와 user:// 는 유지)
-            while (combined.Contains("//") && 
-                   !combined.Contains("res://") && 
-                   !combined.Contains("user://"))
-            {
-                combined = combined.Replace("//", "/");
-            }
-            
-            // res:// 또는 user:// 프로토콜 정리
-            if (combined.Contains("res://"))
-            {
-                combined = combined.Replace("res://", "GODOT_RES_TEMP");
-                combined = combined.Replace("//", "/");
-                combined = combined.Replace("GODOT_RES_TEMP", "res://");
-            }
-            if (combined.Contains("user://"))
-            {
-                combined = combined.Replace("user://", "GODOT_USER_TEMP");
-                combined = combined.Replace("//", "/");
-                combined = combined.Replace("GODOT_USER_TEMP", "user://");
-            }
-            
-            return combined;
+            string prefix = combined.StartsWith("res://") ? "res://"
+                : combined.StartsWith("user://") ? "user://" : "";
+            if (prefix.Length != 0) combined = combined.Substring(prefix.Length).TrimStart('/');
+            while (combined.Contains("//")) combined = combined.Replace("//", "/");
+            return prefix + combined;
         }
         
         // 대소문자 정확한 파일 존재 확인

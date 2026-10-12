@@ -649,31 +649,8 @@ public class PyModule : PyObject
         }
 
         // 기본 sys.path 생성 (CPython 호환 구조)
-        private static PyList CreateDefaultSysPath()
-        {
-            var pathList = new List<PyObject>();
-
-            // 현재 디렉토리 (사용자 모듈)
-            pathList.Add(new PyString("."));
-
-            // 실행 파일 디렉토리 기준 경로
-            var exeDir = IOHelper.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
-
-            // 프로젝트 루트 디렉토리 (exe는 bin/Debug/net8.0/에 있으므로 3단계 위로)
-            var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
-
-            // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
-
-            // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
-
-            // 3순위: 실행 파일 디렉토리
-            pathList.Add(new PyString(exeDir));
-
-            // Performance: Eliminated LINQ - direct array conversion
-            return new PyList(pathList.ToArray());
-        }
+        private static PyList CreateDefaultSysPath() =>
+            SharpPy.Modules.SysModule.CreateSysPath();
 
         // 파일에서 모듈 로드
         public static PyModule LoadModuleFromFile(string moduleName, string filePath, string packageDir = null)

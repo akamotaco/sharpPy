@@ -9,7 +9,11 @@
 3. 정수 변환 범위·sys 제한 API: [102차](reports/2026-10-12/integer_digit_limits.md). 동적 제한·str/repr·기본/d format 연결, 175개 회귀 통과. bytes/bytearray/base 및 나머지 format·컴파일 literal 제한은 별도 미해결.
 4. 비교·예외 성능 잔여 조사: [103차](reports/2026-10-12/performance_residual_followup.md). 과거 DLL/현재 교차 재측정과 native 검사 완료. int/float 잔여 +2.73% 관측, 과거 지연 단일 원인 미확정. 런타임 추가 변경 없음.
 5. 과거 미해결 기록 재분류: [104차](reports/2026-10-12/compatibility_reconciliation.md). 재현 67개 전체 재실행: 일치 55·미일치/실패 12. 미등록 일치 11개를 기본 회귀로 승격. 전체 목록과 모집단 밖 과제 분리 완료.
-6. CPython 테스트 및 라이브러리 조합 검증 확대: 진행 예정.
+6. CPython 테스트 및 라이브러리 조합 검증 확대: [105차](reports/2026-10-12/cpython_selected_and_godot_libraries.md). 고정 원본 메서드 10개·조합 fixture 추가. Godot resource import 경로 수정. 기본 188개·Godot 33개 및 경로 5개 검증. math.isclose 미구현은 신규 실패 재현.
+
+이 여섯 작업은 각각 수정·선별·조사 결과를 남긴 범위다. 모든 잔여 문제가
+해결되었다는 뜻은 아니다. 현재 보존된 실패는 104차 12개와 105차 신규 1개이며,
+성능 원인 미확정 및 전체 라이브러리 감사 범위 밖 항목도 계속 추적한다.
 
 ## 요청한 1~6번 작업 상태 (99차)
 

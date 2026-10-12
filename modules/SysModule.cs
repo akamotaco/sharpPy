@@ -124,18 +124,21 @@ namespace SharpPy.Modules
             return new PySimpleNamespace(kwargs);
         }
 
-        private static PyList CreateSysPath()
+        internal static PyList CreateSysPath()
         {
             var pathList = new List<PyObject>();
 
-            // 1. 현재 디렉토리
+            // Godot compiles sources into its own assembly/cache directory;
+            // bundled Python modules live in the project resources instead.
+#if GODOT
+            pathList.Add(new PyString("res://"));
+            var exeDir = "res://";
+            var projectRoot = "res://";
+#else
             pathList.Add(new PyString("."));
-
-            // 2. 실행 파일 디렉토리
             var exeDir = IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
-
-            // 프로젝트 루트 디렉토리 (exe는 bin/Debug/net8.0/에 있으므로 3단계 위로)
             var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
+#endif
 
             // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
             // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
