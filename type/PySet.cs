@@ -18,6 +18,24 @@ namespace SharpPy
         public PySet(IEnumerable<PyObject> items) => 
             _items = new HashSet<PyObject>(items, PyObjectEqualityComparer.Instance);
 
+        internal static IEnumerable<PyObject> IterableItems(PyObject value)
+        {
+            if (value is PySet set) return set.Items;
+            if (value is PyFrozenSet frozen) return frozen.Items;
+            return Iterate(value);
+        }
+        private static IEnumerable<PyObject> Iterate(PyObject value)
+        {
+            var iterator = value.GetIterator();
+            while (true)
+            {
+                PyObject item;
+                try { item = iterator.Next(); }
+                catch (PythonException error) when (error.PyException is PyStopIteration) { yield break; }
+                yield return item;
+            }
+        }
+
         public override PyType GetPyType() => PyType.SetType;
         public override string GetTypeName() => "set";
 
@@ -623,14 +641,19 @@ namespace SharpPy
     /// </summary>
     public class PyFrozenSet : PyObject
     {
+        static PyFrozenSet()
+        {
+            PyType.FrozenSetType.TypeDict["copy"] = new PyMethodDescriptor("copy", PyType.FrozenSetType,
+                (self, args, kwargs) => ((PyFrozenSet)self).Copy(), minArgs: 0, maxArgs: 0);
+        }
         #region Core Properties
 
-        private readonly HashSet<PyObject> _items;
+        private readonly PyFrozenSetStorage _items;
 
-        public PyFrozenSet() => _items = new HashSet<PyObject>(PyObjectEqualityComparer.Instance);
+        public PyFrozenSet() => _items = new PyFrozenSetStorage(Array.Empty<PyObject>());
         
         public PyFrozenSet(IEnumerable<PyObject> items) => 
-            _items = new HashSet<PyObject>(items, PyObjectEqualityComparer.Instance);
+            _items = new PyFrozenSetStorage(items);
 
         public override PyType GetPyType() => PyType.FrozenSetType;
         public override string GetTypeName() => "frozenset";
@@ -664,42 +687,16 @@ namespace SharpPy
 
         #region Hash and Equality
 
-        public override int ToHash()
-        {
-            // CPython 3.12 compatible frozenset hash algorithm
-            // Based on CPython's frozenset_hash implementation
-            long hash = 1927868237L; // Initial hash value (CPython uses specific prime)
-
-            // Performance: Eliminated LINQ (Select + OrderBy + ToList) - manual sort
-            // Sort items by hash to ensure deterministic ordering
-            var hashes = new long[_items.Count];
-            int index = 0;
-            foreach (var item in _items)
-            {
-                hashes[index++] = (long)item.ToHash();
-            }
-            Array.Sort(hashes);
-
-            foreach (var itemHash in hashes)
-            {
-                hash ^= (itemHash ^ 89869747L) * 3644798167L;  // CPython-style mixing
-            }
-
-            // Additional mixing for better distribution
-            hash = hash * 69069L + 907133923L;
-
-            if (hash == -1)
-                hash = 590923713L;
-
-            return (int)(hash & 0xFFFFFFFF);
-        }
+        private long? cachedHash;
+        internal override long GetPythonHash() => cachedHash ??= _items.FrozenHash();
+        public override int ToHash() => unchecked((int)GetPythonHash());
 
         protected override PyObject PyEquals(PyObject other)
         {
             return other switch
             {
                 PyFrozenSet otherFrozen => PyBool.FromBool(_items.SetEquals(otherFrozen._items)),
-                PySet set => PyBool.FromBool(_items.SetEquals(set.Items)),
+                PySet set => PyBool.FromBool(Length() == set.Length() && _items.All(item => set.Contains(item).Value)),
                 _ => PyBool.False
             };
         }
@@ -793,7 +790,7 @@ namespace SharpPy
 
         #region Copy
 
-        public PyFrozenSet Copy() => new PyFrozenSet(_items);
+        public PyFrozenSet Copy() => this;
 
         #endregion
 

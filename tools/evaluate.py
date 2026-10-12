@@ -96,6 +96,7 @@ def main():
         *[str(path.relative_to(ROOT)) for path in sorted(ROOT.glob("test_*.py"))],
         "tests/binary_inplace_regression.py",
         "tests/metaclass_attribute_regression.py",
+        "tests/frozenset_hash_regression.py",
         "tests/set_numeric_identity_regression.py",
         "tests/integer_digit_limit_regression.py",
         "tests/cpython312_selected_regression.py",

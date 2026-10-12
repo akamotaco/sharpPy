@@ -869,21 +869,7 @@ namespace SharpPy
                         return PySet.Empty;
                     if (args.Length == 1)
                     {
-                        var iterable = args[0];
-                        var items = new List<PyObject>();
-                        var iterator = iterable.GetIterator();
-                        try
-                        {
-                            while (true)
-                            {
-                                items.Add(iterator.Next());
-                            }
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                        {
-                            // Normal termination
-                        }
-                        return new PySet(items);
+                        return new PySet(PySet.IterableItems(args[0]));
                     }
                     throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
                 case "frozenset":
@@ -892,21 +878,8 @@ namespace SharpPy
                         return new PyFrozenSet();
                     if (args.Length == 1)
                     {
-                        var iterable = args[0];
-                        var items = new List<PyObject>();
-                        var iterator = iterable.GetIterator();
-                        try
-                        {
-                            while (true)
-                            {
-                                items.Add(iterator.Next());
-                            }
-                        }
-                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                        {
-                            // Normal termination
-                        }
-                        return new PyFrozenSet(items);
+                        if (args[0] is PyFrozenSet frozen) return frozen;
+                        return new PyFrozenSet(PySet.IterableItems(args[0]));
                     }
                     throw PyTypeError.Create($"frozenset expected at most 1 arguments ({args.Length} given)");
                 case "bytearray":

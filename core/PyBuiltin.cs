@@ -1832,23 +1832,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return PySet.Empty;
 
-            var iterable = args[0];
-            var items = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
-
-            try
-            {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            return new PySet(items);
+            return new PySet(PySet.IterableItems(args[0]));
         }
 
         private static PyObject CallFrozenSet(PyObject[] args, PyDict kwargs = null)
@@ -1859,23 +1843,8 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyFrozenSet();
 
-            var iterable = args[0];
-            var items = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
-
-            try
-            {
-                while (true)
-                {
-                    items.Add(iterator.Next());
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            return new PyFrozenSet(items);
+            if (args[0] is PyFrozenSet frozen) return frozen;
+            return new PyFrozenSet(PySet.IterableItems(args[0]));
         }
 
         // === 이터레이터 함수들 ===
