@@ -1030,7 +1030,7 @@ namespace SharpPy
                     if (obj is PyString pyStr)
                         return pyStr;
                     else if (obj is PyInt pyInt)
-                        return new PyString(pyInt.Value.ToString());
+                        return pyInt.ToStr();
                     else if (obj is PyFloat pyFloat)
                         return new PyString(pyFloat.Value.ToString());
                     else if (obj is PyBool pyBool)

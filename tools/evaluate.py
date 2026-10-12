@@ -97,6 +97,7 @@ def main():
         "tests/binary_inplace_regression.py",
         "tests/metaclass_attribute_regression.py",
         "tests/set_numeric_identity_regression.py",
+        "tests/integer_digit_limit_regression.py",
         "tests/compatibility/metaclass_attribute_remaining.py",
         "tests/dict_key_identity_regression.py",
         "tests/dict_hash_protocol_regression.py",

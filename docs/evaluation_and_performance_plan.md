@@ -6,7 +6,7 @@
 
 1. metaclass 속성: [100차](reports/2026-10-12/metaclass_attribute_precedence.md), 기본 회귀 173개·Godot 20개 통과. 원래 재현 해결. 중첩 클래스 qualname 생성은 별도 재현으로 보존.
 2. set/frozenset 해시: [101차](reports/2026-10-12/set_hash_audit.md). 수치 hash/identity 및 복사 재해시 수정. 전체 저장소 교체는 성능 저하로 기각; 전체 폭 hash·재진입·frozen hash는 미해결 재현으로 유지.
-3. 정수 변환 범위·sys 제한 API: 진행 예정.
+3. 정수 변환 범위·sys 제한 API: [102차](reports/2026-10-12/integer_digit_limits.md). 동적 제한·str/repr·기본/d format 연결, 175개 회귀 통과. bytes/bytearray/base 및 나머지 format·컴파일 literal 제한은 별도 미해결.
 4. 비교·예외 성능 잔여 조사: 진행 예정.
 5. 과거 미해결 기록 재분류: 진행 예정.
 6. CPython 테스트 및 라이브러리 조합 검증 확대: 진행 예정.

@@ -789,6 +789,7 @@ namespace SharpPy
     public class PyVM
     {
         public static PyVM Instance { get; } = new PyVM();
+        internal int IntMaxStrDigits { get; set; } = 4300;
 
         private readonly Stack<PyFrame> _frameStack;
         private readonly PyScopeChain _globalScope;

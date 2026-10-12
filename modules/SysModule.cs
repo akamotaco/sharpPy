@@ -70,6 +70,8 @@ namespace SharpPy.Modules
             // 함수들
             module.ModuleDict["getsizeof"] = new PySysFunction("getsizeof");
             module.ModuleDict["getrefcount"] = new PySysFunction("getrefcount");
+            module.ModuleDict["get_int_max_str_digits"] = new PySysFunction("get_int_max_str_digits");
+            module.ModuleDict["set_int_max_str_digits"] = new PySysFunction("set_int_max_str_digits");
             module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
 
             // CPython 3.12: Frame and exception introspection
@@ -206,6 +208,39 @@ namespace SharpPy.Modules
 
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            if (Name is "get_int_max_str_digits" or "set_int_max_str_digits")
+            {
+                if (Name == "get_int_max_str_digits")
+                {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("sys.get_int_max_str_digits() takes no keyword arguments");
+                    if (args.Length != 0) throw PyTypeError.Create($"sys.get_int_max_str_digits() takes no arguments ({args.Length} given)");
+                    return new PyInt(PyVM.Instance.IntMaxStrDigits);
+                }
+                int count = args.Length + (kwargs?.Length() ?? 0);
+                if (count > 1) throw PyTypeError.Create($"set_int_max_str_digits() takes at most 1 argument ({count} given)");
+                PyObject argument = args.Length == 1 ? args[0] : null;
+                if (kwargs != null)
+                {
+                    foreach (var pair in kwargs.InternalDict)
+                    {
+                        if (pair.Key is not PyString key || key.Value != "maxdigits")
+                            continue;
+                        if (argument != null)
+                            throw PyTypeError.Create("argument for set_int_max_str_digits() given by name ('maxdigits') and position (1)");
+                        argument = pair.Value;
+                    }
+                }
+                if (argument == null) throw PyTypeError.Create("set_int_max_str_digits() missing required argument 'maxdigits' (pos 1)");
+                var index = PyObject.TryGetIndex(argument);
+                if (index == null) throw PyTypeError.Create($"'{argument.GetTypeName()}' object cannot be interpreted as an integer");
+                if (index.Value < int.MinValue || index.Value > int.MaxValue)
+                    throw PyOverflowError.Create("Python int too large to convert to C int");
+                int limit = (int)index.Value;
+                if (limit != 0 && limit < 640) throw PyValueError.Create("maxdigits must be 0 or larger than 640");
+                PyVM.Instance.IntMaxStrDigits = limit;
+                return PyNone.Instance;
+            }
             return Name switch
             {
                 "getdefaultencoding" => CallGetDefaultEncoding(args),

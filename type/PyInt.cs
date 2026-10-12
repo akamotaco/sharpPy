@@ -358,6 +358,12 @@ namespace SharpPy
                     if (args[0] is not PyString specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
+                    if (specStr.Value.Length == 0 || specStr.Value == "d")
+                    {
+                        if (self is PyInt plain) return plain.ToStr();
+                        if (self is PyIntSubclass derived) return derived.GetIntValue().ToStr();
+                    }
+
                     // CPython 3.12: Objects/longobject.c:5555-5640 - long__format__
                     // Support both PyInt and PyIntSubclass (for IntEnum, IntFlag, etc.)
                     long value;
@@ -527,8 +533,21 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString(Value.ToString());
-        public override PyString ToRepr() => new PyString(Value.ToString());
+        private string DecimalString()
+        {
+            int limit = PyVM.Instance.IntMaxStrDigits;
+            // A conservative bit bound rejects clearly oversized output before
+            // expensive decimal conversion; near the boundary count the digits.
+            if (limit != 0 && Value.GetBitLength() > (long)limit * 3322 / 1000 + 2)
+                throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit");
+            string text = Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            int digits = text.Length - (Value.Sign < 0 ? 1 : 0);
+            if (limit != 0 && digits > limit)
+                throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit");
+            return text;
+        }
+        public override PyString ToStr() => new PyString(DecimalString());
+        public override PyString ToRepr() => new PyString(DecimalString());
 
         #endregion
 
@@ -1155,7 +1174,7 @@ namespace SharpPy
         /// </summary>
         public override string AsString()
         {
-            return Value.ToString();
+            return DecimalString();
         }
 
         #endregion
@@ -1333,9 +1352,9 @@ namespace SharpPy
                 previousDigit = true; digits++; nonzero |= digit != 0;
             }
             if (!previousDigit || (leadingZero && nonzero)) throw InvalidIntegerLiteral(original, requestedBase);
-            // CPython's default non-power-of-two input conversion limit.
-            if ((baseValue & (baseValue - 1)) != 0 && digits > 4300)
-                throw PyValueError.Create($"Exceeds the limit (4300 digits) for integer string conversion: value has {digits} digits; use sys.set_int_max_str_digits() to increase the limit");
+            int limit = PyVM.Instance.IntMaxStrDigits;
+            if ((baseValue & (baseValue - 1)) != 0 && limit != 0 && digits > limit)
+                throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion: value has {digits} digits; use sys.set_int_max_str_digits() to increase the limit");
             BigInteger result;
             if (baseValue == 10)
             {
