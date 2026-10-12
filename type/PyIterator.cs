@@ -301,7 +301,6 @@ namespace SharpPy
     {
         private PyDict _dictionary;
         private readonly int _initialSize;
-        private OrderedIterationState _state;
         private int _position;
         private int _remaining;
         private bool _finished;
@@ -312,7 +311,6 @@ namespace SharpPy
             if (dict == null) throw new ArgumentNullException(nameof(dict));
             _dictionary = dict;
             _initialSize = dict.Length();
-            _state = dict.GetIterationState();
             _remaining = _initialSize;
         }
 
@@ -324,7 +322,7 @@ namespace SharpPy
                 _sizeFailed = true;
                 throw PyRuntimeError.Create("dictionary changed size during iteration");
             }
-            if (!_state.TryNext(ref _position, out var key))
+            if (!_dictionary.InternalDict.NextEntry(ref _position, out var entry))
             {
                 Finish();
                 throw PyStopIteration.Create();
@@ -335,15 +333,15 @@ namespace SharpPy
                 throw PyRuntimeError.Create("dictionary keys changed during iteration");
             }
             _remaining--;
-            return Project(key, _dictionary);
+            return ProjectEntry(entry.Key, entry.Value);
         }
 
         protected abstract PyObject Project(PyObject key, PyDict dictionary);
+        protected virtual PyObject ProjectEntry(PyObject key, PyObject value) => Project(key, _dictionary);
 
         private void Finish()
         {
             _finished = true;
-            _state = null;
             _dictionary = null;
         }
 
@@ -363,6 +361,7 @@ namespace SharpPy
     {
         public PyDictValueIterator(PyDict dict) : base(dict) { }
         protected override PyObject Project(PyObject key, PyDict dictionary) => dictionary.InternalDict.StoredValue(key);
+        protected override PyObject ProjectEntry(PyObject key, PyObject value) => value;
         public override PyString ToRepr() => new PyString("<dict_valueiterator object>");
     }
 
@@ -374,6 +373,7 @@ namespace SharpPy
         public PyDictItemIterator(PyDict dict) : base(dict) { }
         protected override PyObject Project(PyObject key, PyDict dictionary) =>
             TupleCache.CreatePair(key, dictionary.InternalDict.StoredValue(key));
+        protected override PyObject ProjectEntry(PyObject key, PyObject value) => TupleCache.CreatePair(key, value);
         public override PyString ToRepr() => new PyString("<dict_itemiterator object>");
     }
 

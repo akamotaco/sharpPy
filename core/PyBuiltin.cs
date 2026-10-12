@@ -3971,7 +3971,7 @@ namespace SharpPy
             }
 
             // Fallback: Use PyGlobalsDict which synchronizes with globalScope.Variables
-            return new PyGlobalsDict(globalScope.Variables);
+            return PyGlobalsDict.For(globalScope.Variables);
         }
 
         /// <summary>

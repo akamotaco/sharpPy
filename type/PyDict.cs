@@ -896,7 +896,7 @@ namespace SharpPy
             }
             else
             {
-                throw PyTypeError.Create($"'{keys.GetTypeName()}' object is not iterable");
+                foreach (var key in PySet.IterableItems(keys)) dict.SetItem(key, defaultValue);
             }
             
             return dict;
@@ -1149,6 +1149,20 @@ namespace SharpPy
     /// </summary>
     public class PyGlobalsDict : PyDict
     {
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Dictionary<string, PyObject>, PyGlobalsDict> Views = new();
+        internal static PyGlobalsDict For(Dictionary<string, PyObject> variables) => Views.GetValue(variables, source => new PyGlobalsDict(source));
+        internal static void Store(Dictionary<string, PyObject> variables, string name, PyObject value)
+        {
+            if (Views.TryGetValue(variables, out var view)) view.SetItem(StringCache.GetOrCreate(name), value);
+            else variables[name] = value;
+        }
+        internal static bool Delete(Dictionary<string, PyObject> variables, string name)
+        {
+            if (!variables.ContainsKey(name)) return false;
+            if (Views.TryGetValue(variables, out var view)) view.DelItem(StringCache.GetOrCreate(name));
+            else variables.Remove(name);
+            return true;
+        }
         private readonly Dictionary<string, PyObject> _globalScopeVariables;
         private int _nonStringCount;
 
@@ -1296,18 +1310,14 @@ namespace SharpPy
 
         public override PyDict Copy()
         {
-            var copy = new PyDict(_globalScopeVariables);
-            if (_nonStringCount != 0)
-                foreach (var key in _keys)
-                    if (key is not PyString) copy.SetItem(key, _dict[key]);
-            return copy;
+            return base.Copy();
         }
 
         public override PyTuple PopItem()
         {
-            // String-key popitem synchronization still requires an ordered shared store.
             var result = base.PopItem();
-            if (result.Items[0] is not PyString) _nonStringCount--;
+            if (result.Items[0] is PyString name) _globalScopeVariables.Remove(name.Value);
+            else _nonStringCount--;
             return result;
         }
     }

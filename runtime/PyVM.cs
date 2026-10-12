@@ -2298,13 +2298,13 @@ namespace SharpPy
                         break;
                     }
                     // 변수 삭제: 현재 스코프에서 먼저 찾기
-                    if (frame.ScopeChain.CurrentScope?.Variables.Remove(deleteName) == true)
+                    if (frame.ScopeChain.CurrentScope?.DeleteVariable(deleteName) == true)
                     {
                         // 현재 스코프에서 삭제됨
                         break;
                     }
                     // 전역 스코프에서 찾기
-                    if (frame.ScopeChain.GlobalScope?.Variables.Remove(deleteName) == true)
+                    if (frame.ScopeChain.GlobalScope?.DeleteVariable(deleteName) == true)
                     {
                         // 전역 스코프에서 삭제됨
                         break;
@@ -2460,7 +2460,7 @@ namespace SharpPy
                 case ByteCodeOp.DELETE_GLOBAL:
                     // CPython 3.12: Delete global variable
                     var deleteGlobalName = frame.Code.Names[argument];
-                    if (frame.ScopeChain.GlobalScope?.Variables.Remove(deleteGlobalName) == true)
+                    if (frame.ScopeChain.GlobalScope?.DeleteVariable(deleteGlobalName) == true)
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 DELETE_GLOBAL: deleted global variable '{deleteGlobalName}'");
@@ -5655,7 +5655,7 @@ namespace SharpPy
                                 else
                                 {
                                     // Fallback: use global scope
-                                    frame.ScopeChain.GlobalScope.Variables[importName] = importValue;
+                                    frame.ScopeChain.GlobalScope.SetVariable(importName, importValue);
                                 }
                             }
                             catch

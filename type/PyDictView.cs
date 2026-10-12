@@ -75,5 +75,58 @@ namespace SharpPy
 
         private static PyBool Equal(PyObject left, PyObject right) =>
             PyBool.FromBool(CompareBool(left, right, CompareOp.EQ));
+
+        private bool IsSetView => _kind != DictViewKind.Values;
+        private static bool SetLike(PyObject value) => value is PySet || value is PyFrozenSet ||
+            value is PyDictView view && view.IsSetView;
+        private static bool AllContained(PyObject source, PyObject target)
+        {
+            foreach (var item in PySet.IterableItems(source))
+                if (!target.Contains(item).Value) return false;
+            return true;
+        }
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (!IsSetView || !SetLike(other)) return PyNotImplemented.Instance;
+            int left = Length(), right = other.Length();
+            bool equal = op switch
+            {
+                CompareOp.EQ => left == right && AllContained(this, other),
+                CompareOp.NE => left != right || !AllContained(this, other),
+                CompareOp.LE => left <= right && AllContained(this, other),
+                CompareOp.LT => left < right && AllContained(this, other),
+                CompareOp.GE => left >= right && AllContained(other, this),
+                CompareOp.GT => left > right && AllContained(other, this),
+                _ => false
+            };
+            return PyBool.FromBool(equal);
+        }
+        public override PyObject BitwiseAnd(PyObject other)
+        {
+            if (!IsSetView) return base.BitwiseAnd(other);
+            var result = new PySet();
+            foreach (var item in PySet.IterableItems(other))
+                if (Contains(item).Value) result.Add(item);
+            return result;
+        }
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            if (!IsSetView) return base.BitwiseOr(other);
+            var result = new PySet(PySet.IterableItems(this));
+            foreach (var item in PySet.IterableItems(other)) result.Add(item);
+            return result;
+        }
+        public override PyObject Subtract(PyObject other)
+        {
+            if (!IsSetView) return base.Subtract(other);
+            var result = new PySet(PySet.IterableItems(this));
+            foreach (var item in PySet.IterableItems(other)) result.Discard(item);
+            return result;
+        }
+        public override PyObject BitwiseXor(PyObject other)
+        {
+            if (!IsSetView) return base.BitwiseXor(other);
+            return new PySet(PySet.IterableItems(this)).SymmetricDifference(new PySet(PySet.IterableItems(other)));
+        }
     }
 }

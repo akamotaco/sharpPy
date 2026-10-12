@@ -398,8 +398,12 @@ namespace SharpPy
 
         public void SetVariable(string name, PyObject value)
         {
-            Variables[name] = value;
+            if (Type == ScopeType.Global || Type == ScopeType.Module) PyGlobalsDict.Store(Variables, name, value);
+            else Variables[name] = value;
         }
+
+        public bool DeleteVariable(string name) => Type == ScopeType.Global || Type == ScopeType.Module
+            ? PyGlobalsDict.Delete(Variables, name) : Variables.Remove(name);
 
         public PyObject GetVariable(string name)
         {

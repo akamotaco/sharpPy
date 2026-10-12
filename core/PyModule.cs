@@ -157,7 +157,7 @@ public class PyModule : PyObject
                 // CPython 3.12: Python/ceval.c:2392 - frame->f_globals is module->md_dict
                 // Use PyGlobalsDict which synchronizes bidirectionally with ModuleDict
                 // This ensures dict.update() modifies ModuleDict, and LOAD_NAME sees the changes
-                _cachedDict = new PyGlobalsDict(ModuleDict);
+                _cachedDict = PyGlobalsDict.For(ModuleDict);
             }
             return _cachedDict;
         }
@@ -170,7 +170,7 @@ public class PyModule : PyObject
     
     public override void SetAttribute(string name, PyObject value)
     {
-        ModuleDict[name] = value;
+        SetVariable(name, value);
     }
     
     // Variable 접근 (LEGB의 G 스코프)
@@ -181,8 +181,9 @@ public class PyModule : PyObject
     
     public void SetVariable(string name, PyObject value)
     {
-        ModuleDict[name] = value;
+        PyGlobalsDict.Store(ModuleDict, name, value);
     }
+
     
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용
     public void Execute(string sourceCode)

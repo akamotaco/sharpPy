@@ -1,5 +1,19 @@
 # SharpPy 구현 평가 및 성능 개선 계획
 
+## 현재 후속 1~6번 작업 (106차부터)
+
+1. 부분 해결: [106차](reports/2026-10-12/frozenset_stored_hashes.md).
+   frozenset 저장 해시·해시 캐시와 생성자 소비 순서를 수정했다.
+   mutable set 저장소 교체는 성능 문제로 제외했으며 재진입은 미해결이다.
+2. [107차](reports/2026-10-12/dict_mapping_followup.md): 기존 실패 5개 해결.
+   저장소 cursor, view 집합 연산, 전역 binding과 보존 view 동기화.
+3. 정수 변환 API: 진행 예정.
+4. 클래스 scope/qualname·함수 kwdefaults: 진행 예정.
+5. coroutine 경고·memoryview 자동 수명: 진행 예정.
+6. math.isclose: 진행 예정.
+
+아래 100~105차 기록은 이전 작업의 결과이며 위 목록을 최신 상태로 사용한다.
+
 ## 후속 1~6번 작업 (100차부터)
 
 이 목록이 아래 과거 기록보다 우선한다. 이전 6번도 `8408021`로 푸시 완료했다.
