@@ -1,5 +1,21 @@
 # SharpPy 구현 평가 및 성능 개선 계획
 
+## 현재 후속 1~6번 작업 (112차부터)
+
+평가 순서, 콜백과 예외 발생 시점, 참조 수명을 포함한 CPython 3.12의
+관찰 가능한 과정과 결과를 기준으로 한다. 내부 C 자료구조 복제가 목표는 아니다.
+
+1. [112차](reports/2026-10-12/keyword_frame_allocation.md): 108→109차 직접 비교에서
+   지연 재현 안 됨. keyword 전달의 임시 프레임 제거, 대상 시간·할당 감소.
+2. mutable set 저장 해시·재진입 및 집합 연산 콜백.
+3. memoryview 마지막 참조 해제와 exporter 수명.
+4. 정수 format 및 컴파일 literal 자릿수 제한.
+5. 비교·예외 처리 비용 원인 분리.
+6. warnings/호스트 namespace 및 라이브러리 실행 검증 확대.
+   새 async generator 실제 실행 실패도 포함한다.
+
+112차 이후 상태가 아래 과거 기록보다 우선한다.
+
 ## 현재 후속 1~6번 작업 (106차부터)
 
 1. 부분 해결: [106차](reports/2026-10-12/frozenset_stored_hashes.md).

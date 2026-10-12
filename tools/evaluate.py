@@ -103,6 +103,7 @@ def main():
         "tests/compatibility/coroutine_throw_legacy_warning.py",
         "tests/memoryview_alias_lifetime_regression.py",
         "tests/class_function_metadata_regression.py",
+        "tests/keyword_frame_regression.py",
         "tests/compatibility/class_body_freevar.py",
         "tests/compatibility/nested_class_qualname_remaining.py",
         "tests/compatibility/async_generator_kwdefaults.py",

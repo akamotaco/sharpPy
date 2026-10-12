@@ -78,37 +78,21 @@ namespace SharpPy
             PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null, PyDict kwdefaults = null)
         {
             // CPython 3.12: Line 1628 - _PyStack_UnpackDict converts kwargs dict to (args + kwnames) format
-            var kwNamesList = new List<PyObject>();
-            var kwValues = new List<PyObject>();
-
+            var names = new PyObject[kwargs.InternalDict.Count];
+            var finalArgs = new PyObject[args.Length + names.Length];
+            Array.Copy(args, finalArgs, args.Length);
+            int index = 0;
             foreach (var kv in kwargs.InternalDict)
             {
-                kwNamesList.Add(kv.Key);  // PyString key
-                kwValues.Add(kv.Value);   // Argument value
+                names[index] = kv.Key;
+                finalArgs[args.Length + index++] = kv.Value;
             }
-
-            // Combine positional args and keyword values
-            var finalArgs = new PyObject[args.Length + kwValues.Count];
-            Array.Copy(args, 0, finalArgs, 0, args.Length);
-            for (int i = 0; i < kwValues.Count; i++)
-            {
-                finalArgs[args.Length + i] = kwValues[i];
-            }
-
-            var kwNames = new PyTuple(kwNamesList.ToArray());
-
-            // Create a parent frame to hold KeywordNamesForNextCall
-            // This simulates CPython's approach where kwnames is passed through the call chain
-            var dummyCode = new PyCodeObject("<kwargs_holder>", new List<ByteCodeInstruction>(),
-                new List<PyObject>(), new List<string>(), new List<string>());
-            var parentFrame = new PyFrame(dummyCode, Array.Empty<PyObject>(), parentScope);
-            parentFrame.KeywordNamesForNextCall = kwNames;
-
-            // Create the actual frame with combined args
-            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults);
+            // kwnames is call metadata, not a Python frame. In particular, creating
+            // a holder frame must not push an artificial local scope into parentScope.
+            return new PyFrame(code, finalArgs, parentScope, closure, null, defaults, kwdefaults, new PyTuple(names));
         }
 
-        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
+        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null)
         {
 #if DEBUG_LOG
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
@@ -181,7 +165,7 @@ namespace SharpPy
             }
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
-            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults);
+            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults, keywordNames);
         }
 
         /// <summary>
@@ -197,7 +181,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 호환: 키워드 인수를 지원하는 매개변수 바인딩
         /// </summary>
-        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null, PyDict kwdefaults = null)
+        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null)
         {
             #if DEBUG_VM_LOG
             Console.WriteLine($"[BIND ARGS] BindArgumentsToParametersCPython312 for {code.Name}:");
@@ -214,13 +198,12 @@ namespace SharpPy
             #endif
 
             // CPython 3.12: Check for keyword arguments from parent frame
-            PyTuple kwNames = null;
+            PyTuple kwNames = keywordNames ?? parentFrame?.KeywordNamesForNextCall;
             Dictionary<string, PyObject> keywordArgs = null;
             PyObject[] positionalArgs = args;
 
-            if (parentFrame?.KeywordNamesForNextCall != null && parentFrame.KeywordNamesForNextCall.Items.Length > 0)
+            if (kwNames != null && kwNames.Items.Length > 0)
             {
-                kwNames = parentFrame.KeywordNamesForNextCall;
                 // Performance: Eliminated LINQ - manual array conversion
                 var kwNamesList = new string[kwNames.Items.Length];
                 for (int i = 0; i < kwNames.Items.Length; i++)
@@ -247,7 +230,7 @@ namespace SharpPy
 #endif
 
                 // Clear keyword names to prevent reuse
-                parentFrame.KeywordNamesForNextCall = null;
+                if (keywordNames == null) parentFrame.KeywordNamesForNextCall = null;
             }
             else
             {
