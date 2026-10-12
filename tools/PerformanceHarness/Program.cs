@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--ownership-cost-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(OwnershipCostProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--host-namespace-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(HostNamespaceProbe.Run()));
