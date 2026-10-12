@@ -13,7 +13,8 @@ float 포맷, 파일 IO를 뜻한다. CPython의 관찰 가능한 과정·결과
   owned Copy 스캔 제거, VM read 약 1.8% 지연 관측은 후속 비용으로 기록한다.
 - 3번: [126차 상태 크기](reports/2026-10-12/set_state_size.md), 저장소당 8B 감소.
   실행 시간 범위는 겹친다. 작은 set 잔여 +216B/회와 비교 dispatch 비용은 남는다.
-- 4번: 미감사 API 경계는 계속 남는다.
+- 4번: [128차 동적 필터](reports/2026-10-12/warnings_dynamic_filters.md)에서
+  검사·오류 순서 수정. str subclass payload, async hooks/최종화, set API 감사는 남는다.
 - 5번: [124차 공통 포맷 구조](reports/2026-10-12/float_format_structure.md).
   기본 일반 포맷/그룹/진입점 수정, 무작위 27,000개 일치. 대상 할당 104B/회 감소.
   [127차 중첩 필드](reports/2026-10-12/string_format_fields.md)에서 조회·변환·확장

@@ -1,0 +1,189 @@
+{
+  "before": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.183218999998644,
+      "failure_markers": []
+    },
+    "git": "980ff9a5caf1faf620dd078ad3395f35a810d65c",
+    "git_status": " M tools/evaluate.py\n M type/PyString.cs\n?? benchmarks/string_format.py\n?? tests/string_format_fields_regression.py\n?? tests/warnings_dynamic_filters_regression.py\n?? type/PyStringFormatter.cs\n",
+    "dll_sha256": "5ad134e557531291ca177d848537de79f0caa00313eb263bc42c37257b177ddb",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/warnings_dynamic_filters_regression.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "line error Line ['message', 'module'] TypeError an integer is required\nline error float ['message', 'module'] TypeError an integer is required\nline error str ['message', 'module'] TypeError an integer is required\nline error int ['message', 'module'] OverflowError Python int too large to convert to C ssize_t\ndefault 'always' 1\ndefault error 12 TypeError _warnings.defaultaction must be a string, not 'int'\ndefault error 'unknown' RuntimeError Unrecognized action ('unknown') in warnings.filters:\n None\nretained filters ['mutate'] 1\ndynamic warning filters: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02344359998824075,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "line Line ['message', 'module'] 1\nline float ['message', 'module'] 1\nline str ['message', 'module'] 1\nline int ['message', 'module'] 1\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\warnings_dynamic_filters_regression.py\", line 31, in <module>\n    __hash__ = str.__hash__\n               ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\warnings_dynamic_filters_regression.py\", line 31, in <class_body_Action>\n    __hash__ = str.__hash__\n               ^\nAttributeError: 'type' object has no attribute '__hash__'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\warnings_dynamic_filters_regression.py\", line 31, in <module>\n        __hash__ = str.__hash__\n                   ^\nAttributeError: 'type' object has no attribute '__hash__'\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.34009599999990314,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "sharppy_failure": 1
+    }
+  },
+  "targeted": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.18458250002004206,
+      "failure_markers": []
+    },
+    "git": "47bab20fe626ead41fdfa0ba52df55882b719921",
+    "git_status": " M Lib/warnings.py\n M tools/evaluate.py\n?? tests/compatibility/warnings_action_subclass_remaining.py\n?? tests/warnings_dynamic_filters_regression.py\n",
+    "dll_sha256": "5ad134e557531291ca177d848537de79f0caa00313eb263bc42c37257b177ddb",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/warnings_dynamic_filters_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "line error Line ['message', 'module'] TypeError an integer is required\nline error float ['message', 'module'] TypeError an integer is required\nline error str ['message', 'module'] TypeError an integer is required\nline error int ['message', 'module'] OverflowError Python int too large to convert to C ssize_t\ndefault 'always' 1\ndefault error 12 TypeError _warnings.defaultaction must be a string, not 'int'\ndefault error 'unknown' RuntimeError Unrecognized action ('unknown') in warnings.filters:\n None\nretained filters ['mutate'] 1\ndynamic warning filters: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.024407299992162734,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "line error Line ['message', 'module'] TypeError an integer is required\nline error float ['message', 'module'] TypeError an integer is required\nline error str ['message', 'module'] TypeError an integer is required\nline error int ['message', 'module'] OverflowError Python int too large to convert to C ssize_t\ndefault 'always' 1\ndefault error 12 TypeError _warnings.defaultaction must be a string, not 'int'\ndefault error 'unknown' RuntimeError Unrecognized action ('unknown') in warnings.filters:\n None\nretained filters ['mutate'] 1\ndynamic warning filters: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.3367306999862194,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/warnings_boundary_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02379290002863854,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.3323051000479609,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/warnings_api_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "[('first', 'UserWarning'), ('second', 'UserWarning'), ('explicit', 'UserWarning')]\nsample.py 7\nregex ['visible', 'hidden']\nfilter default 2\nfilter module 1\nfilter always 3\nfilter ignore 0\nerror raised\nnested 0 ['restored']\nfilters restored True\nnative 1 DeprecationWarning True\nwarnings API: PASS\nfilter order ['message', 'module'] 1\ncaller registry 1 True\nstacklevel True\nnative filter order ['message', 'module'] 1\nregistry action once 2 True\nregistry action module 2 True\nexplicit None module 0\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03011210000840947,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "[('first', 'UserWarning'), ('second', 'UserWarning'), ('explicit', 'UserWarning')]\nsample.py 7\nregex ['visible', 'hidden']\nfilter default 2\nfilter module 1\nfilter always 3\nfilter ignore 0\nerror raised\nnested 0 ['restored']\nfilters restored True\nnative 1 DeprecationWarning True\nwarnings API: PASS\nfilter order ['message', 'module'] 1\ncaller registry 1 True\nstacklevel True\nnative filter order ['message', 'module'] 1\nregistry action once 2 True\nregistry action module 2 True\nexplicit None module 0\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.709243300021626,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/warnings_action_subclass_remaining.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "str subclass action 1\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.027837199973873794,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\warnings_action_subclass_remaining.py\", line 10, in <module>\n    warnings.warn_explicit('test', UserWarning, 'test.py', 1)\n    ^\n  File \"C:/Users/AMD-MAX395-128G-2T/Desktop/work/sharpPy/Lib/warnings.py\", line 182, in warn_explicit\n    # Source line not available (line 182)\nTypeError: sequence item 0: expected str instance, Action found\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\warnings_action_subclass_remaining.py\", line 11, in <module>\n        print('str subclass action', len(log))\n        ^\nTypeError: sequence item 0: expected str instance, Action found\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.31591379997553304,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "matching_output": 3,
+      "sharppy_failure": 1
+    }
+  },
+  "godot": {
+    "default": {
+      "exit_code": 0,
+      "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nslice deletion compaction: 1440 PASS\nmemoryview slice assignment: PASS\nbytes comparisons: PASS\nrange slice indices: PASS\nsequence large step: 216 PASS\nbytearray iterable assignment: PASS\nbytearray slice reentry: PASS\nbytearray byte values: PASS\nStopIteration arguments: PASS\nexception args update: PASS\nexception args length hint: PASS\noperator length hint: PASS\nmemoryview large step: PASS\nrange native boundary: PASS\nnegative length first ValueError length should not be negative ['length']\ninvalid length first TypeError 'NoneType' object cannot be interpreted as an integer []\nlength exception first RuntimeError index failed ['raised']\nstep zero first ValueError slice step cannot be zero ['length', 'step']\ninvalid step TypeError slice indices must be integers or None or have an __index__ method []\nstart failure RuntimeError index failed ['step', 'raised']\nstop failure RuntimeError index failed ['step', 'start', 'raised']\nbad index result TypeError __index__ returned non-int (type str) ['start']\ninvalid stop TypeError slice indices must be integers or None or have an __index__ method ['step', 'start']\nmissing argument TypeError slice.indices() takes exactly one argument (0 given) []\nextra argument TypeError slice.indices() takes exactly one argument (2 given) []\nkeyword TypeError slice.indices() takes no keyword arguments []\nbad receiver TypeError descriptor 'indices' for 'slice' objects doesn't apply to a 'int' object []\nno receiver TypeError unbound method slice.indices() needs an argument []\nlist no receiver TypeError unbound method list.append() needs an argument []\nstr no receiver TypeError unbound method str.upper() needs an argument []\nslice bigint indices: PASS\nrange large step: PASS\nrange bigint: PASS\nrange constructor conversion: PASS\nSHARPPY_GODOT_PASS\n",
+      "stderr": ""
+    },
+    "fixtures": [
+      {
+        "name": "tests/warnings_dynamic_filters_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "line error Line ['message', 'module'] TypeError an integer is required\nline error float ['message', 'module'] TypeError an integer is required\nline error str ['message', 'module'] TypeError an integer is required\nline error int ['message', 'module'] OverflowError Python int too large to convert to C ssize_t\ndefault 'always' 1\ndefault error 12 TypeError _warnings.defaultaction must be a string, not 'int'\ndefault error 'unknown' RuntimeError Unrecognized action ('unknown') in warnings.filters:\n None\nretained filters ['mutate'] 1\ndynamic warning filters: PASS\n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\nline error Line ['message', 'module'] TypeError an integer is required\nline error float ['message', 'module'] TypeError an integer is required\nline error str ['message', 'module'] TypeError an integer is required\nline error int ['message', 'module'] OverflowError Python int too large to convert to C ssize_t\ndefault 'always' 1\ndefault error 12 TypeError _warnings.defaultaction must be a string, not 'int'\ndefault error 'unknown' RuntimeError Unrecognized action ('unknown') in warnings.filters:\n None\nretained filters ['mutate'] 1\ndynamic warning filters: PASS\nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "tests/warnings_boundary_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\ndepth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      }
+    ]
+  }
+}

@@ -163,10 +163,23 @@ def warn_explicit(message, category, filename, lineno, module=_omitted, registry
         good_message = msg is None or (msg == text if type(msg) is str else bool(msg.match(text)))
         good_module = mod is None or (mod == module if type(mod) is str else bool(mod.match(module)))
         good_category = issubclass(category, cat)
+        # PyLong_AsSsize_t requires an actual int and bypasses subclass hooks.
+        # This conversion occurs even when either matcher returned false.
+        if not isinstance(line, int): raise TypeError('an integer is required')
+        line = operator.index(line)
+        if line > sys.maxsize or line < -sys.maxsize - 1:
+            raise OverflowError('Python int too large to convert to C ssize_t')
         if good_message and good_category and good_module and (line == 0 or lineno == line):
             break
     else:
+        item = None
         action = defaultaction
+        if not isinstance(action, str):
+            raise TypeError("_warnings.defaultaction must be a string, not '%s'" % type(action).__name__)
+    original_action = action
+    if type(action) is not str:
+        # Native action dispatch compares Unicode contents, not Python __eq__.
+        action = ''.join((action,))
     if action == 'ignore': return
     if action == 'error': raise message
     if action == 'once':
@@ -184,7 +197,9 @@ def warn_explicit(message, category, filename, lineno, module=_omitted, registry
         if registry.get(altkey): return
         registry[altkey] = 1
     elif action == 'default': registry[key] = 1
-    elif action != 'always': raise RuntimeError('Unrecognized action (%r) in warnings.filters: %s' % (action, item))
+    elif action != 'always':
+        if supplied_registry: registry[key] = 1
+        raise RuntimeError('Unrecognized action (%r) in warnings.filters:\n %r' % (original_action, item))
     _showwarnmsg(WarningMessage(message, category, filename, lineno, source=source))
 
 class catch_warnings:
