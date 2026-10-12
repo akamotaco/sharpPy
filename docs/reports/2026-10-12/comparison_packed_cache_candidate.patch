@@ -1,0 +1,57 @@
+diff --git a/type/PyClass.cs b/type/PyClass.cs
+index 2e5bb9a..f0e3830 100644
+--- a/type/PyClass.cs
++++ b/type/PyClass.cs
+@@ -46,21 +46,22 @@ namespace SharpPy
+ 
+         public Dictionary<string, PyObject> ClassDict { get; }
+ 
+-        private ComparisonMisses _comparisonMisses;
+-
+-        private sealed class ComparisonMisses
+-        {
+-            internal ulong Epoch;
+-            internal PyType NativeBase;
+-            internal int Missing;
+-        }
++        // Epoch (46 bits) and six missing-slot bits for each supported native base.
++        // Replaces an 8-byte reference and its separately allocated cache object.
++        // Epochs outside the representable range bypass caching, never alias.
++        private ulong _comparisonMisses;
++        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
++        private static int ComparisonBaseShift(PyType nativeBase) =>
++            ReferenceEquals(nativeBase, PyType.IntType) ? 0 :
++            nativeBase == null ? 6 : ReferenceEquals(nativeBase, PyType.TupleType) ? 12 : 18;
+ 
+         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+         internal PyObject LookupComparisonMethod(CompareOp op, PyType nativeBase)
+         {
+             var cache = _comparisonMisses;
+-            if (cache != null && cache.Epoch == ComparisonCacheEpoch &&
+-                ReferenceEquals(cache.NativeBase, nativeBase) && (cache.Missing & (1 << (int)op)) != 0)
++            int shift = ComparisonBaseShift(nativeBase);
++            if ((cache >> 18) == ComparisonCacheEpoch && shift < 18 &&
++                (cache & (1UL << (shift + (int)op))) != 0)
+                 return null;
+             return LookupUncachedComparison(op, nativeBase);
+         }
+@@ -71,15 +72,13 @@ namespace SharpPy
+             // Only cache misses: callbacks stay live and no removed function is retained.
+             if (method == null)
+             {
+-                var cache = _comparisonMisses ??= new ComparisonMisses();
+                 ulong epoch = ComparisonCacheEpoch;
+-                if (cache.Epoch != epoch || !ReferenceEquals(cache.NativeBase, nativeBase))
++                int shift = ComparisonBaseShift(nativeBase);
++                if (epoch <= (ulong.MaxValue >> 18) && shift < 18)
+                 {
+-                    cache.Epoch = epoch;
+-                    cache.NativeBase = nativeBase;
+-                    cache.Missing = 0;
++                    if ((_comparisonMisses >> 18) != epoch) _comparisonMisses = epoch << 18;
++                    _comparisonMisses |= 1UL << (shift + (int)op);
+                 }
+-                cache.Missing |= 1 << (int)op;
+             }
+             return method;
+         }

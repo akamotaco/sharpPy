@@ -9,7 +9,9 @@
    raw Dictionary 변경 이력/전체 저장소 통합은 미해결. VM mapping은 스캔하지 않음.
 3. [120차 작은 set 테이블 재사용](reports/2026-10-12/set_small_table_reuse.md):
    대상 반복당 152B 감소, 시간 범위 겹침. 이전 저장소 대비 잔여 +224B.
-4. 숫자 하위 타입 비교 dispatch 비용 선별.
+4. [121차 비교 캐시 압축](reports/2026-10-12/comparison_packed_cache.md):
+   첫 비교 할당 40B 제거 후보가 native 반복 비용을 약 1.5% 늘려 기각.
+   런타임 복원, 과거 지연 원인은 미확정.
 5. warnings/async generator/set API 경계의 과정 감사.
 6. 수치 formatting/Unicode/파일 라이브러리의 검증 범위 확대.
 
