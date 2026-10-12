@@ -65,6 +65,7 @@ namespace SharpPy.Modules
             module.ModuleDict["isfinite"] = new PyMathFunction("isfinite");
             module.ModuleDict["isinf"] = new PyMathFunction("isinf");
             module.ModuleDict["isnan"] = new PyMathFunction("isnan");
+            module.ModuleDict["isclose"] = new PyMathFunction("isclose");
             module.ModuleDict["modf"] = new PyMathFunction("modf");
             module.ModuleDict["frexp"] = new PyMathFunction("frexp");
             module.ModuleDict["ldexp"] = new PyMathFunction("ldexp");
@@ -95,6 +96,7 @@ namespace SharpPy.Modules
 
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            if (Name == "isclose") return CallIsClose(args, kwargs);
             return Name switch
             {
                 // 기본 수학 함수들
@@ -735,6 +737,78 @@ namespace SharpPy.Modules
         }
 
         // === 헬퍼 메서드들 ===
+
+        private static PyBool CallIsClose(PyObject[] args, PyDict kwargs)
+        {
+            int total = args.Length + (kwargs?.Length() ?? 0);
+            if (total > 4) throw PyTypeError.Create($"isclose() takes at most 4 arguments ({total} given)");
+            if (args.Length > 2) throw PyTypeError.Create($"isclose() takes exactly 2 positional arguments ({args.Length} given)");
+            PyObject a = args.Length > 0 ? args[0] : null, b = args.Length > 1 ? args[1] : null;
+            PyObject relative = null, absolute = null;
+            if (kwargs != null)
+            {
+                if (kwargs.TryGetStoredValue(StringCache.GetOrCreate("a"), out var namedA))
+                {
+                    if (a != null) throw PyTypeError.Create("argument for isclose() given by name ('a') and position (1)");
+                    a = namedA;
+                }
+                if (kwargs.TryGetStoredValue(StringCache.GetOrCreate("b"), out var namedB))
+                {
+                    if (b != null) throw PyTypeError.Create("argument for isclose() given by name ('b') and position (2)");
+                    b = namedB;
+                }
+            }
+            if (a == null) throw PyTypeError.Create("isclose() missing required argument 'a' (pos 1)");
+            if (b == null) throw PyTypeError.Create("isclose() missing required argument 'b' (pos 2)");
+            if (kwargs != null)
+            {
+                foreach (var pair in kwargs.GetInternalDict())
+                {
+                    string name = pair.Key.ToStr().Value;
+                    switch (name)
+                    {
+                        case "a": case "b": break;
+                        case "rel_tol": relative = pair.Value; break;
+                        case "abs_tol": absolute = pair.Value; break;
+                        default: throw PyTypeError.Create($"'{name}' is an invalid keyword argument for isclose()");
+                    }
+                }
+            }
+            double left = RealNumber(a), right = RealNumber(b);
+            double rel = relative == null ? 1e-9 : RealNumber(relative);
+            double abs = absolute == null ? 0 : RealNumber(absolute);
+            // CPython 3.12 Modules/mathmodule.c: math_isclose_impl.
+            if (rel < 0 || abs < 0) throw PyValueError.Create("tolerances must be non-negative");
+            if (left == right) return PyBool.True;
+            if (double.IsInfinity(left) || double.IsInfinity(right)) return PyBool.False;
+            double difference = Math.Abs(right - left);
+            return PyBool.FromBool(difference <= Math.Abs(rel * right) ||
+                difference <= Math.Abs(rel * left) || difference <= abs);
+        }
+
+        private static double RealNumber(PyObject value)
+        {
+            if (value is PyFloat real) return real.Value;
+            if (value is PyBool boolean) return boolean.Value ? 1 : 0;
+            if (value is PyInt integer && !value.HasCustomType) return IntegerDouble(integer);
+            var method = value.LookupSpecialMethodUncached("__float__");
+            if (method != null)
+            {
+                var result = value.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (result is PyFloat converted) return converted.Value;
+                throw PyTypeError.Create($"{value.GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
+            }
+            var index = PyObject.TryGetIndex(value);
+            if (index != null) return IntegerDouble(index);
+            throw PyTypeError.Create($"must be real number, not {value.GetTypeName()}");
+        }
+
+        private static double IntegerDouble(PyInt value)
+        {
+            double result = (double)value.Value;
+            if (double.IsInfinity(result)) throw PyOverflowError.Create("int too large to convert to float");
+            return result;
+        }
 
         private double GetFloatValue(PyObject obj)
         {

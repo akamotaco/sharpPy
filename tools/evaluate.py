@@ -97,6 +97,8 @@ def main():
         "tests/binary_inplace_regression.py",
         "tests/metaclass_attribute_regression.py",
         "tests/frozenset_hash_regression.py",
+        "tests/math_isclose_regression.py",
+        "tests/compatibility/math_isclose_remaining.py",
         "tests/coroutine_warning_filter_regression.py",
         "tests/compatibility/coroutine_throw_legacy_warning.py",
         "tests/memoryview_alias_lifetime_regression.py",

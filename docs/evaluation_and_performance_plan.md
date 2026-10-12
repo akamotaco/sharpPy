@@ -14,7 +14,13 @@
 5. 부분 해결: [110차](reports/2026-10-12/coroutine_warning_and_view_lifetime.md).
    구식 coroutine throw 경고 해결. memoryview 즉시 자동 해제는 VM 참조 수명
    설계가 필요하여 미해결이며 alias/child 보호 회귀를 추가했다.
-6. math.isclose: 진행 예정.
+6. [111차](reports/2026-10-12/math_isclose_and_followup_status.md): math.isclose 구현.
+   500개 수치 조합과 변환 callback/오류 검증.
+
+최종 기본 회귀 206개, Godot 기본 17+관련 21개 및 경로 5개 통과.
+기존 compatibility 68개 전체 재실행은 일치 66·실패 2다. 이번 요청의 기존
+실패 13개 중 11개를 해결했으며, 1번 set 재진입과 5번 memoryview 즉시 해제는
+여전히 미해결이다. 각 항목의 완료/부분 해결 구분과 성능 관측은 111차 보고서를 따른다.
 
 아래 100~105차 기록은 이전 작업의 결과이며 위 목록을 최신 상태로 사용한다.
 
