@@ -999,6 +999,7 @@ namespace SharpPy
             char align = '\0';  // '\0' means default
             char sign = '-';    // default: only negative
             bool alternate = false;
+            bool coerceNegativeZero = false;
             bool zeropad = false;
             int width = 0;
             bool thousands = false;
@@ -1030,6 +1031,12 @@ namespace SharpPy
             else if (i < len && formatSpec[i] == ' ')
             {
                 sign = ' ';
+                i++;
+            }
+
+            if (i < len && formatSpec[i] == 'z')
+            {
+                coerceNegativeZero = true;
                 i++;
             }
 
@@ -1066,6 +1073,8 @@ namespace SharpPy
             {
                 i++;
                 precision = 0;
+                if (i == len || !char.IsAsciiDigit(formatSpec[i]))
+                    throw PyValueError.Create("Format specifier missing precision");
                 while (i < len && char.IsDigit(formatSpec[i]))
                 {
                     precision = precision * 10 + (formatSpec[i] - '0');
@@ -1080,24 +1089,28 @@ namespace SharpPy
                 i++;
             }
 
-            // Handle special float values
-            if (double.IsNaN(value))
-                return FormatSpecialFloat("nan", fill, align, width, sign, false);
-            if (double.IsPositiveInfinity(value))
-                return FormatSpecialFloat("inf", fill, align, width, sign, false);
-            if (double.IsNegativeInfinity(value))
-                return FormatSpecialFloat("inf", fill, align, width, '-', true);
+            if (i != len)
+                throw PyValueError.Create($"Invalid format specifier '{formatSpec}' for object of type 'float'");
+            if (type != '\0' && "eEfFgG%".IndexOf(type) < 0)
+                throw PyValueError.Create($"Unknown format code '{type}' for object of type 'float'");
 
             // Convert value based on type
             string result;
-            bool isNegative = value < 0;
+            bool isNegative = !double.IsNaN(value) && BitConverter.DoubleToInt64Bits(value) < 0;
             double absValue = Math.Abs(value);
+            bool special = double.IsNaN(value) || double.IsInfinity(value);
 
             // Default precision
             if (precision < 0)
                 precision = (type == 'f' || type == 'F') ? 6 : 6;
 
-            switch (type)
+            if (special)
+            {
+                bool uppercase = type == 'E' || type == 'F' || type == 'G';
+                result = double.IsNaN(value) ? (uppercase ? "NAN" : "nan") : (uppercase ? "INF" : "inf");
+                if (type == '%') result += "%";
+            }
+            else switch (type)
             {
                 case 'e':  // exponential lowercase
                     result = absValue.ToString($"e{precision}", System.Globalization.CultureInfo.InvariantCulture);
@@ -1125,14 +1138,30 @@ namespace SharpPy
                     throw PyValueError.Create($"Unknown format code '{type}' for object of type 'float'");
             }
 
+            if (!special)
+            {
+                // .NET scientific formatting has at least three exponent digits; Python has two.
+                int exponent = result.IndexOf('e');
+                if (exponent < 0) exponent = result.IndexOf('E');
+                if (exponent >= 0 && result.Length - exponent == 5 && result[exponent + 2] == '0')
+                    result = result.Remove(exponent + 2, 1);
+                if (coerceNegativeZero && isNegative)
+                {
+                    bool roundedZero = result.Length > 0 && result[0] == '0';
+                    for (int j = 0; j < result.Length && result[j] != 'e' && result[j] != 'E'; j++)
+                        if (result[j] >= '1' && result[j] <= '9') { roundedZero = false; break; }
+                    if (roundedZero) isNegative = false;
+                }
+            }
+
             // Apply thousands separator if requested
-            if (thousands && (type == 'f' || type == 'F' || type == '\0' || type == 'g' || type == 'G'))
+            if (!special && thousands && (type == 'f' || type == 'F' || type == '\0' || type == 'g' || type == 'G'))
             {
                 result = ApplyThousandsSeparator(result);
             }
 
             // Alternate form: always include decimal point
-            if (alternate && !result.Contains('.') && !result.Contains('e') && !result.Contains('E'))
+            if (!special && alternate && !result.Contains('.') && !result.Contains('e') && !result.Contains('E'))
             {
                 result += ".";
             }
@@ -1177,28 +1206,6 @@ namespace SharpPy
                     return new string(fill, leftPad) + fullPrefix + result + new string(fill, rightPad);
                 default:
                     return fullPrefix + result;
-            }
-        }
-
-        private static string FormatSpecialFloat(string value, char fill, char align, int width, char sign, bool isNegative)
-        {
-            string signStr = isNegative ? "-" : (sign == '+' ? "+" : (sign == ' ' ? " " : ""));
-            string result = signStr + value;
-
-            if (width <= result.Length)
-                return result;
-
-            int padLen = width - result.Length;
-            if (align == '\0') align = '>';
-
-            switch (align)
-            {
-                case '<': return result + new string(fill, padLen);
-                case '>': return new string(fill, padLen) + result;
-                case '^':
-                    int leftPad = padLen / 2;
-                    return new string(fill, leftPad) + result + new string(fill, padLen - leftPad);
-                default: return result;
             }
         }
 

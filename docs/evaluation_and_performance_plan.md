@@ -15,7 +15,15 @@
 5. [122차 warnings/athrow 경계](reports/2026-10-12/warnings_and_athrow_boundaries.md):
    caller fallback, 필터 검증/하위 타입, Warning 초기화, athrow 경고·인자 오류 시점 수정.
    전체 API 감사·async hooks/최종화는 남음.
-6. 수치 formatting/Unicode/파일 라이브러리의 검증 범위 확대.
+6. [123차 float/Unicode/통합 검증](reports/2026-10-12/float_unicode_and_library_validation.md):
+   float 특수값·음수 0·z·지수·포맷 오류 수정. Unicode 1,114,112개 차이 0.
+   binary open 실패 재현 보존, 파일 수명/일반 float 포맷은 미해결.
+
+최종 기본 224개: 출력 일치 219, 가변 필드 제외 3, native CLI 2.
+compatibility 75개 중 72개 일치, memoryview 2개와 binary open 1개 미해결.
+Godot 소스 빌드, 기본 17개·관련 6개·경로 5개 검증.
+1번 소유권 구현과 4번 성능 개선을 완료로 분류하지 않는다.
+후속 우선순위와 구현 범위는 123차 보고서에 기록했다.
 
 각 항목은 개별 커밋·푸시하며 조사와 실제 수정의 상태를 구분한다.
 아래 기록은 이전 요청의 결과다.
