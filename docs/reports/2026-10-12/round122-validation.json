@@ -1,0 +1,308 @@
+{
+  "initial": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.18118549999780953,
+      "failure_markers": []
+    },
+    "git": "01deb6a16b106726c84bf7e40100ee80d17dd83b",
+    "git_status": " M type/PyClass.cs\n?? tests/warnings_boundary_regression.py\n",
+    "dll_sha256": "bc82982cc9fa99d8e03a267fb5b362bcc942ee387c5f73cf1da3de28705458f6",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/warnings_boundary_regression.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.024496600031852722,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth error 1000 AttributeError 'NoneType' object has no attribute 'f_back'\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError '>' not supported between instances of 'str' and 'int'\nlevel error AttributeError 'NoneType' object has no attribute 'f_back'\nfilter error TypeError 'NoneType' object is not iterable\nfilter error ValueError not enough values to unpack (expected 5, got 0)\nfilter error ValueError not enough values to unpack (expected 5, got 2)\nfilter error RuntimeError Unrecognized action (12) in warnings.filters: (12, None, <class 'Warning'>, None, 0)\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\warnings_boundary_regression.py\", line 31, in <module>\n    warnings.warn_explicit(Message(), UserWarning, 'test.py', 1, registry=registry)\n    ^\nTypeError: descriptor '__init__' of 'BaseException' object needs an argument\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\warnings_boundary_regression.py\", line 32, in <module>\n        print('registry timing', events, len(log), 'marker' in registry)\n        ^\nTypeError: descriptor '__init__' of 'BaseException' object needs an argument\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.3014034000225365,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "sharppy_failure": 1
+    }
+  },
+  "regression": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.17534479999449104,
+      "failure_markers": []
+    },
+    "git": "01deb6a16b106726c84bf7e40100ee80d17dd83b",
+    "git_status": " M Lib/warnings.py\n M core/PyAsyncGenerator.cs\n M core/PyType.cs\n M core/PyWarnings.cs\n M tools/evaluate.py\n M type/PyClass.cs\n M type/PyTuple.cs\n?? tests/async_generator_throw_timing_regression.py\n?? tests/warnings_boundary_regression.py\n",
+    "dll_sha256": "c3e070e00ec00858e070561e8212404c956c9106604d2510fd6a222f760e79c7",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/async_generator_throw_timing_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "created 0 0\nTypeError athrow expected at least 1 argument, got 0\ncreated 4 1\nTypeError athrow expected at most 3 arguments, got 4\nlegacy 1 the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead.\nValueError legacy\nStopIteration \nclosed empty throw\nStopIteration \n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.023476900008972734,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "created 0 0\nTypeError athrow expected at least 1 argument, got 0\ncreated 4 1\nTypeError athrow expected at most 3 arguments, got 4\nlegacy 1 the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead.\nValueError legacy\nStopIteration \nclosed empty throw\nStopIteration \n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.32864019996486604,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/async_generator_execution_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "created [] True True\nyielded 7\nreuse cannot reuse already awaited __anext__()/asend()\nyielded 9\nyielded recovered\nclose created ['started', ('sent', 9), 'injected']\nyielded None\nclosed ['started', ('sent', 9), 'injected', 'finally']\nexhausted\nyielded [1, 2]\nsuspended pause\nrunning anext(): asynchronous generator is already running\nyielded 12\nexhausted\nasync generator execution: PASS\nyielded [1, 2]\ncustom iterator ['iter', ('next', 0), ('next', 1), ('next', 2), 'else']\nTypeError object list can't be used in 'await' expression\nValueError await callback\nTypeError __await__() returned non-iterator of type 'list'\nyielded 1\ntranslated async generator raised StopIteration StopIteration\nyielded 1\ntranslated async generator raised StopAsyncIteration StopAsyncIteration\ninitial send can't send non-None value to a just-started async generator\nyielded 1\ninitial close can't send non-None value to a just-started coroutine\nyielded None\nyielded None\nunstarted close ['iter', ('next', 0), ('next', 1), ('next', 2), 'else']\nstop async args ('a', 'b') False\ndescriptor descriptor '__anext__' requires a 'async_generator' object but received a 'int'\ndescriptor descriptor '__next__' requires a 'async_generator_asend' object but received a 'int'\nyielded None\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.023481199983507395,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "created [] True True\nyielded 7\nreuse cannot reuse already awaited __anext__()/asend()\nyielded 9\nyielded recovered\nclose created ['started', ('sent', 9), 'injected']\nyielded None\nclosed ['started', ('sent', 9), 'injected', 'finally']\nexhausted\nyielded [1, 2]\nsuspended pause\nrunning anext(): asynchronous generator is already running\nyielded 12\nexhausted\nasync generator execution: PASS\nyielded [1, 2]\ncustom iterator ['iter', ('next', 0), ('next', 1), ('next', 2), 'else']\nTypeError object list can't be used in 'await' expression\nValueError await callback\nTypeError __await__() returned non-iterator of type 'list'\nyielded 1\ntranslated async generator raised StopIteration StopIteration\nyielded 1\ntranslated async generator raised StopAsyncIteration StopAsyncIteration\ninitial send can't send non-None value to a just-started async generator\nyielded 1\ninitial close can't send non-None value to a just-started coroutine\nyielded None\nyielded None\nunstarted close ['iter', ('next', 0), ('next', 1), ('next', 2), 'else']\nstop async args ('a', 'b') False\ndescriptor descriptor '__anext__' requires a 'async_generator' object but received a 'int'\ndescriptor descriptor '__next__' requires a 'async_generator_asend' object but received a 'int'\nyielded None\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2903095999499783,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/warnings_boundary_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.023545199946966022,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.3271037000231445,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/warnings_api_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "[('first', 'UserWarning'), ('second', 'UserWarning'), ('explicit', 'UserWarning')]\nsample.py 7\nregex ['visible', 'hidden']\nfilter default 2\nfilter module 1\nfilter always 3\nfilter ignore 0\nerror raised\nnested 0 ['restored']\nfilters restored True\nnative 1 DeprecationWarning True\nwarnings API: PASS\nfilter order ['message', 'module'] 1\ncaller registry 1 True\nstacklevel True\nnative filter order ['message', 'module'] 1\nregistry action once 2 True\nregistry action module 2 True\nexplicit None module 0\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.030727500037755817,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "[('first', 'UserWarning'), ('second', 'UserWarning'), ('explicit', 'UserWarning')]\nsample.py 7\nregex ['visible', 'hidden']\nfilter default 2\nfilter module 1\nfilter always 3\nfilter ignore 0\nerror raised\nnested 0 ['restored']\nfilters restored True\nnative 1 DeprecationWarning True\nwarnings API: PASS\nfilter order ['message', 'module'] 1\ncaller registry 1 True\nstacklevel True\nnative filter order ['message', 'module'] 1\nregistry action once 2 True\nregistry action module 2 True\nexplicit None module 0\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.7213395000435412,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/coroutine_warning_filter_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "ignore legacy\nerror the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.\nstill-created 1\nsingle single\nwrapper the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.\ncaptured True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.038094400020781904,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "ignore legacy\nerror the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.\nstill-created 1\nsingle single\nwrapper the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.\ncaptured True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.4051228999742307,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/exception_args_update_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "exception args update: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.024706600001081824,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "exception args update: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25077470001997426,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "test_comprehensive_exception_handling.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "=== Comprehensive Exception Handling Test ===\n\n1. Basic try-except-else-finally (no exception):\n  In try block\n  In else block\n  In finally block\n\n2. try-except-else-finally (with exception):\n  In try block\n  In except block\n  In finally block\n\n3. Multiple except blocks:\n  In try block\n  In ValueError except: test error\n  In finally block\n\n4. Nested try-except:\n  Outer try\n    Inner try\n    Inner except: inner error\n  After inner try-except\n  Outer else\n  Outer finally\n\n5. try-finally only:\n  In try block\n  In finally block\n\n6. try-except only:\n  In try block\n  In except block: test type error\n\n=== All tests completed ===\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.030139099981170148,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "=== Comprehensive Exception Handling Test ===\n\n1. Basic try-except-else-finally (no exception):\n  In try block\n  In else block\n  In finally block\n\n2. try-except-else-finally (with exception):\n  In try block\n  In except block\n  In finally block\n\n3. Multiple except blocks:\n  In try block\n  In ValueError except: test error\n  In finally block\n\n4. Nested try-except:\n  Outer try\n    Inner try\n    Inner except: inner error\n  After inner try-except\n  Outer else\n  Outer finally\n\n5. try-finally only:\n  In try block\n  In finally block\n\n6. try-except only:\n  In try block\n  In except block: test type error\n\n=== All tests completed ===\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.23363819997757673,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "matching_output": 7
+    }
+  },
+  "subclasses": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.18390679999720305,
+      "failure_markers": []
+    },
+    "git": "01deb6a16b106726c84bf7e40100ee80d17dd83b",
+    "git_status": " M Lib/warnings.py\n M core/PyAsyncGenerator.cs\n M core/PyType.cs\n M core/PyWarnings.cs\n M tools/evaluate.py\n M type/PyClass.cs\n M type/PyTuple.cs\n?? tests/async_generator_throw_timing_regression.py\n?? tests/warnings_boundary_regression.py\n",
+    "dll_sha256": "c3e070e00ec00858e070561e8212404c956c9106604d2510fd6a222f760e79c7",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/warnings_boundary_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.025466599967330694,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.3393921999959275,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "matching_output": 1
+    }
+  },
+  "godot": {
+    "default": {
+      "exit_code": 0,
+      "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nslice deletion compaction: 1440 PASS\nmemoryview slice assignment: PASS\nbytes comparisons: PASS\nrange slice indices: PASS\nsequence large step: 216 PASS\nbytearray iterable assignment: PASS\nbytearray slice reentry: PASS\nbytearray byte values: PASS\nStopIteration arguments: PASS\nexception args update: PASS\nexception args length hint: PASS\noperator length hint: PASS\nmemoryview large step: PASS\nrange native boundary: PASS\nnegative length first ValueError length should not be negative ['length']\ninvalid length first TypeError 'NoneType' object cannot be interpreted as an integer []\nlength exception first RuntimeError index failed ['raised']\nstep zero first ValueError slice step cannot be zero ['length', 'step']\ninvalid step TypeError slice indices must be integers or None or have an __index__ method []\nstart failure RuntimeError index failed ['step', 'raised']\nstop failure RuntimeError index failed ['step', 'start', 'raised']\nbad index result TypeError __index__ returned non-int (type str) ['start']\ninvalid stop TypeError slice indices must be integers or None or have an __index__ method ['step', 'start']\nmissing argument TypeError slice.indices() takes exactly one argument (0 given) []\nextra argument TypeError slice.indices() takes exactly one argument (2 given) []\nkeyword TypeError slice.indices() takes no keyword arguments []\nbad receiver TypeError descriptor 'indices' for 'slice' objects doesn't apply to a 'int' object []\nno receiver TypeError unbound method slice.indices() needs an argument []\nlist no receiver TypeError unbound method list.append() needs an argument []\nstr no receiver TypeError unbound method str.upper() needs an argument []\nslice bigint indices: PASS\nrange large step: PASS\nrange bigint: PASS\nrange constructor conversion: PASS\nSHARPPY_GODOT_PASS\n",
+      "stderr": ""
+    },
+    "fixtures": [
+      {
+        "name": "tests/warnings_boundary_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "depth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\ndepth -1 False True\ndepth 0 False True\ndepth 1 False True\ndepth 1000 True 1\nlevel error TypeError 'float' object cannot be interpreted as an integer\nlevel error TypeError 'str' object cannot be interpreted as an integer\nlevel error OverflowError Python int too large to convert to C ssize_t\nfilter error ValueError _warnings.filters must be a list\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error ValueError _warnings.filters item 0 isn't a 5-tuple\nfilter error TypeError action must be a string, not 'int'\nregistry timing [True] 1 False\nnative filter storage ['match'] 1\nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "tests/async_generator_throw_timing_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "created 0 0\nTypeError athrow expected at least 1 argument, got 0\ncreated 4 1\nTypeError athrow expected at most 3 arguments, got 4\nlegacy 1 the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead.\nValueError legacy\nStopIteration \nclosed empty throw\nStopIteration \n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\ncreated 0 0\nTypeError athrow expected at least 1 argument, got 0\ncreated 4 1\nTypeError athrow expected at most 3 arguments, got 4\nlegacy 1 the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead.\nValueError legacy\nStopIteration \nclosed empty throw\nStopIteration \nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "tests/warnings_api_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "[('first', 'UserWarning'), ('second', 'UserWarning'), ('explicit', 'UserWarning')]\nsample.py 7\nregex ['visible', 'hidden']\nfilter default 2\nfilter module 1\nfilter always 3\nfilter ignore 0\nerror raised\nnested 0 ['restored']\nfilters restored True\nnative 1 DeprecationWarning True\nwarnings API: PASS\nfilter order ['message', 'module'] 1\ncaller registry 1 True\nstacklevel True\nnative filter order ['message', 'module'] 1\nregistry action once 2 True\nregistry action module 2 True\nexplicit None module 0\n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\n[('first', 'UserWarning'), ('second', 'UserWarning'), ('explicit', 'UserWarning')]\nsample.py 7\nregex ['visible', 'hidden']\nfilter default 2\nfilter module 1\nfilter always 3\nfilter ignore 0\nerror raised\nnested 0 ['restored']\nfilters restored True\nnative 1 DeprecationWarning True\nwarnings API: PASS\nfilter order ['message', 'module'] 1\ncaller registry 1 True\nstacklevel True\nnative filter order ['message', 'module'] 1\nregistry action once 2 True\nregistry action module 2 True\nexplicit None module 0\nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      }
+    ]
+  }
+}

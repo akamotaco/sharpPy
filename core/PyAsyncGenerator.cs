@@ -25,6 +25,7 @@ namespace SharpPy.Core
                     if (self is not PyAsyncGenerator generator)
                         throw PyTypeError.Create($"descriptor '{name}' requires a 'async_generator' object but received a '{self.GetTypeName()}'");
                     if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create($"{name}() takes no keyword arguments");
+                    if (name == "athrow") return generator.CreateThrow(args);
                     int minimum = name is "asend" or "athrow" ? 1 : 0;
                     int maximum = name == "athrow" ? 3 : minimum;
                     if (args.Length < minimum || args.Length > maximum)
@@ -52,7 +53,12 @@ namespace SharpPy.Core
         public PyObject ANext() => ASend(PyNone.Instance);
         public PyObject ASend(PyObject value) => new Awaitable(this, value, null, false);
         public PyObject AThrow(PyObject type, PyObject value = null, PyObject tb = null) =>
-            new Awaitable(this, null, tb != null ? new[] { type, value ?? PyNone.Instance, tb } : value != null ? new[] { type, value } : new[] { type }, false);
+            CreateThrow(tb != null ? new[] { type, value ?? PyNone.Instance, tb } : value != null ? new[] { type, value } : new[] { type });
+        private PyObject CreateThrow(PyObject[] args)
+        {
+            if (args.Length > 1) PyWarnings.DeprecatedThrow(asynchronous: true);
+            return new Awaitable(this, null, args, false);
+        }
         public PyObject AClose() => new Awaitable(this, null, null, true);
 
         private sealed class Awaitable : PyIterator
@@ -123,6 +129,11 @@ namespace SharpPy.Core
                     if (!IsThrow && sent == PyNone.Instance) sent = _value;
                 }
                 _owner.Running = true;
+                if (initial && injected == null && _throwArgs != null)
+                {
+                    if (_throwArgs.Length < 1) throw PyTypeError.Create("athrow expected at least 1 argument, got 0");
+                    if (_throwArgs.Length > 3) throw PyTypeError.Create($"athrow expected at most 3 arguments, got {_throwArgs.Length}");
+                }
                 PyObject result;
                 try
                 {

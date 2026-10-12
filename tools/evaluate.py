@@ -127,6 +127,8 @@ def main():
         "tests/compatibility/string_join_iterable_remaining.py",
         "tests/async_generator_execution_regression.py",
         "tests/warnings_api_regression.py",
+        "tests/warnings_boundary_regression.py",
+        "tests/async_generator_throw_timing_regression.py",
         "tests/string_join_process_regression.py",
         "tests/frame_globals_regression.py",
         "tests/source_warning_regression.py",

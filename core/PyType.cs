@@ -2900,22 +2900,13 @@ namespace SharpPy
         {
             // CPython 3.12: Objects/exceptions.c:42-71 (BaseException_init)
             // BaseException.__init__(self, *args) - stores args in self.args
-            TypeDict["__init__"] = new PyBuiltinFunction("__init__", args =>
+            TypeDict["__init__"] = new PyMethodDescriptor("__init__", BaseExceptionType, (self, args, kwargs) =>
             {
-                if (args.Length == 0)
-                    throw PyTypeError.Create("descriptor '__init__' of 'BaseException' object needs an argument");
-
-                var self = args[0];
-
-                // Extract *args (skip self)
-                var initArgs = args.Skip(1).ToArray();
-
-                // Store args in instance
-                if (self is PyClassInstance inst)
-                {
-                    inst.InstanceDict["args"] = new PyTuple(initArgs);
-                }
-
+                if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
+                    throw PyTypeError.Create($"descriptor '__init__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"{self.GetTypeName()}() takes no keyword arguments");
+                self.SetAttribute("args", args.Length == 0 ? TupleCache.Empty : new PyTuple(args));
                 return PyNone.Instance;
             });
 

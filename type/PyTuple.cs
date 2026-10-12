@@ -19,6 +19,13 @@ namespace SharpPy
         public static void InitializeTupleDescriptors()
         {
             var tupleType = PyType.TupleType;
+            tupleType.TypeDict["__len__"] = new PyMethodDescriptor("__len__", tupleType, (self, args, kwargs) => {
+                if (self is not PyTuple tuple)
+                    throw PyTypeError.Create($"descriptor '__len__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                if (kwargs != null && kwargs.Length() != 0) throw PyTypeError.Create("wrapper __len__() takes no keyword arguments");
+                return new PyInt(tuple.Items.Length);
+            });
 
             // CPython 3.12: Objects/tupleobject.c:488-502 - tuple_index
             // T.index(value, [start, [stop]]) -> integer -- return first index of value.

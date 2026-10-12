@@ -4,6 +4,7 @@ Uses CPython 3.12 warnings.py and _warnings.c: the accelerated implementation
 defines filter callback order and registry keys. Native warnings share this path.
 """
 import sys
+import operator
 
 filters = [
     ('default', None, DeprecationWarning, '__main__', 0),
@@ -96,15 +97,21 @@ def _showwarnmsg(message):
         _showwarnmsg_impl(message)
 
 def warn(message, category=None, stacklevel=1, source=None, *, skip_file_prefixes=()):
+    stacklevel = operator.index(stacklevel)
+    if stacklevel > sys.maxsize or stacklevel < -sys.maxsize - 1:
+        raise OverflowError('Python int too large to convert to C ssize_t')
     if isinstance(message, Warning): category = type(message)
     if category is None: category = UserWarning
     if not isinstance(category, type) or not issubclass(category, Warning):
         raise TypeError("category must be a Warning subclass, not '%s'" % type(category).__name__)
     if not isinstance(skip_file_prefixes, tuple): raise TypeError('skip_file_prefixes must be a tuple of strs.')
+    for prefix in skip_file_prefixes:
+        if not isinstance(prefix, str): raise TypeError("Found non-str '%s' in skip_file_prefixes." % type(prefix).__name__)
     if skip_file_prefixes: stacklevel = max(2, stacklevel)
     try:
         frame = sys._getframe(1)
         for index in range(max(1, stacklevel) - 1):
+            if frame is None: break
             frame = frame.f_back
             while frame is not None and (('importlib' in frame.f_code.co_filename and '_bootstrap' in frame.f_code.co_filename) or any(frame.f_code.co_filename.startswith(prefix) for prefix in skip_file_prefixes)):
                 frame = frame.f_back
@@ -139,11 +146,22 @@ def warn_explicit(message, category, filename, lineno, module=_omitted, registry
         registry['version'] = _filters_version
     if registry.get(key): return
     item = None
-    for item in filters:
-        action, msg, cat, mod, line = item
+    active_filters = filters
+    if not isinstance(active_filters, list): raise ValueError('_warnings.filters must be a list')
+    index = 0
+    while index < list.__len__(active_filters):
+        item = list.__getitem__(active_filters, index)
+        if not isinstance(item, tuple) or tuple.__len__(item) != 5:
+            raise ValueError("_warnings.filters item %s isn't a 5-tuple" % index)
+        index += 1
+        if type(item) is tuple:
+            action, msg, cat, mod, line = item
+        else:
+            action, msg, cat, mod, line = (tuple.__getitem__(item, position) for position in range(5))
+        if not isinstance(action, str): raise TypeError("action must be a string, not '%s'" % type(action).__name__)
         # _warnings.c evaluates both matchers before the subclass check.
-        good_message = msg is None or (msg == text if isinstance(msg, str) else bool(msg.match(text)))
-        good_module = mod is None or (mod == module if isinstance(mod, str) else bool(mod.match(module)))
+        good_message = msg is None or (msg == text if type(msg) is str else bool(msg.match(text)))
+        good_module = mod is None or (mod == module if type(mod) is str else bool(mod.match(module)))
         good_category = issubclass(category, cat)
         if good_message and good_category and good_module and (line == 0 or lineno == line):
             break

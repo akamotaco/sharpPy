@@ -12,7 +12,9 @@
 4. [121차 비교 캐시 압축](reports/2026-10-12/comparison_packed_cache.md):
    첫 비교 할당 40B 제거 후보가 native 반복 비용을 약 1.5% 늘려 기각.
    런타임 복원, 과거 지연 원인은 미확정.
-5. warnings/async generator/set API 경계의 과정 감사.
+5. [122차 warnings/athrow 경계](reports/2026-10-12/warnings_and_athrow_boundaries.md):
+   caller fallback, 필터 검증/하위 타입, Warning 초기화, athrow 경고·인자 오류 시점 수정.
+   전체 API 감사·async hooks/최종화는 남음.
 6. 수치 formatting/Unicode/파일 라이브러리의 검증 범위 확대.
 
 각 항목은 개별 커밋·푸시하며 조사와 실제 수정의 상태를 구분한다.

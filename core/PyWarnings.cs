@@ -4,8 +4,9 @@ namespace SharpPy
     {
         private const string LegacyThrowMessage = "the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.";
 
-        internal static void DeprecatedThrow()
+        internal static void DeprecatedThrow(bool asynchronous = false)
         {
+            string message = asynchronous ? "the (type, exc, tb) signature of athrow() is deprecated, use the single-arg signature instead." : LegacyThrowMessage;
             var frame = PyVM.CurrentFrame;
             if (frame == null) return;
             var globals = frame.ScopeChain.GlobalScope.Variables;
@@ -21,7 +22,7 @@ namespace SharpPy
                     registry = new PyDict();
                     PyGlobalsDict.Store(globals, "__warningregistry__", registry);
                 }
-                warn.Call(new PyObject[] { new PyString(LegacyThrowMessage), PyType.DeprecationWarningType,
+                warn.Call(new PyObject[] { new PyString(message), PyType.DeprecationWarningType,
                     new PyString(frame.Code.FileName), new PyInt(line), new PyString(moduleName), registry,
                     PyGlobalsDict.For(globals) }, null);
                 return;
@@ -40,12 +41,12 @@ namespace SharpPy
                     registry.Clear();
                     registry.SetItem(versionKey, new PyInt(version));
                 }
-                var key = new PyTuple(new PyString(LegacyThrowMessage), PyType.DeprecationWarningType,
+                var key = new PyTuple(new PyString(message), PyType.DeprecationWarningType,
                     new PyInt(line));
                 if (registry.ContainsKey(key)) return;
                 registry.SetItem(key, PyBool.True);
             }
-            string output = $"{frame.Code.FileName}:{line}: DeprecationWarning: {LegacyThrowMessage}\n";
+            string output = $"{frame.Code.FileName}:{line}: DeprecationWarning: {message}\n";
             var source = frame.Code.SourceLines;
             if (source != null && line > 0 && line <= source.Count) output += "  " + source[line - 1].Trim() + "\n";
             PyObject stream = null;
