@@ -116,6 +116,8 @@ def main():
         "tests/compatibility/module_mapping_popitem.py",
         "tests/compatibility/module_mapping_retained_views.py",
         "tests/set_numeric_identity_regression.py",
+        "tests/set_copy_reentry_regression.py",
+        "tests/compatibility/set_hash_storage_remaining.py",
         "tests/integer_digit_limit_regression.py",
         "tests/cpython312_selected_regression.py",
         "tests/library_composition_regression.py",

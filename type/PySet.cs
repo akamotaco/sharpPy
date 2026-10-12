@@ -11,12 +11,12 @@ namespace SharpPy
         #region Core Properties
 
         // PyObject를 요소로 사용하기 위한 HashSet with custom comparer
-        private readonly HashSet<PyObject> _items;
+        private readonly PySetStorage _items;
 
-        public PySet() => _items = new HashSet<PyObject>(PyObjectEqualityComparer.Instance);
+        public PySet() => _items = new PySetStorage();
         
         public PySet(IEnumerable<PyObject> items) => 
-            _items = new HashSet<PyObject>(items, PyObjectEqualityComparer.Instance);
+            _items = new PySetStorage(items);
 
         internal static IEnumerable<PyObject> IterableItems(PyObject value)
         {
@@ -277,9 +277,7 @@ namespace SharpPy
                 throw PyKeyError.Create("pop from an empty set");
 
             // Performance: Eliminated LINQ (First) - use enumerator
-            var item = GetFirstItem();
-            _items.Remove(item);
-            return item;
+            return _items.Pop();
         }
 
         /// <summary>
@@ -304,6 +302,8 @@ namespace SharpPy
         /// </summary>
         public PyNone Update(PyObject other)
         {
+            if (other is PySet set) { _items.Merge(set._items); return PyNone.Instance; }
+            if (other is PyFrozenSet frozen) { _items.Merge((PySetStorage)frozen.Items); return PyNone.Instance; }
             var items = GetIterableItems(other);
             foreach (var item in items)
             {
@@ -322,11 +322,7 @@ namespace SharpPy
         public PySet Union(PyObject other)
         {
             var result = new PySet(_items);
-            var otherItems = GetSetItems(other);
-            foreach (var item in otherItems)
-            {
-                result._items.Add(item);
-            }
+            result.Update(other);
             return result;
         }
 
@@ -335,16 +331,26 @@ namespace SharpPy
         /// </summary>
         public PySet Intersection(PyObject other)
         {
-            var otherItems = GetSetItems(other);
-            // Performance: Eliminated LINQ (Where) - manual filtering
+            if (ReferenceEquals(this, other)) return Copy();
             var result = new PySet();
-            foreach (var item in _items)
+            if (other is not PySet && other is not PyFrozenSet)
             {
-                if (otherItems.Contains(item))
+                foreach (var item in IterableItems(other))
                 {
-                    result._items.Add(item);
+                    long hash = item.GetPythonHash();
+                    if (_items.ContainsKnown(item, hash))
+                    {
+                        result._items.AddKnown(item, hash);
+                        if (result.Length() >= Length()) break;
+                    }
                 }
+                return result;
             }
+            var otherItems = GetSetItems(other);
+            var scanned = otherItems.Count > _items.Count ? _items : otherItems;
+            var searched = otherItems.Count > _items.Count ? otherItems : _items;
+            foreach (var entry in scanned.Entries())
+                if (searched.ContainsKnown(entry.Key, entry.Hash)) result._items.AddKnown(entry.Key, entry.Hash);
             return result;
         }
 
@@ -353,16 +359,16 @@ namespace SharpPy
         /// </summary>
         public PySet Difference(PyObject other)
         {
-            var otherItems = GetSetItems(other);
-            // Performance: Eliminated LINQ (Where) - manual filtering
-            var result = new PySet();
-            foreach (var item in _items)
+            if ((other is not PySet && other is not PyFrozenSet) || (Length() >> 2) > other.Length())
             {
-                if (!otherItems.Contains(item))
-                {
-                    result._items.Add(item);
-                }
+                var copied = Copy();
+                copied.DifferenceUpdate(other);
+                return copied;
             }
+            var otherItems = GetSetItems(other);
+            var result = new PySet();
+            foreach (var entry in _items.Entries())
+                if (!otherItems.ContainsKnown(entry.Key, entry.Hash)) result._items.AddKnown(entry.Key, entry.Hash);
             return result;
         }
 
@@ -372,27 +378,8 @@ namespace SharpPy
         public PySet SymmetricDifference(PyObject other)
         {
             var otherItems = GetSetItems(other);
-            var result = new PySet();
-
-            // Performance: Eliminated LINQ (Where) - manual filtering
-            // this - other
-            foreach (var item in _items)
-            {
-                if (!otherItems.Contains(item))
-                {
-                    result._items.Add(item);
-                }
-            }
-
-            // other - this
-            foreach (var item in otherItems)
-            {
-                if (!_items.Contains(item))
-                {
-                    result._items.Add(item);
-                }
-            }
-            
+            var result = new PySet(otherItems);
+            result._items.SymmetricExceptWith(_items);
             return result;
         }
 
@@ -441,6 +428,8 @@ namespace SharpPy
         /// </summary>
         public PyBool IsSubset(PyObject other)
         {
+            if (other is not PySet && other is not PyFrozenSet)
+                return PyBool.FromBool(Intersection(other).Length() == Length());
             var otherItems = GetSetItems(other);
             return PyBool.FromBool(_items.IsSubsetOf(otherItems));
         }
@@ -459,6 +448,11 @@ namespace SharpPy
         /// </summary>
         public PyBool IsSuperset(PyObject other)
         {
+            if (other is not PySet && other is not PyFrozenSet)
+            {
+                foreach (var item in IterableItems(other)) if (!_items.Contains(item)) return PyBool.False;
+                return PyBool.True;
+            }
             var otherItems = GetSetItems(other);
             return PyBool.FromBool(_items.IsSupersetOf(otherItems));
         }
@@ -477,6 +471,12 @@ namespace SharpPy
         /// </summary>
         public PyBool IsDisjoint(PyObject other)
         {
+            if (ReferenceEquals(this, other)) return PyBool.FromBool(Length() == 0);
+            if (other is not PySet && other is not PyFrozenSet)
+            {
+                foreach (var item in IterableItems(other)) if (_items.Contains(item)) return PyBool.False;
+                return PyBool.True;
+            }
             var otherItems = GetSetItems(other);
             return PyBool.FromBool(!_items.Overlaps(otherItems));
         }
@@ -514,8 +514,8 @@ namespace SharpPy
         /// </summary>
         public PyNone IntersectionUpdate(PyObject other)
         {
-            var otherItems = GetSetItems(other);
-            _items.IntersectWith(otherItems);
+            if (ReferenceEquals(this, other)) return PyNone.Instance;
+            _items.ReplaceWith(Intersection(other)._items);
             return PyNone.Instance;
         }
 
@@ -524,6 +524,11 @@ namespace SharpPy
         /// </summary>
         public PyNone DifferenceUpdate(PyObject other)
         {
+            if (other is not PySet && other is not PyFrozenSet)
+            {
+                foreach (var item in IterableItems(other)) _items.Remove(item);
+                return PyNone.Instance;
+            }
             var otherItems = GetSetItems(other);
             _items.ExceptWith(otherItems);
             return PyNone.Instance;
@@ -550,13 +555,13 @@ namespace SharpPy
 
         #region Helper Methods
 
-        private HashSet<PyObject> GetSetItems(PyObject obj)
+        private PySetStorage GetSetItems(PyObject obj)
         {
             return obj switch
             {
-                PySet set => new HashSet<PyObject>(set._items, PyObjectEqualityComparer.Instance),
-                PyFrozenSet frozenSet => new HashSet<PyObject>(frozenSet.Items, PyObjectEqualityComparer.Instance),
-                _ => new HashSet<PyObject>(GetIterableItems(obj), PyObjectEqualityComparer.Instance)
+                PySet set => set._items,
+                PyFrozenSet frozenSet => (PySetStorage)frozenSet.Items,
+                _ => new PySetStorage(GetIterableItems(obj))
             };
         }
 
@@ -570,7 +575,7 @@ namespace SharpPy
                 PyString str => ConvertStringToCharArray(str.Value),
                 PySet set => set._items,
                 PyFrozenSet frozenSet => frozenSet.Items,
-                _ => throw PyTypeError.Create($"'{obj.GetTypeName()}' object is not iterable")
+                _ => IterableItems(obj)
             };
         }
 
@@ -648,12 +653,12 @@ namespace SharpPy
         }
         #region Core Properties
 
-        private readonly PyFrozenSetStorage _items;
+        private readonly PySetStorage _items;
 
-        public PyFrozenSet() => _items = new PyFrozenSetStorage(Array.Empty<PyObject>());
+        public PyFrozenSet() => _items = new PySetStorage(Array.Empty<PyObject>());
         
         public PyFrozenSet(IEnumerable<PyObject> items) => 
-            _items = new PyFrozenSetStorage(items);
+            _items = new PySetStorage(items);
 
         public override PyType GetPyType() => PyType.FrozenSetType;
         public override string GetTypeName() => "frozenset";
@@ -696,7 +701,7 @@ namespace SharpPy
             return other switch
             {
                 PyFrozenSet otherFrozen => PyBool.FromBool(_items.SetEquals(otherFrozen._items)),
-                PySet set => PyBool.FromBool(Length() == set.Length() && _items.All(item => set.Contains(item).Value)),
+                PySet set => PyBool.FromBool(_items.SetEquals(set.Items)),
                 _ => PyBool.False
             };
         }

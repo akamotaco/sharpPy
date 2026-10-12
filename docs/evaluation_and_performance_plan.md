@@ -7,7 +7,9 @@
 
 1. [112차](reports/2026-10-12/keyword_frame_allocation.md): 108→109차 직접 비교에서
    지연 재현 안 됨. keyword 전달의 임시 프레임 제거, 대상 시간·할당 감소.
-2. mutable set 저장 해시·재진입 및 집합 연산 콜백.
+2. [113차](reports/2026-10-12/set_storage_and_copy.md): 기존 set 해시·재진입 실패 해결,
+   BUILD_SET 삽입 순서 및 iterable 조기 종료 수정. 공유 복사로 시간/할당 감소.
+   작은 집합 생성·변경 할당 증가와 전체 API 감사는 남음.
 3. memoryview 마지막 참조 해제와 exporter 수명.
 4. 정수 format 및 컴파일 literal 자릿수 제한.
 5. 비교·예외 처리 비용 원인 분리.

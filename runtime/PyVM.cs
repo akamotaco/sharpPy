@@ -3951,10 +3951,13 @@ namespace SharpPy
                 case ByteCodeOp.BUILD_SET:
                     var setSize = argument;
                     var pySet = new PySet();
-                    for (int i = 0; i < setSize; i++)
+                    var setStack = frame.ValueStack.GetInternalList();
+                    int setStart = setStack.Count - setSize;
+                    try
                     {
-                        pySet.Add(frame.ValueStack.Pop());
+                        for (int i = 0; i < setSize; i++) pySet.Add(setStack[setStart + i]);
                     }
+                    finally { setStack.RemoveRange(setStart, setSize); }
                     frame.ValueStack.Push(pySet);
                     break;
 
