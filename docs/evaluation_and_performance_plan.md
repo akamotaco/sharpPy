@@ -16,7 +16,9 @@
 4. [115차](reports/2026-10-12/integer_format_and_literals.md): BigInteger 폭/정렬/그룹,
    컴파일 decimal literal 제한 수정. 2/8/16진 변환을 선형 비트 추출로 변경.
    locale n 및 float formatter 전체 호환성은 별도 범위.
-5. 비교·예외 처리 비용 원인 분리.
+5. [116차](reports/2026-10-12/comparison_dispatch_cost.md): native 슬롯/dispatch와 VM 비용 분리.
+   반복 할당 0, subclass 조회 경로 추가 비용 관측. 강제 inline 효과 없어 제외.
+   VM 지연은 대조군 범위와 겹치며 과거 단일 원인은 미확정.
 6. warnings/호스트 namespace 및 라이브러리 실행 검증 확대.
    새 async generator 실제 실행 실패도 포함한다.
 
