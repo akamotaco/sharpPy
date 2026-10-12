@@ -13,10 +13,10 @@ namespace SharpPy
         // PyObject를 요소로 사용하기 위한 HashSet with custom comparer
         private readonly HashSet<PyObject> _items;
 
-        public PySet() => _items = new HashSet<PyObject>(new PyObjectEqualityComparer());
+        public PySet() => _items = new HashSet<PyObject>(PyObjectEqualityComparer.Instance);
         
         public PySet(IEnumerable<PyObject> items) => 
-            _items = new HashSet<PyObject>(items, new PyObjectEqualityComparer());
+            _items = new HashSet<PyObject>(items, PyObjectEqualityComparer.Instance);
 
         public override PyType GetPyType() => PyType.SetType;
         public override string GetTypeName() => "set";
@@ -536,9 +536,9 @@ namespace SharpPy
         {
             return obj switch
             {
-                PySet set => new HashSet<PyObject>(set._items, new PyObjectEqualityComparer()),
-                PyFrozenSet frozenSet => new HashSet<PyObject>(frozenSet.Items, new PyObjectEqualityComparer()),
-                _ => new HashSet<PyObject>(GetIterableItems(obj), new PyObjectEqualityComparer())
+                PySet set => new HashSet<PyObject>(set._items, PyObjectEqualityComparer.Instance),
+                PyFrozenSet frozenSet => new HashSet<PyObject>(frozenSet.Items, PyObjectEqualityComparer.Instance),
+                _ => new HashSet<PyObject>(GetIterableItems(obj), PyObjectEqualityComparer.Instance)
             };
         }
 
@@ -627,10 +627,10 @@ namespace SharpPy
 
         private readonly HashSet<PyObject> _items;
 
-        public PyFrozenSet() => _items = new HashSet<PyObject>(new PyObjectEqualityComparer());
+        public PyFrozenSet() => _items = new HashSet<PyObject>(PyObjectEqualityComparer.Instance);
         
         public PyFrozenSet(IEnumerable<PyObject> items) => 
-            _items = new HashSet<PyObject>(items, new PyObjectEqualityComparer());
+            _items = new HashSet<PyObject>(items, PyObjectEqualityComparer.Instance);
 
         public override PyType GetPyType() => PyType.FrozenSetType;
         public override string GetTypeName() => "frozenset";
@@ -827,16 +827,17 @@ namespace SharpPy
     /// </summary>
     internal class PyObjectEqualityComparer : IEqualityComparer<PyObject>
     {
+        internal static readonly PyObjectEqualityComparer Instance = new PyObjectEqualityComparer();
         public bool Equals(PyObject x, PyObject y)
         {
-            if (x == null && y == null) return true;
+            if (ReferenceEquals(x, y)) return true;
             if (x == null || y == null) return false;
             return PyObject.CompareBool(x, y, PyObject.CompareOp.EQ);
         }
 
         public int GetHashCode(PyObject obj)
         {
-            return obj?.ToHash() ?? 0;
+            return obj?.GetPythonHash().GetHashCode() ?? 0;
         }
     }
     

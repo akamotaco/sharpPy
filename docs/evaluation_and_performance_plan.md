@@ -5,7 +5,7 @@
 이 목록이 아래 과거 기록보다 우선한다. 이전 6번도 `8408021`로 푸시 완료했다.
 
 1. metaclass 속성: [100차](reports/2026-10-12/metaclass_attribute_precedence.md), 기본 회귀 173개·Godot 20개 통과. 원래 재현 해결. 중첩 클래스 qualname 생성은 별도 재현으로 보존.
-2. set/frozenset 해시: 진행 예정.
+2. set/frozenset 해시: [101차](reports/2026-10-12/set_hash_audit.md). 수치 hash/identity 및 복사 재해시 수정. 전체 저장소 교체는 성능 저하로 기각; 전체 폭 hash·재진입·frozen hash는 미해결 재현으로 유지.
 3. 정수 변환 범위·sys 제한 API: 진행 예정.
 4. 비교·예외 성능 잔여 조사: 진행 예정.
 5. 과거 미해결 기록 재분류: 진행 예정.
