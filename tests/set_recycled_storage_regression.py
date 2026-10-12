@@ -30,3 +30,12 @@ events.clear()
 armed = True
 print('lookup', Key(2) in owner, events, len(owner))
 print('small table lifetime: PASS')
+for size in (4, 5, 17, 65):
+    original = set(range(size))
+    original.pop()
+    copied = original.copy()
+    print('pop after sharing', size, [original.pop() for _ in range(3)],
+          [copied.pop() for _ in range(3)])
+    copied.clear()
+    copied.add(42)
+    print('pop after clear', copied.pop(), len(copied), len(original))

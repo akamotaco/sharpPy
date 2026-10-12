@@ -1,0 +1,2500 @@
+{
+  "targeted": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.1593609000556171,
+      "failure_markers": []
+    },
+    "git": "8f53046059d99d5612333f0fecac8ab11128508f",
+    "git_status": " M type/PySetStorage.cs\n",
+    "dll_sha256": "2ecc93ad52a6b2a9e86db2cbf70f1cd016c62d9c6a24fa74de57417328baf18d",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/set_recycled_storage_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "lookup False [(0, 2), (0, 2), (1, 2)] 42\nsmall table lifetime: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.019770000013522804,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "lookup False [(0, 2), (0, 2), (1, 2)] 42\nsmall table lifetime: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24930779996793717,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/set_copy_reentry_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "copies 0 1 1 1\ncopies 1 2 2 2\ncopies 4 5 5 5\ncopies 5 6 6 6\ncopies 16 17 17 17\ncopies 64 65 65 65\ncopies 200 201 201 201\nreentry copy False False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nreentry copy True False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nmutations 123 16029 [0, 4, 5, 9, 13, 14, 18, 19, 21, 23, 24, 26]\nset copy and reentry: PASS\nconsume union [1, 2, 9] [1, 2, 9]\nconsume intersection [1, 2] [1, 2]\nconsume difference [] [1, 2, 9]\nconsume issubset True [1, 2]\nconsume issuperset False [1, 2, 9]\nconsume isdisjoint False [1]\nconsume update None [1, 2, 9]\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02236489998176694,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "copies 0 1 1 1\ncopies 1 2 2 2\ncopies 4 5 5 5\ncopies 5 6 6 6\ncopies 16 17 17 17\ncopies 64 65 65 65\ncopies 200 201 201 201\nreentry copy False False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nreentry copy True False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nmutations 123 16029 [0, 4, 5, 9, 13, 14, 18, 19, 21, 23, 24, 26]\nset copy and reentry: PASS\nconsume union [1, 2, 9] [1, 2, 9]\nconsume intersection [1, 2] [1, 2]\nconsume difference [] [1, 2, 9]\nconsume issubset True [1, 2]\nconsume issuperset False [1, 2, 9]\nconsume isdisjoint False [1]\nconsume update None [1, 2, 9]\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2627961999969557,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/set_numeric_identity_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "set 1 True\nset 1 True\nset 1 True\nset 1 True\nset 1 True\nnan 1 True\nidentity 1 True\nerror equality\nremove 0\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nnan 1 True\nidentity 1 True\nerror equality\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.021388099994510412,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "set 1 True\nset 1 True\nset 1 True\nset 1 True\nset 1 True\nnan 1 True\nidentity 1 True\nerror equality\nremove 0\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nnan 1 True\nidentity 1 True\nerror equality\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2590144000132568,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/set_hash_storage_remaining.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "set 1 True\nset 1 True\nset 1 True\nset 1 True\nset 1 True\nnan 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nnan 1 True\nconstruct set [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('hash', 'a'), ('eq', 'a', 'a')]\ncopy 3 []\nremove 2 [('hash', 'a')]\npop 1 []\nconstruct frozenset [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('hash', 'a'), ('eq', 'a', 'a')]\ncopy 3 []\nhash frozen -6641811252793276200 -6641811252793276200 []\nfrozen 133146708735736\nfrozen -558064481276695278\nfrozen -272375401224217160\nfrozen 1077799575155998630\nfrozen 830943626610821524\nnested -5902812605336009127\nreenter contains False False 0\nreenter contains True False 0\nreenter add False None 1\nreenter add True None 0\nreenter remove False KeyError 0\nreenter remove True KeyError 0\nidentity True\nerror equality\nalgebra union ['a', 'b', 'c'] [('eq', 'b', 'b')]\nalgebra intersection ['b'] [('eq', 'b', 'b')]\nalgebra difference ['a'] [('eq', 'b', 'b')]\nalgebra symmetric_difference ['a', 'c'] [('eq', 'b', 'b')]\nalgebra issubset False []\nalgebra issuperset False [('eq', 'b', 'b')]\nalgebra isdisjoint False [('eq', 'b', 'b')]\nalgebra update None [('eq', 'b', 'b')]\nstream 2 ['next-a', ('hash', 'a'), 'next-b', ('hash', 'b')]\nresize 1300 1064550 True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.022633799992036074,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "set 1 True\nset 1 True\nset 1 True\nset 1 True\nset 1 True\nnan 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nnan 1 True\nconstruct set [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('hash', 'a'), ('eq', 'a', 'a')]\ncopy 3 []\nremove 2 [('hash', 'a')]\npop 1 []\nconstruct frozenset [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('hash', 'a'), ('eq', 'a', 'a')]\ncopy 3 []\nhash frozen -6641811252793276200 -6641811252793276200 []\nfrozen 133146708735736\nfrozen -558064481276695278\nfrozen -272375401224217160\nfrozen 1077799575155998630\nfrozen 830943626610821524\nnested -5902812605336009127\nreenter contains False False 0\nreenter contains True False 0\nreenter add False None 1\nreenter add True None 0\nreenter remove False KeyError 0\nreenter remove True KeyError 0\nidentity True\nerror equality\nalgebra union ['a', 'b', 'c'] [('eq', 'b', 'b')]\nalgebra intersection ['b'] [('eq', 'b', 'b')]\nalgebra difference ['a'] [('eq', 'b', 'b')]\nalgebra symmetric_difference ['a', 'c'] [('eq', 'b', 'b')]\nalgebra issubset False []\nalgebra issuperset False [('eq', 'b', 'b')]\nalgebra isdisjoint False [('eq', 'b', 'b')]\nalgebra update None [('eq', 'b', 'b')]\nstream 2 ['next-a', ('hash', 'a'), 'next-b', ('hash', 'b')]\nresize 1300 1064550 True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2880200000363402,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "matching_output": 4
+    }
+  },
+  "pop": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.1912035999703221,
+      "failure_markers": []
+    },
+    "git": "8f53046059d99d5612333f0fecac8ab11128508f",
+    "git_status": " M tests/set_recycled_storage_regression.py\n M type/PySetStorage.cs\n",
+    "dll_sha256": "2ecc93ad52a6b2a9e86db2cbf70f1cd016c62d9c6a24fa74de57417328baf18d",
+    "timeout": 30,
+    "cases": [
+      {
+        "name": "tests/set_recycled_storage_regression.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "lookup False [(0, 2), (0, 2), (1, 2)] 42\nsmall table lifetime: PASS\npop after sharing 4 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 0\npop after sharing 5 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 1\npop after sharing 17 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 13\npop after sharing 65 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 61\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02440230001229793,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "lookup False [(0, 2), (0, 2), (1, 2)] 42\nsmall table lifetime: PASS\npop after sharing 4 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 0\npop after sharing 5 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 1\npop after sharing 17 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 13\npop after sharing 65 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 61\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26922580000245944,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "matching_output": 1
+    }
+  },
+  "performance": {
+    "parameters": {
+      "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local/SharpPy/dotnet/dotnet.exe",
+      "variant": [
+        "before=.artifacts/round126-before-harness",
+        "after=tools/PerformanceHarness/bin/Release/net8.0"
+      ],
+      "workload": [
+        "tools/PerformanceHarness/set_workloads.py:dictionary",
+        "tools/PerformanceHarness/set_workloads.py:dictionary_copy",
+        "tools/PerformanceHarness/set_workloads.py:dictionary_iteration"
+      ],
+      "iterations": 10000,
+      "samples": 15,
+      "pairs": 3,
+      "affinity": 4,
+      "output": ".artifacts/round126-performance.json"
+    },
+    "tiered_compilation": false,
+    "dll_sha256": {
+      "before": "ccdfd5ae2462abfa89651f5d92cb51efacb1459168416f1f90f98cc36a7f2cdc",
+      "after": "2ecc93ad52a6b2a9e86db2cbf70f1cd016c62d9c6a24fa74de57417328baf18d"
+    },
+    "runs": {
+      "tools/PerformanceHarness/set_workloads.py:dictionary": {
+        "before": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 357.7075,
+            "results": [
+              {
+                "name": "dictionary",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.7567,
+                  16.0537,
+                  15.8234,
+                  16.055,
+                  16.0178,
+                  16.0975,
+                  15.7641,
+                  16.1153,
+                  15.7481,
+                  16.0792,
+                  15.7572,
+                  16.1739,
+                  15.8276,
+                  16.1464,
+                  15.7995
+                ],
+                "allocated_bytes": [
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 359.5693,
+            "results": [
+              {
+                "name": "dictionary",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.769,
+                  16.0464,
+                  15.7323,
+                  16.0577,
+                  15.7216,
+                  16.044,
+                  15.7117,
+                  16.1609,
+                  15.7335,
+                  16.1312,
+                  15.9746,
+                  16.1653,
+                  15.6911,
+                  16.0421,
+                  15.84
+                ],
+                "allocated_bytes": [
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 361.5369,
+            "results": [
+              {
+                "name": "dictionary",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.7475,
+                  15.9853,
+                  16.0092,
+                  16.1148,
+                  15.7811,
+                  16.1359,
+                  15.7702,
+                  16.1677,
+                  15.7665,
+                  16.1423,
+                  15.9199,
+                  16.3173,
+                  15.9384,
+                  16.1698,
+                  15.9714
+                ],
+                "allocated_bytes": [
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272,
+                  8481272
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ],
+        "after": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 357.2779,
+            "results": [
+              {
+                "name": "dictionary",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.7844,
+                  16.0222,
+                  15.7125,
+                  16.0021,
+                  15.8101,
+                  16.1256,
+                  15.924,
+                  16.4598,
+                  15.886,
+                  16.0374,
+                  15.8533,
+                  16.0233,
+                  15.8632,
+                  16.1226,
+                  15.8125
+                ],
+                "allocated_bytes": [
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 359.5203,
+            "results": [
+              {
+                "name": "dictionary",
+                "expected": 49995000,
+                "milliseconds": [
+                  15.6232,
+                  16.0561,
+                  15.7825,
+                  16.0734,
+                  15.7452,
+                  16.0433,
+                  15.7601,
+                  16.0568,
+                  15.7784,
+                  16.2405,
+                  15.8152,
+                  16.011,
+                  15.7446,
+                  16.3654,
+                  15.8521
+                ],
+                "allocated_bytes": [
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 361.4784,
+            "results": [
+              {
+                "name": "dictionary",
+                "expected": 49995000,
+                "milliseconds": [
+                  16.0743,
+                  16.2742,
+                  15.9859,
+                  16.2366,
+                  16.0227,
+                  16.4243,
+                  15.9599,
+                  16.3539,
+                  16.2572,
+                  16.2283,
+                  15.8822,
+                  16.2027,
+                  15.9402,
+                  16.2039,
+                  16.0204
+                ],
+                "allocated_bytes": [
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272,
+                  8401272
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tools/PerformanceHarness/set_workloads.py:dictionary_copy": {
+        "before": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 359.5599,
+            "results": [
+              {
+                "name": "dictionary_copy",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.5009,
+                  9.0589,
+                  9.1116,
+                  9.0505,
+                  9.0629,
+                  9.4081,
+                  9.0861,
+                  9.0875,
+                  9.0794,
+                  9.167,
+                  9.0557,
+                  9.4355,
+                  9.1099,
+                  9.0539,
+                  9.1339
+                ],
+                "allocated_bytes": [
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 359.9889,
+            "results": [
+              {
+                "name": "dictionary_copy",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.3642,
+                  8.9899,
+                  8.9744,
+                  9.1009,
+                  9.0604,
+                  9.257,
+                  9.0642,
+                  9.1527,
+                  9.0627,
+                  9.2024,
+                  9.0551,
+                  9.3997,
+                  9.2607,
+                  9.0566,
+                  9.11
+                ],
+                "allocated_bytes": [
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 360.0196,
+            "results": [
+              {
+                "name": "dictionary_copy",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.3521,
+                  9.1064,
+                  9.1587,
+                  9.1235,
+                  9.1338,
+                  9.3968,
+                  9.0525,
+                  9.0399,
+                  9.048,
+                  9.0285,
+                  9.0998,
+                  9.3445,
+                  9.0619,
+                  9.2175,
+                  9.0482
+                ],
+                "allocated_bytes": [
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328,
+                  3051328
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ],
+        "after": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 358.4461,
+            "results": [
+              {
+                "name": "dictionary_copy",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.2686,
+                  9.1093,
+                  9.0081,
+                  8.987,
+                  9.0866,
+                  9.0611,
+                  9.3395,
+                  9.097,
+                  9.1367,
+                  9.0766,
+                  9.1612,
+                  9.3081,
+                  9.0492,
+                  9.0986,
+                  8.9747
+                ],
+                "allocated_bytes": [
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 357.4935,
+            "results": [
+              {
+                "name": "dictionary_copy",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.4021,
+                  9.0844,
+                  9.1945,
+                  9.1969,
+                  9.0267,
+                  9.03,
+                  9.6496,
+                  9.204,
+                  9.1315,
+                  9.1446,
+                  9.2394,
+                  9.2762,
+                  9.2005,
+                  9.1043,
+                  9.2574
+                ],
+                "allocated_bytes": [
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 358.458,
+            "results": [
+              {
+                "name": "dictionary_copy",
+                "expected": 49995000,
+                "milliseconds": [
+                  10.3964,
+                  8.9325,
+                  9.0027,
+                  9.0813,
+                  9.0927,
+                  9.0006,
+                  9.6185,
+                  8.96,
+                  8.9825,
+                  9.0629,
+                  9.0225,
+                  9.2204,
+                  9.0251,
+                  9.1634,
+                  8.9448
+                ],
+                "allocated_bytes": [
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320,
+                  2971320
+                ],
+                "gc_collections": [
+                  [
+                    1,
+                    1,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tools/PerformanceHarness/set_workloads.py:dictionary_iteration": {
+        "before": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 358.0922,
+            "results": [
+              {
+                "name": "dictionary_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  5.427,
+                  5.4285,
+                  5.466,
+                  5.4204,
+                  5.3821,
+                  5.4173,
+                  5.4533,
+                  5.4141,
+                  6.7427,
+                  5.557,
+                  5.2508,
+                  5.2578,
+                  5.2947,
+                  5.179,
+                  5.2192
+                ],
+                "allocated_bytes": [
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 359.027,
+            "results": [
+              {
+                "name": "dictionary_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  5.6368,
+                  5.4157,
+                  5.5159,
+                  5.4387,
+                  5.4963,
+                  5.4858,
+                  5.4537,
+                  5.4668,
+                  6.6773,
+                  5.5756,
+                  5.3356,
+                  5.2592,
+                  5.4407,
+                  5.2247,
+                  5.2671
+                ],
+                "allocated_bytes": [
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 358.9818,
+            "results": [
+              {
+                "name": "dictionary_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  5.4883,
+                  5.45,
+                  5.559,
+                  5.4428,
+                  5.4327,
+                  5.554,
+                  5.5079,
+                  5.4491,
+                  7.0161,
+                  5.2656,
+                  5.2189,
+                  5.2361,
+                  5.3925,
+                  5.2994,
+                  5.2171
+                ],
+                "allocated_bytes": [
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216,
+                  803216
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ],
+        "after": [
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 358.2984,
+            "results": [
+              {
+                "name": "dictionary_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  5.5761,
+                  5.4098,
+                  5.4099,
+                  5.4009,
+                  5.3915,
+                  5.4402,
+                  5.4629,
+                  5.3902,
+                  6.6697,
+                  5.462,
+                  5.2432,
+                  5.226,
+                  5.1993,
+                  5.2329,
+                  5.2147
+                ],
+                "allocated_bytes": [
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 359.0789,
+            "results": [
+              {
+                "name": "dictionary_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  5.4673,
+                  5.4522,
+                  5.4017,
+                  5.4342,
+                  5.4663,
+                  5.4542,
+                  5.4709,
+                  5.4723,
+                  6.6302,
+                  5.2526,
+                  5.2447,
+                  5.3419,
+                  5.2705,
+                  5.2725,
+                  5.5677
+                ],
+                "allocated_bytes": [
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "framework": ".NET 8.0.31",
+            "architecture": "X64",
+            "os": "Microsoft Windows 10.0.26200",
+            "iterations": 10000,
+            "samples": 15,
+            "warmups": 10,
+            "setup_milliseconds": 358.4128,
+            "results": [
+              {
+                "name": "dictionary_iteration",
+                "expected": 49995000,
+                "milliseconds": [
+                  5.6697,
+                  5.4467,
+                  5.4454,
+                  5.4151,
+                  5.4285,
+                  5.5652,
+                  5.4451,
+                  5.4625,
+                  6.9025,
+                  5.1934,
+                  5.2894,
+                  5.1921,
+                  5.2329,
+                  5.247,
+                  5.2295
+                ],
+                "allocated_bytes": [
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208,
+                  803208
+                ],
+                "gc_collections": [
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    0,
+                    0
+                  ]
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "godot": {
+    "default": {
+      "exit_code": 0,
+      "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nslice deletion compaction: 1440 PASS\nmemoryview slice assignment: PASS\nbytes comparisons: PASS\nrange slice indices: PASS\nsequence large step: 216 PASS\nbytearray iterable assignment: PASS\nbytearray slice reentry: PASS\nbytearray byte values: PASS\nStopIteration arguments: PASS\nexception args update: PASS\nexception args length hint: PASS\noperator length hint: PASS\nmemoryview large step: PASS\nrange native boundary: PASS\nnegative length first ValueError length should not be negative ['length']\ninvalid length first TypeError 'NoneType' object cannot be interpreted as an integer []\nlength exception first RuntimeError index failed ['raised']\nstep zero first ValueError slice step cannot be zero ['length', 'step']\ninvalid step TypeError slice indices must be integers or None or have an __index__ method []\nstart failure RuntimeError index failed ['step', 'raised']\nstop failure RuntimeError index failed ['step', 'start', 'raised']\nbad index result TypeError __index__ returned non-int (type str) ['start']\ninvalid stop TypeError slice indices must be integers or None or have an __index__ method ['step', 'start']\nmissing argument TypeError slice.indices() takes exactly one argument (0 given) []\nextra argument TypeError slice.indices() takes exactly one argument (2 given) []\nkeyword TypeError slice.indices() takes no keyword arguments []\nbad receiver TypeError descriptor 'indices' for 'slice' objects doesn't apply to a 'int' object []\nno receiver TypeError unbound method slice.indices() needs an argument []\nlist no receiver TypeError unbound method list.append() needs an argument []\nstr no receiver TypeError unbound method str.upper() needs an argument []\nslice bigint indices: PASS\nrange large step: PASS\nrange bigint: PASS\nrange constructor conversion: PASS\nSHARPPY_GODOT_PASS\n",
+      "stderr": ""
+    },
+    "fixtures": [
+      {
+        "name": "tests/set_recycled_storage_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "lookup False [(0, 2), (0, 2), (1, 2)] 42\nsmall table lifetime: PASS\npop after sharing 4 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 0\npop after sharing 5 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 1\npop after sharing 17 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 13\npop after sharing 65 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 61\n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\nlookup False [(0, 2), (0, 2), (1, 2)] 42\nsmall table lifetime: PASS\npop after sharing 4 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 0\npop after sharing 5 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 1\npop after sharing 17 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 13\npop after sharing 65 [1, 2, 3] [1, 2, 3]\npop after clear 42 0 61\nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "tests/set_copy_reentry_regression.py",
+        "matching_output": true,
+        "reference": {
+          "exit_code": 0,
+          "stdout": "copies 0 1 1 1\ncopies 1 2 2 2\ncopies 4 5 5 5\ncopies 5 6 6 6\ncopies 16 17 17 17\ncopies 64 65 65 65\ncopies 200 201 201 201\nreentry copy False False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nreentry copy True False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nmutations 123 16029 [0, 4, 5, 9, 13, 14, 18, 19, 21, 23, 24, 26]\nset copy and reentry: PASS\nconsume union [1, 2, 9] [1, 2, 9]\nconsume intersection [1, 2] [1, 2]\nconsume difference [] [1, 2, 9]\nconsume issubset True [1, 2]\nconsume issuperset False [1, 2, 9]\nconsume isdisjoint False [1]\nconsume update None [1, 2, 9]\n",
+          "stderr": ""
+        },
+        "godot": {
+          "exit_code": 0,
+          "stdout": "Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org\n\nSHARPPY_PATH_CHECKS 5\nSHARPPY_HOST .NET 8.0.31\nSHARPPY_FIXTURE_BEGIN\ncopies 0 1 1 1\ncopies 1 2 2 2\ncopies 4 5 5 5\ncopies 5 6 6 6\ncopies 16 17 17 17\ncopies 64 65 65 65\ncopies 200 201 201 201\nreentry copy False False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nreentry copy True False [(0, 99), (1, 99), (2, 99), (0, 99)]\nvalues [0, 1, 2]\nmutations 123 16029 [0, 4, 5, 9, 13, 14, 18, 19, 21, 23, 24, 26]\nset copy and reentry: PASS\nconsume union [1, 2, 9] [1, 2, 9]\nconsume intersection [1, 2] [1, 2]\nconsume difference [] [1, 2, 9]\nconsume issubset True [1, 2]\nconsume issuperset False [1, 2, 9]\nconsume isdisjoint False [1]\nconsume update None [1, 2, 9]\nSHARPPY_FIXTURE_END\n",
+          "stderr": ""
+        }
+      }
+    ]
+  }
+}

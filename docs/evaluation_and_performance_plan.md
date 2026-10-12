@@ -11,7 +11,9 @@ float 포맷, 파일 IO를 뜻한다. CPython의 관찰 가능한 과정·결과
   모듈/전역을 추적 가능한 IDictionary로 전환, Python 저장소를 원본으로 사용한다.
   키 callback/순서/iterator와 host 19개 검증. legacy raw adapter 제한은 남는다.
   owned Copy 스캔 제거, VM read 약 1.8% 지연 관측은 후속 비용으로 기록한다.
-- 3~4번: 작은 set 잔여 할당, 비교 dispatch 및 미감사 API 경계는 계속 남는다.
+- 3번: [126차 상태 크기](reports/2026-10-12/set_state_size.md), 저장소당 8B 감소.
+  실행 시간 범위는 겹친다. 작은 set 잔여 +216B/회와 비교 dispatch 비용은 남는다.
+- 4번: 미감사 API 경계는 계속 남는다.
 - 5번: [124차 공통 포맷 구조](reports/2026-10-12/float_format_structure.md).
   기본 일반 포맷/그룹/진입점 수정, 무작위 27,000개 일치. 대상 할당 104B/회 감소.
   변경 가능한 locale 연결과 CLR 크기 한계는 별도 범위다.

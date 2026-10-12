@@ -8,8 +8,19 @@ namespace SharpPy
     {
         internal struct Entry { internal PyObject Key; internal long Hash; }
         private Entry[] table;
-        private int fill, finger;
-        private bool shared;
+        private int fill, fingerAndShared;
+        // CLR arrays cannot use the sign bit as an index. Keep COW ownership in
+        // that bit rather than growing every storage object by an aligned slot.
+        private int finger
+        {
+            get => fingerAndShared & int.MaxValue;
+            set => fingerAndShared = (fingerAndShared & int.MinValue) | value;
+        }
+        private bool shared
+        {
+            get => fingerAndShared < 0;
+            set => fingerAndShared = value ? fingerAndShared | int.MinValue : fingerAndShared & int.MaxValue;
+        }
         private Entry[] copyTemplate;
         private int layoutVersion;
         private static Entry[] spareSmallTable;
