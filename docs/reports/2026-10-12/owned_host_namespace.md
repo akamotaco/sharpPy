@@ -1,5 +1,10 @@
 # 125차: 호스트 변경과 Python namespace의 공통 저장소
 
+2026-10-13 재평가: 이 수정은 namespace 구조 정리 완료가 아니다. 새 namespace,
+조회 cache와 legacy adapter의 중복 경로 및 read 지연이 남는다. 현재 후속 작업과
+판단 오류는 [재발 방지 기록](../2026-10-13/process_failures_and_corrective_actions.md)을 따른다.
+아래 구현·측정 내용은 당시 결과로 보존한다.
+
 후속 2번. CPython 3.12.15의 module md_dict, frame f_globals와
 Objects/dictobject.c의 일반 키/문자열 키 조회 및 stored-hash merge 구조를 기준으로 했다.
 

@@ -2,6 +2,10 @@
 
 후속 1번의 부분 수정이다. Python 마지막 참조 해제 시점의 일치는 아직 해결하지 않았다.
 
+2026-10-13 재평가: 이 GC 누수 수정을 원래 즉시 해제 문제의 해결로 대체해서는 안 된다.
+원래 실패를 남긴 채 다른 부분 수정으로 이동한 판단 오류와 재발 방지 기준은
+[별도 기록](../2026-10-13/process_failures_and_corrective_actions.md)에 명시했다.
+
 native 검사에서 WeakReference로 view가 실제 수거된 것을 확인한 뒤에도 bytearray
 resize가 막혔다. GC 지연만의 문제가 아니라 기존 ReleaseBufferExport 호출 경로가
 누락되어 카운터가 영구히 남는 문제였다.
