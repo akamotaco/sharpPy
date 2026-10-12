@@ -134,8 +134,19 @@ namespace SharpPy
         public PyMemoryView(byte[] data, bool readOnly = false, int itemsize = 1)
             : this(data, readOnly, itemsize, 0, data?.Length ?? 0, 1) { }
 
-        internal PyMemoryView(PyByteArray data)
-            : this(data, false, 1, 0, data.Length(), 1) { }
+        internal static PyMemoryView FromByteArray(PyByteArray data) =>
+            new ExportedView(data, false, 1, 0, data.Length(), 1);
+
+        // Only resizable exporters need CLR cleanup. Immutable byte views retain
+        // their ordinary allocation/collection path. This fallback does not
+        // promise CPython's immediate last-Python-reference release timing.
+        private sealed class ExportedView : PyMemoryView
+        {
+            internal ExportedView(PyByteArray data, bool readOnly, int itemsize,
+                int offset, int length, nint stride) : base(data, readOnly, itemsize, offset, length, stride) { }
+            internal ExportedView(PyMemoryView source, PySlice slice) : base(source, slice) { }
+            ~ExportedView() { ReleaseExport(false); }
+        }
 
         private PyMemoryView(object data, bool readOnly, int itemsize,
             int offset, int length, nint stride)
@@ -200,16 +211,27 @@ namespace SharpPy
             uint exports = _bufferState >> 1;
             if (exports != 0)
                 throw PyBufferError.Create($"memoryview has {exports} exported buffer{(exports == 1 ? "" : "s")}");
+            ReleaseExport(true);
+        }
+
+        private void ReleaseExport(bool suppressFinalization)
+        {
             var data = _data;
             _data = null;
-            if (data is PyByteArray exporter) exporter.ReleaseBufferExport();
+            if (data is PyByteArray exporter)
+            {
+                exporter.ReleaseBufferExport();
+                if (suppressFinalization) GC.SuppressFinalize(this);
+            }
         }
 
         public override bool SupportsBuffer() => true;
         public override PyMemoryView GetBuffer(int flags)
         {
             CheckReleased();
-            return new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride);
+            return _data is PyByteArray exporter
+                ? new ExportedView(exporter, _readonly, _itemsize, _offset, _length, _stride)
+                : new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride);
         }
 
         public byte[] Data
@@ -263,7 +285,7 @@ namespace SharpPy
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
             {
-                return new PyMemoryView(this, slice);
+                return _data is PyByteArray ? new ExportedView(this, slice) : new PyMemoryView(this, slice);
             }
             var converted = TryGetIndex(index);
             if (converted == null) throw PyTypeError.Create("memoryview: invalid slice key");
@@ -362,6 +384,7 @@ namespace SharpPy
             {
                 source._bufferState -= 2;
                 if (!borrowed) source.Release();
+                GC.KeepAlive(this);
             }
         }
 

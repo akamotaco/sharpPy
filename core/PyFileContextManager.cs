@@ -239,6 +239,8 @@ public class PyFileContextManager : PyContextManager
                     : value is PyMemoryView view ? view.ContiguousSpan()
                     : throw PyTypeError.Create($"a bytes-like object is required, not '{value.GetTypeName()}'");
                 stream!.Write(bytes);
+                // The span roots storage, not the view's export ownership.
+                GC.KeepAlive(value);
                 return new PyInt(bytes.Length);
             }
             if (value is not PyString text) throw PyTypeError.Create($"write() argument must be str, not {value.GetTypeName()}");

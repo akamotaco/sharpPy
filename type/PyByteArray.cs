@@ -530,7 +530,7 @@ namespace SharpPy
                 {
                     // Contiguous slice - can change size
                     int deleteCount = Math.Max(0, stop - start);
-                    if (_exports > 0 && deleteCount != replacement.Length)
+                    if (HasBufferExports && deleteCount != replacement.Length)
                         throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
                     _bytes.RemoveRange(start, deleteCount);
                     if (value is PyBytes contiguousBytes) _bytes.InsertRange(start, contiguousBytes.Value);
@@ -541,7 +541,7 @@ namespace SharpPy
                     int count = PySlice.GetLength(start, stop, step);
                     if (replacement.Length == 0)
                     {
-                        if (_exports > 0)
+                        if (HasBufferExports)
                             throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
                         DeleteExtendedSlice(start, step, count);
                         return;
@@ -563,7 +563,7 @@ namespace SharpPy
         /// </summary>
         public override void DelItem(PyObject index)
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             if (index is PyInt pyInt)
@@ -786,7 +786,7 @@ namespace SharpPy
 
         public void Append(byte value)
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             _bytes.Add(value);
@@ -794,7 +794,7 @@ namespace SharpPy
 
         public void Extend(PyObject iterable)
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             var bytes = ConvertToBytes(iterable);
@@ -803,7 +803,7 @@ namespace SharpPy
 
         public void Insert(int index, byte value)
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             // Normalize negative index
@@ -818,7 +818,7 @@ namespace SharpPy
 
         public void Remove(byte value)
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             int index = _bytes.IndexOf(value);
@@ -830,7 +830,7 @@ namespace SharpPy
 
         public PyInt Pop(int index = -1)
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             if (_bytes.Count == 0)
@@ -849,7 +849,7 @@ namespace SharpPy
 
         public void Clear()
         {
-            if (_exports > 0)
+            if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
             _bytes.Clear();
@@ -866,7 +866,7 @@ namespace SharpPy
 
         public override PyMemoryView GetBuffer(int flags)
         {
-            return new PyMemoryView(this);
+            return PyMemoryView.FromByteArray(this);
         }
 
         public override void ReleaseBuffer(PyMemoryView buffer)
@@ -874,8 +874,9 @@ namespace SharpPy
             buffer.Release();
         }
 
-        internal void AcquireBufferExport() => _exports++;
-        internal void ReleaseBufferExport() => _exports--;
+        internal void AcquireBufferExport() => System.Threading.Interlocked.Increment(ref _exports);
+        internal void ReleaseBufferExport() => System.Threading.Interlocked.Decrement(ref _exports);
+        private bool HasBufferExports => System.Threading.Volatile.Read(ref _exports) > 0;
         internal byte ReadBufferByte(int index) => _bytes[index];
         internal Span<byte> BufferSpan => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_bytes);
         internal void WriteBufferByte(int index, byte value) => _bytes[index] = value;

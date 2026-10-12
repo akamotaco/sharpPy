@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 0 && args[0] == "--memoryview-gc-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(MemoryViewGcProbe.Run()));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--file-close-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(FileCloseProbe.Run()));
