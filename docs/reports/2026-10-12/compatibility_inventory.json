@@ -1,0 +1,404 @@
+[
+  {
+    "path": "tests/compatibility/async_generator_kwdefaults.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/bound_method_attributes.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/bytearray_slice_callback_order.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/bytes_slice_equality.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/class_body_exceptions.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Known gap: class body exception handling must execute its handler."
+  },
+  {
+    "path": "tests/compatibility/class_body_freevar.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/class_locals_mapping.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Known gap: class locals and f_locals must expose the class mapping."
+  },
+  {
+    "path": "tests/compatibility/comparison_class_setattr.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: explicit type.__setattr__ binding, independently of comparison caching."
+  },
+  {
+    "path": "tests/compatibility/comparison_remaining_slots.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: other native slots and builtin comparison descriptors."
+  },
+  {
+    "path": "tests/compatibility/continue_finally_stack.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/coroutine_close_cleanup.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: close must delegate and inject GeneratorExit into suspended frames."
+  },
+  {
+    "path": "tests/compatibility/coroutine_close_lookup_error.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: close lookup errors must go to sys.unraisablehook."
+  },
+  {
+    "path": "tests/compatibility/coroutine_initial_send.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/coroutine_nested_send.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: coroutine_wrapper.send must forward non-None values."
+  },
+  {
+    "path": "tests/compatibility/coroutine_send.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/coroutine_throw_delegation.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Regression: coroutine.throw must delegate to the suspended await iterator."
+  },
+  {
+    "path": "tests/compatibility/coroutine_throw_empty_args.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Regression: the inherited exception constructor must retain empty args."
+  },
+  {
+    "path": "tests/compatibility/coroutine_throw_legacy_warning.py",
+    "status": "output_difference",
+    "default_suite": false,
+    "description": "Pending: deprecated throw signatures must emit the CPython 3.12 warning."
+  },
+  {
+    "path": "tests/compatibility/coroutine_throw_yield_from.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Regression: throw must traverse yield-from inside an __await__ generator."
+  },
+  {
+    "path": "tests/compatibility/dict_copy_subclass.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "dict.copy accepts subclasses with inherited iteration and bypasses item overrides."
+  },
+  {
+    "path": "tests/compatibility/dict_iterator_resize_compaction.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Known gap: CPython entry compaction changes an active numeric cursor."
+  },
+  {
+    "path": "tests/compatibility/dict_iterator_same_size.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Same-size mutation is not equivalent to any structural-change guard."
+  },
+  {
+    "path": "tests/compatibility/dict_retained_views.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Known gap: keys/values/items must be retained live views, not lists."
+  },
+  {
+    "path": "tests/compatibility/dict_view_iterator_live_values.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Known gap: an existing iterator must observe later value replacement."
+  },
+  {
+    "path": "tests/compatibility/dict_view_set_operations.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Known gap: dict keys/items support set equality and operations."
+  },
+  {
+    "path": "tests/compatibility/exception_args_length_hint.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/exception_context_after_handler.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/exception_specialized_arguments.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Regression: specialized exception constructors and formatting."
+  },
+  {
+    "path": "tests/compatibility/exception_state_in_callee.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "A called function shares the caller's handled exception state."
+  },
+  {
+    "path": "tests/compatibility/generator_close_delegation.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Closing a delegating generator must close the live subiterator first."
+  },
+  {
+    "path": "tests/compatibility/generator_close_exception.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "close must propagate cleanup errors instead of replacing their type."
+  },
+  {
+    "path": "tests/compatibility/generator_delegate_iterator.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "yield from must support an iterator that has __next__ but no send."
+  },
+  {
+    "path": "tests/compatibility/generator_invalid_iterator.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "__iter__ must return an iterator before SEND is reached."
+  },
+  {
+    "path": "tests/compatibility/generator_throw_expression_stack.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/generator_throw_loop_resume.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/int_subclass_hash_protocol.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: dict key dispatch; hash() output serves as a control."
+  },
+  {
+    "path": "tests/compatibility/int_subclass_large_string.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: large decimal string parsing before int-subclass construction."
+  },
+  {
+    "path": "tests/compatibility/integer_conversion_remaining.py",
+    "status": "output_difference",
+    "default_suite": false,
+    "description": "Other int conversion APIs audited separately from digit-limit controls."
+  },
+  {
+    "path": "tests/compatibility/integer_subclass_comparison_dispatch.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Python overrides and strict-subclass reflected priority."
+  },
+  {
+    "path": "tests/compatibility/iterator_lookup_error_fallback.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/lookup_error_builtin.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "LookupError registration, inheritance and exception matching regression."
+  },
+  {
+    "path": "tests/compatibility/memoryview_automatic_release.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Known gap: losing the last reference should release the exporter in CPython."
+  },
+  {
+    "path": "tests/compatibility/memoryview_write.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/metaclass_attribute_remaining.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pre-existing differences found while testing explicit type descriptors."
+  },
+  {
+    "path": "tests/compatibility/metaclass_bound_method_closure.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/metaclass_invalid_iterator.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/module_locals_live.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Known gap: retained module locals must observe later namespace writes."
+  },
+  {
+    "path": "tests/compatibility/module_mapping_copy_order.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Known gap: source namespace insertion order must survive deletion/reinsertion."
+  },
+  {
+    "path": "tests/compatibility/module_mapping_pop.py",
+    "status": "matching_output",
+    "default_suite": false,
+    "description": "Known gap: pop through globals must remove the module binding."
+  },
+  {
+    "path": "tests/compatibility/module_mapping_popitem.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Known gap: popitem through globals must remove the actual binding."
+  },
+  {
+    "path": "tests/compatibility/module_mapping_retained_views.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Known gap: retained module views must observe namespace writes."
+  },
+  {
+    "path": "tests/compatibility/nested_class_qualname_remaining.py",
+    "status": "output_difference",
+    "default_suite": false,
+    "description": "Compiler metadata difference discovered during explicit type repr checks."
+  },
+  {
+    "path": "tests/compatibility/nested_finally_return_duplicate.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/numeric_dict_hash.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Pending: equal integral float/int keys must share the dictionary hash."
+  },
+  {
+    "path": "tests/compatibility/numeric_int_subclass_comparison.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Inherited int subclass comparisons must preserve the full payload."
+  },
+  {
+    "path": "tests/compatibility/operator_length_hint.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/range_large_step.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/set_hash_storage_remaining.py",
+    "status": "sharppy_failure",
+    "default_suite": false,
+    "description": "Native-width hashes, identity, callback order, reentry and frozen hashes."
+  },
+  {
+    "path": "tests/compatibility/slice_large_step.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/slice_step_iteration_overflow.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/stop_iteration_args_update.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/stop_iteration_message.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/super_alias_class_cell.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/super_captured_first_argument.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/unbound_fast_local.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": ""
+  },
+  {
+    "path": "tests/compatibility/unraisable_traceback_format.py",
+    "status": "matching_output",
+    "default_suite": true,
+    "description": "Default unraisable traceback rendering, with stable object repr."
+  }
+]

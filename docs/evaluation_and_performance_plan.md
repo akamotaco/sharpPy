@@ -8,7 +8,7 @@
 2. set/frozenset 해시: [101차](reports/2026-10-12/set_hash_audit.md). 수치 hash/identity 및 복사 재해시 수정. 전체 저장소 교체는 성능 저하로 기각; 전체 폭 hash·재진입·frozen hash는 미해결 재현으로 유지.
 3. 정수 변환 범위·sys 제한 API: [102차](reports/2026-10-12/integer_digit_limits.md). 동적 제한·str/repr·기본/d format 연결, 175개 회귀 통과. bytes/bytearray/base 및 나머지 format·컴파일 literal 제한은 별도 미해결.
 4. 비교·예외 성능 잔여 조사: [103차](reports/2026-10-12/performance_residual_followup.md). 과거 DLL/현재 교차 재측정과 native 검사 완료. int/float 잔여 +2.73% 관측, 과거 지연 단일 원인 미확정. 런타임 추가 변경 없음.
-5. 과거 미해결 기록 재분류: 진행 예정.
+5. 과거 미해결 기록 재분류: [104차](reports/2026-10-12/compatibility_reconciliation.md). 재현 67개 전체 재실행: 일치 55·미일치/실패 12. 미등록 일치 11개를 기본 회귀로 승격. 전체 목록과 모집단 밖 과제 분리 완료.
 6. CPython 테스트 및 라이브러리 조합 검증 확대: 진행 예정.
 
 ## 요청한 1~6번 작업 상태 (99차)

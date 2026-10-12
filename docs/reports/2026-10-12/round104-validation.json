@@ -1,0 +1,1433 @@
+{
+  "audit": {
+    "python": "3.12.15 | packaged by conda-forge | (main, Oct  6 2026, 23:39:35) [MSC v.1944 64 bit (AMD64)]",
+    "executable": "C:\\Users\\AMD-MAX395-128G-2T\\miniforge3\\envs\\sharppy-test-py312\\python.exe",
+    "dotnet": "C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\dotnet.exe",
+    "dotnet_info": {
+      "exit_code": 0,
+      "stdout": ".NET SDK:\n Version:           8.0.425\n Commit:            4a98f641c7\n Workload version:  8.0.400-manifests.ac071bc2\n MSBuild version:   17.11.48+02bf66295\n\n런타임 환경:\n OS Name:     Windows\n OS Version:  10.0.26200\n OS Platform: Windows\n RID:         win-x64\n Base Path:   C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk\\8.0.425\\\n\n설치된 .NET 워크로드:\n새 매니페스트를 설치할 때 loose manifests을(를) 사용하도록 구성됩니다.\n표시할 설치된 워크로드가 없습니다.\n\nHost:\n  Version:      8.0.31\n  Architecture: x64\n  Commit:       1219a42122\n\n.NET SDKs installed:\n  8.0.425 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.NETCore.App]\n  Microsoft.WindowsDesktop.App 8.0.31 [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet\\shared\\Microsoft.WindowsDesktop.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_ROOT       [C:\\Users\\AMD-MAX395-128G-2T\\AppData\\Local\\SharpPy\\dotnet]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+      "stderr": "",
+      "timed_out": false,
+      "process_seconds": 0.19554069999139756,
+      "failure_markers": []
+    },
+    "git": "261bd35467926b975ea4811d3c9e67c4f594cd47",
+    "git_status": "?? tests/cpython312_LICENSE.txt\n?? tests/cpython312_selected_manifest.json\n?? tests/cpython312_selected_regression.py\n?? tools/PerformanceHarness/summarize_runs.py\n?? tools/extract_cpython_tests.py\n?? tools/reconcile_compatibility.py\n",
+    "dll_sha256": "653ad7df98e1b044f749363addc36ffbdfc4e993afab8cfb801b4214cffa92d0",
+    "timeout": 15.0,
+    "cases": [
+      {
+        "name": "tests/compatibility/async_generator_kwdefaults.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "{'count': 3}\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03597589998389594,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\async_generator_kwdefaults.py\", line 4, in <module>\n    print(values.__kwdefaults__)\n    ^\nAttributeError: 'function' object has no attribute '__kwdefaults__'\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\async_generator_kwdefaults.py\", line 4, in <module>\n    print(values.__kwdefaults__)\n    ^\nAttributeError: 'function' object has no attribute '__kwdefaults__'\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24882890001754276,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/bound_method_attributes.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "True\nTrue\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.051450900005875155,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "True\nTrue\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25975670001935214,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/bytearray_slice_callback_order.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "bytearray slice callback order: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.033400299987988546,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "bytearray slice callback order: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2703597999934573,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/bytearray_slice_iterable_assignment.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "bytearray iterable slice assignment: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02884529999573715,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "bytearray iterable slice assignment: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24287799999001436,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/bytes_slice_equality.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "bytes slice equality: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02873859999817796,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "bytes slice equality: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2483825999952387,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/class_body_exceptions.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "class body exceptions: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03770819999044761,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "class body exceptions: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25344179998501204,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/class_body_freevar.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "class body free variable: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.039254600007552654,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 10, in <module>\n    assert type(build()).__name__ == \"Local\"\n                                            ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 6, in build\n    item = Local()\n           ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 6, in <class_body_Holder>\n    item = Local()\n           ^\nNameError: name 'Local' is not defined. Did you mean: 'build'?\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\class_body_freevar.py\", line 6, in <module>\n            item = Local()\n                   ^\nNameError: name 'Local' is not defined. Did you mean: 'build'?\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.255882900004508,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/class_locals_mapping.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "class locals mapping: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.036636600008932874,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "class locals mapping: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2591469000035431,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/comparison_class_setattr.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "before True\nafter changed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02429260002099909,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "before True\nafter changed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25839420000556856,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/comparison_remaining_slots.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "string reflection reflected\ntuple subclass tuple override\nint descriptor True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02749850001418963,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "string reflection reflected\ntuple subclass tuple override\nint descriptor True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2740631999913603,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/continue_finally_stack.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "2 [0, 1, 2, 3]\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028443199989851564,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "2 [0, 1, 2, 3]\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2567962000030093,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_close_cleanup.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028670200001215562,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "paused\nNone\n['delegate cleanup', 'coroutine cleanup']\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2656944999762345,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_close_lookup_error.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.030461299989838153,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "paused\nclose-result None\n[('unraisable', 'ValueError', 'lookup error'), ('body', 'GeneratorExit'), 'finally']\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.28471569999237545,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_initial_send.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "11\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.030802099994616583,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "11\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2545463000133168,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_nested_send.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "pause\n7\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028524800000013784,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "pause\n7\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2677822000114247,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_send.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "6\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.04228039999725297,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "6\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2570706999977119,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_throw_delegation.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "paused\ndelegate caught sent\ncoroutine cleanup\nresult 13\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02963370000361465,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "paused\ndelegate caught sent\ncoroutine cleanup\nresult 13\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2716501000104472,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_throw_empty_args.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "arguments ()\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028972200001589954,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "arguments ()\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2516639999812469,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_throw_legacy_warning.py",
+        "status": "output_difference",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "ValueError legacy\n",
+          "stderr": "C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\coroutine_throw_legacy_warning.py:5: DeprecationWarning: the (type, exc, tb) signature of throw() is deprecated, use the single-arg signature instead.\n  c.throw(ValueError, 'legacy')\n",
+          "timed_out": false,
+          "process_seconds": 0.03842369999620132,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "ValueError legacy\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25803650001762435,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/coroutine_throw_yield_from.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "paused\ninner caught\nresult 31\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029438700003083795,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "paused\ninner caught\nresult 31\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.27553260000422597,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/dict_copy_subclass.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "dict copy subclass: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03946530001121573,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "dict copy subclass: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26093869999749586,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/dict_iterator_resize_compaction.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "dict iterator resize compaction: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03882359998533502,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_iterator_resize_compaction.py\", line 8, in <module>\n    assert next(iterator) == 2\n                              ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_iterator_resize_compaction.py\", line 8, in <module>\n    assert next(iterator) == 2\nAssertionError: \n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25367459998233244,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/dict_iterator_same_size.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "dict iterator same size: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.038129799999296665,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "dict iterator same size: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24692209999193437,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/dict_retained_views.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "dict retained views: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.038021900021703914,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "dict retained views: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25211460000718944,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/dict_view_iterator_live_values.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "dict view iterator live values: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03851130002294667,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "dict view iterator live values: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24775479998788796,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/dict_view_set_operations.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "dict view set operations: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03734229999827221,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_view_set_operations.py\", line 3, in <module>\n    assert d.keys() == {'first'}\n                                ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\dict_view_set_operations.py\", line 3, in <module>\n    assert d.keys() == {'first'}\nAssertionError: \n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24560019999626093,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/exception_args_length_hint.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "exception args length hint: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028650499996729195,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "exception args length hint: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2740738000138663,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/exception_context_after_handler.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "exception context restored: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03320860001258552,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "exception context restored: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24507859998266213,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/exception_specialized_arguments.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "NameError ()  NameError()\nAttributeError ()  AttributeError()\nKeyError ('key',) 'key' KeyError('key')\nOSError (2, 'missing') [Errno 2] missing FileNotFoundError(2, 'missing')\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03271540001151152,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "NameError ()  NameError()\nAttributeError ()  AttributeError()\nKeyError ('key',) 'key' KeyError('key')\nOSError (2, 'missing') [Errno 2] missing FileNotFoundError(2, 'missing')\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24760420000529848,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/exception_state_in_callee.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "caller exception state: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028689300001133233,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "caller exception state: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2542650999967009,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/generator_close_delegation.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "generator delegated close: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03033310000319034,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "generator delegated close: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25748199998633936,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/generator_close_exception.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "generator close exception: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028010900015942752,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "generator close exception: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2549906999920495,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/generator_delegate_iterator.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "generator delegate iterator: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029840600007446483,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "generator delegate iterator: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2680909999762662,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/generator_invalid_iterator.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "yield from iterator validation: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028006300010019913,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "yield from iterator validation: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26884590002009645,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/generator_throw_expression_stack.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "generator throw expression stack: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.030105099984211847,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "generator throw expression stack: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2630308000079822,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/generator_throw_loop_resume.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "generator throw loop resume: PASS\ngenerator throw nested/send/close: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028335299983154982,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "generator throw loop resume: PASS\ngenerator throw nested/send/close: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26973980001639575,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/int_subclass_hash_protocol.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "hash-called\nhash 2\nhash-called\neq-called 2\nlookup value\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02845869999146089,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "hash-called\nhash 2\nhash-called\neq-called 2\nlookup value\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2588069999765139,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/int_subclass_large_string.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "100000000000000000000000000000000000000000000000000000000000000000000000000000000\n-100000000000000000000000000000000000000000000000000000000000000000000000000000000\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028959699993720278,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "100000000000000000000000000000000000000000000000000000000000000000000000000000000\n-100000000000000000000000000000000000000000000000000000000000000000000000000000000\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25986249998095445,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/integer_conversion_remaining.py",
+        "status": "output_difference",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "bytes 123\nbytes-base 255\nbytearray 123\nindex-base 255\nkeyword-base 255\nformat-large 1267650600228229401496703205376\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028782799985492602,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "bytes TypeError int() argument must be a string, a bytes-like object or a number, not 'bytes'\nbytes-base TypeError int() can't convert bytes with explicit base (not implemented yet)\nbytearray TypeError int() argument must be a string, a bytes-like object or a number, not 'bytearray'\nindex-base TypeError int() argument 2 must be int, not Index\nkeyword-base ValueError invalid literal for int() with base 10: 'ff'\nformat-large 1267650600228229401496703205376\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2799675000132993,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/integer_subclass_comparison_dispatch.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "Child.eq\nequal child equality\nChild.gt\nless child greater\nNumber.eq\nfallback True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029634600010467693,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "Child.eq\nequal child equality\nChild.gt\nless child greater\nNumber.eq\nfallback True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25728029999299906,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/iterator_lookup_error_fallback.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "iterator lookup error fallback passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029032499995082617,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "iterator lookup error fallback passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2639787999796681,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/lookup_error_builtin.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "lookup error builtin: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03258009999990463,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "lookup error builtin: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26588449999690056,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/memoryview_automatic_release.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "memoryview automatic release: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03687989999889396,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\memoryview_automatic_release.py\", line 4, in <module>\n    del view\n            ^\nBufferError: Existing exports of data: object cannot be re-sized\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\memoryview_automatic_release.py\", line 4, in <module>\n    del view\nBufferError: Existing exports of data: object cannot be re-sized\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24533639999572188,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/memoryview_write.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "bytearray(b'aBC')\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03796509999665432,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "bytearray(b'aBC')\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24524240000755526,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/metaclass_attribute_remaining.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "<class '__main__.Child'>\ndata descriptor\ntype dict True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02830170001834631,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "<class '__main__.Child'>\ndata descriptor\ntype dict True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25876769999740645,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/metaclass_bound_method_closure.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "metaclass lexical closure passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029712499992456287,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "metaclass lexical closure passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2633868999837432,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/metaclass_invalid_iterator.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "metaclass iterator validation passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02753570000641048,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "metaclass iterator validation passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26755819999380037,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/module_locals_live.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module locals live: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03660640001180582,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "module locals live: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2466810999903828,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/module_mapping_copy_order.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping copy order: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.039753700024448335,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_copy_order.py\", line 12, in <module>\n    check_order()\n    ^\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_copy_order.py\", line 10, in check_order\n    assert keys == ['ordered_second', 'ordered_first']\n                                                      ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_copy_order.py\", line 10, in <module>\n        assert keys == ['ordered_second', 'ordered_first']\nAssertionError: \n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25512489999528043,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/module_mapping_pop.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping pop: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03646830000798218,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "module mapping pop: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2492408000107389,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/module_mapping_popitem.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping popitem: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03797499998472631,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_popitem.py\", line 10, in <module>\n    raise AssertionError('popitem must remove the module binding')\n                                                                  ^\nAssertionError: popitem must remove the module binding\n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_popitem.py\", line 10, in <module>\n        raise AssertionError('popitem must remove the module binding')\nAssertionError: popitem must remove the module binding\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2507638999959454,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/module_mapping_retained_views.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "module mapping retained views: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03522669998346828,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "Traceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_retained_views.py\", line 7, in <module>\n    assert 'module_view_value' in list(keys)\n                                            ^\nAssertionError: \n--- C# Exception Details ---\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\module_mapping_retained_views.py\", line 7, in <module>\n    assert 'module_view_value' in list(keys)\nAssertionError: \n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2501573999761604,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/nested_class_qualname_remaining.py",
+        "status": "output_difference",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "Outer.Inner\n<class '__main__.Outer.Inner'>\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03393740000319667,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "Inner\n<class '__main__.Inner'>\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24404359998879954,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/nested_finally_return_duplicate.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "7 ['inner', 'live', 'outer']\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029437400022288784,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "7 ['inner', 'live', 'outer']\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25830519999726675,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/numeric_dict_hash.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "31 int float\n32 int float\n53 int float\n63 int float\n100 int float\n500 int float\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03201149997767061,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "31 int float\n32 int float\n53 int float\n63 int float\n100 int float\n500 int float\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.251086199976271,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/numeric_int_subclass_comparison.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "equality True True\nordering True True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02985429999534972,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "equality True True\nordering True True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25838079999084584,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/operator_length_hint.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "operator length hint: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.031112500000745058,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "operator length hint: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2595306999864988,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/range_large_step.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "range large step: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028802699991501868,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "range large step: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2531590999860782,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/set_hash_storage_remaining.py",
+        "status": "sharppy_failure",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "set 1 True\nset 1 True\nset 1 True\nset 1 True\nset 1 True\nnan 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nnan 1 True\nconstruct set [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('hash', 'a'), ('eq', 'a', 'a')]\ncopy 3 []\nremove 2 [('hash', 'a')]\npop 1 []\nconstruct frozenset [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('hash', 'a'), ('eq', 'a', 'a')]\ncopy 3 []\nhash frozen -6641811252793276200 -6641811252793276200 []\nfrozen 133146708735736\nfrozen -558064481276695278\nfrozen -272375401224217160\nfrozen 1077799575155998630\nfrozen 830943626610821524\nnested -5902812605336009127\nreenter contains False False 0\nreenter contains True False 0\nreenter add False None 1\nreenter add True None 0\nreenter remove False KeyError 0\nreenter remove True KeyError 0\nidentity True\nerror equality\nalgebra union ['a', 'b', 'c'] [('eq', 'b', 'b')]\nalgebra intersection ['b'] [('eq', 'b', 'b')]\nalgebra difference ['a'] [('eq', 'b', 'b')]\nalgebra symmetric_difference ['a', 'c'] [('eq', 'b', 'b')]\nalgebra issubset False []\nalgebra issuperset False [('eq', 'b', 'b')]\nalgebra isdisjoint False [('eq', 'b', 'b')]\nalgebra update None [('eq', 'b', 'b')]\nstream 2 ['next-a', ('hash', 'a'), 'next-b', ('hash', 'b')]\nresize 1300 1064550 True\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03061300000990741,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 1,
+          "stdout": "set 1 True\nset 1 True\nset 1 True\nset 1 True\nset 1 True\nnan 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nfrozenset 1 True\nnan 1 True\nconstruct set [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('eq', 'c', 'a'), ('hash', 'a'), ('eq', 'c', 'a'), ('eq', 'a', 'a')]\ncopy 3 [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nremove 2 [('hash', 'a'), ('eq', 'c', 'a')]\npop 1 [('hash', 'b')]\nconstruct frozenset [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nlookup True True [('hash', 'a'), ('eq', 'c', 'a'), ('hash', 'a'), ('eq', 'c', 'a'), ('eq', 'a', 'a')]\ncopy 3 [('hash', 'a'), ('hash', 'b'), ('hash', 'c'), ('eq', 'a', 'c')]\nhash frozen 49820743 49820743 []\nfrozen -32682612\nfrozen -263545158\nfrozen 1523757143\nfrozen -2042837401\nfrozen -1956295284\nnested 2064269755\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\set_hash_storage_remaining.py\", line ?, in <module>\n    # Line information not available\nRuntimeError: Operations that change non-concurrent collections must have exclusive access. A concurrent update was performed on this collection and corrupted its state. The collection's state is no longer correct.\n--- C# Exception Details ---\nSystem.InvalidOperationException: Operations that change non-concurrent collections must have exclusive access. A concurrent update was performed on this collection and corrupted its state. The collection's state is no longer correct.\n   at System.Collections.Generic.HashSet`1.FindItemIndex(T item)\n   at System.Collections.Generic.HashSet`1.Contains(T item)\n   at SharpPy.PySet.Contains(PyObject item) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\type\\PySet.cs:line 281\n   at SharpPy.PyVM.ContainsOperation(PyObject left, PyObject right, Int32 containsOp) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 6738\n   at SharpPy.PyVM.ExecuteInstruction(PyFrame frame, ByteCodeOp opcode, Int32 argument) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 4364\n   at SharpPy.PyVM.ExecuteFrame(PyFrame frame) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 1336\n   at SharpPy.PyVM.ExecuteModule(PyCodeObject codeObject, PyScopeChain scopeChain) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyVM.cs:line 936\n   at SharpPy.IntegratedPythonInterpreter.Execute(String sourceCode, String fileName, Boolean showTokenize, Boolean showAst, Boolean showBytecode, CompileMode mode) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\runtime\\PyInterpreter.cs:line 223\n   at SharpPy.Core.FileExecutor.ExecuteFile(String pythonFile, Boolean showTokenize, Boolean showAst, Boolean showBytecode, Boolean compileOnly) in C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\core\\FileExecutor.cs:line 62\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.3221487000118941,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/slice_large_step.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "large slice step: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028271499992115423,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "large slice step: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.25680909998482093,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/slice_step_iteration_overflow.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "slice step iteration overflow: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.029453600000124425,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "slice step iteration overflow: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2526812000141945,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/stop_iteration_args_update.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "StopIteration args update: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02864250002312474,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "StopIteration args update: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2473586999985855,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/stop_iteration_message.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "StopIteration message: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.02891769999405369,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "StopIteration message: PASS\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.24220360000617802,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/super_alias_class_cell.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "super alias class cell passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028391600004397333,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "super alias class cell passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.2617016000149306,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/super_captured_first_argument.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "super captured first argument passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028906699997605756,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "super captured first argument passed\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26476820002426393,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/unbound_fast_local.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.028722100018057972,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "UnboundLocalError cannot access local variable 'value' where it is not associated with a value\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.26001100000576116,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      },
+      {
+        "name": "tests/compatibility/unraisable_traceback_format.py",
+        "status": "matching_output",
+        "reference": {
+          "exit_code": 0,
+          "stdout": "Exception ignored in: <pause>\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\unraisable_traceback_format.py\", line 14, in close\n    raise ValueError(\"lookup\")\nValueError: lookup\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.03532880000420846,
+          "failure_markers": []
+        },
+        "sharppy": {
+          "exit_code": 0,
+          "stdout": "Exception ignored in: <pause>\nTraceback (most recent call last):\n  File \"C:\\Users\\AMD-MAX395-128G-2T\\Desktop\\work\\sharpPy\\tests\\compatibility\\unraisable_traceback_format.py\", line 14, in close\n    raise ValueError(\"lookup\")\nValueError: lookup\n",
+          "stderr": "",
+          "timed_out": false,
+          "process_seconds": 0.283770000009099,
+          "failure_markers": []
+        },
+        "volatile_fields": null
+      }
+    ],
+    "counts": {
+      "sharppy_failure": 9,
+      "matching_output": 55,
+      "output_difference": 3
+    }
+  }
+}
