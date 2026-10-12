@@ -7,7 +7,8 @@
 2. [119차 호스트 snapshot](reports/2026-10-12/host_namespace_snapshots.md):
    공개 adapter Copy의 실패 3개 해결, native 11개 일치. 외부 변경 스캔 비용 증가,
    raw Dictionary 변경 이력/전체 저장소 통합은 미해결. VM mapping은 스캔하지 않음.
-3. 작은 set 생성·변경의 할당 증가 개선.
+3. [120차 작은 set 테이블 재사용](reports/2026-10-12/set_small_table_reuse.md):
+   대상 반복당 152B 감소, 시간 범위 겹침. 이전 저장소 대비 잔여 +224B.
 4. 숫자 하위 타입 비교 dispatch 비용 선별.
 5. warnings/async generator/set API 경계의 과정 감사.
 6. 수치 formatting/Unicode/파일 라이브러리의 검증 범위 확대.

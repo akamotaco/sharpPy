@@ -12,6 +12,16 @@ namespace SharpPy
         private bool shared;
         private Entry[] copyTemplate;
         private int layoutVersion;
+        private static Entry[] spareSmallTable;
+        private static Entry[] NewTable(int size) => size == 8
+            ? System.Threading.Interlocked.Exchange(ref spareSmallTable, null) ?? new Entry[8]
+            : new Entry[size];
+        private static void RecycleSmallTable(Entry[] old, bool wasShared)
+        {
+            if (wasShared || old.Length != 8) return;
+            Array.Clear(old);
+            System.Threading.Interlocked.CompareExchange(ref spareSmallTable, old, null);
+        }
 
         // Copies share only a canonical copy layout. A write detaches before
         // changing any entry; callbacks still see the same Python key objects.
@@ -21,7 +31,7 @@ namespace SharpPy
             if (shared) { table = (Entry[])table.Clone(); shared = false; }
         }
         public int Count { get; private set; }
-        internal PySetStorage() { table = new Entry[8]; }
+        internal PySetStorage() { table = NewTable(8); }
         internal PySetStorage(IEnumerable<PyObject> source)
         {
             if (source is PySetStorage stored)
@@ -41,7 +51,7 @@ namespace SharpPy
                     stored.copyTemplate = table; Count = fill = stored.Count;
                     return;
                 }
-                table = new Entry[size];
+                table = NewTable(size);
                 if (stored.Count == 0) return;
                 if (CanCopyPositions(stored.table, size))
                     Array.Copy(stored.table, table, stored.table.Length);
@@ -58,7 +68,7 @@ namespace SharpPy
                 Count = fill = stored.Count;
                 stored.copyTemplate = table; shared = true;
             }
-            else { table = new Entry[8]; foreach (var key in source) Add(key); }
+            else { table = NewTable(8); foreach (var key in source) Add(key); }
         }
         private static ulong Unsigned(long hash) => IntPtr.Size == 8 ? unchecked((ulong)hash) : unchecked((uint)hash);
         private static bool CanCopyPositions(Entry[] source, int size)
@@ -142,13 +152,15 @@ namespace SharpPy
             int size = 8;
             while (size <= minimum) size = checked(size * 2);
             var old = table;
-            table = new Entry[size]; shared = false; copyTemplate = null; layoutVersion++;
+            bool wasShared = shared;
+            table = NewTable(size); shared = false; copyTemplate = null; layoutVersion++;
             for (int i = 0; i < old.Length; i++)
             {
                 var entry = old[i];
                 if (entry.Key != null) InsertClean(entry);
             }
             fill = Count;
+            RecycleSmallTable(old, wasShared);
         }
         internal bool Contains(PyObject key) => ContainsKnown(key, key.GetPythonHash());
         internal bool ContainsKnown(PyObject key, long hash) { Find(key, hash, false, out bool found); return found; }
