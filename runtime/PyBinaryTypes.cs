@@ -41,6 +41,7 @@ namespace SharpPy
         public override string GetTypeName() => "bytes";
 
         public byte[] Data => (byte[])_data.Clone();
+        internal ReadOnlySpan<byte> BufferSpan => _data;
         public int Length => _data.Length;
 
         // Indexing

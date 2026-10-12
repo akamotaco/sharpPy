@@ -7,7 +7,8 @@
    mutable set 저장소 교체는 성능 문제로 제외했으며 재진입은 미해결이다.
 2. [107차](reports/2026-10-12/dict_mapping_followup.md): 기존 실패 5개 해결.
    저장소 cursor, view 집합 연산, 전역 binding과 보존 view 동기화.
-3. 정수 변환 API: 진행 예정.
+3. [108차](reports/2026-10-12/integer_conversion_api.md): bytes/bytearray,
+   index·keyword base, 공통 __new__ 변환과 오류 재현 해결.
 4. 클래스 scope/qualname·함수 kwdefaults: 진행 예정.
 5. coroutine 경고·memoryview 자동 수명: 진행 예정.
 6. math.isclose: 진행 예정.

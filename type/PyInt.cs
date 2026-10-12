@@ -395,41 +395,8 @@ namespace SharpPy
                     if (cls == null)
                         throw PyTypeError.Create("int.__new__(X): X is not a type object");
 
-                    // CPython 3.12: Objects/longobject.c:5605-5640 - from_bytes
-                    // Get the value argument (args[1] if present, default 0)
-                    Py_int_t value = 0;
-                    if (args.Length >= 2 && args[1] != PyNone.Instance)
-                    {
-                        // CPython: Line 5605-5615 - convert x to int
-                        if (args[1] is PyInt pyInt)
-                            value = pyInt.Value;
-                        else if (args[1] is PyFloat pyFloat)
-                            value = (long)Math.Truncate(pyFloat.Value);
-                        else if (args[1] is PyBool pyBool)
-                            value = pyBool.Value ? 1 : 0;
-                        else if (args[1] is PyString pyStr)
-                        {
-                            // Handle base parameter if present
-                            int baseValue = 10;
-                            if (args.Length >= 3 && args[2] is PyInt baseInt)
-                                baseValue = (int)baseInt.Value;
-
-                            var parsed = PyInt.FromString(pyStr.Value, baseValue);
-                            value = parsed.Value;
-                        }
-                        else
-                        {
-                            // Try to convert to int
-                            try
-                            {
-                                value = args[1].ToInt();
-                            }
-                            catch
-                            {
-                                throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{args[1].GetTypeName()}'");
-                            }
-                        }
-                    }
+                    var converted = FromArguments(args, kwargs, 1);
+                    Py_int_t value = converted.Value;
 
                     // CPython: Line 5603-5604
                     // if (type != &PyLong_Type)
@@ -443,7 +410,7 @@ namespace SharpPy
                         {
                             // CPython: line 5665 - newobj = (PyLongObject *)type->tp_alloc(type, n);
                             // line 5671-5674 - copy int value from tmp to newobj
-                            return new PyIntSubclass(classObj, new PyInt(value));
+                            return new PyIntSubclass(classObj, converted);
                         }
                         else
                         {
@@ -454,7 +421,7 @@ namespace SharpPy
                     else
                     {
                         // Regular int type, return PyInt
-                        return new PyInt(value);
+                        return converted;
                     }
                 }
             );
@@ -1286,11 +1253,53 @@ namespace SharpPy
 
         #region Static Factory Methods
 
+        internal static PyInt FromArguments(PyObject[] args, PyDict kwargs, int offset = 0)
+        {
+            int count = args.Length - offset;
+            int keywords = kwargs?.Length() ?? 0;
+            if (count > 2 || count + keywords > 2)
+                throw PyTypeError.Create($"int() takes at most 2 arguments ({count + keywords} given)");
+            PyObject radix = count > 1 ? args[offset + 1] : null;
+            if (keywords != 0)
+            {
+                foreach (var pair in kwargs.GetInternalDict())
+                {
+                    if (pair.Key is not PyString key || key.Value != "base")
+                        throw PyTypeError.Create($"'{pair.Key.ToStr().Value}' is an invalid keyword argument for int()");
+                    radix = pair.Value;
+                }
+            }
+            if (count == 0)
+            {
+                if (radix != null) throw PyTypeError.Create("int() missing string argument");
+                return new PyInt(0);
+            }
+            var value = args[offset];
+            int baseValue = 10;
+            if (radix != null)
+            {
+                var index = TryGetIndex(radix);
+                if (index == null) throw PyTypeError.Create($"'{radix.GetTypeName()}' object cannot be interpreted as an integer");
+                if (index.Value != 0 && (index.Value < 2 || index.Value > 36))
+                    throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
+                baseValue = (int)index.Value;
+            }
+            if (value is PyString text) return FromString(text.Value, baseValue);
+            if (value is PyBytes bytes)
+                return FromString(System.Text.Encoding.Latin1.GetString(bytes.Value), baseValue, false, value);
+            if (value is PyBytesObject binary)
+                return FromString(System.Text.Encoding.Latin1.GetString(binary.BufferSpan), baseValue, false, value);
+            if (value is PyByteArray buffer)
+                return FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value);
+            if (radix != null) throw PyTypeError.Create("int() can't convert non-string with explicit base");
+            return value.AsInt();
+        }
+
         /// <summary>
         /// Convert string to PyInt with optional base.
         /// CPython 3.12: Objects/longobject.c - PyLong_FromString() lines 2500-2700
         /// </summary>
-        public static PyInt FromString(string original, int baseValue = 10)
+        public static PyInt FromString(string original, int baseValue = 10, bool unicode = true, PyObject literal = null)
         {
             if (baseValue != 0 && (baseValue < 2 || baseValue > 36))
                 throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
@@ -1298,7 +1307,7 @@ namespace SharpPy
             string text = original;
             // PyUnicode_TransformDecimalAndSpaceToASCII. Allocate only for
             // non-ASCII input; errors retain the original Unicode spelling.
-            for (int i = 0; i < text.Length; i++)
+            for (int i = 0; unicode && i < text.Length; i++)
             {
                 if (text[i] < 128) continue;
                 var normalized = new System.Text.StringBuilder(text.Length);
@@ -1344,14 +1353,14 @@ namespace SharpPy
             {
                 if (text[i] == '_')
                 {
-                    if (!previousDigit) throw InvalidIntegerLiteral(original, requestedBase);
+                    if (!previousDigit) throw InvalidIntegerLiteral(original, requestedBase, literal);
                     underscores = true; previousDigit = false; continue;
                 }
                 int digit = IntegerDigit(text[i]);
-                if (digit < 0 || digit >= baseValue) throw InvalidIntegerLiteral(original, requestedBase);
+                if (digit < 0 || digit >= baseValue) throw InvalidIntegerLiteral(original, requestedBase, literal);
                 previousDigit = true; digits++; nonzero |= digit != 0;
             }
-            if (!previousDigit || (leadingZero && nonzero)) throw InvalidIntegerLiteral(original, requestedBase);
+            if (!previousDigit || (leadingZero && nonzero)) throw InvalidIntegerLiteral(original, requestedBase, literal);
             int limit = PyVM.Instance.IntMaxStrDigits;
             if ((baseValue & (baseValue - 1)) != 0 && limit != 0 && digits > limit)
                 throw PyValueError.Create($"Exceeds the limit ({limit} digits) for integer string conversion: value has {digits} digits; use sys.set_int_max_str_digits() to increase the limit");
@@ -1400,8 +1409,12 @@ namespace SharpPy
         private static bool IsIntegerSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
         private static int IntegerDigit(char c) => c >= '0' && c <= '9' ? c - '0' :
             c >= 'a' && c <= 'z' ? c - 'a' + 10 : c >= 'A' && c <= 'Z' ? c - 'A' + 10 : -1;
-        private static Exception InvalidIntegerLiteral(string text, int radix) =>
-            PyValueError.Create($"invalid literal for int() with base {radix}: {new PyString(text).ToRepr().Value}");
+        private static Exception InvalidIntegerLiteral(string text, int radix, PyObject literal = null)
+        {
+            if (literal is PyByteArray buffer) literal = new PyBytes(buffer.BufferSpan.ToArray());
+            if (literal is PyBytesObject binary) literal = new PyBytes(binary.BufferSpan.ToArray());
+            return PyValueError.Create($"invalid literal for int() with base {radix}: {(literal ?? new PyString(text)).ToRepr().Value}");
+        }
 
         public static PyInt FromNumber(PyObject obj)
         {

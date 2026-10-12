@@ -97,6 +97,8 @@ def main():
         "tests/binary_inplace_regression.py",
         "tests/metaclass_attribute_regression.py",
         "tests/frozenset_hash_regression.py",
+        "tests/integer_conversion_api_regression.py",
+        "tests/compatibility/integer_conversion_remaining.py",
         "tests/dict_mapping_followup_regression.py",
         "tests/compatibility/dict_iterator_resize_compaction.py",
         "tests/compatibility/dict_view_set_operations.py",

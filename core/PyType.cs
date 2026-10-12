@@ -696,6 +696,8 @@ namespace SharpPy
 
             switch (Name)
             {
+                case "int":
+                    return PyInt.FromArguments(args, kwargs);
                 case "object":
                     // object() creates a new basic object instance
                     if (args.Length > 0)
@@ -1040,34 +1042,7 @@ namespace SharpPy
                     if (cls is not PyType)
                         throw PyTypeError.Create($"int.__new__(X): X is not a type object ({cls.GetTypeName()})");
 
-                    // If called with just the class, return 0
-                    if (args.Length == 1)
-                        return new PyInt(0);
-
-                    var x = args[1];
-
-                    // Handle base parameter if present
-                    int baseValue = 10;
-                    if (args.Length > 2)
-                    {
-                        if (args[2] is not PyInt baseArg)
-                            throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
-                        baseValue = (int)baseArg.Value;
-                        if (baseValue != 0 && (baseValue < 2 || baseValue > 36))
-                            throw PyTypeError.Create("int() base must be >= 2 and <= 36, or 0");
-                    }
-
-                    // Convert x to int
-                    if (x is PyInt pyInt)
-                        return pyInt;
-                    else if (x is PyString pyStr)
-                        return PyInt.FromString(pyStr.Value, baseValue);
-                    else if (x is PyFloat pyFloat)
-                        return new PyInt((long)pyFloat.Value);
-                    else if (x is PyBool pyBool)
-                        return new PyInt(pyBool.Value ? 1 : 0);
-                    else
-                        throw PyTypeError.Create($"int() argument must be a string or a number, not '{x.GetTypeName()}'");
+                    return PyInt.FromArguments(args, kwargs, 1);
                 }
             );
 

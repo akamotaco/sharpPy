@@ -1175,57 +1175,7 @@ namespace SharpPy
         }
 
         // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
-        private static PyObject CallInt(PyObject[] args, PyDict kwargs = null)
-        {
-            // CPython 3.12: int() with no args returns 0
-            if (args.Length == 0)
-                return new PyInt(0);
-
-            if (args.Length > 2)
-                throw PyTypeError.Create($"int() takes at most 2 arguments ({args.Length} given)");
-
-            var x = args[0];
-
-            // CPython 3.12: int(x) without base - default base and limit, forward to standard implementation
-            if (args.Length == 1)
-                return x.AsInt();
-
-            // CPython 3.12: int(x, base) - convert string with explicit base
-            var obase = args[1];
-
-            if (x == PyNone.Instance)
-            {
-                throw PyTypeError.Create("int() missing string argument");
-            }
-
-            // CPython 3.12: base validation (lines 5617-5624)
-            if (!(obase is PyInt baseInt))
-            {
-                throw PyTypeError.Create($"int() argument 2 must be int, not {obase.GetTypeName()}");
-            }
-
-            int baseValue = (int)baseInt.Value;
-
-            if ((baseValue != 0 && baseValue < 2) || baseValue > 36)
-            {
-                throw PyValueError.Create("int() base must be >= 2 and <= 36, or 0");
-            }
-
-            // CPython 3.12: Only strings (and bytes) can be converted with explicit base (lines 5626-5639)
-            if (x is PyString pyStr)
-            {
-                return PyInt.FromString(pyStr.Value, baseValue);
-            }
-            else if (x is PyBytes pyBytes)
-            {
-                // TODO: Implement bytes-to-int conversion with base
-                throw PyTypeError.Create("int() can't convert bytes with explicit base (not implemented yet)");
-            }
-            else
-            {
-                throw PyTypeError.Create("int() can't convert non-string with explicit base");
-            }
-        }
+        private static PyObject CallInt(PyObject[] args, PyDict kwargs = null) => PyInt.FromArguments(args, kwargs);
 
         private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
         {
@@ -4032,6 +3982,8 @@ namespace SharpPy
             else if (args.Length == 1)
             {
                 var arg = args[0];
+                if (arg is PyBytes existing) return existing;
+                if (arg is PyByteArray buffer) return new PyBytes(buffer.BufferSpan.ToArray());
 
                 // bytes(string, encoding) - convert string to bytes
                 if (arg is PyString str)
