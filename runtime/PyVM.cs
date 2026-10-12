@@ -75,7 +75,7 @@ namespace SharpPy
         /// CPython reference: Python/ceval.c:1621-1658
         /// </summary>
         public static PyFrame CreateWithKwargs(PyCodeObject code, PyObject[] args, PyDict kwargs,
-            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null)
+            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null, PyDict kwdefaults = null)
         {
             // CPython 3.12: Line 1628 - _PyStack_UnpackDict converts kwargs dict to (args + kwnames) format
             var kwNamesList = new List<PyObject>();
@@ -105,7 +105,7 @@ namespace SharpPy
             parentFrame.KeywordNamesForNextCall = kwNames;
 
             // Create the actual frame with combined args
-            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, null);
+            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults);
         }
 
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
@@ -396,16 +396,6 @@ namespace SharpPy
                         }
                     }
 
-                    // Fallback to compile-time KwDefaults
-                    if (!hasDefault && kwOnlyIndex < code.KwDefaults.Count)
-                    {
-                        defaultValue = code.KwDefaults[kwOnlyIndex];
-                        hasDefault = true;
-#if DEBUG_LOG
-                        Console.WriteLine($"  → {paramName} = {defaultValue} (compile-time keyword-only 기본값)");
-#endif
-                    }
-
                     if (hasDefault)
                     {
                         LocalsPlus[paramIndex] = defaultValue;
@@ -414,7 +404,7 @@ namespace SharpPy
                     else
                     {
                         // Missing required keyword-only argument
-                        throw PyTypeError.Create($"[PyFrame] missing required keyword-only argument: '{paramName}'");
+                        throw PyTypeError.Create($"{code.Name}() missing 1 required keyword-only argument: '{paramName}'");
                     }
                 }
             }
@@ -1835,6 +1825,8 @@ namespace SharpPy
                     });
 
                     var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
+                    asyncGenFunction.ParentScope = frame.ScopeChain;
+                    asyncGenFunction.GlobalsDict = frame.ScopeChain.GlobalScope?.Variables;
 
                     // Set CPython 3.12 compatible function attributes
                     if (defaults != null)
@@ -7830,11 +7822,7 @@ namespace SharpPy
                         defaults = defaultsTuple;
                     }
                     // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
-                    PyDict kwdefaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                    {
-                        kwdefaults = kwdefaultsDict;
-                    }
+                    PyDict kwdefaults = pyFunc.GetKeywordDefaults();
                     var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);
                 }
@@ -7904,11 +7892,7 @@ namespace SharpPy
                         defaults = defaultsTuple;
                     }
                     // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
-                    PyDict kwdefaults = null;
-                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                    {
-                        kwdefaults = kwdefaultsDict;
-                    }
+                    PyDict kwdefaults = pyFunc.GetKeywordDefaults();
                     var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);
                 }
@@ -8318,11 +8302,7 @@ namespace SharpPy
                     defaults = defaultsTuple;
                 }
 
-                PyDict kwdefaults = null;
-                if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
-                {
-                    kwdefaults = kwdefaultsDict;
-                }
+                PyDict kwdefaults = pyFunc.GetKeywordDefaults();
 
                 // CPython 3.12: Combine positional and keyword arguments into single array for frame
                 var allArgs = new PyObject[positionalArgs.Length + keywordArgs.Count];

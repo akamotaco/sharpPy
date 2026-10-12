@@ -2846,6 +2846,10 @@ namespace SharpPy
                                     // CPython 3.12: Preserve GlobalsDict and ParentScope
                                     ((PyFunction)newMethod).GlobalsDict = pyFunc.GlobalsDict;
                                     ((PyFunction)newMethod).ParentScope = pyFunc.ParentScope;
+                                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var positionalDefaults))
+                                        ((PyFunction)newMethod).Attributes["__defaults__"] = positionalDefaults;
+                                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var keywordDefaults))
+                                        ((PyFunction)newMethod).Attributes["__kwdefaults__"] = keywordDefaults;
                                 }
                             }
                         }

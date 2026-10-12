@@ -3242,8 +3242,7 @@ namespace SharpPy
                                     Console.WriteLine($"   → Module scope, using PUSH_NULL + LOAD_NAME");
                                     #endif
                                     EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                    var nameIndex = AddName(funcName.Name);
-                                    EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
+                                    EmitLoadName(funcName.Name);
                                 }
                             }
                         }
@@ -5597,38 +5596,6 @@ namespace SharpPy
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments)
             var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
 
-            // Evaluate default expressions to PyObjects (defaults are evaluated at function definition time)
-            var defaults = new List<PyObject>();
-            foreach (var defaultExpr in defaultExprs)
-            {
-                if (defaultExpr is ConstantExpression constExpr)
-                {
-                    defaults.Add(constExpr.Value);
-                }
-                else
-                {
-                    defaults.Add(PyNone.Instance); // Placeholder
-                }
-            }
-
-            // Evaluate keyword-only defaults
-            var kwDefaults = new List<PyObject>();
-            foreach (var kwDefaultExpr in kwDefaultExprs)
-            {
-                if (kwDefaultExpr == null)
-                {
-                    kwDefaults.Add(PyNone.Instance);
-                }
-                else if (kwDefaultExpr is ConstantExpression constExpr)
-                {
-                    kwDefaults.Add(constExpr.Value);
-                }
-                else
-                {
-                    kwDefaults.Add(PyNone.Instance);
-                }
-            }
-
             // 3. 코드 객체 컴파일 (async 함수 전용)
             var codeObject = CompileAsyncFunctionBody(asyncFunc, freeVars, cellVars);
 
@@ -5636,17 +5603,9 @@ namespace SharpPy
 
             // 5. MAKE_FUNCTION을 위한 스택 준비 (CPython 순서: defaults, annotations, code)
 
-            // 6. 기본값들을 tuple로 만들어 스택에 로드 (CPython 3.12 호환)
-            // Performance: Eliminated LINQ
-            if (defaultExprs.Count > 0)
-            {
-                foreach (var defaultExpr in defaultExprs)
-                {
-                    // CPython 3.12: Default expressions are compiled and evaluated at function definition time
-                    CompileExpression(defaultExpr);
-                }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultExprs.Count);
-            }
+            var kwOnlyNames = new List<string>();
+            foreach (var arg in asyncFunc.Arguments.KwOnlyArgs) kwOnlyNames.Add(arg.Name);
+            int makeFlags = CompilerDefaultArguments(defaultExprs, kwDefaultExprs, kwOnlyNames);
 
             // 7. annotations 튜플을 스택에 로드 (CPython 3.12 호환성)
             // Performance: Eliminated LINQ
@@ -5685,8 +5644,6 @@ namespace SharpPy
 
             // 10. MAKE_FUNCTION 명령어 생성 (CPython 3.12와 동일한 플래그)
             // Performance: Eliminated LINQ
-            var makeFlags = 0;
-            if (defaults.Count > 0) makeFlags |= 0x01;  // CO_HAS_DEFAULTS
             if (annotations.Count > 0) makeFlags |= 0x04; // HAS_ANNOTATIONS (CPython 3.12)
             if (freeVars.Count > 0) makeFlags |= 0x08;  // CO_HAS_CLOSURE
             // async 함수도 일반 MAKE_FUNCTION 사용, 코드 객체의 CO_COROUTINE 플래그로 구분
@@ -6462,6 +6419,18 @@ namespace SharpPy
         /// <param name="body">Class body statements</param>
         /// <param name="className">Class name (or &lt;class_body_ClassName&gt;)</param>
         /// <param name="classFreeVars">Free variables from enclosing scope (optional)</param>
+        private static string QualifiedScopeName(SymbolTable table)
+        {
+            string name = table.Name;
+            if (table.Type == SymbolTableType.Function && (name.StartsWith("<function:") || name.StartsWith("<async function:")))
+                name = name.Substring(name.IndexOf(':') + 1).TrimEnd('>');
+            var parent = table.GetParent();
+            if (parent == null || parent.Type == SymbolTableType.Module || parent.Lookup(name)?.IsGlobal() == true)
+                return name;
+            string prefix = QualifiedScopeName(parent);
+            return prefix + (parent.Type == SymbolTableType.Function ? ".<locals>." : ".") + name;
+        }
+
         private PyCodeObject CompileClassBody(List<Statement> body, string className, List<string>? classFreeVars = null)
         {
             // Save current compilation state
@@ -6578,7 +6547,7 @@ namespace SharpPy
                 // CPython 3.12: Setup __qualname__ attribute in class body
                 var actualClassName = className.Contains("<class_body_") ?
                     className.Replace("<class_body_", "").TrimEnd('>') : className;
-                EmitLoadConst(new PyString(actualClassName));  // Load class name
+                EmitLoadConst(new PyString(classSymbolTable == null ? actualClassName : QualifiedScopeName(classSymbolTable)));
                 EmitStoreName("__qualname__");  // Store as __qualname__ in class dict
 
                 // CPython 3.12: Check if class body has annotations

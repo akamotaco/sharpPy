@@ -249,13 +249,13 @@ public partial class PyFunction : PyObject, IDescriptor
         if (CodeObject?.IsAsyncGenerator() == true)
         {
             // async generator 객체 생성 (kwargs는 생성 시 사용하지 않음)
-            return CreateAsyncGenerator(args);
+            return CreateAsyncGenerator(args, kwargs);
         }
         // 코루틴 함수인지 확인 (async def, but not async generator)
         else if (CodeObject?.IsCoroutine() == true)
         {
             // 코루틴 객체 생성 (kwargs는 생성 시 사용하지 않음)
-            return CreateCoroutine(args);
+            return CreateCoroutine(args, kwargs);
         }
         // 일반 generator 함수인지 확인
         else if (CodeObject?.IsGenerator() == true)
@@ -333,11 +333,11 @@ public partial class PyFunction : PyObject, IDescriptor
             {
                 // Use PyFrame constructor that accepts kwargs dict
                 // This will internally convert it to CPython's (args + kwnames) format
-                frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, functionScopeChain, Closure, defaults);
+                frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, functionScopeChain, Closure, defaults, GetKeywordDefaults());
             }
             else
             {
-                frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
+                frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults, GetKeywordDefaults());
             }
 
             var vm = PyVM.Instance;
@@ -360,10 +360,14 @@ public partial class PyFunction : PyObject, IDescriptor
         return null;
     }
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal PyDict GetKeywordDefaults() => CodeObject?.KwonlyArgCount > 0 &&
+        Attributes.TryGetValue("__kwdefaults__", out var value) && value is PyDict defaults ? defaults : null;
+
     /// <summary>
     /// async generator 객체 생성 - PEP 525 호환
     /// </summary>
-    private SharpPy.Core.PyAsyncGenerator CreateAsyncGenerator(PyObject[] args)
+    private SharpPy.Core.PyAsyncGenerator CreateAsyncGenerator(PyObject[] args, PyDict kwargs = null)
     {
         // async generator 방식: Frame과 VM을 사용한 실제 async generator
         if (CodeObject == null)
@@ -378,7 +382,10 @@ public partial class PyFunction : PyObject, IDescriptor
         var defaults = GetDefaults();
 
         // async generator 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
+        var scope = GlobalsDict != null ? new PyScopeChain(GlobalsDict, CodeObject.Name) : ParentScope;
+        var frame = kwargs != null && kwargs.Length() != 0
+            ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, defaults, GetKeywordDefaults())
+            : new PyFrame(CodeObject, args, scope, Closure, null, defaults, GetKeywordDefaults());
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // async generator enumerator 생성
@@ -390,7 +397,7 @@ public partial class PyFunction : PyObject, IDescriptor
     /// <summary>
     /// 코루틴 객체 생성 - PEP 492 호환
     /// </summary>
-    private SharpPy.Core.PyCoroutine CreateCoroutine(PyObject[] args)
+    private SharpPy.Core.PyCoroutine CreateCoroutine(PyObject[] args, PyDict kwargs = null)
     {
         // CPython 3.12 방식: Frame과 VM을 사용한 실제 코루틴
         if (CodeObject == null)
@@ -408,7 +415,9 @@ public partial class PyFunction : PyObject, IDescriptor
         var scope = GlobalsDict != null
             ? new PyScopeChain(GlobalsDict, CodeObject.Name)
             : ParentScope ?? new PyScopeChain();
-        var frame = new PyFrame(CodeObject, args, scope, Closure, null, defaults);
+        var frame = kwargs != null && kwargs.Length() != 0
+            ? PyFrame.CreateWithKwargs(CodeObject, args, kwargs, scope, Closure, defaults, GetKeywordDefaults())
+            : new PyFrame(CodeObject, args, scope, Closure, null, defaults, GetKeywordDefaults());
         frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
 
         return new SharpPy.Core.PyCoroutine(frame, vm, Name);
@@ -471,11 +480,11 @@ public partial class PyFunction : PyObject, IDescriptor
         PyFrame frame;
         if (kwargs != null && kwargs.InternalDict.Count > 0)
         {
-            frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, generatorScopeChain, Closure, defaults);
+            frame = PyFrame.CreateWithKwargs(CodeObject, args, kwargs, generatorScopeChain, Closure, defaults, GetKeywordDefaults());
         }
         else
         {
-            frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults);
+            frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults, GetKeywordDefaults());
         }
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
@@ -541,6 +550,7 @@ public partial class PyFunction : PyObject, IDescriptor
     // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
     public override PyObject GetAttribute(string name)
     {
+        if (name == "__kwdefaults__") return Attributes.GetValueOrDefault(name) ?? PyNone.Instance;
         // CPython 3.12: Objects/funcobject.c:358-390 (func_getattro)
         // Expose __get__ for descriptor protocol
         if (name == "__get__")
@@ -572,7 +582,18 @@ public partial class PyFunction : PyObject, IDescriptor
     
     public override void SetAttribute(string name, PyObject value)
     {
+        if (name == "__kwdefaults__")
+        {
+            if (value == PyNone.Instance) { Attributes.Remove(name); return; }
+            if (value is not PyDict) throw PyTypeError.Create("__kwdefaults__ must be set to a dict object");
+        }
         Attributes[name] = value;
+    }
+
+    public override void DelAttribute(string name)
+    {
+        if (name == "__kwdefaults__") { Attributes.Remove(name); return; }
+        base.DelAttribute(name);
     }
 
     public override string ToString() => $"<function {Name}>";
