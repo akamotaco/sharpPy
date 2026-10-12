@@ -854,38 +854,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
             }
 
-            // Try to call __format__ method
-            try
-            {
-                var formatMethod = value.GetAttribute("__format__");
-                if (formatMethod != null && formatMethod != PyNone.Instance)
-                {
-                    // Call __format__(format_spec)
-                    var result = formatMethod.Call(new PyObject[] { formatStr }, null);
-
-                    // Result must be a string
-                    if (result is not PyString)
-                    {
-                        throw PyTypeError.Create($"__format__ must return a str, not {result.GetTypeName()}");
-                    }
-
-                    return result;
-                }
-            }
-            catch (Exception ex) when (ex.Message.Contains("AttributeError") || ex.Message.Contains("has no attribute"))
-            {
-                // __format__ attribute doesn't exist, fall through to default handling
-            }
-
-            // If no __format__ method or AttributeError, use str() for empty format_spec
-            if (formatStr.Value == "")
-            {
-                return value.ToStr();
-            }
-            else
-            {
-                throw PyTypeError.Create($"unsupported format string passed to {value.GetTypeName()}.__format__");
-            }
+            return value.Format(formatStr);
         }
 
         // CPython 3.12: Objects/memoryobject.c:850 - PyMemoryView_FromObject

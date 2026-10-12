@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SharpPy;
 
+if (args.Length > 1 && args[0] == "--float-format-probe")
+{
+    Console.WriteLine(JsonSerializer.Serialize(FloatFormatProbe.Run(args[1])));
+    return;
+}
+
 if (args.Length > 1 && args[0] == "--unicode-repr-probe")
 {
     Console.WriteLine(JsonSerializer.Serialize(UnicodeReprProbe.Run(args[1])));

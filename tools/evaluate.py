@@ -122,6 +122,7 @@ def main():
         "tests/integer_digit_limit_regression.py",
         "tests/integer_format_extended_regression.py",
         "tests/float_special_format_regression.py",
+        "tests/float_general_format_regression.py",
         "tests/integer_literal_limit_regression.py",
         "tests/compatibility/async_generator_execution_remaining.py",
         "tests/compatibility/unicode_repr_remaining.py",

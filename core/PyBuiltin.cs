@@ -4438,21 +4438,7 @@ namespace SharpPy
             if (formatSpec is not PyString specStr)
                 throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
 
-            // Try to call __format__ method
-            try
-            {
-                var formatMethod = value.GetAttribute("__format__");
-                return formatMethod.Call(new PyObject[] { specStr }, null);
-            }
-            catch
-            {
-                // Fallback: use str() for empty format spec, raise error otherwise
-                if (specStr.Value == "")
-                {
-                    return value.ToStr();
-                }
-                throw PyTypeError.Create($"unsupported format string passed to {value.GetTypeName()}.__format__");
-            }
+            return value.Format(specStr);
         }
 
         /// <summary>

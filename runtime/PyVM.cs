@@ -5298,7 +5298,7 @@ namespace SharpPy
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
                             3 => formatValue.ToRepr(), // !a (simplified as repr)
-                            _ => formatValue.ToStr() // default is str()
+                            _ => formatValue.Format(StringCache.GetOrCreate(""))
                         };
                     }
 
@@ -6530,148 +6530,8 @@ namespace SharpPy
         /// <summary>
         /// Python 스타일 포매팅을 적용 (VM에서 사용)
         /// </summary>
-        private PyString ApplyFormatting(PyObject obj, string formatSpec)
-        {
-            try
-            {
-                // 숫자 포매팅 지원
-                if (obj is PyFloat floatObj)
-                {
-                    if (formatSpec.EndsWith("f"))
-                    {
-                        // 소수점 자릿수 지정 (예: .2f)
-                        if (formatSpec.StartsWith(".") && formatSpec.Length > 2)
-                        {
-                            var digits = formatSpec.Substring(1, formatSpec.Length - 2);
-                            if (int.TryParse(digits, out int decimalPlaces))
-                            {
-                                var formatted = floatObj.Value.ToString($"F{decimalPlaces}");
-                                return new PyString(formatted);
-                            }
-                        }
-                        else if (formatSpec == "f")
-                        {
-                            return new PyString(floatObj.Value.ToString("F"));
-                        }
-                    }
-                    else if (formatSpec.EndsWith("e"))
-                    {
-                        return new PyString(floatObj.Value.ToString("E"));
-                    }
-                    else if (formatSpec.EndsWith("%"))
-                    {
-                        return new PyString((floatObj.Value * 100).ToString("F") + "%");
-                    }
-                }
-                else if (obj is PyInt intObj)
-                {
-                    // Parse format spec: [[fill]align][sign][#][0][width][grouping_option][.precision][type]
-                    // Examples: "d", "03d", "10d", ">10d", "0>10d"
-
-                    string typeSpec = "d"; // default
-                    int width = 0;
-                    char fillChar = ' ';
-                    char? align = null;
-
-                    // Extract type (last character if it's a type specifier)
-                    if (formatSpec.Length > 0)
-                    {
-                        char lastChar = formatSpec[formatSpec.Length - 1];
-                        if (lastChar == 'd' || lastChar == 'x' || lastChar == 'X' || lastChar == 'o' || lastChar == 'b')
-                        {
-                            typeSpec = lastChar.ToString();
-                            formatSpec = formatSpec.Substring(0, formatSpec.Length - 1);
-                        }
-                    }
-
-                    // Parse width and fill/align
-                    if (formatSpec.Length > 0)
-                    {
-                        // Check for zero-padding (leading 0)
-                        if (formatSpec[0] == '0')
-                        {
-                            fillChar = '0';
-                            align = '>'; // right-align for zero-padding
-                            formatSpec = formatSpec.Substring(1);
-                        }
-
-                        // Parse width
-                        if (int.TryParse(formatSpec, out int parsedWidth))
-                        {
-                            width = parsedWidth;
-                        }
-                    }
-
-                    // CPython 3.12: Objects/stringlib/formatter.h - format_int_or_long
-                    // Format the value based on type
-                    string formatted = typeSpec switch
-                    {
-                        "d" => intObj.Value.ToString(),
-                        "x" => intObj.Value.ToString("x"),
-                        "X" => intObj.Value.ToString("X"),
-                        "o" => Convert.ToString((long)intObj.Value, 8),
-                        "b" => Convert.ToString((long)intObj.Value, 2),
-                        _ => intObj.Value.ToString()
-                    };
-
-                    // Apply width and padding
-                    if (width > 0 && formatted.Length < width)
-                    {
-                        if (align == '>' || fillChar == '0')
-                        {
-                            formatted = formatted.PadLeft(width, fillChar);
-                        }
-                        else
-                        {
-                            formatted = formatted.PadRight(width, fillChar);
-                        }
-                    }
-
-                    return new PyString(formatted);
-                }
-
-                // 문자열 정렬 지원 (예: >10, <10, ^10)
-                if (formatSpec.Length > 0)
-                {
-                    var align = formatSpec[0];
-                    var remaining = formatSpec.Substring(1);
-
-                    if ((align == '<' || align == '>' || align == '^') && int.TryParse(remaining, out int width))
-                    {
-                        var str = obj.ToStr().Value;
-                        switch (align)
-                        {
-                            case '<': return new PyString(str.PadRight(width));
-                            case '>': return new PyString(str.PadLeft(width));
-                            case '^':
-                                var totalPadding = width - str.Length;
-                                var leftPadding = totalPadding / 2;
-                                var rightPadding = totalPadding - leftPadding;
-                                return new PyString(new string(' ', leftPadding) + str + new string(' ', rightPadding));
-                        }
-                    }
-                }
-
-                // 천단위 구분자 지원 (예: :,)
-                if (formatSpec == "," || formatSpec.Contains(","))
-                {
-                    if (obj is PyInt intObjComma)
-                    {
-                        return new PyString(intObjComma.Value.ToString("N0"));
-                    }
-                    else if (obj is PyFloat floatObjComma)
-                    {
-                        return new PyString(floatObjComma.Value.ToString("N"));
-                    }
-                }
-            }
-            catch
-            {
-                // 포매팅 실패 시 원본 값 반환
-            }
-
-            return obj.ToStr();
-        }
+        private PyString ApplyFormatting(PyObject obj, string formatSpec) =>
+            obj.Format(StringCache.GetOrCreate(formatSpec));
 
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)
         {

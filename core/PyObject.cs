@@ -6,6 +6,25 @@ namespace SharpPy
     /// </summary>
     public abstract class PyObject
     {
+        internal PyString Format(PyString spec)
+        {
+            // Exact builtins have immutable format slots. Subclasses still bind
+            // the type descriptor; instance __getattribute__ must not run here.
+            if (!HasCustomType)
+            {
+                if (GetType() == typeof(PyFloat)) return new PyString(PyFloat.FormatFloat(((PyFloat)this).Value, spec.Value));
+                if (GetType() == typeof(PyInt)) return new PyString(PyInt.FormatInt(((PyInt)this).Value, spec.Value));
+                if (GetType() == typeof(PyString)) return spec.Value.Length == 0 ? (PyString)this
+                    : new PyString(PyString.FormatString(((PyString)this).Value, spec.Value));
+            }
+            var method = LookupSpecialMethodUncached("__format__");
+            if (method == null) throw PyTypeError.Create($"Type {GetTypeName()} doesn't define __format__");
+            var result = BindSpecialMethod(method).Call(new PyObject[] { spec }, null);
+            if (result is not PyString text)
+                throw PyTypeError.Create($"__format__ must return a str, not {result.GetTypeName()}");
+            return text;
+        }
+
         #region Core Identity
 
         // CPython 3.12: Include/object.h:195 - PyTypeObject *ob_type;
