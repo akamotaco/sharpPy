@@ -1165,6 +1165,14 @@ namespace SharpPy
             _currentSymbolTable = _symbolTable;
             _symbolTableBuilder = symbolTableBuilder;  // CPython 3.12: Store for PySymtable_Lookup
 
+            // CPython 3.12: PEP 709 splices CELL names of inlined comprehensions into the
+            // module scope too (module code objects get co_cellvars when a nested function
+            // captures a comprehension variable). Seed module cellvars like function bodies do.
+            foreach (var moduleCellVar in _symbolTable.FindCellVariables())
+            {
+                _cellVars.Add(moduleCellVar);
+            }
+
 #if DEBUG_LOG
             Console.WriteLine($"🔍 Symbol table built for {name}: {_symbolTable.GetIdentifiers().Count()} symbols");
             foreach (var symbolName in _symbolTable.GetIdentifiers())
@@ -1287,7 +1295,11 @@ namespace SharpPy
             // Module-level code has no generator flags
             var finalInstructions = GetFinalInstructions(0);
 
-            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
+            // CPython 3.12: module code objects can own cellvars when a PEP 709 inlined
+            // comprehension contains a nested function capturing its loop variable
+            // (co_cellvars=('k',) for "[lambda: k for k in ...]").
+            var moduleCellVars = _cellVars.Count > 0 ? new List<string>(_cellVars) : null;
+            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, moduleCellVars, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
 
             // Add Exception Table entries (CFG pipeline sets _exceptionTable via GetFinalInstructions)
             if (_exceptionTable.Count > 0)
@@ -10074,6 +10086,13 @@ namespace SharpPy
             int lambdaFlags = lambdaTable?.IsGenerator == true ? PyCodeObject.CO_GENERATOR : 0;
             var lambdaInstructions = GetFinalInstructions(lambdaFlags);
 
+            // CPython 3.12: co_varnames = parameters + local variables collected while
+            // compiling the body (e.g. inlined-comprehension loop vars use LOAD_FAST_AND_CLEAR
+            // with indices into this array). Capture the lambda's own _varNames BEFORE the
+            // restore below discards them; using parameters only truncated the array and made
+            // those indices out of range.
+            var lambdaCollectedVarNames = new List<string>(_varNames);
+
             // Restore original compiler context
             _instructionSequence = tempInstructionSequence;
             _constants = tempConstants;
@@ -10084,11 +10103,10 @@ namespace SharpPy
             _isInFunction = tempIsInFunction; // Restore function context flag
             _currentSymbolTable = originalSymbolTable; // Restore original symbol table
 
-            // CPython 3.12: Create function code object with correct VarNames order
-            // VarNames = parameters only (CPython co_varnames contains only local variables and parameters)
-            // Note: lambdaNames is the 'names' array (for LOAD_ATTR, LOAD_GLOBAL), NOT varnames!
-            // See CPython: lambda with no params has co_varnames=(), co_names=('append', 'instantiate')
-            var lambdaVarNames = new List<string>(cleanParamNames);
+            // CPython 3.12: co_varnames already holds parameters first (added during setup)
+            // followed by body-local variables. lambdaNames is the 'names' array (LOAD_ATTR,
+            // LOAD_GLOBAL), NOT varnames. A parameter-less lambda with no locals keeps ().
+            var lambdaVarNames = lambdaCollectedVarNames;
 
             var functionCode = new PyCodeObject(
                 lambdaName,

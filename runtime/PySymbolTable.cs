@@ -1189,6 +1189,32 @@ namespace SharpPy
                 // NOTE: Generator expressions are NOT inlined - they still propagate free vars normally
                 if (child.IsInlinedComprehension)
                 {
+                    // CPython 3.12: symtable.c inline_comprehension() - the inlined comprehension
+                    // emits its loop code in the enclosing code object, so names that became CELL
+                    // inside it (captured by a nested lambda/function) must become cells of the
+                    // enclosing scope. Without this splice, LOAD_CLOSURE from the inlined loop
+                    // cannot find the variable in the enclosing cell list.
+                    foreach (var compEntry in child.GetSymbols())
+                    {
+                        if (compEntry.Key.StartsWith(".", StringComparison.Ordinal))
+                        {
+                            continue; // .0 implicit iteration parameter stays internal
+                        }
+                        if (compEntry.Value.Scope == SymbolScope.Cell)
+                        {
+                            var cellHost = table.Lookup(compEntry.Key);
+                            if (cellHost == null)
+                            {
+                                table.DefineSymbol(compEntry.Key, SymbolFlags.Assigned);
+                                cellHost = table.Lookup(compEntry.Key);
+                            }
+                            if (cellHost != null && cellHost.Scope != SymbolScope.Free)
+                            {
+                                cellHost.Scope = SymbolScope.Cell;
+                            }
+                        }
+                    }
+
                     // PEP 709: Inlined comprehension's free variables that are NOT local to the parent
                     // function must still be propagated (they come from grandparent scopes)
                     var childFreeVars = child.FindFreeVariables();
