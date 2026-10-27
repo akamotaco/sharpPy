@@ -1,0 +1,47 @@
+show_results = []
+
+def show(label, fn):
+    try:
+        print(f"{label!r}: {fn()!r}")
+    except BaseException as e:
+        print(f"{label!r}: EXC {type(e).__name__}: {e}")
+
+show("divmod.neg", lambda: divmod(-7, 3))
+show("divmod.neg2", lambda: divmod(7, -3))
+show("mod.float", lambda: -7.5 % 2)
+show("floordiv.float", lambda: -7.5 // 2)
+show("pow3args", lambda: pow(2, 100, 1000))
+show("pow.neg.exp", lambda: 2 ** -3)
+show("pow.zero.zero", lambda: 0 ** 0)
+show("pow.zero.neg", lambda: 0 ** -1)
+show("shift.neg", lambda: (-1) >> 100)
+show("shift.big", lambda: 1 << 200)
+show("bit_length", lambda: [(-5).bit_length(), 0 .bit_length(), (1 << 63).bit_length()])
+show("int.underscore", lambda: int("1_000_000"))
+show("int.base0", lambda: [int("0x1f", 0), int("0b101", 0), int("0o17", 0)])
+show("int.base0.noPrefix", lambda: int("1f", 0))
+show("int.space", lambda: int("  -42\t"))
+show("int.float.trunc", lambda: [int(3.7), int(-3.7), int(-0.5)])
+show("round bankers", lambda: [round(0.5), round(1.5), round(2.5), round(-2.5), round(2.675, 2)])
+show("round.ndigits.neg", lambda: [round(1234, -2), round(1250, -2)])
+show("round.big", lambda: round(5 / 2))
+show("float.hex", lambda: float.hex(0.1))
+show("fromhex", lambda: float.fromhex('0x1.921fb54442d18p-2'))
+show("float.repr.edges", lambda: [repr(1e16), repr(1e15), repr(1e-5), repr(1e-4), repr(float('1e400'))])
+show("float.str", lambda: str(1e16) == repr(1e16))
+show("nan.dict", lambda: (lambda d: [float('nan') in {float('nan')}] )({}))
+show("nan.eq", lambda: [float('nan') == float('nan'), float('nan') != float('nan')])
+show("neg.zero", lambda: [repr(-0.0), -0.0 == 0, str(-0.0)])
+show("hash.equiv", lambda: hash(1) == hash(1.0) == hash(True) == hash(complex(1, 0)))
+show("dict.bool.int", lambda: {1: 'a', True: 'b', 1.0: 'c'})
+show("complex.basic", lambda: [complex(1, 2) + complex(3, 4), repr(complex(1, 2) * 1j), complex(0).real])
+show("cmp.chained.e一次", lambda: (lambda: (lambda c: 1 < (c := iter([2]).__next__())() < 3)())() if False else [1 < 2 < 3, 3 > 2 > 1, 1 < 2 > 1])
+def side(x):
+    print("  side", x)
+    return x
+show("chained.eval.once", lambda: side(2) < side(3) > side(1))
+show("bool.or.type", lambda: (0 or "a", 1 and [], "" and 0))
+show("ternary.lazy", lambda: (1 if True else side(99), 0 if False else side(7)))
+show("int.str.big", lambda: str(2 ** 100))
+show("int.float.big", lambda: float(10 ** 400) == float('inf'))
+show("iadd.immutable", lambda: (lambda x: [x.__iadd__ is not None, id(x) != id(x.__iadd__())])(1))
