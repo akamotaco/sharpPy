@@ -363,6 +363,9 @@ namespace SharpPy
             BaseTypes = baseTypes ?? new PyType[0];
             Module = module;
             _kind = kind;  // readonly 필드는 생성자에서만 설정 가능
+            // CPython 3.12: typeobject.c check_duplicates() runs before best_base()/MRO
+            // computation and raises a catchable TypeError for a repeated base.
+            CheckDuplicateBases();
             MRO = CalculateC3MRO();
 
             // CPython 3.12: Assign version tag for method cache
@@ -409,9 +412,34 @@ namespace SharpPy
             {
                 return C3Linearize(this);
             }
+            catch (PythonException)
+            {
+                // Already a catchable Python error (MRO order disagreement raised by
+                // C3Merge). Propagate so "except BaseException" can catch it.
+                throw;
+            }
             catch (Exception)
             {
-                throw new ArgumentException($"Cannot create a consistent method resolution order (MRO) for class {Name}");
+                // Fallback: never leak a raw CLR exception past a Python try/except.
+                throw PyTypeError.Create($"Cannot create a consistent method resolution\norder (MRO) for bases {Name}");
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: typeobject.c check_duplicates(). Reports the first repeated base
+        /// as "duplicate base class X" using object identity (CPython pointer comparison).
+        /// </summary>
+        private void CheckDuplicateBases()
+        {
+            for (int i = 0; i < BaseTypes.Length; i++)
+            {
+                for (int j = i + 1; j < BaseTypes.Length; j++)
+                {
+                    if (ReferenceEquals(BaseTypes[i], BaseTypes[j]))
+                    {
+                        throw PyTypeError.Create($"duplicate base class {BaseTypes[i].Name}");
+                    }
+                }
             }
         }
 
@@ -493,7 +521,21 @@ namespace SharpPy
 
                 if (candidate == null)
                 {
-                    throw new ArgumentException("Inconsistent MRO");
+                    // CPython 3.12: typeobject.c set_mro_error() - report the unique heads of
+                    // the remaining sequences as "... for bases A, B". Must be a Python
+                    // TypeError so user code can catch it, never a raw CLR exception.
+                    var names = new List<string>();
+                    var seenHeads = new List<PyType>();
+                    for (int s = 0; s < sequences.Count; s++)
+                    {
+                        var seq = sequences[s];
+                        if (seq.Count > 0 && !seenHeads.Contains(seq[0]))
+                        {
+                            seenHeads.Add(seq[0]);
+                            names.Add(seq[0].Name);
+                        }
+                    }
+                    throw PyTypeError.Create($"Cannot create a consistent method resolution\norder (MRO) for bases {string.Join(", ", names)}");
                 }
 
                 result.Add(candidate);
