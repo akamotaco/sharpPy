@@ -5440,28 +5440,33 @@ namespace SharpPy
                     }
                     else
                     {
-                        // CPython 3.12: Try to iterate using __iter__
+                        // CPython 3.12: Python/ceval.c unpack_iterable() - PyObject_GetIter first.
+                        // A non-iterable reports "cannot unpack non-iterable X object", and an
+                        // exception raised by __next__ propagates unchanged. Only StopIteration
+                        // ends the collection loop.
+                        PyObject unpackIterator;
                         try
                         {
-                            var unpackIterator = unpackExSequence.GetIterator();
-                            var unpackItems = new System.Collections.Generic.List<PyObject>();
-                            while (true)
-                            {
-                                try
-                                {
-                                    unpackItems.Add(unpackIterator.Next());
-                                }
-                                catch (Exception ex) when (ex is PyStopIteration || ex.Message.Contains("StopIteration"))
-                                {
-                                    break;
-                                }
-                            }
-                            itemsToUnpack = unpackItems.ToArray();
+                            unpackIterator = unpackExSequence.GetIterator();
                         }
-                        catch (Exception)
+                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError)
                         {
-                            throw PyTypeError.Create($"cannot unpack non-sequence {unpackExSequence.GetTypeName()}");
+                            throw PyTypeError.Create($"cannot unpack non-iterable {unpackExSequence.GetTypeName()} object");
                         }
+
+                        var unpackItems = new System.Collections.Generic.List<PyObject>();
+                        while (true)
+                        {
+                            try
+                            {
+                                unpackItems.Add(unpackIterator.Next());
+                            }
+                            catch (PythonException stopSignal) when (stopSignal.PyException is PyStopIteration)
+                            {
+                                break;
+                            }
+                        }
+                        itemsToUnpack = unpackItems.ToArray();
                     }
 
                     if (itemsToUnpack.Length < countBefore + countAfter)
