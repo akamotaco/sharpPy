@@ -5367,44 +5367,44 @@ namespace SharpPy
                     }
                     else
                     {
-                        // CPython 3.12: Use GetIterator() for iterable objects (including metaclass __iter__)
+                        // CPython 3.12: ceval.c unpack_iterable() - PyObject_GetIter first.
+                        // Only a genuinely non-iterable object (tp_iter == NULL and not a
+                        // sequence) reports "cannot unpack non-iterable X object"; a TypeError
+                        // raised by a user __iter__ propagates unchanged. In SharpPy the base
+                        // PyObject.GetIterator() marks genuine non-iterables with "is not iterable".
+                        PyObject unpackSeqIterator;
                         try
                         {
-                            // Call GetIterator() directly to support metaclass __iter__
-                            var iteratorObj = sequence.GetIterator();
+                            unpackSeqIterator = sequence.GetIterator();
+                        }
+                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError &&
+                                                                  iterFailure.PyException.Message.Contains("is not iterable"))
+                        {
+                            throw PyTypeError.Create($"cannot unpack non-iterable {sequence.GetTypeName()} object");
+                        }
 
-                            // Collect all items from iterator
-                            var items = new List<PyObject>();
-
-                            while (true)
+                        var items = new List<PyObject>();
+                        while (true)
+                        {
+                            try
                             {
-                                try
-                                {
-                                    var item = iteratorObj.Next();
-                                    items.Add(item);
-                                }
-                                catch (PythonException pex) when (pex.PyException is PyStopIteration)
-                                {
-                                    break;
-                                }
+                                items.Add(unpackSeqIterator.Next());
                             }
-
-                            // Check count matches
-                            if (items.Count != unpackCount)
+                            catch (PythonException pex) when (pex.PyException is PyStopIteration)
                             {
-                                throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {items.Count})");
-                            }
-
-                            // Push items in reverse order (CPython convention)
-                            for (int i = items.Count - 1; i >= 0; i--)
-                            {
-                                frame.ValueStack.Push(items[i]);
+                                break;
                             }
                         }
-                        catch (PythonException pex) when (pex.PyException is PyTypeError)
+
+                        if (items.Count != unpackCount)
                         {
-                            // Re-throw PyTypeError (already has correct message)
-                            throw;
+                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {items.Count})");
+                        }
+
+                        // Push items in reverse order (CPython convention)
+                        for (int i = items.Count - 1; i >= 0; i--)
+                        {
+                            frame.ValueStack.Push(items[i]);
                         }
                     }
                     break;
@@ -5449,7 +5449,8 @@ namespace SharpPy
                         {
                             unpackIterator = unpackExSequence.GetIterator();
                         }
-                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError)
+                        catch (PythonException iterFailure) when (iterFailure.PyException is PyTypeError &&
+                                                                  iterFailure.PyException.Message.Contains("is not iterable"))
                         {
                             throw PyTypeError.Create($"cannot unpack non-iterable {unpackExSequence.GetTypeName()} object");
                         }
