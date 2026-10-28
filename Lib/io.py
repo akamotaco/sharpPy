@@ -8,6 +8,17 @@ Compatible with CPython 3.12 io module.
 # Import standard library modules
 import abc
 
+# CPython 3.12: Lib/io.py re-exports the concrete stream classes implemented in the
+# native _io module (Modules/_io). SharpPy provides _io natively (the
+# PyFileContextManager file types + UnsupportedOperation), so importing the exact
+# type objects here keeps isinstance(open(f), io.TextIOWrapper) true and gives the
+# "_io" __module__ in reprs.
+from _io import (
+    TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair, BufferedRandom,
+    FileIO, IncrementalNewlineDecoder, UnsupportedOperation, text_encoding, open_code,
+)
+from builtins import BlockingIOError, open
+
 # Base classes
 class IOBase(abc.ABC):
     """Base class for all I/O classes."""
@@ -256,6 +267,11 @@ class BytesIO(BufferedIOBase):
         return True
 
 
+# CPython reports these concrete in-memory types as belonging to _io.
+StringIO.__module__ = '_io'
+BytesIO.__module__ = '_io'
+
+
 # Constants
 SEEK_SET = 0
 SEEK_CUR = 1
@@ -264,10 +280,24 @@ SEEK_END = 2
 # Default buffer size
 DEFAULT_BUFFER_SIZE = 8192
 
-# Expose the main classes
-__all__ = [
-    'IOBase', 'RawIOBase', 'BufferedIOBase', 'TextIOBase',
-    'StringIO', 'BytesIO',
-    'SEEK_SET', 'SEEK_CUR', 'SEEK_END',
-    'DEFAULT_BUFFER_SIZE'
-]
+# CPython 3.12: exact io.__all__ ordering (Lib/io.py).
+__all__ = ["BlockingIOError", "open", "open_code", "IOBase", "RawIOBase", "FileIO",
+           "BytesIO", "StringIO", "BufferedIOBase", "BufferedReader",
+           "BufferedWriter", "BufferedRWPair", "BufferedRandom",
+           "TextIOBase", "TextIOWrapper", "UnsupportedOperation", "SEEK_SET",
+           "SEEK_CUR", "SEEK_END", "DEFAULT_BUFFER_SIZE", "text_encoding",
+           "IncrementalNewlineDecoder"]
+
+# In CPython the concrete stream types inherit from the ABCs defined here. SharpPy's
+# concrete types are native and cannot subclass a Python-defined ABC, so register
+# them as virtual subclasses to keep isinstance(open(f), io.IOBase) and the more
+# specific isinstance checks working.
+for _t in (TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair,
+           BufferedRandom, FileIO, StringIO, BytesIO):
+    IOBase.register(_t)
+RawIOBase.register(FileIO)
+for _t in (BufferedReader, BufferedWriter, BufferedRWPair, BufferedRandom, BytesIO):
+    BufferedIOBase.register(_t)
+for _t in (TextIOWrapper, StringIO):
+    TextIOBase.register(_t)
+del _t

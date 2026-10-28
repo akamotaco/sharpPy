@@ -18,10 +18,23 @@ public class PyFileContextManager : PyContextManager
     // cookies that equal char counts for the common aligned cases).
     private long textPos;
     private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
-    private static readonly PyType TextType = new("TextIOWrapper", new[] { PyType.ObjectType });
-    private static readonly PyType ReaderType = new("BufferedReader", new[] { PyType.ObjectType });
-    private static readonly PyType WriterType = new("BufferedWriter", new[] { PyType.ObjectType });
-    private static readonly PyType RandomType = new("BufferedRandom", new[] { PyType.ObjectType });
+    // CPython: the concrete buffered/text file classes live in the native _io module
+    // (__module__ == "_io"), so repr(type(open(...))) renders <class '_io.TextIOWrapper'>.
+    // Exposed so the native _io module can bind these exact type objects (identity),
+    // making isinstance(open(f), io.TextIOWrapper) hold.
+    public static readonly PyType TextType = new("TextIOWrapper", new[] { PyType.ObjectType }, "_io");
+    public static readonly PyType ReaderType = new("BufferedReader", new[] { PyType.ObjectType }, "_io");
+    public static readonly PyType WriterType = new("BufferedWriter", new[] { PyType.ObjectType }, "_io");
+    public static readonly PyType RandomType = new("BufferedRandom", new[] { PyType.ObjectType }, "_io");
+
+    static PyFileContextManager()
+    {
+        // Native PyTypes resolve __module__ from their own TypeDict (matching _sre);
+        // bind "_io" so open(f) reports <class '_io.TextIOWrapper'> even before _io is
+        // imported into Python.
+        foreach (var t in new[] { TextType, ReaderType, WriterType, RandomType })
+            t.TypeDict["__module__"] = new PyString("_io");
+    }
 
     public PyFileContextManager(string filename, string mode = "r", string? encoding = null,
         string? errors = null, string? newline = null, int buffering = -1, bool closefd = true)

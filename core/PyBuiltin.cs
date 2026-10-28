@@ -1979,7 +1979,10 @@ namespace SharpPy
                     {
                         // Sort and return
                         var sortedItems = new List<PyObject>(list.Items);
-                        sortedItems.Sort((a, b) => a.ToString().CompareTo(b.ToString()));
+                        // CPython sorts dir() results by Unicode code point (ordinal),
+                        // so uppercase names precede lowercase (e.g. BufferedRWPair before
+                        // BufferedRandom); a culture-aware CompareTo reorders those.
+                        sortedItems.Sort((a, b) => string.CompareOrdinal(a.ToString(), b.ToString()));
                         return new PyList(sortedItems);
                     }
                 }
@@ -2028,7 +2031,8 @@ namespace SharpPy
             // Step 5: Convert to sorted list and return
             var sortedAttributes = new List<PyObject>();
             var sortedNames = new List<string>(attributes);
-            sortedNames.Sort();
+            // CPython dir() sorts by ordinal code point, not culture rules.
+            sortedNames.Sort(StringComparer.Ordinal);
             foreach (var name in sortedNames)
             {
                 sortedAttributes.Add(new PyString(name));

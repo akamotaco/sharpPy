@@ -409,6 +409,7 @@ public class PyModule : PyObject
             // 시스템 인터페이스 Built-in 모듈
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
             ["importlib"] = () => SharpPy.Modules.ImportlibModule.CreateImportlibModule(),
+            ["_io"] = () => SharpPy.Modules.IoModule.CreateIoModule(),  // io.py가 사용 (CPython Modules/_io)
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),  // datetime.py가 사용

@@ -1349,6 +1349,11 @@ namespace SharpPy
             // If found, return module name (part before '.'); otherwise return "builtins"
             if (instance is PyType pyType)
             {
+                // SharpPy native types store their module in the Module field rather
+                // than encoding it in tp_name (CPython uses tp_name "module.Name").
+                if (!string.IsNullOrEmpty(pyType.Module))
+                    return new PyString(pyType.Module);
+
                 // CPython: const char *s = strrchr(type->tp_name, '.');
                 var dotIndex = pyType.Name.LastIndexOf('.');
                 if (dotIndex >= 0)
