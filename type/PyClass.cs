@@ -2090,8 +2090,15 @@ namespace SharpPy
                 // If __repr__ fails, fall back to default
             }
 
-            // Default representation
-            return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
+            // Default representation: CPython prefixes the qualified name with the
+            // class's module (except builtins): <__main__.O object at 0x...>.
+            string modulePrefix = "";
+            if (InstanceType is PyClass reprClass &&
+                reprClass.ClassDict.TryGetValue("__module__", out var moduleObj) &&
+                moduleObj is PyString moduleStr &&
+                moduleStr.Value.Length > 0 && moduleStr.Value != "builtins" && moduleStr.Value != "None")
+                modulePrefix = moduleStr.Value + ".";
+            return new PyString($"<{modulePrefix}{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
         public override PyString ToStr()

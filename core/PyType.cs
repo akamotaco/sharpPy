@@ -3041,8 +3041,9 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "object";
 
-        public override string ToString() => "<object>";
-        public override PyString ToRepr() => new PyString("<object>");
+        // CPython: str(object()) == repr(object()) == '<object object at 0x...>'
+        public override string ToString() => ToRepr().Value;
+        public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
 
         // CPython 3.12: Handle builtin methods for object instances
         public override PyObject GetAttribute(string name)

@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Globalization;
+using System.Numerics;
 
 namespace SharpPy
 {
@@ -2092,167 +2093,359 @@ namespace SharpPy
         /// </summary>
         public override PyObject Modulo(PyObject other)
         {
-            // CPython 3.12: Support both single values and tuples
-            PyObject[] values;
+            // Full CPython 3.12 unicode_format rework: flags/width/precision/mapping
+            // keys and the o/x/X/c/d/i/a conversions with CPython-exact error texts.
+            return new PyString(FormatPercent(Value, other));
+        }
 
-            if (other is PyTuple tuple)
-            {
-                // Tuple of values: "Hello %s %d" % ("world", 42)
-                values = tuple.Items;
-            }
-            else
-            {
-                // Single value: "Hello %s" % "world"
-                values = new PyObject[] { other };
-            }
+        private static string FormatPercent(string fmt, PyObject arg)
+        {
+            // CPython unicode_format: a non-tuple right operand is one argument
+            // (or a mapping); a tuple is a positional argument list.
+            bool positional = arg is PyTuple;
+            PyObject[] args = positional ? ((PyTuple)arg).Items : null;
+            int ai = 0;
+            bool singleUsed = false;
+            var sb = new StringBuilder();
+            int i = 0;
 
-            try
+            PyObject NextPositional()
             {
-                // % formatting with precision support - CPython 3.12 compatible
-                // CPython: Objects/unicodeobject.c:unicode_format_arg (lines 495-1046)
-                var result = Value;
-                int valueIndex = 0;
-
-                for (int i = 0; i < result.Length; i++)
+                if (!positional)
                 {
-                    if (result[i] == '%' && i + 1 < result.Length)
+                    if (singleUsed)
+                        throw PyTypeError.Create("not enough arguments for format string");
+                    singleUsed = true;
+                    return arg;
+                }
+                if (ai >= args.Length)
+                    throw PyTypeError.Create("not enough arguments for format string");
+                return args[ai++];
+            }
+
+            int NextIntStar()
+            {
+                var v = NextPositional();
+                if (v is PyInt pi)
+                    return (int)pi.Value;
+                if (v is PyBool pb)
+                    return pb.Value ? 1 : 0;
+                throw PyTypeError.Create("* wants integer");
+            }
+
+            while (i < fmt.Length)
+            {
+                char c = fmt[i];
+                if (c != '%')
+                {
+                    sb.Append(c);
+                    i++;
+                    continue;
+                }
+
+                i++;
+                if (i >= fmt.Length)
+                    throw PyValueError.Create("incomplete format");
+                if (fmt[i] == '%')
+                {
+                    sb.Append('%');
+                    i++;
+                    continue;
+                }
+
+                PyObject value = null;
+                if (fmt[i] == '(')
+                {
+                    if (!positional)
                     {
-                        // Parse format specifier: %[flags][width][.precision]type
-                        // CPython: Objects/unicodeobject.c:unicode_format_arg (lines 548-663)
-                        int pos = i + 1;
-
-                        // Skip flags (+, -, 0, space, #)
-                        while (pos < result.Length && "+-0 #".Contains(result[pos]))
-                            pos++;
-
-                        // Skip width (digits or *)
-                        while (pos < result.Length && char.IsDigit(result[pos]))
-                            pos++;
-                        if (pos < result.Length && result[pos] == '*')
-                            pos++;
-
-                        // Parse precision (.digits or .*)
-                        int? precision = null;
-                        if (pos < result.Length && result[pos] == '.')
+                        // Mapping lookup goes through the object's __getitem__.
+                        // CPython gates on PyMapping_Check: dict/list/user objects;
+                        // str/int/float raise "format requires a mapping" instead.
+                        if (!(arg is PyDict || arg is PyList || arg is PyClassInstance))
+                            throw PyTypeError.Create("format requires a mapping");
+                        i++;
+                        int keyStart = i;
+                        int depth = 1;
+                        while (i < fmt.Length)
                         {
-                            pos++; // Skip '.'
-                            if (pos < result.Length && result[pos] == '*')
+                            if (fmt[i] == '(')
+                                depth++;
+                            else if (fmt[i] == ')')
                             {
-                                pos++; // Skip '*' (dynamic precision - not implemented yet)
+                                depth--;
+                                if (depth == 0)
+                                    break;
                             }
-                            else
-                            {
-                                int precStart = pos;
-                                while (pos < result.Length && char.IsDigit(result[pos]))
-                                    pos++;
-                                if (pos > precStart)
-                                    precision = int.Parse(result.Substring(precStart, pos - precStart));
-                            }
+                            i++;
                         }
+                        if (i >= fmt.Length)
+                            throw PyValueError.Create("incomplete format; also it should contain a right parenthesis");
+                        string key = fmt.Substring(keyStart, i - keyStart);
+                        i++; // ')'
+                        value = arg.GetItem(new PyString(key));
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create("format requires a mapping");
+                    }
+                }
+                else
+                {
+                    if (!positional && !(arg is PyTuple))
+                    {
+                        // Mapping argument but no (key): CPython requires the key.
+                        if (IsMappingLike(arg))
+                            throw PyTypeError.Create("format requires a mapping");
+                    }
+                    // Values are consumed after the spec is parsed (CPython order),
+                    // so a '*' width claims its argument before the conversion value.
+                }
 
-                        if (pos >= result.Length)
-                            throw PyValueError.Create("incomplete format");
+                bool alt = false, leftAdjust = false, signPlus = false, signSpace = false, zeroPad = false;
+                while (i < fmt.Length)
+                {
+                    char f = fmt[i];
+                    if (f == '#') { alt = true; i++; }
+                    else if (f == '-') { leftAdjust = true; i++; }
+                    else if (f == '0') { zeroPad = true; i++; }
+                    else if (f == '+') { signPlus = true; i++; }
+                    else if (f == ' ') { signSpace = true; i++; }
+                    else break;
+                }
 
-                        char formatChar = result[pos];
-                        int formatLen = pos - i + 1; // Length of entire format specifier
+                int width = -1;
+                if (i < fmt.Length && fmt[i] == '*')
+                {
+                    i++;
+                    width = NextIntStar();
+                }
+                else
+                {
+                    int ws = i;
+                    while (i < fmt.Length && char.IsDigit(fmt[i]))
+                        i++;
+                    if (i > ws)
+                        width = int.Parse(fmt.Substring(ws, i - ws), CultureInfo.InvariantCulture);
+                }
 
-                        if (formatChar == '%')
-                        {
-                            // Escape: %% -> %
-                            result = result.Remove(i, 1);
-                            continue;
-                        }
-
-                        if (valueIndex >= values.Length)
-                        {
-                            throw PyTypeError.Create("not enough arguments for format string");
-                        }
-
-                        var value = values[valueIndex++];
-                        string replacement;
-
-                        // Get precision value
-                        int precValue = precision ?? 6;
-
-                        switch (formatChar)
-                        {
-                            case 's': // String
-                                replacement = value is PyString str ? str.Value : value.ToStr().Value;
-                                break;
-                            case 'r': // Repr
-                                replacement = value.ToRepr().Value;
-                                break;
-                            case 'd': // Decimal integer
-                            case 'i': // Integer
-                                replacement = value is PyInt pyInt ? pyInt.Value.ToString() : value.ToStr().Value;
-                                break;
-                            case 'f': // Float
-                                // CPython: Objects/unicodeobject.c:formatfloat (lines 278-365)
-                                // Default precision is 6 for %f
-                                if (value is PyFloat pyFloat)
-                                    replacement = pyFloat.Value.ToString($"F{precValue}", CultureInfo.InvariantCulture);
-                                else if (value is PyInt pyIntForFloat)
-                                    replacement = ((double)pyIntForFloat.Value).ToString($"F{precValue}", CultureInfo.InvariantCulture);
-                                else
-                                    replacement = value.ToStr().Value;
-                                break;
-                            case 'g': // General format (lowercase) - Default 6 significant digits
-                                if (value is PyFloat pyFloatG)
-                                    replacement = pyFloatG.Value.ToString($"g{precValue}", CultureInfo.InvariantCulture);
-                                else if (value is PyInt pyIntG)
-                                    replacement = ((double)pyIntG.Value).ToString($"g{precValue}", CultureInfo.InvariantCulture);
-                                else
-                                    replacement = value.ToStr().Value;
-                                break;
-                            case 'G': // General format (uppercase) - Default 6 significant digits
-                                if (value is PyFloat pyFloatGUpper)
-                                    replacement = pyFloatGUpper.Value.ToString($"G{precValue}", CultureInfo.InvariantCulture);
-                                else if (value is PyInt pyIntGUpper)
-                                    replacement = ((double)pyIntGUpper.Value).ToString($"G{precValue}", CultureInfo.InvariantCulture);
-                                else
-                                    replacement = value.ToStr().Value;
-                                break;
-                            case 'e': // Exponent format (lowercase) - Default 6 decimal places
-                                if (value is PyFloat pyFloatE)
-                                    replacement = FormatExponent(pyFloatE.Value, precValue, false);
-                                else if (value is PyInt pyIntE)
-                                    replacement = FormatExponent((double)pyIntE.Value, precValue, false);
-                                else
-                                    replacement = value.ToStr().Value;
-                                break;
-                            case 'E': // Exponent format (uppercase) - Default 6 decimal places
-                                if (value is PyFloat pyFloatEUpper)
-                                    replacement = FormatExponent(pyFloatEUpper.Value, precValue, true);
-                                else if (value is PyInt pyIntEUpper)
-                                    replacement = FormatExponent((double)pyIntEUpper.Value, precValue, true);
-                                else
-                                    replacement = value.ToStr().Value;
-                                break;
-                            default:
-                                throw PyValueError.Create($"unsupported format character '{formatChar}' (0x{(int)formatChar:x}) at index {pos}");
-                        }
-
-                        // Replace format specifier with the value
-                        result = result.Substring(0, i) + replacement + result.Substring(i + formatLen);
-                        i += replacement.Length - 1; // Adjust index after replacement
+                int precision = 6;
+                bool hasPrecision = false;
+                if (i < fmt.Length && fmt[i] == '.')
+                {
+                    hasPrecision = true;
+                    i++;
+                    if (i < fmt.Length && fmt[i] == '*')
+                    {
+                        i++;
+                        precision = NextIntStar();
+                    }
+                    else
+                    {
+                        int ps = i;
+                        while (i < fmt.Length && char.IsDigit(fmt[i]))
+                            i++;
+                        precision = i > ps ? int.Parse(fmt.Substring(ps, i - ps), CultureInfo.InvariantCulture) : 0;
                     }
                 }
 
-                if (valueIndex < values.Length)
+                if (i >= fmt.Length)
+                    throw PyValueError.Create("incomplete format");
+                char conv = fmt[i];
+                int convIndex = i;
+                i++;
+                value ??= NextPositional();
+
+                string body;
+                string sign = "";
+                bool numeric = false;
+                switch (conv)
                 {
-                    throw PyTypeError.Create("not all arguments converted during string formatting");
+                    case 's':
+                        body = value is PyString pstr ? pstr.Value : value.ToStr().Value;
+                        if (hasPrecision && body.Length > precision)
+                            body = body.Substring(0, precision);
+                        break;
+                    case 'r':
+                        body = value.ToRepr().Value;
+                        if (hasPrecision && body.Length > precision)
+                            body = body.Substring(0, precision);
+                        break;
+                    case 'a':
+                        body = AsciiEscape(value.ToRepr().Value);
+                        if (hasPrecision && body.Length > precision)
+                            body = body.Substring(0, precision);
+                        break;
+                    case 'd':
+                    case 'i':
+                    {
+                        numeric = true;
+                        BigInteger ival;
+                        if (value is PyInt bi) ival = bi.Value;
+                        else if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
+                        else if (value is PyFloat bf) ival = (BigInteger)Math.Truncate(bf.Value);
+                        else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
+                        if (ival.Sign < 0) { sign = "-"; ival = -ival; }
+                        else if (signPlus) sign = "+";
+                        else if (signSpace) sign = " ";
+                        body = ival.ToString(CultureInfo.InvariantCulture);
+                        break;
+                    }
+                    case 'o':
+                    case 'x':
+                    case 'X':
+                    {
+                        numeric = true;
+                        BigInteger ival;
+                        if (value is PyInt bi) ival = bi.Value;
+                        else if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
+                        else throw PyTypeError.Create($"%{conv} format: an integer is required, not {value.GetTypeName()}");
+                        if (ival.Sign < 0) { sign = "-"; ival = -ival; }
+                        else if (signPlus) sign = "+";
+                        else if (signSpace) sign = " ";
+                        string digits = conv == 'o' ? ToBase(ival, 8, false)
+                            : ToBase(ival, 16, conv == 'X');
+                        string prefix = alt && !ival.IsZero
+                            ? (conv == 'o' ? "0o" : conv == 'X' ? "0X" : "0x")
+                            : "";
+                        body = prefix + digits;
+                        break;
+                    }
+                    case 'c':
+                    {
+                        if (value is PyInt ci && ci.Value >= 0 && ci.Value <= 0x10FFFF)
+                            body = char.ConvertFromUtf32((int)ci.Value);
+                        else if (value is PyString cs && cs.Value.Length == 1)
+                            body = cs.Value;
+                        else
+                            throw PyTypeError.Create("%c requires int or char");
+                        break;
+                    }
+                    case 'f':
+                    case 'F':
+                    case 'e':
+                    case 'E':
+                    case 'g':
+                    case 'G':
+                    {
+                        numeric = true;
+                        double dv;
+                        if (value is PyFloat fv) dv = fv.Value;
+                        else if (value is PyInt iv) dv = (double)iv.Value;
+                        else if (value is PyBool bv) dv = bv.Value ? 1.0 : 0.0;
+                        else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
+                        body = conv switch
+                        {
+                            'f' or 'F' => dv.ToString((conv == 'F' ? "F" : "f") + precision, CultureInfo.InvariantCulture),
+                            'e' => FormatExponent(dv, precision, false),
+                            'E' => FormatExponent(dv, precision, true),
+                            'g' => dv.ToString("g" + precision, CultureInfo.InvariantCulture),
+                            _ => dv.ToString("G" + precision, CultureInfo.InvariantCulture),
+                        };
+                        // CPython float() text for nan/inf
+                        if (double.IsNaN(dv)) body = "nan";
+                        else if (double.IsPositiveInfinity(dv)) body = "inf";
+                        else if (double.IsNegativeInfinity(dv)) { dv = dv; body = "-inf"; }
+                        if (body.StartsWith('-')) { sign = "-"; body = body.Substring(1); }
+                        else if (signPlus) sign = "+";
+                        else if (signSpace) sign = " ";
+                        break;
+                    }
+                    default:
+                        throw PyValueError.Create($"unsupported format character '{conv}' (0x{(int)conv:x}) at index {convIndex}");
                 }
 
-                return new PyString(result);
+                // Assemble sign + body into the field, CPython style.
+                string core = numeric ? body : body;
+                string head = sign + core;
+                if (numeric && alt && (conv == 'o' || conv == 'x' || conv == 'X') && zeroPad && !leftAdjust && width > head.Length)
+                {
+                    int pad = width - head.Length;
+                    // 0-padding after sign, before digits (digits already contain alt prefix)
+                    if (sign.Length > 0 && (core.StartsWith("0x") || core.StartsWith("0X") || core.StartsWith("0")))
+                    {
+                        int p = core.StartsWith("0") ? 1 : 0;
+                        sb.Append(sign).Append(core.Substring(0, p)).Append('0', pad).Append(core.Substring(p));
+                    }
+                    else
+                        sb.Append(head).Append(' ', Math.Max(0, width - head.Length));
+                }
+                else if (leftAdjust)
+                {
+                    sb.Append(head);
+                    if (width > head.Length)
+                        sb.Append(' ', width - head.Length);
+                }
+                else if (zeroPad && numeric && !signPlus && !signSpace)
+                {
+                    if (width > head.Length)
+                    {
+                        sb.Append(sign);
+                        string digitsPart = core;
+                        if (alt && (conv == 'x' || conv == 'X' || conv == 'o') && digitsPart.Length > 0 && digitsPart[0] == '0')
+                        {
+                            sb.Append(digitsPart.Substring(0, 1));
+                            sb.Append('0', width - head.Length);
+                            sb.Append(digitsPart.Substring(1));
+                        }
+                        else
+                        {
+                            sb.Append('0', width - head.Length).Append(digitsPart);
+                        }
+                    }
+                    else
+                        sb.Append(head);
+                }
+                else if (zeroPad && numeric && (signPlus || signSpace))
+                {
+                    // sign occupies the first char; zeros fill after the sign
+                    sb.Append(sign);
+                    if (width > head.Length)
+                        sb.Append('0', width - head.Length);
+                    sb.Append(core);
+                }
+                else
+                {
+                    if (width > head.Length)
+                        sb.Append(' ', width - head.Length);
+                    sb.Append(head);
+                }
             }
-            catch (PythonException)
+
+            if (positional && ai < args.Length)
+                throw PyTypeError.Create("not all arguments converted during string formatting");
+            return sb.ToString();
+        }
+
+        private static bool IsMappingLike(PyObject o) => o is PyDict;
+
+        private static string ToBase(BigInteger v, int radix, bool upper)
+        {
+            if (v.IsZero)
+                return "0";
+            var chars = new List<char>();
+            while (v > 0)
             {
-                throw;
+                v = BigInteger.DivRem(v, radix, out var rem);
+                int d = (int)rem;
+                chars.Add(d < 10 ? (char)('0' + d) : (char)((upper ? 'A' : 'a') + d - 10));
             }
-            catch (Exception ex)
+            chars.Reverse();
+            return new string(chars.ToArray());
+        }
+
+        private static string AsciiEscape(string s)
+        {
+            var sb = new StringBuilder(s.Length);
+            foreach (var ch in s)
             {
-                throw PyTypeError.Create($"unsupported operand type(s) for %: 'str' and '{other.GetTypeName()}': {ex.Message}");
+                if (ch < 128)
+                    sb.Append(ch);
+                else if (ch < 256)
+                    sb.Append($"\\x{(int)ch:x2}");
+                else
+                    sb.Append($"\\u{(int)ch:x4}");
             }
+            return sb.ToString();
         }
 
         /// <summary>
