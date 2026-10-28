@@ -1256,8 +1256,12 @@ namespace SharpPy
 
 #if DEBUG
             // 🛡️ 무한루프 방지 안전장치 (DEBUG 모드 전용)
+            // 2026-10-28: the instruction-count cap (50_000, since 2e55141) is removed.
+            // Measured: slice_delete_compaction_regression.py needs 365_172 module-frame
+            // instructions, byte-identical at a40d72c and HEAD - a legitimate workload,
+            // not growth. int_loop alone exceeds 1M in one frame. Any fixed count false-
+            // fires on real scripts; wall-clock is the actual runaway signal.
             var startTime = DateTime.UtcNow;
-            var maxInstructions = 50_000; // 최대 5만 명령어 (for debugging infinite loops)
             var maxTimeSeconds = 30; // 최대 30초
             var instructionCount = 0;
 
@@ -1278,18 +1282,14 @@ namespace SharpPy
                         var elapsed = DateTime.UtcNow - startTime;
                         if (elapsed.TotalSeconds > maxTimeSeconds)
                         {
-                            throw new PythonException(new PyRuntimeError($"Execution timeout after {elapsed.TotalSeconds:F1} seconds"));
-                        }
-                        if (instructionCount > maxInstructions)
-                        {
-                            Console.WriteLine($"\n[DEBUG] Instruction limit exceeded. Last {lastInstructions.Count} instructions:");
+                            Console.WriteLine($"\n[DEBUG] Execution timeout. Last {lastInstructions.Count} instructions:");
                             foreach (var log in lastInstructions)
                             {
                                 Console.WriteLine($"  {log}");
                             }
                             Console.WriteLine($"[DEBUG] Current frame: {frame.Code.Name}");
                             Console.WriteLine($"[DEBUG] Current instruction pointer: {frame.InstructionPointer}");
-                            throw new PythonException(new PyRuntimeError($"Instruction limit exceeded: {instructionCount} instructions"));
+                            throw new PythonException(new PyRuntimeError($"Execution timeout after {elapsed.TotalSeconds:F1} seconds ({instructionCount} instructions)"));
                         }
                     }
 #endif
