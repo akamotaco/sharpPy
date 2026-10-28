@@ -1,4 +1,9 @@
 using System;
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
 
 namespace SharpPy.Modules
 {
@@ -16,9 +21,13 @@ namespace SharpPy.Modules
 
             module.ModuleDict["import_module"] = new PyBuiltinFunction("import_module", (args, kwargs) =>
             {
-                if (args.Length < 1 || args.Length > 2)
+                if (args.Length == 0)
                 {
-                    throw PyTypeError.Create($"import_module() takes 1 or 2 positional arguments but {args.Length} were given");
+                    throw PyTypeError.Create("import_module() missing 1 required positional argument: 'name'");
+                }
+                if (args.Length > 2)
+                {
+                    throw PyTypeError.Create($"import_module() takes from 1 to 2 positional arguments but {args.Length} were given");
                 }
                 if (args[0] is not PyString nameStr)
                 {
@@ -43,16 +52,29 @@ namespace SharpPy.Modules
 
             module.ModuleDict["reload"] = new PyBuiltinFunction("reload", (args, kwargs) =>
             {
-                if (args.Length != 1)
+                // CPython Lib/importlib/__init__.py reload(module): positional-only.
+                if (kwargs != null && kwargs.InternalDict.Count > 0)
                 {
-                    throw PyTypeError.Create($"reload() takes exactly one argument ({args.Length} given)");
+                    string kw = "";
+                    foreach (var e in kwargs.GetInternalDict()) { kw = ((PyString)e.Key).Value; break; }
+                    throw PyTypeError.Create($"reload() got an unexpected keyword argument '{kw}'");
                 }
+                if (args.Length == 0)
+                    throw PyTypeError.Create("reload() missing 1 required positional argument: 'module'");
+                if (args.Length > 1)
+                    throw PyTypeError.Create($"reload() takes 1 positional argument but {args.Length} were given");
                 if (args[0] is not PyModule m)
+                    throw PyTypeError.Create("reload() argument must be a module");
+
+                // Re-execute only file-backed modules. Builtin/native modules
+                // (no real __file__) return unchanged, matching CPython reload(sys).
+                // The module keeps its identity and sys.modules registration, and the
+                // source runs against the existing __dict__ (stale attributes remain).
+                if (m.HasSourceFile)
                 {
-                    throw PyTypeError.Create($"reload() argument must be module, not {args[0].GetTypeName()}");
+                    var source = IOHelper.ReadAllText(m.FileName);
+                    m.ExecuteForReload(source);
                 }
-                // SharpPy: full re-execution of a module spec is not implemented;
-                // the module object is returned unchanged (identity preserved).
                 return m;
             });
 

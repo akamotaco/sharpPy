@@ -100,6 +100,9 @@ public class PyModule : PyObject
     public IDictionary<string, PyObject> ModuleDict { get; }  // __dict__ (Variable == Attribute)
     public List<string> All { get; set; }  // __all__
     public bool IsInitialized { get; private set; }
+    // True only for modules loaded from a real source file (via LoadModuleFromFile).
+    // CPython builtins (sys, math, ...) have no __file__ and repr as "(built-in)".
+    public bool HasSourceFile { get; internal set; }
 
     // CPython 3.12 requirement: module.__dict__ is module.__dict__ must be True
     // Cache the PyDict wrapper to ensure identity consistency
@@ -235,6 +238,22 @@ public class PyModule : PyObject
     /// <summary>
     /// 모듈 전용 글로벌 스코프 생성 (모듈의 __dict__를 직접 글로벌 스코프로 사용)
     /// </summary>
+    // CPython importlib.reload: re-execute the module source in the EXISTING
+    // module __dict__ (no clearing), propagate the original exception, and leave
+    // the module registered in sys.modules even on failure (partial update stays).
+    // Unlike Execute(), this does not wrap failures in ImportError nor remove the
+    // sys.modules entry.
+    public void ExecuteForReload(string sourceCode)
+    {
+        var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
+        var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
+        var compiler = new PythonCompiler();
+        var codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
+        var moduleGlobalScope = CreateModuleGlobalScope();
+        PyVM.Instance.ExecuteModule(codeObject, moduleGlobalScope);
+        IsInitialized = true;
+    }
+
     private PyScopeChain CreateModuleGlobalScope()
     {
         // CPython 3.12 호환: 모듈 딕셔너리를 직접 글로벌 스코프로 사용
@@ -294,7 +313,15 @@ public class PyModule : PyObject
         }
     }
     
-    public override string ToString() => $"<module '{Name}' from '{FileName}'>";
+    // CPython 3.12: Objects/moduleobject.c module_repr - file-backed modules show
+    // "from '<file>'"; builtin/native modules (no source file) show "(built-in)".
+    public override string ToString() => HasSourceFile
+        ? $"<module '{Name}' from '{FileName}'>"
+        : $"<module '{Name}' (built-in)>";
+
+    // repr(module) == str(module) in CPython; the default ToRepr would print the
+    // address form, so route repr through the module repr above.
+    public override PyString ToRepr() => new PyString(ToString());
     
     /// <summary>
     /// 모듈에 함수 추가 (표준 라이브러리 모듈용)
@@ -661,6 +688,7 @@ public class PyModule : PyObject
             {
                 var sourceCode = IOHelper.ReadAllText(filePath);
                 var module = new PyModule(moduleName, filePath);
+                module.HasSourceFile = true;
 
                 // CPython 3.12: Set __path__ BEFORE executing module code (if it's a package)
                 // importlib/_bootstrap.py:782-788 - Sets module.__path__ in _init_module_attrs
