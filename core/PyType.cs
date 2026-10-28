@@ -238,6 +238,29 @@ namespace SharpPy
         public static readonly PyType MethodWrapperType = new PyType("method-wrapper", new[] { ObjectType });
         public static readonly PyType BuiltinFunctionOrMethodType = new PyType("builtin_function_or_method", new[] { ObjectType });
         public static readonly PyType SuperType = new PyType("super", new[] { ObjectType }); // CPython Objects/typeobject.c PySuper_Type
+
+        // CPython gives each iterator family its own type (list_iterator,
+        // tuple_iterator, str_ascii_iterator/str_iterator, set_iterator,
+        // dict_keyiterator/valueiterator/itemiterator, range_iterator,
+        // bytes_iterator, list_reverseiterator, reversed, enumerate,
+        // empty_iterator). type(it).__name__ and repr both read this, so build a
+        // cached PyType per name (base object) to keep type identity stable.
+        private static readonly System.Collections.Generic.Dictionary<string, PyType> _iteratorTypeCache = new();
+        public static PyType GetIteratorType(string name)
+        {
+            lock (_iteratorTypeCache)
+            {
+                if (!_iteratorTypeCache.TryGetValue(name, out var t))
+                {
+                    // Derive from IteratorType so the shared __iter__/__next__
+                    // descriptors resolve via MRO (attribute access keeps working);
+                    // the distinct Name is what type(it).__name__ reports.
+                    t = new PyType(name, new[] { IteratorType });
+                    _iteratorTypeCache[name] = t;
+                }
+                return t;
+            }
+        }
         
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });

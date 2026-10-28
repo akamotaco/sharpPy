@@ -189,11 +189,16 @@ namespace SharpPy
     {
         private readonly PyObject _seq;
         private long _index;
+        private readonly string _typeName;
 
-        public PyReversedIterator(PyObject seq, long length)
+        // CPython: reversed(list) -> list_reverseiterator, reversed(range) ->
+        // range_iterator, reversed(dict) -> dict_keyiterator, others -> reversed.
+        // The caller passes the appropriate name; generic sequences use "reversed".
+        public PyReversedIterator(PyObject seq, long length, string typeName = "reversed")
         {
             _seq = seq;
             _index = length - 1;
+            _typeName = typeName;
         }
 
         public override PyObject Next()
@@ -205,9 +210,6 @@ namespace SharpPy
             return _seq.GetItem(new PyInt(i));
         }
 
-        public override string GetTypeName() => "reversed";
-        public override PyType GetPyType() => PyType.ReversedType;
-        public override PyString ToRepr() => new PyString($"<reversed object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString ToStr() => ToRepr();
+        protected override string IteratorName => _typeName;
     }
 }

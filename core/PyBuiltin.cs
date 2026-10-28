@@ -597,11 +597,10 @@ namespace SharpPy
             // CPython: dict is not a sequence but provides dict.__reversed__ (keys).
             if (seq is PyDict dict)
             {
+                // CPython: dict.__reversed__ yields keys in reverse as a dict_keyiterator.
                 var keys = dict.Keys().Items;
-                var reversedKeys = new PyObject[keys.Length];
-                for (int i = 0; i < keys.Length; i++)
-                    reversedKeys[i] = keys[keys.Length - 1 - i];
-                return new PyListIterator(new PyList(reversedKeys));
+                var keyList = new PyList((PyObject[])keys.Clone());
+                return new PyReversedIterator(keyList, keys.Length, "dict_reversekeyiterator");
             }
 
             var revDesc = seq.GetPyType()?.LookupSpecial("__reversed__");
@@ -617,7 +616,12 @@ namespace SharpPy
             if (!TrySequenceLength(seq, out long length))
                 throw PyTypeError.Create($"object of type '{seq.GetTypeName()}' has no len()");
 
-            return new PyReversedIterator(seq, length);
+            // CPython names reversed() by source: list_reverseiterator, range_iterator,
+            // else the generic reversed object.
+            string revName = seq is PyList ? "list_reverseiterator"
+                          : seq is PyRange ? "range_iterator"
+                          : "reversed";
+            return new PyReversedIterator(seq, length, revName);
         }
 
         private static bool HasGetItem(PyObject obj)

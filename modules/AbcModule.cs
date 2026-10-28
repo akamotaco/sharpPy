@@ -646,6 +646,23 @@ namespace SharpPy.Modules
             ["memoryview"] = new[] { "__hash__", "__iter__", "__len__", "__getitem__", "__setitem__", "__delitem__" },
             ["generator"] = new[] { "__hash__", "__iter__", "__next__" },
             ["iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            // Specific iterator families (type(it).__name__); all hashable iterators
+            // support __iter__ + __next__, so Iterator/Iterable structural checks stay True.
+            ["list_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["tuple_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["str_ascii_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["str_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["set_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["dict_keyiterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["dict_reversekeyiterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["dict_valueiterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["dict_itemiterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["range_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["bytes_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["list_reverseiterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["reversed"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["enumerate"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["empty_iterator"] = new[] { "__hash__", "__iter__", "__next__" },
             // dict views are reversible; keys/items set __hash__=None, values stays
             // hashable (inherits object.__hash__). Membership in Set/Container comes
             // from register(), so __contains__ is only listed where the slot exists.

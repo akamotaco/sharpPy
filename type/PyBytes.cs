@@ -2141,7 +2141,7 @@ namespace SharpPy
             {
                 items[i] = new PyInt(Value[i]);
             }
-            return new PyListIterator(new PyList(items));
+            return new PyListIterator(new PyList(items), "bytes_iterator");
         }
         
         public override PyString ToRepr()

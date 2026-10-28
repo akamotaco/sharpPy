@@ -77,8 +77,12 @@ namespace SharpPy
             }
         }
 
-        public override PyType GetPyType() => PyType.IteratorType;
-        public override string GetTypeName() => "iterator";
+        // CPython names each iterator family its own type (list_iterator, ...);
+        // type(it).__name__ and repr both derive from this name via
+        // PyType.GetIteratorType. Subclasses override IteratorName.
+        protected virtual string IteratorName => "iterator";
+        public override string GetTypeName() => IteratorName;
+        public override PyType GetPyType() => PyType.GetIteratorType(IteratorName);
 
         internal override bool IsIterator => true;
 
@@ -164,12 +168,16 @@ namespace SharpPy
         private int _index;
         private static int _totalCallCount = 0;
         private readonly int _listLength;
+        private readonly string _typeName;
 
-        public PyListIterator(PyList list)
+        // Reused for bytes_iterator / reversed-key iteration, so the reported type
+        // name is parameterised (default list_iterator).
+        public PyListIterator(PyList list, string typeName = "list_iterator")
         {
             _list = list ?? throw new ArgumentNullException(nameof(list));
             _index = 0;
             _listLength = _list.Length();
+            _typeName = typeName;
         }
 
         public override PyObject Next()
@@ -184,9 +192,7 @@ namespace SharpPy
             return item;
         }
 
-        public override string GetTypeName() => "list_iterator";
-
-        public override PyString ToRepr() => new PyString($"<list_iterator object>");
+        protected override string IteratorName => _typeName;
     }
 
     /// <summary>
@@ -225,7 +231,7 @@ namespace SharpPy
             return result;
         }
 
-        public override PyString ToRepr() => new PyString($"<tuple_iterator object>");
+        protected override string IteratorName => "tuple_iterator";
     }
 
     /// <summary>
@@ -235,11 +241,17 @@ namespace SharpPy
     {
         private readonly string _string;
         private int _index;
+        private readonly string _name;
 
         public PyStringIterator(PyString pyString)
         {
             _string = pyString?.Value ?? throw new ArgumentNullException(nameof(pyString));
             _index = 0;
+            // CPython: iterating an ASCII string yields str_ascii_iterator; any
+            // non-ASCII code point yields str_iterator.
+            bool ascii = true;
+            foreach (var ch in _string) { if (ch > 127) { ascii = false; break; } }
+            _name = ascii ? "str_ascii_iterator" : "str_iterator";
         }
 
         public override PyObject Next()
@@ -250,7 +262,7 @@ namespace SharpPy
             return new PyString(_string[_index++].ToString());
         }
 
-        public override PyString ToRepr() => new PyString($"<str_iterator object>");
+        protected override string IteratorName => _name;
     }
 
     /// <summary>
@@ -284,7 +296,7 @@ namespace SharpPy
             return result;
         }
 
-        public override PyString ToRepr() => new PyString($"<range_iterator object>");
+        protected override string IteratorName => "range_iterator";
     }
 
     /// <summary>
@@ -314,7 +326,7 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
-        public override PyString ToRepr() => new PyString($"<set_iterator object>");
+        protected override string IteratorName => "set_iterator";
 
         protected override void Dispose(bool disposing)
         {
@@ -383,7 +395,7 @@ namespace SharpPy
     {
         public PyDictKeyIterator(PyDict dict) : base(dict) { }
         protected override PyObject Project(PyObject key, PyDict dictionary) => key;
-        public override PyString ToRepr() => new PyString("<dict_keyiterator object>");
+        protected override string IteratorName => "dict_keyiterator";
     }
 
     /// <summary>
@@ -394,7 +406,7 @@ namespace SharpPy
         public PyDictValueIterator(PyDict dict) : base(dict) { }
         protected override PyObject Project(PyObject key, PyDict dictionary) => dictionary.InternalDict.StoredValue(key);
         protected override PyObject ProjectEntry(PyObject key, PyObject value) => value;
-        public override PyString ToRepr() => new PyString("<dict_valueiterator object>");
+        protected override string IteratorName => "dict_valueiterator";
     }
 
     /// <summary>
@@ -406,7 +418,7 @@ namespace SharpPy
         protected override PyObject Project(PyObject key, PyDict dictionary) =>
             TupleCache.CreatePair(key, dictionary.InternalDict.StoredValue(key));
         protected override PyObject ProjectEntry(PyObject key, PyObject value) => TupleCache.CreatePair(key, value);
-        public override PyString ToRepr() => new PyString("<dict_itemiterator object>");
+        protected override string IteratorName => "dict_itemiterator";
     }
 
     /// <summary>
@@ -443,7 +455,7 @@ namespace SharpPy
             }
         }
 
-        public override PyString ToRepr() => new PyString($"<iterator object>");
+        // Generic sequence iterator: CPython reports the plain "iterator" name.
     }
 
     /// <summary>
@@ -460,7 +472,7 @@ namespace SharpPy
             throw PyStopIteration.Create();
         }
 
-        public override PyString ToRepr() => new PyString($"<empty_iterator object>");
+        protected override string IteratorName => "empty_iterator";
     }
 
     /// <summary>
@@ -487,7 +499,7 @@ namespace SharpPy
             return result;
         }
 
-        public override PyString ToRepr() => new PyString($"<enumerate object at 0x{GetHashCode():x}>");
+        protected override string IteratorName => "enumerate";
 
         protected override void Dispose(bool disposing)
         {
