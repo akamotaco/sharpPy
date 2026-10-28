@@ -255,6 +255,7 @@ namespace SharpPy
         public static readonly PyType ArithmeticErrorType = new PyType("ArithmeticError", new[] { ExceptionType });
         public static readonly PyType ZeroDivisionErrorType = new PyType("ZeroDivisionError", new[] { ArithmeticErrorType });
         public static readonly PyType OverflowErrorType = new PyType("OverflowError", new[] { ArithmeticErrorType });
+        public static readonly PyType FloatingPointErrorType = new PyType("FloatingPointError", new[] { ArithmeticErrorType });
         
         public static readonly PyType LookupErrorType = new PyType("LookupError", new[] { ExceptionType });
         public static readonly PyType IndexErrorType = new PyType("IndexError", new[] { LookupErrorType });
@@ -310,6 +311,7 @@ namespace SharpPy
         
         public static readonly PyType SyntaxErrorType = new PyType("SyntaxError", new[] { ExceptionType });
         public static readonly PyType IndentationErrorType = new PyType("IndentationError", new[] { SyntaxErrorType });
+        public static readonly PyType TabErrorType = new PyType("TabError", new[] { IndentationErrorType });
         
         public static readonly PyType StopIterationType = new PyType("StopIteration", new[] { ExceptionType });
         public static readonly PyType StopAsyncIterationType = new PyType("StopAsyncIteration", new[] { ExceptionType });
@@ -785,6 +787,18 @@ namespace SharpPy
                     return new PyUnboundLocalError(args, kwargs);
                 case "ArithmeticError":
                     return new PyArithmeticError(args, kwargs);
+                case "FloatingPointError":
+                    return new PyFloatingPointError(args, kwargs);
+                case "TabError":
+                    return new PyTabError(message);
+                case "MemoryError":
+                    return new PyMemoryError(args, kwargs);
+                case "UnicodeError":
+                    return new PyUnicodeError(args, kwargs);
+                case "UnicodeEncodeError":
+                    return new PyUnicodeEncodeError(args, kwargs);
+                case "UnicodeDecodeError":
+                    return new PyUnicodeDecodeError(args, kwargs);
                 case "ZeroDivisionError":
                     return new PyZeroDivisionError(args, kwargs);
                 case "OverflowError":
@@ -1316,9 +1330,14 @@ namespace SharpPy
             TypeDict["__init_subclass__"] = new PyBuiltinFunction(
                 "__init_subclass__",
                 (args, kwargs) => {
-                    // object.__init_subclass__() does nothing and returns None
-                    // Subclasses can override this to customize subclass creation
-                    // The first arg would be the class, but we don't need it here
+                    // object.__init_subclass__() is METH_CLASS|METH_NOARGS: keyword
+                    // arguments are refused. Through a super() binding the reported
+                    // name is the runtime class (descrobject.c method_check_args /
+                    // _PyObject_FunctionStr).
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                    {
+                        throw PyTypeError.Create($"{PyBuiltinFunction.QualifiedClassLabel(args.Length > 0 ? args[0] : null)}.__init_subclass__() takes no keyword arguments");
+                    }
                     return PyNone.Instance;
                 }
             );

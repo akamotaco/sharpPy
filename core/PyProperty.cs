@@ -18,6 +18,9 @@ public interface IDescriptor
         protected readonly PyObject? _setter;
         protected readonly PyObject? _deleter;
         protected readonly PyObject? _doc;
+        // CPython 3.12: propertyobject.prop_name - bound by __set_name__ at class
+        // creation (Objects/descrobject.c property_set_name).
+        protected string? _name;
 
         public PyProperty(PyObject? getter = null, PyObject? setter = null, PyObject? deleter = null, PyObject? doc = null)
         {
@@ -287,7 +290,11 @@ public interface IDescriptor
                 #if DEBUG_LOG
                 Console.WriteLine($"   ❌ No setter available - throwing AttributeError");
                 #endif
-                throw PyAttributeError.Create("can't set attribute");
+                // CPython 3.12: "property 'x' of 'Props' object has no setter"
+                var qual = instance?.GetPyType()?.Name ?? instance?.GetTypeName() ?? "object";
+                throw _name != null
+                    ? PyAttributeError.Create($"property '{_name}' of '{qual}' object has no setter")
+                    : PyAttributeError.Create($"property of '{qual}' object has no setter");
             }
 
             if (!_setter.IsCallable())
@@ -328,7 +335,11 @@ public interface IDescriptor
                 #if DEBUG_LOG
                 Console.WriteLine($"   ❌ No deleter available - throwing AttributeError");
                 #endif
-                throw PyAttributeError.Create("can't delete attribute");
+                // CPython 3.12: "property 'x' of 'Props' object has no deleter"
+                var qual = instance?.GetPyType()?.Name ?? instance?.GetTypeName() ?? "object";
+                throw _name != null
+                    ? PyAttributeError.Create($"property '{_name}' of '{qual}' object has no deleter")
+                    : PyAttributeError.Create($"property of '{qual}' object has no deleter");
             }
 
             if (!_deleter.IsCallable())
@@ -361,8 +372,35 @@ public interface IDescriptor
         public bool IsDataDescriptor() => true;
 
         // Property decorator chaining methods - CPython 호환: descriptor 테이블 사용
+        public override PyObject LookupAttribute(string name)
+        {
+            // LookupAttribute bypasses GetAttribute via GenericGetAttribute; keep
+            // __set_name__ discoverable for type_new_set_names.
+            if (name == "__set_name__")
+            {
+                return GetAttribute(name);
+            }
+            return base.LookupAttribute(name);
+        }
+
         public override PyObject GetAttribute(string name)
         {
+            if (name == "__set_name__")
+            {
+                // CPython 3.12: Objects/descrobject.c property_set_name
+                return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__set_name__", (self, a) =>
+                {
+                    if (a.Length != 2)
+                    {
+                        throw PyTypeError.Create($"__set_name__() takes 2 positional arguments but {a.Length} were given");
+                    }
+                    if (a[1] is PyString s)
+                    {
+                        ((PyProperty)self)._name = s.Value;
+                    }
+                    return PyNone.Instance;
+                }, 2));
+            }
             // CPython 3.12 호환: GenericGetAttribute를 통해 descriptor 테이블 조회
             return GenericGetAttribute(name);
         }

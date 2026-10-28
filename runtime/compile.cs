@@ -6009,19 +6009,31 @@ namespace SharpPy
                 CompileExpression(baseExpr);
             }
 
-            // CPython 3.12: Load metaclass if specified, using KW_NAMES for keyword arguments
+            // CPython 3.12: class-definition keywords (metaclass and PEP 487
+            // __init_subclass__ kwargs) are pushed as values with KW_NAMES names.
             int totalArgs = 2 + cls.Bases.Count;
-            if (cls.Metaclass != null)
+            var emittedClassKwargs = new List<string>();
+            if (cls.ClassKeywords != null && cls.ClassKeywords.Count > 0)
+            {
+                foreach (var kw in cls.ClassKeywords)
+                {
+                    CompileExpression(kw.Value);
+                    emittedClassKwargs.Add(kw.Key);
+                }
+            }
+            else if (cls.Metaclass != null)
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"   → Metaclass specified: {cls.Metaclass}");
                 #endif
                 // CPython 3.12: Push metaclass value as positional argument
                 CompileExpression(cls.Metaclass);
-                totalArgs += 1;  // metaclass value
-
-                // CPython 3.12: Use KW_NAMES to specify 'metaclass' keyword argument
-                var kwNamesTuple = new PyTuple(new PyObject[] { new PyString("metaclass") });
+                emittedClassKwargs.Add("metaclass");
+            }
+            if (emittedClassKwargs.Count > 0)
+            {
+                totalArgs += emittedClassKwargs.Count;
+                var kwNamesTuple = new PyTuple(emittedClassKwargs.Select(n => (PyObject)new PyString(n)).ToArray());
                 var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
                 EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
             }

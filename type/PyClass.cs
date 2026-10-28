@@ -90,6 +90,90 @@ namespace SharpPy
         // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
         internal PyTuple _cachedMroTuple;
         internal PyTuple _cachedBasesTuple;
+
+        // CPython 3.12: __slots__ semantics - an instance has a __dict__ only when
+        // some class in the MRO omits __slots__ (or lists '__dict__' explicitly).
+        private bool? _instancesHaveDictCache;
+
+        public bool InstancesHaveDict()
+        {
+            if (_instancesHaveDictCache.HasValue)
+            {
+                return _instancesHaveDictCache.Value;
+            }
+            foreach (var t in MRO)
+            {
+                if (ReferenceEquals(t, PyType.ObjectType))
+                {
+                    continue; // object never contributes an instance dict
+                }
+                if (t is PyClass pc && pc.ClassDict.TryGetValue("__slots__", out var slots))
+                {
+                    foreach (var slotName in EnumerateSlotNames(slots))
+                    {
+                        if (slotName == "__dict__")
+                        {
+                            _instancesHaveDictCache = true;
+                            return true;
+                        }
+                    }
+                    continue;
+                }
+                // A class without __slots__ adds a __dict__ to instances
+                _instancesHaveDictCache = true;
+                return true;
+            }
+            _instancesHaveDictCache = false;
+            return false;
+        }
+
+        public bool IsSlottedAttributeName(string name)
+        {
+            foreach (var t in MRO)
+            {
+                if (t is PyClass pc && pc.ClassDict.TryGetValue("__slots__", out var slots))
+                {
+                    foreach (var slotName in EnumerateSlotNames(slots))
+                    {
+                        if (slotName == name)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        internal static IEnumerable<string> EnumerateSlotNames(PyObject slots)
+        {
+            if (slots is PyString single)
+            {
+                yield return single.Value;
+                yield break;
+            }
+            if (slots == null)
+            {
+                yield break;
+            }
+            var iter = slots.GetIterator();
+            while (true)
+            {
+                PyObject item;
+                try
+                {
+                    item = iter.Next();
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    yield break;
+                }
+                if (item is PyString ps)
+                {
+                    yield return ps.Value;
+                }
+            }
+        }
         // Note: __dict__ does NOT cache in CPython 3.12 - each access returns new mappingproxy
 
         // Note: Method lookups use global TypeMethodCache (CPython-style array cache)
@@ -1701,11 +1785,16 @@ namespace SharpPy
             {
                 // CPython 3.12: Return cached wrapper for identity consistency
                 // obj.__dict__ is obj.__dict__ must be True
-                if (_dictCache == null)
+                if (InstanceType.InstancesHaveDict())
                 {
-                    _dictCache = new PyInstanceAttrDict(InstanceDict);
+                    if (_dictCache == null)
+                    {
+                        _dictCache = new PyInstanceAttrDict(InstanceDict);
+                    }
+                    return _dictCache;
                 }
-                return _dictCache;
+                // __slots__ class without '__dict__': fall through to the normal
+                // MRO lookup, which ends in AttributeError like CPython.
             }
 
             // CPython 3.12 descriptor protocol (without custom __getattribute__ check):
@@ -1923,6 +2012,12 @@ namespace SharpPy
             }
 
             // 3. 인스턴스 __dict__에 저장
+            // CPython 3.12: a __slots__ class that never provides '__dict__' refuses
+            // attributes outside the slot names (Objects/object.c generic setattr).
+            if (!InstanceType.InstancesHaveDict() && !InstanceType.IsSlottedAttributeName(name))
+            {
+                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            }
             InstanceDict[name] = value;
 
             #if DEBUG_LOG
@@ -2031,16 +2126,26 @@ namespace SharpPy
         /// </summary>
         private static void CallDescriptorDelete(PyObject descriptor, PyObject instance)
         {
-            // Try to call __delete__
+            // CPython 3.12: object.c calls tp_descr_set(self, obj, NULL). Built-in
+            // descriptors (property, ...) implement deletion through the descriptor
+            // interface itself and raise their own precise AttributeError.
+            if (descriptor is IDescriptor nativeDescriptor)
+            {
+                nativeDescriptor.Delete(instance);
+                return;
+            }
+
+            // Python-level descriptor with __delete__
+            PyObject deleteMethod;
             try
             {
-                var deleteMethod = descriptor.GetAttribute("__delete__");
-                deleteMethod.Call(new PyObject[] { instance }, null);
+                deleteMethod = descriptor.GetAttribute("__delete__");
             }
-            catch
+            catch (PythonException) when (true)
             {
-                throw PyAttributeError.Create($"cannot delete attribute");
+                throw PyAttributeError.Create("cannot delete attribute");
             }
+            deleteMethod.Call(new PyObject[] { instance }, null);
         }
 
         public override PyString ToRepr()

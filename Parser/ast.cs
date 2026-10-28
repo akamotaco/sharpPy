@@ -1659,6 +1659,10 @@ namespace SharpPy
         public List<TypeParam> TypeParams { get; } // PEP 695: Type parameters (Python 3.12)
         public Expression? Metaclass { get; } // metaclass= keyword
         public List<DecoratorExpression> Decorators { get; } // CPython 3.12: Parser/Python.asdl:22 decorator_list
+        // CPython 3.12: all class-definition keywords in source order (Parser/Python.asdl
+        // class_def keywords); 'metaclass' keeps its source position. The rest are
+        // forwarded to __build_class__ and on to __init_subclass__ (PEP 487).
+        public List<KeyValuePair<string, Expression>> ClassKeywords { get; set; } = new();
 
         public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<TypeParam>? typeParams = null, Expression? metaclass = null, List<DecoratorExpression>? decorators = null)
         {

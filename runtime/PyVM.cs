@@ -4683,6 +4683,18 @@ namespace SharpPy
                         frame.CurrentException = pyExc;
                     }
 
+                    // CPython 3.12: Python/errors.c _PyErr_SetObject - an exception raised
+                    // while another exception is being handled records __context__
+                    // (implicit chaining) unless chaining was already established.
+                    if (newExc is PyBaseException newBase &&
+                        prevExc is PyBaseException prevBase &&
+                        !ReferenceEquals(newBase, prevBase) &&
+                        newBase.__context__ == null &&
+                        !newBase.__suppress_context__)
+                    {
+                        newBase.__context__ = prevBase;
+                    }
+
                     // Push prev_exc first, then new_exc (CPython 3.12 stack order)
                     frame.ValueStack.Push(prevExc);
                     frame.ValueStack.Push(newExc);
@@ -5214,7 +5226,17 @@ namespace SharpPy
                         }
                         else if (expectedType is PyType pyType)
                         {
-                            matches = IsExceptionInstanceOf(pyException, pyType.Name);
+                            // A wrapped user exception must match through its ORIGINAL class MRO
+                            // (PyType_IsSubtype), not CLR class names: `class MyErr(RuntimeError,
+                            // ValueError)` has to be caught by `except ValueError`.
+                            if (pyException.OriginalClass != null)
+                            {
+                                matches = ExceptionClassMatches(pyException.OriginalClass, pyType);
+                            }
+                            else
+                            {
+                                matches = IsExceptionInstanceOf(pyException, pyType.Name);
+                            }
                         }
                         // Check against tuple of exception types: except (ValueError, TypeError)
                         else if (expectedType is PyTuple exceptionTuple)
@@ -8449,6 +8471,12 @@ namespace SharpPy
                 case "GeneratorExit": return typeof(PyGeneratorExit);
                 case "LookupError": return typeof(PyLookupError);
                 case "ArithmeticError": return typeof(PyArithmeticError);
+                case "FloatingPointError": return typeof(PyFloatingPointError);
+                case "TabError": return typeof(PyTabError);
+                case "MemoryError": return typeof(PyMemoryError);
+                case "UnicodeError": return typeof(PyUnicodeError);
+                case "UnicodeEncodeError": return typeof(PyUnicodeEncodeError);
+                case "UnicodeDecodeError": return typeof(PyUnicodeDecodeError);
                 case "RecursionError": return typeof(PyRecursionError);
                 default: return null;
             }

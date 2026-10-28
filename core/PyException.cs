@@ -91,6 +91,29 @@ namespace SharpPy
                     return __suppress_context__ ? PyBool.True : PyBool.False;
                 case "__traceback__":
                     return (PyObject?)__traceback__ ?? PyNone.Instance;
+                case "with_traceback":
+                    // CPython 3.12: Objects/exceptions.c BaseException.with_traceback
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("with_traceback", (self, a) =>
+                    {
+                        if (a.Length != 1)
+                        {
+                            throw PyTypeError.Create($"BaseException.with_traceback() takes exactly one argument ({a.Length} given)");
+                        }
+                        var excSelf = (PyException)self;
+                        if (a[0] is PyTraceback tb)
+                        {
+                            excSelf.__traceback__ = tb;
+                        }
+                        else if (a[0] is PyNone)
+                        {
+                            excSelf.__traceback__ = null;
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create("__traceback__ must be a traceback or None");
+                        }
+                        return self;
+                    }, 1));
                 default:
                     return base.GetAttribute(name);
             }
@@ -433,6 +456,14 @@ namespace SharpPy
             var pyException = new PyArithmeticError(message);
             return new PythonException(pyException);
         }
+    }
+
+    public class PyFloatingPointError : PyArithmeticError
+    {
+        internal PyFloatingPointError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+        public PyFloatingPointError(string message = "") : base(message) { }
+        public override PyType GetPyType() => PyType.FloatingPointErrorType;
+        public override string GetTypeName() => "FloatingPointError";
     }
 
     public class PyZeroDivisionError : PyArithmeticError
@@ -920,6 +951,7 @@ namespace SharpPy
 
         public PyAssertionError(string message = "") : base(message) { }
         
+        public override PyType GetPyType() => PyType.AssertionErrorType;
         public override string GetTypeName() => "AssertionError";
         
         public new static PythonException Create(string message = "")
@@ -1408,6 +1440,8 @@ namespace SharpPy
     /// </summary>
     public class PyMemoryError : PyException
     {
+        internal PyMemoryError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyMemoryError(string message = "") : base(message) { }
 
         public override string GetTypeName() => "MemoryError";
@@ -1426,6 +1460,8 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeError : PyValueError
     {
+        internal PyUnicodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyUnicodeError(string message = "") : base(message) { }
 
         public override string GetTypeName() => "UnicodeError";
@@ -1444,6 +1480,8 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeDecodeError : PyUnicodeError
     {
+        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyUnicodeDecodeError(string message = "") : base(message) { }
 
         public override string GetTypeName() => "UnicodeDecodeError";
@@ -1462,6 +1500,8 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeEncodeError : PyUnicodeError
     {
+        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyUnicodeEncodeError(string message = "") : base(message) { }
 
         public override string GetTypeName() => "UnicodeEncodeError";
@@ -1472,6 +1512,13 @@ namespace SharpPy
             var pyException = new PyUnicodeEncodeError(message);
             return new PythonException(pyException);
         }
+    }
+
+    public class PyTabError : PyIndentationError
+    {
+        public PyTabError(string message = "") : base(message) { }
+        public override PyType GetPyType() => PyType.TabErrorType;
+        public override string GetTypeName() => "TabError";
     }
 
     #region Warning Hierarchy (CPython 3.12)

@@ -1609,7 +1609,10 @@ namespace SharpPy
             if (args.Length == 0)
                 return PyBool.False;
 
-            return args[0].AsBool();
+            // CPython 3.12: bool(x) is PyObject_IsTrue - it must honour __bool__
+            // and then __len__ (Objects/object.c PyObject_IsTrue), not the CLR
+            // fast-path ToBool/PyBoolValue.
+            return PyBool.FromBool(args[0].IsTrue());
         }
 
         private static PyObject CallList(PyObject[] args, PyDict kwargs = null)
@@ -3207,7 +3210,92 @@ namespace SharpPy
             // Reference: Objects/typeobject.c:3485-3517 (type_new_set_names)
             CallSetNameOnClassAttributes(pyClass);
 
+            // CPython 3.12: Objects/typeobject.c:10015 type_new_init_subclass -
+            // remaining class-definition keyword arguments go to the parent hook
+            // (PEP 487), after set_names and classmethod conversions. With a custom
+            // metaclass, kwds belong to the metaclass chain (mcs(name, bases, ns,
+            // **kwds) -> type.__new__ sees what the metaclass forwards), so the
+            // implicit hook here would double-report (Lib/enum.py: Flag boundary=).
+            bool defaultMetaclassEffective = metaclass == null || ReferenceEquals(metaclass, PyTypeMetaclass.Instance);
+            if (defaultMetaclassEffective)
+            {
+                CallInitSubclassHook(pyClass, kwargs);
+            }
+
             return pyClass;
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyObject_FunctionStr reports method owners by __qualname__.
+        /// </summary>
+        public static string QualifiedClassLabel(PyObject cls)
+        {
+            if (cls is PyClass pc)
+            {
+                if (pc.ClassDict != null && pc.ClassDict.TryGetValue("__qualname__", out var qn) && qn is PyString qs && qs.Value.Length > 0)
+                {
+                    return qs.Value;
+                }
+                return pc.Name;
+            }
+            if (cls is PyType pt)
+            {
+                return pt.Name;
+            }
+            return cls?.GetTypeName() ?? "object";
+        }
+
+        /// <summary>
+        /// CPython 3.12: Objects/typeobject.c type_new_init_subclass.
+        /// super(created, created).__init_subclass__(**kwargs) resolves to the first
+        /// hook found after the created class itself in its MRO.
+        /// </summary>
+        private static void CallInitSubclassHook(PyClass created, PyDict classKwargs)
+        {
+            if (created == null)
+            {
+                return;
+            }
+            bool hasKwargs = classKwargs != null && classKwargs.InternalDict.Count > 0;
+
+            PyObject hook = null;
+            bool skippedSelf = false;
+            foreach (var t in created.MRO)
+            {
+                if (!skippedSelf)
+                {
+                    if (ReferenceEquals(t, created))
+                    {
+                        skippedSelf = true;
+                        continue;
+                    }
+                }
+                if (t is PyClass pc && pc.ClassDict != null && pc.ClassDict.TryGetValue("__init_subclass__", out var userHook))
+                {
+                    hook = userHook;
+                    break;
+                }
+                if (t is PyType pt && pt.TypeDict != null && pt.TypeDict.TryGetValue("__init_subclass__", out _))
+                {
+                    // object/type default: no-op unless keyword arguments remain
+                    if (hasKwargs)
+                    {
+                        throw PyTypeError.Create($"{QualifiedClassLabel(created)}.__init_subclass__() takes no keyword arguments");
+                    }
+                    return;
+                }
+            }
+
+            if (hook == null)
+            {
+                if (hasKwargs)
+                {
+                    throw PyTypeError.Create($"{QualifiedClassLabel(created)}.__init_subclass__() takes no keyword arguments");
+                }
+                return;
+            }
+
+            hook.Call(new PyObject[] { created }, hasKwargs ? classKwargs : null);
         }
 
         /// <summary>
@@ -4763,6 +4851,20 @@ namespace SharpPy
                 Console.WriteLine($"🔧 PySuper returning builtin method as-is: {attr.GetType().Name}");
                 #endif
                 return attr;
+            }
+            else if (attr is PyBuiltinFunction classModeBuiltin && name == "__init_subclass__")
+            {
+                // CPython: object.__init_subclass__ is METH_CLASS|METH_NOARGS; the
+                // super lookup yields a method-wrapper already bound to obj_type.
+                var boundCls = (PyObject)ObjectType;
+                var inner = classModeBuiltin;
+                return new PyBuiltinFunction(name, (a, kw) =>
+                {
+                    var merged = new PyObject[a.Length + 1];
+                    merged[0] = boundCls;
+                    Array.Copy(a, 0, merged, 1, a.Length);
+                    return inner.Call(merged, kw);
+                });
             }
 
             // Not a descriptor - return as-is

@@ -1317,19 +1317,29 @@ namespace SharpPy.Generated
                             }
                         }
 
-                        // CPython 3.12: Extract metaclass from keywords
+                        // CPython 3.12: Extract metaclass from keywords, and keep all
+                        // class keywords in source order for __build_class__ / PEP 487.
                         Expression? metaclassExpr = null;
+                        var classKeywordPairs = new List<KeyValuePair<string, Expression>>();
                         if (classDef.Keywords != null)
                         {
                             foreach (var keyword in classDef.Keywords.AsEnumerable())
                             {
-                                if (keyword is GeneratedKeyword kw && kw.Arg?.Value == "metaclass")
+                                if (keyword is GeneratedKeyword kw && kw.Arg != null)
                                 {
-                                    metaclassExpr = ConvertAnyExpression(kw.Value);
+                                    var kwName = kw.Arg.Value;
+                                    var kwValue = ConvertAnyExpression(kw.Value);
+                                    if (kwName == "metaclass")
+                                    {
+                                        metaclassExpr = kwValue;
 #if DEBUG_AST_LOG
-                                    Console.WriteLine($"[DEBUG] Found metaclass keyword: {metaclassExpr?.GetType().Name}");
+                                        Console.WriteLine($"[DEBUG] Found metaclass keyword: {metaclassExpr?.GetType().Name}");
 #endif
-                                    break;
+                                    }
+                                    if (kwValue != null)
+                                    {
+                                        classKeywordPairs.Add(new KeyValuePair<string, Expression>(kwName, kwValue));
+                                    }
                                 }
                             }
                         }
@@ -1364,6 +1374,7 @@ namespace SharpPy.Generated
                         Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}, decorators={decoratorExpressions.Count}");
 #endif
                         var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr, decoratorExpressions);
+                        result.ClassKeywords = classKeywordPairs;
                         CopySourceLocation(classDef, result);
                         return result;
                     }

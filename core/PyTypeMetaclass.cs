@@ -251,6 +251,7 @@ namespace SharpPy
             classDict["__module__"] = new PyModuleDescriptor();
             classDict["__bases__"] = new PyBasesDescriptor();
             classDict["__mro__"] = new PyMroDescriptor();
+            classDict["__base__"] = new PyBaseDescriptor();
             classDict["__doc__"] = new PyDocDescriptor();
             classDict["__qualname__"] = new PyQualnameDescriptor();
 
@@ -1448,6 +1449,48 @@ namespace SharpPy
         public void Delete(PyObject instance)
         {
             throw PyAttributeError.Create("can't delete attribute '__bases__'");
+        }
+
+        public bool IsDataDescriptor() => true;
+    }
+
+    /// <summary>
+    /// CPython 3.12: type_getseters {"__base__", type_get_base} - first base or None.
+    /// For any valid class the first base equals MRO[1] (C3 keeps bases[0] first).
+    /// </summary>
+    public class PyBaseDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__base__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            var target = (instance != null && instance != PyNone.Instance) ? instance : owner;
+            if (target is PyType pt)
+            {
+                if (pt.BaseTypes != null && pt.BaseTypes.Length > 0)
+                {
+                    return pt.BaseTypes[0];
+                }
+            }
+            var mro = (target as PyType)?.MRO ?? (target as PyClass)?.MRO;
+            if (mro != null && mro.Count > 1)
+            {
+                return mro[1];
+            }
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            // CPython: setter=NULL (read-only)
+            throw PyAttributeError.Create("attribute '__base__' of 'type' objects is not writable");
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__base__'");
         }
 
         public bool IsDataDescriptor() => true;
