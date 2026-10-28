@@ -156,13 +156,35 @@ namespace SharpPy
             listType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", listType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"index() takes exactly one argument ({args.Length} given)");
+                    // CPython list.index(value, start=0, stop=len): positional-only.
+                    if (kwargs != null && kwargs.Length() > 0)
+                        throw PyTypeError.Create("list.index() takes no keyword arguments");
+                    if (args.Length < 1)
+                        throw PyTypeError.Create($"index expected at least 1 argument, got {args.Length}");
+                    if (args.Length > 3)
+                        throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
                     var list = GetListStorage(self);
-                    var index = list.Index(args[0]);
-                    return new PyInt(index);
+                    long n = list.Length();
+                    long start = 0, stop = n;
+                    if (args.Length >= 2) {
+                        var si = PyObject.TryGetIndex(args[1]);
+                        if (si == null)
+                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
+                        start = (long)si.Value;
+                        if (start < 0) { start += n; if (start < 0) start = 0; }
+                        else if (start > n) start = n;
+                    }
+                    if (args.Length >= 3 && args[2] != PyNone.Instance) {
+                        var ti = PyObject.TryGetIndex(args[2]);
+                        if (ti == null)
+                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
+                        stop = (long)ti.Value;
+                        if (stop < 0) { stop += n; if (stop < 0) stop = 0; }
+                        else if (stop > n) stop = n;
+                    }
+                    return new PyInt(list.Index(args[0], start, stop));
                 },
-                minArgs: 1, maxArgs: 1
+                minArgs: 1, maxArgs: 3
             );
 
             // count method descriptor
@@ -737,6 +759,18 @@ namespace SharpPy
             {
                 if (AreEqual(_items[i], item))
                     return i;
+            }
+            throw PyValueError.Create($"{item.ToRepr().Value} is not in list");
+        }
+
+        // CPython list.index(value, start=0, stop=len): search [start, stop) after
+        // caller-provided negative adjustment/clamping.
+        public int Index(PyObject item, long start, long stop)
+        {
+            for (long i = start; i < stop; i++)
+            {
+                if (AreEqual(_items[(int)i], item))
+                    return (int)i;
             }
             throw PyValueError.Create($"{item.ToRepr().Value} is not in list");
         }

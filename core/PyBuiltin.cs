@@ -544,7 +544,10 @@ namespace SharpPy
         private static PyObject CallMap(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: map is lazy and takes any number of iterables
-            // (Objects/mapobject.c); it stops at the shortest iterable.
+            // (Objects/mapobject.c); it stops at the shortest iterable. map()
+            // accepts NO keyword arguments (no strict=), even though zip() does.
+            if (kwargs != null && kwargs.Length() > 0)
+                throw PyTypeError.Create("map() takes no keyword arguments");
             if (args.Length < 2)
                 throw PyTypeError.Create($"map() must have at least two arguments.");
 
@@ -556,6 +559,9 @@ namespace SharpPy
 
         private static PyObject CallFilter(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: filter() accepts no keyword arguments.
+            if (kwargs != null && kwargs.Length() > 0)
+                throw PyTypeError.Create("filter() takes no keyword arguments");
             if (args.Length != 2)
                 throw PyTypeError.Create($"filter expected exactly 2 arguments ({args.Length} given)");
 
