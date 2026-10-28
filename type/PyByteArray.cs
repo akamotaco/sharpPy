@@ -15,6 +15,8 @@ namespace SharpPy
         private List<byte> _bytes;
         private int _exports = 0;  // Track buffer exports for resize safety
 
+        public byte[] ToByteArrayCopy() => _bytes.ToArray();
+
         #endregion
 
         #region Static Constructor & Descriptors
@@ -27,6 +29,18 @@ namespace SharpPy
         private static void InitializeByteArrayDescriptors()
         {
             var baType = PyType.BytearrayType;
+
+            // CPython 3.12: bytearray.__setitem__ (index or slice, int 0..255 value)
+            baType.TypeDict["__setitem__"] = new PyMethodDescriptor(
+                "__setitem__", baType,
+                (self, args, kwargs) => {
+                    if (args.Length != 2)
+                        throw PyTypeError.Create($"__setitem__() takes exactly 2 arguments ({args.Length} given)");
+                    if (self is not PyByteArray baSelf)
+                        throw PyTypeError.Create($"descriptor '__setitem__' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
+                    baSelf.SetItem(args[0], args[1]);
+                    return PyNone.Instance;
+                }, minArgs: 2, maxArgs: 2);
 
             baType.TypeDict["__delitem__"] = new PyMethodDescriptor(
                 "__delitem__", baType,

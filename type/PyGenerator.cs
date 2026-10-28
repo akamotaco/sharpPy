@@ -61,6 +61,19 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 0
             );
 
+            // CPython 3.12: genobject.c getseters
+            // (gi_code, gi_frame, gi_name, gi_running, gi_yieldfrom)
+            genType.TypeDict["gi_name"] = new PyGetSetDescriptor("gi_name", genType,
+                self => new PyString(((PyGenerator)self).Name));
+            genType.TypeDict["gi_code"] = new PyGetSetDescriptor("gi_code", genType,
+                self => ((PyGenerator)self)._frame.Code);
+            genType.TypeDict["gi_running"] = new PyGetSetDescriptor("gi_running", genType,
+                self => PyBool.FromBool(((PyGenerator)self)._frame.State == PyFrame.FrameState.Executing));
+            genType.TypeDict["gi_frame"] = new PyGetSetDescriptor("gi_frame", genType,
+                self => ((PyGenerator)self)._finished ? PyNone.Instance : (PyObject)((PyGenerator)self)._frame);
+            genType.TypeDict["gi_yieldfrom"] = new PyGetSetDescriptor("gi_yieldfrom", genType,
+                self => PyNone.Instance);
+
             // __iter__ and __next__ are inherited from PyIterator
         }
 

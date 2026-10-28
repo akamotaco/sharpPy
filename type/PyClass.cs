@@ -409,6 +409,16 @@ namespace SharpPy
         // 클래스 호출 시 인스턴스 생성
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: bytes subclasses inherit bytes_new semantics
+            // ("string argument without an encoding", iterable-of-ints, etc.).
+            foreach (var t in MRO)
+            {
+                if (ReferenceEquals(t, PyType.BytesType))
+                {
+                    return PyBuiltinFunction.CallBytes(args, kwargs);
+                }
+            }
+
             // Check for abstract methods before allowing instantiation
             CheckAbstractMethods();
             return CreateInstance(args, kwargs);

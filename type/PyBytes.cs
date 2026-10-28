@@ -13,6 +13,163 @@ namespace SharpPy
         /// Initialize bytes type descriptors (CPython 3.12 compatible)
         /// CPython reference: Objects/bytesobject.c:2400-2600 - bytes_methods
         /// </summary>
+        /// <summary>
+        /// CPython 3.12 UTF-8 decoder semantics (Objects/unicodeobject.c
+        /// unicode_decode_utf8). Errors are reported at the sequence start byte;
+        /// truncated sequences report "unexpected end of data" with a byte range.
+        /// </summary>
+        internal static string DecodeUtf8Python(byte[] data, string errors)
+        {
+            if (errors != "strict" && errors != "replace" && errors != "ignore"
+                && errors != "surrogateescape" && errors != "backslashreplace")
+            {
+                throw PyLookupError.Create($"unknown error handler name '{errors}'");
+            }
+
+            var sb = new System.Text.StringBuilder();
+            int i = 0;
+            int n = data.Length;
+            while (i < n)
+            {
+                byte b0 = data[i];
+                if (b0 < 0x80)
+                {
+                    sb.Append((char)b0);
+                    i++;
+                    continue;
+                }
+
+                int extra;      // continuation bytes required
+                uint minCp;     // range guards
+                uint maxCp;
+                if (b0 >= 0xC2 && b0 <= 0xDF) { extra = 1; minCp = 0x80; maxCp = 0x7FF; }
+                else if (b0 >= 0xE0 && b0 <= 0xEF) { extra = 2; minCp = 0x800; maxCp = 0xFFFF; }
+                else if (b0 >= 0xF0 && b0 <= 0xF4) { extra = 3; minCp = 0x10000; maxCp = 0x10FFFF; }
+                else
+                {
+                    HandleDecodeError(data, i, i, errors, sb, "invalid start byte");
+                    i++;
+                    continue;
+                }
+
+                if (i + extra >= n)
+                {
+                    // Truncated: all continuation bytes that exist must still be valid
+                    for (int k = 1; k < n - i; k++)
+                    {
+                        if ((data[i + k] & 0xC0) != 0x80)
+                        {
+                            HandleDecodeError(data, i, i, errors, sb, "invalid continuation byte");
+                            i++;
+                            goto nextInput;
+                        }
+                    }
+                    HandleDecodeError(data, i, n - 1, errors, sb, "unexpected end of data", true);
+                    i = n;
+                    continue;
+                }
+
+                bool ok = true;
+                uint cp = (uint)(b0 & (0x7F >> extra));
+                for (int k = 1; k <= extra; k++)
+                {
+                    byte bk = data[i + k];
+                    byte lo = 0x80, hi = 0xBF;
+                    if (k == 1)
+                    {
+                        if (b0 == 0xE0) lo = 0xA0;         // overlong guard
+                        else if (b0 == 0xED) hi = 0x9F;    // surrogate guard
+                        else if (b0 == 0xF0) lo = 0x90;
+                        else if (b0 == 0xF4) hi = 0x8F;
+                    }
+                    if (bk < lo || bk > hi) { ok = false; break; }
+                    cp = (cp << 6) | (uint)(bk & 0x3F);
+                }
+                if (!ok || cp < minCp || cp > maxCp)
+                {
+                    HandleDecodeError(data, i, i, errors, sb, "invalid continuation byte");
+                    i++;
+                    continue;
+                }
+
+                if (cp <= 0xFFFF)
+                {
+                    sb.Append((char)cp);
+                }
+                else
+                {
+                    cp -= 0x10000;
+                    sb.Append((char)(0xD800 + (cp >> 10)));
+                    sb.Append((char)(0xDC00 + (cp & 0x3FF)));
+                }
+                i += extra + 1;
+                nextInput: ;
+            }
+            return sb.ToString();
+        }
+
+        private static void HandleDecodeError(byte[] data, int start, int end, string errors,
+            System.Text.StringBuilder sb, string reason, bool range = false)
+        {
+            if (errors == "strict")
+            {
+                string where = range && end > start
+                    ? $"bytes in position {start}-{end}"
+                    : $"byte 0x{data[start]:x2} in position {start}";
+                throw PyUnicodeDecodeError.Create($"'utf-8' codec can't decode {where}: {reason}");
+            }
+            if (errors == "replace")
+            {
+                sb.Append('\uFFFD');
+            }
+            else if (errors == "surrogateescape")
+            {
+                for (int k = start; k <= end; k++)
+                {
+                    sb.Append((char)(0xDC00 + data[k]));
+                }
+            }
+            else if (errors == "backslashreplace")
+            {
+                for (int k = start; k <= end; k++)
+                {
+                    sb.Append($"\\x{data[k]:x2}");
+                }
+            }
+            // ignore: emit nothing
+        }
+
+        /// <summary>
+        /// CPython ascii decoder: "'ascii' codec can't decode byte 0x80 in position 0:
+        /// ordinal not in range(128)".
+        /// </summary>
+        internal static string DecodeAsciiPython(byte[] data, string errors)
+        {
+            if (errors != "strict" && errors != "replace" && errors != "ignore"
+                && errors != "surrogateescape" && errors != "backslashreplace")
+            {
+                throw PyLookupError.Create($"unknown error handler name '{errors}'");
+            }
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < data.Length; i++)
+            {
+                byte b = data[i];
+                if (b < 0x80)
+                {
+                    sb.Append((char)b);
+                    continue;
+                }
+                if (errors == "strict")
+                {
+                    throw PyUnicodeDecodeError.Create($"'ascii' codec can't decode byte 0x{b:x2} in position {i}: ordinal not in range(128)");
+                }
+                if (errors == "replace") sb.Append('\uFFFD');
+                else if (errors == "surrogateescape") sb.Append((char)(0xDC00 + b));
+                else if (errors == "backslashreplace") sb.Append($"\\x{b:x2}");
+            }
+            return sb.ToString();
+        }
+
         private static void InitializeBytesDescriptors()
         {
             var bytesType = PyType.BytesType;
@@ -33,11 +190,21 @@ namespace SharpPy
                     if (args.Length > 1 && args[1] is PyString errStr)
                         errors = errStr.Value;
 
-                    // Handle encoding parameter
-                    System.Text.Encoding enc = encoding.ToLower() switch
+                    var encLower = encoding.ToLowerInvariant();
+                    if (encLower == "utf-8" || encLower == "utf8")
                     {
-                        "utf-8" or "utf8" => System.Text.Encoding.UTF8,
-                        "ascii" => System.Text.Encoding.ASCII,
+                        // CPython 3.12: Objects/unicodeobject.c ascii/utf8 decoder with
+                        // per-handler behaviour and byte-accurate messages.
+                        return new PyString(DecodeUtf8Python(bytes.Value, errors));
+                    }
+                    if (encLower == "ascii" || encLower == "us-ascii" || encLower == "646")
+                    {
+                        return new PyString(DecodeAsciiPython(bytes.Value, errors));
+                    }
+
+                    // Handle encoding parameter
+                    System.Text.Encoding enc = encLower switch
+                    {
                         "utf-16" or "utf16" => System.Text.Encoding.Unicode,
                         "utf-32" or "utf32" => System.Text.Encoding.UTF32,
                         "latin-1" or "latin1" or "iso-8859-1" => System.Text.Encoding.Latin1,
@@ -2039,7 +2206,332 @@ namespace SharpPy
                 return new PyBytes(result);
             }
             
-            throw PyTypeError.Create($"can't concat bytes to {other.GetTypeName()}");
+            // CPython 3.12: bytes_concat reports "can't concat <type> to bytes".
+            throw PyTypeError.Create($"can't concat {other.GetTypeName()} to bytes");
+        }
+
+        /// <summary>
+        /// CPython 3.12: bytes % params - Objects/bytesobject.c bytes_format.
+        /// Positional (tuple or single) and named (dict with bytes keys) forms.
+        /// </summary>
+        public override PyObject Modulo(PyObject other)
+        {
+            List<PyObject> seq = null;
+            PyDict named = null;
+            if (other is PyTuple tup)
+            {
+                seq = new List<PyObject>(tup.Items);
+            }
+            else if (other is PyDict dict)
+            {
+                named = dict;
+            }
+            else
+            {
+                seq = new List<PyObject> { other };
+            }
+
+            var fmt = Value;
+            var outBytes = new List<byte>();
+            int argIndex = 0;
+            int i = 0;
+            while (i < fmt.Length)
+            {
+                byte ch = fmt[i];
+                if (ch != (byte)'%')
+                {
+                    outBytes.Add(ch);
+                    i++;
+                    continue;
+                }
+                i++;
+                if (i >= fmt.Length)
+                {
+                    throw PyValueError.Create("incomplete format");
+                }
+                if (fmt[i] == (byte)'%')
+                {
+                    outBytes.Add((byte)'%');
+                    i++;
+                    continue;
+                }
+
+                PyObject arg;
+                if (ch == (byte)'(')
+                {
+                    if (named == null)
+                    {
+                        throw PyTypeError.Create("format requires a mapping");
+                    }
+                    int close = i;
+                    var keyBytes = new List<byte>();
+                    int depth = 1;
+                    while (close < fmt.Length && depth > 0)
+                    {
+                        if (fmt[close] == (byte)'(') depth++;
+                        else if (fmt[close] == (byte)')') { depth--; if (depth == 0) break; }
+                        keyBytes.Add(fmt[close]);
+                        close++;
+                    }
+                    if (close >= fmt.Length)
+                    {
+                        throw PyValueError.Create("incomplete format key");
+                    }
+                    var key = new PyBytes(keyBytes.ToArray());
+                    i = close + 1;
+                    if (!named.InternalDict.TryGetValue(key, out arg))
+                    {
+                        throw PyKeyError.Create(key);
+                    }
+                }
+                else if (named != null)
+                {
+                    throw PyTypeError.Create("format requires a mapping");
+                }
+                else
+                {
+                    if (argIndex >= seq.Count)
+                    {
+                        throw PyTypeError.Create("not enough arguments for format string");
+                    }
+                    arg = seq[argIndex++];
+                }
+
+                // flags
+                bool alt = false, leftAlign = false, zeroPad = false, signPlus = false, signSpace = false;
+                while (i < fmt.Length)
+                {
+                    char f = (char)fmt[i];
+                    if (f == '#') { alt = true; i++; }
+                    else if (f == '-') { leftAlign = true; i++; }
+                    else if (f == '0') { zeroPad = true; i++; }
+                    else if (f == '+') { signPlus = true; i++; }
+                    else if (f == ' ') { signSpace = true; i++; }
+                    else break;
+                }
+                int width = 0;
+                while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
+                {
+                    width = width * 10 + (fmt[i] - (byte)'0');
+                    i++;
+                }
+                int precision = -1;
+                if (i < fmt.Length && fmt[i] == (byte)'.')
+                {
+                    i++;
+                    precision = 0;
+                    while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
+                    {
+                        precision = precision * 10 + (fmt[i] - (byte)'0');
+                        i++;
+                    }
+                }
+                if (i >= fmt.Length)
+                {
+                    throw PyValueError.Create("incomplete format");
+                }
+                char conv = (char)fmt[i++];
+
+                string text;
+                bool isNumeric = false;
+                switch (conv)
+                {
+                    case 'a':
+                    case 'r':
+                        throw PyTypeError.Create($"{conv} formatting: a bytes-like object is required, not 'str'");
+                    case 's':
+                    case 'b':
+                    {
+                        // CPython converts %s to %b; the failure message always names %b.
+                        if (arg is PyBytes pyb) text = System.Text.Encoding.Latin1.GetString(pyb.Value);
+                        else if (arg is PyByteArray pyba) text = System.Text.Encoding.Latin1.GetString(pyba.ToByteArrayCopy());
+                        else if (arg is PyTuple || arg is PyDict || arg is PyInt || arg is PyBool || arg is PyFloat
+                                 || !(arg.LookupAttribute("__bytes__") != null || arg.SupportsBuffer()))
+                        {
+                            throw PyTypeError.Create($"%b requires a bytes-like object, or an object that implements __bytes__, not '{arg.GetTypeName()}'");
+                        }
+                        else
+                        {
+                            var asBytes = arg.GetAttribute("__bytes__");
+                            var converted = asBytes != null && asBytes.IsCallable()
+                                ? asBytes.Call(new PyObject[0], null)
+                                : arg;
+                            if (converted is PyBytes cb) text = System.Text.Encoding.Latin1.GetString(cb.Value);
+                            else if (converted is PyByteArray cba) text = System.Text.Encoding.Latin1.GetString(cba.ToByteArrayCopy());
+                            else
+                            {
+                                throw PyTypeError.Create($"%b requires a bytes-like object, or an object that implements __bytes__, not '{arg.GetTypeName()}'");
+                            }
+                        }
+                        break;
+                    }
+                    case 'c':
+                    {
+                        int cv;
+                        if (arg is PyBytes one && one.Value.Length == 1) cv = one.Value[0];
+                        else if (TryGetIntArg(arg, out var ci))
+                        {
+                            if (ci < 0 || ci > 255)
+                            {
+                                throw PyOverflowError.Create("%c arg not in range(256)");
+                            }
+                            cv = (int)ci;
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"%c requires an integer in range(256) or a single byte, not '{arg.GetTypeName()}'");
+                        }
+                        text = ((char)cv).ToString();
+                        break;
+                    }
+                    case 'd':
+                    case 'i':
+                    case 'u':
+                    {
+                        if (!TryGetIntArg(arg, out var di))
+                        {
+                            throw PyTypeError.Create($"%{conv} format: a real number is required, not '{arg.GetTypeName()}'");
+                        }
+                        text = di.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        isNumeric = true;
+                        break;
+                    }
+                    case 'o':
+                    case 'x':
+                    case 'X':
+                    {
+                        if (!TryGetIntArg(arg, out var bi))
+                        {
+                            throw PyTypeError.Create($"%{conv} format: a real number is required, not '{arg.GetTypeName()}'");
+                        }
+                        bool neg = bi < 0;
+                        var digits = conv == 'o'
+                            ? ToRadixString(System.Numerics.BigInteger.Abs(bi), 8)
+                            : System.Numerics.BigInteger.Abs(bi).ToString("x");
+                        if (conv == 'X') digits = digits.ToUpperInvariant();
+                        text = (neg ? "-" : "") + (alt && bi != 0 ? (conv == 'o' ? "0" : conv == 'x' ? "0x" : "0X") : "") + digits;
+                        isNumeric = true;
+                        break;
+                    }
+                    case 'e':
+                    case 'E':
+                    case 'f':
+                    case 'F':
+                    case 'g':
+                    case 'G':
+                    {
+                        if (!TryGetRealArg(arg, out double dv))
+                        {
+                            throw PyTypeError.Create($"%{conv} format: a real number is required, not '{arg.GetTypeName()}'");
+                        }
+                        var culture = System.Globalization.CultureInfo.InvariantCulture;
+                        if (conv == 'f' || conv == 'F')
+                        {
+                            text = dv.ToString((precision >= 0 ? "F" + precision : "F6"), culture);
+                        }
+                        else if (conv == 'e' || conv == 'E')
+                        {
+                            text = dv.ToString((precision >= 0 ? "E" + precision : "E6"), culture);
+                            text = NormalizeExp(text, conv == 'e');
+                        }
+                        else
+                        {
+                            text = dv.ToString(precision == 0 ? "G1" : "G" + (precision > 0 ? precision : 6), culture);
+                            if (conv == 'G') text = text.ToUpperInvariant();
+                        }
+                        isNumeric = true;
+                        break;
+                    }
+                    default:
+                        throw PyValueError.Create($"unsupported format character '{conv}' (0x{(int)conv:x2}) at index {i - 1}");
+                }
+
+                if (isNumeric && (signPlus || signSpace))
+                {
+                    if (!text.StartsWith("-"))
+                    {
+                        text = (signPlus ? "+" : " ") + text;
+                    }
+                }
+                if (text.Length < width)
+                {
+                    if (leftAlign) text = text.PadRight(width);
+                    else if (zeroPad && isNumeric)
+                    {
+                        string sign = "";
+                        if (text.Length > 0 && (text[0] == '-' || text[0] == '+' || text[0] == ' '))
+                        {
+                            sign = text.Substring(0, 1);
+                            text = text.Substring(1);
+                        }
+                        text = sign + text.PadLeft(width - sign.Length, '0');
+                    }
+                    else text = text.PadLeft(width);
+                }
+                outBytes.AddRange(System.Text.Encoding.Latin1.GetBytes(text));
+            }
+
+            if (seq != null && argIndex < seq.Count)
+            {
+                throw PyTypeError.Create("not all arguments converted during bytes formatting");
+            }
+            return new PyBytes(outBytes.ToArray());
+        }
+
+        private static string ToRadixString(System.Numerics.BigInteger value, int radix)
+        {
+            if (value.IsZero)
+            {
+                return "0";
+            }
+            const string chars = "0123456789abcdef";
+            var digits = new List<char>();
+            var baseB = (System.Numerics.BigInteger)radix;
+            while (value > 0)
+            {
+                digits.Add(chars[(int)(value % baseB)]);
+                value /= baseB;
+            }
+            digits.Reverse();
+            return new string(digits.ToArray());
+        }
+
+        private static bool TryGetIntArg(PyObject arg, out System.Numerics.BigInteger value)
+        {
+            if (arg is PyInt pi) { value = pi.Value; return true; }
+            if (arg is PyBool pb) { value = pb.Value ? 1 : 0; return true; }
+            value = 0;
+            return false;
+        }
+
+        private static bool TryGetRealArg(PyObject arg, out double value)
+        {
+            if (arg is PyFloat pf) { value = pf.Value; return true; }
+            if (arg is PyInt pi) { value = (double)pi.Value; return true; }
+            if (arg is PyBool pb) { value = pb.Value ? 1.0 : 0.0; return true; }
+            value = 0;
+            return false;
+        }
+
+        private static string NormalizeExp(string text, bool lower)
+        {
+            // .NET may emit E+005; CPython uses e+05 (two-digit minimum).
+            int eIdx = text.IndexOfAny(new[] { 'e', 'E' });
+            if (eIdx < 0) return lower ? text : text.ToUpperInvariant();
+            string mantissa = text.Substring(0, eIdx);
+            string exp = text.Substring(eIdx + 1);
+            char sign = '+';
+            int start = 0;
+            if (exp.Length > 0 && (exp[0] == '+' || exp[0] == '-'))
+            {
+                sign = exp[0];
+                start = 1;
+            }
+            string digitsExp = exp.Substring(start).TrimStart('0');
+            if (digitsExp.Length == 0) digitsExp = "0";
+            if (digitsExp.Length < 2) digitsExp = digitsExp.PadLeft(2, '0');
+            string result = mantissa + (lower ? "e" : "E") + sign + digitsExp;
+            return lower ? result : result.ToUpperInvariant();
         }
 
         /// <summary>

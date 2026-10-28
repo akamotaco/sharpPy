@@ -742,9 +742,36 @@ namespace SharpPy
             return CreateInstance(args, kwargs);
         }
 
+        internal bool DerivesFromType(PyType wanted)
+        {
+            if (ReferenceEquals(this, wanted))
+            {
+                return true;
+            }
+            var mro = MRO;
+            if (mro != null)
+            {
+                foreach (var t in mro)
+                {
+                    if (ReferenceEquals(t, wanted))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         // 인스턴스 생성 (기본 구현)
         public virtual PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: bytes_new semantics also apply to bytes subclasses
+            // (Objects/bytesobject.c bytes_new -> "string argument without an encoding").
+            if (!ReferenceEquals(this, BytesType) && DerivesFromType(BytesType))
+            {
+                return PyBuiltinFunction.CallBytes(args, kwargs);
+            }
+
             // 예외 타입들에 대한 특별 처리
             string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
 

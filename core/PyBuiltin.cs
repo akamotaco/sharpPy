@@ -3961,100 +3961,152 @@ namespace SharpPy
         /// <summary>
         /// bytes() constructor - creates immutable byte sequences
         /// </summary>
-        private static PyObject CallBytes(PyObject[] args, PyDict kwargs = null)
+        /// <summary>
+        /// CPython 3.12: Objects/bytesobject.c bytes_new. A str source requires an
+        /// explicit encoding; other sources are ints or iterables of ints.
+        /// </summary>
+        public static PyObject CallBytes(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length == 0)
+            // encoding may also arrive as a keyword argument
+            PyObject[] effective = args;
+            if (kwargs != null)
             {
-                // bytes() with no arguments creates empty bytes
+                if (kwargs.InternalDict.TryGetValue(new PyString("encoding"), out var encKw))
+                {
+                    var merged = new PyObject[args.Length + 1];
+                    args.CopyTo(merged, 0);
+                    merged[args.Length] = encKw;
+                    effective = merged;
+                }
+                else if (kwargs.InternalDict.TryGetValue(new PyString("errors"), out var errKw))
+                {
+                    var merged = new PyObject[args.Length + 1];
+                    args.CopyTo(merged, 0);
+                    merged[args.Length] = PyNone.Instance; // encoding placeholder
+                    merged = AppendOne(merged, errKw);
+                    effective = merged;
+                }
+            }
+
+            if (effective.Length == 0)
+            {
                 return new PyBytesObject(new byte[0]);
             }
-            else if (args.Length == 1)
-            {
-                var arg = args[0];
-                if (arg is PyBytes existing) return existing;
-                if (arg is PyByteArray buffer) return new PyBytes(buffer.BufferSpan.ToArray());
 
-                // bytes(string, encoding) - convert string to bytes
-                if (arg is PyString str)
+            if (effective.Length >= 2 && effective[0] is PyString strSrc && effective[1] is PyString encName)
+            {
+                var enc = encName.Value.ToLowerInvariant() switch
                 {
-                    // Default encoding is utf-8
-                    var bytes = System.Text.Encoding.UTF8.GetBytes(str.Value);
-                    return new PyBytesObject(bytes);
-                }
-                // bytes(iterable) - create from iterable of integers
-                else if (arg is PyList list)
+                    "utf-8" or "utf8" => System.Text.Encoding.UTF8,
+                    "ascii" or "us-ascii" => System.Text.Encoding.ASCII,
+                    "latin-1" or "latin1" or "iso-8859-1" => System.Text.Encoding.Latin1,
+                    "utf-16" or "utf16" => System.Text.Encoding.Unicode,
+                    _ => throw PyLookupError.Create($"unknown encoding: {encName.Value}")
+                };
+                return new PyBytes(enc.GetBytes(strSrc.Value));
+            }
+            if (effective.Length >= 2 && effective[0] is PyString strNoEnc)
+            {
+                if (effective[1] is PyString badEnc)
                 {
-                    var byteList = new List<byte>();
-                    foreach (var item in list.Items)
-                    {
-                        if (item is PyInt pyInt)
-                        {
-                            if (pyInt.Value < 0 || pyInt.Value > 255)
-                                throw PyValueError.Create("byte must be in range(0, 256)");
-                            byteList.Add((byte)pyInt.Value);
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create("an integer is required");
-                        }
-                    }
-                    // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
-                    return new PyBytes(byteList.ToArray());
+                    throw PyLookupError.Create($"unknown encoding: {badEnc.Value}");
                 }
-                // bytes(range) - create from range object
-                else if (arg is PyRange range)
+                throw PyTypeError.Create("encoding without a string argument");
+            }
+
+            if (effective.Length == 1)
+            {
+                var arg = effective[0];
+                if (arg is PyBytes existing)
                 {
-                    var byteList = new List<byte>();
-                    var items = range.GetValues();
-                    foreach (var item in items)
-                    {
-                        if (item is PyInt pyInt)
-                        {
-                            if (pyInt.Value < 0 || pyInt.Value > 255)
-                                throw PyValueError.Create("byte must be in range(0, 256)");
-                            byteList.Add((byte)pyInt.Value);
-                        }
-                    }
-                    // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
-                    return new PyBytes(byteList.ToArray());
+                    return existing;
                 }
-                // CPython 3.12: Objects/bytesobject.c:2571-2585 - bytes_new
-                // bytes(int) - create bytes of specified size filled with zeros
-                else if (arg is PyInt size)
+                if (arg is PyByteArray buffer)
+                {
+                    return new PyBytes(buffer.BufferSpan.ToArray());
+                }
+
+                // CPython: a str source with no encoding is refused.
+                if (arg is PyString)
+                {
+                    throw PyTypeError.Create("string argument without an encoding");
+                }
+
+                // bytes(int) - zero-filled of that length
+                if (arg is PyInt size)
                 {
                     if (size.Value < 0)
+                    {
                         throw PyValueError.Create("negative count");
+                    }
+                    if (size.Value > int.MaxValue)
+                    {
+                        throw PyOverflowError.Create("Python int too large to convert to C int");
+                    }
                     return new PyBytes(new byte[(int)size.Value]);
                 }
-                else
+                if (arg is PyBool)
+                {
+                    // bool is int-like: bytes(True) -> one zero byte
+                    return new PyBytes(new byte[1]);
+                }
+
+                // bytes(iterable-of-ints): any iterable works (lists, ranges, iterators, dicts)
+                var iter = arg.GetIterator();
+                if (iter == null)
                 {
                     throw PyTypeError.Create($"cannot convert '{arg.GetTypeName()}' object to bytes");
                 }
-            }
-            else if (args.Length == 2)
-            {
-                // bytes(string, encoding)
-                if (args[0] is PyString str && args[1] is PyString encoding)
+                var byteList = new List<byte>();
+                while (true)
                 {
-                    var enc = encoding.Value.ToLowerInvariant() switch
+                    PyObject item;
+                    try
                     {
-                        "utf-8" or "utf8" => System.Text.Encoding.UTF8,
-                        "ascii" => System.Text.Encoding.ASCII,
-                        "unicode" or "utf-16" => System.Text.Encoding.Unicode,
-                        _ => throw PyLookupError.Create($"unknown encoding: {encoding.Value}")
-                    };
-                    var bytes = enc.GetBytes(str.Value);
-                    return new PyBytes(bytes);
+                        item = iter.Next();
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        break;
+                    }
+                    if (item is PyInt pi)
+                    {
+                        if (pi.Value < 0 || pi.Value > 255)
+                        {
+                            throw PyValueError.Create("byte must be in range(0, 256)");
+                        }
+                        byteList.Add((byte)pi.Value);
+                    }
+                    else if (item is PyBool pb)
+                    {
+                        byteList.Add((byte)(pb.Value ? 1 : 0));
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"cannot convert '{item.GetTypeName()}' object to bytes");
+                    }
                 }
-                else
-                {
-                    throw PyTypeError.Create("bytes() argument 2 must be a string");
-                }
+                return new PyBytes(byteList.ToArray());
             }
-            else
+
+            if (effective.Length > 3)
             {
-                throw PyTypeError.Create($"bytes() takes at most 2 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"bytes() takes at most 3 arguments ({effective.Length} given)");
             }
+            // (non-str, extra) forms
+            if (effective[1] is not PyString)
+            {
+                throw PyTypeError.Create("encoding without a string argument");
+            }
+            throw PyTypeError.Create("string argument without an encoding");
+        }
+
+        private static PyObject[] AppendOne(PyObject[] arr, PyObject extra)
+        {
+            var result = new PyObject[arr.Length + 1];
+            arr.CopyTo(result, 0);
+            result[arr.Length] = extra;
+            return result;
         }
 
         /// <summary>

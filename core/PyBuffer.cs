@@ -113,6 +113,62 @@ namespace SharpPy
         static PyMemoryView()
         {
             var type = PyType.MemoryViewType;
+
+            // CPython 3.12: memoryview.tobytes()/hex()/tolist()/__bytes__
+            type.TypeDict["tobytes"] = new PyMethodDescriptor("tobytes", type, (self, args, kwargs) =>
+            {
+                if (self is not PyMemoryView view)
+                    throw PyTypeError.Create($"descriptor 'tobytes' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                    throw PyTypeError.Create($"tobytes() takes no arguments ({args.Length} given)");
+                view.CheckReleased();
+                return new PyBytes(view.Data);
+            });
+            type.TypeDict["tolist"] = new PyMethodDescriptor("tolist", type, (self, args, kwargs) =>
+            {
+                if (self is not PyMemoryView view)
+                    throw PyTypeError.Create($"descriptor 'tolist' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                    throw PyTypeError.Create($"tolist() takes no arguments ({args.Length} given)");
+                view.CheckReleased();
+                var data = view.Data;
+                var items = new PyObject[data.Length];
+                for (int i = 0; i < data.Length; i++)
+                {
+                    items[i] = new PyInt(data[i]);
+                }
+                return new PyTuple(items);
+            });
+            type.TypeDict["hex"] = new PyMethodDescriptor("hex", type, (self, args, kwargs) =>
+            {
+                if (self is not PyMemoryView view)
+                    throw PyTypeError.Create($"descriptor 'hex' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                view.CheckReleased();
+                string sep = "";
+                if (args.Length > 0 && args[0] is PyString sepStr)
+                {
+                    sep = sepStr.Value;
+                }
+                var data = view.Data;
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < data.Length; i++)
+                {
+                    if (i > 0 && sep.Length > 0)
+                    {
+                        sb.Append(sep);
+                    }
+                    sb.Append(data[i].ToString("x2"));
+                }
+                return new PyString(sb.ToString());
+            });
+            type.TypeDict["__bytes__"] = new PyMethodDescriptor("__bytes__", type, (self, args, kwargs) =>
+            {
+                if (self is not PyMemoryView view)
+                    throw PyTypeError.Create($"descriptor '__bytes__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                view.CheckReleased();
+                return new PyBytes(view.Data);
+            });
+
             foreach (var name in new[] { "release", "__enter__", "__exit__" })
                 type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => {
                     if (self is not PyMemoryView view)
