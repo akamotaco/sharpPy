@@ -1181,6 +1181,33 @@ namespace SharpPy
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        /// <summary>
+        /// Windows host error formatted the way CPython's msvcrt-backed os
+        /// module reports it: "[WinError n] &lt;localized message&gt;: 'path'".
+        /// Godot builds keep the POSIX-style [Errno n] text (documented per host).
+        /// </summary>
+        internal static PythonException CreateWindowsFileError(int winCode, string path, string path2 = null)
+        {
+            string message;
+            try
+            {
+                message = new System.ComponentModel.Win32Exception(winCode).Message;
+                // FormatMessage text ends with ".\r\n"; CPython trims to the bare sentence.
+                message = message.TrimEnd();
+                if (message.EndsWith("."))
+                    message = message.Substring(0, message.Length - 1);
+            }
+            catch
+            {
+                message = "Unknown error";
+            }
+            int errnoCode = WindowsErrorToErrno(winCode);
+            PyObject[] args = path2 == null
+                ? new PyObject[] { new PyInt(errnoCode), new PyString(message), new PyString(path), new PyInt(winCode) }
+                : new PyObject[] { new PyInt(errnoCode), new PyString(message), new PyString(path), new PyInt(winCode), new PyString(path2) };
+            return new PythonException(FromStructuredArguments(args));
+        }
+
         internal static PyOSError FromArguments(PyObject[] args, PyDict kwargs)
         {
             if (kwargs != null && kwargs.Length() != 0)
@@ -1413,6 +1440,26 @@ namespace SharpPy
     /// <summary>
     /// Python FileNotFoundError - 파일이나 디렉토리를 찾을 수 없음
     /// </summary>
+    /// <summary>
+    /// CPython 3.12: io.UnsupportedOperation(OSError, ValueError) - raised by
+    /// streams for operations the mode forbids (Modules/_io/iobmodule.c).
+    /// </summary>
+    public class PyUnsupportedOperation : PyOSError
+    {
+        public PyUnsupportedOperation(string message = "operation not supported") : base(message) { }
+
+        private static readonly PyType UnsupportedOperationPyType =
+            new PyType("UnsupportedOperation", new[] { PyType.OSErrorType, PyType.ValueErrorType });
+
+        public override string GetTypeName() => "UnsupportedOperation";
+        public override PyType GetPyType() => UnsupportedOperationPyType;
+
+        public new static PythonException Create(string message = "operation not supported")
+        {
+            return new PythonException(new PyUnsupportedOperation(message));
+        }
+    }
+
     public class PyFileNotFoundError : PyOSError
     {
         internal PyFileNotFoundError(PyObject[] args, PyDict kwargs, bool normalized = false) : base(args, kwargs, normalized) { }

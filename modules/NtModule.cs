@@ -186,17 +186,55 @@ namespace SharpPy.Modules
             string path = args[0].ToStr().Value;
             try
             {
+                // .NET File.Delete is silent for missing files; CPython reports them.
+                if (!IOHelper.FileExists(path))
+                {
+#if GODOT
+                    throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
+#else
+                    throw PyOSError.CreateWindowsFileError(2, path);
+#endif
+                }
                 IOHelper.DeleteFile(path);
                 return PyNone.Instance;
             }
             catch (FileNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
+                throw WindowsOr(2, path);
             }
-            catch (Exception ex)
+            catch (DirectoryNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw WindowsOr(3, path);
             }
+            catch (UnauthorizedAccessException)
+            {
+                throw WindowsOr(5, path);
+            }
+            catch (IOException)
+            {
+                throw WindowsOr(5, path);
+            }
+        }
+
+        // Host-shaped error text: Windows CPython uses "[WinError n] <localized>",
+        // Godot builds keep the existing POSIX-style [Errno n] surface.
+        internal static PythonException WindowsOr(int winCode, string path, string path2 = null)
+        {
+#if GODOT
+            int errno = winCode is 2 or 3 ? 2 : winCode is 5 or 13 ? 13 : winCode == 183 ? 17 : 22;
+            string posix = errno switch
+            {
+                2 => "No such file or directory",
+                13 => "Permission denied",
+                17 => "File exists",
+                _ => "Invalid argument",
+            };
+            return PyOSError.Create(path2 == null
+                ? $"[Errno {errno}] {posix}: '{path}'"
+                : $"[Errno {errno}] {posix}: '{path}' -> '{path2}'");
+#else
+            return PyOSError.CreateWindowsFileError(winCode, path, path2);
+#endif
         }
 
         // rename(src, dst)
@@ -218,11 +256,20 @@ namespace SharpPy.Modules
             }
             catch (FileNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 2] No such file or directory: '{src}'");
+                throw WindowsOr(2, src, dst);
             }
-            catch (Exception ex)
+            catch (DirectoryNotFoundException)
             {
-                throw PyOSError.Create($"[Errno 1] {ex.Message}");
+                throw WindowsOr(3, src, dst);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw WindowsOr(5, src, dst);
+            }
+            catch (IOException)
+            {
+                // Covers destination-already-exists (WinError 183) and cross-device cases.
+                throw WindowsOr(183, src, dst);
             }
         }
 

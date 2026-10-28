@@ -14,6 +14,9 @@ public class PyFileContextManager : PyContextManager
     private StreamWriter? writer;
     private Encoding? textEncoding;
     private bool closed;
+    // CPython text-mode tell() reports decoded character offsets (opaque
+    // cookies that equal char counts for the common aligned cases).
+    private long textPos;
     private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
     private static readonly PyType TextType = new("TextIOWrapper", new[] { PyType.ObjectType });
     private static readonly PyType ReaderType = new("BufferedReader", new[] { PyType.ObjectType });
@@ -70,11 +73,20 @@ public class PyFileContextManager : PyContextManager
                 if (newline != null && newline != "" && newline != "\n" && newline != "\r" && newline != "\r\n")
                     throw PyValueError.Create("illegal newline value: " + new PyString(newline).ToRepr().Value);
                 Encoding codec = StrictUtf8;
-                if ((encoding != null && encoding != "utf-8") || (errors != null && errors != "strict"))
+                string? normalizedEncoding = encoding == null ? null : NormalizeEncodingName(encoding);
+                if ((normalizedEncoding != null && normalizedEncoding != "utf-8") || (errors != null && errors != "strict"))
                 {
-                    try { codec = Encoding.GetEncoding(encoding ?? "utf-8"); }
-                    catch (ArgumentException) { throw PyLookupError.Create("unknown encoding: " + encoding); }
-                    codec = (Encoding)(codec.CodePage == 65001 ? new UTF8Encoding(false) : codec).Clone();
+                    if (normalizedEncoding == "utf-8-sig")
+                    {
+                        codec = new UTF8Encoding(true, true);
+                    }
+                    else
+                    {
+                        try { codec = Encoding.GetEncoding(normalizedEncoding ?? "utf-8"); }
+                        catch (ArgumentException) { throw PyLookupError.Create("unknown encoding: " + encoding); }
+                    }
+                    if (codec.CodePage == 65001) codec = new UTF8Encoding(false);
+                    else codec = (Encoding)codec.Clone();
                     codec.EncoderFallback = errors == "ignore" ? new EncoderReplacementFallback("") : errors == "replace" ? EncoderFallback.ReplacementFallback : EncoderFallback.ExceptionFallback;
                     codec.DecoderFallback = errors == "ignore" ? new DecoderReplacementFallback("") : errors == "replace" ? DecoderFallback.ReplacementFallback : DecoderFallback.ExceptionFallback;
                 }
@@ -88,6 +100,47 @@ public class PyFileContextManager : PyContextManager
             if (ex is IOException || ex is UnauthorizedAccessException) throw FileError(ex, true);
             throw;
         }
+    }
+
+    // CPython codecs accept these aliases for the built-in Windows codepages.
+    private static string NormalizeEncodingName(string name)
+    {
+        switch (name.Trim().ToLowerInvariant())
+        {
+            case "latin-1":
+            case "latin1":
+            case "latin":
+            case "l1":
+            case "iso-8859-1":
+            case "iso8859-1":
+            case "8859":
+            case "cp819":
+                return "ISO-8859-1";
+            case "ascii":
+            case "us-ascii":
+            case "646":
+                return "us-ASCII";
+            case "utf8":
+            case "u8":
+                return "utf-8";
+            case "utf16":
+            case "utf-16le":
+                return "utf-16LE";
+            case "utf-16be":
+                return "utf-16BE";
+            case "utf-8-sig":
+                return "utf-8-sig";
+            default:
+                return name;
+        }
+    }
+
+    internal static long CountChars(string s)
+    {
+        long count = 0;
+        for (int p = 0; p < s.Length; p++, count++)
+            if (char.IsSurrogatePair(s, p)) p++;
+        return count;
     }
 
     private PythonException FileError(Exception error, bool opening = false)
@@ -108,6 +161,16 @@ public class PyFileContextManager : PyContextManager
     public override PyString ToRepr() => new($"<_io.{GetTypeName()} name={new PyString(filename).ToRepr().Value}>");
     public override PyObject Enter() { CheckClosed(); return this; }
     public override PyObject Exit(PyObject excType, PyObject excValue, PyObject traceback) { Close(); return PyNone.Instance; }
+
+    // CPython: iterating a text/binary file yields lines; the file is its own iterator.
+    public override PyObject GetIterator() => this;
+    public override PyObject Next()
+    {
+        var line = Read(-1, true);
+        if (line is PyBytes b ? b.Value.Length == 0 : ((PyString)line).Value.Length == 0)
+            throw PyStopIteration.Create();
+        return line;
+    }
 
     private void Close()
     {
@@ -142,7 +205,7 @@ public class PyFileContextManager : PyContextManager
     {
         if (closed && binary) throw PyValueError.Create("read of closed file");
         CheckClosed();
-        if (!readable) throw PyOSError.Create("not readable");
+        if (!readable) throw PyUnsupportedOperation.Create("not readable");
         try
         {
             writer?.Flush();
@@ -172,6 +235,7 @@ public class PyFileContextManager : PyContextManager
             {
                 string content = reader != null ? reader.ReadToEnd() : textEncoding!.GetString(ReadRemainingBytes());
                 if (newline == null) content = content.Replace("\r\n", "\n").Replace('\r', '\n');
+                textPos += CountChars(content);
                 return new PyString(content);
             }
             reader ??= new StreamReader(stream!, textEncoding!, false, 1024, true);
@@ -186,6 +250,7 @@ public class PyFileContextManager : PyContextManager
                     c = '\n';
                 }
                 result.Append((char)c);
+                textPos++;
                 if (char.IsHighSurrogate((char)c) && reader.Peek() >= 0 && char.IsLowSurrogate((char)reader.Peek()))
                     result.Append((char)reader.Read());
                 if (line && newline == "" && c == '\r')
@@ -229,7 +294,7 @@ public class PyFileContextManager : PyContextManager
     {
         if (closed && binary) throw PyValueError.Create("write to closed file");
         CheckClosed();
-        if (!writable) throw PyOSError.Create("not writable");
+        if (!writable) throw PyUnsupportedOperation.Create("not writable");
         try
         {
             if (append) stream!.Seek(0, SeekOrigin.End);
@@ -241,6 +306,9 @@ public class PyFileContextManager : PyContextManager
                 stream!.Write(bytes);
                 // The span roots storage, not the view's export ownership.
                 GC.KeepAlive(value);
+                // SharpPy has no refcount to flush an abandoned temp open(); writing
+                // through keeps read-back after `open(f,'wb').write(...)` observable.
+                stream.Flush();
                 return new PyInt(bytes.Length);
             }
             if (value is not PyString text) throw PyTypeError.Create($"write() argument must be str, not {value.GetTypeName()}");
@@ -248,8 +316,10 @@ public class PyFileContextManager : PyContextManager
             string replacement = newline ?? Environment.NewLine;
             if (replacement != "" && replacement != "\n") output = output.Replace("\n", replacement);
             writer!.Write(output);
+            writer.Flush();
             int length = 0;
             for (int p = 0; p < text.Value.Length; p++, length++) if (char.IsSurrogatePair(text.Value, p)) p++;
+            textPos += length;
             return new PyInt(length);
         }
         catch (IOException ex) { throw FileError(ex); }
@@ -265,44 +335,126 @@ public class PyFileContextManager : PyContextManager
         }
         return new PyList(lines.ToArray());
     }
+    private void WriteLines(PyObject linesIterable)
+    {
+        var iterator = linesIterable.GetIterator();
+        try
+        {
+            while (true)
+            {
+                var item = iterator.Next();
+                Write(item);
+            }
+        }
+        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+        {
+        }
+    }
+
+    private PyObject Truncate(PyObject? sizeValue)
+    {
+        if (!writable) throw PyUnsupportedOperation.Create("not writable");
+        CheckClosed();
+        Flush();
+        long target;
+        if (sizeValue == null || sizeValue is PyNone)
+        {
+            target = binary ? stream!.Position : textPos;
+            if (!binary)
+                target = stream!.Position; // truncate() to the current raw write position
+        }
+        else
+        {
+            // CPython io.IOBase.truncate(size): size is a raw byte offset from
+            // the file start, identical for text and binary wrappers.
+            target = Size(sizeValue);
+            if (target < 0) throw PyValueError.Create("negative length is not allowed");
+        }
+        try { stream!.SetLength(Math.Max(0, target)); }
+        catch (IOException ex) { throw FileError(ex); }
+        return new PyInt(target);
+    }
+
     public override PyObject GetAttribute(string name)
     {
         if (name == "closed") return PyBool.FromBool(closed);
         if (name == "name") return new PyString(filename);
         if (name == "mode") return new PyString(mode);
+        if (name == "readable") return new PyBoundMethodDescriptor(this, ReadableMethod);
+        if (name == "writable") return new PyBoundMethodDescriptor(this, WritableMethod);
+        if (name == "seekable") return new PyBoundMethodDescriptor(this, SeekableMethod);
+        if (name == "__iter__") return new PyBoundMethodDescriptor(this, IterMethod);
+        if (name == "__next__") return new PyBoundMethodDescriptor(this, NextMethod);
         if (Methods.TryGetValue(name, out var method)) return new PyBoundMethodDescriptor(this, method);
         return base.GetAttribute(name);
     }
+
+    private static readonly PyMethodDescriptor ReadableMethod = new("readable", PyType.ObjectType, (self, args, kwargs) => PyBool.FromBool(((PyFileContextManager)self).readable), minArgs: 1, maxArgs: 1);
+    private static readonly PyMethodDescriptor WritableMethod = new("writable", PyType.ObjectType, (self, args, kwargs) => PyBool.FromBool(((PyFileContextManager)self).writable), minArgs: 1, maxArgs: 1);
+    private static readonly PyMethodDescriptor SeekableMethod = new("seekable", PyType.ObjectType, (self, args, kwargs) => PyBool.True, minArgs: 1, maxArgs: 1);
+    private static readonly PyMethodDescriptor IterMethod = new("__iter__", PyType.ObjectType, (self, args, kwargs) => ((PyFileContextManager)self).GetIterator(), minArgs: 1, maxArgs: 1);
+    private static readonly PyMethodDescriptor NextMethod = new("__next__", PyType.ObjectType, (self, args, kwargs) => ((PyFileContextManager)self).Next(), minArgs: 1, maxArgs: 1);
     private static readonly System.Collections.Generic.Dictionary<string, PyMethodDescriptor> Methods = CreateMethods();
     private static System.Collections.Generic.Dictionary<string, PyMethodDescriptor> CreateMethods()
     {
         var methods = new System.Collections.Generic.Dictionary<string, PyMethodDescriptor>();
-        foreach (string name in new[] { "read", "readline", "readlines", "write", "close", "flush", "seek", "tell" })
+        foreach (string name in new[] { "read", "readline", "readlines", "write", "writelines", "close", "flush", "seek", "tell", "truncate" })
             methods[name] = new PyMethodDescriptor(name, PyType.ObjectType,
                 (self, args, kwargs) => ((PyFileContextManager)self).Invoke(name, args));
         return methods;
     }
     private PyObject Invoke(string name, PyObject[] args)
     {
-        int minimum = name is "write" or "seek" ? 1 : 0;
-        int maximum = name == "seek" ? 2 : name is "write" or "read" or "readline" ? 1 : 0;
+        int minimum = name is "write" or "seek" or "writelines" ? 1 : 0;
+        int maximum = name == "seek" ? 2 : name is "write" or "read" or "readline" or "writelines" or "truncate" ? 1 : 0;
         if (args.Length < minimum || args.Length > maximum) throw PyTypeError.Create($"{name}() takes {maximum} argument{(maximum == 1 ? "" : "s")} ({args.Length} given)");
         if (name == "read" || name == "readline") return Read(Size(args.Length == 0 ? null : args[0]), name == "readline");
         if (name == "readlines") return ReadLines();
         if (name == "write") return Write(args[0]);
+        if (name == "writelines") { CheckClosed(); WriteLines(args[0]); return PyNone.Instance; }
         if (name == "close") { Close(); return PyNone.Instance; }
         if (name == "flush") { Flush(); return PyNone.Instance; }
+        if (name == "truncate") return Truncate(args.Length == 0 ? null : args[0]);
         CheckClosed();
         Flush();
-        if (name == "tell") return new PyInt(stream!.Position);
+        if (name == "tell") return new PyInt(binary ? stream!.Position : textPos);
         long offset = Size(args[0]), origin = args.Length == 2 ? Size(args[1]) : 0;
-        if (origin < 0 || origin > 2) throw PyValueError.Create($"invalid whence ({origin}, should be 0, 1 or 2)");
-        if (!binary && (origin != 0 && offset != 0)) throw PyOSError.Create("can't do nonzero cur-relative seeks");
+        if (origin < 0 || origin > 2) throw PyValueError.Create($"whence value {origin} unsupported");
+        if (!binary && origin != 0 && offset != 0) throw PyOSError.Create("can't do nonzero cur-relative seeks");
+        if (binary)
+        {
+            long target = origin switch
+            {
+                0 => offset,
+                1 => stream!.Position + offset,
+                _ => stream!.Length + offset
+            };
+            if (target < 0)
+                throw new PythonException((PyOSError)PyOSError.FromArguments(new PyObject[] { new PyInt(22), new PyString("Invalid argument") }, null));
+            try
+            {
+                long position = stream!.Seek(target, SeekOrigin.Begin);
+                reader?.DiscardBufferedData();
+                return new PyInt(position);
+            }
+            catch (IOException ex) { throw FileError(ex); }
+        }
+        // CPython text seek decodes a cookie into a character offset: replay
+        // from the start so tell()/subsequent reads line up in characters.
         try
         {
-            long position = stream!.Seek(offset, (SeekOrigin)origin);
+            stream!.Seek(0, SeekOrigin.Begin);
             reader?.DiscardBufferedData();
-            return new PyInt(position);
+            textPos = 0;
+            if (origin == 2)
+            {
+                Read(-1);
+            }
+            else if (offset > 0)
+            {
+                Read(offset);
+            }
+            return new PyInt(textPos);
         }
         catch (IOException ex) { throw FileError(ex); }
     }
