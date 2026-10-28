@@ -636,6 +636,23 @@ namespace SharpPy
                 exceptionMessage = e.Message;
             }
 
+            // CPython 3.12: PyErr_Display appends suggestions for NameError at
+            // display time (Python/suggestions.c offer_suggestions_for_name_error).
+            // Caught exceptions keep the plain message; only this display gains the suffix.
+            if (e is PythonException pyExSug && pyExSug.PyException is PyNameError displayErr &&
+                displayErr.GetAttribute("name") is PyString wrongName && wrongName.Value.Length > 0)
+            {
+                string? displaySuggestion = ErrorSuggestions.GetDisplaySuggestionForNameError(
+                    pyExSug.PyException.__traceback__, wrongName.Value);
+                bool stdlibModule = StdlibModuleNames.Contains(wrongName.Value);
+                if (displaySuggestion != null && stdlibModule)
+                    exceptionMessage += $". Did you mean: '{displaySuggestion}'? Or did you forget to import '{wrongName.Value}'?";
+                else if (displaySuggestion != null)
+                    exceptionMessage += $". Did you mean: '{displaySuggestion}'?";
+                else if (stdlibModule)
+                    exceptionMessage += $". Did you forget to import '{wrongName.Value}'?";
+            }
+
             Console.WriteLine($"{pythonExceptionType}: {exceptionMessage}");
         }
         

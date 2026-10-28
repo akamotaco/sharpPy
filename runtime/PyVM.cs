@@ -716,9 +716,10 @@ namespace SharpPy
                 // f_globals: global namespace dictionary
                 "f_globals" => PyGlobalsDict.For(Globals),
 
-                // f_builtins: built-in namespace dictionary
+                // f_builtins: built-in namespace dictionary (CPython returns the
+                // builtins module dict, which is iterable; the module object is not)
                 "f_builtins" => ScopeChain.BuiltinModule != null
-                    ? ScopeChain.BuiltinModule
+                    ? ScopeChain.BuiltinModule.GetAttribute("__dict__")
                     : PyNone.Instance,
 
                 // f_lasti: instruction index (for traceback)
@@ -1229,47 +1230,17 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Create NameError with suggestion
-        /// CPython 3.12: Python/suggestions.c:217-290
+        /// Create NameError: plain message plus .name; suggestions belong to display.
+        /// CPython 3.12: Python/suggestions.c offer_suggestions_for_name_error
         /// </summary>
         private static Exception CreateNameErrorWithSuggestion(string name, PyFrame frame)
         {
-            var locals = new Dictionary<string, PyObject>();
-            var globals = new Dictionary<string, PyObject>();
-            var builtins = new Dictionary<string, PyObject>();
-
-            // Collect locals from current scope
-            if (frame.ScopeChain.CurrentScope != null)
-            {
-                foreach (var kvp in frame.ScopeChain.CurrentScope.Variables)
-                {
-                    locals[kvp.Key] = kvp.Value;
-                }
-            }
-
-            // Collect globals
-            if (frame.ScopeChain.GlobalScope != null)
-            {
-                foreach (var kvp in frame.ScopeChain.GlobalScope.Variables)
-                {
-                    globals[kvp.Key] = kvp.Value;
-                }
-            }
-
-            // Collect builtins
-            var builtinNames = frame.ScopeChain.BuiltinModule.GetAllBuiltinNames();
-            foreach (var builtinName in builtinNames)
-            {
-                var builtin = frame.ScopeChain.BuiltinModule.GetBuiltin(builtinName);
-                if (builtin != null)
-                {
-                    builtins[builtinName] = builtin;
-                }
-            }
-
-            string? suggestion = ErrorSuggestions.GetSuggestionForNameError(name, locals, globals, builtins);
-            string errorMessage = ErrorSuggestions.FormatNameErrorWithSuggestion(name, suggestion);
-            return PyNameError.Create(errorMessage);
+            // CPython 3.12: raise a plain message plus the .name attribute.
+            // "Did you mean" suggestions are produced by the traceback display layer
+            // (Python/suggestions.c offer_suggestions_for_name_error / Lib/traceback.py),
+            // never baked into the caught exception's args.
+            _ = frame;
+            return PyNameError.Create($"name '{name}' is not defined", name);
         }
 
         public PyObject ExecuteFrame(PyFrame frame)

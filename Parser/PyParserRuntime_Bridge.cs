@@ -3050,12 +3050,16 @@ namespace SharpPy.Generated
             {
                 names.Add(funcArgs.PosOnlyArgs[i].Name);
             }
+            if (funcArgs.PosOnlyArgs.Count > 0)
+                names.Add("/");
             for (int i = 0; i < funcArgs.Args.Count; i++)
             {
                 names.Add(funcArgs.Args[i].Name);
             }
             if (funcArgs.VarArg != null)
                 names.Add("*" + funcArgs.VarArg.Name);
+            else if (funcArgs.KwOnlyArgs.Count > 0)
+                names.Add("*");
             for (int i = 0; i < funcArgs.KwOnlyArgs.Count; i++)
             {
                 names.Add(funcArgs.KwOnlyArgs[i].Name);

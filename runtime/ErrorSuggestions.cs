@@ -62,11 +62,11 @@ namespace SharpPy
 
             int aSize = a.Length;
             int bSize = b.Length;
-            int aStart = 0;
-            int bStart = 0;
 
-            // Trim away common affixes
-            while (aStart < aSize && aStart < bSize && a[aStart] == b[aStart])
+            // Trim away common affixes (CPython advances BOTH string pointers by
+            // the same count, so a single shared window start represents both).
+            int aStart = 0;
+            while (aSize > aStart && bSize > aStart && a[aStart] == b[aStart])
             {
                 aStart++;
             }
@@ -90,8 +90,7 @@ namespace SharpPy
                 return maxCost + 1;
             }
 
-            // Prefer shorter buffer
-            bool swapped = false;
+            // Prefer shorter buffer (the shared start offset still applies to both)
             if (bSize < aSize)
             {
                 var tempStr = a;
@@ -101,12 +100,6 @@ namespace SharpPy
                 var tempSize = aSize;
                 aSize = bSize;
                 bSize = tempSize;
-
-                var tempStart = aStart;
-                aStart = bStart;
-                bStart = tempStart;
-
-                swapped = true;
             }
 
             // Quick fail when a match is impossible
@@ -127,26 +120,27 @@ namespace SharpPy
             int result = 0;
             for (int bIndex = 0; bIndex < bSize; bIndex++)
             {
-                char code = b[bStart + bIndex];
+                char code = b[aStart + bIndex];
                 int distance = result = bIndex * MoveCost;
                 int minimum = int.MaxValue;
 
                 for (int index = 0; index < aSize; index++)
                 {
-                    // 1) substitute
+                    // CPython 3.12 Python/suggestions.c exact recurrence:
+                    // 1) substitute: cost(b[:b_index], a[:index]) + sub_cost
                     int substituteCost = distance + SubstitutionCost(code, a[aStart + index]);
-                    // 2) delete from b
-                    int deleteCost = result + MoveCost;
-                    // 3) delete from a
-                    int insertCost = buffer[index] + MoveCost;
+                    // 2) previous-row value cost(b[:b_index], a[:index+1]) becomes the
+                    //    DIAGONAL for the next column - keep it in `distance`.
+                    distance = buffer[index];
+                    // 3) insert/delete: min(left, top) + MOVE_COST
+                    int insertDelete = Math.Min(result, distance) + MoveCost;
 
-                    distance = result = Math.Min(substituteCost, Math.Min(deleteCost, insertCost));
-                    if (distance < minimum)
+                    result = Math.Min(insertDelete, substituteCost);
+                    buffer[index] = result;
+                    if (result < minimum)
                     {
-                        minimum = distance;
+                        minimum = result;
                     }
-
-                    buffer[index] = distance;
                 }
 
                 if (minimum > maxCost)
@@ -176,42 +170,45 @@ namespace SharpPy
                 return null;
             }
 
-            // CPython: MAX_CANDIDATE_ITEMS check
-            var dirList = dir.Take(MaxCandidateItems).ToList();
-
-            int maxDistance = (nameSize + 2) * MoveCost / 6;
+            // CPython 3.12: calculate_suggestions refuses to scan very large namespaces
+            var dirList = dir.Take(MaxCandidateItems + 1).ToList();
+            if (dirList.Count >= MaxCandidateItems)
+            {
+                return null;
+            }
 
             string? suggestion = null;
             int suggestionDistance = int.MaxValue;
 
             foreach (var item in dirList)
             {
+                if (item == name)
+                {
+                    continue;
+                }
+
                 if (string.IsNullOrEmpty(item))
                 {
                     continue;
                 }
 
-                // Skip private/magic names (start with '_')
-                if (item.StartsWith("_"))
-                {
-                    continue;
-                }
-
                 int itemSize = item.Length;
-                if (itemSize >= MaxStringSize)
+
+                // CPython 3.12: no more than 1/3 of the involved characters should need changed.
+                int maxDistance = (nameSize + itemSize + 3) * MoveCost / 6;
+                // Don't take matches we've already beaten.
+                if (suggestionDistance - 1 < maxDistance)
+                {
+                    maxDistance = suggestionDistance - 1;
+                }
+
+                int currentDistance = LevenshteinDistance(name, item, maxDistance);
+                if (currentDistance > maxDistance)
                 {
                     continue;
                 }
 
-                // Don't suggest excessively long names
-                if (itemSize > (nameSize + maxDistance) * 3)
-                {
-                    continue;
-                }
-
-                int currentDistance = LevenshteinDistance(name, item, suggestionDistance - 1);
-
-                if (currentDistance < suggestionDistance)
+                if (suggestion == null || currentDistance < suggestionDistance)
                 {
                     suggestion = item;
                     suggestionDistance = currentDistance;
@@ -222,56 +219,77 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Get suggestions for NameError
-        /// CPython 3.12: Python/suggestions.c:217-290
+        /// CPython 3.12: Python/suggestions.c offer_suggestions_for_name_error -
+        /// the DISPLAY-time path used by PyErr_Display. Reads the innermost traceback
+        /// frame, tries locals (with the "self." hint first), then globals, then
+        /// builtins as separate candidate pools (C ordering matters: an earlier pool
+        /// with a valid suggestion wins over a closer name in a later pool).
         /// </summary>
-        public static string? GetSuggestionForNameError(string name, Dictionary<string, PyObject> locals, Dictionary<string, PyObject> globals, Dictionary<string, PyObject> builtins)
+        public static string? GetDisplaySuggestionForNameError(PyObject? tracebackObj, string name)
         {
-            if (string.IsNullOrEmpty(name))
+            try
             {
-                return null;
-            }
+                if (tracebackObj is not PyTraceback tb) return null;
+                while (tb.Next != null) tb = tb.Next!;
+                var frame = tb.Frame;
+                if (frame == null) return null;
 
-            // 1. Search in locals
-            string? suggestion = CalculateSuggestions(locals.Keys, name);
-            if (suggestion != null)
-            {
-                return suggestion;
-            }
+                var localsObj = frame.GetAttribute("f_locals");
+                var localsNames = AsNameList(localsObj);
+                var globalsNames = AsNameList(frame.GetAttribute("f_globals"));
+                var builtinsNames = AsNameList(frame.GetAttribute("f_builtins"));
 
-            // 2. Check if we're in a method and instance has attribute 'name'
-            if (locals.ContainsKey("self") && locals["self"] is PyObject self)
-            {
-                // Try to get attribute from self
-                try
+                // Are we inside a method and the instance has an attribute called 'name'?
+                if (localsNames != null && localsNames.Contains("self") && localsObj is PyDict localsDict)
                 {
-                    var attr = self.GetAttribute(name);
-                    if (attr != null)
+                    var selfObj = localsDict.Get(new PyString("self"));
+                    if (selfObj != null && !ReferenceEquals(selfObj, PyNone.Instance))
                     {
-                        return "self." + name;
+                        try
+                        {
+                            selfObj.GetAttribute(name);
+                            return "self." + name;
+                        }
+                        catch (PythonException)
+                        {
+                            // no such attribute; continue with name candidates
+                        }
                     }
                 }
-                catch
+
+                foreach (var pool in new[] { localsNames, globalsNames, builtinsNames })
                 {
-                    // Attribute doesn't exist, continue
+                    if (pool == null) continue;
+                    var suggestion = CalculateSuggestions(pool, name);
+                    if (suggestion != null) return suggestion;
                 }
             }
-
-            // 3. Search in globals
-            suggestion = CalculateSuggestions(globals.Keys, name);
-            if (suggestion != null)
+            catch (PythonException)
             {
-                return suggestion;
+                // suggestions must never break the traceback display
             }
-
-            // 4. Search in builtins
-            suggestion = CalculateSuggestions(builtins.Keys, name);
-            if (suggestion != null)
-            {
-                return suggestion;
-            }
-
             return null;
+        }
+
+        private static List<string>? AsNameList(PyObject? value)
+        {
+            switch (value)
+            {
+                case PyDict d:
+                    var fromDict = new List<string>();
+                    foreach (var key in d.Keys().Items)
+                        if (key is PyString ks && ks.Value.Length > 0)
+                            fromDict.Add(ks.Value);
+                    return fromDict;
+                case PyModule m:
+                    var fromModule = new List<string>();
+                    foreach (var key in m.ModuleDict.Keys)
+                        if (key.Length > 0)
+                            fromModule.Add(key);
+                    return fromModule;
+                default:
+                    return null;
+            }
         }
 
         /// <summary>

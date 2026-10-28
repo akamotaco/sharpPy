@@ -642,46 +642,11 @@ namespace SharpPy
             if (verbose) Console.WriteLine($"  ❌ B에서 못 찾음");
 #endif
 
-            // CPython 3.12: Generate error suggestion (Python/suggestions.c:217-290)
-            // Collect locals, globals, and builtins for suggestion algorithm
-            var locals = new Dictionary<string, PyObject>();
-            var globals = new Dictionary<string, PyObject>();
-            var builtins = new Dictionary<string, PyObject>();
-
-            // Collect locals from current scope
-            if (CurrentScope != null)
-            {
-                foreach (var kvp in CurrentScope.Variables)
-                {
-                    locals[kvp.Key] = kvp.Value;
-                }
-            }
-
-            // Collect globals
-            if (GlobalScope != null)
-            {
-                foreach (var kvp in GlobalScope.Variables)
-                {
-                    globals[kvp.Key] = kvp.Value;
-                }
-            }
-
-            // Collect builtins
-            var builtinNames = _builtinModule.GetAllBuiltinNames();
-            foreach (var builtinName in builtinNames)
-            {
-                var builtin = _builtinModule.GetBuiltin(builtinName);
-                if (builtin != null)
-                {
-                    builtins[builtinName] = builtin;
-                }
-            }
-
-            // Get suggestion
-            string? suggestion = ErrorSuggestions.GetSuggestionForNameError(name, locals, globals, builtins);
-            string errorMessage = ErrorSuggestions.FormatNameErrorWithSuggestion(name, suggestion);
-
-            throw PyNameError.Create(errorMessage);
+            // CPython 3.12: raise a plain message plus the .name attribute.
+            // "Did you mean" suggestions are produced by the traceback display layer
+            // (Python/suggestions.c offer_suggestions_for_name_error / Lib/traceback.py),
+            // never baked into the caught exception's args.
+            throw PyNameError.Create($"name '{name}' is not defined", name);
         }
 
         public void AssignVariable(string name, PyObject value, HashSet<string> globalVars = null)

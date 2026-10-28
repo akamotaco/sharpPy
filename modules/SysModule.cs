@@ -32,6 +32,8 @@ namespace SharpPy.Modules
 
             // 플랫폼 정보
             module.ModuleDict["platform"] = new PyString(GetPlatformName());
+            // CPython 3.12: sys.stdlib_module_names (frozenset; used by traceback suggestions)
+            module.ModuleDict["stdlib_module_names"] = StdlibModuleNames.FrozenSet();
             module.ModuleDict["version"] = new PyString(GetPythonVersion());
             module.ModuleDict["version_info"] = CreateVersionInfo();
             
