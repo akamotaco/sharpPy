@@ -715,7 +715,9 @@ namespace SharpPy
                 InvalidateTypeCache();
                 return;
             }
-            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            // CPython type_setattro delete of a missing class attribute:
+            // "type object '<class>' has no attribute '<name>'".
+            throw PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
         }
 
         /// <summary>

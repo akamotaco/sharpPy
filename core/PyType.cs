@@ -2756,6 +2756,12 @@ namespace SharpPy
 
         #region Type Attributes
 
+        // CPython type_getattro reports a missing attribute on a class as
+        // "type object '<class>' has no attribute '<name>'" (uses the class name,
+        // not the metaclass name).
+        protected override System.Exception AttributeNotFound(string name)
+            => PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
+
         public override PyObject GetAttribute(string name)
         {
             // CPython 3.12 호환: type_getattro() 구현

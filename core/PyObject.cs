@@ -806,8 +806,14 @@ namespace SharpPy
                 return CallGetAttr(name);
             }
 
-            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            throw AttributeNotFound(name);
         }
+
+        // CPython distinguishes attribute errors on a class object
+        // (type_getattro: "type object 'X' has no attribute 'Y'") from those on
+        // an instance ("'X' object has no attribute 'Y'"). PyType overrides this.
+        protected virtual System.Exception AttributeNotFound(string name)
+            => PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
 
         protected virtual void PySetAttribute(string name, PyObject value)
         {
@@ -931,7 +937,7 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"   ❌ attribute not found anywhere, raising AttributeError");
             #endif
-            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+            throw AttributeNotFound(name);
         }
 
         #endregion
