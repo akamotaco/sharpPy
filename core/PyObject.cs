@@ -817,6 +817,12 @@ namespace SharpPy
 
         protected virtual void PySetAttribute(string name, PyObject value)
         {
+            // CPython type_setattro rejects ALL writes on a static (non-heap) type
+            // BEFORE descriptor lookup: TypeError "cannot set '<n>' attribute of
+            // immutable type '<T>'". Native builtins are non-heap; PyClass is heap.
+            if (this is PyType nativeType && !(nativeType is PyClass))
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
+
             var type = GetPyType();
 
             // 1. 타입의 MRO에서 data descriptor 찾기
@@ -846,7 +852,9 @@ namespace SharpPy
             }
             else
             {
-                throw PyAttributeError.Create($"'{GetTypeName()}' object attribute '{name}' is read-only");
+                // CPython generic setattr on an instance with no __dict__ and no
+                // matching data descriptor: "'<T>' object has no attribute '<n>'".
+                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
             }
         }
 
@@ -858,6 +866,10 @@ namespace SharpPy
         {
             // CPython 3.12 compatible: PyObject_GenericSetAttr with value=NULL
             // References: Objects/object.c _PyObject_GenericSetAttrWithDict()
+            // Static (non-heap) types reject every deletion: TypeError immutable.
+            if (this is PyType nativeType && !(nativeType is PyClass))
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
+
             var type = GetPyType();
 
             #if DEBUG_LOG
