@@ -808,8 +808,8 @@ namespace SharpPy
                         }
                     }
 
-                    if (args[0] is not PyString prefix)
-                        throw PyTypeError.Create("startswith first arg must be str");
+                    // CPython unicode_startswith accepts a str or a tuple of str.
+                    var prefixes = NormalizePrefixTuple(args[0], "startswith");
 
                     int start = 0;
                     int end = str.Value.Length;
@@ -824,11 +824,13 @@ namespace SharpPy
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
                     if (end > str.Value.Length) end = str.Value.Length;
 
-                    if (start >= end || start + prefix.Value.Length > end)
-                        return PyBool.False;
-
-                    string substring = str.Value.Substring(start, Math.Min(prefix.Value.Length, end - start));
-                    return PyBool.FromBool(substring == prefix.Value);
+                    foreach (var prefix in prefixes)
+                    {
+                        if (start < end && start + prefix.Length <= end &&
+                            str.Value.Substring(start, prefix.Length) == prefix)
+                            return PyBool.True;
+                    }
+                    return PyBool.False;
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -847,8 +849,8 @@ namespace SharpPy
                         }
                     }
 
-                    if (args[0] is not PyString suffix)
-                        throw PyTypeError.Create("endswith first arg must be str");
+                    // CPython unicode_endswith accepts a str or a tuple of str.
+                    var suffixes = NormalizePrefixTuple(args[0], "endswith");
 
                     int start = 0;
                     int end = str.Value.Length;
@@ -858,20 +860,17 @@ namespace SharpPy
                     if (args.Length >= 3 && args[2] is PyInt endInt)
                         end = (int)endInt.Value;
 
-                    // Normalize indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
                     if (end > str.Value.Length) end = str.Value.Length;
 
-                    if (start >= end || end - suffix.Value.Length < start)
-                        return PyBool.False;
-
-                    int suffixStart = end - suffix.Value.Length;
-                    if (suffixStart < start)
-                        return PyBool.False;
-
-                    string substring = str.Value.Substring(suffixStart, suffix.Value.Length);
-                    return PyBool.FromBool(substring == suffix.Value);
+                    foreach (var suffix in suffixes)
+                    {
+                        if (start < end && suffix.Length <= end - start &&
+                            str.Value.Substring(end - suffix.Length, suffix.Length) == suffix)
+                            return PyBool.True;
+                    }
+                    return PyBool.False;
                 },
                 minArgs: 1, maxArgs: 3
             );
@@ -1016,33 +1015,8 @@ namespace SharpPy
                     else if (args.Length >= 1 && args[0] is PyInt keependsI)
                         keepends = keependsI.Value != 0;
 
-                    var lines = str.Value.Split(new[] { "\r\n", "\r", "\n" }, System.StringSplitOptions.None);
-                    var items = new System.Collections.Generic.List<PyObject>();
-
-                    for (int i = 0; i < lines.Length; i++)
-                    {
-                        string line = lines[i];
-                        if (keepends && i < lines.Length - 1)
-                        {
-                            // Add back the line separator
-                            if (i < str.Value.Length)
-                            {
-                                int pos = str.Value.IndexOf(line, System.StringComparison.Ordinal);
-                                if (pos >= 0 && pos + line.Length < str.Value.Length)
-                                {
-                                    char nextChar = str.Value[pos + line.Length];
-                                    if (nextChar == '\r' && pos + line.Length + 1 < str.Value.Length && str.Value[pos + line.Length + 1] == '\n')
-                                        line += "\r\n";
-                                    else if (nextChar == '\r' || nextChar == '\n')
-                                        line += nextChar;
-                                }
-                            }
-                        }
-                        if (i < lines.Length - 1 || line.Length > 0)
-                            items.Add(new PyString(line));
-                    }
-
-                    return new PyList(items);
+                    // CPython unicode_splitlines: \n \r \r\n \v \f \x1c \x1d \x1e \x85 \u2028 \u2029
+                    return new PyList(SplitLinesCore(str.Value, keepends));
                 },
                 minArgs: 0, maxArgs: 1
             );
@@ -1090,7 +1064,7 @@ namespace SharpPy
                         }
                     }
 
-                    return new PyString(str.Value.ToLowerInvariant());
+                    return new PyString(CaseFold(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -1125,9 +1099,11 @@ namespace SharpPy
                     if (str.Value.Length >= width)
                         return str;
 
-                    int totalPad = width - str.Value.Length;
-                    int leftPad = totalPad / 2;
-                    int rightPad = totalPad - leftPad;
+                    // CPython 3.12 Objects/stringlib/transmogrify.h:203-206:
+                    // left = marg/2 + (marg & width & 1); right = marg - left.
+                    int marg = width - str.Value.Length;
+                    int leftPad = marg / 2 + (marg & width & 1);
+                    int rightPad = marg - leftPad;
 
                     return new PyString(new string(fillchar, leftPad) + str.Value + new string(fillchar, rightPad));
                 },
@@ -2055,6 +2031,112 @@ namespace SharpPy
             return new PyString(Value + otherStr.Value);
         }
 
+        // --- Shared primitives for CPython-exact string operations ---
+
+        // CPython unicode_startswith/endswith: str or tuple-of-str; a non-str member
+        // raises the combined message.
+        private static System.Collections.Generic.List<string> NormalizePrefixTuple(PyObject arg, string what)
+        {
+            var list = new System.Collections.Generic.List<string>();
+            if (arg is PyString single)
+            {
+                list.Add(single.Value);
+                return list;
+            }
+            if (arg is PyTuple tuple)
+            {
+                foreach (var item in tuple.Items)
+                {
+                    if (item is not PyString part)
+                        throw PyTypeError.Create($"tuple for {what} must only contain str, not {item.GetTypeName()}");
+                    list.Add(part.Value);
+                }
+                return list;
+            }
+            throw PyTypeError.Create($"{what} first arg must be str or a tuple of str, not {arg.GetTypeName()}");
+        }
+
+        private static bool IsLineBreak(char c) =>
+            c == '\n' || c == '\r' || c == '\v' || c == '\f' ||
+            c == '\x1c' || c == '\x1d' || c == '\x1e' || c == '\x85' ||
+            c == '\u2028' || c == '\u2029';
+
+        internal static System.Collections.Generic.List<PyObject> SplitLinesCore(string s, bool keepends)
+        {
+            var items = new System.Collections.Generic.List<PyObject>();
+            int start = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (!IsLineBreak(s[i]))
+                    continue;
+                int brkLen = s[i] == '\r' && i + 1 < s.Length && s[i + 1] == '\n' ? 2 : 1;
+                items.Add(new PyString(keepends ? s.Substring(start, i + brkLen - start) : s.Substring(start, i - start)));
+                i += brkLen - 1;
+                start = i + 1;
+            }
+            if (start < s.Length)
+                items.Add(new PyString(s.Substring(start)));
+            return items;
+        }
+
+        // .NET has no casefold(); CPython's is full case folding (CaseFolding.txt F).
+        // Handle the multi-character and special mappings explicitly, then use
+        // invariant lowercasing for the single-character remainder.
+        private static string CaseFold(string s)
+        {
+            var sb = new StringBuilder(s.Length);
+            foreach (var ch in s)
+            {
+                switch (ch)
+                {
+                    case '\u00DF': sb.Append("ss"); break;                 // ß
+                    case '\u0130': sb.Append('i').Append('\u0307'); break; // İ -> i + combining dot
+                    case '\u0131': sb.Append('i'); break;
+                    case '\u0149': sb.Append('\u02BC').Append('n'); break; // ŉ
+                    case '\u1E9E': sb.Append("ss"); break;
+                    case '\uFB00': sb.Append("ff"); break;
+                    case '\uFB01': sb.Append("fi"); break;
+                    case '\uFB02': sb.Append("fl"); break;
+                    case '\uFB03': sb.Append("ffi"); break;
+                    case '\uFB04': sb.Append("ffl"); break;
+                    case '\uFB05': sb.Append("st"); break;
+                    case '\uFB06': sb.Append("st"); break;
+                    case '\u017F': sb.Append('s'); break;                  // ſ
+                    default: sb.Append(char.ToLowerInvariant(ch)); break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        // CPython 'cased' = Unicode categories Lu, Ll, Lt.
+        private static bool IsCasedChar(char ch)
+        {
+            var cat = char.GetUnicodeCategory(ch);
+            return cat == UnicodeCategory.UppercaseLetter ||
+                   cat == UnicodeCategory.LowercaseLetter ||
+                   cat == UnicodeCategory.TitlecaseLetter;
+        }
+
+        private static string CPythonTitle(string s)
+        {
+            var sb = new StringBuilder(s.Length);
+            bool previousCased = false;
+            foreach (var ch in s)
+            {
+                if (IsCasedChar(ch))
+                {
+                    sb.Append(previousCased ? char.ToLowerInvariant(ch) : char.ToUpperInvariant(ch));
+                    previousCased = true;
+                }
+                else
+                {
+                    sb.Append(ch);
+                    previousCased = false;
+                }
+            }
+            return sb.ToString();
+        }
+
         // Receiver resolution for str descriptors: exact str or the content storage of a
         // str subclass instance (CPython looks through the subclass via the unicode type).
         internal static PyString AsStrReceiver(PyObject self)
@@ -2557,7 +2639,9 @@ namespace SharpPy
         public PyString Upper() => new PyString(Value.ToUpper());
         public PyString Lower() => new PyString(Value.ToLower());
         public PyString Capitalize() => new PyString(CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Value.ToLower()));
-        public PyString Title() => Capitalize(); // 간단한 구현
+        // CPython unicode_title state machine: a cased character is uppercased when the
+        // preceding character was not cased, lowercased otherwise ("it's" -> "It'S").
+        public PyString Title() => new PyString(CPythonTitle(Value));
         
         public PyString Strip(string chars = null)
         {
@@ -2782,7 +2866,7 @@ namespace SharpPy
             return PyBool.FromBool(hasLetter);
         }
 
-        public PyBool IsTitle() => PyBool.FromBool(Value == Capitalize().Value);
+        public PyBool IsTitle() => PyBool.FromBool(Value == CPythonTitle(Value));
 
         #endregion
 
@@ -2945,15 +3029,52 @@ namespace SharpPy
                     bytes = Encoding.UTF8.GetBytes(Value);
                 else if (lowerEncoding == "ascii")
                     bytes = Encoding.ASCII.GetBytes(Value);
-                else if (lowerEncoding == "unicode")
+                else if (lowerEncoding == "unicode" || lowerEncoding == "utf-16" ||
+                         lowerEncoding == "utf16" || lowerEncoding == "utf-16-le")
                     bytes = Encoding.Unicode.GetBytes(Value);
+                else if (lowerEncoding == "utf-16-be")
+                    bytes = Encoding.BigEndianUnicode.GetBytes(Value);
+                else if (lowerEncoding == "latin-1" || lowerEncoding == "latin1" || lowerEncoding == "iso-8859-1")
+                {
+                    // CPython strict latin-1: report the first out-of-range run exactly.
+                    for (int i = 0; i < Value.Length; i++)
+                    {
+                        if (Value[i] > 0xFF)
+                        {
+                            int cp = Value[i];
+                            int endIdx = i;
+                            if (char.IsHighSurrogate(Value[i]) && i + 1 < Value.Length && char.IsLowSurrogate(Value[i + 1]))
+                            {
+                                cp = char.ConvertToUtf32(Value[i], Value[i + 1]);
+                                endIdx = i + 1;
+                            }
+                            int runEnd = endIdx;
+                            while (runEnd + 1 < Value.Length && Value[runEnd + 1] > 0xFF)
+                            {
+                                runEnd++;
+                                if (char.IsHighSurrogate(Value[runEnd]) && runEnd + 1 < Value.Length && char.IsLowSurrogate(Value[runEnd + 1]))
+                                    runEnd++;
+                            }
+                            string chDesc = cp <= 0xFFFF ? $"\'\\u{cp:x4}\'" : $"\'\\U{cp:x8}\'";
+                            string position = runEnd == i ? $"character {chDesc} in position {i}"
+                                                         : $"characters in position {i}-{runEnd}";
+                            throw PyUnicodeEncodeError.Create(
+                                $"'latin-1' codec can't encode {position}: ordinal not in range(256)");
+                        }
+                    }
+                    bytes = Encoding.Latin1.GetBytes(Value);
+                }
                 else
                     throw PyLookupError.Create($"unknown encoding: {encoding}");
                 return new PyBytes(bytes);
             }
+            catch (PythonException)
+            {
+                throw; // LookupError/ValueError already carry CPython semantics
+            }
             catch (Exception)
             {
-                throw PyValueError.Create($"'{encoding}' codec can't encode characters");
+                throw PyValueError.Create($"'{encoding}' codec can't encode characters in position 0-{Value.Length - 1}: character is not mapped");
             }
         }
 
@@ -3159,13 +3280,10 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"startswith() takes exactly one argument ({args.Length} given)");
             
-            var prefix = args[0] switch
-            {
-                PyString str => str.Value,
-                _ => throw PyTypeError.Create("startswith first arg must be str")
-            };
-            
-            return PyBool.FromBool(Value.StartsWith(prefix));
+            foreach (var prefix in NormalizePrefixTuple(args[0], "startswith"))
+                if (Value.StartsWith(prefix))
+                    return PyBool.True;
+            return PyBool.False;
         }
 
         private PyObject EndsWith(PyObject[] args)
@@ -3173,13 +3291,10 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"endswith() takes exactly one argument ({args.Length} given)");
             
-            var suffix = args[0] switch
-            {
-                PyString str => str.Value,
-                _ => throw PyTypeError.Create("endswith first arg must be str")
-            };
-            
-            return PyBool.FromBool(Value.EndsWith(suffix));
+            foreach (var suffix in NormalizePrefixTuple(args[0], "endswith"))
+                if (Value.EndsWith(suffix))
+                    return PyBool.True;
+            return PyBool.False;
         }
 
         private PyObject Find(PyObject[] args)
