@@ -1680,11 +1680,17 @@ namespace SharpPy
                     // For heap types (PyClass), check ClassDict
                     if (type is PyClass customType)
                     {
-                        if (customType.ClassDict.TryGetValue("__module__", out var mod))
+                        // A user/heap class stores its module string directly in the
+                        // class dict. The `type` object itself is modelled as a
+                        // PyTypeMetaclass (: PyClass) whose ClassDict["__module__"] is
+                        // the *metaclass* __module__ provider descriptor (used for OTHER
+                        // classes), not a module string. Descriptor entries must be
+                        // skipped so `type.__module__` resolves via the native logic
+                        // below instead of leaking the descriptor object.
+                        if (customType.ClassDict.TryGetValue("__module__", out var mod) && mod is not IDescriptor)
                         {
                             return mod;
                         }
-                        throw PyAttributeError.Create("__module__");
                     }
 
                     // For built-in/native types SharpPy stores the module in the
