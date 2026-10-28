@@ -162,8 +162,10 @@ namespace SharpPy.Modules
             var cls = args[0];
             var subclass = args[1];
 
-            // Check if subclass is a class
-            if (!(subclass is PyClass))
+            // CPython accepts any class, including built-in/native types (PyType).
+            // The old guard rejected native types; the caller swallowed the TypeError and
+            // fell through to a plain MRO check that missed the virtual-subclass registry.
+            if (!(subclass is PyClass) && !(subclass is PyType))
                 throw PyTypeError.Create("issubclass() arg 1 must be a class");
 
             // Get _abc_impl data
@@ -419,6 +421,24 @@ namespace SharpPy.Modules
                 Console.WriteLine($"[AbcSubclassCheckInternal] Found in registry");
 #endif
                 return true;
+            }
+
+            // CPython Modules/_abc.c check(): call the optional __subclasshook__
+            // classmethod once on cls. True -> subclass, False -> definitively not,
+            // NotImplemented/None/absent -> declined, fall through to the MRO test.
+            try
+            {
+                var hook = cls.GetAttribute("__subclasshook__");
+                if (hook != null && hook != PyNone.Instance)
+                {
+                    var hr = hook.Call(new PyObject[] { subclass }, null);
+                    if (hr is PyBool hookBool)
+                        return hookBool.Value;
+                }
+            }
+            catch (Exception)
+            {
+                // No __subclasshook__ (e.g. plain types) or the lookup failed: decline.
             }
 
             // Check if subclass is a direct or indirect subclass using MRO

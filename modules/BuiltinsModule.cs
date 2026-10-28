@@ -271,6 +271,29 @@ namespace SharpPy.Modules
         /// </summary>
         private static bool ObjectRecursiveIsInstance(PyObject inst, PyObject cls)
         {
+            // CPython 3.12: Objects/abstract.c recursive_isinstance consults
+            // type(cls).__instancecheck__ BEFORE the default MRO test. ABCMeta and
+            // custom metaclasses override it; the plain "type" metaclass has none, so
+            // skip the lookup for the common case (metaclass is exactly type).
+            var icheckClass = cls.GetPyType();
+            if (icheckClass != null && !ReferenceEquals(icheckClass, PyType.TypeType))
+            {
+                PyObject icheck = null;
+                try
+                {
+                    icheck = icheckClass.GetAttribute("__instancecheck__");
+                }
+                catch (Exception)
+                {
+                    icheck = null;
+                }
+                if (icheck != null && icheck != PyNone.Instance)
+                {
+                    // Exceptions raised inside a user __instancecheck__ propagate (CPython).
+                    return icheck.Call(new PyObject[] { cls, inst }, null).IsTrue();
+                }
+            }
+
             // CPython 3.12: Objects/abstract.c:2604-2607
             // Quick test for an exact match
             if (inst.GetPyType() == cls)
@@ -500,53 +523,40 @@ namespace SharpPy.Modules
                 return PyBool.False;
             }
 
-            // CPython 3.12: Check if classInfo is a valid type by looking for __bases__
-            try
+            // CPython 3.12: PyObject_IsSubclass consults a non-default __subclasscheck__
+            // on type(classInfo) BEFORE argument validation (abstract.c:2727-2739). The
+            // plain "type" metaclass has none, so skip the lookup for the common case.
+            var smetaclass = classInfo.GetPyType();
+            PyObject issubclassHook = null;
+            if (smetaclass != null && !ReferenceEquals(smetaclass, PyType.TypeType))
             {
-                var bases = classInfo.GetAttribute("__bases__");
-                if (bases == null || !(bases is PyTuple))
+                try
                 {
-                    throw PyTypeError.Create("issubclass() arg 2 must be a class");
+                    issubclassHook = smetaclass.GetAttribute("__subclasscheck__");
+                }
+                catch (Exception)
+                {
+                    issubclassHook = null;
                 }
             }
-            catch
+            if (issubclassHook != null && issubclassHook != PyNone.Instance)
             {
-                throw PyTypeError.Create("issubclass() arg 2 must be a class");
+                // A custom __subclasscheck__ decides everything (incl. non-class arg 1).
+                // CPython coerces the result with PyObject_IsTrue; errors propagate.
+                var hookResult = issubclassHook.Call(new PyObject[] { classInfo, subclass }, null);
+                return PyBool.FromBool(hookResult.IsTrue());
             }
 
-            // Check if subclass is a valid type
-            try
-            {
-                var subBases = subclass.GetAttribute("__bases__");
-                if (subBases == null || !(subBases is PyTuple))
-                {
-                    throw PyTypeError.Create("issubclass() arg 1 must be a class");
-                }
-            }
-            catch
-            {
+            // recursive_issubclass default path (abstract.c:2675-2690): validate arg 1
+            // (derived) before arg 2 (cls), matching CPython's error precedence. A valid
+            // class exposes __bases__ as a tuple.
+            var subBases = subclass.LookupAttribute("__bases__");
+            if (subBases is not PyTuple)
                 throw PyTypeError.Create("issubclass() arg 1 must be a class");
-            }
 
-            // CPython 3.12: Check for __subclasscheck__ on the metaclass of classInfo
-            // Objects/abstract.c:2727-2739 (PyObject_IsSubclass)
-            var metaclass = classInfo.GetPyType();
-
-            try
-            {
-                var subclasscheck = metaclass.GetAttribute("__subclasscheck__");
-
-                if (subclasscheck != null && subclasscheck != PyNone.Instance)
-                {
-                    // Call __subclasscheck__(cls, subclass)
-                    var result = subclasscheck.Call(new PyObject[] { classInfo, subclass }, null);
-                    return result;
-                }
-            }
-            catch (Exception ex)
-            {
-                // If __subclasscheck__ lookup fails, fall through to default behavior
-            }
+            var clsBases = classInfo.LookupAttribute("__bases__");
+            if (clsBases is not PyTuple)
+                throw PyTypeError.Create("issubclass() arg 2 must be a class, a tuple of classes, or a union");
 
             // Fallback: check MRO directly
             // CPython 3.12: Objects/abstract.c:2498-2563 (abstract_issubclass)
