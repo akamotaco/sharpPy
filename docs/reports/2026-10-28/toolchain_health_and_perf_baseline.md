@@ -67,3 +67,21 @@ Tree-walking CFG 인터프리터로서의 절대치는 CPython 3.12(adaptive spe
 남은 known gap(회귀 아님): NameError 제안 문구 과잉, property setter/deleter 메시지
 차이(p08 잔여 14줄 중 대부분), set/dict unhashable 검증 누락, `float.hex()` 형식,
 `round(int, 음수)` 무시, f-string `{x=}`, `%` 포맷 세부.
+
+## 추가 (같은 날, 예외 경로 최적화 1단계) — `04eb993`
+
+`ExecuteBinaryOpType`의 무의미한 `catch(Exception){throw;}` 관통 레이어 제거:
+- 공식 harness exception_handling **46.9 → 29.4 ms (−37.1%)**, S/C 75 → 47
+- 연산자 유래 ZDE 9.4 → 5.9 µs, RAISE 문과 동일 수준으로 수렴
+- 비예외 경로 무회귀 (function_call −1.0%, addition +0.8%, evaluate 225+3+2)
+
+**하한 규명**: 이 머신의 순수 CLR throw+catch는 **2.6 µs**(깊은 프레임 3.1 µs, 별도 계측).
+SharpPy raise 5.9 µs = CLR 하한 + Python 측 처리 ~1.5-2 µs + 필터/프레임 ~1 µs.
+따라서 CLR 예외를 쓰는 한 5 µs 부근이 바닥이며, 47x → 일桁대 접근은
+**같은 프레임 catch까지 CLR throw 없이 우회하는 sentinel(unwind) 재설계**
+(CPython 모델)를 요구한다. 전 op 리턴 계약 변경 + silent-sentinel 위험군이라
+별도 승인 필요 프로젝트. 이 단계에서의 추가 저비용 개선판은 없다(메시지 PyString
+1회 할당은 측정 오미만).
+
+조치 필요 신기록 결함(성능 아님): 함수 내 지역 클래스 `class E(Exception)`을
+`raise E`하면 "exceptions must derive from BaseException" — CPython 정상, SharpPy 오작동.
