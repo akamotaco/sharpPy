@@ -727,7 +727,7 @@ namespace SharpPy
                 if (AreEqual(_items[i], item))
                     return i;
             }
-            throw PyValueError.Create($"{item.ToRepr()} is not in list");
+            throw PyValueError.Create($"{item.ToRepr().Value} is not in list");
         }
 
         public int Count(PyObject item)

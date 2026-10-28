@@ -219,6 +219,11 @@ namespace SharpPy
         public static readonly PyType MethodType = new PyType("method", new[] { ObjectType });
         public static readonly PyType IteratorType = new PyType("iterator", new[] { ObjectType });
         public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
+        public static readonly PyType MapType = new PyType("map", new[] { ObjectType });
+        public static readonly PyType ZipType = new PyType("zip", new[] { ObjectType });
+        public static readonly PyType FilterType = new PyType("filter", new[] { ObjectType });
+        public static readonly PyType CallableIteratorType = new PyType("callable_iterator", new[] { ObjectType });
+        public static readonly PyType ReversedType = new PyType("reversed", new[] { ObjectType });
         public static readonly PyType CoroutineType = new PyType("coroutine", new[] { ObjectType });
         public static readonly PyType AsyncGeneratorType = new PyType("async_generator", new[] { ObjectType });
         
@@ -1801,14 +1806,14 @@ namespace SharpPy
                 "update",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"update() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return set.Update(args[0]);
+                    // CPython set_update(set, *others)
+                    foreach (var other in args)
+                        set.Update(other);
+                    return PyNone.Instance;
                 },
-                minArgs: 1,
-                maxArgs: 1
+                minArgs: 0
             );
 
             // set.union(other)
@@ -1816,14 +1821,20 @@ namespace SharpPy
                 "union",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"union() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'union' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return set.Union(args[0]);
+                    // CPython set_union(set, *others)
+                    PySet acc = null;
+                    foreach (var other in args)
+                    {
+                        if (acc == null)
+                            acc = set.Union(other);
+                        else
+                            acc.Update(other);
+                    }
+                    return acc ?? new PySet();
                 },
-                minArgs: 1,
-                maxArgs: 1
+                minArgs: 0
             );
 
             // set.intersection(other)
@@ -1831,14 +1842,20 @@ namespace SharpPy
                 "intersection",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"intersection() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'intersection' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return set.Intersection(args[0]);
+                    // CPython set_intersection(se, *others)
+                    PySet acc = null;
+                    foreach (var other in args)
+                    {
+                        if (acc == null)
+                            acc = set.Intersection(other);
+                        else
+                            acc.IntersectionUpdate(other);
+                    }
+                    return acc ?? set.Copy();
                 },
-                minArgs: 1,
-                maxArgs: 1
+                minArgs: 0
             );
 
             // set.difference(other)
@@ -1846,14 +1863,20 @@ namespace SharpPy
                 "difference",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"difference() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return set.Difference(args[0]);
+                    // CPython set_difference(set, *others)
+                    PySet acc = null;
+                    foreach (var other in args)
+                    {
+                        if (acc == null)
+                            acc = set.Difference(other);
+                        else
+                            acc.DifferenceUpdate(other);
+                    }
+                    return acc ?? set.Copy();
                 },
-                minArgs: 1,
-                maxArgs: 1
+                minArgs: 0
             );
 
             // set.symmetric_difference(other)
@@ -1861,10 +1884,11 @@ namespace SharpPy
                 "symmetric_difference",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"symmetric_difference() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'symmetric_difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    // CPython set_symmetric_difference takes exactly one other argument.
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"symmetric_difference expected 1 argument, got {args.Length}");
                     return set.SymmetricDifference(args[0]);
                 },
                 minArgs: 1,
@@ -1922,14 +1946,13 @@ namespace SharpPy
                 "intersection_update",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"intersection_update() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'intersection_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return set.IntersectionUpdate(args[0]);
+                    foreach (var other in args)
+                        set.IntersectionUpdate(other);
+                    return PyNone.Instance;
                 },
-                minArgs: 1,
-                maxArgs: 1
+                minArgs: 0
             );
 
             // CPython 3.12: Objects/setobject.c:2096-2103 (set_difference_update)
@@ -1938,14 +1961,13 @@ namespace SharpPy
                 "difference_update",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"difference_update() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return set.DifferenceUpdate(args[0]);
+                    foreach (var other in args)
+                        set.DifferenceUpdate(other);
+                    return PyNone.Instance;
                 },
-                minArgs: 1,
-                maxArgs: 1
+                minArgs: 0
             );
 
             // CPython 3.12: Objects/setobject.c:2135-2142 (set_symmetric_difference_update)
@@ -1954,10 +1976,10 @@ namespace SharpPy
                 "symmetric_difference_update",
                 setType,
                 (self, args, kwargs) => {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"symmetric_difference_update() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PySet set)
                         throw PyTypeError.Create("descriptor 'symmetric_difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"symmetric_difference_update expected 1 argument, got {args.Length}");
                     return set.SymmetricDifferenceUpdate(args[0]);
                 },
                 minArgs: 1,

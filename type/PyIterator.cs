@@ -42,6 +42,39 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
+
+            // CPython exposes tp_iternext/tp_iter of map/zip/filter/callable_iterator/
+            // reversed as slot wrappers bound to the concrete type (measured wording:
+            // "descriptor '__next__' requires a 'map' object but received a 'int'",
+            // arity error "expected 0 arguments, got 1").
+            foreach (var iterTy in new[]
+            {
+                PyType.MapType, PyType.ZipType, PyType.FilterType,
+                PyType.CallableIteratorType, PyType.ReversedType
+            })
+            {
+                var owner = iterTy;
+                owner.TypeDict["__next__"] = new PyWrapperDescriptor(
+                    "__next__", owner,
+                    (self, args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                        if (self is not PyIterator iterator)
+                            throw PyTypeError.Create($"descriptor '__next__' requires a '{owner.Name}' object but received a '{self.GetTypeName()}'");
+                        return iterator.Next();
+                    },
+                    minArgs: 0, maxArgs: 0);
+                owner.TypeDict["__iter__"] = new PyWrapperDescriptor(
+                    "__iter__", owner,
+                    (self, args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                        if (self is not PyIterator iterator)
+                            throw PyTypeError.Create($"descriptor '__iter__' requires a '{owner.Name}' object but received a '{self.GetTypeName()}'");
+                        return iterator;
+                    },
+                    minArgs: 0, maxArgs: 0);
+            }
         }
 
         public override PyType GetPyType() => PyType.IteratorType;

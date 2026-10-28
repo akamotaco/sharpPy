@@ -392,6 +392,8 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseOr(PyObject other)
         {
+            // CPython set_or: both operands must be set/frozenset (setobject.c).
+            RequireAnySet(this, other, "|");
             return Union(other);
         }
 
@@ -400,6 +402,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseAnd(PyObject other)
         {
+            RequireAnySet(this, other, "&");
             return Intersection(other);
         }
 
@@ -408,6 +411,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject Subtract(PyObject other)
         {
+            RequireAnySet(this, other, "-");
             return Difference(other);
         }
 
@@ -416,7 +420,43 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseXor(PyObject other)
         {
+            RequireAnySet(this, other, "^");
             return SymmetricDifference(other);
+        }
+
+        // CPython nb_inplace_* slots: mutate in place and preserve identity.
+        public override PyObject? InplaceBitwiseOr(PyObject other)
+        {
+            RequireAnySet(this, other, "|=");
+            Update(other);
+            return this;
+        }
+
+        public override PyObject? InplaceBitwiseAnd(PyObject other)
+        {
+            RequireAnySet(this, other, "&=");
+            IntersectionUpdate(other);
+            return this;
+        }
+
+        public override PyObject? InplaceSubtract(PyObject other)
+        {
+            RequireAnySet(this, other, "-=");
+            DifferenceUpdate(other);
+            return this;
+        }
+
+        public override PyObject? InplaceBitwiseXor(PyObject other)
+        {
+            RequireAnySet(this, other, "^=");
+            SymmetricDifferenceUpdate(other);
+            return this;
+        }
+
+        internal static void RequireAnySet(PyObject self, PyObject other, string op)
+        {
+            if (!(other is PySet) && !(other is PyFrozenSet))
+                throw PyTypeError.Create($"unsupported operand type(s) for {op}: '{self.GetTypeName()}' and '{other.GetTypeName()}'");
         }
 
         #endregion
@@ -757,6 +797,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseOr(PyObject other)
         {
+            PySet.RequireAnySet(this, other, "|");
             return Union(other);
         }
 
@@ -765,6 +806,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseAnd(PyObject other)
         {
+            PySet.RequireAnySet(this, other, "&");
             return Intersection(other);
         }
 
@@ -773,6 +815,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject Subtract(PyObject other)
         {
+            PySet.RequireAnySet(this, other, "-");
             return Difference(other);
         }
 
@@ -781,6 +824,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseXor(PyObject other)
         {
+            PySet.RequireAnySet(this, other, "^");
             return SymmetricDifference(other);
         }
 

@@ -1052,26 +1052,21 @@ namespace SharpPy
             
             // 이터러블 객체인 경우 변환
             var items = new List<PyObject>();
-            try
+            // CPython: errors raised while consuming an iterator propagate; only
+            // the missing-__iter__ case reports "not iterable" (from GetIterator).
+            var iter = GetIterator();
+            while (true)
             {
-                var iter = GetIterator();
-                while (true)
+                try
                 {
-                    try
-                    {
-                        items.Add(iter.Next());
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        break;
-                    }
+                    items.Add(iter.Next());
                 }
-                return new PyList(items);
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
             }
-            catch
-            {
-                throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
-            }
+            return new PyList(items);
         }
 
         /// <summary>
@@ -1139,26 +1134,20 @@ namespace SharpPy
             
             // 이터러블 객체인 경우 변환
             var items = new List<PyObject>();
-            try
+            // CPython: errors raised while consuming an iterator propagate.
+            var iter = GetIterator();
+            while (true)
             {
-                var iter = GetIterator();
-                while (true)
+                try
                 {
-                    try
-                    {
-                        items.Add(iter.Next());
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        break;
-                    }
+                    items.Add(iter.Next());
                 }
-                return new PyTuple(items.ToArray());
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
             }
-            catch
-            {
-                throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
-            }
+            return new PyTuple(items.ToArray());
         }
 
         // CPython PyObject_LengthHint: TypeError from len/call is a fallback,
@@ -1564,31 +1553,33 @@ namespace SharpPy
                 // __contains__ not found, try iteration fallback
             }
 
-            // CPython 3.12: Fallback to iteration (Objects/abstract.c:2279-2291)
+            // CPython 3.12: PySequence_Contains (Objects/abstract.c:2279-2297).
+            // Only a missing iteration protocol yields "argument of type ... is not
+            // iterable"; exceptions raised while iterating propagate unchanged.
+            PyObject iter;
             try
             {
-                var iterator = GetIterator();
-                while (true)
+                iter = GetIterator();
+            }
+            catch (PythonException ex) when (ex.PyException is PyTypeError)
+            {
+                throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+            }
+            while (true)
+            {
+                try
                 {
-                    try
+                    var current = iter.Next();
+                    // CPython: Use rich comparison for equality check
+                    if (CompareBool(current, item, CompareOp.EQ))
                     {
-                        var current = iterator.Next();
-                        // CPython: Use rich comparison for equality check
-                        if (CompareBool(current, item, CompareOp.EQ))
-                        {
-                            return PyBool.True;
-                        }
-                    }
-                    catch (PythonException ex) when (ex is PyStopIteration)
-                    {
-                        return PyBool.False;
+                        return PyBool.True;
                     }
                 }
-            }
-            catch (PythonException)
-            {
-                // Not iterable either
-                throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    return PyBool.False;
+                }
             }
         }
 

@@ -417,7 +417,8 @@ namespace SharpPy
                     return new PyInt(i);
             }
             
-            throw PyValueError.Create($"{value.ToRepr()} is not in tuple");
+            // CPython tupleindex_impl: static message (Objects/tupleobject.c).
+            throw PyValueError.Create("tuple.index(x): x not in tuple");
         }
 
         /// <summary>
