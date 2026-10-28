@@ -442,32 +442,40 @@ namespace SharpPy.Generated
             {
                 // CPython: Find the non whitespace token after the "="
                 int debug_end_line, debug_end_offset;
-                GeneratedPtr debug_metadata;
+                int raw_end_line, raw_end_offset;
 
                 if (conversion != null)
                 {
                     GeneratedExpr conv_expr = (GeneratedExpr)conversion.Metadata;
                     debug_end_line = conv_expr.LineNo;
                     debug_end_offset = conv_expr.ColOffset;
-                    debug_metadata = conversion.Token;
+                    // '!' sits one column before the conversion name; raw text ends at '='.
+                    raw_end_line = conv_expr.LineNo;
+                    raw_end_offset = conv_expr.ColOffset - 1;
                 }
                 else if (format != null)
                 {
                     GeneratedExpr fmt_expr = (GeneratedExpr)format.Metadata;
                     debug_end_line = fmt_expr.LineNo;
                     debug_end_offset = fmt_expr.ColOffset + 1;
-                    debug_metadata = format.Token;
+                    raw_end_line = fmt_expr.LineNo;
+                    raw_end_offset = fmt_expr.ColOffset;
                 }
                 else
                 {
                     debug_end_line = end_lineno;
                     debug_end_offset = end_col_offset;
-                    debug_metadata = closingBrace;
+                    // raw text ends just before the closing brace
+                    raw_end_line = end_lineno;
+                    raw_end_offset = end_col_offset - 1;
                 }
+
+                string rawDebugText = ParserActiveSource.GetRawSourceText(
+                    expression.LineNo, expression.ColOffset, raw_end_line, raw_end_offset);
 
                 GeneratedExpr debug_text = new GeneratedConstant
                 {
-                    Value = new GeneratedPyConstantString(debug_metadata?.ToString() ?? ""),
+                    Value = new GeneratedPyConstantString(rawDebugText),
                     LineNo = lineno,
                     ColOffset = col_offset + 1,
                     EndLineNo = debug_end_line,

@@ -79,6 +79,7 @@ namespace SharpPy.Generated
                 }
             }
             _filename = filename;
+            ParserActiveSource.Lines = null;
         }
 
         // CPython 3.12: Constructor with source code for error reporting
@@ -88,6 +89,7 @@ namespace SharpPy.Generated
             _source = source;
             // CPython 3.12: Use universal newlines (like Python's str.splitlines)
             _sourceLines = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            ParserActiveSource.Lines = _sourceLines;
         }
 
         protected GeneratedTokenInfo CurrentToken
@@ -1105,5 +1107,40 @@ namespace SharpPy.Generated
         /// Used for: 1) Lookahead success indicator, 2) Alternatives without named captures
         /// </summary>
         protected static readonly GeneratedPtr DummyResponse = new DummyExpr();
+    }
+
+    // CPython: f-string debug expressions (PEP 701 self-documenting '=') need the raw
+    // source text of the expression. The parser stores the active source lines for the
+    // static grammar action helpers (parsing is single-threaded).
+    internal static class ParserActiveSource
+    {
+        public static string[]? Lines;
+
+        public static string GetRawSourceText(int line, int col, int endLine, int endCol)
+        {
+            var lines = Lines;
+            if (lines == null || line <= 0 || line > lines.Length)
+                return "";
+            if (endLine <= line)
+            {
+                string s = lines[line - 1];
+                int a = Math.Max(0, Math.Min(col, s.Length));
+                int b = Math.Max(a, Math.Min(endCol, s.Length));
+                return s.Substring(a, b - a);
+            }
+            var sb = new StringBuilder();
+            string first = lines[line - 1];
+            sb.Append(first, Math.Min(col, first.Length), first.Length - Math.Min(col, first.Length));
+            for (int l = line; l < endLine - 1 && l < lines.Length; l++)
+            {
+                sb.Append('\n').Append(lines[l]);
+            }
+            if (endLine - 1 < lines.Length && endLine > line)
+            {
+                string last = lines[endLine - 1];
+                sb.Append('\n').Append(last, 0, Math.Min(endCol, last.Length));
+            }
+            return sb.ToString();
+        }
     }
 }
