@@ -82,7 +82,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/tupleobject.c:230-280 (tuplesubscript)
             // __getitem__ descriptor
-            tupleType.TypeDict["__getitem__"] = new PyMethodDescriptor(
+            tupleType.TypeDict["__getitem__"] = new PyWrapperDescriptor(
                 "__getitem__", tupleType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -101,7 +101,7 @@ namespace SharpPy
             // CPython 3.12: Objects/tupleobject.c:440-486 - tupleconcat
             // CPython 3.12: Objects/tupleobject.c:753 - sq_concat mapped to __add__
             // tuple + tuple -> concatenated tuple
-            tupleType.TypeDict["__add__"] = new PyMethodDescriptor(
+            tupleType.TypeDict["__add__"] = new PyWrapperDescriptor(
                 "__add__", tupleType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -118,7 +118,7 @@ namespace SharpPy
             // CPython 3.12: Objects/tupleobject.c:487-540 - tuplerepeat
             // CPython 3.12: Objects/tupleobject.c:754 - sq_repeat mapped to __mul__ and __rmul__
             // tuple * int -> repeated tuple
-            tupleType.TypeDict["__mul__"] = new PyMethodDescriptor(
+            tupleType.TypeDict["__mul__"] = new PyWrapperDescriptor(
                 "__mul__", tupleType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)

@@ -491,14 +491,8 @@ namespace SharpPy
                     var selfType = GetPyType();
                     foreach (var mroType in selfType.MRO)
                     {
-                        if (mroType.TypeDict != null &&
-                            mroType.TypeDict.TryGetValue(name, out var typeAttr))
-                        {
-                            if (typeAttr is IDescriptor descriptor)
-                                return descriptor.Get(this, selfType);
-                            if (typeAttr.IsCallable())
-                                return PyGetAttribute(name);
-                        }
+                        // ClassDict (user-defined, this MRO frame) wins before any
+                        // inherited/merged TypeDict descriptor view.
                         if (mroType is PyClass userClass &&
                             userClass.ClassDict.TryGetValue(name, out var classAttr))
                         {
@@ -506,6 +500,14 @@ namespace SharpPy
                             if (classAttr is PyFunction userFunc)
                                 return new PyMethod(this, userFunc);
                             if (classAttr.IsCallable())
+                                return PyGetAttribute(name);
+                        }
+                        if (mroType.TypeDict != null &&
+                            mroType.TypeDict.TryGetValue(name, out var typeAttr))
+                        {
+                            if (typeAttr is IDescriptor descriptor)
+                                return descriptor.Get(this, selfType);
+                            if (typeAttr.IsCallable())
                                 return PyGetAttribute(name);
                         }
                     }
@@ -519,8 +521,33 @@ namespace SharpPy
                     return fallback.Get(this, selfType);
                 }
                 case "__init__":
-                    // CPython 3.12: object.__init__ bound method
-                    return new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1);
+                {
+                    // CPython 3.12: __init__ resolves through the MRO like __str__/__repr__;
+                    // the previous hardcoded unbound PyBuiltinMethod misreported its type
+                    // and skipped type-level overrides.
+                    var initType = GetPyType();
+                    foreach (var mroType in initType.MRO)
+                    {
+                        if (mroType is PyClass initClass &&
+                            initClass.ClassDict.TryGetValue("__init__", out var initFunc))
+                        {
+                            if (initFunc is PyFunction userInit)
+                                return new PyMethod(this, userInit);
+                            if (initFunc.IsCallable())
+                                return PyGetAttribute(name);
+                        }
+                        if (mroType.TypeDict != null &&
+                            mroType.TypeDict.TryGetValue("__init__", out var initAttr))
+                        {
+                            if (initAttr is IDescriptor initDesc)
+                                return initDesc.Get(this, initType);
+                            if (initAttr.IsCallable())
+                                return PyGetAttribute(name);
+                        }
+                    }
+                    var initFallback = new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1);
+                    return initFallback.Get(this, initType);
+                }
                 default:
                     return PyGetAttribute(name);
             }

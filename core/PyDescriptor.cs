@@ -31,7 +31,7 @@ namespace SharpPy
             _acceptsKwargs = acceptsKwargs;
         }
 
-        public override PyType GetPyType() => PyType.FunctionType;
+        public override PyType GetPyType() => PyType.MethodDescriptorType;
         public override string GetTypeName() => "method_descriptor";
 
         // Descriptor protocol
@@ -100,6 +100,27 @@ namespace SharpPy
     /// <summary>
     /// Bound method descriptor (method_descriptor가 인스턴스에 바인딩된 형태)
     /// </summary>
+    /// <summary>
+    /// CPython: __new__ is a static builtin surface (builtin_function_or_method),
+    /// not a method_descriptor, even when implemented with descriptor plumbing.
+    /// </summary>
+    public class PyNewMethodDescriptor : PyMethodDescriptor
+    {
+        public PyNewMethodDescriptor(
+            string name,
+            PyType ownerType,
+            Func<PyObject, PyObject[], PyDict, PyObject> implementation,
+            int minArgs = 0,
+            int maxArgs = int.MaxValue,
+            bool acceptsKwargs = false)
+            : base(name, ownerType, implementation, minArgs, maxArgs, acceptsKwargs)
+        {
+        }
+
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
+        public override string GetTypeName() => "builtin_function_or_method";
+    }
+
     public class PyBoundMethodDescriptor : PyObject
     {
         public PyObject Instance { get; }
@@ -111,7 +132,7 @@ namespace SharpPy
             MethodDescriptor = methodDescriptor;
         }
 
-        public override PyType GetPyType() => PyType.MethodType;
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
 
         public override bool IsCallable() => true;
@@ -291,7 +312,21 @@ namespace SharpPy
             _implementation = implementation ?? throw new ArgumentNullException(nameof(implementation));
         }
 
-        public override PyType GetPyType() => PyType.FunctionType;
+        // Registration-site compatibility: arg-count validation lives in the
+        // implementation lambdas; these named arguments are accepted and ignored
+        // so CPython wrapper_descriptor dunders can move classes without rewriting messages.
+        public PyWrapperDescriptor(
+            string name,
+            PyType ownerType,
+            Func<PyObject, PyObject[], PyDict, PyObject> implementation,
+            int minArgs,
+            int maxArgs,
+            bool acceptsKwargs = false)
+            : this(name, ownerType, implementation)
+        {
+        }
+
+        public override PyType GetPyType() => PyType.WrapperDescriptorType;
         public override string GetTypeName() => "wrapper_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -349,7 +384,7 @@ namespace SharpPy
             WrapperDescriptor = wrapperDescriptor;
         }
 
-        public override PyType GetPyType() => PyType.MethodType;
+        public override PyType GetPyType() => PyType.MethodWrapperType;
         public override string GetTypeName() => "method-wrapper";
 
         public override bool IsCallable() => true;

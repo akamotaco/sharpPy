@@ -150,8 +150,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "builtin_function_or_method";
-
-        public override PyType GetPyType() => PyType.FunctionType;
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
         /// <summary>
         /// CPython 호환: 내장 함수 구현 테이블 초기화

@@ -227,6 +227,11 @@ namespace SharpPy
         public static readonly PyType StaticMethodType = new PyType("staticmethod", new[] { ObjectType });
         public static readonly PyType ClassMethodType = new PyType("classmethod", new[] { ObjectType });
         public static readonly PyType ClassMethodDescriptorType = new PyType("classmethod_descriptor", new[] { ObjectType });
+        // CPython 3.12: Objects/descrobject.c descriptor/type names (type(x).__name__).
+        public static readonly PyType MethodDescriptorType = new PyType("method_descriptor", new[] { ObjectType });
+        public static readonly PyType WrapperDescriptorType = new PyType("wrapper_descriptor", new[] { ObjectType });
+        public static readonly PyType MethodWrapperType = new PyType("method-wrapper", new[] { ObjectType });
+        public static readonly PyType BuiltinFunctionOrMethodType = new PyType("builtin_function_or_method", new[] { ObjectType });
         
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });
@@ -1155,7 +1160,7 @@ namespace SharpPy
             var objectType = this;
 
             // object.__init__() - CPython object_init
-            TypeDict["__init__"] = new PyMethodDescriptor(
+            TypeDict["__init__"] = new PyWrapperDescriptor(
                 "__init__",
                 objectType,
                 (self, args, kwargs) => {
@@ -1168,7 +1173,7 @@ namespace SharpPy
 
             // object.__new__(cls) - CPython Objects/typeobject.c:5444-5515 (object_new)
             // Note: PyMethodDescriptor extracts first arg as 'self', which is the 'cls' for __new__
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__",
                 objectType,
                 (self, args, kwargs) => {
@@ -2404,7 +2409,7 @@ namespace SharpPy
 
             // dict.__init__ - CPython 3.12: dict.__init__ can accept optional args and kwargs
             // CPython: Objects/dictobject.c:3293-3378 (dict___init___impl)
-            TypeDict["__init__"] = new PyMethodDescriptor(
+            TypeDict["__init__"] = new PyWrapperDescriptor(
                 "__init__",
                 dictType,
                 (self, args, kwargs) => {
@@ -2946,7 +2951,7 @@ namespace SharpPy
         {
             // CPython 3.12: Objects/exceptions.c:42-71 (BaseException_init)
             // BaseException.__init__(self, *args) - stores args in self.args
-            TypeDict["__init__"] = new PyMethodDescriptor("__init__", BaseExceptionType, (self, args, kwargs) =>
+            TypeDict["__init__"] = new PyWrapperDescriptor("__init__", BaseExceptionType, (self, args, kwargs) =>
             {
                 if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
                     throw PyTypeError.Create($"descriptor '__init__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
@@ -3073,6 +3078,9 @@ namespace SharpPy
                 {
                     return new PyMethod(this, func);
                 }
+                // CPython: type-level descriptors (wrapper_descriptor etc.) must bind.
+                if (typeAttr is IDescriptor typeDescriptor)
+                    return typeDescriptor.Get(this, objectType);
                 return typeAttr;
             }
 

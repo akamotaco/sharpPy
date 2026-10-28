@@ -67,7 +67,9 @@ namespace SharpPy
         // classmethod는 non-data descriptor (no __set__)
         public bool IsDataDescriptor() => false;
 
-        public override string GetTypeName() => "classmethod_descriptor";
-        public override PyType GetPyType() => PyType.ClassMethodDescriptorType;
+        // CPython: builtin classmethods (dict.fromkeys, int.from_bytes) surface as
+        // builtin_function_or_method; user classmethods use a different class.
+        public override string GetTypeName() => "builtin_function_or_method";
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
     }
 }

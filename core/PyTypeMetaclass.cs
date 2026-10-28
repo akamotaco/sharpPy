@@ -962,7 +962,7 @@ namespace SharpPy
 
         public override PyType GetPyType()
         {
-            return PyType.MethodType; // builtin methods are instances of method type
+            return PyType.WrapperDescriptorType; // object-level slot wrappers (CPython)
         }
 
         // Descriptor protocol: instance.method → bound method
@@ -1033,7 +1033,7 @@ namespace SharpPy
 
         public override PyType GetPyType()
         {
-            return PyType.MethodType;
+            return PyType.MethodWrapperType; // CPython: object-level bound slot wrappers
         }
 
         // Bound call: self 자동 추가
@@ -1082,7 +1082,8 @@ namespace SharpPy
 
         public override PyType GetPyType()
         {
-            return PyType.MethodType;
+            // CPython: builtin staticmethods (str.maketrans) are PyCFunction.
+            return PyType.BuiltinFunctionOrMethodType;
         }
 
         // Descriptor protocol: Always return self (staticmethod behavior)

@@ -7,6 +7,10 @@ namespace SharpPy
     /// </summary>
     public class PyStringMethod : PyObject
     {
+        // CPython: bound str methods are builtin_function_or_method (PyCFunction).
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
+        public override string GetTypeName() => "builtin_function_or_method";
+
         private readonly PyString _instance;
         private readonly string _methodName;
         private readonly Func<PyObject[], PyObject> _method;
@@ -17,8 +21,6 @@ namespace SharpPy
             _methodName = methodName;
             _method = method;
         }
-
-        public override string GetTypeName() => "builtin_function_or_method";
 
         public override string ToString() => $"<built-in method {_methodName} of str object at {GetHashCode():x8}>";
 

@@ -223,7 +223,7 @@ namespace SharpPy
 
             // CPython 3.12: Objects/listobject.c:2785-2805 (list___init___impl)
             // __init__ method descriptor
-            listType.TypeDict["__init__"] = new PyMethodDescriptor(
+            listType.TypeDict["__init__"] = new PyWrapperDescriptor(
                 "__init__", listType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
@@ -292,7 +292,8 @@ namespace SharpPy
             // sq_contains slot, so their argcount messages differ.
 
             // CPython 3.12: Objects/listobject.c list_getitem (METH_O)
-            listType.TypeDict["__getitem__"] = new PyWrapperDescriptor(
+            // CPython: list.__getitem__ is a METH_O method_descriptor (not a slot wrapper).
+            listType.TypeDict["__getitem__"] = new PyMethodDescriptor(
                 "__getitem__",
                 listType,
                 (self, args, kwargs) =>

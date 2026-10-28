@@ -623,8 +623,13 @@ namespace SharpPy
                         throw PyTypeError.Create("str.__str__() takes no keyword arguments");
                     if (args.Length != 0)
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    if (self is PyString || self is PyStrSubclass)
+                    if (self is PyString)
                         return self;
+                    // Measured CPython 3.12.15: str.__str__(CS("w")) == "w" (raw content,
+                    // exact str), NOT the user __str__ result; str(CS("w")) dispatches
+                    // type(x).__str__ separately.
+                    if (self is PyStrSubclass sub)
+                        return sub.GetStrValue();
                     var content = (self as PyClassInstance)?.GetStringStorage();
                     if (content == null)
                         throw PyTypeError.Create($"descriptor '__str__' requires a 'str' object but received a '{self.GetTypeName()}'");

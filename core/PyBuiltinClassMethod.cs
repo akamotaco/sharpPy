@@ -19,8 +19,10 @@ namespace SharpPy
         }
 
         public override string ToString() => $"<built-in classmethod '{Name}'>";
-        public override PyType GetPyType() => PyType.MethodType;
-        public override string GetTypeName() => "classmethod_descriptor";
+        // CPython: builtin classmethods (dict.fromkeys) surface as
+        // builtin_function_or_method both unbound and bound (a PyCFunction).
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
+        public override string GetTypeName() => "builtin_function_or_method";
 
         // IDescriptor implementation
         public PyObject Get(PyObject instance, PyType owner)
@@ -88,7 +90,7 @@ namespace SharpPy
             }
 
             public override string ToString() => $"<bound classmethod '{_method.Name}' of {_class}>";
-            public override PyType GetPyType() => PyType.MethodType;
+            public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
             public override PyObject Call(PyObject[] args, PyDict kwargs = null)
             {

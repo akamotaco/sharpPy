@@ -34,7 +34,8 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         public override string GetTypeName() => "builtin_function_or_method";
-        public override PyType GetPyType() => PyType.MethodType;
+        // CPython: builtin classmethods (dict.fromkeys) are seen as PyCFunction.
+        public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
         public override string ToString() => $"<built-in method {_callable}>";
     }
