@@ -88,14 +88,86 @@ def abspath(path):
     return join(_nt.getcwd(), path)
 
 def normpath(path):
-    """Normalize a path."""
+    """Normalize a path, collapsing . and .. components.
+
+    CPython 3.12: Lib/ntpath.py normpath (drive/UNC/root simplification).
+    """
     path = str(path)
-    # Replace alt separators
+    if not path:
+        return '.'
     path = path.replace(altsep, sep)
-    # Remove redundant separators
-    while sep + sep in path:
-        path = path.replace(sep + sep, sep)
-    return path
+
+    # UNC prefix \\server\share
+    if path.startswith(sep + sep) and not path.startswith(sep + sep + sep):
+        prefix = sep + sep
+        rest = path[2:]
+        parts = [p for p in rest.split(sep) if p]
+        server = parts[0] if parts else ''
+        share = parts[1] if len(parts) > 1 else ''
+        root = sep + sep + server + (sep + share if share else '')
+        tail_parts = parts[2:]
+    else:
+        prefix = ''
+        drive = ''
+        rest = path
+        if len(rest) >= 2 and rest[1] == ':':
+            drive = rest[:2]
+            rest = rest[2:]
+        if drive and rest.startswith(sep):
+            root = drive + sep
+            tail_parts = rest[1:]
+        elif drive:
+            root = drive
+            tail_parts = rest
+        elif rest.startswith(sep):
+            root = sep
+            tail_parts = rest[1:]
+        else:
+            root = ''
+            tail_parts = rest
+
+    comps = []
+    for piece in tail_parts.split(sep):
+        if not piece or piece == '.':
+            continue
+        if piece == '..':
+            if comps and comps[-1] != '..':
+                comps.pop()
+            elif not root:
+                comps.append('..')
+            # At a fixed root the '..' component is dropped.
+            continue
+        comps.append(piece)
+
+    if root:
+        if not comps:
+            return root
+        if root.endswith(sep):
+            return root + sep.join(comps)
+        return root + sep + sep.join(comps)
+    return sep.join(comps) if comps else '.'
+
+
+def splitdrive(p):
+    """Split a pathname into drive/UNC sharepoint and relative path.
+
+    CPython 3.12: Lib/ntpath.py splitdrive.
+    """
+    p = str(p)
+    if len(p) >= 2 and p[1] == ':':
+        return (p[:2], p[2:])
+    if len(p) >= 2 and p[0] in (sep, altsep) and p[1] in (sep, altsep):
+        q = p.replace(altsep, sep)
+        if len(q) > 2 and q[2] not in (sep, altsep):
+            i = q.find(sep, 2)
+            if i == -1:
+                return (p, '')
+            j = q.find(sep, i + 1)
+            if j == -1:
+                return (p, '')
+            return (p[:j], p[j:])
+        return ('', p)
+    return ('', p)
 
 def splitext(path):
     """Split the extension from a pathname."""

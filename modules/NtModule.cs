@@ -45,6 +45,8 @@ namespace SharpPy.Modules
             module.ModuleDict["access"] = new PyBuiltinFunction("access", Access);
             module.ModuleDict["getenv"] = new PyBuiltinFunction("getenv", Getenv);
             module.ModuleDict["putenv"] = new PyBuiltinFunction("putenv", Putenv);
+            module.ModuleDict["unsetenv"] = new PyBuiltinFunction("unsetenv", Unsetenv);
+            module.ModuleDict["getpid"] = new PyBuiltinFunction("getpid", Getpid);
             module.ModuleDict["fspath"] = new PyBuiltinFunction("fspath", Fspath);
             module.ModuleDict["urandom"] = new PyBuiltinFunction("urandom", Urandom);
 
@@ -324,6 +326,22 @@ namespace SharpPy.Modules
 
         // putenv(key, value)
         // CPython: posixmodule.c os_putenv_impl
+        private static PyObject Unsetenv(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"unsetenv() takes exactly one argument ({args.Length} given)");
+            string key = args[0] is PyString ps ? ps.Value : args[0].AsString();
+            System.Environment.SetEnvironmentVariable(key, null);
+            return new PyInt(0);
+        }
+
+        private static PyObject Getpid(PyObject[] args)
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"getpid() takes no arguments ({args.Length} given)");
+            return new PyInt(System.Diagnostics.Process.GetCurrentProcess().Id);
+        }
+
         private static PyObject Putenv(PyObject[] args)
         {
             if (args.Length != 2)

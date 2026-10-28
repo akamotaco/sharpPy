@@ -451,7 +451,7 @@ namespace SharpPy.Modules
             if (args.Length < 2)
                 throw PyTypeError.Create("sub() missing required arguments");
 
-            var repl = args[0].ToStr();
+            PyObject replObj = args[0];
             var text = args[1].ToStr();
             // CPython 3.12: count=0 means unlimited replacements
             // .NET Regex.Replace with count=0 means NO replacements
@@ -459,6 +459,23 @@ namespace SharpPy.Modules
             if (args.Length > 2 && args[2] is PyInt countInt)
                 count = (int)countInt.Value;
 
+            // CPython: repl may be a callable receiving the Match object.
+            if (replObj.IsCallable())
+            {
+                MatchEvaluator evaluator = m =>
+                {
+                    var pyMatch = new PySreMatch(m, text.Value);
+                    var r = replObj.Call(new PyObject[] { pyMatch }, null);
+                    return r is PyString rs ? rs.Value : r.ToStr().Value;
+                };
+                // In Python, count <= 0 means replace all
+                var callableResult = count <= 0 ?
+                    _regex.Replace(text.Value, evaluator) :
+                    _regex.Replace(text.Value, evaluator, count);
+                return new PyString(callableResult);
+            }
+
+            var repl = replObj.ToStr();
             // In Python, count <= 0 means replace all
             var result = count <= 0 ?
                 _regex.Replace(text.Value, repl.Value) :
@@ -476,7 +493,7 @@ namespace SharpPy.Modules
             if (args.Length < 2)
                 throw PyTypeError.Create("subn() missing required arguments");
 
-            var repl = args[0].ToStr();
+            PyObject replObj = args[0];
             var text = args[1].ToStr();
             // CPython 3.12: count=0 means unlimited replacements
             int count = 0;
@@ -484,10 +501,27 @@ namespace SharpPy.Modules
                 count = (int)countInt.Value;
 
             var matches = _regex.Matches(text.Value).Count;
-            // In Python, count <= 0 means replace all
-            var result = count <= 0 ?
-                _regex.Replace(text.Value, repl.Value) :
-                _regex.Replace(text.Value, repl.Value, count);
+            string result;
+            if (replObj.IsCallable())
+            {
+                MatchEvaluator evaluator = m =>
+                {
+                    var pyMatch = new PySreMatch(m, text.Value);
+                    var r = replObj.Call(new PyObject[] { pyMatch }, null);
+                    return r is PyString rs ? rs.Value : r.ToStr().Value;
+                };
+                result = count <= 0 ?
+                    _regex.Replace(text.Value, evaluator) :
+                    _regex.Replace(text.Value, evaluator, count);
+            }
+            else
+            {
+                var repl = replObj.ToStr();
+                // In Python, count <= 0 means replace all
+                result = count <= 0 ?
+                    _regex.Replace(text.Value, repl.Value) :
+                    _regex.Replace(text.Value, repl.Value, count);
+            }
 
             var actualSubstitutions = count <= 0 ? matches : Math.Min(matches, count);
             return new PyTuple(new PyString(result), new PyInt(actualSubstitutions));

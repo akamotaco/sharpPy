@@ -1067,6 +1067,8 @@ namespace SharpPy
                         InitializeMappingProxyTypeDescriptors();
                     else if (Name == "BaseException")
                         InitializeBaseExceptionTypeDescriptors();
+                    else if (Name == "ImportError" || Name == "ModuleNotFoundError")
+                        InitializeImportNameDescriptor();
                     else if (Name == "slice")
                         TypeDict["indices"] = new PyMethodDescriptor("indices", this, PySlice.IndicesMethod);
                     break;
@@ -1368,6 +1370,12 @@ namespace SharpPy
                     return PyNone.Instance;
                 }
             );
+
+            // object.__class__ getset (CPython object.c get_class): makes __class__
+            // visible through GenericGetAttribute/MRO for builtin instances too.
+            objectType.TypeDict["__class__"] = new PyGetSetDescriptor("__class__", objectType,
+                self => self.GetPyType(),
+                (self, value) => throw PyAttributeError.Create("can't set attribute '__class__'"));
 
             // object.__format__(format_spec) - CPython 3.12: Objects/typeobject.c:6257 (object___format__)
             // Default implementation: if format_spec is empty, return str(self), else raise TypeError
@@ -2711,6 +2719,36 @@ namespace SharpPy
                 return typeDictAttr;
             }
 
+            // _PyType_Lookup walks the type's own MRO: exception subclasses must
+            // inherit BaseException dunders (__init__/__str__/args) instead of
+            // falling through to the metaclass object.__init__.
+            if (MRO != null && MRO.Count > 0 && ReferenceEquals(MRO[0], this))
+            {
+                bool isExceptionType = false;
+                foreach (var m in MRO)
+                {
+                    if (ReferenceEquals(m, BaseExceptionType))
+                    {
+                        isExceptionType = true;
+                        break;
+                    }
+                }
+                if (isExceptionType)
+                {
+                    foreach (var m in MRO)
+                    {
+                        if (ReferenceEquals(m, this))
+                            continue;
+                        if (m.TypeDict != null && m.TypeDict.TryGetValue(name, out var inherited))
+                        {
+                            if (inherited is IDescriptor inheritedDescriptor)
+                                return inheritedDescriptor.Get(null, this);
+                            return inherited;
+                        }
+                    }
+                }
+            }
+
             // Check PyClass.GetTypeAttribute() for wrapper descriptors
             {
                 var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
@@ -3017,6 +3055,24 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// ImportError/ModuleNotFoundError expose .name (CPython exceptions.c
+        /// ModuleNotFoundError.name getset), visible through dir() too.
+        /// </summary>
+        private void InitializeImportNameDescriptor()
+        {
+            TypeDict["name"] = new PyGetSetDescriptor(
+                "name", this,
+                self => self is PyImportError ie && ie.ModuleName != null
+                    ? new PyString(ie.ModuleName)
+                    : (PyObject)PyNone.Instance,
+                (self, value) =>
+                {
+                    if (self is PyImportError target)
+                        target.ModuleName = value is PyString s ? s.Value : value.ToStr().Value;
+                });
+        }
+
+        /// <summary>
         /// BaseException 타입의 descriptor 테이블 초기화
         /// CPython reference: Objects/exceptions.c:79-105 (BaseException_str)
         /// </summary>
@@ -3030,6 +3086,22 @@ namespace SharpPy
                     throw PyTypeError.Create($"descriptor '__init__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{self.GetTypeName()}() takes no keyword arguments");
+                // CPython writes the single args slot: rebind the native wrapper's
+                // args, or the user instance dict for Python-defined subclasses.
+                if (self is PyException excWrapper)
+                {
+                    if (excWrapper.OriginalInstance != null
+                        && excWrapper.OriginalInstance.InstanceDict.ContainsKey("args"))
+                    {
+                        excWrapper.OriginalInstance.InstanceDict["args"] =
+                            args.Length == 0 ? TupleCache.Empty : new PyTuple(args);
+                    }
+                    else
+                    {
+                        excWrapper.SetArgsInternal(args);
+                    }
+                    return PyNone.Instance;
+                }
                 self.SetAttribute("args", args.Length == 0 ? TupleCache.Empty : new PyTuple(args));
                 return PyNone.Instance;
             });
@@ -3089,6 +3161,8 @@ namespace SharpPy
                         if (inst.InstanceDict.TryGetValue("args", out var argsValue))
                             return argsValue;
                     }
+                    if (self is PyException excGetter)
+                        return new PyTuple(excGetter.Args);
                     // If not found, return empty tuple
                     return new PyTuple(new PyObject[0]);
                 },
@@ -3098,6 +3172,18 @@ namespace SharpPy
                     if (self is PyClassInstance inst)
                     {
                         inst.InstanceDict["args"] = value;
+                        return;
+                    }
+                    if (self is PyException excWrapper)
+                    {
+                        if (value is PyTuple valueTuple)
+                        {
+                            excWrapper.SetArgsInternal(valueTuple.Items);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"args must be set to a tuple, not '{value.GetTypeName()}'");
+                        }
                     }
                 }
             );

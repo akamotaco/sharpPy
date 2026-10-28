@@ -381,6 +381,7 @@ public class PyModule : PyObject
 
             // 시스템 인터페이스 Built-in 모듈
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
+            ["importlib"] = () => SharpPy.Modules.ImportlibModule.CreateImportlibModule(),
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),  // datetime.py가 사용
@@ -484,7 +485,7 @@ public class PyModule : PyObject
             }
 
             // 5. 모듈을 찾을 수 없음
-            throw PyModuleNotFoundError.Create($"No module named '{moduleName}'");
+            throw PyModuleNotFoundError.Create($"No module named '{moduleName}'", moduleName);
         }
         
         /// <summary>
@@ -523,7 +524,7 @@ public class PyModule : PyObject
                 
                 if (subModule == null)
                 {
-                    throw PyModuleNotFoundError.Create($"No module named '{currentPath}'");
+                    throw PyModuleNotFoundError.Create($"No module named '{currentPath}'", currentPath);
                 }
                 
                 // CPython 3.12: Register in sys.modules

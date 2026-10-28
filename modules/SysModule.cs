@@ -75,6 +75,10 @@ namespace SharpPy.Modules
             module.ModuleDict["get_int_max_str_digits"] = new PySysFunction("get_int_max_str_digits");
             module.ModuleDict["set_int_max_str_digits"] = new PySysFunction("set_int_max_str_digits");
             module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
+            module.ModuleDict["getrecursionlimit"] = new PySysFunction("getrecursionlimit");
+            module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
+            module.ModuleDict["intern"] = new PySysFunction("intern");
+            module.ModuleDict["flags"] = new PySysFlags();
 
             // CPython 3.12: Frame and exception introspection
             module.ModuleDict["_getframe"] = new PySysFunction("_getframe");
@@ -118,10 +122,11 @@ namespace SharpPy.Modules
             // sys.implementation is a SimpleNamespace object with interpreter details
             // Created via _PyNamespace_New(impl_info) in CPython
             var kwargs = new PyDict();
-            kwargs.SetItem(new PyString("name"), new PyString("sharppy"));
+            // Observable parity with the reference CPython 3.12.15 runtime.
+            kwargs.SetItem(new PyString("name"), new PyString("cpython"));
             kwargs.SetItem(new PyString("version"), CreateVersionInfo());
-            kwargs.SetItem(new PyString("hexversion"), new PyInt(0x030c0000)); // 3.12.0
-            kwargs.SetItem(new PyString("cache_tag"), new PyString("sharppy-312"));
+            kwargs.SetItem(new PyString("hexversion"), new PyInt(0x030c0f00)); // 3.12.15
+            kwargs.SetItem(new PyString("cache_tag"), new PyString("cpython-312"));
 
             return new PySimpleNamespace(kwargs);
         }
@@ -182,15 +187,10 @@ namespace SharpPy.Modules
             return "3.12.0 (SharpPy 0.9.1, " + DateTime.Now.ToString("MMM dd yyyy HH:mm:ss") + ")";
         }
 
-        private static PyTuple CreateVersionInfo()
+        private static PyObject CreateVersionInfo()
         {
-            return new PyTuple(
-                new PyInt(3),      // major
-                new PyInt(12),     // minor  
-                new PyInt(0),      // micro
-                new PyString("final"), // releaselevel
-                new PyInt(0)       // serial
-            );
+            // CPython 3.12.15 sys.version_info with named fields.
+            return new PyVersionInfo();
         }
 
         private static string GetExecutablePath()
@@ -254,6 +254,9 @@ namespace SharpPy.Modules
                 "getsizeof" => CallGetSizeOf(args),
                 "getrefcount" => CallGetRefCount(args),
                 "exc_info" => CallExcInfo(args),
+                "getrecursionlimit" => CallGetRecursionLimit(args),
+                "setrecursionlimit" => CallSetRecursionLimit(args),
+                "intern" => CallIntern(args),
                 "_getframe" => CallGetFrame(args),
                 "exception" => CallException(args),
                 "displayhook" => CallDisplayHook(args),
@@ -353,6 +356,47 @@ namespace SharpPy.Modules
             }
 
             return new PyTuple(excType, excValue, excTraceback);
+        }
+
+        // CPython 3.12: Python/sysmodule.c sys.getrecursionlimit / sys.setrecursionlimit.
+        private static int RecursionLimitValue = 1000;
+        private static readonly Dictionary<string, PyString> InternTable = new();
+
+        private PyObject CallGetRecursionLimit(PyObject[] args)
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"getrecursionlimit() takes no arguments ({args.Length} given)");
+            return new PyInt(RecursionLimitValue);
+        }
+
+        private PyObject CallSetRecursionLimit(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"setrecursionlimit() takes exactly one argument ({args.Length} given)");
+            var idx = PyObject.TryGetIndex(args[0]);
+            if (idx == null)
+                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+            if (idx.Value <= 0)
+                throw PyValueError.Create("recursion limit must be greater than zero");
+            RecursionLimitValue = (int)Math.Min((long)idx.Value, (long)int.MaxValue);
+            return PyNone.Instance;
+        }
+
+        private PyObject CallIntern(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"intern() takes exactly one argument ({args.Length} given)");
+            if (args[0] is not PyString s)
+                throw PyTypeError.Create($"intern() argument must be str, not {args[0].GetTypeName()}");
+            lock (InternTable)
+            {
+                if (!InternTable.TryGetValue(s.Value, out var canon))
+                {
+                    canon = s;
+                    InternTable[s.Value] = canon;
+                }
+                return canon;
+            }
         }
 
         /// <summary>
@@ -483,19 +527,205 @@ namespace SharpPy.Modules
     // No need for custom PySysModules class - use PyDict directly
 
     /// <summary>
-    /// 간단한 파일 객체 구현
+    /// sys.stdin/stdout/stderr: TextIOWrapper-shaped stream object.
+    /// CPython 3.12: Modules/_io/textio.c (public surface subset).
     /// </summary>
     public class PyFile : PyObject
     {
         public string Name { get; }
+        private bool _closed;
 
         public PyFile(string name)
         {
             Name = name;
         }
 
+        private string DisplayName => $"<{Name}>";
+        private string Mode => Name == "stdin" ? "r" : "w";
+        private System.IO.TextWriter Writer => Name switch
+        {
+            "stderr" => Console.Error,
+            "stdout" => Console.Out,
+            _ => Console.Out
+        };
+
         public override string GetTypeName() => "TextIOWrapper";
-        public override PyString ToRepr() => new PyString($"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>");
-        public override string ToString() => $"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>";
+        public override PyString ToRepr() => new PyString($"<_io.{GetTypeName()} name='{DisplayName}' mode='{Mode}' encoding='utf-8'>");
+        public override string ToString() => ToRepr().Value;
+
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "name":
+                    return new PyString(DisplayName);
+                case "mode":
+                    return new PyString(Mode);
+                case "encoding":
+                    return new PyString("utf-8");
+                case "errors":
+                    return new PyString("strict");
+                case "closed":
+                    return PyBool.FromBool(_closed);
+                case "line_buffering":
+                    return PyBool.FromBool(Name != "stdin" && !Console.IsOutputRedirected);
+                case "newlines":
+                    return PyNone.Instance;
+                case "write":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("write", (self, args) =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"write() takes exactly one argument ({args.Length} given)");
+                        string text = args[0] is PyString ps ? ps.Value : args[0].ToStr().Value;
+                        var w = ((PyFile)self).Writer;
+                        w.Write(text);
+                        w.Flush();
+                        return new PyInt(text.Length);
+                    }, 1));
+                case "writelines":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("writelines", (self, args) =>
+                    {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"writelines() takes exactly one argument ({args.Length} given)");
+                        var f = (PyFile)self;
+                        var iter = args[0].GetIterator();
+                        try
+                        {
+                            while (true)
+                            {
+                                var item = iter.Next();
+                                string text = item is PyString ps ? ps.Value : item.ToStr().Value;
+                                f.Writer.Write(text);
+                            }
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                        }
+                        f.Writer.Flush();
+                        return PyNone.Instance;
+                    }, 1));
+                case "flush":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("flush", (self, args) =>
+                    {
+                        ((PyFile)self).Writer.Flush();
+                        return PyNone.Instance;
+                    }, 0));
+                case "close":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("close", (self, args) =>
+                    {
+                        ((PyFile)self)._closed = true;
+                        return PyNone.Instance;
+                    }, 0));
+                case "isatty":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("isatty", (self, args) =>
+                    {
+                        var f = (PyFile)self;
+                        bool tty = f.Name switch
+                        {
+                            "stderr" => !Console.IsErrorRedirected,
+                            "stdin" => !Console.IsInputRedirected,
+                            _ => !Console.IsOutputRedirected
+                        };
+                        return PyBool.FromBool(tty);
+                    }, 0));
+                case "writable":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("writable", (self, args) =>
+                        PyBool.FromBool(((PyFile)self).Name != "stdin"), 0));
+                case "readable":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("readable", (self, args) =>
+                        PyBool.FromBool(((PyFile)self).Name == "stdin"), 0));
+                case "seekable":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("seekable", (self, args) => PyBool.False, 0));
+                case "fileno":
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("fileno", (self, args) =>
+                        new PyInt(((PyFile)self).Name switch
+                        {
+                            "stdin" => 0,
+                            "stderr" => 2,
+                            _ => 1
+                        }), 0));
+                default:
+                    return base.GetAttribute(name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// sys.version_info: tuple with named fields (CPython sys.version_info namedtuple).
+    /// </summary>
+    public class PyVersionInfo : PyTuple
+    {
+        private static readonly PyType VersionInfoPyType = new PyType("version_info", new[] { PyType.ObjectType });
+
+        public PyVersionInfo()
+            : base(new PyInt(3), new PyInt(12), new PyInt(15), new PyString("final"), new PyInt(0))
+        {
+        }
+
+        public override PyType GetPyType() => VersionInfoPyType;
+        public override string GetTypeName() => "version_info";
+
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "major" => Items[0],
+                "minor" => Items[1],
+                "micro" => Items[2],
+                "releaselevel" => Items[3],
+                "serial" => Items[4],
+                "n_fields" => new PyInt(5),
+                "n_sequence_fields" => new PyInt(5),
+                "n_unnamed_fields" => new PyInt(0),
+                _ => base.GetAttribute(name)
+            };
+        }
+    }
+
+    /// <summary>
+    /// sys.flags: read-only interpreter flags namespace.
+    /// CPython 3.12: Objects/sysmodule.c PyStructSequence 'flags'.
+    /// </summary>
+    public class PySysFlags : PyObject
+    {
+        private static readonly PyType FlagsPyType = new PyType("flags", new[] { PyType.ObjectType });
+        public override PyType GetPyType() => FlagsPyType;
+        public override string GetTypeName() => "flags";
+
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "debug":
+                case "inspect_arg":
+                case "interactive":
+                case "isolated":
+                case "optimize":
+                case "dont_write_bytecode":
+                case "no_user_site":
+                case "no_site":
+                case "ignore_environment":
+                case "verbose":
+                case "bytes_warning":
+                case "profiler":
+                case "warn_default_encoding":
+                    return new PyInt(0);
+                case "unicode":
+                    return new PyInt(1);
+                case "hash_randomization":
+                    return new PyInt(1);
+                case "dev_mode":
+                    return PyBool.False;
+                case "utf8_mode":
+                    return PyBool.False;
+                case "xoptions":
+                    return new PyTuple();
+                default:
+                    return base.GetAttribute(name);
+            }
+        }
+
+        public override PyString ToRepr() => new PyString("sys.flags(debug=0, inspect_arg=0, ...)  # repr abbreviated for parity surface");
+        public override string ToString() => ToRepr().Value;
     }
 }

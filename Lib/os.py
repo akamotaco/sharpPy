@@ -26,8 +26,91 @@ rename = nt.rename
 access = nt.access
 getenv = nt.getenv
 putenv = nt.putenv
+unsetenv = getattr(nt, 'unsetenv', None)
+getpid = getattr(nt, 'getpid', None)
 urandom = nt.urandom
-environ = nt.environ
+
+
+class _Environ:
+    """os.environ mapping that keeps the CPython observable type.
+
+    CPython 3.12: Lib/os.py _Environ (MutableMapping) simplified for SharpPy;
+    keys/values are plain str here.
+    """
+
+    def __init__(self, data):
+        self._data = data
+
+    def __setitem__(self, key, value):
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise TypeError("str expected, not %s" % type(value).__name__)
+        nt.putenv(key, value)
+        self._data[key] = value
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __delitem__(self, key):
+        del self._data[key]
+        try:
+            nt.unsetenv(key)
+        except AttributeError:
+            pass
+
+    def __iter__(self):
+        yield from list(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __contains__(self, key):
+        return key in self._data
+
+    def copy(self):
+        return dict(self._data)
+
+    def keys(self):
+        return list(self._data)
+
+    def values(self):
+        return [self._data[k] for k in self._data]
+
+    def items(self):
+        return [(k, self._data[k]) for k in self._data]
+
+    def get(self, key, default=None):
+        try:
+            return self._data[key]
+        except KeyError:
+            return default
+
+    def setdefault(self, key, default=None):
+        if key not in self._data:
+            self._data[key] = default
+            try:
+                nt.putenv(key, default)
+            except Exception:
+                pass
+        return self._data[key]
+
+    def pop(self, key, *args):
+        try:
+            value = self._data.pop(key)
+        except KeyError:
+            if args:
+                return args[0]
+            raise
+        try:
+            nt.unsetenv(key)
+        except AttributeError:
+            pass
+        return value
+
+    def __repr__(self):
+        return "_Environ(%s)" % dict(self._data).__repr__()
+
+
+environ = _Environ(nt.environ)
 
 
 # fspath implementation

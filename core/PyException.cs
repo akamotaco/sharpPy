@@ -18,6 +18,10 @@ namespace SharpPy
             protected set => _args = value;
         }
 
+        // CPython BaseException.__init__/args setter path needs to rebind args
+        // from descriptors outside the class family.
+        internal void SetArgsInternal(PyObject[] args) => Args = args;
+
         // CPython 3.12: Exception chaining attributes
         public PyBaseException? __cause__ { get; set; }
         public PyBaseException? __context__ { get; set; }
@@ -264,6 +268,15 @@ namespace SharpPy
             switch (name)
             {
                 case "args":
+                    // A user-level base __init__ (or args assignment) writes the
+                    // instance dict; that value wins over the wrapper's original
+                    // constructor args, mirroring CPython's single args slot.
+                    if (OriginalInstance != null
+                        && OriginalInstance.InstanceDict.TryGetValue("args", out var argsOverride))
+                    {
+                        return argsOverride;
+                    }
+                    return base.GetAttribute(name);
                 case "__cause__":
                 case "__context__":
                 case "__suppress_context__":
@@ -630,7 +643,7 @@ namespace SharpPy
     // Import 예외들
     public class PyImportError : PyException
     {
-        public string ModuleName { get; }
+        public string ModuleName { get; set; }
 
         public PyImportError(string message, string moduleName = null) : base(message)
         {
@@ -1768,7 +1781,8 @@ namespace SharpPy
             Next = next;
         }
 
-        public override PyType GetPyType() => PyType.ObjectType;
+        private static readonly PyType TracebackPyType = new PyType("traceback", new[] { PyType.ObjectType });
+        public override PyType GetPyType() => TracebackPyType;
         public override string GetTypeName() => "traceback";
 
         public override PyString ToStr()

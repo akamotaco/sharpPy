@@ -7080,11 +7080,13 @@ namespace SharpPy
             {
                 // Handle "module as alias" format
                 string actualModule, alias;
+                bool hadAs;
                 if (moduleName.Contains(" as "))
                 {
                     var parts = moduleName.Split(new[] { " as " }, StringSplitOptions.RemoveEmptyEntries);
                     actualModule = parts[0].Trim();
                     alias = parts[1].Trim();
+                    hadAs = true;
                 }
                 else
                 {
@@ -7093,6 +7095,7 @@ namespace SharpPy
                     // Example: import collections.abc → STORE_NAME collections (not collections.abc)
                     var dotIndex = actualModule.IndexOf('.');
                     alias = (dotIndex != -1) ? actualModule.Substring(0, dotIndex) : actualModule;
+                    hadAs = false;
                 }
 
                 // CPython 3.12 pattern: LOAD_CONST(0), LOAD_CONST(None), IMPORT_NAME
@@ -7103,6 +7106,19 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
                 EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
+
+                // CPython 3.12: `import a.b as X` compiles to
+                // IMPORT_NAME a.b / IMPORT_FROM b / STORE X / POP_TOP, because
+                // __import__ with fromlist=None returns the top-level package.
+                if (hadAs && actualModule.IndexOf('.') != -1)
+                {
+                    var lastPart = actualModule.Substring(actualModule.LastIndexOf('.') + 1);
+                    var fromPartIndex = GetOrAddConstant(new PyString(lastPart));
+                    EmitInstruction(ByteCodeOp.IMPORT_FROM, fromPartIndex);
+                    EmitStoreVariable(alias);
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    continue;
+                }
 
                 // Store the imported module in the correct variable name
                 // CPython 3.12: Use STORE_FAST in functions, STORE_NAME at module level

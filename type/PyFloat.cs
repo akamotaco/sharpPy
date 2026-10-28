@@ -264,6 +264,19 @@ namespace SharpPy
 
             // CPython 3.12: Objects/floatobject.c:1710-1750 - float_format
             // float.__format__(format_spec) - Format the float according to format_spec
+            // float.__repr__(/) - slot wrapper usable unbound: float.__repr__(1.5)
+            floatType.TypeDict["__repr__"] = new PyMethodDescriptor(
+                "__repr__", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                    if (self is not PyFloat floatObj)
+                        throw PyTypeError.Create($"descriptor '__repr__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    return new PyString(FormatFloat(floatObj.Value, ""));
+                },
+                minArgs: 1, maxArgs: 1
+            );
+
             floatType.TypeDict["__format__"] = new PyMethodDescriptor(
                 "__format__", floatType,
                 (self, args, kwargs) => {
