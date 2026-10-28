@@ -266,6 +266,7 @@ namespace SharpPy.Generated
         private char _fstringQuoteChar = '\0';
         private int _fstringQuoteSize = 0;
         private bool _fstringInFormatSpec = false;  // PEP 701: Track if we're inside format spec after ':'
+        private bool _fstringSpecResume = false;    // spec text follows a nested field inside a format spec
         private int _fstringExprStartDepth = 0;     // PEP 701: Track brace depth when expr started
 
         // PEP 701: Nested f-string support
@@ -1376,12 +1377,14 @@ namespace SharpPy.Generated
                         AddToken(rbraceType, "}", _line, _column);
                         _currentLineHasRealTokens = true;
                         _fstringBraceDepth--;
+                        _fstringSpecResume = false;
                         Advance();
                         return;
                     }
                     else if (_fstringBraceDepth > exprStartDepth)
                     {
-                        // This is a closing brace for a nested construct (dict/set literal)
+                        // This is a closing brace for a nested construct (dict/set literal
+                        // or a nested field inside a format spec)
                         // Decrement level BEFORE creating RBRACE token
                         if (_level > 0)
                             _level--;
@@ -1391,6 +1394,14 @@ namespace SharpPy.Generated
                         _currentLineHasRealTokens = true;
                         _fstringBraceDepth--;
                         Advance();
+                        // CPython 3.12 PEP 701: text after a nested field is still format-spec
+                        // content (f"{x:{a}.{b}}"), not expression code.
+                        if (_fstringSpecResume && _fstringBraceDepth == exprStartDepth)
+                        {
+                            _fstringSpecResume = false;
+                            _fstringInFormatSpec = true;
+                            HandleFStringFormatSpec(exprStartDepth);
+                        }
                         continue; // Continue processing expression, not return
                     }
                     else
@@ -1505,8 +1516,11 @@ namespace SharpPy.Generated
                         _currentLineHasRealTokens = true;
                     }
 
-                    // Reset format spec mode and return to let HandleFStringExpression handle the '{'
+                    // Reset format spec mode and return to let HandleFStringExpression handle the '{'.
+                    // Mark that more spec text may follow once the nested field closes
+                    // (CPython keeps in_format_spec across nested fields: f"{x:{a}.{b}}").
                     _fstringInFormatSpec = false;
+                    _fstringSpecResume = true;
                     return;
                 }
 
