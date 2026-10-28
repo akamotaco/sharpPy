@@ -644,6 +644,41 @@ namespace SharpPy
                     return new PyString("'" + reprSelf.Value + "'");
                 });
 
+            // CPython 3.12: str % (nb_remainder via PyUnicode_Format) slot wrapper.
+            strType.TypeDict["__mod__"] = new PyWrapperDescriptor(
+                "__mod__", strType,
+                (self, args, kwargs) =>
+                {
+                    var recv = AsStrReceiver(self);
+                    if (recv == null)
+                        throw PyTypeError.Create($"descriptor '__mod__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("str.__mod__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return recv.Modulo(args[0]);
+                });
+
+            // CPython 3.12: str tp_richcompare wrappers; non-str other -> NotImplemented,
+            // bad self -> slot-wrapper TypeError (both measured).
+            string[] strComparisonNames = { "__lt__", "__le__", "__eq__", "__ne__", "__gt__", "__ge__" };
+            for (int i = 0; i < strComparisonNames.Length; i++)
+            {
+                var op = (CompareOp)i;
+                string name = strComparisonNames[i];
+                strType.TypeDict[name] = new PyWrapperDescriptor(name, strType, (self, args, kwargs) =>
+                {
+                    var recv = AsStrReceiver(self);
+                    if (recv == null)
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create($"str.{name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return recv.RichCompare(args[0], op);
+                });
+            }
+
             strType.TypeDict["__add__"] = new PyWrapperDescriptor(
                 "__add__", strType,
                 (self, args, kwargs) =>

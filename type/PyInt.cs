@@ -60,6 +60,136 @@ namespace SharpPy
                         });
                     });
             }
+            // CPython 3.12: int exposes the nb_* slots as slot wrappers
+            // (Objects/typeobject.c NBINOP/NBUNARYOP slotdefs). Error strings measured
+            // against CPython 3.12.15; NotImplemented propagates for unsupported right
+            // operands exactly like the C slots.
+            static bool IntLike(PyObject o) => o is PyInt or PyIntSubclass or PyBool;
+            static PyInt AsIntObj(PyObject o) =>
+                (o as PyInt) ??
+                (o as PyIntSubclass)?.GetIntValue() ??
+                (o is PyBool pb ? new PyInt(pb.Value ? BigInteger.One : BigInteger.Zero) : null);
+            // Extended Euclidean inverse for pow(base, -exp, mod) (CPython 3.8+).
+            static BigInteger ModInverse(BigInteger value, BigInteger modulus)
+            {
+                var positive = BigInteger.Abs(modulus);
+                var a = ((value % positive) + positive) % positive;
+                if (BigInteger.GreatestCommonDivisor(a, positive) != 1)
+                    throw PyValueError.Create("base is not invertible for the given modulus");
+                BigInteger oldR = a, r = positive;
+                BigInteger oldS = 1, s = 0;
+                while (r != BigInteger.Zero)
+                {
+                    var quotient = oldR / r;
+                    (oldR, r) = (r, oldR - quotient * r);
+                    (oldS, s) = (s, oldS - quotient * s);
+                }
+                return ((oldS % positive) + positive) % positive;
+            }
+            void regIntBin(string name, Func<PyObject, PyObject, PyObject> impl)
+            {
+                intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
+                {
+                    if (!IntLike(self))
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return impl(self, args[0]);
+                });
+            }
+            void regIntRev(string name, Func<PyObject, PyObject, PyObject> fwd)
+            {
+                intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
+                {
+                    if (!IntLike(self))
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return IntLike(args[0]) ? fwd(args[0], self) : PyNotImplemented.Instance;
+                });
+            }
+            void regIntUn(string name, Func<PyObject, PyObject> impl)
+            {
+                intType.TypeDict[name] = new PyWrapperDescriptor(name, intType, (self, args, kwargs) =>
+                {
+                    if (!IntLike(self))
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'int' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    return impl(self);
+                });
+            }
+            regIntBin("__add__", (s, o) => s.Add(o));
+            regIntRev("__radd__", (s, o) => s.Add(o));
+            regIntBin("__sub__", (s, o) => s.Subtract(o));
+            regIntRev("__rsub__", (s, o) => s.Subtract(o));
+            regIntBin("__mul__", (s, o) => s.Multiply(o));
+            regIntRev("__rmul__", (s, o) => s.Multiply(o));
+            regIntBin("__floordiv__", (s, o) => s.FloorDivide(o));
+            regIntRev("__rfloordiv__", (s, o) => s.FloorDivide(o));
+            regIntBin("__truediv__", (s, o) => s.Divide(o));
+            regIntRev("__rtruediv__", (s, o) => s.Divide(o));
+            regIntBin("__mod__", (s, o) => s.Modulo(o));
+            regIntRev("__rmod__", (s, o) => s.Modulo(o));
+            regIntBin("__lshift__", (s, o) => s.LeftShift(o));
+            regIntRev("__rlshift__", (s, o) => s.LeftShift(o));
+            regIntBin("__rshift__", (s, o) => s.RightShift(o));
+            regIntRev("__rrshift__", (s, o) => s.RightShift(o));
+            regIntBin("__and__", (s, o) => s.BitwiseAnd(o));
+            regIntRev("__rand__", (s, o) => s.BitwiseAnd(o));
+            regIntBin("__xor__", (s, o) => s.BitwiseXor(o));
+            regIntRev("__rxor__", (s, o) => s.BitwiseXor(o));
+            regIntBin("__or__", (s, o) => s.BitwiseOr(o));
+            regIntRev("__ror__", (s, o) => s.BitwiseOr(o));
+            intType.TypeDict["__divmod__"] = new PyWrapperDescriptor("__divmod__", intType, (self, args, kwargs) =>
+            {
+                if (!IntLike(self))
+                    throw PyTypeError.Create($"descriptor '__divmod__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("wrapper __divmod__() takes no keyword arguments");
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                var quotient = self.FloorDivide(args[0]);
+                if (quotient is PyNotImplemented)
+                    return quotient;
+                return new PyTuple(quotient, self.Modulo(args[0]));
+            });
+            intType.TypeDict["__pow__"] = new PyWrapperDescriptor("__pow__", intType, (self, args, kwargs) =>
+            {
+                if (!IntLike(self))
+                    throw PyTypeError.Create($"descriptor '__pow__' requires a 'int' object but received a '{self.GetTypeName()}'");
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("wrapper __pow__() takes no keyword arguments");
+                if (args.Length == 1)
+                    return self.Power(args[0]);
+                if (args.Length != 2)
+                    throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                if (!IntLike(args[0]) || !IntLike(args[1]))
+                    throw PyTypeError.Create($"'{(!IntLike(args[0]) ? args[0] : args[1]).GetTypeName()}' object cannot be interpreted as an integer");
+                var modulus = AsIntObj(args[1]).Value;
+                if (modulus.IsZero)
+                    throw PyTypeError.Create("pow() 3rd argument cannot be 0");
+                var exponent = AsIntObj(args[0]).Value;
+                var baseValue = AsIntObj(self).Value % modulus;
+                if (exponent.Sign < 0)
+                {
+                    // CPython 3.8+: pow(base, -exp, mod) is modular inverse.
+                    baseValue = ModInverse(baseValue, modulus);
+                    exponent = -exponent;
+                }
+                return new PyInt(BigInteger.ModPow(baseValue, exponent, modulus));
+            });
+            regIntUn("__neg__", s => s.Negative());
+            regIntUn("__pos__", s => s.Positive());
+            regIntUn("__invert__", s => s.BitwiseNot());
+            regIntUn("__abs__", s => new PyInt(BigInteger.Abs(AsIntObj(s).Value)));
+
             intType.TypeDict["__hash__"] = new PyWrapperDescriptor(
                 "__hash__", intType,
                 (self, args, kwargs) => {
@@ -726,7 +856,7 @@ namespace SharpPy
             if (other is PyInt otherInt)
             {
                 if (otherInt.Value == 0)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                    throw PyZeroDivisionError.Create("integer modulo by zero");
 
                 // CPython: Objects/longobject.c:long_rem - Python modulo
                 // Python modulo: result has same sign as divisor
@@ -757,7 +887,7 @@ namespace SharpPy
             if (other is PyBool otherBool)
             {
                 if (!otherBool.Value)
-                    throw PyZeroDivisionError.Create("integer division or modulo by zero");
+                    throw PyZeroDivisionError.Create("integer modulo by zero");
                 return new PyInt(0);
             }
             return PyNotImplemented.Instance;

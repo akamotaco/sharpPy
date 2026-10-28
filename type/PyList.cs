@@ -370,6 +370,73 @@ namespace SharpPy
                     return GetListForItemDescriptor(self, "__contains__", true).Contains(args[0]);
                 });
 
+            // CPython 3.12: list sq_concat/sq_multiply/nb_inplace slot wrappers
+            // (Objects/typeobject.c slotdefs + listobject.c METH_VARARGS list_inplace_*/
+            // list_repeat). Error strings measured against CPython 3.12.15; the varargs
+            // list_repeat family has the distinctive leading-space message.
+            void regListBin(string name, bool varargsStyle, Func<PyList, PyObject, PyObject> impl)
+            {
+                listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
+                {
+                    var list = GetListForItemDescriptor(self, name, true);
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create(varargsStyle
+                            ? $" expected 1 argument, got {args.Length}"
+                            : $"expected 1 argument, got {args.Length}");
+                    return impl(list, args[0]);
+                });
+            }
+            regListBin("__add__", false, (list, other) =>
+            {
+                var result = list.Add(other);
+                if (result is PyNotImplemented)
+                    throw PyTypeError.Create($"can only concatenate list (not \"{other.GetTypeName()}\") to list");
+                return result;
+            });
+            // list_repeat coerces with __index__; the C slot raises instead of
+            // returning NotImplemented (measured: 'float' object cannot be
+            // interpreted as an integer).
+            PyObject ListRepeat(PyList list, PyObject other)
+            {
+                var result = list.Multiply(other);
+                if (result is PyNotImplemented)
+                    throw PyTypeError.Create($"'{other.GetTypeName()}' object cannot be interpreted as an integer");
+                return result;
+            }
+            regListBin("__mul__", true, ListRepeat);
+            regListBin("__rmul__", true, ListRepeat);
+            regListBin("__imul__", true, (list, other) =>
+            {
+                var repeated = (PyList)ListRepeat(list, other);
+                list._items.Clear();
+                list._items.AddRange(repeated._items);
+                return list; // CPython returns the same list object
+            });
+            regListBin("__iadd__", false, (list, other) =>
+            {
+                list.Extend(other); // accepts any iterable; raises like list.extend
+                return list;
+            });
+
+            // CPython 3.12: list tp_richcompare wrappers; non-list other -> NotImplemented.
+            string[] listComparisonNames = { "__lt__", "__le__", "__eq__", "__ne__", "__gt__", "__ge__" };
+            for (int i = 0; i < listComparisonNames.Length; i++)
+            {
+                var op = (CompareOp)i;
+                string name = listComparisonNames[i];
+                listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
+                {
+                    var list = GetListForItemDescriptor(self, name, true);
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return list.RichCompare(args[0], op);
+                });
+            }
+
             // CPython 3.12: Objects/listobject.c:2867 (list methods table)
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
             // METH_CLASS means it's a classmethod - first arg is the class itself
@@ -645,15 +712,11 @@ namespace SharpPy
 
         public void Extend(PyObject iterable)
         {
-            if (iterable is PyList other)
-            {
-                _items.AddRange(other._items);
-            }
-            else
-            {
-                // 이터러블 지원 (나중에 구현)
-                throw PyTypeError.Create("'PyObject' object is not iterable");
-            }
+            // CPython list_extend semantics: InplaceAdd already implements the
+            // list/tuple fast paths and the general iterator path
+            // (Objects/listobject.c:860-970). The previous placeholder only
+            // accepted PyList and reported "'PyObject' object is not iterable".
+            InplaceAdd(iterable);
         }
 
         public int Index(PyObject item)

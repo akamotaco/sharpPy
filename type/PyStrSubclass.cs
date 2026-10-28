@@ -60,6 +60,13 @@ namespace SharpPy
             return _strValue.Multiply(other);
         }
 
+        // SS("%s") % 7 dispatches the % operator virtually; without this override
+        // the subclass fell through to the generic unsupported-operand error.
+        public override PyObject Modulo(PyObject other)
+        {
+            return _strValue.Modulo(other);
+        }
+
         // CPython 3.12: str subclasses inherit the whole unicode protocol; these slots
         // were missing, so len()/indexing/slices/`in`/iteration failed on subclasses.
         public override int Length() => _strValue.Length();
