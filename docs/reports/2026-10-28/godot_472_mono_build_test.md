@@ -37,8 +37,23 @@
 `a40d72c` 대비 명령어 수 측정(원인 지목 전 원인 조사 먼저). 가드 상수는
 임의 값이라 인상으로 '해결'하지 않는다.
 
+## toolchain 결정: dotnet 10 유지 (사용자 승인 2026-10-28)
+
+- PATH의 SDK **10.0.401**로 전체 재빌드해도 net8.0 TFM 기준 오류/경고 0:
+  - 주 프로젝트 `-c Release -t:Rebuild`: 0/0, `evaluate.py` 결과 225+3+2 동일
+  - Godot CompatibilityProbe Debug+Release Rebuild: 0/0, headless 기본 suite
+    `SHARPPY_GODOT_PASS`, replay `82 matched, 0 other`
+- 즉 빌드는 SDK 10, 산출물은 net8.0, Godot 런타임은 .NET 10.0.12에서 구동.
+  4.8 안정화 시 TFM/net10 검토는 별도 과제.
+- **제약**: in-tree codegen(GenerateTokenizer/GenerateParser)은 dotnet 10에서
+  `dotnet run`이 host startup error(-2147450730)로 실패하고, SDK 8 경로에서도
+  `SharpPy.Tokens/SharpPy.Tokens.sln`이 존재하지 않는 `SharpPy.Tokenizer.csproj`
+  를 참조해 깨져 있다. 따라서 표준 빌드 명령은 `-p:SkipCodeGeneration=true`와
+  커밋된 Generated 소스 사용. codegen 도구 복원은 별도 후속 과제.
+
 ## 결론
 
-프로젝트의 Godot(dotnet) 빌드 목표는 **Godot 4.7.2 stable mono + .NET 8(TFM
-net8.0, Godot.NET.Sdk 4.7.2)** 로서 현재 HEAD에서 오류/경고 0, headless 전 suite
-통과. 4.8 계열은 .NET 10 요구가 확정되기 전까지 미적용.
+프로젝트의 Godot(dotnet) 빌드 목표는 **Godot 4.7.2 stable mono + TFM net8.0,
+Godot.NET.Sdk 4.7.2** 로서 현재 HEAD에서 오류/경고 0, headless 전 suite 통과.
+빌드 SDK는 dotnet 10.0.401로 유지(사용자 승인)하되, 주 빌드는
+`-p:SkipCodeGeneration=true`를 표준으로 한다. 4.8 계열의 net10 전환은 안정화 후 검토.
