@@ -3156,12 +3156,19 @@ namespace SharpPy
 
                         if (!isClassModeSuper)
                         {
-                            // Instance-mode super: auto-bind methods to instance
+                            // Instance-mode super: auto-bind methods to instance.
+                            // NOTE: PySuper.GetAttribute already applies the descriptor
+                            // protocol, so a *regular* method comes back as a PyMethod
+                            // (handled in the is-PyMethod branch below) and a @staticmethod
+                            // comes back as a bare function that must NOT be bound (CPython
+                            // do_super_lookup only passes self for Py_TPFLAGS_METHOD_DESCRIPTOR
+                            // entries, not for staticmethod). Binding a bare function here was
+                            // the bug: super().static_method() got self as an extra argument.
                             if (superAttr is PyFunction pyFunc)
                             {
-                                finalAttr = new PyMethod(selfObj, pyFunc);
+                                finalAttr = superAttr;
                                 #if DEBUG_LOG
-                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
+                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: leaving function {superAttrName} unbound (staticmethod/non-method)");
                                 #endif
                             }
                             else if (superAttr is PyBuiltinFunction builtinFunc)

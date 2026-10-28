@@ -3590,6 +3590,10 @@ namespace SharpPy
         /// </summary>
         private static PyObject CallSuper(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython super has no keyword parameters (super_vectorcall / _PyArg_NoKwnames).
+            if (kwargs != null && kwargs.Length() > 0)
+                throw PyTypeError.Create("super() takes no keyword arguments");
+
             if (args.Length == 0)
             {
                 // CPython 3.12: super_init_without_args. SharpPy keeps Cells in
@@ -3617,23 +3621,28 @@ namespace SharpPy
                     throw PyRuntimeError.Create($"super(): __class__ is not a type ({classCell.Value.GetPyType().Name})");
                 return new PySuper(type, instance);
             }
+            else if (args.Length == 1)
+            {
+                // super(type) -> unbound super object (obj_type == NULL).
+                if (args[0] is not PyType single)
+                    throw PyTypeError.Create($"super() argument 1 must be a type, not {args[0].GetTypeName()}");
+                return new PySuper(single, null);
+            }
             else if (args.Length == 2)
             {
                 // super(type, obj) - standard form
                 var type = args[0];
                 var obj = args[1];
-                
-                if (!(type is PyType pyType))
-                {
-                    throw PyTypeError.Create("super() argument 1 must be type");
-                }
-                
-                // Create a super proxy object
-                return new PySuper(pyType, obj);
+
+                if (type is not PyType pyType)
+                    throw PyTypeError.Create($"super() argument 1 must be a type, not {type.GetTypeName()}");
+
+                // CPython: obj == None is treated as an unbound super.
+                return new PySuper(pyType, obj == PyNone.Instance ? null : obj);
             }
             else
             {
-                throw PyTypeError.Create($"super expected at most 2 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"super() expected at most 2 arguments, got {args.Length}");
             }
         }
 
@@ -4755,26 +4764,51 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: super_getattro() -> do_super_lookup()
         /// </summary>
+        // CPython PySuper_Type: name "super", base object.
+        public override PyType GetPyType() => PyType.SuperType;
+        public override string GetTypeName() => "super";
+
+        // CPython super_repr:
+        //   obj_type != NULL: <super: <class 'TYPE'>, <OBJTYPE object>>
+        //   obj_type == NULL: <super: <class 'TYPE'>, NULL>
+        public override PyString ToRepr()
+            => ObjectType != null
+                ? new PyString($"<super: <class '{Type.Name}'>, <{ObjectType.Name} object>>")
+                : new PyString($"<super: <class '{Type.Name}'>, NULL>");
+
         public override PyObject GetAttribute(string name)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 PySuper.GetAttribute: Looking for '{name}' in super({Type.Name})");
-            #endif
-
-            // Special case: __class__ returns the super class itself
+            // CPython super_getattro: __class__ is special-cased to the super class,
+            // never the class of su->obj.
             if (name == "__class__")
             {
-                return this.GetPyType();
+                return GetPyType();
             }
 
-            // CPython 3.12: do_super_lookup()
-            if (ObjectType == null)
+            // CPython do_super_lookup: search the MRO after __thisclass__ first, and
+            // only on a miss fall back to PyObject_GenericGetAttr on the super object,
+            // where the read-only members __thisclass__/__self__/__self_class__ live.
+            PyObject resolved = null;
+            bool found = true;
+            try
             {
-                // Unbound super - only return class attributes without binding
-                return LookupInMRO(name, bindDescriptor: false);
+                resolved = ObjectType == null
+                    ? LookupInMRO(name, bindDescriptor: false)
+                    : LookupInMRO(name, bindDescriptor: true);
             }
+            catch (PythonException pex) when (pex.PyException is PyAttributeError)
+            {
+                found = false;
+            }
+            if (found) return resolved;
 
-            return LookupInMRO(name, bindDescriptor: true);
+            switch (name)
+            {
+                case "__thisclass__": return Type;
+                case "__self__": return Object ?? PyNone.Instance;
+                case "__self_class__": return (PyObject)ObjectType ?? PyNone.Instance;
+            }
+            throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
         }
 
         /// <summary>
@@ -4949,7 +4983,7 @@ namespace SharpPy
             return attr;
         }
 
-        public override string ToString() => $"<super: {Type.Name}, {Object}>";
+        public override string ToString() => ToRepr().Value;
     }
 
     /// <summary>

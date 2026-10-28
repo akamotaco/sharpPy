@@ -237,6 +237,7 @@ namespace SharpPy
         public static readonly PyType WrapperDescriptorType = new PyType("wrapper_descriptor", new[] { ObjectType });
         public static readonly PyType MethodWrapperType = new PyType("method-wrapper", new[] { ObjectType });
         public static readonly PyType BuiltinFunctionOrMethodType = new PyType("builtin_function_or_method", new[] { ObjectType });
+        public static readonly PyType SuperType = new PyType("super", new[] { ObjectType }); // CPython Objects/typeobject.c PySuper_Type
         
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });
