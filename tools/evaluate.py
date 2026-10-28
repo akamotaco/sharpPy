@@ -313,9 +313,14 @@ def main():
     output.parent.mkdir(parents=True, exist_ok=True)
     commands = [(name, [sys.executable, name], [args.dotnet, args.dll, name]) for name in files]
     if args.files is None:
-        commands += [(flag, None, [args.dotnet, args.dll, flag]) for flag in
+        # These two are SharpPy-internal smoke tests with no CPython reference;
+        # they must never be counted as parity results (a pass here proves nothing
+        # about CPython agreement). Tracked as self_test_no_reference instead.
+        commands += [(flag, None, [args.dotnet, args.dll, flag], True) for flag in
                      ("--test-generator-kwargs", "--test-pymethod-kwargs")]
-    for name, reference_command, sharppy_command in commands:
+    for command_tuple in commands:
+        name, reference_command, sharppy_command = command_tuple[:3]
+        is_self_test = len(command_tuple) > 3 and command_tuple[3]
         reference = run(reference_command, args.timeout, env) if reference_command else None
         sharppy = run(sharppy_command, args.timeout, env)
         volatile_fields = None
@@ -336,7 +341,13 @@ def main():
                 status = 'matching_except_volatile_fields'
                 volatile_fields = dict(reference=ref_fields, sharppy=actual_fields)
         else:
-            status = "matching_output" if reference else "no_reported_failure"
+            if is_self_test:
+                status = "self_test_no_reference"
+            elif reference:
+                status = "matching_output"
+            else:
+                # No reference and not a declared self-test: never excuse silently.
+                status = "missing_reference"
         report["cases"].append(dict(name=name, status=status, reference=reference, sharppy=sharppy,
                                   volatile_fields=volatile_fields))
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
