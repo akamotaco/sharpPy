@@ -22,9 +22,26 @@ namespace SharpPy
             _method = method;
         }
 
-        public override string ToString() => $"<built-in method {_methodName} of str object at {GetHashCode():x8}>";
+        // CPython: bound str method repr uses the bound str object's identity and the
+        // 0x prefix: <built-in method NAME of str object at 0xID>.
+        public override string ToString() => $"<built-in method {_methodName} of str object at 0x{_instance.GetHashCode():x}>";
 
         public override PyString ToRepr() => new PyString(ToString());
+
+        // CPython: a bound builtin method exposes __self__ (the bound object),
+        // __name__/__qualname__ (the method name) and __objclass__ (str).
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "__self__": return _instance;
+                case "__name__": return new PyString(_methodName);
+                case "__qualname__": return new PyString(_methodName);
+                case "__objclass__": return PyType.StrType;
+                case "__call__": return this;
+                default: return base.GetAttribute(name);
+            }
+        }
 
         /// <summary>
         /// 메서드 호출 구현

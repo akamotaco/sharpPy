@@ -34,6 +34,12 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.MethodDescriptorType;
         public override string GetTypeName() => "method_descriptor";
 
+        // CPython method_descriptor_repr: <method 'NAME' of 'TYPE' objects>
+        public override PyString ToRepr()
+            => OwnerType != null
+                ? new PyString($"<method '{Name}' of '{OwnerType.Name}' objects>")
+                : new PyString($"<method '{Name}'>");
+
         // Descriptor protocol
         public PyObject Get(PyObject instance, PyType owner)
         {
@@ -119,6 +125,10 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
+        // __new__ is a static builtin surface, not a <method ... of ... objects>
+        // descriptor, so it must not inherit PyMethodDescriptor's repr.
+        public override PyString ToRepr() => new PyString($"<built-in function {Name}>");
+        public override string ToString() => ToRepr().Value;
     }
 
     public class PyBoundMethodDescriptor : PyObject
@@ -167,7 +177,11 @@ namespace SharpPy
             }
         }
 
-        public override string ToString() => $"<built-in method {MethodDescriptor.Name} of {Instance.GetTypeName()} object>";
+        // CPython builtin_method_repr for a bound method_descriptor:
+        // <built-in method NAME of TYPE object at 0xID> (address is the bound self).
+        public override PyString ToRepr()
+            => new PyString($"<built-in method {MethodDescriptor.Name} of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
+        public override string ToString() => ToRepr().Value;
     }
 
     /// <summary>
@@ -329,6 +343,12 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.WrapperDescriptorType;
         public override string GetTypeName() => "wrapper_descriptor";
 
+        // CPython wrapper_descriptor_repr: <slot wrapper 'NAME' of 'TYPE' objects>
+        public override PyString ToRepr()
+            => OwnerType != null
+                ? new PyString($"<slot wrapper '{Name}' of '{OwnerType.Name}' objects>")
+                : new PyString($"<slot wrapper '{Name}'>");
+
         public PyObject Get(PyObject instance, PyType owner)
         {
             if (instance == null)
@@ -409,6 +429,9 @@ namespace SharpPy
             }
         }
 
-        public override string ToString() => $"<method-wrapper '{WrapperDescriptor.Name}' of {Instance.GetTypeName()} object>";
+        // CPython method-wrapper repr: <method-wrapper 'NAME' of TYPE object at 0xID>
+        public override PyString ToRepr()
+            => new PyString($"<method-wrapper '{WrapperDescriptor.Name}' of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
+        public override string ToString() => ToRepr().Value;
     }
 }

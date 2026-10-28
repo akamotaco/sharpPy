@@ -487,7 +487,7 @@ namespace SharpPy
             return result;
         }
 
-        public override PyString ToRepr() => new PyString("<enumerate object>");
+        public override PyString ToRepr() => new PyString($"<enumerate object at 0x{GetHashCode():x}>");
 
         protected override void Dispose(bool disposing)
         {

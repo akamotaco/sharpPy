@@ -594,10 +594,15 @@ public partial class PyFunction : PyObject, IDescriptor
         base.DelAttribute(name);
     }
 
-    // CPython: repr(func) == "<function NAME at 0xADDR>" (funcobject.c).
+    // CPython repr(func)/method uses __qualname__, not the bare code name: repr is
+    // "<function C.m at 0x..>" (funcobject.c func_repr), bound method is
+    // "<bound method C.m of ...>". SharpPy stores the nesting-aware name on the code
+    // object (co_qualname), so pull DisplayQualName and normalize internal lambda ids.
+    public string ReprName => PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
+    // CPython: repr(func) == "<function QUALNAME at 0xADDR>" (funcobject.c).
     public override PyString ToRepr()
-        => new PyString($"<function {PyFrame.BindErrorName(Name)} at 0x{GetHashCode():x}>");
-    public override string ToString() => $"<function {Name}>";
+        => new PyString($"<function {ReprName} at 0x{GetHashCode():x}>");
+    public override string ToString() => $"<function {ReprName}>";
     
     /// <summary>
     /// CPython-style closure function creation helper
@@ -676,7 +681,10 @@ public partial class PyFunction : PyObject, IDescriptor
             };
         }
 
-        public override string ToString() => $"<bound method {Function.Name} of {Instance}>";
+        // CPython method_repr: <bound method QUALNAME of repr(self)>
+        public override PyString ToRepr()
+            => new PyString($"<bound method {Function.ReprName} of {Instance.ToRepr().Value}>");
+        public override string ToString() => $"<bound method {Function.ReprName} of {Instance.ToRepr().Value}>";
     }
 
     /// <summary>
@@ -723,7 +731,11 @@ public partial class PyFunction : PyObject, IDescriptor
             };
         }
 
-        public override string ToString() => $"<built-in method {BuiltinFunction.Name} of {Instance.GetTypeName()} object>";
+        // CPython builtin_method_repr: <built-in method NAME of TYPE object at 0xID>
+        // where the address is the bound self object's identity.
+        public override PyString ToRepr()
+            => new PyString($"<built-in method {BuiltinFunction.Name} of {Instance.GetTypeName()} object at 0x{Instance.GetHashCode():x}>");
+        public override string ToString() => ToRepr().Value;
     }
 
 #endregion

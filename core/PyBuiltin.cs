@@ -152,6 +152,12 @@ namespace SharpPy
         public override string GetTypeName() => "builtin_function_or_method";
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
+        // CPython builtin_function_repr for an unbound (module-level) builtin:
+        // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
+        // C# ToString(), so these must be overridden explicitly.
+        public override PyString ToRepr() => new PyString($"<built-in function {Name}>");
+        public override PyString ToStr() => new PyString($"<built-in function {Name}>");
+
         /// <summary>
         /// CPython 호환: 내장 함수 구현 테이블 초기화
         /// </summary>
@@ -179,10 +185,7 @@ namespace SharpPy
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
             _builtinImplementations["any"] = (args, kwargs) => CallAny(args, kwargs);
             _builtinImplementations["all"] = (args, kwargs) => CallAll(args, kwargs);
-            _builtinImplementations["isinstance"] = (args, kwargs) => {
-                Console.WriteLine($"[BUILTIN isinstance] Called with {args.Length} args");
-                return CallIsInstance(args, kwargs);
-            };
+            _builtinImplementations["isinstance"] = (args, kwargs) => CallIsInstance(args, kwargs);
             _builtinImplementations["issubclass"] = (args, kwargs) => CallIsSubclass(args, kwargs);
             _builtinImplementations["hasattr"] = (args, kwargs) => CallHasAttr(args, kwargs);
             _builtinImplementations["getattr"] = (args, kwargs) => CallGetAttr(args, kwargs);
@@ -1942,9 +1945,14 @@ namespace SharpPy
             return name switch
             {
                 "__name__" => new PyString(Name),
+                // CPython builtin functions expose __qualname__ (== __name__ for module
+                // builtins), __doc__, and, crucially, the ordinary object attributes
+                // (__class__, __dir__, ...). Previously every other name threw, so
+                // len.__class__ raised AttributeError.
+                "__qualname__" => new PyString(Name),
                 "__call__" => this,
                 "__new__" when Name == "type" => new PyBuiltinFunction("type.__new__"),
-                _ => throw PyAttributeError.Create($"'builtin_function_or_method' object has no attribute '{name}'")
+                _ => base.GetAttribute(name)
             };
         }
 
