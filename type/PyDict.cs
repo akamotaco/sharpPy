@@ -243,22 +243,93 @@ namespace SharpPy
             dictType.TypeDict["update"] = new PyMethodDescriptor(
                 "update", dictType,
                 (self, args, kwargs) => {
-                    if (self is not PyDict dict)
-                        throw PyTypeError.Create($"descriptor 'update' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    var target = RequireDictOperand(self, "update");
 
                     if (args.Length > 1)
-                        throw PyTypeError.Create($"update expected at most 1 arguments, got {args.Length}");
+                        throw PyTypeError.Create($"update expected at most 1 argument, got {args.Length}");
 
+                    // CPython dict_update: merge E first, then apply **F (F wins on collision)
                     if (args.Length == 1)
-                    {
-                        return dict.Update(args[0]);
-                    }
+                        UpdateCommon(target, args[0]);
 
-                    // TODO: Handle **kwargs update when kwargs support is added
+                    if (kwargs != null)
+                    {
+                        foreach (var entry in kwargs.GetInternalDict())
+                            target.SetItemStorage(entry.Key, entry.Value);
+                    }
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 1
             );
+
+            // CPython 3.12: dict binary-operator slot wrappers (Objects/dictobject.c
+            // dict_or/dict_ior and dict_richcompare via slotdefs).
+            // dict supports | and |= (merge) but NOT &, -, ^; ordering comparisons are
+            // NotImplemented. Unbound calls return raw NotImplemented for non-mapping rhs.
+            dictType.TypeDict["__or__"] = new PyWrapperDescriptor(
+                "__or__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    var left = RequireDictOperand(self, "__or__");
+                    if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
+                    return left.BitwiseOr(args[0]);
+                }
+            );
+            dictType.TypeDict["__ror__"] = new PyWrapperDescriptor(
+                "__ror__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    RequireDictOperand(self, "__ror__");
+                    return PyNotImplemented.Instance;
+                }
+            );
+            dictType.TypeDict["__ior__"] = new PyWrapperDescriptor(
+                "__ior__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    var target = RequireDictOperand(self, "__ior__");
+                    // CPython dict_ior == PyDict_Update(self, other): any update argument,
+                    // returns self identity.
+                    UpdateCommon(target, args[0]);
+                    return self;
+                }
+            );
+            dictType.TypeDict["__eq__"] = new PyWrapperDescriptor(
+                "__eq__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    var left = RequireDictOperand(self, "__eq__");
+                    if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
+                    return PyBool.FromBool(CompareBool(left, args[0], CompareOp.EQ));
+                }
+            );
+            dictType.TypeDict["__ne__"] = new PyWrapperDescriptor(
+                "__ne__", dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    var left = RequireDictOperand(self, "__ne__");
+                    if (!IsDictLike(args[0])) return PyNotImplemented.Instance;
+                    return PyBool.FromBool(!CompareBool(left, args[0], CompareOp.EQ));
+                }
+            );
+            foreach (var ordering in new[] { "__lt__", "__le__", "__gt__", "__ge__" })
+            {
+                string slotName = ordering;
+                dictType.TypeDict[slotName] = new PyWrapperDescriptor(
+                    slotName, dictType,
+                    (self, args, kwargs) => {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                        RequireDictOperand(self, slotName);
+                        return PyNotImplemented.Instance;
+                    }
+                );
+            }
 
             // CPython 3.12: Objects/dictobject.c:3652-3655 - dict_copy
             // D.copy() -> a shallow copy of D
@@ -753,6 +824,101 @@ namespace SharpPy
         /// 다른 딕셔너리나 매핑의 키-값으로 업데이트 (CPython dict.update 호환)
         /// Python 3.7+: 삽입 순서 유지
         /// </summary>
+        /// <summary>
+        /// Direct storage update used by CPython merge semantics (PyDict_SetItem):
+        /// bypasses user-defined __setitem__ on dict subclasses.
+        /// </summary>
+        // Merge-style write. Must stay virtual so PyGlobalsDict keeps its
+        // module-namespace synchronization (enum.global_enum injects re.I via
+        // sys.modules[...].__dict__.update(...)).
+        public virtual void SetItemStorage(PyObject key, PyObject value) => SetItem(key, value);
+
+        internal static bool IsDictLike(PyObject value) =>
+            value is PyDict || (value is PyClassInstance ci && ci.GetDictStorage() != null);
+
+        internal static PyDict RequireDictOperand(PyObject self, string name)
+        {
+            if (self is PyDict dict)
+                return dict;
+            if (self is PyClassInstance ci)
+            {
+                var storage = ci.GetDictStorage();
+                if (storage != null)
+                    return storage;
+            }
+            throw PyTypeError.Create($"descriptor '{name}' requires a 'dict' object but received a '{self.GetTypeName()}'");
+        }
+
+        /// <summary>
+        /// CPython 3.12: Objects/dictobject.c dict_update_common dispatch:
+        ///   - dict (incl. subclass) instances merge from internal storage
+        ///   - other objects with a keys() attribute merge via keys() + __getitem__
+        ///   - remaining iterables are consumed as key/value pairs
+        /// </summary>
+        internal static void UpdateCommon(PyDict target, PyObject source)
+        {
+            if (ReferenceEquals(target, source))
+                return;
+
+            if (source is PyDict exact)
+            {
+                target.Update(exact);
+                return;
+            }
+
+            if (IsDictLike(source))
+            {
+                var storage = source is PyDict sd ? sd : ((PyClassInstance)source).GetDictStorage()!;
+                foreach (var entry in storage.GetInternalDict())
+                    target.SetItemStorage(entry.Key, entry.Value);
+                return;
+            }
+
+            PyObject keysCallable = null;
+            try
+            {
+                keysCallable = source.GetAttribute("keys");
+            }
+            catch (PythonException ex) when (ex is PyAttributeError || ex.PyException is PyAttributeError)
+            {
+                keysCallable = null;
+            }
+
+            if (keysCallable != null)
+            {
+                // Generic mapping: for k in E.keys(): self[k] = E[k] (PyObject_GetItem values)
+                var keysObj = keysCallable.Call(new PyObject[0], null);
+                foreach (var key in PySet.IterableItems(keysObj))
+                    target.SetItemStorage(key, source.GetItem(key));
+                return;
+            }
+
+            int elementIndex = 0;
+            foreach (var element in PySet.IterableItems(source))
+            {
+                PyObject[] pair;
+                if (element is PyTuple tuple)
+                    pair = tuple.Items;
+                else
+                {
+                    try
+                    {
+                        pair = element.AsList().Items;
+                    }
+                    catch (PythonException)
+                    {
+                        throw PyTypeError.Create(
+                            $"cannot convert dictionary update sequence element #{elementIndex} to a sequence");
+                    }
+                }
+                if (pair.Length != 2)
+                    throw PyValueError.Create(
+                        $"dictionary update sequence element #{elementIndex} has length {pair.Length}; 2 is required");
+                target.SetItemStorage(pair[0], pair[1]);
+                elementIndex++;
+            }
+        }
+
         public virtual PyNone Update(PyObject other)
         {
             // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
@@ -1130,21 +1296,10 @@ namespace SharpPy
         /// </summary>
         public override PyObject? InplaceBitwiseOr(PyObject other)
         {
-            // CPython: Objects/dictobject.c:3177-3180 - Type check
-            if (other is not PyDict otherDict)
-            {
-                return PyNotImplemented.Instance;
-            }
-
-            // CPython: Objects/dictobject.c:3182-3189 - Merge in place
-            // PyDict_Merge(self, other, 1) - 1 means override existing keys
-            foreach (var key in otherDict._keys)
-            {
-                if (_dict.SetKnownHash(key, otherDict._dict.StoredValue(key), otherDict._dict.StoredHash(key)))
-                    AddOrderedKey(key);
-            }
-
-            // CPython: Objects/dictobject.c:3191 - Return self
+            // CPython dict_ior: PyDict_Update(self, other) - accepts any update argument
+            // (mapping or key/value pairs) and propagates update errors, e.g.
+            //   {} |= 5 → TypeError: 'int' object is not iterable
+            UpdateCommon(this, other);
             return this;
         }
 
