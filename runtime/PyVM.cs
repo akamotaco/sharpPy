@@ -3835,8 +3835,11 @@ namespace SharpPy
                     var extendArg = argument; // Should be 1 for this case
                     var extendIterable = frame.ValueStack.Pop(); // Pop iterable from top
 
-                    // The list should now be on top of the stack
-                    var extendTargetList = (PyList)frame.ValueStack.Peek();
+                    // The list/set should now be on top of the stack (CPython
+                    // listextend works on both list and set objects).
+                    var extendTarget = frame.ValueStack.Peek();
+                    var extendTargetList = extendTarget as PyList;
+                    var extendTargetSet = extendTarget as PySet;
 
                     // Use generic iterator approach to handle all iterable types
                     // This includes PyList, PyTuple, PyString, PyGenerator, etc.
@@ -3857,7 +3860,8 @@ namespace SharpPy
                         try
                         {
                             var nextItem = extendIterator.Next();
-                            extendTargetList.Append(nextItem);
+                            if (extendTargetList != null) extendTargetList.Append(nextItem);
+                            else extendTargetSet.Add(nextItem);
                         }
                         catch (PythonException ex) when (ex.PyException is PyStopIteration)
                         {

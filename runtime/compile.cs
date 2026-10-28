@@ -3549,12 +3549,35 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Fallback to original method for non-constant elements
-                        foreach (var element in list.Elements)
+                        // CPython 3.12: [a, *b] -> BUILD_LIST 0 then LIST_APPEND for
+                        // regular elements and LIST_EXTEND for starred elements.
+                        bool listHasStarred = false;
+                        foreach (var el in list.Elements) if (el is StarredExpression) { listHasStarred = true; break; }
+                        if (listHasStarred)
                         {
-                            CompileExpression(element);
+                            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+                            foreach (var element in list.Elements)
+                            {
+                                if (element is StarredExpression st)
+                                {
+                                    CompileExpression(st.Value);
+                                    EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
+                                }
+                                else
+                                {
+                                    CompileExpression(element);
+                                    EmitInstruction(ByteCodeOp.LIST_APPEND, 1);
+                                }
+                            }
                         }
-                        EmitInstruction(ByteCodeOp.BUILD_LIST, list.Elements.Count);
+                        else
+                        {
+                            foreach (var element in list.Elements)
+                            {
+                                CompileExpression(element);
+                            }
+                            EmitInstruction(ByteCodeOp.BUILD_LIST, list.Elements.Count);
+                        }
                     }
                     break;
                     
@@ -3586,21 +3609,69 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Non-constant elements: compile each element and BUILD_TUPLE
-                        foreach (var element in tuple.Elements)
+                        // CPython 3.12: (*a, b) -> BUILD_LIST 0 + LIST_APPEND/LIST_EXTEND
+                        // + LIST_TO_TUPLE intrinsic (a tuple literal cannot be built with a
+                        // fixed count when a starred element is present).
+                        bool tupleHasStarred = false;
+                        foreach (var el in tuple.Elements) if (el is StarredExpression) { tupleHasStarred = true; break; }
+                        if (tupleHasStarred)
                         {
-                            CompileExpression(element);
+                            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+                            foreach (var element in tuple.Elements)
+                            {
+                                if (element is StarredExpression st)
+                                {
+                                    CompileExpression(st.Value);
+                                    EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
+                                }
+                                else
+                                {
+                                    CompileExpression(element);
+                                    EmitInstruction(ByteCodeOp.LIST_APPEND, 1);
+                                }
+                            }
+                            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
                         }
-                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, tuple.Elements.Count);
+                        else
+                        {
+                            foreach (var element in tuple.Elements)
+                            {
+                                CompileExpression(element);
+                            }
+                            EmitInstruction(ByteCodeOp.BUILD_TUPLE, tuple.Elements.Count);
+                        }
                     }
                     break;
                     
                 case SetExpression set:
-                    foreach (var element in set.Elements)
+                    // CPython 3.12: {*a, b} -> BUILD_SET 0 + SET_ADD/LIST_EXTEND.
+                    bool setHasStarred = false;
+                    foreach (var el in set.Elements) if (el is StarredExpression) { setHasStarred = true; break; }
+                    if (setHasStarred)
                     {
-                        CompileExpression(element);
+                        EmitInstruction(ByteCodeOp.BUILD_SET, 0);
+                        foreach (var element in set.Elements)
+                        {
+                            if (element is StarredExpression st)
+                            {
+                                CompileExpression(st.Value);
+                                EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
+                            }
+                            else
+                            {
+                                CompileExpression(element);
+                                EmitInstruction(ByteCodeOp.SET_ADD, 1);
+                            }
+                        }
                     }
-                    EmitInstruction(ByteCodeOp.BUILD_SET, set.Elements.Count);
+                    else
+                    {
+                        foreach (var element in set.Elements)
+                        {
+                            CompileExpression(element);
+                        }
+                        EmitInstruction(ByteCodeOp.BUILD_SET, set.Elements.Count);
+                    }
                     break;
                     
                 case DictExpression dict:
