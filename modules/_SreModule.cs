@@ -107,7 +107,7 @@ namespace SharpPy.Modules
 
             try
             {
-                var regex = new Regex(pattern.Value, flags);
+                var regex = new Regex(ToDotNetPattern(pattern.Value), flags);
                 var match = regex.Match(text.Value);
 
                 return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
@@ -129,7 +129,7 @@ namespace SharpPy.Modules
 
             try
             {
-                var regex = new Regex(pattern.Value, flags);
+                var regex = new Regex(ToDotNetPattern(pattern.Value), flags);
                 var match = regex.Match(text.Value);
 
                 return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
@@ -265,6 +265,24 @@ namespace SharpPy.Modules
             return csFlags;
         }
 
+        /// <summary>
+        /// Translate Python-only regex constructs to .NET Regex syntax. The engine
+        /// is System.Text.RegularExpressions, which uses (?&lt;name&gt;...) for named
+        /// groups and \k&lt;name&gt; for named backreferences, whereas Python writes
+        /// (?P&lt;name&gt;...) and (?P=name). Fast-path returns unchanged when no
+        /// "(?P" is present, so ordinary patterns are untouched.
+        /// </summary>
+        internal static string ToDotNetPattern(string p)
+        {
+            if (p == null || p.IndexOf("(?P", StringComparison.Ordinal) < 0)
+                return p;
+            // (?P=name) named backreference -> \k<name>
+            p = System.Text.RegularExpressions.Regex.Replace(p, @"\(\?P=(\w+)\)", @"\\k<$1>");
+            // (?P<name>... named group -> (?<name>...
+            p = p.Replace("(?P<", "(?<");
+            return p;
+        }
+
         #endregion
     }
 
@@ -284,7 +302,7 @@ namespace SharpPy.Modules
         {
             _pattern = pattern;
             _flags = flags;
-            _regex = new Regex(pattern, flags);
+            _regex = new Regex(_SreModule.ToDotNetPattern(pattern), flags);
         }
 
         /// <summary>
@@ -407,7 +425,10 @@ namespace SharpPy.Modules
 
             foreach (Match match in matches)
             {
-                if (match.Groups.Count > 1)
+                // CPython findall: no groups -> whole match; exactly ONE group ->
+                // that group's string; multiple groups -> tuple of groups 1..n.
+                int ncap = match.Groups.Count - 1;
+                if (ncap > 1)
                 {
                     var groups = new List<PyObject>();
                     for (int i = 1; i < match.Groups.Count; i++)
@@ -415,6 +436,10 @@ namespace SharpPy.Modules
                         groups.Add(new PyString(match.Groups[i].Value));
                     }
                     result.Add(new PyTuple(groups.ToArray()));
+                }
+                else if (ncap == 1)
+                {
+                    result.Add(new PyString(match.Groups[1].Value));
                 }
                 else
                 {
