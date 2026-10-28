@@ -1,53 +1,515 @@
-"""
-Minimal _collections_abc module for SharpPy
-Provides abstract base classes for collections
+"""collections.abc support for SharpPy (PEP 3119 abstract base classes).
 
-CPython 3.12: Lib/_collections_abc.py
+CPython reference: Lib/_collections_abc.py, Lib/collections/abc.py.
+
+C-vs-C# note (why this is not a literal port of CPython's _check_methods)
+------------------------------------------------------------------------
+CPython answers "does class C implement dunder X" with the pure-Python
+_check_methods(), which walks ``C.__mro__`` and tests ``name in B.__dict__``.
+That works because in C every protocol operation is a slot-wrapper *object*
+stored in ``type.__dict__`` and inherited from ``object`` (so ``object.__dict__``
+contains ``__hash__``/``__eq__``/..., ``list.__dict__['__hash__']`` is literally
+None, and ``str.__dict__`` has its own ``__hash__``).
+
+SharpPy implements those operations as CLR behaviour on the PyObject subclasses
+(the VM calls GetPythonHash/GetIterator/Length/Contains directly) and does NOT
+mirror most of them into ``type.__dict__``: ``hasattr(str, '__hash__')`` is False
+and ``dict.__dict__`` has no ``__len__``/``__iter__``. So the string-based
+``name in B.__dict__`` probe is unreliable here. Instead _check_methods delegates
+one level to the native primitive ``_abc._method_supports(C, name)``, which is the
+C#/CLR translation of CPython's per-type slot table (TypeDict scan across the MRO
+for user classes and materialised dunders, plus a measured capability table for
+the native builtin types). Composite ABCs (Sequence/MutableSequence/Set/
+MutableSet/Mapping/MutableMapping/...) keep CPython's design: they are *not*
+structural, they rely on real subclassing or ``register()``.
 """
 
-# _check_methods function for ABC registration
-# CPython 3.12: Lib/_collections_abc.py:115-128
+import _abc
+from abc import ABCMeta, abstractmethod
+
+
 def _check_methods(C, *methods):
-    """Check if class C has all the specified methods."""
-    mro = C.__mro__
+    # CPython Lib/_collections_abc.py:_check_methods, but delegating the
+    # per-dunder "is it present" question to the CLR (see module docstring).
     for method in methods:
-        for B in mro:
-            if method in B.__dict__:
-                if B.__dict__[method] is None:
-                    return NotImplemented
-                break
-        else:
+        if not _abc._method_supports(C, method):
             return NotImplemented
     return True
 
 
-### MAPPINGS ###
-# CPython 3.12: Lib/_collections_abc.py:787-838
+def _reg(abc_cls, t):
+    # Skip targets that are not real classes on this host (e.g. memoryview is a
+    # builtin function here even though its instances have a 'memoryview' type).
+    if t is not None and isinstance(t, type):
+        abc_cls.register(t)
 
-class Mapping:
-    """A Mapping is a generic container for associating key/value pairs.
 
-    CPython 3.12: Lib/_collections_abc.py:787-838
+__all__ = [
+    "Hashable", "Awaitable", "Coroutine", "AsyncIterable", "AsyncIterator",
+    "AsyncGenerator", "Iterable", "Iterator", "Generator", "Reversible",
+    "Sized", "Container", "Callable", "Collection", "Set", "MutableSet",
+    "Mapping", "MutableMapping", "MappingView", "KeysView", "ItemsView",
+    "ValuesView", "Sequence", "MutableSequence", "ByteString", "Buffer",
+]
 
-    This class provides concrete generic implementations of all
-    methods except for __getitem__, __iter__, and __len__.
-    """
 
+# --------------------------------------------------------------------------
+# Core protocol ABCs: these ARE structural, via __subclasshook__.
+# CPython Lib/_collections_abc.py:116-455.
+# --------------------------------------------------------------------------
+
+class Hashable(metaclass=ABCMeta):
     __slots__ = ()
 
+    @abstractmethod
+    def __hash__(self):
+        return NotImplemented
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Hashable:
+            return _check_methods(C, "__hash__")
+        return NotImplemented
+
+
+class Iterable(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __iter__(self):
+        while False:
+            yield None
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Iterable:
+            return _check_methods(C, "__iter__")
+        return NotImplemented
+
+
+class Iterator(Iterable):
+    __slots__ = ()
+
+    @abstractmethod
+    def __next__(self):
+        raise StopIteration
+
+    def __iter__(self):
+        return self
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Iterator:
+            return _check_methods(C, "__iter__", "__next__")
+        return NotImplemented
+
+
+class Reversible(Iterable):
+    __slots__ = ()
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Reversible:
+            return _check_methods(C, "__reversed__", "__iter__")
+        return NotImplemented
+
+
+class Generator(Iterator):
+    __slots__ = ()
+
+    def __next__(self):
+        raise StopIteration
+
+    def send(self, value):
+        raise StopIteration
+
+    def throw(self, typ, val=None, tb=None):
+        raise typ if val is None else typ(val)
+
+    def close(self):
+        return None
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Generator:
+            return _check_methods(C, "__iter__", "__next__", "send", "throw", "close")
+        return NotImplemented
+
+
+class Sized(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __len__(self):
+        return 0
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Sized:
+            return _check_methods(C, "__len__")
+        return NotImplemented
+
+
+class Container(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __contains__(self, x):
+        return False
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Container:
+            return _check_methods(C, "__contains__")
+        return NotImplemented
+
+
+class Callable(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __call__(self, *args, **kwds):
+        return False
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Callable:
+            return _check_methods(C, "__call__")
+        return NotImplemented
+
+
+class Awaitable(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __await__(self):
+        return iter(())
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Awaitable:
+            return _check_methods(C, "__await__")
+        return NotImplemented
+
+
+class Coroutine(Awaitable):
+    __slots__ = ()
+
+    @abstractmethod
+    def send(self, value):
+        raise StopIteration
+
+    @abstractmethod
+    def throw(self, typ, val=None, tb=None):
+        raise typ if val is None else typ(val)
+
+    @abstractmethod
+    def close(self):
+        return None
+
+
+class AsyncIterable(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __aiter__(self):
+        return self
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is AsyncIterable:
+            return _check_methods(C, "__aiter__")
+        return NotImplemented
+
+
+class AsyncIterator(AsyncIterable):
+    __slots__ = ()
+
+    @abstractmethod
+    def __anext__(self):
+        raise StopAsyncIteration
+
+    def __aiter__(self):
+        return self
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is AsyncIterator:
+            return _check_methods(C, "__anext__", "__aiter__")
+        return NotImplemented
+
+
+class AsyncGenerator(AsyncIterator):
+    __slots__ = ()
+
+    def __anext__(self):
+        raise StopAsyncIteration
+
+    def asend(self, value):
+        return self.__aiter__().asend(value)
+
+
+class Buffer(metaclass=ABCMeta):
+    __slots__ = ()
+
+    @abstractmethod
+    def __buffer__(self, flags):
+        raise NotImplementedError
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Buffer:
+            return _check_methods(C, "__buffer__")
+        return NotImplemented
+
+
+class Collection(Sized, Iterable, Container):
+    __slots__ = ()
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is Collection:
+            return _check_methods(C, "__len__", "__iter__", "__contains__")
+        return NotImplemented
+
+
+# --------------------------------------------------------------------------
+# Concrete ABCs (real subclassing / explicit mixin methods). CPython keeps
+# these non-structural except that they inherit Collection's guarded hook,
+# which returns NotImplemented for them; membership is via subclassing or
+# register(). We keep the concrete mixin behaviour that stdlib modules use.
+# --------------------------------------------------------------------------
+
+class Sequence(Reversible, Collection):
+    __slots__ = ()
+
+    @abstractmethod
+    def __getitem__(self, index):
+        raise IndexError
+
+    def __iter__(self):
+        i = 0
+        try:
+            while True:
+                v = self[i]
+                yield v
+                i += 1
+        except IndexError:
+            return
+
+    def __contains__(self, value):
+        for v in self:
+            if v is value or v == value:
+                return True
+        return False
+
+    def __reversed__(self):
+        for i in reversed(range(len(self))):
+            yield self[i]
+
+    def index(self, value, start=0, stop=None):
+        if start is not None and start < 0:
+            start = max(len(self) + start, 0)
+        if stop is not None and stop < 0:
+            stop += len(self)
+
+        i = start
+        while stop is None or i < stop:
+            try:
+                v = self[i]
+            except IndexError:
+                break
+            if v is value or v == value:
+                return i
+            i += 1
+        raise ValueError
+
+    def count(self, value):
+        return sum(1 for v in self if v is value or v == value)
+
+
+class MutableSequence(Sequence):
+    __slots__ = ()
+
+    @abstractmethod
+    def __setitem__(self, index, value):
+        raise ImportError
+
+    @abstractmethod
+    def __delitem__(self, index):
+        raise ImportError
+
+    @abstractmethod
+    def insert(self, index, value):
+        raise ImportError
+
+    def append(self, value):
+        self.insert(len(self), value)
+
+    def clear(self):
+        while True:
+            try:
+                self.pop()
+            except IndexError:
+                break
+
+    def reverse(self):
+        for i in range(len(self) // 2):
+            j = -i - 1
+            wi = self[i]
+            wj = self[j]
+            if wi is wj:
+                continue
+            self[i], self[j] = self[j], self[i]
+
+    def extend(self, values):
+        for value in values:
+            self.append(value)
+
+    def pop(self, index=-1):
+        try:
+            v = self[index]
+        except IndexError:
+            raise IndexError('pop index out of range')
+        del self[index]
+        return v
+
+    def remove(self, value):
+        try:
+            del self[self.index(value)]
+        except ValueError:
+            raise ValueError(f'{value!r} is not in list')
+
+    def __iadd__(self, values):
+        self.extend(values)
+        return self
+
+
+class Set(Collection):
+    __slots__ = ()
+
+    def __le__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return len(self - other) == 0
+
+    def __lt__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return len(self) < len(other) and self <= other
+
+    def __ne__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return len(self) != len(other) or not self <= other or not other <= self
+
+    def __eq__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return len(self) == len(other) and self <= other
+
+    def __and__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return self._from_iterable(value for value in self if value in other)
+
+    __rand__ = __and__
+
+    def __or__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return self._from_iterable(list(self) + list(other))
+
+    __ror__ = __or__
+
+    def __sub__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return self._from_iterable(value for value in self if value not in other)
+
+    def __rsub__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return self._from_iterable(value for value in other if value not in self)
+
+    def __xor__(self, other):
+        if not isinstance(other, Set):
+            return NotImplemented
+        return (self - other) | (other - self)
+
+    __rxor__ = __xor__
+
+    def isdisjoint(self, other):
+        for value in other:
+            if value in self:
+                return False
+        return True
+
+    @classmethod
+    def _from_iterable(cls, it):
+        return set(it)
+
+
+class MutableSet(Set):
+    __slots__ = ()
+
+    @abstractmethod
+    def add(self, value):
+        raise NotImplementedError
+
+    @abstractmethod
+    def discard(self, value):
+        raise NotImplementedError
+
+    def pop(self):
+        for value in self:
+            self.discard(value)
+            return value
+        raise KeyError('set is empty')
+
+    def clear(self):
+        for value in list(self):
+            self.discard(value)
+
+    def __ior__(self, it):
+        for value in it:
+            self.add(value)
+        return self
+
+    def __iand__(self, it):
+        for value in list(self):
+            if value not in it:
+                self.discard(value)
+        return self
+
+    def __ixor__(self, it):
+        for value in it:
+            if value not in self:
+                self.add(value)
+            else:
+                self.discard(value)
+        return self
+
+    def __isub__(self, it):
+        for value in it:
+            self.discard(value)
+        return self
+
+
+class Mapping(Collection):
+    __slots__ = ()
+
+    @abstractmethod
     def __getitem__(self, key):
         raise KeyError
 
     def get(self, key, default=None):
-        'D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None.'
-        # CPython 3.12: Lib/_collections_abc.py:804-809
         try:
             return self[key]
         except KeyError:
             return default
 
     def __contains__(self, key):
-        # CPython 3.12: Lib/_collections_abc.py:811-817
         try:
             self[key]
         except KeyError:
@@ -55,46 +517,33 @@ class Mapping:
         else:
             return True
 
+    @abstractmethod
+    def __iter__(self):
+        raise KeyError
+
+    @abstractmethod
+    def __len__(self):
+        raise KeyError
+
     def keys(self):
-        "D.keys() -> a set-like object providing a view on D's keys"
-        # CPython 3.12: Lib/_collections_abc.py:819-820
         return KeysView(self)
 
     def items(self):
-        "D.items() -> a set-like object providing a view on D's items"
-        # CPython 3.12: Lib/_collections_abc.py:822-823
         return ItemsView(self)
 
     def values(self):
-        "D.values() -> an object providing a view on D's values"
-        # CPython 3.12: Lib/_collections_abc.py:825-826
         return ValuesView(self)
 
     def __eq__(self, other):
-        # CPython 3.12: Lib/_collections_abc.py:831-834
         if not isinstance(other, Mapping):
             return NotImplemented
         return dict(self.items()) == dict(other.items())
 
-    def __iter__(self):
-        # Subclasses must implement
-        return iter(())
-
-    def __len__(self):
-        # Subclasses must implement
-        return 0
-
     __reversed__ = None
 
 
-# Simplified MappingView classes for Mapping.keys(), .items(), .values()
-# CPython 3.12: Lib/_collections_abc.py:841-916
-
-class MappingView:
-    """Base class for mapping views."""
-    # CPython 3.12: Lib/_collections_abc.py:841-854
-
-    __slots__ = ('_mapping',)
+class MappingView(Sized):
+    __slots__ = '_mapping',
 
     def __init__(self, mapping):
         self._mapping = mapping
@@ -103,13 +552,10 @@ class MappingView:
         return len(self._mapping)
 
     def __repr__(self):
-        return '{0.__class__.__name__}({0._mapping!r})'.format(self)
+        return f'{self.__class__.__name__}({self._mapping!r})'
 
 
-class KeysView(MappingView):
-    """A set-like object providing a view on D's keys."""
-    # CPython 3.12: Lib/_collections_abc.py:857-869
-
+class KeysView(MappingView, Set):
     __slots__ = ()
 
     def __contains__(self, key):
@@ -119,10 +565,7 @@ class KeysView(MappingView):
         yield from self._mapping
 
 
-class ItemsView(MappingView):
-    """A set-like object providing a view on D's items."""
-    # CPython 3.12: Lib/_collections_abc.py:875-894
-
+class ItemsView(MappingView, Set):
     __slots__ = ()
 
     def __contains__(self, item):
@@ -139,10 +582,7 @@ class ItemsView(MappingView):
             yield (key, self._mapping[key])
 
 
-class ValuesView(MappingView):
-    """An object providing a view on D's values."""
-    # CPython 3.12: Lib/_collections_abc.py:900-913
-
+class ValuesView(MappingView, Collection):
     __slots__ = ()
 
     def __contains__(self, value):
@@ -158,30 +598,19 @@ class ValuesView(MappingView):
 
 
 class MutableMapping(Mapping):
-    """A MutableMapping is a generic container for associating key/value pairs.
-
-    CPython 3.12: Lib/_collections_abc.py:919-1001
-
-    This class provides concrete generic implementations of all
-    methods except for __getitem__, __setitem__, __delitem__,
-    __iter__, and __len__.
-    """
-
     __slots__ = ()
 
+    @abstractmethod
     def __setitem__(self, key, value):
         raise KeyError
 
+    @abstractmethod
     def __delitem__(self, key):
         raise KeyError
 
     __marker = object()
 
     def pop(self, key, default=__marker):
-        '''D.pop(k[,d]) -> v, remove specified key and return the corresponding value.
-          If key is not found, d is returned if given, otherwise KeyError is raised.
-        '''
-        # CPython 3.12: Lib/_collections_abc.py:940-952
         try:
             value = self[key]
         except KeyError:
@@ -193,10 +622,6 @@ class MutableMapping(Mapping):
             return value
 
     def popitem(self):
-        '''D.popitem() -> (k, v), remove and return some (key, value) pair
-           as a 2-tuple; but raise KeyError if D is empty.
-        '''
-        # CPython 3.12: Lib/_collections_abc.py:954-964
         try:
             key = next(iter(self))
         except StopIteration:
@@ -206,8 +631,6 @@ class MutableMapping(Mapping):
         return key, value
 
     def clear(self):
-        'D.clear() -> None.  Remove all items from D.'
-        # CPython 3.12: Lib/_collections_abc.py:966-972
         try:
             while True:
                 self.popitem()
@@ -215,12 +638,6 @@ class MutableMapping(Mapping):
             pass
 
     def update(self, other=(), **kwds):
-        ''' D.update([E, ]**F) -> None.  Update D from mapping/iterable E and F.
-            If E present and has a .keys() method, does:     for k in E.keys(): D[k] = E[k]
-            If E present and lacks .keys() method, does:     for (k, v) in E: D[k] = v
-            In either case, this is followed by: for k, v in F.items(): D[k] = v
-        '''
-        # CPython 3.12: Lib/_collections_abc.py:974-990
         if isinstance(other, Mapping):
             for key in other:
                 self[key] = other[key]
@@ -234,8 +651,6 @@ class MutableMapping(Mapping):
             self[key] = value
 
     def setdefault(self, key, default=None):
-        'D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d if k not in D'
-        # CPython 3.12: Lib/_collections_abc.py:992-998
         try:
             return self[key]
         except KeyError:
@@ -243,50 +658,35 @@ class MutableMapping(Mapping):
         return default
 
 
-### SEQUENCES ###
-# CPython 3.12: Lib/_collections_abc.py:1006-1067
-
-# Minimal Sequence ABC for random.py
-class Sequence:
-    """Abstract base class for sized, iterable containers that support indexing."""
-
+class ByteString(Sequence):
     __slots__ = ()
 
-    def __getitem__(self, index):
-        raise IndexError
 
-    def __iter__(self):
-        i = 0
-        try:
-            while True:
-                v = self[i]
-                yield v
-                i += 1
-        except IndexError:
-            return
+# --------------------------------------------------------------------------
+# Virtual-subclass registration of the builtin concrete types.
+# CPython Lib/_collections_abc.py registers these explicitly (they are C types
+# that don't inherit from the ABCs); register() also propagates to ancestors.
+# --------------------------------------------------------------------------
 
-    def __contains__(self, value):
-        for v in self:
-            if v == value or v is value:
-                return True
-        return False
+_reg(Generator, type((i for i in ())))
 
-    def __reversed__(self):
-        for i in reversed(range(len(self))):
-            yield self[i]
+_reg(Sequence, tuple)
+_reg(Sequence, str)
+_reg(Sequence, type(range(0)))
+_reg(Sequence, type(memoryview(b"")))
 
-    def index(self, value, start=0, stop=None):
-        if start < 0:
-            start = max(len(self) + start, 0)
-        if stop is None:
-            stop = len(self)
-        elif stop < 0:
-            stop = max(len(self) + stop, 0)
+_reg(MutableSequence, list)
+_reg(MutableSequence, bytearray)
 
-        for i in range(start, stop):
-            if self[i] == value or self[i] is value:
-                return i
-        raise ValueError(f'{value!r} is not in sequence')
+_reg(ByteString, bytes)
+_reg(ByteString, bytearray)
 
-    def count(self, value):
-        return sum(1 for v in self if v == value or v is value)
+_reg(Set, frozenset)
+_reg(MutableSet, set)
+
+_reg(Mapping, dict)
+_reg(MutableMapping, dict)
+
+_reg(KeysView, type({}.keys()))
+_reg(ItemsView, type({}.items()))
+_reg(ValuesView, type({}.values()))

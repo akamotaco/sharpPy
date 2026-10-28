@@ -30,6 +30,8 @@ namespace SharpPy.Modules
             module.ModuleDict["_get_dump"] = new PyBuiltinFunction("_get_dump", GetDump);
             module.ModuleDict["_reset_registry"] = new PyBuiltinFunction("_reset_registry", ResetRegistry);
             module.ModuleDict["_reset_caches"] = new PyBuiltinFunction("_reset_caches", ResetCaches);
+            // collections.abc structural primitive (see MethodSupports/TypeProvides).
+            module.ModuleDict["_method_supports"] = new PyBuiltinFunction("_method_supports", MethodSupports);
 
             return module;
         }
@@ -89,6 +91,25 @@ namespace SharpPy.Modules
                 abcData.Registry = new PySet();
 
             abcData.Registry.Add(subclass);
+
+            // CPython ABCMeta.register() makes the virtual subclass visible to every
+            // ancestor ABC too (verified: MutableSet.register(X) => isinstance(x, Set /
+            // Collection / Sized / Iterable / Container) all True). Reproduce that by
+            // adding the subclass to each ancestor's registry as well.
+            var ancMro = GetMRO(cls);
+            if (ancMro != null)
+            {
+                foreach (var anc in ancMro)
+                {
+                    if (ReferenceEquals(anc, cls)) continue;
+                    var ad = GetAbcData(anc);
+                    if (ad != null)
+                    {
+                        if (ad.Registry == null) ad.Registry = new PySet();
+                        ad.Registry.Add(subclass);
+                    }
+                }
+            }
 
             // Invalidate caches
             _cacheInvalidationCounter++;
@@ -554,6 +575,104 @@ namespace SharpPy.Modules
             {
             }
             return null;
+        }
+
+        // --- collections.abc structural support primitive --------------------
+        // CPython decides "does class C implement dunder X" by probing type.__dict__
+        // along the MRO, because every protocol slot IS a slot-wrapper object that
+        // lives in a __dict__ (inherited from `object`). In C# SharpPy implements
+        // those operations as CLR behaviour on PyObject subclasses instead, and most
+        // are NOT mirrored into type.__dict__ (e.g. str.__hash__, dict.__len__ are
+        // absent, hasattr(str, '__hash__') is False). So the pure-Python
+        // _check_methods (`name in B.__dict__`) cannot be trusted here. This native
+        // helper is the C#/CLR translation of CPython's per-type slot table: it
+        // reports whether instances of C actually support the operation. The
+        // CPython "absent" and "__dict__[name] is None" (unhashable list) cases both
+        // collapse to NotImplemented in _check_methods, so both map to false here.
+        private static PyObject MethodSupports(PyObject[] args, PyDict kwargs)
+        {
+            if (args.Length != 2)
+                throw PyTypeError.Create($"_method_supports() takes exactly 2 arguments ({args.Length} given)");
+            if (args[1] is not PyString nameStr)
+                throw PyTypeError.Create("_method_supports() argument 2 must be str");
+            return PyBool.FromBool(TypeProvides(args[0], nameStr.Value));
+        }
+
+        private static bool TypeProvides(PyObject C, string name)
+        {
+            var mro = GetMRO(C);
+            if (mro == null)
+                return false;
+            foreach (var B in mro)
+            {
+                var d = OwnDict(B);
+                if (d != null && d.TryGetValue(name, out var v))
+                    return v is not PyNone;   // explicitly declared (None => unsupported)
+                int tri = NativeBuiltinState(B, name);
+                if (tri > 0) return true;
+                if (tri == 0) return false;   // builtin declares this unsupported
+            }
+            return false;
+        }
+
+        private static Dictionary<string, PyObject> OwnDict(PyObject B)
+        {
+            if (B is PyClass pc) return pc.ClassDict;
+            if (B is PyType bt) return bt.TypeDict;
+            return null;
+        }
+
+        // Protocol capabilities for the well-known native builtin types, measured
+        // against CPython 3.12 slot tables (type.__dict__ presence/None). Only exact
+        // native types (a PyType that is not a user PyClass) consult this table.
+        private static readonly Dictionary<string, string[]> _nativeCaps = new()
+        {
+            ["object"] = new[] { "__hash__" },
+            ["type"] = new[] { "__hash__", "__call__" },
+            ["int"] = new[] { "__hash__" },
+            ["float"] = new[] { "__hash__" },
+            ["complex"] = new[] { "__hash__" },
+            ["bool"] = new[] { "__hash__" },
+            ["NoneType"] = new[] { "__hash__" },
+            ["function"] = new[] { "__hash__", "__call__" },
+            ["builtin_function_or_method"] = new[] { "__hash__", "__call__" },
+            ["method"] = new[] { "__hash__", "__call__" },
+            ["method-wrapper"] = new[] { "__hash__", "__call__" },
+            ["str"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__" },
+            ["bytes"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__" },
+            ["tuple"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__" },
+            ["frozenset"] = new[] { "__hash__", "__iter__", "__len__", "__contains__" },
+            ["range"] = new[] { "__hash__", "__iter__", "__len__", "__contains__", "__getitem__", "__reversed__" },
+            ["memoryview"] = new[] { "__hash__", "__iter__", "__len__", "__getitem__", "__setitem__", "__delitem__" },
+            ["generator"] = new[] { "__hash__", "__iter__", "__next__" },
+            ["iterator"] = new[] { "__hash__", "__iter__", "__next__" },
+            // dict views are reversible; keys/items set __hash__=None, values stays
+            // hashable (inherits object.__hash__). Membership in Set/Container comes
+            // from register(), so __contains__ is only listed where the slot exists.
+            ["dict_keys"] = new[] { "__iter__", "__len__", "__contains__", "__reversed__" },
+            ["dict_items"] = new[] { "__iter__", "__len__", "__contains__", "__reversed__" },
+            ["dict_values"] = new[] { "__hash__", "__iter__", "__len__", "__reversed__" },
+            // Mutable / unhashable builtins (no __hash__):
+            ["list"] = new[] { "__iter__", "__len__", "__contains__", "__getitem__", "__reversed__", "__setitem__", "__delitem__" },
+            ["dict"] = new[] { "__iter__", "__len__", "__contains__", "__getitem__", "__reversed__", "__setitem__", "__delitem__" },
+            ["set"] = new[] { "__iter__", "__len__", "__contains__" },
+            ["bytearray"] = new[] { "__iter__", "__len__", "__contains__", "__getitem__", "__setitem__", "__delitem__" },
+        };
+        private static readonly HashSet<string> _nativeUnhashable = new()
+            { "list", "dict", "set", "bytearray", "dict_keys", "dict_items" };
+
+        // 1 = supported, 0 = explicitly unsupported, -1 = defer to the rest of the MRO.
+        private static int NativeBuiltinState(PyObject B, string name)
+        {
+            if (B is not PyType bt || B is PyClass)
+                return -1;
+            if (!_nativeCaps.TryGetValue(bt.Name, out var caps))
+                return -1;
+            foreach (var c in caps)
+                if (c == name) return 1;
+            if (name == "__hash__" && _nativeUnhashable.Contains(bt.Name))
+                return 0;
+            return -1;
         }
 
         /// <summary>
