@@ -1078,6 +1078,12 @@ namespace SharpPy
         // CPython 3.12: List subclasses have internal list storage
         private PyList _listStorage;
 
+        // CPython 3.12: str subclasses carry their immutable value in the object itself
+        // (PyUnicode_Subclass). SharpPy materializes it lazily from the construction
+        // arguments: str() semantics (no arg -> "", one arg -> str(x), more -> TypeError).
+        // Contents come from the constructor call, never from a user __str__.
+        private PyString _strStorage;
+
         // CPython 3.12: Cache the __dict__ wrapper for identity consistency
         private PyDict _dictCache;
 
@@ -1118,6 +1124,29 @@ namespace SharpPy
             // Check if list is in MRO (not just direct base types)
             // This handles multi-level inheritance
             return InstanceType.MRO.Any(bt => bt == PyType.ListType);
+        }
+
+        public bool IsStrSubclass()
+        {
+            return InstanceType.MRO.Any(bt => bt == PyType.StrType);
+        }
+
+        // Value storage for str subclasses; null when this is not a str subclass.
+        public PyString GetStringStorage()
+        {
+            if (_strStorage != null)
+                return _strStorage;
+            if (!IsStrSubclass())
+                return null;
+
+            var a = ConstructorArgs ?? new PyObject[0];
+            if (a.Length == 0)
+                _strStorage = new PyString("");
+            else if (a.Length == 1)
+                _strStorage = a[0] as PyString ?? a[0].ToStr();
+            else
+                throw PyTypeError.Create($"str() takes at most 1 argument ({a.Length} given)");
+            return _strStorage;
         }
 
         // CPython 3.12: Provide access to internal dict storage for dict subclasses
@@ -1204,6 +1233,11 @@ namespace SharpPy
                 #endif
                 return result;
             }
+
+            // CPython 3.12: str subclasses inherit unicode_subscript (index/slice).
+            var strStorage = GetStringStorage();
+            if (strStorage != null)
+                return strStorage.GetItem(key);
 
             // No __getitem__ and not a dict subclass
             return base.GetItem(key);
@@ -1314,7 +1348,20 @@ namespace SharpPy
             {
                 return _dictStorage.Contains(item);
             }
+            // CPython 3.12: str subclasses inherit unicode_contains.
+            var strStorage = GetStringStorage();
+            if (strStorage != null)
+                return strStorage.Contains(item);
             return base.Contains(item);
+        }
+
+        // CPython 3.12: str subclasses inherit sq_length/unicode_length.
+        public override int Length()
+        {
+            var strStorage = GetStringStorage();
+            if (strStorage != null)
+                return strStorage.Length();
+            return base.Length();
         }
 
         // CPython 3.12: PyObject_GetIter / slot_tp_iter.
@@ -1325,6 +1372,9 @@ namespace SharpPy
 
             // Builtin dict subclasses store their mapping separately.
             if (_dictStorage != null) return _dictStorage.GetIterator();
+            // CPython 3.12: str subclasses iterate their characters.
+            var strIterStorage = GetStringStorage();
+            if (strIterStorage != null) return strIterStorage.GetIterator();
             if (LookupSpecialMethodUncached("__getitem__") != null)
                 return new PyGenericIterator(this);
             return base.GetIterator();
@@ -1407,7 +1457,12 @@ namespace SharpPy
         public override PyObject Add(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__add__", "__radd__");
-            return result ?? base.Add(other);
+            if (result != null) return result;
+            // CPython 3.12: str subclasses inherit unicode_add on the left side.
+            var strStorage = GetStringStorage();
+            if (strStorage != null)
+                return strStorage.Add(other);
+            return base.Add(other);
         }
 
         public override PyObject Subtract(PyObject other)
@@ -2105,7 +2160,19 @@ namespace SharpPy
 
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
-            return TryCompareSpecial(other, op) ?? base.RichCompare(other, op);
+            var result = TryCompareSpecial(other, op);
+            if (result != null) return result;
+
+            // CPython 3.12: str subclasses inherit unicode comparison, so SS("x") == "x"
+            // compares contents (and such instances work as dict keys).
+            var mine = GetStringStorage();
+            if (mine != null)
+            {
+                var theirs = other as PyString ?? (other as PyClassInstance)?.GetStringStorage();
+                if (theirs != null)
+                    return mine.RichCompare(theirs, op);
+            }
+            return base.RichCompare(other, op);
         }
 
     }

@@ -60,16 +60,30 @@ namespace SharpPy
             return _strValue.Multiply(other);
         }
 
+        // CPython 3.12: str subclasses inherit the whole unicode protocol; these slots
+        // were missing, so len()/indexing/slices/`in`/iteration failed on subclasses.
+        public override int Length() => _strValue.Length();
+
+        public override PyObject GetItem(PyObject index) => _strValue.GetItem(index);
+
+        public override PyBool Contains(PyObject item) => _strValue.Contains(item);
+
+        public override PyObject GetIterator() => _strValue.GetIterator();
+
         #endregion
 
         #region Comparison Operations - Delegate to PyString
 
         protected override PyObject PyEquals(PyObject other)
         {
+            // CPython: unicode_richcompare compares contents whenever both sides are
+            // unicode instances (subclasses included). _strValue.Equals(other) was CLR
+            // reference equality, so SS("x") == "x" answered False.
             if (other is PyStrSubclass otherSub)
-                other = otherSub._strValue;
-            // Delegate to PyString's Equals which calls PyEquals internally
-            return _strValue.Equals(other) ? PyBool.True : PyBool.False;
+                return PyBool.FromBool(string.Equals(_strValue.Value, otherSub._strValue.Value));
+            if (other is PyString otherStr)
+                return PyBool.FromBool(string.Equals(_strValue.Value, otherStr.Value));
+            return PyNotImplemented.Instance;
         }
 
         protected override PyObject PyLess(PyObject other)
@@ -117,7 +131,26 @@ namespace SharpPy
 
         #region Type Conversion - Delegate to PyString
 
-        public override PyString ToStr() => _strValue;
+        // CPython 3.12: str(x) dispatches type(x).__str__. A user-defined __str__ in the
+        // class dict wins over the inherited unicode tp_str (which returns contents).
+        public override PyString ToStr()
+        {
+            foreach (var mroType in _class.MRO)
+            {
+                if (mroType is PyClass userClass &&
+                    userClass.ClassDict.TryGetValue("__str__", out var method) &&
+                    method is PyFunction func)
+                {
+                    var result = new PyMethod(this, func).Call(new PyObject[0], null);
+                    if (result is PyString pyStr)
+                        return pyStr;
+                    throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");
+                }
+                if (mroType == PyType.StrType)
+                    break;
+            }
+            return _strValue;
+        }
         public override PyString ToRepr() => new PyString($"'{_strValue.Value}'");
         public override int ToHash() => _strValue.ToHash();
         public override bool PyBoolValue() => _strValue.PyBoolValue();
