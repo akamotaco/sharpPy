@@ -221,6 +221,13 @@ namespace SharpPy.Generated
                 target.EndLineNo = generatedStmt.EndLineNo;
                 target.EndColOffset = generatedStmt.EndColOffset;
             }
+            else if (source is GeneratedAstNode generatedNode)
+            {
+                target.LineNo = generatedNode.LineNo;
+                target.ColOffset = generatedNode.ColOffset;
+                target.EndLineNo = generatedNode.EndLineNo;
+                target.EndColOffset = generatedNode.EndColOffset;
+            }
             else if (source is GeneratedExpr generatedExpr)
             {
                 target.LineNo = generatedExpr.LineNo;
@@ -1833,7 +1840,9 @@ namespace SharpPy.Generated
             }
 
             // Create call expression
-            return new CallExpression(functionExpr, argExprs);
+            var callResult = new CallExpression(functionExpr, argExprs);
+            CopySourceLocation(callOp, callResult);
+            return callResult;
         }
 
         private static Expression ConvertAttributeAccess(dynamic attrExpr)
@@ -2398,7 +2407,9 @@ namespace SharpPy.Generated
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertCallExpression: Creating CallExpression with {args.Count} args, {keywords.Count} keywords");
 #endif
-            return new CallExpression(funcExpr, args, keywords);
+            var callResult = new CallExpression(funcExpr, args, keywords);
+            CopySourceLocation(call, callResult);
+            return callResult;
         }
 
         /// <summary>

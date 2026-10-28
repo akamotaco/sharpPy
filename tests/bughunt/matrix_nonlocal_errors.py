@@ -1,0 +1,28 @@
+import sys
+def t(tag, src):
+    try:
+        compile(src, "<s>", "exec")
+        print(tag, "OK")
+    except SyntaxError as e:
+        print(tag, "SyntaxError:", str(e))
+t("n1", "def f():\n nonlocal x\n return x")
+t("n2", "x = 1\ndef f():\n nonlocal x")
+t("n3", "nonlocal y")
+t("n4", "class C:\n nonlocal y")
+t("n5", "def f():\n x = 1\n class C:\n  nonlocal x")
+t("n6", "def f():\n class C:\n  nonlocal x")
+t("n7", "def f():\n global x\n def g():\n  nonlocal x")
+t("n8", "def f():\n nonlocal x\n global x")
+t("n9", "def f():\n def g():\n  x = 1\n nonlocal x")
+t("n10", "def f():\n import x\n def g():\n  nonlocal x")
+t("n11", "def f():\n for x in ():\n  pass\n def g():\n  nonlocal x")
+t("n12", "def f(a):\n def g():\n  nonlocal a")
+t("n13", "def f():\n import os.path\n def g():\n  nonlocal os")
+t("n14", "def f():\n x: int = 1\n def g():\n  nonlocal x")
+t("n15", "def f():\n def g():\n  nonlocal x\n x = 1")
+t("n16", "class C:\n def m():\n  nonlocal C")
+t("n17", "def f():\n nonlocal x, y\n x = 1")
+t("n18", "if True:\n nonlocal w")
+t("n19", "def f():\n global x\n nonlocal x")
+t("n20", "def f():\n x = 1\n def g():\n  nonlocal x\n  def h():\n   nonlocal x")
+t("n21", "def f():\n global x\n x = 1\n def g():\n  nonlocal x")

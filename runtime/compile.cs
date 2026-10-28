@@ -1162,6 +1162,9 @@ namespace SharpPy
             // CPython 3.12: Build symbol table first
             var symbolTableBuilder = new SymbolTableBuilder();
             _symbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
+            // CPython 3.12: Python/symtable.c - nonlocal directives are validated at
+            // compile time, not at runtime.
+            SymbolTableBuilder.ValidateNonlocalBindings(_symbolTable, fileName ?? name);
             _currentSymbolTable = _symbolTable;
             _symbolTableBuilder = symbolTableBuilder;  // CPython 3.12: Store for PySymtable_Lookup
 
@@ -3007,6 +3010,12 @@ namespace SharpPy
                     break;
                     
                 case CallExpression call:
+                    // CPython 3.12: Python/compile.c check_caller - calling a literal
+                    // emits SyntaxWarning at compile time.
+                    if (TryGetInferredCallerTypeName(call.Function, out string? inferredCallerType))
+                    {
+                        EmitUncallableWarning(inferredCallerType!, call.LineNo);
+                    }
                     // CPython 3.12: Check for *args/**kwargs unpacking
                     // Performance: Eliminated LINQ
                     bool hasStarArgs = false;
@@ -7000,6 +7009,59 @@ namespace SharpPy
         }
 
         
+        /// <summary>
+        /// CPython 3.12: Python/compile.c infer_type/check_caller - the static
+        /// "definitely not callable" expression kinds.
+        /// </summary>
+        private static bool TryGetInferredCallerTypeName(Expression func, out string? typeName)
+        {
+            switch (func)
+            {
+                case ConstantExpression constant:
+                    typeName = constant.Value?.GetTypeName() ?? "NoneType";
+                    return true;
+                case TupleExpression:
+                    typeName = "tuple";
+                    return true;
+                case ListExpression:
+                case ListComprehension:
+                    typeName = "list";
+                    return true;
+                case DictExpression:
+                case DictComprehension:
+                    typeName = "dict";
+                    return true;
+                case SetExpression:
+                case SetComprehension:
+                    typeName = "set";
+                    return true;
+                case GeneratorExpression:
+                    typeName = "generator";
+                    return true;
+                case FStringExpression:
+                    typeName = "str";
+                    return true;
+                default:
+                    typeName = null;
+                    return false;
+            }
+        }
+
+        private void EmitUncallableWarning(string typeName, int line)
+        {
+            // CPython warnings.showwarning: "{file}:{lineno}: {category}: {message}\n  {source.strip()}\n"
+            // (source echo only when the source line is available)
+            var file = string.IsNullOrEmpty(_currentFileName) ? "<unknown>" : _currentFileName!;
+            var message = line > 0
+                ? $"{file}:{line}: SyntaxWarning: '{typeName}' object is not callable; perhaps you missed a comma?"
+                : $"{file}: SyntaxWarning: '{typeName}' object is not callable; perhaps you missed a comma?";
+            System.Console.Error.WriteLine(message);
+            if (_sourceLines != null && line > 0 && line <= _sourceLines.Count)
+            {
+                System.Console.Error.WriteLine("  " + _sourceLines[line - 1].Trim());
+            }
+        }
+
         private void CompileImport(ImportStatement import)
         {
             foreach (var moduleName in import.Names)

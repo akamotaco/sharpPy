@@ -98,18 +98,17 @@ namespace SharpPy
         public override PyObject GetIterator() => this;
 
         /// <summary>
-        /// iterator는 항상 호출 가능 (__next__)
+        /// CPython 3.12: iterator objects are NOT callable (list_iterator() raises
+        /// TypeError: 'list_iterator' object is not callable). __next__ is reached
+        /// only via next(it) / the iteration protocol, never by calling the object.
+        /// (Historical note: this class used to forward Call() to Next(), which made
+        /// `genexp()` return items and leak StopIteration.)
         /// </summary>
-        public override bool IsCallable() => true;
+        public override bool IsCallable() => false;
 
-        /// <summary>
-        /// __next__() 호출
-        /// </summary>
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 0)
-                throw PyTypeError.Create("__next__() takes no arguments");
-            return Next();
+            throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
         }
 
         public override bool PyBoolValue() => true;

@@ -237,47 +237,67 @@ namespace SharpPy
         /// <summary>
         /// Expression 내부의 중첩된 요소들 최적화 (깊이 제한 포함)
         /// </summary>
+        private static void CopySourceLocation(ASTNode source, ASTNode target)
+        {
+            target.LineNo = source.LineNo;
+            target.ColOffset = source.ColOffset;
+            target.EndLineNo = source.EndLineNo;
+            target.EndColOffset = source.EndColOffset;
+        }
+
         private Expression OptimizeNestedExpressions(Expression expr, ref int optimizationCount, int depth)
         {
             switch (expr)
             {
                 case BinOpExpression binOp:
-                    return new BinOpExpression(
+                    var binResult = new BinOpExpression(
                         OptimizeExpression(binOp.Left, ref optimizationCount, depth),
                         binOp.OpNode,
                         OptimizeExpression(binOp.Right, ref optimizationCount, depth)
                     );
+                    CopySourceLocation(binOp, binResult);
+                    return binResult;
 
                 case UnaryOpExpression unaryOp:
-                    return new UnaryOpExpression(
+                    var unaryResult = new UnaryOpExpression(
                         unaryOp.OpNode,
                         OptimizeExpression(unaryOp.Operand, ref optimizationCount, depth)
                     );
+                    CopySourceLocation(unaryOp, unaryResult);
+                    return unaryResult;
 
                 case CallExpression call:
                     var optimizedArgs = new List<Expression>();
                     foreach (var arg in call.Arguments)
                         optimizedArgs.Add(OptimizeExpression(arg, ref optimizationCount, depth));
 
-                    return new CallExpression(
+                    var callResult = new CallExpression(
                         OptimizeExpression(call.Function, ref optimizationCount, depth),
                         optimizedArgs,
                         call.Keywords
                     );
+                    // Rebuilding a node must not erase its source position
+                    // (compile-time SyntaxWarning reporting depends on it).
+                    CopySourceLocation(call, callResult);
+                    return callResult;
 
                 case TupleExpression tuple:
                     var tupleOptimizedElements = new List<Expression>();
                     foreach (var elem in tuple.Elements)
                         tupleOptimizedElements.Add(OptimizeExpression(elem, ref optimizationCount, depth));
 
-                    return new TupleExpression(tupleOptimizedElements);
+                    var tupleResult = new TupleExpression(tupleOptimizedElements);
+                    CopySourceLocation(tuple, tupleResult);
+                    return tupleResult;
 
                 case ListExpression list:
                     var listOptimizedElements = new List<Expression>();
                     foreach (var elem in list.Elements)
                         listOptimizedElements.Add(OptimizeExpression(elem, ref optimizationCount, depth));
 
-                    return new ListExpression(listOptimizedElements);
+                    var listResult = new ListExpression(listOptimizedElements);
+                    CopySourceLocation(list, listResult);
+                    return listResult;
 
                 default:
                     return expr;

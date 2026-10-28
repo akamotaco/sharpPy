@@ -141,6 +141,19 @@ namespace SharpPy
 
         public string GetName() => _name;
         public string Name => _name; // Add property for compiler compatibility
+
+        // CPython 3.12: Python/symtable.c error_at_directive - the first directive
+        // occurrence for a name carries the SyntaxError position.
+        private readonly Dictionary<string, int> _directiveLines = new();
+        internal void RecordDirectiveLine(string name, int line)
+        {
+            if (line > 0 && !_directiveLines.ContainsKey(name))
+            {
+                _directiveLines[name] = line;
+            }
+        }
+        internal int GetDirectiveLine(string name) =>
+            _directiveLines.TryGetValue(name, out var l) ? l : 0;
         public new SymbolTableType GetType() => _type;  // Hide Object.GetType()
         public SymbolTableType Type => _type; // Add property for compiler compatibility
         public IEnumerable<string> GetIdentifiers() => _symbols.Keys;
@@ -324,6 +337,81 @@ namespace SharpPy
             return _rootTable;
         }
 
+        /// <summary>
+        /// CPython 3.12: Python/symtable.c analyze_block/symtable_handle_name -
+        /// compile-time validation of nonlocal directives.
+        /// The `bound` set passed into a scope is NULL only for the module scope
+        /// ("nonlocal declaration not allowed at module level"). Class bodies do NOT
+        /// add their own locals to the bound set visible to methods, and module-level
+        /// bindings never satisfy nonlocal (children of the module receive an empty,
+        /// non-NULL bound set -> "no binding for nonlocal 'x' found").
+        /// </summary>
+        public static void ValidateNonlocalBindings(SymbolTable moduleTable, string? fileName)
+        {
+            ValidateNonlocalScopeRecursive(moduleTable, null, fileName);
+        }
+
+        private static void ValidateNonlocalScopeRecursive(SymbolTable table, HashSet<string>? bound, string? fileName)
+        {
+            foreach (var symbol in table.GetSymbols().Values)
+            {
+                if (!symbol.IsNonlocal())
+                {
+                    continue;
+                }
+                var name = symbol.Name;
+                var line = table.GetDirectiveLine(name);
+                if (symbol.IsGlobal())
+                {
+                    throw PySyntaxError.Create($"name '{name}' is nonlocal and global", fileName ?? "<unknown>", line);
+                }
+                if (bound == null)
+                {
+                    throw PySyntaxError.Create("nonlocal declaration not allowed at module level", fileName ?? "<unknown>", line);
+                }
+                if (!bound.Contains(name))
+                {
+                    throw PySyntaxError.Create($"no binding for nonlocal '{name}' found", fileName ?? "<unknown>", line);
+                }
+            }
+
+            HashSet<string> childBound;
+            if (table.Type == SymbolTableType.Class)
+            {
+                // Class bindings are invisible to nested functions as nonlocal targets;
+                // only the inherited bound set plus the implicit cells propagate.
+                childBound = bound != null ? new HashSet<string>(bound) : new HashSet<string>();
+                childBound.Add("__class__");
+                childBound.Add("__classdict__");
+            }
+            else if (table.Type == SymbolTableType.Function)
+            {
+                childBound = bound != null ? new HashSet<string>(bound) : new HashSet<string>();
+                foreach (var symbol in table.GetSymbols().Values)
+                {
+                    if (symbol.IsGlobal())
+                    {
+                        continue; // DEF_GLOBAL names are removed from `bound` in CPython
+                    }
+                    if (symbol.IsAssigned() || symbol.IsParameter() ||
+                        ((symbol.Flags & SymbolFlags.Imported) != 0))
+                    {
+                        childBound.Add(symbol.Name);
+                    }
+                }
+            }
+            else
+            {
+                // Module scope: module-level names never satisfy nonlocal.
+                childBound = new HashSet<string>();
+            }
+
+            foreach (var child in table.GetChildren())
+            {
+                ValidateNonlocalScopeRecursive(child, childBound, fileName);
+            }
+        }
+
         private void AnalyzeStatement(Statement statement)
         {
 #if DEBUG_COMPILER_LOG
@@ -371,6 +459,7 @@ namespace SharpPy
                     foreach (var name in global.Names)
                     {
                         _currentTable?.DefineSymbol(name, SymbolFlags.Global);
+                        _currentTable?.RecordDirectiveLine(name, global.LineNo);
                     }
                     break;
 
@@ -378,6 +467,7 @@ namespace SharpPy
                     foreach (var name in nonlocal.Names)
                     {
                         _currentTable?.DefineSymbol(name, SymbolFlags.Nonlocal);
+                        _currentTable?.RecordDirectiveLine(name, nonlocal.LineNo);
                     }
                     break;
 
@@ -571,12 +661,28 @@ namespace SharpPy
                     break;
 
                 case ImportStatement importStmt:
-                    // Register imported modules as global variables
+                    // Register imported modules as global variables.
+                    // CPython 3.12: import a.b binds 'a'; import a.b as c binds 'c'
+                    // (Python/compile.c import_from / import_name binding targets).
                     foreach (var moduleName in importStmt.Names)
                     {
-                        _currentTable?.DefineSymbol(moduleName, SymbolFlags.Assigned);
+                        string bindName = moduleName;
+                        var asIndex = bindName.IndexOf(" as ", StringComparison.Ordinal);
+                        if (asIndex >= 0)
+                        {
+                            bindName = bindName.Substring(asIndex + 4).Trim();
+                        }
+                        else
+                        {
+                            var dotIndex = bindName.IndexOf('.');
+                            if (dotIndex != -1)
+                            {
+                                bindName = bindName.Substring(0, dotIndex);
+                            }
+                        }
+                        _currentTable?.DefineSymbol(bindName, SymbolFlags.Assigned);
                         #if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"  ImportStatement: Registered '{moduleName}' as global symbol");
+                        Console.WriteLine($"  ImportStatement: Registered '{bindName}' as global symbol");
                         #endif
                     }
                     break;
