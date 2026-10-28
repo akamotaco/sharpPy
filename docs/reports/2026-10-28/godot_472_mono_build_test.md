@@ -37,6 +37,27 @@
 `a40d72c` 대비 명령어 수 측정(원인 지목 전 원인 조사 먼저). 가드 상수는
 임의 값이라 인상으로 '해결'하지 않는다.
 
+## GODOT 전용 define과 로컬 에셋 IO
+
+`GODOT` 심볼은 별도 정의 없이 **Godot.NET.Sdk 4.7.2가 자동 주입**한다
+(`Sdks/Godot.NET.Sdk/4.7.2/Sdk/Sdk.props:90` `_GodotDefineConstants=GODOT`).
+주 저장소는 이 심볼로 로컬 에셋 접근 경로를 분기한다(`#if GODOT` 사용처:
+`platform/helper_godot.cs`, `platform/GodotFileStream.cs`, `core/FileExecutor.cs`,
+`core/PyModule.cs`, `modules/SysModule.cs`, `modules/NtModule.cs`,
+`modules/stdlib/OsModule.cs`, `runtime/compile.cs`, `runtime/PyInterpreter.cs` 등).
+일반 CLI 빌드는 심볼이 없어 assembly-기준 경로를 쓰고, Godot 빌드는
+`res://`·`user://` 경로를 쓴다.
+
+Verification (CompatibilityProbe = Godot.NET.Sdk 빌드, headless):
+- `file_io_regression.py`: 24줄 출력 CPython 산출과 완전 일치
+- `file_binary_open_remaining.py`: 통과
+- 추가 `resio_check.py`: `res://project.godot` 텍스트/`res://probe.tscn` 바이너리
+  읽기, `user://` 텍스트 왕복(UTF-8 `가나다abc`), `os.path.exists`/`os.remove`
+  전부 정상
+
+즉 GODOT define이 켜진 전용 빌드에서 로컬 에셋(read-only `res://`)과
+쓰기 가능 `user://` 파일 IO가 실제로 동작한다.
+
 ## toolchain 결정: dotnet 10 유지 (사용자 승인 2026-10-28)
 
 - PATH의 SDK **10.0.401**로 전체 재빌드해도 net8.0 TFM 기준 오류/경고 0:
