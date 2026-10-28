@@ -612,6 +612,38 @@ namespace SharpPy
                     return new PyInt(selfStr.Value.Length);
                 });
 
+            // CPython 3.12: str.__dict__['__str__'] is a slot wrapper; unicode_tp_str
+            // returns self, so subclass instances pass through unchanged (str()/print
+            // then re-dispatch type(x).__str__).
+            strType.TypeDict["__str__"] = new PyWrapperDescriptor(
+                "__str__", strType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("str.__str__() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    if (self is PyString || self is PyStrSubclass)
+                        return self;
+                    var content = (self as PyClassInstance)?.GetStringStorage();
+                    if (content == null)
+                        throw PyTypeError.Create($"descriptor '__str__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    return content;
+                });
+            strType.TypeDict["__repr__"] = new PyWrapperDescriptor(
+                "__repr__", strType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("str.__repr__() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    var reprSelf = AsStrReceiver(self);
+                    if (reprSelf == null)
+                        throw PyTypeError.Create($"descriptor '__repr__' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    return new PyString("'" + reprSelf.Value + "'");
+                });
+
             strType.TypeDict["__add__"] = new PyWrapperDescriptor(
                 "__add__", strType,
                 (self, args, kwargs) =>

@@ -482,39 +482,42 @@ namespace SharpPy
                     // For objects like None, functions, etc., __dict__ access should go through the type
                     return PyGetAttribute(name);
                 case "__str__":
-                    // CPython 3.12: object.__str__ bound method
-                    return new PyBuiltinMethod("__str__", (self, args) => {
-                        if (args.Length != 0) // self is separate
-                            throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
-                        return self.ToStr();
-                    }, 1);
                 case "__repr__":
-                    // CPython 3.12: Check if type has its own __repr__ descriptor first
-                    // This allows int, str, etc. to define their own __repr__
-                    var type = GetPyType();
-                    foreach (var mroType in type.MRO)
+                {
+                    // CPython 3.12: __str__/__repr__ resolve through the type's MRO and bind
+                    // via the descriptor protocol. The previous code returned an *unbound*
+                    // PyBuiltinMethod, so x.__str__() / x.__repr__() raised
+                    // "missing required 'self' argument" for every exact builtin type.
+                    var selfType = GetPyType();
+                    foreach (var mroType in selfType.MRO)
                     {
-                        if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__repr__", out var typeAttr))
+                        if (mroType.TypeDict != null &&
+                            mroType.TypeDict.TryGetValue(name, out var typeAttr))
                         {
-                            // Found a type-level __repr__, use descriptor protocol
-                            if (typeAttr is IDescriptor desc)
-                            {
-                                return desc.Get(this, type);
-                            }
-                            // If it's not a descriptor but callable, wrap it as a bound method
+                            if (typeAttr is IDescriptor descriptor)
+                                return descriptor.Get(this, selfType);
                             if (typeAttr.IsCallable())
-                            {
-                                // Found type's __repr__, delegate to full attribute lookup
                                 return PyGetAttribute(name);
-                            }
+                        }
+                        if (mroType is PyClass userClass &&
+                            userClass.ClassDict.TryGetValue(name, out var classAttr))
+                        {
+                            // User-defined: bind directly (CPython method object).
+                            if (classAttr is PyFunction userFunc)
+                                return new PyMethod(this, userFunc);
+                            if (classAttr.IsCallable())
+                                return PyGetAttribute(name);
                         }
                     }
-                    // Fallback to object.__repr__ bound method
-                    return new PyBuiltinMethod("__repr__", (self, args) => {
+                    // Fall back to object-level behavior, bound to this instance.
+                    string dunder = name;
+                    var fallback = new PyBuiltinMethod(dunder, (self, args) => {
                         if (args.Length != 0) // self is separate
-                            throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
-                        return self.ToRepr();
+                            throw PyTypeError.Create($"{dunder}() takes no arguments ({args.Length} given)");
+                        return dunder == "__str__" ? self.ToStr() : self.ToRepr();
                     }, 1);
+                    return fallback.Get(this, selfType);
+                }
                 case "__init__":
                     // CPython 3.12: object.__init__ bound method
                     return new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1);
