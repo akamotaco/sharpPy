@@ -2870,8 +2870,11 @@ namespace SharpPy
                 ? $"<class '{module}.{qualname}'>" : $"<class '{Name}'>");
         }
 
-        public override PyString ToRepr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
-        public override PyString ToStr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
+        // CPython type_repr: prefix "<module>." only when __module__ is a str and
+        // not "builtins"; use __qualname__ when present. Route repr()/str() through
+        // the same TypeRepr() the type.__repr__ slot uses (they were diverging).
+        public override PyString ToRepr() => TypeRepr();
+        public override PyString ToStr() => TypeRepr();
 
         #endregion
 
