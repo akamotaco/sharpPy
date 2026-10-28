@@ -632,7 +632,7 @@ namespace SharpPy
 
         private static bool HasGetItem(PyObject obj)
         {
-            if (obj is PyList or PyTuple or PyString or PyRange)
+            if (obj is PyList or PyTuple or PyString or PyRange or PyBytes or PyByteArray)
                 return true;
             return obj.GetPyType()?.LookupSpecial("__getitem__") != null;
         }
@@ -648,6 +648,8 @@ namespace SharpPy
                 case PyRange pr:
                     unchecked { length = (long)pr.LengthUnsigned(); }
                     return true;
+                case PyBytes pb: length = pb.Length(); return true;
+                case PyByteArray pba: length = pba.Length(); return true;
             }
             var lenDesc = obj.GetPyType()?.LookupSpecial("__len__");
             if (lenDesc == null)

@@ -418,13 +418,7 @@ namespace SharpPy
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
                     // Normalize negative indices
@@ -449,6 +443,8 @@ namespace SharpPy
             strType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", strType,
                 (self, args, kwargs) => {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("str.index() takes no keyword arguments");
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"index() takes from 1 to 3 positional arguments but {args.Length} were given");
                     if (self is not PyString str){
@@ -461,13 +457,7 @@ namespace SharpPy
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_find
                     // Normalize negative indices
@@ -506,13 +496,7 @@ namespace SharpPy
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_rfind
                     // Normalize negative indices
@@ -552,13 +536,7 @@ namespace SharpPy
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_rindex
                     // Normalize negative indices
@@ -760,13 +738,7 @@ namespace SharpPy
                     if (sub.Value.Length == 0)
                         return new PyInt(str.Value.Length + 1);
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     // CPython 3.12: Objects/unicodeobject.c:13500-13550 - unicode_count
                     // Normalize negative indices
@@ -811,13 +783,7 @@ namespace SharpPy
                     // CPython unicode_startswith accepts a str or a tuple of str.
                     var prefixes = NormalizePrefixTuple(args[0], "startswith");
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     // Normalize indices
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
@@ -852,13 +818,7 @@ namespace SharpPy
                     // CPython unicode_endswith accepts a str or a tuple of str.
                     var suffixes = NormalizePrefixTuple(args[0], "endswith");
 
-                    int start = 0;
-                    int end = str.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
                     if (start < 0) start = Math.Max(0, str.Value.Length + start);
                     if (end < 0) end = Math.Max(0, str.Value.Length + end);
@@ -2139,6 +2099,31 @@ namespace SharpPy
 
         // Receiver resolution for str descriptors: exact str or the content storage of a
         // str subclass instance (CPython looks through the subclass via the unicode type).
+        /// <summary>
+        /// CPython str find/index/rfind/rindex/count/startswith/endswith parse start/end
+        /// via PyNumber_Index: bool and __index__ are accepted, None keeps the default,
+        /// and any other type raises with this exact wording.
+        /// </summary>
+        private static void ParseStrStartStop(PyObject[] args, int length, out int start, out int end)
+        {
+            start = 0;
+            end = length;
+            if (args.Length >= 2 && args[1] != PyNone.Instance)
+            {
+                var si = PyObject.TryGetIndex(args[1]);
+                if (si == null)
+                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+                start = (int)si.Value;
+            }
+            if (args.Length >= 3 && args[2] != PyNone.Instance)
+            {
+                var si = PyObject.TryGetIndex(args[2]);
+                if (si == null)
+                    throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+                end = (int)si.Value;
+            }
+        }
+
         internal static PyString AsStrReceiver(PyObject self)
         {
             return self as PyString
@@ -3312,19 +3297,11 @@ namespace SharpPy
             int end = Value.Length;
 
             // Handle negative indices (Python convention: -1 means last character)
-            if (args.Length >= 2 && args[1] is PyInt startInt)
-            {
-                start = (int)startInt.Value;
-                if (start < 0) start += Value.Length;
-                start = Math.Max(0, Math.Min(Value.Length, start));
-            }
-
-            if (args.Length >= 3 && args[2] is PyInt endInt)
-            {
-                end = (int)endInt.Value;
-                if (end < 0) end += Value.Length;
-                end = Math.Max(0, Math.Min(Value.Length, end));
-            }
+            ParseStrStartStop(args, Value.Length, out start, out end);
+            if (start < 0) start += Value.Length;
+            start = Math.Max(0, Math.Min(Value.Length, start));
+            if (end < 0) end += Value.Length;
+            end = Math.Max(0, Math.Min(Value.Length, end));
 
             if (start >= end) return new PyInt(-1);
             
@@ -3351,19 +3328,11 @@ namespace SharpPy
             int end = Value.Length;
 
             // Handle negative indices (Python convention: -1 means last character)
-            if (args.Length >= 2 && args[1] is PyInt startInt)
-            {
-                start = (int)startInt.Value;
-                if (start < 0) start += Value.Length;
-                start = Math.Max(0, Math.Min(Value.Length, start));
-            }
-
-            if (args.Length >= 3 && args[2] is PyInt endInt)
-            {
-                end = (int)endInt.Value;
-                if (end < 0) end += Value.Length;
-                end = Math.Max(0, Math.Min(Value.Length, end));
-            }
+            ParseStrStartStop(args, Value.Length, out start, out end);
+            if (start < 0) start += Value.Length;
+            start = Math.Max(0, Math.Min(Value.Length, start));
+            if (end < 0) end += Value.Length;
+            end = Math.Max(0, Math.Min(Value.Length, end));
 
             if (start >= end || sub.Length == 0) return new PyInt(0);
             

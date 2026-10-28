@@ -33,6 +33,9 @@ namespace SharpPy
             tupleType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", tupleType,
                 (self, args, kwargs) => {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("tuple.index() takes no keyword arguments");
+
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor 'index' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
@@ -40,23 +43,24 @@ namespace SharpPy
                         throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
 
                     var value = args[0];
-                    int start = 0;
-                    int? stop = null;
-
-                    if (args.Length >= 2)
+                    // CPython tuple.index uses PyNumber_Index for start/stop: bool and
+                    // __index__ are accepted, non-integers raise with this wording.
+                    long start = 0;
+                    if (args.Length >= 2 && args[1] != PyNone.Instance)
                     {
-                        if (args[1] is PyInt startInt)
-                            start = (int)startInt.Value;
-                        else
-                            throw PyTypeError.Create($"slice indices must be integers or None, not '{args[1].GetTypeName()}'");
+                        var si = PyObject.TryGetIndex(args[1]);
+                        if (si == null)
+                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
+                        start = (long)si.Value;
                     }
 
-                    if (args.Length >= 3)
+                    long? stop = null;
+                    if (args.Length >= 3 && args[2] != PyNone.Instance)
                     {
-                        if (args[2] is PyInt stopInt)
-                            stop = (int)stopInt.Value;
-                        else if (args[2] != PyNone.Instance)
-                            throw PyTypeError.Create($"slice indices must be integers or None, not '{args[2].GetTypeName()}'");
+                        var si = PyObject.TryGetIndex(args[2]);
+                        if (si == null)
+                            throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
+                        stop = (long)si.Value;
                     }
 
                     return tuple.Index(value, start, stop);
@@ -407,13 +411,19 @@ namespace SharpPy
         /// <summary>
         /// 첫 번째 일치하는 요소의 인덱스 반환
         /// </summary>
-        public PyInt Index(PyObject value, int start = 0, int? stop = null)
+        public PyInt Index(PyObject value, long start = 0, long? stop = null)
         {
-            var actualStop = stop ?? Items.Length;
-            
-            for (int i = start; i < actualStop && i < Items.Length; i++)
+            // CPython tupleindex_impl clamps negative start/stop into range.
+            long len = Items.Length;
+            if (start < 0) start = Math.Max(start + len, 0);
+            else start = Math.Min(start, len);
+            long actualStop = stop ?? len;
+            if (actualStop < 0) actualStop = Math.Max(actualStop + len, 0);
+            else actualStop = Math.Min(actualStop, len);
+
+            for (long i = start; i < actualStop; i++)
             {
-                if (CompareBool(Items[i], value, CompareOp.EQ))
+                if (CompareBool(Items[(int)i], value, CompareOp.EQ))
                     return new PyInt(i);
             }
             
