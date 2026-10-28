@@ -1697,6 +1697,10 @@ namespace SharpPy
         {
             var setType = this;
 
+            // CPython 3.12: set.__hash__ is None (mutable set is unhashable; frozenset keeps
+            // its hash). See the same mechanism noted in InitializeDictDescriptors.
+            TypeDict["__hash__"] = PyNone.Instance;
+
             // set.add(elem)
             TypeDict["add"] = new PyMethodDescriptor(
                 "add",

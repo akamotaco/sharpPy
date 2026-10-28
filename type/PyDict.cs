@@ -21,6 +21,12 @@ namespace SharpPy
         {
             var dictType = PyType.DictType;
 
+            // CPython 3.12: dict.__hash__ is None (mutable mapping is unhashable).
+            // Registering None routes PyObject.GetPythonHash through its existing
+            // __hash__-is-None branch, so mutable builtins used as dict keys raise
+            // "unhashable type: 'list'" etc. instead of silently hashing by identity.
+            dictType.TypeDict["__hash__"] = PyNone.Instance;
+
             // Helper to get PyDict from self (handles both PyDict and PyClassInstance dict subclasses)
             static PyDict GetDict(PyObject self, PyType dictType)
             {
@@ -296,8 +302,11 @@ namespace SharpPy
             dictType.TypeDict["__getitem__"] = new PyMethodDescriptor(
                 "__getitem__", dictType,
                 (self, args, kwargs) => {
+                    // CPython 3.12.15 measured: dict.__getitem__ is METH_O in the dict method table
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("dict.__getitem__() takes no keyword arguments");
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"__getitem__ expected 1 argument, got {args.Length}");
+                        throw PyTypeError.Create($"dict.__getitem__() takes exactly one argument ({args.Length} given)");
 
                     // CPython 3.12: PyDict_GetItem checks PyDict_Check then accesses internal storage
                     // For PyDict: access _dict directly
@@ -368,7 +377,9 @@ namespace SharpPy
                         }
                     }
 
-                    throw PyTypeError.Create($"descriptor '__getitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    // CPython 3.12.15 measured: dict methods are method_descriptors
+                    // (descrobject.c call_method), not slot wrappers.
+                    throw PyTypeError.Create($"descriptor '__getitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -381,8 +392,12 @@ namespace SharpPy
             dictType.TypeDict["__setitem__"] = new PyMethodDescriptor(
                 "__setitem__", dictType,
                 (self, args, kwargs) => {
+                    // CPython 3.12.15 measured: dict.__setitem__ is METH_VARARGS with format "OO";
+                    // PyArg_ParseTuple reports without the function name (note leading space).
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("dict.__setitem__() takes no keyword arguments");
                     if (args.Length != 2)
-                        throw PyTypeError.Create($"__setitem__ expected 2 arguments, got {args.Length}");
+                        throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
 
                     // CPython 3.12: PyDict_SetItem checks PyDict_Check then writes to internal storage
                     if (self is PyDict pyDict)
@@ -409,7 +424,7 @@ namespace SharpPy
                         }
                     }
 
-                    throw PyTypeError.Create($"descriptor '__setitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    throw PyTypeError.Create($"descriptor '__setitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
                 },
                 minArgs: 2, maxArgs: 2
             );
@@ -422,8 +437,11 @@ namespace SharpPy
             dictType.TypeDict["__delitem__"] = new PyMethodDescriptor(
                 "__delitem__", dictType,
                 (self, args, kwargs) => {
+                    // CPython 3.12.15 measured: dict.__delitem__ reports "expected 1 argument, got N".
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("dict.__delitem__() takes no keyword arguments");
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"__delitem__ expected 1 argument, got {args.Length}");
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
 
                     // CPython 3.12: PyDict_DelItem checks PyDict_Check then deletes from internal storage
                     if (self is PyDict pyDict)
@@ -443,7 +461,7 @@ namespace SharpPy
                         }
                     }
 
-                    throw PyTypeError.Create($"descriptor '__delitem__' requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    throw PyTypeError.Create($"descriptor '__delitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}' object");
                 },
                 minArgs: 1, maxArgs: 1
             );

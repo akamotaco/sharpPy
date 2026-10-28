@@ -509,6 +509,59 @@ namespace SharpPy
 
             // CPython 3.12: Objects/unicodeobject.c:9877-9911 - unicode_count
             // Return the number of non-overlapping occurrences of substring sub
+            // CPython 3.12: str exposes its sequence/number protocols as attributes.
+            // These particular names come from generated slot wrappers (typeobject.c
+            // slotdefs: nb_add, sq_item, sq_contains), so their argcount and wrong-self
+            // wording is the slot style ("expected 1 argument, got N", "descriptor
+            // '<name>' requires a 'str' object but received a '<T>'"), unlike the named
+            // str methods above. All texts measured against CPython 3.12.15.
+            // NOTE: self must be an exact str; str-subclass instances lack string storage
+            // in SharpPy today (even len(SS(...)) fails) - tracked separately.
+            strType.TypeDict["__add__"] = new PyWrapperDescriptor(
+                "__add__", strType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("str.__add__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    if (self is not PyString selfStr)
+                        throw PyTypeError.Create($"descriptor '__add__' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    var concat = selfStr.Add(args[0]);
+                    if (ReferenceEquals(concat, PyNotImplemented.Instance))
+                        throw PyTypeError.Create($"can only concatenate str (not \"{args[0].GetTypeName()}\") to str");
+                    return concat;
+                });
+
+            strType.TypeDict["__getitem__"] = new PyWrapperDescriptor(
+                "__getitem__", strType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("str.__getitem__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    if (self is not PyString selfStr)
+                        throw PyTypeError.Create($"descriptor '__getitem__' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    return selfStr.GetItem(args[0]);
+                });
+
+            strType.TypeDict["__contains__"] = new PyWrapperDescriptor(
+                "__contains__", strType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("str.__contains__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    if (self is not PyString selfStr)
+                        throw PyTypeError.Create($"descriptor '__contains__' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    return selfStr.Contains(args[0]);
+                });
+
             strType.TypeDict["count"] = new PyMethodDescriptor(
                 "count", strType,
                 (self, args, kwargs) => {
@@ -1944,7 +1997,18 @@ namespace SharpPy
             }
             else
             {
-                throw PyTypeError.Create($"string indices must be integers or slices, not {index.GetTypeName()}");
+                // CPython 3.12: Objects/unicodeobject.c unicode_subscript uses
+                // PyNumber_AsSsize_t for non-slice keys (accepts __index__) and reports
+                // "string indices must be integers, not 'T'" - different wording from list.
+                try
+                {
+                    int idx = PyObject.GetIndex(index, "string");
+                    return GetItem(idx);
+                }
+                catch (PythonException)
+                {
+                    throw PyTypeError.Create($"string indices must be integers, not '{index.GetTypeName()}'");
+                }
             }
         }
 
@@ -2228,16 +2292,16 @@ namespace SharpPy
         /// <summary>
         /// CPython __contains__ 메소드 구현 - PyObject 버전
         /// </summary>
+        // CPython 3.12: Objects/unicodeobject.c unicode_contains (sq_contains): substring
+        // test where a non-str key raises TypeError. Converting the key via ToStr() was
+        // wrong: `9 in "abc"` answered False where CPython raises
+        // "'in <string>' requires string as left operand, not int".
         public override PyBool Contains(PyObject item)
         {
             if (item is PyString pyStr)
-            {
                 return PyBool.FromBool(Value.Contains(pyStr.Value));
-            }
-            
-            // 다른 타입은 문자열로 변환하여 검사
-            var itemStr = item.ToStr();
-            return PyBool.FromBool(Value.Contains(itemStr.Value));
+
+            throw PyTypeError.Create($"'in <string>' requires string as left operand, not {item.GetTypeName()}");
         }
 
         #endregion

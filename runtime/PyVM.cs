@@ -6272,6 +6272,18 @@ namespace SharpPy
 
         // 이항 연산 (기존 타입 시스템 활용)
         // CPython 3.12+ unified binary operation executor
+        // str instance test including str subclasses (CPython PyUnicode_Check semantics).
+        // Used only on the final binop-failure path, so the MRO walk cost is irrelevant.
+        private static bool IsStrLikeInstance(PyObject o)
+        {
+            if (o is PyString) return true;
+            var mro = o.GetPyType()?.MRO;
+            if (mro == null) return false;
+            for (int i = 0; i < mro.Count; i++)
+                if (mro[i].Name == "str") return true;
+            return false;
+        }
+
         private PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
         {
                 // CPython 3.12: BINARY_OP is for bitwise operations only
@@ -6330,6 +6342,16 @@ namespace SharpPy
                     if (result == PyNotImplemented.Instance)
                     {
                         var opSymbol = GetBinaryOpSymbol(binaryOp);
+
+                        // CPython 3.12: when the final "+" failure has a str instance on the
+                        // left and a non-str on the right, the error uses PyUnicode_Concat's
+                        // wording (Objects/unicodeobject.c:11060-11067, reached via
+                        // ensure_unicode + the reflected-op miss), not the generic one:
+                        //   "a" + 1  -> can only concatenate str (not "int") to str
+                        // while 1 + "a" keeps "unsupported operand type(s)".
+                        if (binaryOp == BinaryOpType.ADD && IsStrLikeInstance(left) && !IsStrLikeInstance(right))
+                            throw PyTypeError.Create($"can only concatenate str (not \"{right.GetTypeName()}\") to str");
+
                         throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
                     }
 

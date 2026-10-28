@@ -65,6 +65,13 @@ namespace SharpPy
         {
             var listType = PyType.ListType;
 
+            // CPython 3.12: list.__hash__ is None (mutable sequence is unhashable).
+            // PyObject.GetPythonHash has an explicit __hash__-is-None branch that raises
+            // "unhashable type: 'list'"; without this registration list lookups found no
+            // __hash__ and silently fell back to identity hashing (d[[1]] => KeyError,
+            // hash([1]) => int). Same mechanism as dict/set.
+            listType.TypeDict["__hash__"] = PyNone.Instance;
+
             // CPython 3.12: Objects/listobject.c:838-845 (list_append)
             // append method descriptor
             listType.TypeDict["append"] = new PyMethodDescriptor(
