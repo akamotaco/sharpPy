@@ -202,6 +202,13 @@ namespace SharpPy
         {
             OriginalClass = originalClass;
             OriginalInstance = originalInstance;
+            // CPython 3.12: BaseException.__init__ stores the *constructor* arguments as
+            // __args__ (raise E -> (), raise E("x") -> ("x",)), not the instance repr.
+            // str()/repr() still delegate to OriginalInstance below.
+            if (originalInstance != null && originalInstance.ConstructorArgs != null)
+            {
+                Args = originalInstance.ConstructorArgs;
+            }
         }
 
         public override PyType GetPyType() => OriginalClass ?? PyType.ExceptionType;

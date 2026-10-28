@@ -4921,6 +4921,23 @@ namespace SharpPy
                                 PyTraceBack_Here(frame, pyExToThrow2);
                                 throw pyExToThrow2;
                             }
+                            else if (instance is PyClassInstance raisedUserInst && DerivesFromBaseException(pyType))
+                            {
+                                // User-defined exception subclass raised bare (e.g. `raise Child`,
+                                // Child -> Mid -> Exception). Its instantiation yields a
+                                // PyClassInstance, not a CLR PyBaseException; represent it as a
+                                // PyException that keeps the original class/instance so `except`
+                                // matching (MRO) and attribute access still work.
+                                var wrappedUserEx = new PyException(raisedUserInst.ToString(), pyType as PyClass, raisedUserInst);
+                                if (handledException != null && handledException != wrappedUserEx)
+                                {
+                                    wrappedUserEx.__context__ = handledException;
+                                }
+                                frame.LastException = wrappedUserEx;
+                                var pyExToThrowUser = new PythonException(wrappedUserEx);
+                                PyTraceBack_Here(frame, pyExToThrowUser);
+                                throw pyExToThrowUser;
+                            }
                             else
                             {
                                 throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
@@ -5068,8 +5085,7 @@ namespace SharpPy
                         // Check against user-defined class
                         if (expectedType is PyClass userClass && pyException.OriginalClass != null)
                         {
-                            matches = pyException.OriginalClass == userClass ||
-                                     pyException.OriginalClass.Name == userClass.Name;
+                            matches = ExceptionClassMatches(pyException.OriginalClass, userClass);
                         }
                         // Check against built-in type
                         else if (expectedType is PyBuiltinType builtinType)
@@ -5095,7 +5111,15 @@ namespace SharpPy
                                 }
                                 else if (excType is PyType tuplePyType)
                                 {
-                                    if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
+                                    if (pyException.OriginalClass != null)
+                                    {
+                                        if (ExceptionClassMatches(pyException.OriginalClass, tuplePyType))
+                                        {
+                                            matches = true;
+                                            break;
+                                        }
+                                    }
+                                    else if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
                                     {
                                         matches = true;
                                         break;
@@ -5159,13 +5183,13 @@ namespace SharpPy
 
                         if (expectedType is PyClass userClass)
                         {
-                            matches = classInstance.InstanceType == userClass ||
-                                     classInstance.InstanceType.Name == userClass.Name;
+                            matches = ExceptionClassMatches(classInstance.InstanceType, userClass);
                         }
                         else if (expectedType is PyType pyType)
                         {
-                            // Check if custom instance is compatible with Exception/BaseException
-                            matches = pyType.Name == "Exception" || pyType.Name == "BaseException";
+                            // Follow the MRO so a user exception is caught by any ancestor
+                            // (Exception/BaseException or a custom base class), not just the leaf.
+                            matches = ExceptionClassMatches(classInstance.InstanceType, pyType);
                         }
                     }
 
@@ -8279,6 +8303,39 @@ namespace SharpPy
             }
         }
 
+        // CPython 3.12: Objects/typeobject.c PyType_IsSubtype for `except` matching.
+        // A raised exception class matches an `except` clause when the expected class
+        // is the raised class itself OR appears anywhere in its MRO. Reference identity
+        // is authoritative; name is a fallback only for identical names across modules.
+        private static bool ExceptionClassMatches(PyType? raisedClass, PyType expected)
+        {
+            if (raisedClass == null || expected == null) return false;
+            var mro = raisedClass.MRO;
+            if (mro == null) return ReferenceEquals(raisedClass, expected);
+            for (int i = 0; i < mro.Count; i++)
+            {
+                var m = mro[i];
+                if (ReferenceEquals(m, expected) || m.Name == expected.Name) return true;
+            }
+            return false;
+        }
+
+        // CPython 3.12: an exception class is any class whose MRO contains BaseException.
+        // Used to decide whether `raise SomeClass` (bare) may instantiate and raise it,
+        // including multi-level user subclasses (Child -> Mid -> Exception).
+        private static bool DerivesFromBaseException(PyType? t)
+        {
+            if (t == null) return false;
+            var mro = t.MRO;
+            if (mro == null) return ReferenceEquals(t, PyType.BaseExceptionType);
+            for (int i = 0; i < mro.Count; i++)
+            {
+                if (ReferenceEquals(mro[i], PyType.BaseExceptionType) || mro[i].Name == "BaseException")
+                    return true;
+            }
+            return false;
+        }
+
         // CPython 3.12: Python/errors.c:330-358 - PyErr_GivenExceptionMatches
         // Checks if exception instance is of expected type (using C# subtype checking)
         private static bool IsExceptionInstanceOf(PyException exception, string expectedTypeName)
@@ -8307,10 +8364,11 @@ namespace SharpPy
         /// </summary>
         private bool IsExceptionLike(PyObject obj)
         {
-            // For now, any object can potentially be an exception if it has the right structure
-            // In a full implementation, we'd check the class hierarchy
-            // For simplicity, we'll accept any custom object as potentially exception-like
-            return true;
+            // CPython 3.12: only instances of BaseException subclasses may be raised.
+            // "raise 5" -> TypeError, not a wrapped int. The object's type must derive
+            // from BaseException (transitively through the MRO).
+            if (obj is PyBaseException) return true;
+            return DerivesFromBaseException(obj.GetPyType());
         }
     }
 
