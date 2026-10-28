@@ -594,6 +594,9 @@ public partial class PyFunction : PyObject, IDescriptor
         base.DelAttribute(name);
     }
 
+    // CPython: repr(func) == "<function NAME at 0xADDR>" (funcobject.c).
+    public override PyString ToRepr()
+        => new PyString($"<function {PyFrame.BindErrorName(Name)} at 0x{GetHashCode():x}>");
     public override string ToString() => $"<function {Name}>";
     
     /// <summary>

@@ -580,14 +580,27 @@ namespace SharpPy
         
         public override string GetTypeName() => "code";
 
+        // CPython: type(code).__name__ == 'code'
+        private static readonly PyType CodePyType = new PyType("code", new[] { PyType.ObjectType });
+        public override PyType GetPyType() => CodePyType;
+
+        // CPython: code object attributes are read-only (Objects/codeobject.c).
+        public override void SetAttribute(string name, PyObject value)
+            => throw PyAttributeError.Create("readonly attribute");
+
         // CPython 3.12 호환: co_* 속성들 지원
         public override PyObject GetAttribute(string name)
         {
             return name switch
             {
                 "co_flags" => new PyInt(Flags),
-                "co_name" => new PyString(Name),
-                "co_argcount" => new PyInt(ArgCount),
+                // SharpPy keeps unique internal lambda names (<lambda_N>) for the
+                // call-error mapping; CPython's co_name is the bare "<lambda>".
+                "co_name" => new PyString(PyFrame.BindErrorName(Name)),
+                "co_qualname" => new PyString(PyFrame.BindErrorName(DisplayQualName)),
+                // CPython co_argcount counts positional-only + positional-or-keyword
+                // only; SharpPy stores non-variadic totals, so subtract kwonly.
+                "co_argcount" => new PyInt(Math.Max(0, ArgCount - KwonlyArgCount)),
                 "co_posonlyargcount" => new PyInt(PosonlyArgCount),
                 "co_kwonlyargcount" => new PyInt(KwonlyArgCount),
                 "co_varnames" => new PyTuple(VarNames.Select(n => new PyString(n) as PyObject).ToArray()),

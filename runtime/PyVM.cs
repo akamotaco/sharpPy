@@ -51,6 +51,20 @@ namespace SharpPy
         public Stack<int> ExceptionHandlers => _exceptionHandlers ??= new Stack<int>();
         public PyBaseException? LastException { get; set; }
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
+
+        // CPython 3.12 exception-stack scopes (_PyErr_StackItem chain). Each time an
+        // exception is dispatched into a handler we push (tryStartDepth, exc). POP_EXCEPT
+        // pops the innermost scope. When unwinding to a shallower handler we drop every
+        // scope entered at depth >= target so an abandoned handler's exception does not
+        // leak into a later raise's __context__. CurrentException is always the surviving
+        // scope's exception (what CPython's _PyErr_GetTopmostException reports AFTER the
+        // unwind), while __context__ is captured BEFORE the unwind (raise-time topmost).
+        private System.Collections.Generic.List<(int Depth, PyBaseException Exc)>? _handledScopes;
+        // Lazily allocated: the overwhelming majority of frames never enter a handler.
+        public System.Collections.Generic.List<(int Depth, PyBaseException Exc)> HandledScopes
+            => _handledScopes ??= new System.Collections.Generic.List<(int Depth, PyBaseException Exc)>();
+        // True when a scope has actually been allocated (avoids allocating on read-only checks).
+        public bool HasHandledScopes => _handledScopes is { Count: > 0 };
         public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
 
         // CPython 3.12: Generator throw() support - injected exception to raise on next frame execution
@@ -690,13 +704,16 @@ namespace SharpPy
         public override string ToString() => $"<frame for {Code.Name}>";
 
         // PyObject required overrides
-        public override PyType GetPyType() => PyType.ObjectType;
+        public override PyType GetPyType() => FramePyType;
         public override string GetTypeName() => "frame";
 
         /// <summary>
         /// CPython 3.12: Frame attribute access for traceback.py compatibility
         /// Exposes frame introspection attributes
         /// </summary>
+        // CPython: type(frame).__name__ == 'frame'
+        private static readonly PyType FramePyType = new PyType("frame", new[] { PyType.ObjectType });
+
         public override PyObject GetAttribute(string name)
         {
             return name switch
@@ -1437,6 +1454,36 @@ namespace SharpPy
                             // discarding unfinished expression operands before the handler.
                             while (frame.ValueStack.Count > exceptionEntry.Depth)
                                 frame.ValueStack.Pop();
+
+                            // CPython 3.12 _PyErr_SetObject: implicit __context__ is the
+                            // topmost *being-handled* exception captured at RAISE time, i.e.
+                            // BEFORE the unwind drops the handler scope we are escaping.
+                            if (pyEx.PyException is PyBaseException newExcBase &&
+                                frame.CurrentException is PyBaseException ctxBase &&
+                                !ReferenceEquals(newExcBase, ctxBase) &&
+                                newExcBase.__context__ == null &&
+                                !newExcBase.__suppress_context__)
+                            {
+                                newExcBase.__context__ = ctxBase;
+                            }
+
+                            // Drop every handler scope entered at depth >= the target, then
+                            // CurrentException reflects the surviving enclosing handler (the
+                            // state CPython's PUSH_EXC_INFO sees as prev, post-unwind).
+                            if (frame.HasHandledScopes)
+                            {
+                                for (int si = frame.HandledScopes.Count - 1; si >= 0;)
+                                {
+                                    if (frame.HandledScopes[si].Depth >= exceptionEntry.Depth)
+                                        frame.HandledScopes.RemoveAt(si);
+                                    si--;
+                                }
+                            }
+                            frame.CurrentException = frame.HasHandledScopes
+                                ? frame.HandledScopes[frame.HandledScopes.Count - 1].Exc
+                                : null;
+                            if (pyEx.PyException is PyBaseException scopeExc)
+                                frame.HandledScopes.Add((exceptionEntry.Depth, scopeExc));
 
                             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
                             // CPython ceval.c:972-978
@@ -4499,23 +4546,27 @@ namespace SharpPy
 
                     if (frame.ValueStack.Count > 0)
                     {
-                        // Pop prev_exc from stack (pushed by PUSH_EXC_INFO)
+                        // Pop prev_exc from stack (pushed by PUSH_EXC_INFO) for stack shape.
                         var prevExcValue = frame.ValueStack.Pop();
 
-                        // RESTORE previous exception to CurrentException
-                        // This is what Py_XSETREF does in CPython bytecodes.c:931
-                        if (prevExcValue is PyBaseException previousException)
+                        // RESTORE the being-handled exception from the scope stack. This is
+                        // authoritative (matches CPython: POP_EXCEPT leaves exc_info pointing
+                        // at the enclosing handler's exception, or none). The value-stack
+                        // prev_exc is redundant with the scope top; keep scope in sync.
+                        if (frame.HasHandledScopes)
                         {
-                            frame.CurrentException = previousException;
+                            // Drop the scope this handler just completed (top == CurrentException).
+                            int top = frame.HandledScopes.Count - 1;
+                            if (frame.CurrentException == null ||
+                                ReferenceEquals(frame.HandledScopes[top].Exc, frame.CurrentException))
+                                frame.HandledScopes.RemoveAt(top);
                         }
-                        else if (prevExcValue == PyNone.Instance)
-                        {
-                            frame.CurrentException = null;  // No previous exception
-                        }
+                        frame.CurrentException = frame.HasHandledScopes
+                            ? frame.HandledScopes[frame.HandledScopes.Count - 1].Exc
+                            : null;
 
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 POP_EXCEPT: Popped prev_exc={prevExcValue} from stack");
-                        Console.WriteLine($"🔧 POP_EXCEPT: Restored CurrentException={frame.CurrentException}");
+                        Console.WriteLine($"🔧 POP_EXCEPT: Popped prev_exc={prevExcValue}; CurrentException={frame.CurrentException}");
                         #endif
                     }
                     else
@@ -4683,17 +4734,9 @@ namespace SharpPy
                         frame.CurrentException = pyExc;
                     }
 
-                    // CPython 3.12: Python/errors.c _PyErr_SetObject - an exception raised
-                    // while another exception is being handled records __context__
-                    // (implicit chaining) unless chaining was already established.
-                    if (newExc is PyBaseException newBase &&
-                        prevExc is PyBaseException prevBase &&
-                        !ReferenceEquals(newBase, prevBase) &&
-                        newBase.__context__ == null &&
-                        !newBase.__suppress_context__)
-                    {
-                        newBase.__context__ = prevBase;
-                    }
+                    // __context__ capture now happens at exception dispatch (pre-unwind),
+                    // matching CPython _PyErr_SetObject reading the topmost being-handled
+                    // exception before the unwind discards the escaped handler scope.
 
                     // Push prev_exc first, then new_exc (CPython 3.12 stack order)
                     frame.ValueStack.Push(prevExc);

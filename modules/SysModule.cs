@@ -443,7 +443,7 @@ namespace SharpPy.Modules
             {
                 if (targetFrame.ParentFrame == null)
                 {
-                    throw PyValueError.Create($"call stack is not deep enough (depth {depth})");
+                    throw PyValueError.Create("call stack is not deep enough");
                 }
                 targetFrame = targetFrame.ParentFrame;
             }

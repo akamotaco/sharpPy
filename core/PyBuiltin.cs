@@ -346,8 +346,16 @@ namespace SharpPy
             }
             else
             {
-                // file 객체에 쓰기 (추후 구현 가능)
-                Console.Write(output + end.Value);
+                // CPython print.c: print delegates to file.write(str) - errors
+                // (missing attribute, closed file) propagate to the caller.
+                var text = new PyString(output + end.Value);
+                var write = file.GetAttribute("write");
+                write.Call(new PyObject[] { text }, null);
+                if (flush.Value)
+                {
+                    var flushMethod = file.GetAttribute("flush");
+                    flushMethod.Call(System.Array.Empty<PyObject>(), null);
+                }
             }
 
             return PyNone.Instance;
