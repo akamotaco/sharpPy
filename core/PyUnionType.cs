@@ -62,7 +62,12 @@ namespace SharpPy
                 return new PyUnionType(combinedArgs);
             }
 
-            return base.BitwiseOr(other);
+            var fallback = base.BitwiseOr(other);
+            if (ReferenceEquals(fallback, PyNotImplemented.Instance))
+            {
+                throw PyTypeError.Create($"unsupported operand type(s) for |: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            }
+            return fallback;
         }
 
         /// <summary>

@@ -1625,6 +1625,49 @@ namespace SharpPy
             return result ?? base.BitwiseXor(other);
         }
 
+        public override PyObject MatrixMultiply(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__matmul__", "__rmatmul__");
+            return result ?? base.MatrixMultiply(other);
+        }
+
+        public override PyObject DivMod(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__divmod__", "__rdivmod__");
+            return result ?? base.DivMod(other);
+        }
+
+        // CPython 3.12: nb_positive/nb_negative/nb_invert slots for user classes
+        // (Objects/typeobject.c slot_nb_* -> __pos__/__neg__/__invert__).
+        public override PyObject Positive()
+        {
+            var m = LookupSpecialMethodUncached("__pos__");
+            if (m != null) return m.Call(new PyObject[] { this }, null);
+            return base.Positive();
+        }
+
+        public override PyObject Negative()
+        {
+            var m = LookupSpecialMethodUncached("__neg__");
+            if (m != null) return m.Call(new PyObject[] { this }, null);
+            return base.Negative();
+        }
+
+        public override PyObject BitwiseNot()
+        {
+            var m = LookupSpecialMethodUncached("__invert__");
+            if (m != null) return m.Call(new PyObject[] { this }, null);
+            return base.BitwiseNot();
+        }
+
+        /// <summary>CPython nb_absolute: abs(inst) prefers __abs__.</summary>
+        public PyObject AbsoluteOrNotImplemented()
+        {
+            var m = LookupSpecialMethodUncached("__abs__");
+            if (m != null) return m.Call(new PyObject[] { this }, null);
+            return PyNotImplemented.Instance;
+        }
+
         protected override bool HasCustomGetAttr() => _customGetAttr != null;
 
         protected override PyObject CallGetAttr(string name)

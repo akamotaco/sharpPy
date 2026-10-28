@@ -6451,7 +6451,7 @@ namespace SharpPy
                         BinaryOpType.AND => left.BitwiseAnd(right),
                         BinaryOpType.OR => left.BitwiseOr(right),
                         BinaryOpType.XOR => left.BitwiseXor(right),
-                        BinaryOpType.MATRIX_MULTIPLY => throw PyNotImplementedError.Create("Matrix multiplication not yet implemented"),
+                        BinaryOpType.MATRIX_MULTIPLY => left.MatrixMultiply(right),
 
                         // CPython 3.12: In-place operations
                         // CPython: Objects/abstract.c:binary_iop1 (lines 1162-1193)
@@ -6468,7 +6468,7 @@ namespace SharpPy
                         BinaryOpType.INPLACE_AND => TryInplaceOp(left, right, "InplaceBitwiseAnd", BinaryOpType.AND),
                         BinaryOpType.INPLACE_OR => TryInplaceOp(left, right, "InplaceBitwiseOr", BinaryOpType.OR),
                         BinaryOpType.INPLACE_XOR => TryInplaceOp(left, right, "InplaceBitwiseXor", BinaryOpType.XOR),
-                        BinaryOpType.INPLACE_MATRIX_MULTIPLY => throw PyNotImplementedError.Create("In-place matrix multiplication not yet implemented"),
+                        BinaryOpType.INPLACE_MATRIX_MULTIPLY => TryInplaceOp(left, right, "InplaceMatrixMultiply", BinaryOpType.MATRIX_MULTIPLY),
 
                         _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
                     };

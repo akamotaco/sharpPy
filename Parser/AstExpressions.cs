@@ -22,7 +22,7 @@ namespace SharpPy
             var left = Left.Evaluate(scope);
             var right = Right.Evaluate(scope);
 
-            return Operator switch
+            var result = Operator switch
             {
                 "+" => left.Add(right),
                 "Add" => left.Add(right),
@@ -59,6 +59,30 @@ namespace SharpPy
                 // "MatMult" => left.MatrixMultiply(right),  // Not implemented yet
                 _ => throw new NotImplementedException($"Binary operator {Operator} not implemented")
             };
+
+            // Slots return PyNotImplemented; this legacy evaluator must still raise.
+            if (ReferenceEquals(result, PyNotImplemented.Instance))
+            {
+                string symbol = Operator switch
+                {
+                    "+" or "Add" => "+",
+                    "-" or "Sub" => "-",
+                    "*" or "Mult" => "*",
+                    "/" or "Div" => "/",
+                    "//" or "FloorDiv" => "//",
+                    "%" or "Mod" => "%",
+                    "**" or "Pow" => "**",
+                    "&" or "BitAnd" => "&",
+                    "|" or "BitOr" => "|",
+                    "^" or "BitXor" => "^",
+                    "<<" or "LShift" => "<<",
+                    ">>" or "RShift" => ">>",
+                    "@" or "MatMult" => "@",
+                    _ => Operator
+                };
+                throw PyTypeError.Create($"unsupported operand type(s) for {symbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+            }
+            return result;
         }
 
         public override string ToString() => $"({Left} {Operator} {Right})";

@@ -222,9 +222,20 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
             var obj = args[0];
+            if (obj is PyClassInstance userInstance)
+            {
+                // nb_absolute -> __abs__ for user-defined classes
+                var absResult = userInstance.AbsoluteOrNotImplemented();
+                if (!ReferenceEquals(absResult, PyNotImplemented.Instance))
+                {
+                    return absResult;
+                }
+                throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'");
+            }
             return obj switch
             {
                 PyInt pyInt => new PyInt(BigInteger.Abs(pyInt.Value)),
+                PyBool pyBool => new PyInt(pyBool.Value ? BigInteger.One : BigInteger.Zero),
                 PyFloat pyFloat => new PyFloat(Math.Abs(pyFloat.Value)),
                 PyComplex pyComplex => pyComplex.Absolute(),
                 _ => throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'")

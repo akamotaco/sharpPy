@@ -428,12 +428,24 @@ namespace SharpPy
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
             // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
-            return args[0] switch
+            var value = args[0];
+            if (value is PyClassInstance userInstance)
+            {
+                // nb_absolute -> __abs__ for user-defined classes
+                var absResult = userInstance.AbsoluteOrNotImplemented();
+                if (!ReferenceEquals(absResult, PyNotImplemented.Instance))
+                {
+                    return absResult;
+                }
+                throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'");
+            }
+            return value switch
             {
                 PyInt intVal => new PyInt(BigInteger.Abs(intVal.Value)),
+                PyBool boolVal => new PyInt(boolVal.Value ? BigInteger.One : BigInteger.Zero),
                 PyFloat floatVal => new PyFloat(Math.Abs(floatVal.Value)),
                 PyComplex complexVal => complexVal.Absolute(),
-                _ => throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'")
+                _ => throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'")
             };
         }
 
@@ -1852,7 +1864,21 @@ namespace SharpPy
 
             // CPython: Python/bltinmodule.c:929 - Call PyNumber_Divmod
             // Delegate to PyObject.DivMod which implements Python floor division semantics
-            return a.DivMod(b);
+            var result = a.DivMod(b);
+            if (result == PyNotImplemented.Instance)
+            {
+                // CPython binary_op1: try the reflected __rdivmod__ before failing.
+                if (b is PyClassInstance rightClass)
+                {
+                    var reflected = rightClass.LookupSpecialMethodUncached("__rdivmod__");
+                    if (reflected != null)
+                    {
+                        return reflected.Call(new PyObject[] { a }, null);
+                    }
+                }
+                throw PyTypeError.Create($"unsupported operand type(s) for divmod(): '{a.GetTypeName()}' and '{b.GetTypeName()}'");
+            }
+            return result;
         }
 
         private static PyObject CallOrd(PyObject[] args, PyDict kwargs = null)

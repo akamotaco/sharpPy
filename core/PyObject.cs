@@ -1285,7 +1285,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject DivMod(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for divmod(): '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1301,7 +1301,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject BitwiseAnd(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for &: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1309,7 +1309,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject BitwiseOr(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for |: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1317,7 +1317,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject BitwiseXor(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for ^: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1325,7 +1325,8 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject LeftShift(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for <<: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            // CPython slots return NotImplemented so reflected operands get a turn.
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1333,7 +1334,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject RightShift(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for >>: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1373,7 +1374,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject MatrixMultiply(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for @: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         #endregion
