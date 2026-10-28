@@ -5,6 +5,7 @@ Exit code: number of mismatching probes.
 """
 import argparse
 import difflib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,9 +13,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(cmd, cwd, timeout):
+def run(cmd, cwd, timeout, env=None):
     try:
-        p = subprocess.run(cmd, cwd=cwd, capture_output=True, timeout=timeout)
+        p = subprocess.run(cmd, cwd=cwd, capture_output=True, timeout=timeout, env=env)
         out = p.stdout.decode("utf-8", errors="replace").replace("\r\n", "\n")
         err = p.stderr.decode("utf-8", errors="replace").replace("\r\n", "\n")
         return p.returncode, out, err
@@ -39,11 +40,22 @@ def main():
     if args.filter:
         files = [f for f in files if args.filter in str(f)]
 
+    # One shared scratch dir so probes never write into the repo root and both
+    # interpreters see identical absolute paths in messages.
+    scratch = ROOT / ".artifacts" / "bughunt-scratch"
+    scratch.mkdir(parents=True, exist_ok=True)
+    for stale in scratch.iterdir():
+        try:
+            stale.unlink()
+        except OSError:
+            pass  # e.g. a file an abandoned SharpPy run still holds open
+    env = dict(os.environ, BUGHUNT_SCRATCH=str(scratch))
+
     mismatches = []
     for f in files:
         rel = f.relative_to(ROOT).as_posix()
-        rc_c, out_c, err_c = run([sys.executable, rel], ROOT, args.timeout)
-        rc_s, out_s, err_s = run([args.dotnet, args.dll, rel], ROOT, args.timeout)
+        rc_c, out_c, err_c = run([sys.executable, rel], ROOT, args.timeout, env)
+        rc_s, out_s, err_s = run([args.dotnet, args.dll, rel], ROOT, args.timeout, env)
         (keep / (f.stem + ".cp.txt")).write_text(out_c + "---STDERR---\n" + err_c, encoding="utf-8")
         (keep / (f.stem + ".sp.txt")).write_text(out_s + "---STDERR---\n" + err_s, encoding="utf-8")
         ok = (rc_c == rc_s) and (out_c == out_s)
