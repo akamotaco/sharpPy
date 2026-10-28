@@ -1763,6 +1763,7 @@ namespace SharpPy
                 ? PyCodeObject.CO_ASYNC_GENERATOR : PyCodeObject.CO_COROUTINE;
 
             var compiler = new PythonCompiler();
+            compiler.InheritQualStack(this);
             compiler.SetupClosureCompilation(cellVars, freeVars);
             compiler.SetSourceLocation(_currentFileName, _sourceLines);
             compiler._symbolTableBuilder = _symbolTableBuilder;
@@ -1903,6 +1904,9 @@ namespace SharpPy
             _exceptionTable.Clear();
             _lineNumberTable.Clear();
             _isInFunction = true;
+            // CPython co_qualname for this function (C.meth, outer.<locals>.inner, ...).
+            string qualNameForCode = ComputeQualName(name);
+            _defQualStack.Add((name, false));
             _currentFunctionName = name;
 
             // CRITICAL: Set free and cell variables from parameters
@@ -2029,6 +2033,9 @@ namespace SharpPy
                 freeVars, cellVars, defaults, kwDefaults,
                 flags, _currentFileName, _sourceLines
             );
+            codeObject.QualName = qualNameForCode;
+            if (_defQualStack.Count > 0)
+                _defQualStack.RemoveAt(_defQualStack.Count - 1);
 
             // Add Exception Table entries (CPython 3.12 compatible)
             // CPython 3.12: compile.c:7775 _PyAssemble_MakeCodeObject
@@ -3027,51 +3034,45 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.PUSH_NULL);
                         CompileExpression(call.Function);
 
-                        // Handle args: combine regular args with *args
-                        // Performance: Eliminated LINQ
-                        var regularArgs = new List<Expression>();
-                        StarredExpression? starredArg = null;
-                        foreach (var arg in call.Arguments)
+                        // CPython 3.12 (Python/compile.c build_tuple_unpack): the args
+                        // tuple must preserve SOURCE ORDER of regular and starred parts,
+                        // supporting any number of starred expressions.
+                        // Fast path: exactly one starred arg and nothing else -> pass the
+                        // iterable straight to CALL_FUNCTION_EX, which reports
+                        // "argument after * must be an iterable, not T".
+                        bool singleStarredOnly = call.Arguments.Count == 1 && call.Arguments[0] is StarredExpression;
+                        if (singleStarredOnly)
                         {
-                            if (arg is StarredExpression starred)
-                            {
-                                if (starredArg == null)
-                                {
-                                    starredArg = starred;
-                                }
-                            }
-                            else
-                            {
-                                regularArgs.Add(arg);
-                            }
+                            CompileExpression(((StarredExpression)call.Arguments[0]).Value);
                         }
-
-                        if (regularArgs.Count > 0 || starredArg != null)
+                        else if (call.Arguments.Count > 0)
                         {
-                            // Build list starting with regular arguments
-                            if (regularArgs.Count > 0)
+                            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
+                            int runCount = 0;
+                            foreach (var arg in call.Arguments)
                             {
-                                // Compile regular args in order and build list
-                                foreach (var arg in regularArgs)
+                                if (arg is StarredExpression starredExpr)
+                                {
+                                    if (runCount > 0)
+                                    {
+                                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, runCount);
+                                        EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
+                                        runCount = 0;
+                                    }
+                                    CompileExpression(starredExpr.Value);
+                                    EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
+                                }
+                                else
                                 {
                                     CompileExpression(arg);
+                                    runCount++;
                                 }
-                                EmitInstruction(ByteCodeOp.BUILD_LIST, regularArgs.Count);
                             }
-                            else
+                            if (runCount > 0)
                             {
-                                // Start with empty list if no regular args
-                                EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-                            }
-
-                            // If there's *args, extend the list
-                            if (starredArg != null)
-                            {
-                                CompileExpression(starredArg.Value);
+                                EmitInstruction(ByteCodeOp.BUILD_TUPLE, runCount);
                                 EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
                             }
-
-                            // Convert list to tuple for CALL_FUNCTION_EX
                             EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
                         }
                         else
@@ -4320,6 +4321,7 @@ namespace SharpPy
 
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
+            compiler.InheritQualStack(this);
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
 
             // CPython 3.12: Pass source location information to nested compiler
@@ -5840,6 +5842,7 @@ namespace SharpPy
                 // CPython 3.12: compile.c:2371 - compiler_function_body
                 // Compile actual function using CompilerFunctionBody (not legacy CompileFunction)
                 var compiler = new PythonCompiler();
+                compiler.InheritQualStack(this);
                 compiler.SetSourceLocation(_currentFileName, _sourceLines);
 
                 // CPython 3.12: Set symbol table context for the function
@@ -6458,6 +6461,13 @@ namespace SharpPy
             var savedCurrentSymbolTable = _currentSymbolTable;
             var savedIsInFunction = _isInFunction;  // CPython 3.12: Save function context flag
             var savedIsInClassBody = _isInClassBody;
+            // Methods defined in this body get "ClassName.method" qualnames.
+            string classQualPart = className;
+            if (classQualPart.StartsWith("<class_body_", StringComparison.Ordinal))
+                classQualPart = classQualPart.Substring("<class_body_".Length).TrimEnd('>');
+            else if (classQualPart.StartsWith("<class ", StringComparison.Ordinal))
+                classQualPart = classQualPart.Substring("<class ".Length).TrimEnd('>') ;
+            _defQualStack.Add((classQualPart, true));
 
             // CPython 3.12: Find class symbol table for this class
             SymbolTable? classSymbolTable = null;
@@ -6681,6 +6691,8 @@ namespace SharpPy
 
                 // CPython 3.12: Restore class body context flag
                 _isInClassBody = savedIsInClassBody;
+            if (_defQualStack.Count > 0)
+                _defQualStack.RemoveAt(_defQualStack.Count - 1);
             }
         }
         
@@ -9935,6 +9947,18 @@ namespace SharpPy
 
             // Create a unique name for the lambda function
             string lambdaName = $"<lambda_{_lambdaCounter++}>";
+            // CPython qualname: "<lambda>", nested "<lambda>.<locals>.<lambda>", "f.<locals>.<lambda>".
+            string lambdaQualName = ComputeQualName("<lambda>");
+            _defQualStack.Add(("<lambda>", false));
+
+            // CPython 3.12: interpret the bridge's parameter marker encoding
+            // ("a, /" -> "/" marker, "*a", bare "*", "**kw") so lambdas carry
+            // varargs/kwonly/posonly metadata like def.
+            var positionalParamNames = new List<string>();
+            var lambdaKwOnlyNames = new List<string>();
+            string? lambdaVarArgName = null;
+            string? lambdaKwArgName = null;
+            int lambdaPosOnlyCount = 0;
 
             // CPython 3.12: Extract clean parameter names and default values
             // Python/compile.c:2590-2650 (compiler_lambda)
@@ -9956,6 +9980,43 @@ namespace SharpPy
                     cleanParamNames.Add(arg.Trim());
                 }
             }
+
+            bool afterLambdaStar = false;
+            foreach (var rawParam in cleanParamNames)
+            {
+                if (rawParam == "/")
+                {
+                    lambdaPosOnlyCount = positionalParamNames.Count;
+                    continue;
+                }
+                if (rawParam == "*")
+                {
+                    afterLambdaStar = true;
+                    continue;
+                }
+                if (rawParam.StartsWith("**"))
+                {
+                    lambdaKwArgName = rawParam.Substring(2);
+                    continue;
+                }
+                if (rawParam.StartsWith("*"))
+                {
+                    lambdaVarArgName = rawParam.Substring(1);
+                    afterLambdaStar = true;
+                    continue;
+                }
+                if (afterLambdaStar)
+                    lambdaKwOnlyNames.Add(rawParam);
+                else
+                    positionalParamNames.Add(rawParam);
+            }
+            // Binder layout: [posonly+regular..., kwonly..., *args, **kwargs, locals...]
+            var lambdaParamNames = new List<string>(positionalParamNames);
+            lambdaParamNames.AddRange(lambdaKwOnlyNames);
+            if (lambdaVarArgName != null)
+                lambdaParamNames.Add(lambdaVarArgName);
+            if (lambdaKwArgName != null)
+                lambdaParamNames.Add(lambdaKwArgName);
 
             // CPython 3.12: Use lambda.Defaults if available (from AST)
             // This is the proper way - defaults are stored in the AST node as Expression
@@ -10034,7 +10095,7 @@ namespace SharpPy
             _isInFunction = true; // CPython 3.12: Lambdas are functions, use LOAD_FAST for parameters
 
             // Parameters must be first in VarNames for LOAD_FAST to work
-            foreach (var paramName in cleanParamNames)
+            foreach (var paramName in lambdaParamNames)
             {
                 _varNames.Add(paramName);
                 #if DEBUG_LOG
@@ -10068,7 +10129,7 @@ namespace SharpPy
             for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
                 var cellVar = cellVars[cellIndex];
-                if (cleanParamNames.Contains(cellVar))
+                if (lambdaParamNames.Contains(cellVar))
                 {
                     // Get the varnames index (localsplus offset) for this parameter
                     var localsPlusOffset = _varNames.IndexOf(cellVar);
@@ -10084,6 +10145,10 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
             int lambdaFlags = lambdaTable?.IsGenerator == true ? PyCodeObject.CO_GENERATOR : 0;
+            if (lambdaVarArgName != null)
+                lambdaFlags |= PyCodeObject.CO_VARARGS;
+            if (lambdaKwArgName != null)
+                lambdaFlags |= PyCodeObject.CO_VARKEYWORDS;
             var lambdaInstructions = GetFinalInstructions(lambdaFlags);
 
             // CPython 3.12: co_varnames = parameters + local variables collected while
@@ -10114,9 +10179,9 @@ namespace SharpPy
                 lambdaConstants,
                 lambdaNames,
                 lambdaVarNames, // VarNames with parameters first
-                cleanParamNames.Count, // Use clean parameter count
-                0, // posonlyArgCount
-                0, // kwonlyArgCount
+                positionalParamNames.Count + lambdaKwOnlyNames.Count, // co_argcount (regular + kwonly)
+                lambdaPosOnlyCount,
+                lambdaKwOnlyNames.Count,
                 freeVars, // Set FreeVars for closure support
                 cellVars, // Set CellVars for closure support
                 defaultValues: defaultValues, // CPython 3.12: Pass default values
@@ -10125,6 +10190,9 @@ namespace SharpPy
                 fileName: _currentFileName,
                 sourceLines: _sourceLines
             );
+            functionCode.QualName = lambdaQualName;
+            if (_defQualStack.Count > 0)
+                _defQualStack.RemoveAt(_defQualStack.Count - 1);
             
             #if DEBUG_LOG
             Console.WriteLine($"  → Lambda code object created: {lambdaVarNames.Count} variables, {cleanParamNames.Count} parameters, {defaultValues.Count} defaults");
@@ -10202,6 +10270,34 @@ namespace SharpPy
         // IMPORTANT: Must NOT be static - each compilation session should start from 0
         // to match symbol table lambda naming (which also starts from 0 per session)
         private int _lambdaCounter = 0;
+
+        // CPython qualname tracking: enclosing def-stack of display parts.
+        // Function parts join with ".<locals>.", class parts with ".".
+        private readonly List<(string Display, bool IsClass)> _defQualStack = new List<(string, bool)>();
+
+        internal void InheritQualStack(PythonCompiler parent)
+        {
+            _defQualStack.AddRange(parent._defQualStack);
+        }
+
+        private string ComputeQualName(string leafPart)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int qi = 0; qi < _defQualStack.Count; qi++)
+            {
+                var part = _defQualStack[qi];
+                if (sb.Length == 0)
+                {
+                    sb.Append(part.Display);
+                    continue;
+                }
+                sb.Append(_defQualStack[qi - 1].IsClass ? "." : ".<locals>.").Append(part.Display);
+            }
+            if (sb.Length > 0)
+                sb.Append(_defQualStack[_defQualStack.Count - 1].IsClass ? "." : ".<locals>.");
+            sb.Append(leafPart);
+            return sb.ToString();
+        }
 
         private SymbolTable? FindLambdaSymbolTable(string lambdaName)
         {
@@ -11705,6 +11801,7 @@ namespace SharpPy
 
             // 제너레이터는 별도 함수로 컴파일 필요
             var genCompiler = new PythonCompiler();
+            genCompiler.InheritQualStack(this);
             // CPython 3.12: Pass source location information
             genCompiler.SetSourceLocation(_currentFileName, _sourceLines);
             // CPython 3.12: Pass symbol table builder for PySymtable_Lookup

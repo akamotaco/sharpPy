@@ -178,6 +178,61 @@ namespace SharpPy
             return codeName == "<module>";
         }
 
+        // SharpPy gives lambdas unique internal names (lambda_N); CPython error text
+        // uses "<lambda>" (nested-qualname fidelity is a separate pending item).
+        internal static string BindErrorName(string codeName)
+        {
+            if (string.IsNullOrEmpty(codeName))
+                return "<lambda>";
+            // A real qualname ("<lambda>.<locals>.<lambda>", "f.<locals>.g") is already
+            // correct; only SharpPy's internal unique-lambda names need mapping.
+            if (codeName.Contains(".<locals>.", StringComparison.Ordinal))
+                return codeName;
+            if (codeName == "<lambda>")
+                return codeName;
+            if (codeName.StartsWith("<lambda_", StringComparison.Ordinal) || codeName.StartsWith("lambda_", StringComparison.Ordinal))
+                return "<lambda>";
+            return codeName;
+        }
+
+        // Display name used in call protocol TypeErrors ("takes N positional ...").
+        internal static string GetCallDisplayName(PyObject f)
+        {
+            string name = f switch
+            {
+                PyFunction pf when !string.IsNullOrEmpty(pf.CodeObject?.DisplayQualName) => pf.CodeObject!.DisplayQualName,
+                PyFunction pf when !string.IsNullOrEmpty(pf.Name) => pf.Name,
+                PyMethod pm when !string.IsNullOrEmpty(pm.Function?.CodeObject?.DisplayQualName) => pm.Function.CodeObject!.DisplayQualName,
+                PyMethod pm when !string.IsNullOrEmpty(pm.Function?.Name) => pm.Function.Name,
+                PyBuiltinFunction bf when !string.IsNullOrEmpty(bf.Name) => bf.Name,
+                _ => f.GetTypeName()
+            };
+            if (!name.Contains(".<locals>.", StringComparison.Ordinal) &&
+                (name.StartsWith("<lambda_", StringComparison.Ordinal) || name.StartsWith("lambda_", StringComparison.Ordinal)))
+                return "<lambda>";
+            return name;
+        }
+
+        // Module-qualified prefix used by CPython's "got multiple values for keyword
+        // argument" error (measured: "__main__.g() ...").
+        internal static string GetFuncErrPrefix(PyObject f)
+        {
+            string name = GetCallDisplayName(f);
+            IDictionary<string, PyObject> globals = f switch
+            {
+                PyFunction pf => pf.GlobalsDict,
+                PyMethod pm => pm.Function?.GlobalsDict,
+                _ => null
+            };
+            if (globals != null && globals.TryGetValue("__name__", out var mod) && mod != null)
+            {
+                var modName = mod.ToStr().Value;
+                if (!string.IsNullOrEmpty(modName))
+                    return modName + "." + name;
+            }
+            return name;
+        }
+
         /// <summary>
         /// CPython 3.12 호환: 키워드 인수를 지원하는 매개변수 바인딩
         /// </summary>
@@ -252,12 +307,20 @@ namespace SharpPy
             // CPython 3.12: co_argcount does NOT include keyword-only parameters
             int regularArgCount = code.ArgCount - code.KwonlyArgCount;
             int posArgIndex = 0;
+            var missingPositional = new List<string>();
+            int defaultCountForError = runtimeDefaults != null
+                ? runtimeDefaults.Items.Length
+                : code.DefaultValues.Count;
             for (int paramIndex = 0; paramIndex < regularArgCount; paramIndex++)
             {
                 var paramName = code.VarNames[paramIndex];
 
                 if (posArgIndex < positionalArgs.Length)
                 {
+                    // CPython: a parameter bound positionally may not also be a keyword
+                    // (ceval.c duplicate positional check; co_name prefix, measured).
+                    if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
+                        throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() got multiple values for argument '{paramName}'");
                     // Bind positional argument
                     LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
                     RecordParameterInScope(paramName, positionalArgs[posArgIndex]);
@@ -327,10 +390,54 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Missing required argument
-                        throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
+                        // Missing required argument (message built after the loop with
+                        // CPython's full grammar; collect every missing parameter).
+                        missingPositional.Add(paramName);
                     }
                 }
+            }
+
+            // CPython finalize_frame error order: too many positional args first,
+            // then missing required positional (with the full name list).
+            if (!hasVarArgs && posArgIndex < positionalArgs.Length)
+            {
+                int given = positionalArgs.Length;
+                int slots = regularArgCount;
+                int required = slots - Math.Min(defaultCountForError, slots);
+                if (required < slots)
+                    throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() takes from {required} to {slots} positional arguments but {given} {(given == 1 ? "was" : "were")} given");
+                throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() takes {slots} positional argument{(slots == 1 ? "" : "s")} but {given} {(given == 1 ? "was" : "were")} given");
+            }
+            if (missingPositional.Count > 0)
+            {
+                // CPython processes keyword names before reporting missing positional
+                // arguments: an unknown keyword wins over the missing-argument error.
+                if (keywordArgs != null && keywordArgs.Count > 0 && !hasVarKeywords)
+                {
+                    foreach (var kwName in keywordArgs.Keys)
+                    {
+                        bool matchesParam = false;
+                        for (int pi = 0; pi < code.ArgCount; pi++)
+                        {
+                            if (code.VarNames[pi] == kwName)
+                            {
+                                matchesParam = true;
+                                break;
+                            }
+                        }
+                        if (!matchesParam)
+                            throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() got an unexpected keyword argument '{kwName}'");
+                    }
+                }
+                var quotedNames = new List<string>();
+                foreach (var missingName in missingPositional)
+                    quotedNames.Add("'" + missingName + "'");
+                string namesText;
+                if (quotedNames.Count == 1)
+                    namesText = quotedNames[0];
+                else
+                    namesText = string.Join(", ", quotedNames.GetRange(0, quotedNames.Count - 1)) + " and " + quotedNames[quotedNames.Count - 1];
+                throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() missing {missingPositional.Count} required positional argument{(missingPositional.Count == 1 ? "" : "s")}: {namesText}");
             }
 
             // Phase 1.5: Bind keyword-only arguments (CPython 3.12)
@@ -387,7 +494,7 @@ namespace SharpPy
                     else
                     {
                         // Missing required keyword-only argument
-                        throw PyTypeError.Create($"{code.Name}() missing 1 required keyword-only argument: '{paramName}'");
+                        throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() missing 1 required keyword-only argument: '{paramName}'");
                     }
                 }
             }
@@ -450,7 +557,7 @@ namespace SharpPy
                     unexpectedKey = key;
                     break;
                 }
-                throw PyTypeError.Create($"[PyFrame] {code.Name}() got an unexpected keyword argument '{unexpectedKey}'");
+                throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() got an unexpected keyword argument '{unexpectedKey}'");
             }
         }
 
@@ -2627,7 +2734,28 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw PyTypeError.Create("argument after * must be an iterable");
+                        // CPython 3.12 CALL_FUNCTION_EX materializes any iterable
+                        // (call.c uses PyObject_GetIter for non tuple/list args).
+                        try
+                        {
+                            var starIterator = argsIterable.GetIterator();
+                            while (true)
+                            {
+                                try
+                                {
+                                    argsList.Add(starIterator.Next());
+                                }
+                                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyTypeError)
+                        {
+                            // CPython 3.12 measured wording includes the callee name.
+                            throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(functionToCall)}() argument after * must be an iterable, not {argsIterable.GetTypeName()}");
+                        }
                     }
 
                     // Convert kwargs dict to keyword arguments
@@ -2734,17 +2862,29 @@ namespace SharpPy
                         throw PyTypeError.Create($"DICT_MERGE: target must be dict, got {targetDict.GetType().Name}");
                     }
 
+                    // CPython 3.12: a **kwargs merge colliding with an existing keyword is
+                    // "got multiple values for keyword argument" naming the callee
+                    // (module-qualified); plain dict literals never reach this opcode.
+                    // Stack here (after popping source and target): [.., NULL, func, argsTuple]
+                    PyObject mergeCallee = frame.ValueStack.Count >= 2 ? frame.ValueStack.PeekAt(1) : null;
+                    if (mergeCallee is PyNone)
+                        mergeCallee = null;
+
                     // Merge sourceDict into targetDict
                     if (sourceDict is PyDict sourcePyDict)
                     {
                         foreach (var kvp in sourcePyDict.InternalDict)
                         {
+                            if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool())
+                                throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument '{kvp.Key.ToStr().Value}'");
                             targetPyDict.SetItem(kvp.Key, kvp.Value);
                         }
                     }
                     else
                     {
-                        throw PyTypeError.Create("DICT_MERGE: source must be dictionary");
+                        // CPython 3.12 measured wording for f(**non_mapping).
+                        string mapPrefix = mergeCallee != null ? PyFrame.GetFuncErrPrefix(mergeCallee) + "() " : "";
+                        throw PyTypeError.Create($"{mapPrefix}argument after ** must be a mapping, not {sourceDict.GetTypeName()}");
                     }
 
                     // Push the merged dictionary back onto the stack
@@ -3675,7 +3815,16 @@ namespace SharpPy
 
                     // Use generic iterator approach to handle all iterable types
                     // This includes PyList, PyTuple, PyString, PyGenerator, etc.
-                    var extendIterator = extendIterable.GetIterator();
+                    // CPython 3.12 bytecodes.c LIST_EXTEND error wording.
+                    PyObject extendIterator;
+                    try
+                    {
+                        extendIterator = extendIterable.GetIterator();
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyTypeError)
+                    {
+                        throw PyTypeError.Create($"Value after * must be an iterable, not {extendIterable.GetTypeName()}");
+                    }
 
                     // Iterate and append all items
                     while (true)
@@ -8126,10 +8275,19 @@ namespace SharpPy
                 Array.Copy(positionalArgs, 0, allArgs, 0, positionalArgs.Length);
 
                 int keywordIndex = positionalArgs.Length;
+                PyObject[] kwNameTupleArr = null;
+                if (keywordArgs.Count > 0)
+                    kwNameTupleArr = new PyObject[keywordArgs.Count];
+                int kwNameIndex = 0;
                 foreach (var kvp in keywordArgs)
                 {
                     allArgs[keywordIndex++] = kvp.Value;
+                    // The frame binder splits the tail by keyword names; without these
+                    // names **kwargs values would bind as positional arguments.
+                    kwNameTupleArr[kwNameIndex++] = new PyString(kvp.Key);
                 }
+                if (kwNameTupleArr != null && CurrentFrame != null)
+                    CurrentFrame.KeywordNamesForNextCall = new PyTuple(kwNameTupleArr);
 
                 // Create frame with all arguments, defaults, and kwdefaults (CPython 3.12 compatible)
                 // Note: PyFrame constructor calls BindArgumentsToParametersCPython312, which handles kwdefaults

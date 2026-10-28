@@ -397,6 +397,10 @@ namespace SharpPy
         public const int CO_ASYNC_GENERATOR = 0x200; // 비동기 제너레이터 (async def + yield)
         
         public string Name { get; }
+        // CPython co_qualname: nesting-aware definition name (C.meth,
+        // outer.<locals>.inner, f.<locals>.<lambda>). Falls back to co_name.
+        public string? QualName { get; set; }
+        public string DisplayQualName => string.IsNullOrEmpty(QualName) ? Name : QualName!;
         public List<ByteCodeInstruction> Instructions { get; }
         public List<PyObject> Constants { get; }      // co_consts
         public List<string> Names { get; }            // co_names (변수명들)
