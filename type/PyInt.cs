@@ -219,20 +219,10 @@ namespace SharpPy
                     if (self is not PyInt intObj)
                         throw PyTypeError.Create($"descriptor 'bit_length' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    // Reference: Objects/longobject.c::long_bit_length
-                    long value = intObj.ToLong();
-                    // CPython 3.12: Objects/longobject.c:5642-5658
-                    // For negative numbers, bit_length() returns the same as abs(n).bit_length()
-                    if (value < 0)
-                        value = -value; // Use absolute value
-
-                    int bitLength = 0;
-                    while (value > 0)
-                    {
-                        bitLength++;
-                        value >>= 1;
-                    }
-                    return new PyInt(bitLength);
+                    // CPython 3.12: Objects/longobject.c long_bit_length via _PyLong_NumBits:
+                    // bit count of abs(n), 0 -> 0. Must work beyond the CLR long range:
+                    // (1 << 63).bit_length() == 64.
+                    return new PyInt(System.Numerics.BigInteger.Abs(intObj.Value).GetBitLength());
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -799,10 +789,24 @@ namespace SharpPy
         public override PyObject Divide(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:2533-2570 - long_true_divide
-            double otherValue;
             if (other is PyInt otherInt)
-                otherValue = (double)otherInt.Value;
-            else if (other is PyFloat otherFloat)
+            {
+                if (otherInt.Value.IsZero)
+                    throw PyZeroDivisionError.Create("division by zero");
+                double da = (double)Value;
+                double db = (double)otherInt.Value;
+                if (!double.IsInfinity(da) && !double.IsInfinity(db))
+                {
+                    double q = da / db;
+                    if (double.IsInfinity(q))
+                        throw PyOverflowError.Create("integer division result too large for a float");
+                    return new PyFloat(q);
+                }
+                return BigIntTrueDivide(Value, otherInt.Value);
+            }
+
+            double otherValue;
+            if (other is PyFloat otherFloat)
                 otherValue = otherFloat.Value;
             else if (other is PyBool otherBool)
                 otherValue = otherBool.Value ? 1.0 : 0.0;
@@ -927,8 +931,11 @@ namespace SharpPy
 
                 if (exponent < 0)
                 {
-                    // int ** negative_int → float
-                    // CPython 3.12: Objects/longobject.c:4319-4538 - long_pow
+                    // int ** negative_int → float (CPython long_pow falls back to float),
+                    // but a zero base raises (measured CPython 3.12.15):
+                    //   0 ** -1 → ZeroDivisionError: 0.0 cannot be raised to a negative power
+                    if (Value.IsZero)
+                        throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
                     return new PyFloat(Math.Pow((double)Value, (double)exponent));
                 }
 
@@ -953,6 +960,10 @@ namespace SharpPy
                 // CPython: Objects/floatobject.c:float_pow
                 double baseValue = (double)Value;
                 double exponent = otherFloat.Value;
+
+                // CPython: Objects/floatobject.c float_pow - zero base, negative exponent
+                if (baseValue == 0.0 && exponent < 0.0)
+                    throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
 
                 // Edge case: negative base with non-integer exponent
                 // CPython: Returns complex number (Objects/floatobject.c:float_pow)
@@ -1264,9 +1275,57 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyInt를 PyFloat로 변환
         /// </summary>
+        /// <summary>
+        /// CPython int_round_impl (Objects/longobject.c): round a Python int to 10^ndigits
+        /// (ndigits &lt; 0) with round-half-even: 1234 → 1200, 1250 → 1200, 1350 → 1400.
+        /// </summary>
+        public static BigInteger RoundIntToPowerOfTen(BigInteger value, long digitsAbs)
+        {
+            int k = digitsAbs > 100000 ? 100000 : (int)digitsAbs;
+            BigInteger p10 = BigInteger.Pow(10, k);
+            BigInteger q = BigInteger.DivRem(value, p10, out BigInteger r);
+            if (!r.IsZero)
+            {
+                int cmp = (BigInteger.Abs(r) << 1).CompareTo(p10);
+                if (cmp > 0 || (cmp == 0 && !q.IsEven))
+                    q += value.Sign;
+            }
+            return q * p10;
+        }
+
         public override PyFloat AsFloat()
         {
-            return new PyFloat((double)Value);
+            // CPython PyLong_AsDouble: correctly rounded decimal→binary conversion,
+            // and overflow is an error, not infinity.
+            // Measured: float(10 ** 400) → OverflowError: int too large to convert to float
+            double d = double.Parse(Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                    System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture);
+            if (double.IsInfinity(d))
+                throw PyOverflowError.Create("int too large to convert to float");
+            return new PyFloat(d);
+        }
+
+        /// <summary>
+        /// CPython long_true_divide: int/int produces a correctly rounded double; when the
+        /// quotient overflows it raises OverflowError instead of returning infinity.
+        /// Measured: 10 ** 400 / 1 → OverflowError: integer division result too large for a float
+        /// while 10 ** 400 / 10 ** 400 → 1.0.
+        /// </summary>
+        internal static PyObject BigIntTrueDivide(BigInteger a, BigInteger b)
+        {
+            bool neg = (a.Sign < 0) ^ (b.Sign < 0);
+            BigInteger aa = BigInteger.Abs(a);
+            BigInteger bb = BigInteger.Abs(b);
+            int la = (int)aa.GetBitLength();
+            int lb = (int)bb.GetBitLength();
+            const int prec = 106;
+            BigInteger t = (aa << prec) / bb; // t ≈ (aa/bb) * 2^prec
+            double v = (double)t;
+            if (double.IsInfinity(v))
+                throw PyOverflowError.Create("integer division result too large for a float");
+            v *= Math.Pow(2.0, -prec); // exact power-of-two scaling
+            return new PyFloat(neg ? -v : v);
         }
         
         /// <summary>

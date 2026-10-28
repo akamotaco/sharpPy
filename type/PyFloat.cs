@@ -89,10 +89,8 @@ namespace SharpPy
                     if (self is not PyFloat floatObj)
                         throw PyTypeError.Create($"descriptor 'hex' requires a 'float' object but received a '{self.GetTypeName()}'");
 
-                    // C# doesn't have a direct equivalent to Python's float.hex()
-                    // Simplified implementation using BitConverter
-                    long bits = BitConverter.DoubleToInt64Bits(floatObj.Value);
-                    return new PyString($"0x{bits:x}");
+                    // CPython 3.12: Objects/floatobject.c float_hex_impl
+                    return floatObj.Hex();
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -644,20 +642,92 @@ namespace SharpPy
         /// </summary>
         public PyObject Round(PyObject ndigits = null)
         {
-            // CPython: Objects/floatobject.c:1317-1320 - ndigits가 None이면 정수 반환
+            // CPython: Objects/floatobject.c float_round - ndigits None → int (round-half-even)
             if (ndigits == null || ndigits is PyNone)
             {
-                // Banker's rounding (round half to even) - CPython 기본 동작
+                if (double.IsNaN(Value))
+                    throw PyValueError.Create("cannot convert float NaN to integer");
+                if (double.IsInfinity(Value))
+                    throw PyOverflowError.Create("cannot convert float infinity to integer");
                 return new PyInt((long)Math.Round(Value, MidpointRounding.ToEven));
             }
 
-            // CPython: Objects/floatobject.c:1322-1359 - ndigits가 주어지면 float 반환
+            // CPython: ndigits must be an int
             if (ndigits is not PyInt ndigitsInt)
-                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+                throw PyTypeError.Create($"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
 
-            int digits = (int)ndigitsInt.Value;
-            double rounded = Math.Round(Value, digits, MidpointRounding.ToEven);
-            return new PyFloat(rounded);
+            long nd;
+            try
+            {
+                nd = ndigitsInt.ToLong();
+            }
+            catch (OverflowException)
+            {
+                throw PyOverflowError.Create("Python int too large to convert to C long");
+            }
+
+            return new PyFloat(CPythonDoubleRound(Value, (int)Math.Clamp(nd, -1000, 1000)));
+        }
+
+        /// <summary>
+        /// CPython 3.12 Objects/floatobject.c double_round(): round x to the nearest multiple of
+        /// 10^-ndigits using round-half-even on the EXACT binary value, then convert the decimal
+        /// result back to a double with correct rounding (CPython does dtoa → strtod).
+        /// Example: round(2.675, 2) == 2.67 because 2.675 is really 2.674999...944.
+        /// Implemented with exact BigInteger arithmetic instead of David Gay's dtoa.
+        /// </summary>
+        internal static double CPythonDoubleRound(double x, int ndigits)
+        {
+            if (double.IsNaN(x) || double.IsInfinity(x))
+                return x;
+            if (ndigits > 400)
+                return x; // beyond the exact decimal expansion length of any double: identity
+
+            double ax = Math.Abs(x);
+            long bits = BitConverter.DoubleToInt64Bits(ax);
+            int biased = (int)((bits >> 52) & 0x7FF);
+            long mant = bits & ((1L << 52) - 1);
+            BigInteger sig;
+            long e2;
+            if (biased == 0)
+            {
+                sig = mant;
+                e2 = -1074;
+            }
+            else
+            {
+                sig = mant | (1L << 52);
+                e2 = biased - 1075L;
+            }
+            if (sig.IsZero)
+                return x; // +-0.0
+
+            // |x| * 10^ndigits = sig * 2^e2 * 10^ndigits as an exact rational N/D
+            BigInteger num = sig;
+            BigInteger den = BigInteger.One;
+            if (ndigits >= 0)
+                num *= BigInteger.Pow(10, ndigits);
+            else
+                den = BigInteger.Pow(10, -ndigits);
+            if (e2 >= 0)
+                num <<= (int)e2;
+            else
+                den <<= (int)(-e2);
+
+            BigInteger q = BigInteger.DivRem(num, den, out BigInteger rem);
+            int cmp = (rem << 1).CompareTo(den);
+            if (cmp > 0 || (cmp == 0 && !q.IsEven))
+                q += BigInteger.One;
+
+            bool negative = Math.Sign(x) < 0 || double.IsNegative(x);
+            // Mirror CPython's "%s0%se%d" buffer + strtod: parse decimal text with correct rounding.
+            string text = (negative ? "-" : "") + q.ToString() + "e" +
+                          (-ndigits).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            double rounded = double.Parse(text, System.Globalization.NumberStyles.Float,
+                                          System.Globalization.CultureInfo.InvariantCulture);
+            if (double.IsInfinity(rounded))
+                throw PyOverflowError.Create("rounded value too large to represent");
+            return rounded;
         }
 
         /// <summary>
@@ -703,6 +773,10 @@ namespace SharpPy
                 PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'float' and '{other.GetTypeName()}'")
             };
+
+            // CPython: Objects/floatobject.c float_pow - 0.0 base with negative exponent
+            if (Value == 0.0 && otherValue < 0.0)
+                throw PyZeroDivisionError.Create("0.0 cannot be raised to a negative power");
 
             // 특수 케이스 처리: negative base with non-integer exponent
             // CPython: Returns complex number (Objects/floatobject.c:float_pow)
@@ -804,15 +878,8 @@ namespace SharpPy
         /// </summary>
         public override string AsString()
         {
-            // CPython의 float.__str__() 동작 모방
-            if (double.IsNaN(Value))
-                return "nan";
-            if (double.IsPositiveInfinity(Value))
-                return "inf";
-            if (double.IsNegativeInfinity(Value))
-                return "-inf";
-
-            return Value.ToString();
+            // CPython 3.12: float.__str__ is float.__repr__ (shortest round-trip form).
+            return ToStr().Value;
         }
 
         #endregion
@@ -856,14 +923,25 @@ namespace SharpPy
         /// </summary>
         public PyString Hex()
         {
+            // CPython 3.12: Objects/floatobject.c float_hex_impl
+            // Format: [sign]0x1.<13 hex>p<±exp>; subnormals use 0x0.<13 hex>p-1022
+            // CPython: isnan/isinf short-circuit to repr; repr of NaN is always "nan"
             if (double.IsNaN(Value)) return new PyString("nan");
             if (double.IsPositiveInfinity(Value)) return new PyString("inf");
             if (double.IsNegativeInfinity(Value)) return new PyString("-inf");
-            
-            // C#의 BitConverter를 사용하여 IEEE 754 표현으로 변환
-            var bytes = BitConverter.GetBytes(Value);
-            var hex = BitConverter.ToString(bytes).Replace("-", "").ToLower();
-            return new PyString($"0x{hex}p+0"); // 간단한 구현
+
+            long bits = BitConverter.DoubleToInt64Bits(Value);
+            bool negative = bits < 0;
+            int biased = (int)((bits >> 52) & 0x7FF);
+            long mantissa = bits & ((1L << 52) - 1);
+            string sign = negative ? "-" : "";
+
+            if (mantissa == 0 && (biased == 0 || biased == 1023))
+                return new PyString(biased == 0 ? $"{sign}0x0.0p+0" : $"{sign}0x1.0000000000000p+0");
+
+            if (biased == 0)
+                return new PyString($"{sign}0x0.{mantissa:x13}p-1022");
+            return new PyString($"{sign}0x1.{mantissa:x13}p{((biased - 1023) >= 0 ? "+" : "")}{biased - 1023}");
         }
 
         #endregion

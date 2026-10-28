@@ -1775,15 +1775,26 @@ namespace SharpPy
             }
             else if (number is PyInt i)
             {
-                // CPython: Integer returns itself when ndigits is None
+                // CPython int_round_impl (Objects/longobject.c):
+                //   ndigits >= 0 → same int; ndigits < 0 → round-half-even to 10^ndigits
                 if (ndigits == null || ndigits is PyNone)
                     return i;
 
-                // With ndigits, round to that many decimal places (no-op for ints, but validates ndigits)
-                if (ndigits is not PyInt)
-                    throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+                if (ndigits is not PyInt ndInt)
+                    throw PyTypeError.Create($"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
 
-                return i; // For integers, rounding to any ndigits is identity
+                long nd;
+                try
+                {
+                    nd = ndInt.ToLong();
+                }
+                catch (OverflowException)
+                {
+                    throw PyOverflowError.Create("Python int too large to convert to C long");
+                }
+                if (nd >= 0)
+                    return i;
+                return new PyInt(PyInt.RoundIntToPowerOfTen(i.Value, -nd));
             }
             else
             {
