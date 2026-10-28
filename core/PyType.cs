@@ -1401,6 +1401,109 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // __dir__ dispatches on whether self is a type: classes use the type.__dir__
+            // algorithm (own+base dicts, no metaclass), instances use object.__dir__
+            // (instance __dict__ + class/base dicts). See DefaultDirNames. This one is
+            // safe to expose functionally: no operator/dispatch path resolves __dir__.
+            TypeDict["__dir__"] = new PyMethodDescriptor("__dir__", objectType,
+                (self, args, kwargs) => new PyList(DefaultDirNames(self).Select(n => (PyObject)new PyString(n)).ToList()),
+                minArgs: 0, maxArgs: 0);
+            // NOTE on __eq__/__ne__/__lt__/__le__/__gt__/__ge__/__hash__/__str__/__repr__/
+            // __sizeof__/__getstate__/__reduce__/__reduce_ex__/__subclasshook__:
+            // In CPython these are slot wrappers in object's tp_dict, so dir() lists them
+            // on every object. SharpPy implements the SAME behaviour as CLR virtuals and
+            // operator dispatch (BinaryOp/CompareOp slots, the ToStr/ToRepr fallback, the
+            // hash cache, ABC checks). Exposing them as real TypeDict descriptors makes
+            // attribute/operator lookup find object's generic version and SHORT-CIRCUIT
+            // those CLR paths - measured: object.__str__ hijacked PyList/PyDict repr and
+            // object.__eq__/__hash__ interfered with value comparison. So dir() reports
+            // the standard object protocol surface via DefaultDirNames' name set instead;
+            // operator/repr/hash dispatch is left untouched. (Making these attributes
+            // genuinely getattr-accessible without breaking dispatch is a larger, separate
+            // change and is recorded as a residual gap.)
+        }
+
+        /// <summary>
+        // CPython _dir_object/type.__dir__/object.__dir__ name computation.
+        /// Classes: union of tp_dict over the class and its bases (metaclass EXCLUDED).
+        /// Heap (user) types contribute __dict__ and __weakref__. Instances add their
+        /// own instance __dict__. Returned in arbitrary order; builtins.dir() sorts it.
+        /// </summary>
+        public static List<string> DefaultDirNames(PyObject obj)
+        {
+            var names = new HashSet<string>();
+            if (obj is PyType classObj)
+            {
+                foreach (var t in classObj.MRO) AddClassDictKeys(names, t);
+            }
+            else if (obj is PyModule mod)
+            {
+                // module.__dir__ == its __dict__ keys (CPython module_dir)
+                foreach (var k in mod.ModuleDict.Keys) names.Add(k);
+            }
+            else
+            {
+                try
+                {
+                    var d = obj.GetAttribute("__dict__");
+                    if (d is PyDict pd)
+                        foreach (var k in pd.Keys().Items)
+                            if (k is PyString ks) names.Add(ks.Value);
+                }
+                catch { }
+                var t2 = obj.GetPyType();
+                if (t2 != null)
+                {
+                    var imro = t2.MRO != null && t2.MRO.Count > 0 ? t2.MRO : new List<PyType> { t2 };
+                    foreach (var t in imro) AddClassDictKeys(names, t);
+                }
+            }
+            return new List<string>(names);
+        }
+
+        private static void AddClassDictKeys(HashSet<string> names, PyType t)
+        {
+            if (t is PyClass pc)
+            {
+                foreach (var k in pc.ClassDict.Keys)
+                {
+                    // __qualname__ and __type_params__ live on the metaclass `type`
+                    // in CPython, not in the class tp_dict, so type.__dir__ (which
+                    // excludes the metaclass) must not report them even though the
+                    // CLR ClassDict keeps them internally.
+                    if (k == "__qualname__" || k == "__type_params__") continue;
+                    names.Add(k);
+                }
+                // heap types get a __dict__ / __weakref__ member (CPython adds them to tp_dict)
+                names.Add("__dict__");
+                names.Add("__weakref__");
+            }
+            else if (t.TypeDict != null)
+            {
+                foreach (var k in t.TypeDict.Keys) names.Add(k);
+                // object contributes the standard protocol surface that CPython keeps as
+                // tp_dict slot wrappers. SharpPy implements these as CLR virtuals/operator
+                // slots rather than getattr descriptors (see InitializeObjectTypeDescriptors),
+                // so they are reported here for dir() parity without changing dispatch.
+                if (ReferenceEquals(t, ObjectType))
+                {
+                    names.Add("__eq__");
+                    names.Add("__ne__");
+                    names.Add("__lt__");
+                    names.Add("__le__");
+                    names.Add("__gt__");
+                    names.Add("__ge__");
+                    names.Add("__hash__");
+                    names.Add("__str__");
+                    names.Add("__repr__");
+                    names.Add("__sizeof__");
+                    names.Add("__getstate__");
+                    names.Add("__reduce__");
+                    names.Add("__reduce_ex__");
+                    names.Add("__subclasshook__");
+                }
+            }
         }
 
         /// <summary>

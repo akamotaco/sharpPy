@@ -1982,7 +1982,9 @@ namespace SharpPy
                         // CPython sorts dir() results by Unicode code point (ordinal),
                         // so uppercase names precede lowercase (e.g. BufferedRWPair before
                         // BufferedRandom); a culture-aware CompareTo reorders those.
-                        sortedItems.Sort((a, b) => string.CompareOrdinal(a.ToString(), b.ToString()));
+                        sortedItems.Sort((a, b) => string.CompareOrdinal(
+                            (a as PyString)?.Value ?? a.ToString(),
+                            (b as PyString)?.Value ?? b.ToString()));
                         return new PyList(sortedItems);
                     }
                 }
@@ -1992,52 +1994,17 @@ namespace SharpPy
                 // __dir__() not available or failed, continue with default behavior
             }
 
-            // Step 2: Default behavior - collect attributes from type's TypeDict
-            var pyType = obj.GetPyType();
-            if (pyType != null && pyType.TypeDict != null)
-            {
-                // Add all attributes from the type's TypeDict
-                foreach (var key in pyType.TypeDict.Keys)
-                {
-                    attributes.Add(key);
-                }
-            }
-
-            // Step 3: Get object's __dict__ if available (instance attributes)
-            try
-            {
-                var dict = obj.GetAttribute("__dict__");
-                if (dict is PyDict pyDict)
-                {
-                    foreach (var key in pyDict.Keys().Items)
-                    {
-                        if (key is PyString keyStr)
-                        {
-                            attributes.Add(keyStr.Value);
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // No __dict__, that's fine
-            }
-
-            // Step 4: Add standard object attributes
-            attributes.Add("__class__");
-            attributes.Add("__doc__");
-            attributes.Add("__module__");
-
-            // Step 5: Convert to sorted list and return
+            // Step 2: No usable __dir__() - compute the default name set the same way
+            // CPython's object.__dir__ / type.__dir__ do (union of tp_dict over the
+            // class and its bases, excluding the metaclass; plus the instance __dict__;
+            // heap types contribute __dict__/__weakref__), then sort by code point.
+            var defaultNames = PyType.DefaultDirNames(obj);
+            defaultNames.Sort(StringComparer.Ordinal);
             var sortedAttributes = new List<PyObject>();
-            var sortedNames = new List<string>(attributes);
-            // CPython dir() sorts by ordinal code point, not culture rules.
-            sortedNames.Sort(StringComparer.Ordinal);
-            foreach (var name in sortedNames)
+            foreach (var name in defaultNames)
             {
                 sortedAttributes.Add(new PyString(name));
             }
-
             return new PyList(sortedAttributes);
         }
 
