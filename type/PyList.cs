@@ -33,6 +33,34 @@ namespace SharpPy
             throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
         }
 
+        // Self check for the item-protocol descriptors, per CPython descriptor kind:
+        // - method_descriptor (list_methods table entries) reports
+        //   "descriptor '<name>' for 'list' objects doesn't apply to a '<T>' object"
+        //   (Objects/descrobject.c call_method_descriptor)
+        // - slot wrapper (sq_contains) reports
+        //   "descriptor '<name>' requires a 'list' object but received a '<T>'"
+        //   (Objects/abstract.c generic slot wrapper self check)
+        private static PyList GetListForItemDescriptor(PyObject self, string name, bool slotStyleMessage)
+        {
+            if (self is PyList list)
+                return list;
+
+            if (self is PyClassInstance instance)
+            {
+                var method = typeof(PyClassInstance).GetMethod("GetListStorage");
+                if (method != null)
+                {
+                    var storage = method.Invoke(instance, null) as PyList;
+                    if (storage != null)
+                        return storage;
+                }
+            }
+
+            throw PyTypeError.Create(slotStyleMessage
+                ? $"descriptor '{name}' requires a 'list' object but received a '{self.GetTypeName()}'"
+                : $"descriptor '{name}' for 'list' objects doesn't apply to a '{self.GetTypeName()}' object");
+        }
+
         private static void InitializeListDescriptors()
         {
             var listType = PyType.ListType;
@@ -242,6 +270,98 @@ namespace SharpPy
                 minArgs: 0,
                 maxArgs: 0
             );
+
+            // CPython 3.12: list item protocol as *visible attributes*.
+            // CPython fills tp_dict for these (typeobject.c add_operators/update_one_slot
+            // plus the list_methods entries), so `l.__setitem__(...)`, `list.__getitem__(l, i)`
+            // and dir(list) all work. Materializing them here makes the attribute-lookup
+            // path agree with the VM-internal LookupSpecial path; each wrapper calls the
+            // same CLR implementation used by BINARY_SUBSCR/STORE_SUBSCR/DELETE_SUBSCR/
+            // CONTAINS_OP, so syntax and explicit dunder calls stay semantically identical
+            // (slices, negative indices, error texts, subclass storage).
+            //
+            // Error texts below are measured against CPython 3.12.15: list __getitem__/...
+            // come from listobject.c (METH_O / METH_VARARGS "OO"), __contains__ from the
+            // sq_contains slot, so their argcount messages differ.
+
+            // CPython 3.12: Objects/listobject.c list_getitem (METH_O)
+            listType.TypeDict["__getitem__"] = new PyWrapperDescriptor(
+                "__getitem__",
+                listType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("list.__getitem__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"list.__getitem__() takes exactly one argument ({args.Length} given)");
+
+                    return GetListForItemDescriptor(self, "__getitem__", false).GetItem(args[0]);
+                });
+
+            // CPython 3.12: Objects/listobject.c list_setitem (METH_VARARGS, "OO")
+            listType.TypeDict["__setitem__"] = new PyWrapperDescriptor(
+                "__setitem__",
+                listType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("list.__setitem__() takes no keyword arguments");
+                    if (args.Length != 2)
+                        throw PyTypeError.Create($" expected 2 arguments, got {args.Length}");
+
+                    GetListForItemDescriptor(self, "__setitem__", false).SetItem(args[0], args[1]);
+                    return PyNone.Instance;
+                });
+
+            // CPython 3.12: Objects/listobject.c list_delitem (METH_O) routed through
+            // list_ass_subscript, hence "list assignment index out of range" for OOB.
+            listType.TypeDict["__delitem__"] = new PyWrapperDescriptor(
+                "__delitem__",
+                listType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("list.__delitem__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+
+                    var list = GetListForItemDescriptor(self, "__delitem__", false);
+                    var key = args[0];
+
+                    if (key is PySlice slice)
+                    {
+                        // CPython 3.12: list_ass_subscript with slice (value == NULL)
+                        var length = list.Length();
+                        var (start, stop, step) = slice.StorageIndices(length);
+                        int count = PySlice.GetLength(start, stop, step);
+                        list.DeleteSlice(start, step, count);
+                    }
+                    else
+                    {
+                        int idx = PyObject.GetIndex(key, "list");
+                        int len = list.Length();
+                        if (idx < 0) idx += len;
+                        if (idx < 0 || idx >= len)
+                            throw PyIndexError.Create("list assignment index out of range");
+                        list.Pop(idx);
+                    }
+
+                    return PyNone.Instance;
+                });
+
+            // CPython 3.12: Objects/typeobject.c:9629 SQSLOT(__contains__, sq_contains)
+            listType.TypeDict["__contains__"] = new PyWrapperDescriptor(
+                "__contains__",
+                listType,
+                (self, args, kwargs) =>
+                {
+                    if (kwargs != null && kwargs.InternalDict.Count > 0)
+                        throw PyTypeError.Create("list.__contains__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+
+                    return GetListForItemDescriptor(self, "__contains__", true).Contains(args[0]);
+                });
 
             // CPython 3.12: Objects/listobject.c:2867 (list methods table)
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
