@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace SharpPy
 {
@@ -21,6 +22,179 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ComplexType;
         public override string GetTypeName() => "complex";
 
+        static PyComplex()
+        {
+            // CPython 3.12: Objects/complexobject.c complex_format via float mini-language.
+            PyType.ComplexType.TypeDict["__format__"] = new PyMethodDescriptor(
+                "__format__", PyType.ComplexType,
+                (self, args, kwargs) =>
+                {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes exactly one argument ({args.Length} given)");
+                    if (args[0] is not PyString specStr)
+                        throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
+                    if (self is not PyComplex cx)
+                        throw PyTypeError.Create($"descriptor '__format__' requires a 'complex' object but received a '{self.GetTypeName()}'");
+                    return new PyString(FormatComplex(cx.Real, cx.Imag, specStr.Value));
+                },
+                minArgs: 1, maxArgs: 1);
+        }
+
+        /// <summary>
+        /// CPython complex_format: format real and |imag| as floats, join with the
+        /// imaginary sign, append 'j', then apply fill/align/width to the combined text.
+        /// </summary>
+        internal static string FormatComplex(double real, double imag, string spec)
+        {
+            if (spec.Length == 0)
+                return new PyComplex(real, imag).ToStr().Value;
+
+            int i = 0;
+            char fill = ' ';
+            char align = '\0';
+            if (spec.Length >= 2 && (spec[1] == '<' || spec[1] == '>' || spec[1] == '^' || spec[1] == '='))
+            {
+                fill = spec[0];
+                align = spec[1];
+                i = 2;
+            }
+            else if (spec.Length >= 1 && (spec[0] == '<' || spec[0] == '>' || spec[0] == '^'))
+            {
+                align = spec[0];
+                i = 1;
+            }
+
+            char sign = '-';
+            if (i < spec.Length && (spec[i] == '+' || spec[i] == '-' || spec[i] == ' '))
+            {
+                sign = spec[i];
+                i++;
+            }
+            bool alt = false;
+            if (i < spec.Length && spec[i] == '#')
+            {
+                alt = true;
+                i++;
+            }
+            bool zero = false;
+            if (i < spec.Length && spec[i] == '0')
+            {
+                zero = true;
+                i++;
+            }
+            int width = 0;
+            while (i < spec.Length && char.IsAsciiDigit(spec[i]))
+            {
+                width = width * 10 + (spec[i] - '0');
+                i++;
+            }
+            bool comma = false;
+            if (i < spec.Length && spec[i] == ',')
+            {
+                comma = true;
+                i++;
+            }
+            int precision = -1;
+            if (i < spec.Length && spec[i] == '.')
+            {
+                i++;
+                precision = 0;
+                while (i < spec.Length && char.IsAsciiDigit(spec[i]))
+                {
+                    precision = precision * 10 + (spec[i] - '0');
+                    i++;
+                }
+            }
+            // CPython complex_format switch: '\0', r/R and eEfFgG are accepted;
+            // everything else reports "Unknown format code ... for object of type 'complex'".
+            char typeChar = '\0';
+            if (i < spec.Length)
+            {
+                typeChar = spec[i];
+                i++;
+            }
+            // CPython 3.12 complex_format accepts no explicit type char only
+            // (r/R are rejected with "Unknown format code").
+            bool reprStyle = typeChar == '\0';
+            if (!reprStyle && "eEfFgG".IndexOf(typeChar) < 0)
+                throw PyValueError.Create($"Unknown format code '{typeChar}' for object of type 'complex'");
+            if (i != spec.Length)
+                throw PyValueError.Create("Invalid format specifier");
+            if (alt && !reprStyle)
+                throw PyValueError.Create("Alternate form (#) not allowed in float format specifier");
+
+            char imagSign = imag < 0 || double.IsNegative(imag) ? '-' : '+';
+            string combined;
+
+            if (reprStyle)
+            {
+                // Repr-style parts (shortest round-trip), optional alternate trailing dot.
+                string FmtPart(double v)
+                {
+                    // Use float shortest repr, then drop the trailing ".0" that
+                    // CPython's complex repr omits for integral parts.
+                    string s = PyFloat.FormatFloat(v, "");
+                    if (s.EndsWith(".0"))
+                        s = s.Substring(0, s.Length - 2);
+                    if (alt && s.Length > 0 && s.IndexOf('.') < 0 && s.IndexOf('e') < 0
+                        && s.IndexOf('E') < 0 && s.IndexOf('n') < 0 && s.IndexOf('i') < 0)
+                    {
+                        s += ".";
+                    }
+                    return s;
+                }
+                string realStr = FmtPart(real);
+                if ((sign == '+' || sign == ' ') && real >= 0 && !double.IsNegative(real))
+                    realStr = (sign == '+' ? "+" : " ") + realStr;
+                string body = realStr + imagSign + FmtPart(Math.Abs(imag)) + "j";
+                // Parenthesize unless the real part is exactly positive zero.
+                bool parenthesize = !(real == 0.0 && !double.IsNegative(real));
+                combined = parenthesize ? "(" + body + ")" : body;
+            }
+            else
+            {
+                var partSpecBuilder = new StringBuilder();
+                if (comma) partSpecBuilder.Append(',');
+                if (precision >= 0) partSpecBuilder.Append('.').Append(precision);
+                partSpecBuilder.Append(typeChar);
+                string partSpec = partSpecBuilder.ToString();
+
+                string realSpecBuild = (sign == '+' ? "+" : "") + partSpec;
+                string realStr = PyFloat.FormatFloat(real, realSpecBuild);
+                string imagStr = PyFloat.FormatFloat(Math.Abs(imag), partSpec);
+                combined = realStr + imagSign + imagStr + "j";
+            }
+            if (zero && align == '\0')
+            {
+                fill = '0';
+                align = '=';
+            }
+            if (width > 0)
+            {
+                if (align == '\0')
+                    align = '<';
+                if (combined.Length < width)
+                {
+                    int pad = width - combined.Length;
+                    if (align == '<')
+                        combined = combined + new string(fill, pad);
+                    else if (align == '>')
+                        combined = new string(fill, pad) + combined;
+                    else if (align == '^')
+                    {
+                        int left = pad / 2;
+                        int right = pad - left;
+                        combined = new string(fill, left) + combined + new string(fill, right);
+                    }
+                    else // '='
+                    {
+                        combined = new string(fill, pad) + combined;
+                    }
+                }
+            }
+            return combined;
+        }
+
         #endregion
 
         #region String Representation
@@ -31,7 +205,8 @@ namespace SharpPy
         {
             if (Imag == 0.0)
             {
-                return new PyString($"({FormatNumber(Real)}+0j)");
+                char zeroSign = double.IsNegative(Imag) ? '-' : '+';
+                return new PyString($"({FormatNumber(Real)}{zeroSign}0j)");
             }
             else if (Real == 0.0)
             {
@@ -50,11 +225,12 @@ namespace SharpPy
             if (double.IsNegativeInfinity(value)) return "-inf";
             if (double.IsNaN(value)) return "nan";
             
-            // Python처럼 정수값은 소수점 없이 표시
-            if (value == Math.Floor(value) && !double.IsInfinity(value))
-                return value.ToString("0");
-            
-            return value.ToString("G");
+            // CPython complex repr prints each part with the shortest float repr,
+            // omitting the trailing ".0" for integral parts (1e-05, 1e+20 styles).
+            string text = PyFloat.FormatFloat(value, "");
+            if (text.EndsWith(".0"))
+                text = text.Substring(0, text.Length - 2);
+            return text;
         }
 
         /// <summary>
@@ -66,11 +242,11 @@ namespace SharpPy
             if (double.IsNegativeInfinity(value)) return "-inf";
             if (double.IsNaN(value)) return "nan";
 
-            // CPython: 1j outputs as "1j", not "j"
-            if (value == Math.Floor(value) && !double.IsInfinity(value))
-                return value.ToString("0");
-
-            return value.ToString("G");
+            // CPython: 1j outputs as "1j", not "j"; same shortest-repr rule as real parts.
+            string text = PyFloat.FormatFloat(value, "");
+            if (text.EndsWith(".0"))
+                text = text.Substring(0, text.Length - 2);
+            return text;
         }
 
         #endregion
@@ -236,8 +412,50 @@ namespace SharpPy
             };
         }
 
+        private PyComplex PowerIntegral(int n)
+        {
+            if (n == 0)
+                return new PyComplex(1.0, 0.0);
+            bool negative = n < 0;
+            long e = negative ? -(long)n : n;
+            double xr = 1.0, xi = 0.0;
+            double br = Real, bi = Imag;
+            while (e > 0)
+            {
+                if ((e & 1L) != 0)
+                {
+                    (xr, xi) = ComplexMul(xr, xi, br, bi);
+                }
+                e >>= 1;
+                if (e > 0)
+                {
+                    (br, bi) = ComplexMul(br, bi, br, bi);
+                }
+            }
+            if (negative)
+            {
+                double d = xr * xr + xi * xi;
+                if (d == 0.0)
+                    throw PyZeroDivisionError.Create("0.0 to a negative or complex power");
+                xr /= d;
+                xi = -xi / d;
+            }
+            return new PyComplex(xr, xi);
+        }
+
+        private static (double, double) ComplexMul(double ar, double ai, double br, double bi)
+            => (ar * br - ai * bi, ar * bi + ai * br);
+
         private PyComplex PowerComplex(PyComplex exponent)
         {
+            // CPython 3.12: Objects/complexobject.c complex_pow uses c_powi (exact
+            // repeated multiplication) for small integral exponents.
+            if (exponent.Imag == 0.0 && exponent.Real == Math.Floor(exponent.Real)
+                && Math.Abs(exponent.Real) <= 100.0)
+            {
+                return PowerIntegral((int)exponent.Real);
+            }
+
             // z^w = exp(w * log(z))
             if (Real == 0.0 && Imag == 0.0)
             {

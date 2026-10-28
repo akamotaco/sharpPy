@@ -989,7 +989,7 @@ namespace SharpPy
                 PyFloat pyFloat => pyFloat,
                 PyInt pyInt => new PyFloat((double)pyInt.Value),
                 PyBool pyBool => new PyFloat(pyBool.Value ? 1.0 : 0.0),
-                _ => throw PyTypeError.Create($"float() argument must be a string or a number, not '{obj.GetTypeName()}'")
+                _ => throw PyTypeError.Create($"float() argument must be a string or a real number, not '{obj.GetTypeName()}'")
             };
         }
 

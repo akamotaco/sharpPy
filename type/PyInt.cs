@@ -1641,7 +1641,7 @@ namespace SharpPy
                 return new PyInt((Py_int_t)Math.Truncate(pyFloat.Value));
             if (obj is PyBool pyBool)
                 return new PyInt(pyBool.Value ? 1 : 0);
-            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{obj.GetTypeName()}'");
+            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a real number, not '{obj.GetTypeName()}'");
         }
 
         #endregion

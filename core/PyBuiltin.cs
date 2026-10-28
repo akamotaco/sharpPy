@@ -1823,7 +1823,7 @@ namespace SharpPy
             }
             else
             {
-                throw PyTypeError.Create($"type '{number.GetTypeName()}' doesn't define __round__ method");
+                throw PyTypeError.Create($"type {number.GetTypeName()} doesn't define __round__ method");
             }
         }
 

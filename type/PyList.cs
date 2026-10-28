@@ -617,7 +617,18 @@ namespace SharpPy
                 {
                     // Convert iterable to list
                     var tempList = new List<PyObject>();
-                    var iterator = value.GetIterator();
+                    PyObject iterator;
+                    try
+                    {
+                        iterator = value.GetIterator();
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyTypeError te
+                                 && te.Message.EndsWith("object is not iterable"))
+                    {
+                        // CPython list_ass_subscript: PySequence_Fast wording
+                        // "must assign iterable to extended slice".
+                        throw PyTypeError.Create("must assign iterable to extended slice");
+                    }
                     try
                     {
                         while (true)
@@ -847,7 +858,7 @@ namespace SharpPy
         /// </summary>
         public override int ToInt()
         {
-            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not 'list'");
+            throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a real number, not 'list'");
         }
         
         /// <summary>
@@ -855,7 +866,7 @@ namespace SharpPy
         /// </summary>
         public override double ToFloat()
         {
-            throw PyTypeError.Create($"float() argument must be a string or a number, not 'list'");
+            throw PyTypeError.Create($"float() argument must be a string or a real number, not 'list'");
         }
         
         
