@@ -1835,7 +1835,64 @@ namespace SharpPy.Generated
                 conv = (int)'r';
             }
 
-            return PyAst.FormattedValue(expr, conv, format_spec, lineno, col_offset, end_lineno, end_col_offset);
+            GeneratedExpr formatted = PyAst.FormattedValue(expr, conv, format_spec, lineno, col_offset, end_lineno, end_col_offset);
+
+            if (debug_expr != null)
+            {
+                // CPython: Parser/action_helpers.c:1372-1408 - the debug text is the raw
+                // source slice from the start of the expression up to the '}' region
+                // (inclusive of '='), placed before the formatted value.
+                int rawEndLine, rawEndCol;
+                if (conversion != null && conversion.Metadata is GeneratedExpr convExpr)
+                {
+                    rawEndLine = convExpr.LineNo;
+                    rawEndCol = convExpr.ColOffset - 1; // '!' sits one column before the name
+                }
+                else if (format_spec != null)
+                {
+                    rawEndLine = format_spec.LineNo;
+                    rawEndCol = format_spec.ColOffset;
+                }
+                else
+                {
+                    rawEndLine = rbrace != null ? rbrace.Line : end_lineno;
+                    rawEndCol = rbrace != null ? rbrace.Column : end_col_offset - 1;
+                }
+
+                // Slice from the leftmost source position of the expression. (The rule's
+                // _start_* offsets describe a wider span here; CPython's leading-space
+                // preservation inside "{ a =}" is a known residual gap.)
+                int startLine = expr.LineNo;
+                int startCol = expr.ColOffset;
+                ParserActiveSource.ExprStartPos(expr, ref startLine, ref startCol);
+
+                string debugText = ParserActiveSource.GetRawSourceText(
+                    startLine, startCol, rawEndLine, rawEndCol);
+
+                var debugTextExpr = new GeneratedConstant
+                {
+                    Value = new GeneratedPyConstantString(debugText),
+                    LineNo = expr.LineNo,
+                    ColOffset = expr.ColOffset,
+                    EndLineNo = rawEndLine,
+                    EndColOffset = rawEndCol
+                };
+
+                var values = new GeneratedExprSeq(2);
+                values.Add(debugTextExpr);
+                values.Add(formatted);
+
+                return new GeneratedJoinedStr
+                {
+                    Values = values,
+                    LineNo = lineno,
+                    ColOffset = col_offset,
+                    EndLineNo = end_lineno,
+                    EndColOffset = end_col_offset
+                };
+            }
+
+            return formatted;
         }
 
         // ==================== Sequence Item Access Helpers ====================

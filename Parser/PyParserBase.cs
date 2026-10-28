@@ -1116,6 +1116,32 @@ namespace SharpPy.Generated
     {
         public static string[]? Lines;
 
+        // Some generated nodes carry a col offset that is not the leftmost source
+        // position (e.g. subscript). Walk the leftmost child chain to find the true
+        // start for f-string debug text slicing.
+        public static void ExprStartPos(GeneratedExpr e, ref int line, ref int col)
+        {
+            if (e == null)
+                return;
+            if (e.LineNo > 0 && (line > e.LineNo || (line == e.LineNo && col > e.ColOffset)))
+            {
+                line = e.LineNo;
+                col = e.ColOffset;
+            }
+            GeneratedExpr left = e switch
+            {
+                GeneratedSubscript sub => sub.Value,
+                GeneratedAttribute att => att.Value,
+                GeneratedCall call => call.Func,
+                GeneratedBinOp bin => bin.Left,
+                GeneratedUnaryOp un => un.Operand,
+                GeneratedCompare cmp => cmp.Left,
+                _ => null
+            };
+            if (left != null)
+                ExprStartPos(left, ref line, ref col);
+        }
+
         public static string GetRawSourceText(int line, int col, int endLine, int endCol)
         {
             var lines = Lines;
