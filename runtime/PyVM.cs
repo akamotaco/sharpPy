@@ -6250,8 +6250,6 @@ namespace SharpPy
         // CPython 3.12+ unified binary operation executor
         private PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
         {
-            try
-            {
                 // CPython 3.12: BINARY_OP is for bitwise operations only
                 // Logical 'and'/'or' use BoolOp in AST and POP_JUMP_IF_TRUE/FALSE in bytecode (short-circuit)
                 // BINARY_OP with AND/OR/XOR are bitwise operators (&, |, ^)
@@ -6313,20 +6311,11 @@ namespace SharpPy
 
                     return result;
                 }
-                catch (Exception ex) when (!(ex is PythonException))
-                {
-                    // Convert C# exceptions to Python exceptions
-                    var opSymbol = GetBinaryOpSymbol(binaryOp);
-                    throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
-                }
-            }
-            catch (Exception ex)
+            catch (Exception ex) when (!(ex is PythonException))
             {
-                // Debug: Show what kind of exception occurred
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 Exception in ExecuteBinaryOpType: {ex.GetType().Name}: {ex.Message}");
-#endif
-                throw; // Re-throw for upper-level handling
+                // Convert C# exceptions to Python exceptions
+                var opSymbol = GetBinaryOpSymbol(binaryOp);
+                throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
             }
         }
 
