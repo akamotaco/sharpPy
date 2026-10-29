@@ -11,7 +11,9 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **40/40 matching**
+- `tools/run_bughunt.py`: **46/46 matching**
+- Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
+  of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
 - Bytecode proximity: ~0.845; all 129 standard opcode names/numbers match.
 
@@ -29,17 +31,23 @@ genuine computation/result divergences and are worked first.
 | # | area | divergence (measured vs CPython) | source |
 |---|---|---|---|
 | P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
-| P0-3 | bytes/bytearray argcheck | `b"…".find(b"c", "x")` / `count` / `index` silently ignore a non-integer start/stop; CPython → `TypeError: slice indices must be integers or None or have an __index__ method` (bool/None must still work) | p32 note |
-| P0-12 | metaclass `__str__`/`__repr__` | `class M(type): __str__` is ignored for class objects: `str(C)` → `<class '__main__.C'>`, CPython → `'META'`. `PyClass.AsString/ToRepr` never consults the metaclass | p39 finding |
-
+| P0-12 | metaclass `__str__`/`__repr__` | `class M(type): __str__` is ignored for class objects: `str(C)` → `<class '__main__.C'>`, CPython → `'META'`. `PyClass.AsString/ToRepr` never consults the metaclass. The format path diverges twice over: `f"{C}"` → `<class 'C'>` (no module prefix) where `repr(C)` at least gives `<class '__main__.C'>` | p39 finding, re-measured |
 | P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
-| P0-6 | `memoryview.cast` endian | `>`/`!` (big-endian) prefix accepted but not byte-swapped → wrong element values (rare; host is LE) | p33 |
+| P0-6 | `memoryview.cast` endian | Inverted from the first note: CPython **rejects** `cast(">I")` / `cast("!I")` with `memoryview: destination format must be a native single character format prefixed with an optional '@'`, while SharpPy accepts them and returns wrong values (`memoryview(b"\x01\x00\x00\x00").cast(">I").tolist()` → `[1]`). Fix = accept only `@`/`=`/`<` | p33, re-measured |
 | P0-7 | N-D memoryview | `cast(fmt, shape)` with ndim > 1 not modelled (flat view only) | p33 |
 | P0-8 | `io.TextIOWrapper(buffer, encoding=…)` | wrapping an existing stream with an encoding not supported | io follow-up |
 | P0-9 | importlib semantics | custom loader/spec beyond `__file__`; namespace-package behavior | p15/p18 follow-up |
 | P0-10 | numeric-coercion dunders | `int(C())`/`float(C())` with `__int__`/`__index__`/`__float__` raise `TypeError: ... not 'C'`; CPython calls the dunder (`int()` = `__index__` then `__int__`, `float()` = `__float__`). `AsInt()` is a CLR cast, not dunder dispatch. `__index__` dispatch already exists via `PyObject.TryGetIndex` | p36 finding |
+
+Suggested order (risk × effort, cheapest real-computation wins first):
+**P0-6** (reject `>`/`!` prefixes — a guard, ~lines) → **P0-12** (metaclass `__str__`/
+`__repr__` for class objects) → **P0-10** (`int()`/`float()` dunder dispatch; `__index__`
+already exists) → **P0-4** (`memoryview.__eq__`) → **P0-2** (`(?P=name)` hybrid-engine
+result) → **P0-14** (33 bytearray methods, mechanical families) → P0-7 / P0-8 / P0-9
+(each needs a real feature: N-D buffers, stream wrapping, loader protocol). P0-5 needs the
+static-`type` architecture decision and is deliberately last.
 
 > API convention (enforced going forward): `To~()` → bounded **C#** value
 > (`ToInt`→int, `ToFloat`→double, `ToBool`→bool); `As~()` → **Python** type
