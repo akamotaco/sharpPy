@@ -1453,7 +1453,11 @@ namespace SharpPy
 
         static PyUnsupportedOperation()
         {
-            // CPython reports io.UnsupportedOperation with __module__ == "io".
+            // CPython reports io.UnsupportedOperation with __module__ == "io". It gets there by
+            // executing UnsupportedOperation.__module__ = "io" in Lib/io.py, which works because
+            // _io builds this exception as a heap type; the same assignment on ValueError or
+            // _io._IOBase is rejected (measured). Opting in keeps that line runnable here.
+            UnsupportedOperationPyType.AllowsModuleAssignment = true;
             UnsupportedOperationPyType.TypeDict["__module__"] = new PyString("io");
         }
 

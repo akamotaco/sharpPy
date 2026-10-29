@@ -392,3 +392,18 @@ accepts silently).
   `__str__ = None` now raises `'NoneType' object is not callable` (p39).
   Residual: generator `repr()` still lacks the CPython qualname chain
   (`<generator object <lambda>.<locals>.<genexpr> at 0x…>`) — P1 display gap.
+
+## 2026-10-29 io B4 과정에서 추가된 잔여
+
+- **P1**: native 모듈 `__file__` 값이 플레이스홀더다. `_io.py`, `time.py`,
+  `<builtin sys module>` 처럼 파일이 아닌 값이 보이고, 네이티브 상수에는 빌드 머신 절대 경로가
+  박혀 있다. `from X 없는이름` 메시지는 실재 파일만 origin으로 인정하도록 gating 해서 측정값과
+  일치시키지만(같은 날짜 보고서), `__file__` 자체는 여전히 틀리다.
+- **P1**: `_collections_abc.__name__` 이 `collections.abc`가 아니다. CPython에서는 두 이름이 같은
+  모듈 객체를 공유하므로 `cannot import name 'NOPE' from 'collections.abc'` 처럼 나온다.
+- **P1**: `io.IOBase.__doc__` 등이 `None`. CPython `Lib/io.py`는
+  `__doc__ = _io._IOBase.__doc__` 로 native docstring을 public ABC에 건다. SharpPy native 타입에
+  `__doc__`가 없어서 해당 라인을 생략한 상태다(표시 전용).
+- **P2**: `_io._WindowsConsoleIO` 미구현. Windows CPython에는 있다. `Lib/io.py`의
+  `try: from _io import _WindowsConsoleIO / except ImportError` 가 의도대로 동작해서
+  `import io` 는 깨지지 않는다.

@@ -189,7 +189,7 @@ namespace SharpPy.Modules
             module.ModuleDict["divmod"] = new PyBuiltinFunction("divmod");
             module.ModuleDict["ord"] = new PyBuiltinFunction("ord");
             module.ModuleDict["chr"] = new PyBuiltinFunction("chr");
-            module.ModuleDict["open"] = new PyBuiltinFunction("open");
+            module.ModuleDict["open"] = IoModule.OpenFunction;
             module.ModuleDict["globals"] = new PyBuiltinFunction("globals");
             module.ModuleDict["locals"] = new PyBuiltinFunction("locals");
 

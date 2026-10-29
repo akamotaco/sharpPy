@@ -13,6 +13,13 @@ namespace SharpPy.Modules
     /// </summary>
     public static class IoModule
     {
+        /// <summary>
+        /// CPython has exactly one open object: _io.open is what builtins.open is set to, so
+        /// `io.open is builtins.open` is True (measured). SharpPy used to construct two separate
+        /// PyBuiltinFunction instances, one per module, which made that identity check False.
+        /// </summary>
+        public static readonly PyBuiltinFunction OpenFunction = new("open");
+
         // Bare type objects for name/repr parity (CPython Modules/_io). SharpPy's
         // open() never returns FileIO / BufferedRWPair instances directly, but the
         // classes must exist in the io namespace; matching their full C-level MRO
@@ -65,7 +72,7 @@ namespace SharpPy.Modules
 
             // Names Lib/io.py re-exports from _io; measured absent from _io before this.
             module.ModuleDict["DEFAULT_BUFFER_SIZE"] = new PyInt(8192);
-            module.ModuleDict["open"] = new PyBuiltinFunction("open");
+            module.ModuleDict["open"] = OpenFunction;
             module.ModuleDict["BlockingIOError"] = PyType.BlockingIOErrorType;
 
             // CPython _io.text_encoding(encoding, /): positional-only.

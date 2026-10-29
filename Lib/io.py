@@ -1,145 +1,99 @@
-"""
-Input/output classes and functions for SharpPy.
+"""The io module provides the Python interfaces to stream handling. The
+builtin open function is defined in this module.
 
-This module provides the Python interfaces to stream handling.
-Compatible with CPython 3.12 io module.
-"""
+At the top of the I/O hierarchy is the abstract base class IOBase. It
+defines the basic interface to a stream. Note, however, that there is no
+separation between reading and writing to streams; implementations are
+allowed to raise an OSError if they do not support a given operation.
 
-# Import standard library modules
+Extending IOBase is RawIOBase which deals simply with the reading and
+writing of raw bytes to a stream. FileIO subclasses RawIOBase to provide
+an interface to OS files.
+
+BufferedIOBase deals with buffering on a raw byte stream (RawIOBase). Its
+subclasses, BufferedWriter, BufferedReader, and BufferedRWPair buffer
+streams that are readable, writable, and both respectively.
+BufferedRandom provides a buffered interface to random access
+streams. BytesIO is a simple stream of in-memory bytes.
+
+Another IOBase subclass, TextIOBase, deals with the encoding and decoding
+of streams into text. TextIOWrapper, which extends it, is a buffered text
+interface to a buffered raw stream (`BufferedIOBase`). Finally, StringIO
+is an in-memory stream for text.
+
+Argument names are not part of the specification, and only the arguments
+of open() are intended to be used as keyword arguments.
+
+data:
+
+DEFAULT_BUFFER_SIZE
+
+   An int containing the default buffer size used by the module's buffered
+   I/O classes. open() uses the file's blksize (as obtained by os.stat) if
+   possible.
+"""
+# New I/O library conforming to PEP 3116.
+
+__author__ = ("Guido van Rossum <guido@python.org>, "
+              "Mike Verdone <mike.verdone@gmail.com>, "
+              "Mark Russell <mark.russell@zen.co.uk>, "
+              "Antoine Pitrou <solipsis@pitrou.net>, "
+              "Amaury Forgeot d'Arc <amauryfa@gmail.com>, "
+              "Benjamin Peterson <benjamin@python.org>")
+
+__all__ = ["BlockingIOError", "open", "open_code", "IOBase", "RawIOBase",
+           "FileIO", "BytesIO", "StringIO", "BufferedIOBase",
+           "BufferedReader", "BufferedWriter", "BufferedRWPair",
+           "BufferedRandom", "TextIOBase", "TextIOWrapper",
+           "UnsupportedOperation", "SEEK_SET", "SEEK_CUR", "SEEK_END",
+           "DEFAULT_BUFFER_SIZE", "text_encoding", "IncrementalNewlineDecoder"]
+
+
+import _io
 import abc
 
-# CPython 3.12: Lib/io.py re-exports the concrete stream classes implemented in the
-# native _io module (Modules/_io). SharpPy provides _io natively (the
-# PyFileContextManager file types + UnsupportedOperation), so importing the exact
-# type objects here keeps isinstance(open(f), io.TextIOWrapper) true and gives the
-# "_io" __module__ in reprs.
-from _io import (
-    StringIO, BytesIO, TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair,
-    BufferedRandom,
-    FileIO, IncrementalNewlineDecoder, UnsupportedOperation, text_encoding, open_code,
-)
-from builtins import BlockingIOError, open
-
-# Base classes
-class IOBase(abc.ABC):
-    """Base class for all I/O classes."""
-
-    def __init__(self):
-        self._closed = False
-
-    @property
-    def closed(self):
-        """True if the stream is closed."""
-        return self._closed
-
-    def close(self):
-        """Close the stream."""
-        if not self._closed:
-            self.flush()
-            self._closed = True
-
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, type, value, traceback):
-        """Context manager exit."""
-        self.close()
-
-    def flush(self):
-        """Flush write buffers, if applicable."""
-        pass
-
-    def readable(self):
-        """Return whether object supports reading."""
-        return False
-
-    def writable(self):
-        """Return whether object supports writing."""
-        return False
-
-    def seekable(self):
-        """Return whether object supports seeking."""
-        return False
+from _io import (DEFAULT_BUFFER_SIZE, BlockingIOError, UnsupportedOperation,
+                 open, open_code, FileIO, BytesIO, StringIO, BufferedReader,
+                 BufferedWriter, BufferedRWPair, BufferedRandom,
+                 IncrementalNewlineDecoder, text_encoding, TextIOWrapper)
 
 
-class RawIOBase(IOBase):
-    """Base class for raw binary I/O."""
+# Pretend this exception was created here.
+UnsupportedOperation.__module__ = "io"
 
-    def read(self, size=-1):
-        """Read and return up to size bytes."""
-        raise NotImplementedError
-
-    def write(self, b):
-        """Write bytes b to the stream."""
-        raise NotImplementedError
-
-
-class BufferedIOBase(IOBase):
-    """Base class for buffered I/O."""
-
-    def read(self, size=-1):
-        """Read and return up to size bytes."""
-        raise NotImplementedError
-
-    def write(self, b):
-        """Write bytes-like object b to the stream."""
-        raise NotImplementedError
-
-
-class TextIOBase(IOBase):
-    """Base class for text I/O."""
-
-    def read(self, size=-1):
-        """Read and return at most size characters."""
-        raise NotImplementedError
-
-    def write(self, s):
-        """Write string s to the stream."""
-        raise NotImplementedError
-
-    def readline(self, size=-1):
-        """Read until newline or EOF."""
-        raise NotImplementedError
-
-
-# String I/O implementation
-# StringIO is the native _io.StringIO (core/PyStringIO.cs, the counterpart of
-# Modules/_io/stringio.c). The python stand-in that used to live here is gone: under the
-# library rule a C-only implementation is replaced in C#, and the native type is also what
-# gives StringIO its _TextIOBase -> _IOBase chain and its real _io identity.
-# Bytes I/O implementation
-# BytesIO is the native _io.BytesIO (core/PyBytesIO.cs, the counterpart of
-# Modules/_io/bytesio.c). Like StringIO this replaced a python stand-in; the native type
-# carries the BytesIO -> _BufferedIOBase -> _IOBase chain CPython has.
-
-
-# Constants
+# for seek()
 SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
 
-# Default buffer size
-DEFAULT_BUFFER_SIZE = 8192
+# Declaring ABCs in C is tricky so we do it here.
+# Method descriptions and default implementations are inherited from the C
+# version however.
+class IOBase(_io._IOBase, metaclass=abc.ABCMeta):
+    pass
 
-# CPython 3.12: exact io.__all__ ordering (Lib/io.py).
-__all__ = ["BlockingIOError", "open", "open_code", "IOBase", "RawIOBase", "FileIO",
-           "BytesIO", "StringIO", "BufferedIOBase", "BufferedReader",
-           "BufferedWriter", "BufferedRWPair", "BufferedRandom",
-           "TextIOBase", "TextIOWrapper", "UnsupportedOperation", "SEEK_SET",
-           "SEEK_CUR", "SEEK_END", "DEFAULT_BUFFER_SIZE", "text_encoding",
-           "IncrementalNewlineDecoder"]
+class RawIOBase(_io._RawIOBase, IOBase):
+    pass
 
-# In CPython the concrete stream types inherit from the ABCs defined here. SharpPy's
-# concrete types are native and cannot subclass a Python-defined ABC, so register
-# them as virtual subclasses to keep isinstance(open(f), io.IOBase) and the more
-# specific isinstance checks working.
-for _t in (TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair,
-           BufferedRandom, FileIO, StringIO, BytesIO):
-    IOBase.register(_t)
+class BufferedIOBase(_io._BufferedIOBase, IOBase):
+    pass
+
+class TextIOBase(_io._TextIOBase, IOBase):
+    pass
+
 RawIOBase.register(FileIO)
-for _t in (BufferedReader, BufferedWriter, BufferedRWPair, BufferedRandom, BytesIO):
-    BufferedIOBase.register(_t)
-for _t in (TextIOWrapper, StringIO):
-    TextIOBase.register(_t)
-del _t
+
+for klass in (BytesIO, BufferedReader, BufferedWriter, BufferedRandom,
+              BufferedRWPair):
+    BufferedIOBase.register(klass)
+
+for klass in (StringIO, TextIOWrapper):
+    TextIOBase.register(klass)
+del klass
+
+try:
+    from _io import _WindowsConsoleIO
+except ImportError:
+    pass
+else:
+    RawIOBase.register(_WindowsConsoleIO)

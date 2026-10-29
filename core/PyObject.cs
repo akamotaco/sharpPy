@@ -842,7 +842,19 @@ namespace SharpPy
             // BEFORE descriptor lookup: TypeError "cannot set '<n>' attribute of
             // immutable type '<T>'". Native builtins are non-heap; PyClass is heap.
             if (this is PyType nativeType && !(nativeType is PyClass))
+            {
+                // One narrow exception, measured: CPython's io.UnsupportedOperation is built as a
+                // heap type, so Lib/io.py may end with UnsupportedOperation.__module__ = "io",
+                // while the same write on ValueError, OSError, _io._IOBase or _io.StringIO is
+                // rejected. type_set_module stores the value in the type dict, which is what this
+                // does for the opted-in types (core/PyType.AllowsModuleAssignment).
+                if (nativeType.AllowsModuleAssignment && name == "__module__")
+                {
+                    nativeType.TypeDict["__module__"] = value;
+                    return;
+                }
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
+            }
 
             var type = GetPyType();
 

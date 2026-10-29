@@ -2,7 +2,7 @@
 # CPython declares their ABC-ness in python (Lib/io.py wraps them with abc.ABCMeta and
 # virtually registers the concrete classes) but implements every default in C. SharpPy had no
 # counterpart, which is why Lib/io.py had to carry about 200 python lines for that layer.
-# Measured against CPython 3.12.15. Excluded on purpose: io.IOBase.__mro__ still reads
+# Measured against CPython 3.12.15. io.IOBase.__mro__ still reads
 # ['IOBase','ABC','object'] instead of ['IOBase','_IOBase','object'] until Lib/io.py itself is
 # rewritten to CPython's shape (step B4).
 
@@ -63,7 +63,12 @@ s("raw_read", lambda: r.read())
 s("raw_readall", lambda: r.readall())
 s("raw_write", lambda: r.write(b"a"))
 s("raw_close", lambda: r.close())
+# The public ABCs declared in Lib/io.py on top of these native bases.
+s("iobase_chain", lambda: [c.__name__ for c in __import__("io").IOBase.__mro__])
+s("text_chain", lambda: [c.__name__ for c in __import__("io").TextIOBase.__mro__])
+# A subclass of the native base is now instantiable and reports the C chain. This was skipped
+# before step B4, when the public ABCs were python-only and inheriting a native base was broken.
 s("subclass_native", lambda: [c.__name__ for c in type(
-    type("T", (_io._TextIOBase,), {})()).__mro__] if False else "skip")
+    type("T", (_io._TextIOBase,), {})()).__mro__])
 s("repr_shape", lambda: type(repr(_io._IOBase())).__name__)
 s("abstract_msg_raw", lambda: _io._RawIOBase().readinto(bytearray(2)))

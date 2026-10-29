@@ -1,8 +1,7 @@
 # io B2: _io.StringIO is the native C# type (core/PyStringIO.cs / Modules/_io/stringio.c).
 # The 93 python lines that used to stand in for it are gone from Lib/io.py, and the type now
 # carries the real chain StringIO -> _TextIOBase -> _IOBase -> object.
-# Measured against CPython 3.12.15. One line is excluded on purpose, documented in the report:
-# io.IOBase.__mro__ still reports ABC until Lib/io.py itself is rewritten (step B4).
+# Measured against CPython 3.12.15.
 
 
 import io
@@ -16,6 +15,7 @@ def s(lbl, f):
 
 
 s("mro", lambda: [c.__name__ for c in io.StringIO.__mro__])
+s("iobase_mro", lambda: [c.__name__ for c in io.IOBase.__mro__])
 s("module", lambda: io.StringIO.__module__)
 s("isinstance_text", lambda: isinstance(io.StringIO("a"), io.TextIOBase))
 s("isinstance_base", lambda: isinstance(io.StringIO("a"), io.IOBase))

@@ -594,6 +594,14 @@ namespace SharpPy
         #region Type Methods
 
         // isinstance/issubclass 지원
+        /// <summary>
+        /// True for native types that CPython creates as heap types, and therefore lets Python
+        /// reassign __module__ on. io.UnsupportedOperation is the measured case: Lib/io.py ends with
+        /// UnsupportedOperation.__module__ = "io", which CPython accepts while it rejects the same
+        /// assignment on ValueError, OSError, _io._IOBase and _io.StringIO.
+        /// </summary>
+        public bool AllowsModuleAssignment;
+
         public bool IsSubclassOf(PyType other)
         {
 #if DEBUG
