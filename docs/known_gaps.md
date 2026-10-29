@@ -28,7 +28,6 @@ genuine computation/result divergences and are worked first.
 
 | # | area | divergence (measured vs CPython) | source |
 |---|---|---|---|
-| P0-1 | `int(float)` | `int(1e17)` raises `OverflowError: int too big to convert to float`; CPython → `100000000000000000` | new |
 | P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
 | P0-3 | bytes/bytearray argcheck | `b"…".find(b"c", "x")` / `count` / `index` silently ignore a non-integer start/stop; CPython → `TypeError: slice indices must be integers or None or have an __index__ method` (bool/None must still work) | p32 note |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
@@ -64,3 +63,5 @@ genuine computation/result divergences and are worked first.
 - `re` non-zero `flags=` (IGNORECASE/MULTILINE/DOTALL/VERBOSE/sub) → unblocked by
   `memoryview.cast` (p33); `(?P<name>` named groups + `findall` shapes (p31/p33).
 - `dir(list)` / `dir(tuple)` content sets (p34).
+- `int(float)` big values (e.g. `int(1e17)`, `int(1e30)`) → BigInteger truncation
+  toward zero with CPython NaN/inf messages (p35).

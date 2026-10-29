@@ -1509,7 +1509,22 @@ namespace SharpPy
             if (value is PyByteArray buffer)
                 return FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value);
             if (radix != null) throw PyTypeError.Create("int() can't convert non-string with explicit base");
+            // int(float) truncates toward zero into an arbitrary-precision integer.
+            // Must not go through AsInt()/ToInt() (which clamp to Int32 and raise
+            // OverflowError for |value| > int.MaxValue). new BigInteger(double)
+            // reproduces CPython's exact-binary-value conversion.
+            if (value is PyFloat pyf)
+                return new PyInt(FloatToIntegral(pyf.Value));
             return value.AsInt();
+        }
+
+        private static BigInteger FloatToIntegral(double d)
+        {
+            if (double.IsNaN(d))
+                throw PyValueError.Create("cannot convert float NaN to integer");
+            if (double.IsInfinity(d))
+                throw PyOverflowError.Create("cannot convert float infinity to integer");
+            return new BigInteger(d);
         }
 
         /// <summary>
