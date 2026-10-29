@@ -44,3 +44,17 @@ s("bytes_hash", lambda: hash(Bs(b"ab")) == hash(b"ab"))
 s("list_len", lambda: len(L([1, 2])))
 s("list_reversed", lambda: list(reversed(L([1, 2]))))
 s("list_hash_none", lambda: L.__hash__ is None)
+
+# --- increment 3: reflected int slots read self's value (p49) ---
+# CPython's nb_reflected slots read the digits of self, so a subclass contributes its
+# value and the result is a plain int. SharpPy's intType reflected wrappers handed the
+# subclass object to PyInt.Add, which returned NotImplemented.
+s("i_radd_attr", lambda: hasattr(I(5), "__radd__"))
+s("i_radd_call", lambda: I(5).__radd__(1))
+s("i_rsub_call", lambda: I(5).__rsub__(1))
+s("i_rdiv_call", lambda: I(5).__rtruediv__(1))
+s("one_plus_i", lambda: 1 + I(5))
+s("one_minus_i", lambda: 1 - I(5))
+s("i_plus_i", lambda: I(5) + I(6))
+s("i_eq_int", lambda: I(5) == 5)
+s("int_abs_attr", lambda: hasattr(int, "__abs__"))

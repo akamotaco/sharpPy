@@ -191,12 +191,22 @@ accepts silently).
 - P0-18 increment 1 (commit 23cd41d): 9 exact `self is PyInt` gates in `type/PyInt.cs` now go
   through `PyInt.TryLongSelf`, which is the CLR form of `PyLong_Check` (accept the subclass, read
   the stored value). `I(8).bit_length()`, `I(5).real/.imag/.numerator/.denominator`, etc. match.
-  P0-18 increment 2 (this commit): same treatment for `type/PyFloat.cs` via `PyFloat.TryFloatSelf`.
+  P0-18 increment 2 (commit ceb513e): same treatment for `type/PyFloat.cs` via `PyFloat.TryFloatSelf`.
   That closed `format(FSub(2.5), '.2f')`, `f"{x:.2f}"`, `x.is_integer()`, `x.as_integer_ratio()`,
   `x.hex()` - the float matrix went from 34 divergent lines to 22 (51 cases).
-  Still open in P0-18, measured: reflected operators (`1 + I(5)`, `1 + FSub(2.5)`), `round` on
-  builtin subclasses, `abs(FSub)`, `"%.3f" % FSub`, `hash(FSub(2.5)) == hash(2.5)`, list-subclass
-  `repr`, and `format(Bs(b'ab'), '>4')` naming `bytes.__format__` instead of `Bs.__format__`.
+  P0-18 increment 3 (this commit): reflected operators closed for int. The cause was not a missing
+  attribute - `int.__radd__` exists and `hasattr(I(5), '__radd__')` is already `True`; the
+  `regIntBin`/`regIntRev`/`regIntUn` wrappers in `type/PyInt.cs` passed the *subclass object* into
+  `PyInt.Add`, whose exact-type fast path answered `NotImplemented`, so `1 + I(5)` became a
+  TypeError. They now pass `AsIntObj(self)` / `AsIntObj(args[0])`, which is CPython's behaviour:
+  the reflected slot reads self's digits and the result is a plain int. `1 + I(5)`, `1 - I(5)`
+  (order correct: `I(5).__rsub__(1) == -4`), `I(5) + I(6)`, `I(5).__rtruediv__(1)` all match.
+  Still open in P0-18, measured: `int.__round__` and `float.__round__` are not registered at all
+  (`hasattr(int, '__round__')` False vs CPython True) so `round(I(5))` fails; `float.__hash__` is
+  not registered (`hasattr(float, '__hash__')` False) which is why `hash(FSub(2.5)) != hash(2.5)`;
+  `1 + FSub(2.5)` still needs the same treatment on the float side; `abs(FSub)`,
+  `"%.3f" % FSub`, list-subclass `repr`, and `format(Bs(b'ab'), '>4')` naming `bytes.__format__`
+  instead of `Bs.__format__`.
 - Unexplained, recorded rather than smoothed over: while extending the P0-18 probe with the float
   cases, the combined probe made **both** engines abort on `FSub(10 ** 400)` (CPython printed the
   same `EXC OverflowError ...` line first, then its own traceback), and after removing that case

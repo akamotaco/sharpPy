@@ -118,7 +118,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return impl(self, args[0]);
+                    return impl(AsIntObj(self), args[0]);
                 });
             }
             void regIntRev(string name, Func<PyObject, PyObject, PyObject> fwd)
@@ -131,7 +131,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return IntLike(args[0]) ? fwd(args[0], self) : PyNotImplemented.Instance;
+                    return IntLike(args[0]) ? fwd(AsIntObj(args[0]), AsIntObj(self)) : PyNotImplemented.Instance;
                 });
             }
             void regIntUn(string name, Func<PyObject, PyObject> impl)
@@ -144,7 +144,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
                     if (args.Length != 0)
                         throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    return impl(self);
+                    return impl(AsIntObj(self));
                 });
             }
             regIntBin("__add__", (s, o) => s.Add(o));
