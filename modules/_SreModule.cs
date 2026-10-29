@@ -107,10 +107,12 @@ namespace SharpPy.Modules
 
             try
             {
-                var regex = new Regex(ToDotNetPattern(pattern.Value), flags);
+                var regex = BuildRegex(pattern.Value, flags, out var names, out var count);
                 var match = regex.Match(text.Value);
 
-                return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
+                return match.Success
+                    ? new PySreMatch(match, text.Value, 0, names, count)
+                    : PyNone.Instance;
             }
             catch (ArgumentException ex)
             {
@@ -129,10 +131,12 @@ namespace SharpPy.Modules
 
             try
             {
-                var regex = new Regex(ToDotNetPattern(pattern.Value), flags);
+                var regex = BuildRegex(pattern.Value, flags, out var names, out var count);
                 var match = regex.Match(text.Value);
 
-                return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
+                return match.Success
+                    ? new PySreMatch(match, text.Value, 0, names, count)
+                    : PyNone.Instance;
             }
             catch (ArgumentException ex)
             {
@@ -283,7 +287,7 @@ namespace SharpPy.Modules
         /// Known limit: numeric references use .NET group numbering (see P0-17), so a pattern
         /// that declares a named group before an unnamed one still substitutes the wrong group.
         /// </summary>
-        internal static string ToDotNetReplacement(string repl)
+        internal static string ToDotNetReplacement(string repl, Dictionary<string, int> names = null)
         {
             if (string.IsNullOrEmpty(repl))
                 return repl;
@@ -313,7 +317,7 @@ namespace SharpPy.Modules
                         if (close < 0)
                             throw PyRegexError.Create(
                                 $"missing >, previously used identifier at position {i + 2}");
-                        sb.Append("${").Append(repl, i + 3, close - i - 3).Append('}');
+                        sb.Append(GroupTemplate(repl.Substring(i + 3, close - i - 3), names));
                         i = close;
                         continue;
                     }
@@ -330,7 +334,7 @@ namespace SharpPy.Modules
                         num = num * 10 + (repl[j] - '0');
                         j++;
                     }
-                    sb.Append("${").Append(num).Append('}');
+                    sb.Append(GroupTemplate(num.ToString(), names));
                     i = j - 1;
                     continue;
                 }
@@ -392,10 +396,222 @@ namespace SharpPy.Modules
             return sb.ToString();
         }
 
+        // A template reference points at the canonical name when the pattern was canonically
+        // named; otherwise it keeps the numeric form .NET understands.
+        private static string GroupTemplate(string reference, Dictionary<string, int> names)
+        {
+            if (names != null)
+            {
+                if (int.TryParse(reference, out int byNumber))
+                    return "${__p" + byNumber + "}";
+                if (names.TryGetValue(reference, out int byName))
+                    return "${__p" + byName + "}";
+            }
+            return "${" + reference + "}";
+        }
+
         private static int HexDigit(char c) =>
             c >= '0' && c <= '9' ? c - '0' :
             c >= 'a' && c <= 'f' ? c - 'a' + 10 :
             c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+
+        /// <summary>
+        /// CPython 3.12: re/_parser.py assigns capture-group numbers by the position of '(', and
+        /// _compiler.py resolves every reference to that number before the matcher ever looks at
+        /// pattern text again. .NET numbers capture ids with the unnamed groups first, so its ids
+        /// are a *different* numbering and cannot be trusted. This translation pins CPython's
+        /// numbering by renaming every capture group to a canonical name that carries the CPython
+        /// number, and rewriting every reference (\N and (?P=name)) to that name.
+        /// Returns null when the pattern uses something the scanner does not model, so the caller
+        /// keeps the plain translation instead of silently producing wrong matches.
+        /// </summary>
+        internal static string ToCanonicalPattern(string p, out Dictionary<string, int> names, out int count)
+        {
+            names = new Dictionary<string, int>(StringComparer.Ordinal);
+            var sb = new System.Text.StringBuilder(p.Length + 16);
+            int num = 0;
+
+            for (int i = 0; i < p.Length;)
+            {
+                char c = p[i];
+
+                if (c == '\\')
+                {
+                    // \1..\99 become a reference to the canonical group holding that number.
+                    if (i + 1 < p.Length && p[i + 1] >= '1' && p[i + 1] <= '9')
+                    {
+                        int j = i + 1;
+                        int g = 0;
+                        while (j < p.Length && j < i + 3 && p[j] >= '0' && p[j] <= '9')
+                        {
+                            g = g * 10 + (p[j] - '0');
+                            j++;
+                        }
+                        sb.Append("\\k<__p").Append(g).Append('>');
+                        i = j;
+                        continue;
+                    }
+                    sb.Append(c);
+                    if (i + 1 < p.Length)
+                    {
+                        sb.Append(p[i + 1]);
+                        i += 2;
+                    }
+                    else
+                        i++;
+                    continue;
+                }
+
+                if (c == '[')
+                {
+                    // A '(' inside a character class is literal.
+                    sb.Append(c);
+                    i++;
+                    if (i < p.Length && p[i] == ']')
+                    {
+                        sb.Append(p[i]);
+                        i++;
+                    }
+                    while (i < p.Length && p[i] != ']')
+                    {
+                        if (p[i] == '\\' && i + 1 < p.Length)
+                        {
+                            sb.Append(p[i]).Append(p[i + 1]);
+                            i += 2;
+                        }
+                        else
+                        {
+                            sb.Append(p[i]);
+                            i++;
+                        }
+                    }
+                    if (i >= p.Length)
+                    {
+                        names = null;
+                        count = 0;
+                        return null;
+                    }
+                    sb.Append(p[i]);
+                    i++;
+                    continue;
+                }
+
+                if (c == '(' && i + 1 < p.Length && p[i + 1] == '?')
+                {
+                    if (i + 2 < p.Length && p[i + 2] == 'P')
+                    {
+                        if (i + 3 < p.Length && p[i + 3] == '<')
+                        {
+                            int close = p.IndexOf('>', i + 4);
+                            if (close < 0)
+                            {
+                                names = null;
+                                count = 0;
+                                return null;
+                            }
+                            num++;
+                            names[p.Substring(i + 4, close - i - 4)] = num;
+                            sb.Append("(?<__p").Append(num).Append('>');
+                            i = close + 1;
+                            continue;
+                        }
+                        if (i + 3 < p.Length && p[i + 3] == '=')
+                        {
+                            int close = p.IndexOf(')', i + 4);
+                            if (close < 0)
+                            {
+                                names = null;
+                                count = 0;
+                                return null;
+                            }
+                            // Deferred: the name may be declared later in the pattern.
+                            sb.Append('\x01').Append(p.Substring(i + 4, close - i - 4)).Append('\x02');
+                            i = close + 1;
+                            continue;
+                        }
+                        names = null;
+                        count = 0;
+                        return null;
+                    }
+                    if (i + 2 < p.Length && (p[i + 2] == '(' || p[i + 2] == '#'))
+                    {
+                        // Conditionals and comments are outside what this scanner models.
+                        names = null;
+                        count = 0;
+                        return null;
+                    }
+                    // (?: (?= (?! (?<= (?<! (?i: are non-capturing; copy the prefix verbatim.
+                    sb.Append(c).Append(p[i + 1]);
+                    i += 2;
+                    continue;
+                }
+
+                if (c == '(')
+                {
+                    num++;
+                    sb.Append("(?<__p").Append(num).Append('>');
+                    i++;
+                    continue;
+                }
+
+                sb.Append(c);
+                i++;
+            }
+
+            count = num;
+            string result = sb.ToString();
+            if (result.IndexOf('\x01') < 0)
+                return result;
+
+            var resolved = new System.Text.StringBuilder(result.Length);
+            for (int i = 0; i < result.Length;)
+            {
+                if (result[i] == '\x01')
+                {
+                    int end = result.IndexOf('\x02', i + 1);
+                    if (end < 0)
+                    {
+                        names = null;
+                        count = 0;
+                        return null;
+                    }
+                    if (!names.TryGetValue(result.Substring(i + 1, end - i - 1), out int g))
+                    {
+                        names = null;
+                        count = 0;
+                        return null;
+                    }
+                    resolved.Append("\\k<__p").Append(g).Append('>');
+                    i = end + 1;
+                    continue;
+                }
+                resolved.Append(result[i]);
+                i++;
+            }
+            return resolved.ToString();
+        }
+
+        // One place decides whether a pattern is canonically named: only patterns that actually
+        // name a group need it, because when every group is unnamed .NET's numbering and
+        // CPython's already agree (measured).
+        internal static Regex BuildRegex(string pattern, RegexOptions flags,
+            out Dictionary<string, int> names, out int count)
+        {
+            if (pattern != null && pattern.IndexOf("(?P", StringComparison.Ordinal) >= 0)
+            {
+                var canonical = ToCanonicalPattern(pattern, out names, out count);
+                if (canonical != null)
+                    return new Regex(canonical, flags);
+            }
+            names = null;
+            count = 0;
+            return new Regex(ToDotNetPattern(pattern), flags);
+        }
+
+        // Group numbers seen by Python are CPython positional numbers; with a canonical map the
+        // group is reached by the name carrying that number.
+        internal static Group GroupAt(Match m, int pyNumber, Dictionary<string, int> names) =>
+            names == null ? m.Groups[pyNumber] : m.Groups["__p" + pyNumber];
 
         internal static string ToDotNetPattern(string p)
         {
@@ -425,12 +641,16 @@ namespace SharpPy.Modules
         private readonly Regex _regex;
         private readonly string _pattern;
         private readonly RegexOptions _flags;
+        // CPython group number -> nothing (the number is in the canonical name), plus the
+        // user-visible name -> number table. null means the pattern has no named groups.
+        private readonly Dictionary<string, int> _names;
+        private readonly int _count;
 
         public PySrePattern(string pattern, RegexOptions flags)
         {
             _pattern = pattern;
             _flags = flags;
-            _regex = new Regex(_SreModule.ToDotNetPattern(pattern), flags);
+            _regex = _SreModule.BuildRegex(pattern, flags, out _names, out _count);
         }
 
         /// <summary>
@@ -491,7 +711,7 @@ namespace SharpPy.Modules
 
             // Use C# Regex.Match with starting position
             var match = _regex.Match(text.Value, pos, endpos - pos);
-            return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
+            return match.Success ? new PySreMatch(match, text.Value, 0, _names, _count) : PyNone.Instance;
         }
 
         /// <summary>
@@ -521,7 +741,7 @@ namespace SharpPy.Modules
             // Check if match covers the entire substring
             if (match.Success && match.Index == 0 && match.Length == substring.Length)
             {
-                return new PySreMatch(match, text.Value, pos);
+                return new PySreMatch(match, text.Value, pos, _names, _count);
             }
             return PyNone.Instance;
         }
@@ -536,7 +756,7 @@ namespace SharpPy.Modules
 
             var text = args[0].ToStr();
             var match = _regex.Match(text.Value);
-            return match.Success ? new PySreMatch(match, text.Value) : PyNone.Instance;
+            return match.Success ? new PySreMatch(match, text.Value, 0, _names, _count) : PyNone.Instance;
         }
 
         /// <summary>
@@ -555,19 +775,19 @@ namespace SharpPy.Modules
             {
                 // CPython findall: no groups -> whole match; exactly ONE group ->
                 // that group's string; multiple groups -> tuple of groups 1..n.
-                int ncap = match.Groups.Count - 1;
+                int ncap = _names == null ? match.Groups.Count - 1 : _count;
                 if (ncap > 1)
                 {
                     var groups = new List<PyObject>();
-                    for (int i = 1; i < match.Groups.Count; i++)
+                    for (int i = 1; i <= ncap; i++)
                     {
-                        groups.Add(new PyString(match.Groups[i].Value));
+                        groups.Add(new PyString(_SreModule.GroupAt(match, i, _names).Value));
                     }
                     result.Add(new PyTuple(groups.ToArray()));
                 }
                 else if (ncap == 1)
                 {
-                    result.Add(new PyString(match.Groups[1].Value));
+                    result.Add(new PyString(_SreModule.GroupAt(match, 1, _names).Value));
                 }
                 else
                 {
@@ -589,7 +809,7 @@ namespace SharpPy.Modules
 
             foreach (Match match in matches)
             {
-                matchObjects.Add(new PySreMatch(match, text.Value));
+                matchObjects.Add(new PySreMatch(match, text.Value, 0, _names, _count));
             }
 
             return new PySreMatchIterator(matchObjects);
@@ -617,7 +837,7 @@ namespace SharpPy.Modules
             {
                 MatchEvaluator evaluator = m =>
                 {
-                    var pyMatch = new PySreMatch(m, text.Value);
+                    var pyMatch = new PySreMatch(m, text.Value, 0, _names, _count);
                     var r = replObj.Call(new PyObject[] { pyMatch }, null);
                     return r is PyString rs ? rs.Value : r.ToStr().Value;
                 };
@@ -628,7 +848,7 @@ namespace SharpPy.Modules
                 return new PyString(callableResult);
             }
 
-            var repl = _SreModule.ToDotNetReplacement(replObj.ToStr().Value);
+            var repl = _SreModule.ToDotNetReplacement(replObj.ToStr().Value, _names);
             // In Python, count <= 0 means replace all
             var result = count <= 0 ?
                 _regex.Replace(text.Value, repl) :
@@ -659,7 +879,7 @@ namespace SharpPy.Modules
             {
                 MatchEvaluator evaluator = m =>
                 {
-                    var pyMatch = new PySreMatch(m, text.Value);
+                    var pyMatch = new PySreMatch(m, text.Value, 0, _names, _count);
                     var r = replObj.Call(new PyObject[] { pyMatch }, null);
                     return r is PyString rs ? rs.Value : r.ToStr().Value;
                 };
@@ -669,7 +889,7 @@ namespace SharpPy.Modules
             }
             else
             {
-                var repl = _SreModule.ToDotNetReplacement(replObj.ToStr().Value);
+                var repl = _SreModule.ToDotNetReplacement(replObj.ToStr().Value, _names);
                 // In Python, count <= 0 means replace all
                 result = count <= 0 ?
                     _regex.Replace(text.Value, repl) :
@@ -740,13 +960,60 @@ namespace SharpPy.Modules
         private readonly Match _match;
         private readonly string _string;
         private readonly int _posOffset;  // Offset for fullmatch when substring is used
+        // null when the pattern has no named groups, in which case .NET's capture ids already
+        // match CPython's numbering; otherwise every group is reached through __p<number>.
+        private readonly Dictionary<string, int> _names;
+        private readonly int _count;
 
-        public PySreMatch(Match match, string text, int posOffset = 0)
+        public PySreMatch(Match match, string text, int posOffset = 0,
+            Dictionary<string, int> names = null, int count = 0)
         {
             _match = match;
             _string = text;
             _posOffset = posOffset;
+            _names = names;
+            _count = count;
         }
+
+        // Group numbers coming from Python are CPython positional numbers.
+        private Group GroupByNumber(long n)
+        {
+            if (_names == null)
+            {
+                if (n < 0 || n >= _match.Groups.Count)
+                    throw PyIndexError.Create("no such group");
+                return _match.Groups[(int)n];
+            }
+            if (n < 0 || n > _count)
+                throw PyIndexError.Create("no such group");
+            // Group 0 is the whole match and has no canonical name.
+            if (n == 0)
+                return _match.Groups[0];
+            return _match.Groups["__p" + (int)n];
+        }
+
+        private Group GroupByName(string name)
+        {
+            if (_names != null)
+            {
+                if (!_names.TryGetValue(name, out int number))
+                    throw PyIndexError.Create("no such group");
+                return _match.Groups["__p" + number];
+            }
+            try
+            {
+                return _match.Groups[name];
+            }
+            catch
+            {
+                throw PyIndexError.Create("no such group");
+            }
+        }
+
+        // CPython match_group_impl: a group that did not participate yields None, not the empty
+        // string, so Success has to be consulted before the value is read.
+        private PyObject GroupValue(Group group) =>
+            group.Success ? new PyString(group.Value) : PyNone.Instance;
 
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "SRE_Match";
@@ -787,23 +1054,9 @@ namespace SharpPy.Modules
             if (args.Length == 1)
             {
                 if (args[0] is PyInt groupNum)
-                {
-                    if (groupNum.Value < 0 || groupNum.Value >= _match.Groups.Count)
-                        throw PyIndexError.Create("no such group");
-                    return new PyString(_match.Groups[(int)groupNum.Value].Value);
-                }
+                    return GroupValue(GroupByNumber((long)groupNum.Value));
                 else if (args[0] is PyString groupName)
-                {
-                    try
-                    {
-                        var group = _match.Groups[groupName.Value];
-                        return new PyString(group.Value);
-                    }
-                    catch
-                    {
-                        throw PyIndexError.Create($"no such group: '{groupName.Value}'");
-                    }
-                }
+                    return GroupValue(GroupByName(groupName.Value));
             }
 
             var result = new List<PyObject>();
@@ -811,21 +1064,11 @@ namespace SharpPy.Modules
             {
                 if (arg is PyInt groupNum)
                 {
-                    if (groupNum.Value < 0 || groupNum.Value >= _match.Groups.Count)
-                        throw PyIndexError.Create("no such group");
-                    result.Add(new PyString(_match.Groups[(int)groupNum.Value].Value));
+                    result.Add(GroupValue(GroupByNumber((long)groupNum.Value)));
                 }
                 else if (arg is PyString groupName)
                 {
-                    try
-                    {
-                        var group = _match.Groups[groupName.Value];
-                        result.Add(new PyString(group.Value));
-                    }
-                    catch
-                    {
-                        throw PyIndexError.Create($"no such group: '{groupName.Value}'");
-                    }
+                    result.Add(GroupValue(GroupByName(groupName.Value)));
                 }
             }
 
@@ -837,9 +1080,12 @@ namespace SharpPy.Modules
             var defaultValue = args.Length > 0 ? args[0] : PyNone.Instance;
             var result = new List<PyObject>();
 
-            for (int i = 1; i < _match.Groups.Count; i++)
+            // CPython reports groups in positional order, which is what the canonical names
+            // encode; .NET capture-id order is not the same thing.
+            int ncap = _names == null ? _match.Groups.Count - 1 : _count;
+            for (int i = 1; i <= ncap; i++)
             {
-                var group = _match.Groups[i];
+                var group = _SreModule.GroupAt(_match, i, _names);
                 if (group.Success)
                     result.Add(new PyString(group.Value));
                 else
@@ -853,6 +1099,19 @@ namespace SharpPy.Modules
         {
             var defaultValue = args.Length > 0 ? args[0] : PyNone.Instance;
             var result = new PyDict();
+
+            if (_names != null)
+            {
+                // The .NET name table now holds canonical names; report the user's names, in
+                // declaration order, as CPython's groupindex does.
+                foreach (var entry in _names)
+                {
+                    var group = _match.Groups["__p" + entry.Value];
+                    result.SetItem(new PyString(entry.Key),
+                        group.Success ? new PyString(group.Value) : defaultValue);
+                }
+                return result;
+            }
 
             foreach (string groupName in _match.Groups.Keys)
             {
@@ -874,10 +1133,7 @@ namespace SharpPy.Modules
         {
             var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
 
-            if (groupNum < 0 || groupNum >= _match.Groups.Count)
-                throw PyIndexError.Create("no such group");
-
-            return new PyInt(_match.Groups[groupNum].Index);
+            return new PyInt(GroupByNumber(groupNum).Index);
         }
 
         /// <summary>
@@ -887,10 +1143,7 @@ namespace SharpPy.Modules
         {
             var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
 
-            if (groupNum < 0 || groupNum >= _match.Groups.Count)
-                throw PyIndexError.Create("no such group");
-
-            var group = _match.Groups[groupNum];
+            var group = GroupByNumber(groupNum);
             return new PyInt(group.Index + group.Length);
         }
 
@@ -901,10 +1154,7 @@ namespace SharpPy.Modules
         {
             var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
 
-            if (groupNum < 0 || groupNum >= _match.Groups.Count)
-                throw PyIndexError.Create("no such group");
-
-            var group = _match.Groups[groupNum];
+            var group = GroupByNumber(groupNum);
             return new PyTuple(new PyInt(group.Index), new PyInt(group.Index + group.Length));
         }
 

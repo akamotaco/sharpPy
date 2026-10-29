@@ -26,7 +26,7 @@ cases = [
     ("two_named_backrefs", lambda: re.findall(r"(?P<a>\w)(?P<b>\w) (?P=a)(?P=b)", "ab ab cd cd")),
     ("backref_sub", lambda: re.sub(r"(?P<w>\w+) (?P=w)", r"[\1]", "ab ab c d")),
     ("backref_groupdict", lambda: re.match(r"(?P<y>\d{4}) (?P=y)", "2024 2024").groupdict()),
-    # excluded: P0-17 .NET group numbering (named group before unnamed)
+    ("mixed_num_named", lambda: re.findall(r"(?P<a>\w) (\w) (?P=a) ", "a b a b c d e f")),
 
     ("backref_no_match", lambda: re.findall(r"(?P<c>\w) (?P=c)", "a b c d")),
     ("dotnet_style_backref", lambda: re.findall(r"(?<c>\w) \k<c>", "a a b c c")),
@@ -45,7 +45,7 @@ for lbl, f in cases:
 s("mix_all_named", lambda: re.findall(r"(?P<a>\w) (?P<b>\w) (?P=a) (?P=b)", "a b a b c d e f"))
 s("mix_all_num", lambda: re.findall(r"(\w) (\w) \1 \2", "a b a b c d e f"))
 s("mix_dn", lambda: re.findall(r"(?<a>\w) (\w) \k<a> \2", "a b a b c d e f"))
-# excluded: P0-17 group numbering (same root cause as mix_py above)
+s("mix_search", lambda: bool(re.search(r"(?P<a>\w) (\w) (?P=a) ", "a b a b")))
 s("mix_two_named_one_num", lambda: re.findall(r"(?P<a>\w)(?P<b>\w) (\w) \k<a>".replace("\\k<a>", "(?P=a)(?P=b)\\3"), "abacba"))
 
 # re.sub replacement template forms

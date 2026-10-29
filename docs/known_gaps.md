@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **51/51 matching**
+- `tools/run_bughunt.py`: **52/52 matching**
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
@@ -30,7 +30,7 @@ genuine computation/result divergences and are worked first.
 
 | # | area | divergence (measured vs CPython) | source |
 |---|---|---|---|
-| P0-17 | regex group **numbering** | .NET numbers capturing groups with the **unnamed ones first**, so a named group declared before an unnamed one gets a different number than CPython. Measured: `re.findall(r"(?P<a>\w)(\w)", "ab")` → CPython `[('a','b')]`, SharpPy `[('b','a')]`; `m.span(1)` → CPython `(0, 1)`, SharpPy `(2, 3)`; `m.group(1)`/`group(2)` swapped while `group("a")` is correct; and `re.findall(r"(?P<a>\w) (\w) (?P=a) \2", "a b a b")` → CPython `[('a','b')]`, SharpPy `[]` (nothing matches). Fix needs Python numbering pinned at translation time - give every capture group an explicit canonical name (`(?<__g1>...)`) and rewrite `\1`/`(?P=name)`/`$n` to that name, then map `group(n)`/`span(n)`/`findall` tuples through it | p46 measured |
+| ~~P0-17~~ **FIXED (p47)** | regex group **numbering** | .NET numbers capturing groups with the **unnamed ones first**, so a named group declared before an unnamed one gets a different number than CPython. Measured: `re.findall(r"(?P<a>\w)(\w)", "ab")` → CPython `[('a','b')]`, SharpPy `[('b','a')]`; `m.span(1)` → CPython `(0, 1)`, SharpPy `(2, 3)`; `m.group(1)`/`group(2)` swapped while `group("a")` is correct; and `re.findall(r"(?P<a>\w) (\w) (?P=a) \2", "a b a b")` → CPython `[('a','b')]`, SharpPy `[]` (nothing matches). Fix needs Python numbering pinned at translation time - give every capture group an explicit canonical name (`(?<__g1>...)`) and rewrite `\1`/`(?P=name)`/`$n` to that name, then map `group(n)`/`span(n)`/`findall` tuples through it | p46 measured |
 
 | P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
 
@@ -41,7 +41,6 @@ genuine computation/result divergences and are worked first.
 | P0-16 | `float` subclass payload | `class FSub(float)` instances carry no float value: `repr(FSub(2.5))` → `<__main__.FSub object at 0x…>` (CPython `'2.5'`), `FSub(2.5) + 1` → `TypeError: unsupported operand type(s) for +: 'FSub' and 'int'`, `FSub(2.5) == 2.5` → `False`, `float(FSub(2.5))` → `TypeError`. `int`/`str` subclasses work because `PyIntSubclass`/`PyStrSubclass` exist; there is no `PyFloatSubclass` | p44 measured |
 
 Suggested order (risk × effort, cheapest real-computation wins first):
-**P0-17** (regex group numbering; blocks any named+unnamed mix) →
 **P0-16** (`PyFloatSubclass`, mirroring the existing `PyIntSubclass`) →
 **P0-14** (33 bytearray methods, mechanical families) → P0-8 / P0-9 (each needs a real
 feature: stream wrapping, loader protocol). P0-5 needs the static-`type` architecture
@@ -110,6 +109,31 @@ accepts silently).
   `RuntimeHelpers.GetHashCode` directly, because CPython `memory_repr` never raises. This was
   caught by `tools/evaluate.py` (224/225: a released view's `repr` and
   `print(f"{writable_view}")`), not by the memoryview probe.
+- Capture-group numbering is now CPython's, not .NET's (p47). `re/_parser.py` numbers groups by
+  the position of `(` and `_compiler.py` resolves every reference to that number, so CPython's
+  matcher never re-derives numbering — and SharpPy's own pure-Python compiler already produces the
+  identical metadata (`ngroups`, `groupindex`, `indexgroup` measured equal to CPython) which native
+  `_sre.compile` then **threw away** by re-parsing the pattern text with .NET. Since .NET assigns
+  capture ids with the unnamed groups first, `(?P<a>\w)(\w)` reported the groups swapped
+  (`span(1)` was `(2, 3)`) and `(?P=a) \2` stopped matching. The C# translation of "the compiler
+  owns numbering" is to stop trusting engine-assigned ids: patterns that name any group are
+  rewritten so each capture group carries its CPython number in a canonical name (`__pN`), and
+  `\N`, `(?P=name)`, `group(n)`, `span(n)`, `start()`, `end()`, `groups()`, `groupdict()`,
+  `findall()` and replacement templates all resolve through that name. `group(0)` is the whole
+  match and is not a canonical name; a group that did not participate now yields `None`, not `''`
+  (CPython `match_group_impl`), and an unknown group name raises plain `IndexError: no such group`.
+  Patterns the scanner does not model (`(?(id)yes|no)` conditionals, `(?#comment)`, unterminated
+  classes) fall back to the plain translation instead of answering with the wrong groups.
+- Perf-harness caveat found while checking p47: `tools/perf_probe.py` flagged `str_fmt +30 %` and
+  `list_comp +35 %` **consistently across interleaved HEAD/build A/B runs**, yet an isolated
+  `%`-formatting loop measured with both binaries alternately five times each showed no difference
+  (means 0.1235 vs 0.1228), and the whole `bench_suite.py` total was unchanged (median 2.900 vs
+  2.869 s, min 2.788 vs 2.800). The change touches only `modules/_SreModule.cs`, which the suite
+  never imports. So per-workload flags at this magnitude are an attribution artifact of
+  single-process, in-process timing plus JIT warm-up, and the arbiters are (a) an isolated
+  workload run against both binaries and (b) the suite total. Do not "fix" a perf_probe flag on
+  its own word; and a repeated flag is *not* automatically noise either - it has to be separated
+  this way.
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
   `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal
