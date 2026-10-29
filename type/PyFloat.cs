@@ -974,6 +974,77 @@ namespace SharpPy
         #region Static Factory Methods
 
         /// <summary>
+        /// CPython 3.12: Objects/floatobject.c:446-560 (PyFloat_FromString) with
+        /// Python/pystrtod.c (_Py_parse_inf_or_nan). The text forms are shared by str and
+        /// every buffer exporter (bytes, bytearray, memoryview). Single underscores are
+        /// allowed only *between* digits (PEP 515) and the parse must not depend on the
+        /// CLR culture, which the CLR double.TryParse otherwise does.
+        /// </summary>
+        internal static bool TryParsePythonText(string text, out double value)
+        {
+            value = 0.0;
+            if (text == null)
+                return false;
+            var trimmed = text.Trim();
+            if (trimmed.Length == 0)
+                return false;
+
+            if (trimmed.IndexOf('_') >= 0)
+            {
+                var clean = new System.Text.StringBuilder(trimmed.Length);
+                for (int i = 0; i < trimmed.Length; i++)
+                {
+                    char c = trimmed[i];
+                    if (c != '_')
+                    {
+                        clean.Append(c);
+                        continue;
+                    }
+                    bool leftDigit = i > 0 && trimmed[i - 1] >= '0' && trimmed[i - 1] <= '9';
+                    bool rightDigit = i + 1 < trimmed.Length && trimmed[i + 1] >= '0' && trimmed[i + 1] <= '9';
+                    if (!leftDigit || !rightDigit)
+                        return false;
+                }
+                trimmed = clean.ToString();
+            }
+
+            string body = trimmed;
+            bool negate = false;
+            if (body[0] == '+' || body[0] == '-')
+            {
+                negate = body[0] == '-';
+                body = body.Substring(1);
+            }
+            string lower = body.ToLowerInvariant();
+            if (lower == "inf" || lower == "infinity")
+            {
+                value = negate ? double.NegativeInfinity : double.PositiveInfinity;
+                return true;
+            }
+            if (lower == "nan")
+            {
+                value = double.NaN;
+                return true;
+            }
+
+            return double.TryParse(trimmed,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out value);
+        }
+
+        /// <summary>
+        /// CPython PyFloat_FromString buffer branch: the failure message reports the
+        /// exporting object, not the decoded characters (float(b'x') says "b'x'").
+        /// </summary>
+        internal static PyFloat FromBufferBytes(byte[] data, PyObject source)
+        {
+            if (TryParsePythonText(System.Text.Encoding.Latin1.GetString(data), out double parsed))
+                return new PyFloat(parsed);
+            throw PyValueError.Create($"could not convert string to float: {source.ToRepr().Value}");
+        }
+
+        /// <summary>
         /// 문자열에서 PyFloat 생성
         /// </summary>
         public static PyFloat FromString(string s)

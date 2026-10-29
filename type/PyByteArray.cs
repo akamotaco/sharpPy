@@ -841,6 +841,9 @@ namespace SharpPy
 
         #region Buffer Protocol
 
+        // CPython 3.12: Objects/floatobject.c PyFloat_FromString accepts any buffer.
+        public override PyFloat AsFloat() => PyFloat.FromBufferBytes(ToByteArrayCopy(), this);
+
         public override PyMemoryView GetBuffer(int flags)
         {
             return PyMemoryView.FromByteArray(this);

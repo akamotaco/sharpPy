@@ -1143,11 +1143,15 @@ namespace SharpPy
         private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: float() with no args returns 0.0
+            // CPython float_new has no keyword parameters at all.
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("float() takes no keyword arguments");
+
             if (args.Length == 0)
                 return new PyFloat(0.0);
 
             if (args.Length != 1)
-                throw PyTypeError.Create($"float expected at most 1 argument ({args.Length} given)");
+                throw PyTypeError.Create($"float expected at most 1 argument, got {args.Length}");
 
             return args[0].AsFloat();
         }

@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **48/48 matching**
+- `tools/run_bughunt.py`: **49/49 matching**
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
@@ -38,14 +38,20 @@ genuine computation/result divergences and are worked first.
 | P0-15 | `memoryview` hash guard | `hash(memoryview(b"ab").cast("I"))` returns a CLR number; CPython raises `ValueError: memoryview: hashing is restricted to formats 'B', 'b' or 'c'`. Needs a Python-level hash hook (CLR `GetHashCode` must not throw) | p42 measured |
 | P0-8 | `io.TextIOWrapper(buffer, encoding=…)` | wrapping an existing stream with an encoding not supported | io follow-up |
 | P0-9 | importlib semantics | custom loader/spec beyond `__file__`; namespace-package behavior | p15/p18 follow-up |
-| P0-10 | numeric-coercion dunders | `int(C())`/`float(C())` with `__int__`/`__index__`/`__float__` raise `TypeError: ... not 'C'`; CPython calls the dunder (`int()` = `__index__` then `__int__`, `float()` = `__float__`). `AsInt()` is a CLR cast, not dunder dispatch. `__index__` dispatch already exists via `PyObject.TryGetIndex` | p36 finding |
+| P0-16 | `float` subclass payload | `class FSub(float)` instances carry no float value: `repr(FSub(2.5))` → `<__main__.FSub object at 0x…>` (CPython `'2.5'`), `FSub(2.5) + 1` → `TypeError: unsupported operand type(s) for +: 'FSub' and 'int'`, `FSub(2.5) == 2.5` → `False`, `float(FSub(2.5))` → `TypeError`. `int`/`str` subclasses work because `PyIntSubclass`/`PyStrSubclass` exist; there is no `PyFloatSubclass` | p44 measured |
 
 Suggested order (risk × effort, cheapest real-computation wins first):
-**P0-10** (`int()`/`float()`
-dunder dispatch; `__index__` already exists) → **P0-4** (`memoryview.__eq__`, with P0-15
-attached) → **P0-2** (`(?P=name)` hybrid-engine result) → **P0-14** (33 bytearray methods,
-mechanical families) → P0-8 / P0-9 (each needs a real feature: stream wrapping, loader
-protocol). P0-5 needs the static-`type` architecture decision and is deliberately last.
+**P0-4** (`memoryview.__eq__`, with P0-15 attached) → **P0-2** (`(?P=name)` hybrid-engine
+result) → **P0-16** (`PyFloatSubclass`, mirroring the existing `PyIntSubclass`) →
+**P0-14** (33 bytearray methods, mechanical families) → P0-8 / P0-9 (each needs a real
+feature: stream wrapping, loader protocol). P0-5 needs the static-`type` architecture
+decision and is deliberately last.
+
+Deprecated-path residuals (deliberately unimplemented; newer CPython removes them):
+`int()` delegation to `__trunc__` (CPython emits
+`DeprecationWarning: The delegation of int() to __trunc__ is deprecated.` then returns the
+value), and `__int__`/`__float__` returning a *strict* subclass (CPython warns, SharpPy
+accepts silently).
 
 > API convention (enforced going forward): `To~()` → bounded **C#** value
 > (`ToInt`→int, `ToFloat`→double, `ToBool`→bool); `As~()` → **Python** type
@@ -86,6 +92,25 @@ protocol). P0-5 needs the static-`type` architecture decision and is deliberatel
 - `dir(list)` / `dir(tuple)` content sets (p34).
 - `int(float)` big values (e.g. `int(1e17)`, `int(1e30)`) → BigInteger truncation
   toward zero with CPython NaN/inf messages (p35).
+- Numeric coercion dunders now follow `Objects/abstract.c`. `PyNumber_Long` order is
+  exact-int → **`nb_int` (`__int__`) → `nb_index` (`__index__`)** → float → str/bytes, and
+  `PyNumber_Float` is **`nb_float` → `nb_index`** and never `__int__` (measured on the same
+  object: `int(Both()) == 70`, `float(Both()) == 30.0`). The earlier ledger note had the
+  `int()` order backwards; the C source and the measurement agree that `__int__` wins.
+  Validation texts are CPython's: `__int__ returned non-int (type X)`,
+  `{Type}.__float__ returned non-float (type X)` (prefixed with the object's own type), and
+  `bool` / int-subclass results are accepted because `PyLong_Check` covers them.
+  SharpPy implements native `nb_int`/`nb_float` as CLR virtuals, so the user-class half
+  lives in `PyClassInstance.AsInt/AsFloat` (p44).
+- `float()` fixed at the same entry point: it rejects keywords
+  (`float() takes no keyword arguments` — `float(x=1)` used to return `0.0`), its arity text
+  is `float expected at most 1 argument, got N`, and every buffer form parses as text
+  (`float(b"2.25")`, `bytearray`, `memoryview`) with CPython's message that reports the
+  **object** (`could not convert string to float: b'x'`). The shared parser
+  (`PyFloat.TryParsePythonText`) accepts PEP 515 underscores only between digits
+  (`1e1_0` → 1e10; `_1`, `1__0`, `1_`, `1._5` rejected) and parses with the invariant
+  culture instead of the machine locale. Huge `__index__` results keep raising
+  `int too large to convert to float` instead of returning infinity (p44).
 - Metaclass `__str__`/`__repr__` now govern class objects: `PyType.ToRepr/AsString` walk the
   metaclass MRO and stop at `type`/`object` (whose slots *are* the default `type_repr`).
   `str(C)`, `repr(C)`, `f"{C}"`, `format(C)`, `"%s" % C`, `print(C)`, `[C]`, `{C: 1}` and

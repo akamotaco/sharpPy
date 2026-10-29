@@ -600,6 +600,10 @@ namespace SharpPy
             }
         }
         public bool ReadOnly { get { CheckReleased(); return _readonly; } }
+        // CPython 3.12: Objects/floatobject.c PyFloat_FromString exports the buffer and
+        // parses it as text; the failure message names the view object.
+        public override PyFloat AsFloat() => PyFloat.FromBufferBytes(Data, this);
+
         public int ItemSize { get { CheckReleased(); return _itemsize; } }
 
         public override PyType GetPyType() => PyType.MemoryViewType;

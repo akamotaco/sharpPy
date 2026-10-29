@@ -2961,8 +2961,9 @@ namespace SharpPy
                 }
             }
 
-            // Standard numeric parsing
-            if (double.TryParse(trimmed, out double result))
+            // Standard numeric parsing (shared with the buffer forms: PEP 515
+            // underscores and culture-independent digits follow CPython, not CLR).
+            if (PyFloat.TryParsePythonText(trimmed, out double result))
                 return result;
 
             throw PyValueError.Create($"could not convert string to float: '{Value}'");

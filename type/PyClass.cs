@@ -2203,6 +2203,57 @@ namespace SharpPy
             deleteMethod.Call(new PyObject[] { instance }, null);
         }
 
+        // CPython Objects/abstract.c PyNumber_Long: the nb_int slot (a class __int__) is
+        // consulted **before** nb_index, and its result must be an int. SharpPy implements
+        // native nb_int/nb_float as CLR virtuals on the builtin types, so a user class's
+        // numeric coercion belongs in this override.
+        public override PyInt AsInt()
+        {
+            var asIntMethod = LookupSpecialMethodUncached("__int__");
+            if (asIntMethod != null)
+            {
+                var result = BindSpecialMethod(asIntMethod).Call(Array.Empty<PyObject>(), null);
+                // CPython accepts anything PyLong_Check covers, which includes bool and
+                // int subclasses (it only warns for strict subclasses).
+                if (result is PyInt or PyBool)
+                    return result is PyInt exact ? exact : new PyInt(((PyBool)result).Value ? 1 : 0);
+                throw PyTypeError.Create($"__int__ returned non-int (type {result.GetTypeName()})");
+            }
+
+            var viaIndex = TryGetIndex(this);
+            if (viaIndex != null)
+                return viaIndex;
+
+            throw PyTypeError.Create(
+                $"int() argument must be a string, a bytes-like object or a real number, not '{GetTypeName()}'");
+        }
+
+        // CPython Objects/abstract.c PyNumber_Float: nb_float, then nb_index. __int__ is
+        // deliberately not consulted - measured float(Both()) == 30.0 while int(Both())
+        // == 70 for the same object, and PyFloat.FromNumber keeps the arbitrary-precision
+        // overflow rule (int too large to convert to float).
+        public override PyFloat AsFloat()
+        {
+            var asFloatMethod = LookupSpecialMethodUncached("__float__");
+            if (asFloatMethod != null)
+            {
+                var result = BindSpecialMethod(asFloatMethod).Call(Array.Empty<PyObject>(), null);
+                if (result is PyFloat asFloat)
+                    return asFloat;
+                throw PyTypeError.Create(
+                    $"{GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
+            }
+
+            var viaIndex = TryGetIndex(this);
+            if (viaIndex != null)
+                // Go through PyInt.AsFloat, which owns the arbitrary-precision overflow
+                // rule; a plain (double) cast would return infinity instead of raising.
+                return viaIndex.AsFloat();
+
+            throw PyTypeError.Create(
+                $"float() argument must be a string or a real number, not '{GetTypeName()}'");
+        }
+
         public override PyString ToRepr()
         {
             // CPython PyObject_Repr: __repr__를 찾으면 호출하고 그 안에서 발생한 예외는

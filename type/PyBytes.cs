@@ -1804,6 +1804,10 @@ namespace SharpPy
 
         #region Buffer Protocol (PEP 688)
 
+        // CPython 3.12: Objects/floatobject.c PyFloat_FromString accepts any buffer, so
+        // float(b'1.5') is a text conversion, not a type error.
+        public override PyFloat AsFloat() => PyFloat.FromBufferBytes(Value, this);
+
         /// <summary>
         /// PEP 688: bytes objects implement the buffer protocol
         /// </summary>

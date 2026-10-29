@@ -796,6 +796,18 @@ namespace SharpPy
                 return PyBuiltinFunction.CallBytes(args, kwargs);
             }
 
+            // CPython 3.12: Objects/floatobject.c float_new forwards to PyNumber_Float and
+            // declares no keyword parameters. Routing here keeps float() on the same slot
+            // order as any other conversion (nb_float → nb_index → text form).
+            if (ReferenceEquals(this, FloatType))
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("float() takes no keyword arguments");
+                if (args.Length > 1)
+                    throw PyTypeError.Create($"float expected at most 1 argument, got {args.Length}");
+                return args.Length == 0 ? new PyFloat(0.0) : args[0].AsFloat();
+            }
+
             // 예외 타입들에 대한 특별 처리
             string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
 
