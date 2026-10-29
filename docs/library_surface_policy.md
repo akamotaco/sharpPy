@@ -124,3 +124,34 @@
    `io.UnsupportedOperation` 계열).
 3. `_io` 모듈에 native 타입을 추가하는 것(`PyStringIO`/`PyBytesIO`)은 별도 판단: 그러면 Python 클래스와
    두 경로가 생기므로, 하려면 Python 쪽을 지우고 re-export로 바꿔야 한다(중경로 유지 금지).
+
+## 왜 B(C# `_io` in-memory stream)인가 — 측정된 근거 (2026-10-29)
+
+사용자 판단은 "퍼포먼스 차이가 있을 것"이었고, 측정이 이를 확인했다. 정규화 기준은 SharpPy own
+인터프리터 갭(baseline_int_loop)이다.
+
+| workload | CPython 3.12.15 | SharpPy | 배수 |
+|---|---|---|---|
+| baseline_int_loop (20만 회 누적) | 6.9 ms | 96.3 ms | **14x** |
+| `StringIO.write` 20만 회 | 7.0 ms | **12,318 ms** | **1,760x** |
+| `StringIO.readline` 2만 회 | 1.0 ms | 112.6 ms | 113x |
+| `StringIO` 반복 (`for line in buf`) | 0.9 ms | **TypeError: 'StringIO' object is not iterable** | 기능 부재 |
+
+- 인터프리터 일반 갭이 14배인데 `StringIO.write`는 1,760배다. 즉 **Python 레이어가 얹는 추가 비용이
+  약 125배**(1760/14). C# 타입으로 옮기면 이 배수가 사라진다.
+- `readline`도 113배로 baseline보다 8배 나쁘다.
+- 반복 자체는 **아예 동작하지 않는다**(`__iter__`/`__next__` 부재). `for line in io.StringIO(...)`는
+  흔한 관용구다.
+
+### 실행 순서 (각 단계 회귀 필수)
+
+- **B1**: `modules/IoModule.cs`에 C# `_io._IOBase` / `_io._TextIOBase` / `_io._BufferedIOBase`.
+  `isinstance(io.StringIO("a"), io.TextIOBase)` 와 `io.IOBase` 관계가 CPython에서 True이므로
+  (측정) 상속 관계从这里 생긴다.
+- **B2**: `PyStringIO` (newline 변환 포함) → `Lib/io.py`의 `StringIO` 93줄 삭제.
+- **B3**: `PyBytesIO` → `BytesIO` 104줄 삭제.
+- **B4**: `Lib/io.py` 슬림화 — `io.py:271-272`의 `__module__ = '_io'` 사칭 삭제, CPython과 같은
+  re-export 형태로. `_io.open` / `_io.BlockingIOError` / `_io.DEFAULT_BUFFER_SIZE` 도 이 기회에 채운다.
+
+회귀 게이트: `tools/run_bughunt.py`, `tools/evaluate.py`, `.artifacts/tmp/iobench.py` 재측정,
+`Lib/json`(StringIO 사용자) 확인, 타입/io semantics 변경이므로 **Godot replay**.
