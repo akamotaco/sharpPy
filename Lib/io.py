@@ -14,7 +14,8 @@ import abc
 # type objects here keeps isinstance(open(f), io.TextIOWrapper) true and gives the
 # "_io" __module__ in reprs.
 from _io import (
-    TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair, BufferedRandom,
+    StringIO, TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair,
+    BufferedRandom,
     FileIO, IncrementalNewlineDecoder, UnsupportedOperation, text_encoding, open_code,
 )
 from builtins import BlockingIOError, open
@@ -103,98 +104,10 @@ class TextIOBase(IOBase):
 
 
 # String I/O implementation
-class StringIO(TextIOBase):
-    """Text I/O implementation using an in-memory string buffer."""
-
-    def __init__(self, initial_value=""):
-        super().__init__()
-        self._buffer = initial_value
-        self._pos = 0
-
-    def getvalue(self):
-        """Return the entire contents of the StringIO."""
-        return self._buffer
-
-    def read(self, size=-1):
-        """Read and return at most size characters."""
-        if size is None or size < 0:
-            result = self._buffer[self._pos:]
-            self._pos = len(self._buffer)
-        else:
-            result = self._buffer[self._pos:self._pos + size]
-            self._pos += len(result)
-        return result
-
-    def readline(self, size=-1):
-        """Read until newline or EOF."""
-        start = self._pos
-        if size is None or size < 0:
-            # Read until newline or end
-            newline_pos = self._buffer.find('\n', start)
-            if newline_pos == -1:
-                result = self._buffer[start:]
-                self._pos = len(self._buffer)
-            else:
-                result = self._buffer[start:newline_pos + 1]
-                self._pos = newline_pos + 1
-        else:
-            # Read up to size characters or until newline
-            end = min(start + size, len(self._buffer))
-            newline_pos = self._buffer.find('\n', start, end)
-            if newline_pos == -1:
-                result = self._buffer[start:end]
-                self._pos = end
-            else:
-                result = self._buffer[start:newline_pos + 1]
-                self._pos = newline_pos + 1
-        return result
-
-    def write(self, s):
-        """Write string s to the stream."""
-        if not isinstance(s, str):
-            raise TypeError("a str object is required")
-
-        # Insert at current position, extending buffer if necessary
-        before = self._buffer[:self._pos]
-        after = self._buffer[self._pos + len(s):]
-        self._buffer = before + s + after
-        self._pos += len(s)
-        return len(s)
-
-    def seek(self, pos, whence=0):
-        """Change stream position."""
-        if whence == 0:  # SEEK_SET
-            new_pos = pos
-        elif whence == 1:  # SEEK_CUR
-            new_pos = self._pos + pos
-        elif whence == 2:  # SEEK_END
-            new_pos = len(self._buffer) + pos
-        else:
-            raise ValueError("whence must be 0, 1, or 2")
-
-        if new_pos < 0:
-            new_pos = 0
-
-        self._pos = new_pos
-        return self._pos
-
-    def tell(self):
-        """Return current stream position."""
-        return self._pos
-
-    def readable(self):
-        """Return whether object supports reading."""
-        return True
-
-    def writable(self):
-        """Return whether object supports writing."""
-        return True
-
-    def seekable(self):
-        """Return whether object supports seeking."""
-        return True
-
-
+# StringIO is the native _io.StringIO (core/PyStringIO.cs, the counterpart of
+# Modules/_io/stringio.c). The python stand-in that used to live here is gone: under the
+# library rule a C-only implementation is replaced in C#, and the native type is also what
+# gives StringIO its _TextIOBase -> _IOBase chain and its real _io identity.
 # Bytes I/O implementation
 class BytesIO(BufferedIOBase):
     """Buffered I/O implementation using an in-memory bytes buffer."""
@@ -267,8 +180,7 @@ class BytesIO(BufferedIOBase):
         return True
 
 
-# CPython reports these concrete in-memory types as belonging to _io.
-StringIO.__module__ = '_io'
+# CPython reports this concrete in-memory type as belonging to _io.
 BytesIO.__module__ = '_io'
 
 
