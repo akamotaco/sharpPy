@@ -188,6 +188,24 @@ accepts silently).
   Fixing this centrally (a `PyLong_Check`-style "self may be an instance" test plus materializing
   the special-method slots that `round`/`hash` need) is likely to close more remaining P0s than any
   further per-type work, and it also unblocks the P0-16 residuals and P1-8.
+- P0-18 increment 1 (commit 23cd41d): 9 exact `self is PyInt` gates in `type/PyInt.cs` now go
+  through `PyInt.TryLongSelf`, which is the CLR form of `PyLong_Check` (accept the subclass, read
+  the stored value). `I(8).bit_length()`, `I(5).real/.imag/.numerator/.denominator`, etc. match.
+  P0-18 increment 2 (this commit): same treatment for `type/PyFloat.cs` via `PyFloat.TryFloatSelf`.
+  That closed `format(FSub(2.5), '.2f')`, `f"{x:.2f}"`, `x.is_integer()`, `x.as_integer_ratio()`,
+  `x.hex()` - the float matrix went from 34 divergent lines to 22 (51 cases).
+  Still open in P0-18, measured: reflected operators (`1 + I(5)`, `1 + FSub(2.5)`), `round` on
+  builtin subclasses, `abs(FSub)`, `"%.3f" % FSub`, `hash(FSub(2.5)) == hash(2.5)`, list-subclass
+  `repr`, and `format(Bs(b'ab'), '>4')` naming `bytes.__format__` instead of `Bs.__format__`.
+- Unexplained, recorded rather than smoothed over: while extending the P0-18 probe with the float
+  cases, the combined probe made **both** engines abort on `FSub(10 ** 400)` (CPython printed the
+  same `EXC OverflowError ...` line first, then its own traceback), and after removing that case
+  SharpPy additionally emitted an unhandled traceback at the last case (`x.no_such`) although the
+  identical statement is caught and printed in `tests/bughunt/p48_float_subclass.py`. Same source
+  line, two outcomes depending on surrounding file state. That is a candidate real defect in
+  exception-state handling, but I do not have a minimal reproducer yet, so it is not numbered as a
+  P0; the float probe extension is deferred until it does. Do not read the 54/54 bughunt pass as
+  covering this.
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
   `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal
