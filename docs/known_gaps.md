@@ -171,6 +171,23 @@ accepts silently).
     (d) `hash(FSub(2.5)) == hash(2.5)` is `False`, so `{2.5: 'v'}[FSub(2.5)]` raises `KeyError` and
     `len({FSub(2.5), 2.5})` is 2 - `__hash__` is not resolvable through the MRO for `float`, which is
     the same non-materialized-slot gap as P1-8, not something the subclass type can fix alone.
+- **P0-18 (new, measured): builtin-subclass handling is systemic, not per-type.** A fresh 18-case
+  probe of one theme (`class I(int) / S(str) / Bs(bytes) / L(list)`) produced 5 divergences across 4
+  builtin types, none previously numbered:
+  * `I(8).bit_length()` -> `descriptor 'bit_length' requires a 'int' object but received a 'I'`
+    while CPython's `PyLong_Check` accepts subclasses; every builtin method descriptor that
+    validates `self` with an exact CLR type test has this bug (this is the same shape as the float
+    residuals in P0-16 and the `%b` bytes-subclass case).
+  * `1 + I(5)` -> `unsupported operand type(s) for +: 'int' and 'I'` and `round(I(5))` ->
+    `type I doesn't define __round__ method`. So the reflected-operator and special-method
+    reachability gaps are **not** float-specific; `PyIntSubclass` has them too.
+  * `format(Bs(b"ab"), ">4")` names the wrong class - CPython says
+    `unsupported format string passed to Bs.__format__`, SharpPy says `bytes.__format__`.
+  * `repr(L([1, 2]))` -> `<__main__.L object at 0x...>` instead of `[1, 2]`, i.e. a `list`
+    subclass has the same "no value surface" shape as P0-16 even though `len()`/`reversed()` work.
+  Fixing this centrally (a `PyLong_Check`-style "self may be an instance" test plus materializing
+  the special-method slots that `round`/`hash` need) is likely to close more remaining P0s than any
+  further per-type work, and it also unblocks the P0-16 residuals and P1-8.
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
   `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal
