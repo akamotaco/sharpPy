@@ -808,6 +808,14 @@ namespace SharpPy
                 return args.Length == 0 ? new PyFloat(0.0) : args[0].AsFloat();
             }
 
+            // CPython float_subtype_new: constructing a float subclass produces a float object
+            // whose type slot is the subclass, so value semantics survive. Passing this through
+            // the ordinary instance path used to leave the object with no value at all.
+            if (DerivesFromType(FloatType) && this is PyClass floatSubclass)
+            {
+                return PyFloatSubclass.FloatSubtypeNew(floatSubclass, args, kwargs);
+            }
+
             // 예외 타입들에 대한 특별 처리
             string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
 

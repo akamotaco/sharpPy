@@ -38,10 +38,10 @@ genuine computation/result divergences and are worked first.
 
 | P0-8 | `io.TextIOWrapper(buffer, encoding=…)` | wrapping an existing stream with an encoding not supported | io follow-up |
 | P0-9 | importlib semantics | custom loader/spec beyond `__file__`; namespace-package behavior | p15/p18 follow-up |
-| P0-16 | `float` subclass payload | `class FSub(float)` instances carry no float value: `repr(FSub(2.5))` → `<__main__.FSub object at 0x…>` (CPython `'2.5'`), `FSub(2.5) + 1` → `TypeError: unsupported operand type(s) for +: 'FSub' and 'int'`, `FSub(2.5) == 2.5` → `False`, `float(FSub(2.5))` → `TypeError`. `int`/`str` subclasses work because `PyIntSubclass`/`PyStrSubclass` exist; there is no `PyFloatSubclass` | p44 measured |
+| P0-16 (partial, p48) | `float` subclass payload | `class FSub(float)` instances carry no float value: `repr(FSub(2.5))` → `<__main__.FSub object at 0x…>` (CPython `'2.5'`), `FSub(2.5) + 1` → `TypeError: unsupported operand type(s) for +: 'FSub' and 'int'`, `FSub(2.5) == 2.5` → `False`, `float(FSub(2.5))` → `TypeError`. `int`/`str` subclasses work because `PyIntSubclass`/`PyStrSubclass` exist; there is no `PyFloatSubclass` | p44 measured |
 
 Suggested order (risk × effort, cheapest real-computation wins first):
-**P0-16** (`PyFloatSubclass`, mirroring the existing `PyIntSubclass`) →
+**P0-16 residuals** (reflected ops / `abs` / float descriptor self-check / hash) →
 **P0-14** (33 bytearray methods, mechanical families) → P0-8 / P0-9 (each needs a real
 feature: stream wrapping, loader protocol). P0-5 needs the static-`type` architecture
 decision and is deliberately last.
@@ -134,6 +134,43 @@ accepts silently).
   workload run against both binaries and (b) the suite total. Do not "fix" a perf_probe flag on
   its own word; and a repeated flag is *not* automatically noise either - it has to be separated
   this way.
+- **P0-16 partially fixed (p48)**: added `type/PyFloatSubclass.cs` and routed float-derived
+  classes through it. CPython `float_new` does
+  `if (type == &PyFloat_Type) {...plain float...} return float_subtype_new(type, args, kwds);`, and
+  `float_subtype_new` converts with `PyNumber_Float` *first*, then copies `ob_fval` into the
+  subclass instance. Before this, `class FSub(float)` produced an ordinary object with **no value**:
+  `repr(FSub(2.5))` was `<__main__.FSub object at 0x...>`, `FSub(2.5) + 1` raised `TypeError`,
+  `FSub(2.5) == 2.5` was `False`, `float(FSub(2.5))` raised. `repr`/`str`/`+ - * / // % **` /
+  comparisons / `bool` / `int()` / `float()` (exact `float`) / a custom `__dict__` now match
+  CPython; 33 of 51 measured cases agree.
+  Two structural findings while wiring it:
+  * `PyClass.CreateInstance` is declared `public new`, **hiding** `PyType.CreateInstance` rather
+    than overriding it, so the receiver's static type decides which implementation runs. That is why
+    the first attempt (a branch in `PyType.CreateInstance`) never fired. Both entry points now call
+    one helper, `PyFloatSubclass.FloatSubtypeNew`, because both are genuinely reachable.
+  * Remaining divergences, all in existing dispatch gaps rather than in the subclass type itself:
+    (a) reflected binary ops and `abs` - `1 + FSub(2.5)` raises `unsupported operand type(s) for +:
+    'int' and 'FSub'` and `abs(FSub(2.5))` raises `bad operand type for abs(): 'FSub'`, i.e. the
+    numeric fast paths recognize `PyIntSubclass` but not `PyFloatSubclass`;
+    (b) float's own descriptors refuse subclass instances - `format(x, '.2f')`, `x.is_integer()`,
+    `x.as_integer_ratio()`, `x.hex()` all raise
+    `descriptor 'NAME' requires a 'float' object but received a 'FSub'`, while CPython's
+    `PyFloat_Check` accepts subclasses (same class of bug as `%b` bytes subclasses and the `upper`
+    case); a central "self-check accepts instances" rule would close these and should be measured
+    against int/str/bytes descriptors before changing;
+    (c) argument validation on the subclass path is still not enforced: CPython says
+    `FSub(x=1)` -> `float() takes no keyword arguments` and `FSub(1, 2)` ->
+    `float expected at most 1 argument, got 2`, while SharpPy accepts both (`FSub(1, 2)` answers
+    `1.0`). The guard exists in `PyFloatSubclass.FloatSubtypeNew` but neither `CreateInstance`
+    entry point is reached for those calls, which is the third evidence that user-class calls have
+    more than one dispatch route; finding the real route is the first task when this resumes.
+    Related, same family: a user `__new__` that calls `float.__new__(cls, v)` fails with
+    `type.__new__() takes exactly 4 arguments (metaclass, name, bases, dict)`, so `float.__new__`
+    is not materialized as a usable slot, and `round(FSub(2.5))` says
+    `type FSub doesn't define __round__ method`.
+    (d) `hash(FSub(2.5)) == hash(2.5)` is `False`, so `{2.5: 'v'}[FSub(2.5)]` raises `KeyError` and
+    `len({FSub(2.5), 2.5})` is 2 - `__hash__` is not resolvable through the MRO for `float`, which is
+    the same non-materialized-slot gap as P1-8, not something the subclass type can fix alone.
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
   `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal

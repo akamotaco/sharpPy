@@ -242,6 +242,25 @@ namespace SharpPy
             // CPython 3.12: Objects/typeobject.c:1667
             var newMethod = LookupInMRO("__new__");
 
+            // CPython 3.12: Objects/floatobject.c float_new
+            //   if (type == &PyFloat_Type) { ...plain float... }
+            //   return float_subtype_new(type, args, kwds);
+            // and float_subtype_new converts the argument with PyNumber_Float, allocates the
+            // subclass, then copies ob_fval - so a float subclass instance carries the value.
+            // Only when the class does not define its own __new__; a user __new__ is a real
+            // slot and must run (it may call float.__new__(cls, ...) itself).
+            if (DerivesFromType(FloatType) && (newMethod is PyStaticBuiltinMethod
+                                            || newMethod is PyBuiltinMethod
+                                            || newMethod is PyMethodDescriptor
+                                            || newMethod is PyBuiltinFunction))
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create(
+                        "float.__new__() takes exactly one argument (the type to instantiate)");
+                var floatValue = args.Length == 0 ? new PyFloat(0.0) : args[0].AsFloat();
+                return new PyFloatSubclass(this, floatValue);
+            }
+
             PyObject instance;
             if (newMethod != null)
             {
