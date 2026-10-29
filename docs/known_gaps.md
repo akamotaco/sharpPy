@@ -30,6 +30,7 @@ genuine computation/result divergences and are worked first.
 |---|---|---|---|
 | P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
 | P0-3 | bytes/bytearray argcheck | `b"…".find(b"c", "x")` / `count` / `index` silently ignore a non-integer start/stop; CPython → `TypeError: slice indices must be integers or None or have an __index__ method` (bool/None must still work) | p32 note |
+| P0-11 | bytearray argcheck + missing methods | `bytearray.find/count/index` still ignore non-int start/stop, and `bytearray.count` raises `AttributeError` (missing). Reuse `PyBytes.BytesIndex`; port validation + add `count`/`index` to `PyByteArray` | p38 finding |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
 | P0-6 | `memoryview.cast` endian | `>`/`!` (big-endian) prefix accepted but not byte-swapped → wrong element values (rare; host is LE) | p33 |
@@ -73,3 +74,6 @@ genuine computation/result divergences and are worked first.
 - `dir(list)` / `dir(tuple)` content sets (p34).
 - `int(float)` big values (e.g. `int(1e17)`, `int(1e30)`) → BigInteger truncation
   toward zero with CPython NaN/inf messages (p35).
+- `bytes.find/count/index/rfind/rindex` now validate start/stop via `__index__`
+  (int/bool/None ok, else CPython `TypeError`) across all 7 idiom sites (p38).
+- `AsString()` → renamed `ToClrString()` so `As~`=Python / `To~`=C# holds (p37).

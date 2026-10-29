@@ -300,10 +300,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -347,10 +345,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -467,10 +463,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -508,10 +502,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -674,10 +666,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -721,10 +711,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -768,10 +756,8 @@ namespace SharpPy
                     int start = 0;
                     int end = bytes.Value.Length;
 
-                    if (args.Length >= 2 && args[1] is PyInt startInt)
-                        start = (int)startInt.Value;
-                    if (args.Length >= 3 && args[2] is PyInt endInt)
-                        end = (int)endInt.Value;
+                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
+                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
 
                     // Normalize indices
                     if (start < 0) start += bytes.Value.Length;
@@ -2502,6 +2488,17 @@ namespace SharpPy
             if (arg is PyBool pb) { value = pb.Value ? 1 : 0; return true; }
             value = 0;
             return false;
+        }
+
+        // CPython bytes find/count/index start/stop: accept int, bool, or __index__;
+        // anything else -> TypeError. None is filtered by the caller (means default).
+        internal static int BytesIndex(PyObject arg)
+        {
+            if (TryGetIntArg(arg, out var v)) return (int)v;
+            var idx = PyObject.TryGetIndex(arg);
+            if (idx == null)
+                throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
+            return (int)idx.Value;
         }
 
         private static bool TryGetRealArg(PyObject arg, out double value)
