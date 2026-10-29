@@ -1809,8 +1809,8 @@ namespace SharpPy
         /// </summary>
         public override PyMemoryView GetBuffer(int flags)
         {
-            // bytes objects are read-only buffers
-            return new PyMemoryView(Value, true);
+            // bytes objects are read-only buffers; memoryview.obj reports this object.
+            return new PyMemoryView(Value, true, 1, this);
         }
 
         /// <summary>

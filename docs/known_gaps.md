@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **46/46 matching**
+- `tools/run_bughunt.py`: **47/47 matching**
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
@@ -35,19 +35,17 @@ genuine computation/result divergences and are worked first.
 | P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
-| P0-6 | `memoryview.cast` endian | Inverted from the first note: CPython **rejects** `cast(">I")` / `cast("!I")` with `memoryview: destination format must be a native single character format prefixed with an optional '@'`, while SharpPy accepts them and returns wrong values (`memoryview(b"\x01\x00\x00\x00").cast(">I").tolist()` → `[1]`). Fix = accept only `@`/`=`/`<` | p33, re-measured |
-| P0-7 | N-D memoryview | `cast(fmt, shape)` with ndim > 1 not modelled (flat view only) | p33 |
+| P0-15 | `memoryview` hash guard | `hash(memoryview(b"ab").cast("I"))` returns a CLR number; CPython raises `ValueError: memoryview: hashing is restricted to formats 'B', 'b' or 'c'`. Needs a Python-level hash hook (CLR `GetHashCode` must not throw) | p42 measured |
 | P0-8 | `io.TextIOWrapper(buffer, encoding=…)` | wrapping an existing stream with an encoding not supported | io follow-up |
 | P0-9 | importlib semantics | custom loader/spec beyond `__file__`; namespace-package behavior | p15/p18 follow-up |
 | P0-10 | numeric-coercion dunders | `int(C())`/`float(C())` with `__int__`/`__index__`/`__float__` raise `TypeError: ... not 'C'`; CPython calls the dunder (`int()` = `__index__` then `__int__`, `float()` = `__float__`). `AsInt()` is a CLR cast, not dunder dispatch. `__index__` dispatch already exists via `PyObject.TryGetIndex` | p36 finding |
 
 Suggested order (risk × effort, cheapest real-computation wins first):
-**P0-6** (reject `>`/`!` prefixes — a guard, ~lines) → **P0-12** (metaclass `__str__`/
-`__repr__` for class objects) → **P0-10** (`int()`/`float()` dunder dispatch; `__index__`
-already exists) → **P0-4** (`memoryview.__eq__`) → **P0-2** (`(?P=name)` hybrid-engine
-result) → **P0-14** (33 bytearray methods, mechanical families) → P0-7 / P0-8 / P0-9
-(each needs a real feature: N-D buffers, stream wrapping, loader protocol). P0-5 needs the
-static-`type` architecture decision and is deliberately last.
+**P0-12** (metaclass `__str__`/`__repr__` for class objects) → **P0-10** (`int()`/`float()`
+dunder dispatch; `__index__` already exists) → **P0-4** (`memoryview.__eq__`, with P0-15
+attached) → **P0-2** (`(?P=name)` hybrid-engine result) → **P0-14** (33 bytearray methods,
+mechanical families) → P0-8 / P0-9 (each needs a real feature: stream wrapping, loader
+protocol). P0-5 needs the static-`type` architecture decision and is deliberately last.
 
 > API convention (enforced going forward): `To~()` → bounded **C#** value
 > (`ToInt`→int, `ToFloat`→double, `ToBool`→bool); `As~()` → **Python** type
@@ -65,6 +63,7 @@ static-`type` architecture decision and is deliberately last.
 | P1-1 | builtin dunder materialization | `dir(int/bool/float/set/str/bytes)` missing their concrete dunders/methods, and they are not `getattr`-able (`hasattr(int,'__index__')` False). Implicit `+`,`//`,`round`,etc. all work. **Prereq: a public, frame-free binary/number dispatch bridge** (`PyVM.ExecuteBinaryOpType` is private today). Counts: int/bool 12, str 5, float 28, set 15, bytes 54 | p34 |
 | P1-2 | dict structural dunders | `dir(dict)` and `dict.__iter__/__len__/__contains__/__reversed__` (attribute path) missing. **Prereq: `PyClassInstance.GetDictStorage()`** — adding them without it recurses through the virtual `GetIterator()` (crash on `collections.OrderedDict`). `dir(list)`/`dir(tuple)` are done (p34) | p34 |
 | P1-3 | descriptor classification | `list.__len__` reported as `method_descriptor`; CPython → `wrapper_descriptor` (slot). Bound forms similarly | p27 |
+| P1-8 | `memoryview` slot wrappers | `hasattr(memoryview(b"a"), '__eq__' / '__ne__' / '__hash__' / '__buffer__')` is False; CPython True. `__getitem__`/`__setitem__`/`__len__` are materialized (p42); the comparison/hash trio is deferred because exposing `__eq__` descriptors has broken CLR dispatch before (p22 lesson) | p42 |
 | P1-4 | legacy object repr | `object.__eq__` repr → `<wrapper_descriptor object at 0x…>`; CPython → `<slot wrapper '__eq__' of 'object' objects>` (new descriptors are already correct) | p34 |
 | P1-5 | global `super` | `super` global is a `builtin_function_or_method`; CPython `super` is a real `type` → `super.__module__`, `type(super)`, class-attribute descriptor behavior differ (instances `super(C, x)` are correct since p24) | p24/p26 |
 | P1-6 | iterator MRO | `type(iter([])).__bases__`/`__mro__` show `iterator` as base; CPython families derive directly from `object` | p25 |
@@ -86,6 +85,21 @@ static-`type` architecture decision and is deliberately last.
 - `dir(list)` / `dir(tuple)` content sets (p34).
 - `int(float)` big values (e.g. `int(1e17)`, `int(1e30)`) → BigInteger truncation
   toward zero with CPython NaN/inf messages (p35).
+- `memoryview.cast` now follows `memory_cast`: only a native single struct character with
+  an optional `@` (so `=`, `<`, `>`, `!` are rejected as CPython does), `format`/`shape`
+  keywords, `argument for cast() given by name ('format') and position (1)`, `cast() takes
+  at most 2 arguments (N given)`, `cast() missing required argument 'format' (pos 1)`,
+  `cast() argument 'format' must be str, not X` (with CPython's `None` spelling), and shape
+  validation (`elements of shape must be integers` / `... > 0` / `shape must be a list or a
+  tuple`).
+- Real **N-D memoryviews**: `cast(fmt, shape)` builds row-major views with correct `ndim`,
+  `shape`, `strides` (`(8, 4)` for a 2×2 `'I'` view), `len()` = first axis, nested
+  `tolist()`, full-rank tuple indexing with `index out of bounds on dimension N`, and
+  CPython's own refusals (`multi-dimensional sub-views are not implemented` for an int
+  index, `sub-views are not implemented` for short tuples, `cannot index 2-dimension view
+  with 3-element tuple`). Dim-0 slicing keeps the rank (`v2[0:1]` → `[[1, 2]]`, ndim 2).
+  Also exposed `c_contiguous`/`contiguous`/`readonly`/`suboffsets`/`obj` and materialized
+  `__getitem__`/`__setitem__`/`__len__` slot wrappers (p42).
 - `bytes` argument protocol completed and the core **moved to `PyBytes`** (mirroring
   `Objects/bytesobject.c`, which `bytearrayobject.c` delegates to): `find/rfind/index/
   rindex/count` accept an `int` byte 0..255 and any bytes-like object (`bytes`,
