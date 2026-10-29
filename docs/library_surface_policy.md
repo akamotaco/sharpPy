@@ -1,6 +1,31 @@
 # 라이브러리 surface 정책 (2026-10-29 확정)
 
-## 정책
+# 라이브러리 surface 정책 (2026-10-29 확정)
+
+## SharpPy 라이브러리 구현 규칙 (canonical)
+
+1. **Python 3.12의 모든 라이브러리를 구현하는 것이 목적이 아니다.** 최소한의 필수 라이브러리, 그리고
+   그 범위에서 CPython 3.12 동작을 가능하게 하는 SharpPy 구현이 목적이다.
+2. **필요한 라이브러리는 가급적 CPython의 라이브러리를 복사해서 사용한다** (확장자가 `.py`인 경우).
+3. **C 전용 라이브러리나 asm 등 특수 함수를 사용한 경우는 그 구현을 무시하고, C#으로 필수 모듈을
+   구현하여 대체한다.**
+
+아래는 이 규칙을 이 저장소에 적용하기 위해 실측한 구성, 판정 기준, 사례 감사다.
+
+## 판정 기준 (규칙 2와 3 사이)
+
+C 전용이라는 사실만으로 C# 대체 대상이 되지 않는다. **CPython `.py` 쪽에 fallback이 있으면 복사로
+통과**한다 (확인: `heapq.py:583`, `bisect.py:112`, `json/scanner.py:5`가 `try:` 안에서 C 모듈을
+import 한다). C# 대체가 필요한 것은 **fallback 없이 C 모듈을 요구하는 것**이다.
+
+| C 전용 모듈 | C# 구현 | 상태 |
+|---|---|---|
+| `_io`, `_abc`, `_sre`, `_collections`, `_functools`, `_random`, `_codecs` | **있음** | 규칙 3이 이미 적용된 부분 |
+| `_thread` (`allocate_lock`) | **없음** | tempfile/shutil/threading 사슬이 요구 |
+| `_weakref` (`finalize`) | **없음** | tempfile/weakref가 요구 |
+| `errno` (`EEXIST`/`ENOENT`) | **없음** | tempfile·shutil·os 계열이 요구 |
+| `_io` in-memory stream (`_IOBase`/`_TextIOBase`/`_BufferedIOBase`/`StringIO`/`BytesIO`) | **없음** | 지금 Python이 대신 구현 — 아래 감사 참조 |
+
 
 **CPython 표준 라이브러리의 전면 호환은 목적이 아니다.** 필요하면 아래 순서로 채운다.
 
