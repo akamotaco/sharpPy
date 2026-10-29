@@ -417,3 +417,20 @@ accepts silently).
 - **P1(성능)**: 모듈 import 비용. 측정값(프로세스 5회 min): `print("x")` 229.9 ms,
   `import io` 278.0 ms(+48), `import abc` 265.5 ms(+36), `import json` 829.2 ms(+600).
   CPython은 같은 항목이 23.3/18.8/18.7/32.8 ms다. 특히 json 600 ms가 크다.
+
+### 2026-10-30 attribution 닫힘 — 위 P1(성능, attribution 미완료)는 B 시리즈 소행이 아니다
+
+pre-B 리비전(`9f1c366`)을 별도 worktree에서 같은 플래그로 빌드하고, cwd는 메인 저장소로 고정한 채
+두 바이너리를 교대로 2라운드 측정했다:
+
+| workload | pre-B | HEAD | 차이 |
+|---|---|---|---|
+| `comp_lambda` | 0.0335 / 0.0340 | 0.0345 / 0.0358 | 약 +4% |
+| `call_heavy_fib20` | 0.0198 / 0.0197 | 0.0199 / 0.0202 | 약 +2% |
+| `int_loop` | 0.2140 / 0.2153 | 0.2145 / 0.2159 | 약 +0.4% |
+| `dict_ops` | 0.0615 / 0.0598 | 0.0606 / 0.0618 | 약 +0.6% |
+
+pre-B만으로도 `comp_lambda`가 이미 +6.3~7.9%다. 즉 플래그의 대부분은 baseline 스테일/머신 드리프트이고,
+HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했을 때의 산포(HEAD 자체 0.0345→0.0358 = 3.8%)
+안에 있다. 할 일은 없고 대신 micro workload 두 개(`comp_lambda`, `call_heavy_fib20`)의 baseline이
+노이즈 바닥에서 갱신돼야 한다는 것이 남았다. 모듈 import 비용 항목은 여전히 유효하다.
