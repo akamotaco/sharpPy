@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **47/47 matching**
+- `tools/run_bughunt.py`: **48/48 matching**
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
@@ -31,7 +31,7 @@ genuine computation/result divergences and are worked first.
 | # | area | divergence (measured vs CPython) | source |
 |---|---|---|---|
 | P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
-| P0-12 | metaclass `__str__`/`__repr__` | `class M(type): __str__` is ignored for class objects: `str(C)` → `<class '__main__.C'>`, CPython → `'META'`. `PyClass.AsString/ToRepr` never consults the metaclass. The format path diverges twice over: `f"{C}"` → `<class 'C'>` (no module prefix) where `repr(C)` at least gives `<class '__main__.C'>` | p39 finding, re-measured |
+
 | P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
@@ -41,7 +41,7 @@ genuine computation/result divergences and are worked first.
 | P0-10 | numeric-coercion dunders | `int(C())`/`float(C())` with `__int__`/`__index__`/`__float__` raise `TypeError: ... not 'C'`; CPython calls the dunder (`int()` = `__index__` then `__int__`, `float()` = `__float__`). `AsInt()` is a CLR cast, not dunder dispatch. `__index__` dispatch already exists via `PyObject.TryGetIndex` | p36 finding |
 
 Suggested order (risk × effort, cheapest real-computation wins first):
-**P0-12** (metaclass `__str__`/`__repr__` for class objects) → **P0-10** (`int()`/`float()`
+**P0-10** (`int()`/`float()`
 dunder dispatch; `__index__` already exists) → **P0-4** (`memoryview.__eq__`, with P0-15
 attached) → **P0-2** (`(?P=name)` hybrid-engine result) → **P0-14** (33 bytearray methods,
 mechanical families) → P0-8 / P0-9 (each needs a real feature: stream wrapping, loader
@@ -63,6 +63,7 @@ protocol). P0-5 needs the static-`type` architecture decision and is deliberatel
 | P1-1 | builtin dunder materialization | `dir(int/bool/float/set/str/bytes)` missing their concrete dunders/methods, and they are not `getattr`-able (`hasattr(int,'__index__')` False). Implicit `+`,`//`,`round`,etc. all work. **Prereq: a public, frame-free binary/number dispatch bridge** (`PyVM.ExecuteBinaryOpType` is private today). Counts: int/bool 12, str 5, float 28, set 15, bytes 54 | p34 |
 | P1-2 | dict structural dunders | `dir(dict)` and `dict.__iter__/__len__/__contains__/__reversed__` (attribute path) missing. **Prereq: `PyClassInstance.GetDictStorage()`** — adding them without it recurses through the virtual `GetIterator()` (crash on `collections.OrderedDict`). `dir(list)`/`dir(tuple)` are done (p34) | p34 |
 | P1-3 | descriptor classification | `list.__len__` reported as `method_descriptor`; CPython → `wrapper_descriptor` (slot). Bound forms similarly | p27 |
+| P1-9 | unbound `object.__str__`/`__repr__` on classes | `C.__str__()` → `__str__() missing required 'self' argument`; CPython → `descriptor '__str__' of 'object' object needs an argument`, because attribute lookup on a class finds `object.__str__` before the metaclass slot. Prereq is the same `object` protocol materialization as P1-1/P22 (exposing it naively broke repr dispatch once) | p43 measured |
 | P1-8 | `memoryview` slot wrappers | `hasattr(memoryview(b"a"), '__eq__' / '__ne__' / '__hash__' / '__buffer__')` is False; CPython True. `__getitem__`/`__setitem__`/`__len__` are materialized (p42); the comparison/hash trio is deferred because exposing `__eq__` descriptors has broken CLR dispatch before (p22 lesson) | p42 |
 | P1-4 | legacy object repr | `object.__eq__` repr → `<wrapper_descriptor object at 0x…>`; CPython → `<slot wrapper '__eq__' of 'object' objects>` (new descriptors are already correct) | p34 |
 | P1-5 | global `super` | `super` global is a `builtin_function_or_method`; CPython `super` is a real `type` → `super.__module__`, `type(super)`, class-attribute descriptor behavior differ (instances `super(C, x)` are correct since p24) | p24/p26 |
@@ -85,6 +86,16 @@ protocol). P0-5 needs the static-`type` architecture decision and is deliberatel
 - `dir(list)` / `dir(tuple)` content sets (p34).
 - `int(float)` big values (e.g. `int(1e17)`, `int(1e30)`) → BigInteger truncation
   toward zero with CPython NaN/inf messages (p35).
+- Metaclass `__str__`/`__repr__` now govern class objects: `PyType.ToRepr/AsString` walk the
+  metaclass MRO and stop at `type`/`object` (whose slots *are* the default `type_repr`).
+  `str(C)`, `repr(C)`, `f"{C}"`, `format(C)`, `"%s" % C`, `print(C)`, `[C]`, `{C: 1}` and
+  `(C,)` all match, including inheritance through `class M2(M)` and subclasses, the
+  `__str__ returned non-string (type int)` / `__repr__ returned non-string (type int)`
+  guards and exception propagation from a metaclass `__str__`. CPython has neither
+  `type.__str__` nor `type.__format__` (both resolve to `object`'s), so `type.__str__(C)`
+  follows `tp_repr` → `'META-repr:C'`, `format(C, ">20")` raises
+  `unsupported format string passed to M.__format__` naming the **metaclass**, and
+  `type.__repr__(C)` still gives the static `<class '__main__.C'>` (p43).
 - `memoryview.cast` now follows `memory_cast`: only a native single struct character with
   an optional `@` (so `=`, `<`, `>`, `!` are rejected as CPython does), `format`/`shape`
   keywords, `argument for cast() given by name ('format') and position (1)`, `cast() takes

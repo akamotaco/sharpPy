@@ -1419,8 +1419,9 @@ namespace SharpPy
                         return self.ToStr();
                     }
 
-                    // CPython: non-empty format_spec raises TypeError for base object
-                    throw PyTypeError.Create($"unsupported format string passed to {self.GetTypeName()}.__format__");
+                    // CPython: non-empty format_spec raises TypeError for base object, and
+                    // names type(obj) - for a class object that is its metaclass.
+                    throw PyTypeError.Create($"unsupported format string passed to {self.GetPyType()?.Name ?? self.GetTypeName()}.__format__");
                 },
                 minArgs: 1,
                 maxArgs: 1
@@ -1834,7 +1835,9 @@ namespace SharpPy
                 maxArgs: 0
             );
 
-            // type.__str__ - CPython type_repr (same as __repr__ for type)
+            // CPython has no type.__str__ of its own: type.__str__ resolves to
+            // object.__str__, which calls tp_repr dynamically - so a metaclass __repr__
+            // is honoured here (measured: type.__str__(C) == 'META-repr:C').
             TypeDict["__str__"] = new PyMethodDescriptor(
                 "__str__",
                 typeType,
@@ -1843,7 +1846,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__str__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString($"<class '{type.Name}'>");
+                    return type.ToRepr();
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -1858,8 +1861,15 @@ namespace SharpPy
                         throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // format_spec is args[0], but for type objects we just return str()
-                    return new PyString($"<class '{type.Name}'>");
+                    // CPython has no type.__format__: this resolves to object.__format__,
+                    // so an empty spec yields str(self) (metaclass __str__ included) and a
+                    // non-empty spec raises, naming type(obj) - the metaclass.
+                    if (args[0] is not PyString spec)
+                        throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
+                    if (spec.Value.Length == 0)
+                        return type.AsString();
+                    throw PyTypeError.Create(
+                        $"unsupported format string passed to {type.GetPyType()?.Name ?? type.Name}.__format__");
                 },
                 minArgs: 1,
                 maxArgs: 1
@@ -3014,11 +3024,59 @@ namespace SharpPy
                 ? $"<class '{module}.{qualname}'>" : $"<class '{Name}'>");
         }
 
-        // CPython type_repr: prefix "<module>." only when __module__ is a str and
-        // not "builtins"; use __qualname__ when present. Route repr()/str() through
-        // the same TypeRepr() the type.__repr__ slot uses (they were diverging).
-        public override PyString ToRepr() => TypeRepr();
-        public override PyString AsString() => TypeRepr();
+        // CPython PyObject_Repr / PyObject_Str dispatch on type(obj), and for a class
+        // object type(obj) is the metaclass, so a metaclass __repr__/__str__ wins over
+        // type_repr. Slots at or above `type` are the default behaviour that TypeRepr()
+        // already implements, so the walk stops there instead of re-entering them.
+        private PyObject MetaSpecial(string name)
+        {
+            var meta = GetPyType();
+            if (meta == null || meta.MRO == null)
+                return null;
+            foreach (var owner in meta.MRO)
+            {
+                if (owner.Name == "type" || owner.Name == "object")
+                    break;
+                PyObject value = null;
+                if (owner is PyClass heap)
+                    heap.ClassDict.TryGetValue(name, out value);
+                else
+                    owner.TypeDict.TryGetValue(name, out value);
+                if (value == null)
+                    continue;
+                // CPython passes the class object as the single argument. A descriptor in
+                // the metaclass binds it through the descriptor protocol; a plain function
+                // (the usual `def __str__(cls)` body) takes it explicitly.
+                if (value is IDescriptor desc)
+                    return desc.Get(this, meta)?.Call(Array.Empty<PyObject>(), null);
+                return value.Call(new PyObject[] { this }, null);
+            }
+            return null;
+        }
+
+        public override PyString ToRepr()
+        {
+            var hook = MetaSpecial("__repr__");
+            if (hook != null)
+            {
+                if (hook is PyString reprText)
+                    return reprText;
+                throw PyTypeError.Create($"__repr__ returned non-string (type {hook.GetTypeName()})");
+            }
+            return TypeRepr();
+        }
+
+        public override PyString AsString()
+        {
+            var hook = MetaSpecial("__str__");
+            if (hook != null)
+            {
+                if (hook is PyString strText)
+                    return strText;
+                throw PyTypeError.Create($"__str__ returned non-string (type {hook.GetTypeName()})");
+            }
+            return TypeRepr();
+        }
 
         #endregion
 

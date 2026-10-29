@@ -284,8 +284,15 @@ namespace SharpPy
                         throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // format_spec is args[0], but for type objects we just return str()
-                    return new PyString($"<class '{type.Name}'>");
+                    // CPython has no type.__format__; it resolves to object.__format__, so
+                    // an empty spec is str(self) (metaclass __str__ included) and a
+                    // non-empty spec raises naming type(obj), i.e. the metaclass.
+                    if (args[0] is not PyString spec)
+                        throw PyTypeError.Create($"__format__() argument must be str, not {args[0].GetTypeName()}");
+                    if (spec.Value.Length == 0)
+                        return type.AsString();
+                    throw PyTypeError.Create(
+                        $"unsupported format string passed to {type.GetPyType()?.Name ?? type.Name}.__format__");
                 },
                 minArgs: 1,
                 maxArgs: 1
