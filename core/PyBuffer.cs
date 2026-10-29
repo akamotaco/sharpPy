@@ -604,6 +604,106 @@ namespace SharpPy
         // parses it as text; the failure message names the view object.
         public override PyFloat AsFloat() => PyFloat.FromBufferBytes(Data, this);
 
+        // CPython 3.12: Objects/memoryobject.c memory_richcompare.
+        // Only EQ and NE exist (ordering stays NotImplemented); a non-memoryview operand has to
+        // export a readable buffer and anything else falls back to identity; views whose shapes
+        // differ are simply unequal; and items compare by *decoded value* - CPython refuses
+        // memcmp even for identical format strings, because NaNs or uninitialized padding would
+        // compare equal when they must not.
+        protected override PyObject PyEquals(PyObject other)
+        {
+            if (_data == null)
+                // BASE_INACCESSIBLE(v): answer with identity and raise nothing.
+                return PyBool.FromBool(ReferenceEquals(this, other));
+
+            if (!TryComparableView(other, out var otherView))
+                return PyNotImplemented.Instance;
+            if (otherView._data == null)
+                return PyBool.FromBool(ReferenceEquals(this, other));
+
+            if (!EquivalentShape(this, otherView))
+                return PyBool.False;
+
+            var left = LogicalElements();
+            var right = otherView.LogicalElements();
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (!PyObject.CompareBool(left[i], right[i], CompareOp.EQ))
+                    return PyBool.False;
+            }
+            return PyBool.True;
+        }
+
+        // PyObject_GetBuffer(w, &wbuf, PyBUF_FULL_RO): the buffer providers SharpPy models are
+        // bytes, bytearray and another view; str, int, list and tuple have no buffer and stay
+        // NotImplemented, which is why memoryview(b"abc") == "abc" is False rather than an error.
+        private static bool TryComparableView(PyObject other, out PyMemoryView view)
+        {
+            switch (other)
+            {
+                case PyMemoryView mv:
+                    view = mv;
+                    return true;
+                case PyBytes bytes:
+                    view = new PyMemoryView(bytes.Value, true, 1, bytes);
+                    return true;
+                case PyByteArray:
+                    view = other.GetBuffer(0);
+                    return true;
+                default:
+                    view = null;
+                    return false;
+            }
+        }
+
+        // equiv_shape(): equal ndim and equal element counts per axis. itemsize is not part of
+        // the shape, so a 4-byte 'f' view and an 8-byte 'd' view are both shape (1,) and compare
+        // as one float each.
+        private static bool EquivalentShape(PyMemoryView a, PyMemoryView b)
+        {
+            int[] sa = a._shape ?? new[] { a._length };
+            int[] sb = b._shape ?? new[] { b._length };
+            if (sa.Length != sb.Length)
+                return false;
+            for (int i = 0; i < sa.Length; i++)
+            {
+                if (sa[i] != sb[i])
+                    return false;
+            }
+            return true;
+        }
+
+        // Elements in logical (row-major) order, honouring the byte stride.
+        private PyObject[] LogicalElements()
+        {
+            var items = new PyObject[_length];
+            for (int i = 0; i < _length; i++)
+                items[i] = ReadElement(StorageIndex(i));
+            return items;
+        }
+
+        // CPython memory_hash(): released, writable and non-byte formats each raise in that
+        // order, and a byte-format view hashes as the equivalent bytes object. That last rule is
+        // observable - {b"abc": 1}[memoryview(b"abc")] finds the entry - so the hash has to come
+        // from the bytes hash function, not from view identity. ToHash() is the Python-level hook
+        // (object.GetHashCode stays non-throwing by contract, but this override is the path the
+        // interpreter uses for hash() and dict lookups).
+        public override int ToHash()
+        {
+            CheckReleased();
+            if (!_readonly)
+                throw PyValueError.Create("cannot hash writable memoryview object");
+            // get_native_fmtchar(): one native character, optionally '@'-prefixed.
+            string f = _fmt ?? "";
+            if (f.Length == 2 && f[0] == '@')
+                f = f.Substring(1);
+            char fmt = f.Length == 1 ? f[0] : '_';
+            if (fmt != 'B' && fmt != 'b' && fmt != 'c')
+                throw PyValueError.Create(
+                    "memoryview: hashing is restricted to formats 'B', 'b' or 'c'");
+            return new PyBytes(Data).ToHash();
+        }
+
         public int ItemSize { get { CheckReleased(); return _itemsize; } }
 
         public override PyType GetPyType() => PyType.MemoryViewType;
@@ -831,7 +931,12 @@ namespace SharpPy
         public override bool IsTrue() => Length() != 0;
         public override bool PyBoolValue() => IsTrue();
 
-        public override string ToString() => $"<{(_data == null ? "released memory" : "memory")} at 0x{GetHashCode():X}>";
+        // CPython memory_repr(): <memory at 0x..> or <released memory at 0x..>, and it never
+        // raises. It must take the CLR identity hash directly instead of GetHashCode(): the
+        // Python-level hash hook (ToHash) is restricted to readonly byte-format views and would
+        // throw here, which would break print(f"{view}") for a writable or released view.
+        public override string ToString() =>
+            $"<{(_data == null ? "released memory" : "memory")} at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):X}>";
         public override PyString ToRepr() => new PyString(ToString());
     }
 }
