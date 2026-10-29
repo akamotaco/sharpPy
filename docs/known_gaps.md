@@ -207,27 +207,36 @@ accepts silently).
   `1 + FSub(2.5)` still needs the same treatment on the float side; `abs(FSub)`,
   `"%.3f" % FSub`, list-subclass `repr`, and `format(Bs(b'ab'), '>4')` naming `bytes.__format__`
   instead of `Bs.__format__`.
-- **P0-19 (new, reliable reproducer): a caught exception escapes later in a long probe file.**
-  Three independent observations, always after roughly twenty handled exceptions in one file, and
-  the failing case *moves* when an earlier case is removed:
-  * appending the float cases to `tests/bughunt/p49_subclass_gates.py` -> unhandled `OverflowError`
-    attributed to `FSub(10 ** 400)` (CPython prints the same caught line and then continues);
-  * removing that case moved the escape to the final `x.no_such`;
-  * appending the round/hash cases moved it to `int.__round__(5, ndigits=2)`.
-  Each statement is caught and printed correctly when run in a short file - `tests/bughunt/p50_round_hash_slots.py`
-  (32 cases) and `tests/bughunt/p48_float_subclass.py` both pass - so this is state accumulated by
-  handled exceptions, not the statement itself. Same area as the p17 `PyFrame.HandledScopes` fix.
-  Workaround used, not a fix: keep probe files under ~25 caught-exception cases and split instead of
-  appending. Do not read the 55/55 pass as covering P0-19.
-- Unexplained, recorded rather than smoothed over: while extending the P0-18 probe with the float
-  cases, the combined probe made **both** engines abort on `FSub(10 ** 400)` (CPython printed the
-  same `EXC OverflowError ...` line first, then its own traceback), and after removing that case
-  SharpPy additionally emitted an unhandled traceback at the last case (`x.no_such`) although the
-  identical statement is caught and printed in `tests/bughunt/p48_float_subclass.py`. Same source
-  line, two outcomes depending on surrounding file state. That is a candidate real defect in
-  exception-state handling, but I do not have a minimal reproducer yet, so it is not numbered as a
-  P0; the float probe extension is deferred until it does. Do not read the 54/54 bughunt pass as
-  covering this.
+- **P0-19 RETRACTED - it was my broken probe generator, not SharpPy.** I claimed a caught exception
+  escaped after ~20 handled exceptions in one file. Re-testing with a proper driver (asserting on
+  `DONE` and on the actual exception text instead of counting the word `Traceback`) showed every
+  variant failed for reasons of my own making: `src.split("s(", 1)` cut the file inside the probe's
+  own `def s(l, f):` line, producing a file whose `class`/`def` structure was malformed (a CLR parse
+  failure in `Parse_ClassDefRaw`), and another variant had no helper at all, so it failed with
+  `NameError: name 's' is not defined`. On the one file that did run to completion
+  (`tests/bughunt/p49_subclass_gates.py` plus an appended case, CRLF/LF mixed), **CPython escapes in
+  exactly the same way with the same message**, so there is no SharpPy-specific divergence there.
+  Lesson recorded where it belongs: a reproducer must assert on the observable (`DONE`, exception
+  type, message), never on the presence of a word in stderr, and it must be diffed against CPython
+  before being called a SharpPy bug.
+
+- **P0-20 (new, measured): builtin method descriptors silently accept keyword arguments.** CPython
+  rejects them and names the qualified method:
+  * `(1).bit_length(x=1)`  -> `TypeError: int.bit_length() takes no keyword arguments`
+  * `(1.5).is_integer(x=1)` -> `TypeError: float.is_integer() takes no keyword arguments`
+  * `'a'.upper(x=1)`       -> `TypeError: str.upper() takes no keyword arguments`
+  SharpPy returns a value for all three (`1`, `False`, `'A'`): the keywords are ignored. This is a
+  silent wrong answer rather than a wrong message, and it is systemic - every `PyMethodDescriptor`
+  registration shares it, including the two `__round__` slots added today, where the keyword check
+  had to be hand-written inside the delegate as a stopgap. The CPython distinction is
+  `METH_VARARGS|METH_KEYWORDS` versus plain `METH_VARARGS`/`METH_O`, so the fix is a per-descriptor
+  "accepts keywords" notion in `PyMethodDescriptor` producing
+  `{Type}.{name}() takes no keyword arguments`, then removing the hand-written copies. Needs its own
+  increment because it touches every builtin descriptor registration and must be measured against
+  the descriptors that legitimately do take keywords (`dict.get(default=...)` style is not one of
+  them, but `int(x, base=)`-form builtins are).
+
+- (void, superseded by the retraction above) a caught exception escapes later in a long probe file.
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
   `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal
