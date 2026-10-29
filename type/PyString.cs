@@ -735,8 +735,10 @@ namespace SharpPy
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
 
+                    // Empty subsection: count boundary positions over the *range*,
+                    // so "abc".count("", 1, 2) == 2, not len+1.
                     if (sub.Value.Length == 0)
-                        return new PyInt(str.Value.Length + 1);
+                        return new PyInt(StrEmptySpan(args, str.Value.Length));
 
                     ParseStrStartStop(args, str.Value.Length, out int start, out int end);
 
@@ -2104,6 +2106,17 @@ namespace SharpPy
         /// via PyNumber_Index: bool and __index__ are accepted, None keeps the default,
         /// and any other type raises with this exact wording.
         /// </summary>
+        // CPython: count("") / count("", start, end) counts boundaries -> end-start+1.
+        private static int StrEmptySpan(PyObject[] args, int length)
+        {
+            ParseStrStartStop(args, length, out int start, out int end);
+            if (start < 0) start += length;
+            if (end < 0) end += length;
+            start = Math.Max(0, Math.Min(start, length));
+            end = Math.Max(0, Math.Min(end, length));
+            return end - start + 1;
+        }
+
         private static void ParseStrStartStop(PyObject[] args, int length, out int start, out int end)
         {
             start = 0;
@@ -3334,7 +3347,10 @@ namespace SharpPy
             if (end < 0) end += Value.Length;
             end = Math.Max(0, Math.Min(Value.Length, end));
 
-            if (start >= end || sub.Length == 0) return new PyInt(0);
+            // CPython unicode_count: the empty subsection counts *boundary positions*,
+            // i.e. end - start + 1, not 0.
+            if (sub.Length == 0) return new PyInt(Math.Max(0, end - start + 1));
+            if (start >= end) return new PyInt(0);
             
             var substring = start == 0 && end == Value.Length 
                 ? Value 

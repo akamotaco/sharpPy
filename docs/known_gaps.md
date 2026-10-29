@@ -31,7 +31,8 @@ genuine computation/result divergences and are worked first.
 | P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
 | P0-3 | bytes/bytearray argcheck | `b"…".find(b"c", "x")` / `count` / `index` silently ignore a non-integer start/stop; CPython → `TypeError: slice indices must be integers or None or have an __index__ method` (bool/None must still work) | p32 note |
 | P0-12 | metaclass `__str__`/`__repr__` | `class M(type): __str__` is ignored for class objects: `str(C)` → `<class '__main__.C'>`, CPython → `'META'`. `PyClass.AsString/ToRepr` never consults the metaclass | p39 finding |
-| P0-11 | bytearray argcheck + missing methods | `bytearray.find/count/index` still ignore non-int start/stop, and `bytearray.count` raises `AttributeError` (missing). Reuse `PyBytes.BytesIndex`; port validation + add `count`/`index` to `PyByteArray` | p38 finding |
+| P0-13 | bytes argument protocol | `bytes.find/count/index(97)` (int byte) rejected, `bytes.startswith(tuple)` unsupported, and wrong-type text is `a bytes-like object is required` where CPython says `argument should be integer or bytes-like object, not 'X'`. Also `bytes.removeprefix("h")` message. Bytearray now has the correct core — mirror it onto `PyBytes` | p40 measured (7 items) |
+| P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
 | P0-6 | `memoryview.cast` endian | `>`/`!` (big-endian) prefix accepted but not byte-swapped → wrong element values (rare; host is LE) | p33 |
@@ -77,6 +78,15 @@ genuine computation/result divergences and are worked first.
 - `dir(list)` / `dir(tuple)` content sets (p34).
 - `int(float)` big values (e.g. `int(1e17)`, `int(1e30)`) → BigInteger truncation
   toward zero with CPython NaN/inf messages (p35).
+- `bytearray` search/query family implemented on one shared CPython core
+  (`count index rfind rindex startswith endswith removeprefix removesuffix`, plus
+  `find` range validation): int(0..255)/bytes-like args, tuple prefixes, boundary match
+  for the empty subsection, `ValueError: subsection not found`, CPython arity texts (p40).
+- **`bytes.count(b"")` no longer hangs**: the non-overlap step `i += len - 1` decremented
+  forever on an empty subsection; CPython returns `end - start + 1` (p40).
+- `str.count("")` returned 0; now counts boundary positions with range respect
+  (`"hello world".count("", 2, 5) == 4`) on both the descriptor and the private
+  `PyString.Count` fast path (p40).
 - `bytes.find/count/index/rfind/rindex` now validate start/stop via `__index__`
   (int/bool/None ok, else CPython `TypeError`) across all 7 idiom sites (p38).
 - `AsString()` → renamed `ToClrString()` so `As~`=Python / `To~`=C# holds (p37).

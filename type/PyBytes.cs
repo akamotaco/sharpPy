@@ -354,6 +354,12 @@ namespace SharpPy
                     start = Math.Max(0, Math.Min(start, bytes.Value.Length));
                     end = Math.Max(0, Math.Min(end, bytes.Value.Length));
 
+                    // CPython: counting the empty subsection yields end - start + 1.
+                    // Without this early-out the non-overlap step (i += len - 1) below
+                    // would decrement forever and hang the interpreter.
+                    if (sub.Value.Length == 0)
+                        return new PyInt(Math.Max(0, end - start + 1));
+
                     // Count occurrences
                     int count = 0;
                     for (int i = start; i <= end - sub.Value.Length; i++)
