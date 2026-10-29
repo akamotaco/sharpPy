@@ -272,12 +272,140 @@ namespace SharpPy.Modules
         /// (?P&lt;name&gt;...) and (?P=name). Fast-path returns unchanged when no
         /// "(?P" is present, so ordinary patterns are untouched.
         /// </summary>
+        /// <summary>
+        /// CPython 3.12: re/_parser.py parse_template. A replacement template is its own
+        /// language, not a .NET replacement string: \g<name> and \g<1> substitute a group,
+        /// \1..\99 substitute a group number, \0 is an octal NUL rather than group 0,
+        /// the C escapes (\a \b \f \n \r \t \v) and \x/\u/\U produce characters, a backslash
+        /// before any other non-letter is simply dropped, and a backslash before an unknown
+        /// letter raises "bad escape \q at position 0".
+        /// .NET only understands $1 / ${name}, and a literal $ has to be doubled.
+        /// Known limit: numeric references use .NET group numbering (see P0-17), so a pattern
+        /// that declares a named group before an unnamed one still substitutes the wrong group.
+        /// </summary>
+        internal static string ToDotNetReplacement(string repl)
+        {
+            if (string.IsNullOrEmpty(repl))
+                return repl;
+
+            var sb = new System.Text.StringBuilder(repl.Length + 8);
+            for (int i = 0; i < repl.Length; i++)
+            {
+                char c = repl[i];
+                if (c != '\\')
+                {
+                    if (c == '$')
+                        sb.Append("$$");
+                    else
+                        sb.Append(c);
+                    continue;
+                }
+
+                if (i + 1 >= repl.Length)
+                    throw PyRegexError.Create($"bad escape (end of pattern) at position {i}");
+
+                char n = repl[i + 1];
+                if (n == 'g')
+                {
+                    if (i + 2 < repl.Length && repl[i + 2] == '<')
+                    {
+                        int close = repl.IndexOf('>', i + 3);
+                        if (close < 0)
+                            throw PyRegexError.Create(
+                                $"missing >, previously used identifier at position {i + 2}");
+                        sb.Append("${").Append(repl, i + 3, close - i - 3).Append('}');
+                        i = close;
+                        continue;
+                    }
+                    throw PyRegexError.Create($"bad escape \\g at position {i}");
+                }
+
+                if (n >= '1' && n <= '9')
+                {
+                    int j = i + 1;
+                    int num = 0;
+                    // CPython takes at most two digits for a group reference.
+                    while (j < repl.Length && j < i + 3 && repl[j] >= '0' && repl[j] <= '9')
+                    {
+                        num = num * 10 + (repl[j] - '0');
+                        j++;
+                    }
+                    sb.Append("${").Append(num).Append('}');
+                    i = j - 1;
+                    continue;
+                }
+
+                if (n >= '0' && n <= '7')
+                {
+                    // \0 and friends are octal character escapes, not group 0.
+                    int j = i + 1;
+                    int val = 0;
+                    while (j < repl.Length && j < i + 4 && repl[j] >= '0' && repl[j] <= '7')
+                    {
+                        val = val * 8 + (repl[j] - '0');
+                        j++;
+                    }
+                    sb.Append((char)val);
+                    i = j - 1;
+                    continue;
+                }
+
+                switch (n)
+                {
+                    case '\\': sb.Append('\\'); i++; break;
+                    case 'a': sb.Append('\a'); i++; break;
+                    case 'b': sb.Append('\b'); i++; break;
+                    case 'f': sb.Append('\f'); i++; break;
+                    case 'n': sb.Append('\n'); i++; break;
+                    case 'r': sb.Append('\r'); i++; break;
+                    case 't': sb.Append('\t'); i++; break;
+                    case 'v': sb.Append('\v'); i++; break;
+                    case 'x':
+                    case 'u':
+                    case 'U':
+                    {
+                        int want = n == 'x' ? 2 : (n == 'u' ? 4 : 8);
+                        if (i + 1 + want > repl.Length)
+                            throw PyRegexError.Create($"incomplete escape \\{n} at position {i}");
+                        int val = 0;
+                        for (int k = 0; k < want; k++)
+                        {
+                            int d = HexDigit(repl[i + 2 + k]);
+                            if (d < 0)
+                                throw PyRegexError.Create(
+                                    $"incomplete escape \\{n} at position {i}");
+                            val = val * 16 + d;
+                        }
+                        sb.Append(char.ConvertFromUtf32(val));
+                        i += 1 + want;
+                        break;
+                    }
+                    default:
+                        if (char.IsLetter(n))
+                            throw PyRegexError.Create($"bad escape \\{n} at position {i}");
+                        // A backslash before punctuation is dropped, matching parse_template.
+                        sb.Append(n);
+                        i++;
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        private static int HexDigit(char c) =>
+            c >= '0' && c <= '9' ? c - '0' :
+            c >= 'a' && c <= 'f' ? c - 'a' + 10 :
+            c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+
         internal static string ToDotNetPattern(string p)
         {
             if (p == null || p.IndexOf("(?P", StringComparison.Ordinal) < 0)
                 return p;
-            // (?P=name) named backreference -> \k<name>
-            p = System.Text.RegularExpressions.Regex.Replace(p, @"\(\?P=(\w+)\)", @"\\k<$1>");
+            // (?P=name) named backreference -> \k<name>.
+            // C# trap: the replacement of Regex.Replace is NOT a regex, only "$" is special, so
+            // one backslash is already literal. Writing "\\k" emitted a literal backslash plus
+            // 'k', which .NET read as an escaped 'k' and the pattern silently never matched.
+            p = System.Text.RegularExpressions.Regex.Replace(p, @"\(\?P=(\w+)\)", @"\k<$1>");
             // (?P<name>... named group -> (?<name>...
             p = p.Replace("(?P<", "(?<");
             return p;
@@ -500,11 +628,11 @@ namespace SharpPy.Modules
                 return new PyString(callableResult);
             }
 
-            var repl = replObj.ToStr();
+            var repl = _SreModule.ToDotNetReplacement(replObj.ToStr().Value);
             // In Python, count <= 0 means replace all
             var result = count <= 0 ?
-                _regex.Replace(text.Value, repl.Value) :
-                _regex.Replace(text.Value, repl.Value, count);
+                _regex.Replace(text.Value, repl) :
+                _regex.Replace(text.Value, repl, count);
 
             return new PyString(result);
         }
@@ -541,11 +669,11 @@ namespace SharpPy.Modules
             }
             else
             {
-                var repl = replObj.ToStr();
+                var repl = _SreModule.ToDotNetReplacement(replObj.ToStr().Value);
                 // In Python, count <= 0 means replace all
                 result = count <= 0 ?
-                    _regex.Replace(text.Value, repl.Value) :
-                    _regex.Replace(text.Value, repl.Value, count);
+                    _regex.Replace(text.Value, repl) :
+                    _regex.Replace(text.Value, repl, count);
             }
 
             var actualSubstitutions = count <= 0 ? matches : Math.Min(matches, count);

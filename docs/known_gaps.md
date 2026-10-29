@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **50/50 matching**
+- `tools/run_bughunt.py`: **51/51 matching**
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
@@ -30,7 +30,7 @@ genuine computation/result divergences and are worked first.
 
 | # | area | divergence (measured vs CPython) | source |
 |---|---|---|---|
-| P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
+| P0-17 | regex group **numbering** | .NET numbers capturing groups with the **unnamed ones first**, so a named group declared before an unnamed one gets a different number than CPython. Measured: `re.findall(r"(?P<a>\w)(\w)", "ab")` → CPython `[('a','b')]`, SharpPy `[('b','a')]`; `m.span(1)` → CPython `(0, 1)`, SharpPy `(2, 3)`; `m.group(1)`/`group(2)` swapped while `group("a")` is correct; and `re.findall(r"(?P<a>\w) (\w) (?P=a) \2", "a b a b")` → CPython `[('a','b')]`, SharpPy `[]` (nothing matches). Fix needs Python numbering pinned at translation time - give every capture group an explicit canonical name (`(?<__g1>...)`) and rewrite `\1`/`(?P=name)`/`$n` to that name, then map `group(n)`/`span(n)`/`findall` tuples through it | p46 measured |
 
 | P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
 
@@ -41,8 +41,8 @@ genuine computation/result divergences and are worked first.
 | P0-16 | `float` subclass payload | `class FSub(float)` instances carry no float value: `repr(FSub(2.5))` → `<__main__.FSub object at 0x…>` (CPython `'2.5'`), `FSub(2.5) + 1` → `TypeError: unsupported operand type(s) for +: 'FSub' and 'int'`, `FSub(2.5) == 2.5` → `False`, `float(FSub(2.5))` → `TypeError`. `int`/`str` subclasses work because `PyIntSubclass`/`PyStrSubclass` exist; there is no `PyFloatSubclass` | p44 measured |
 
 Suggested order (risk × effort, cheapest real-computation wins first):
-**P0-2** (`(?P=name)` hybrid-engine result) → **P0-16** (`PyFloatSubclass`, mirroring the
-existing `PyIntSubclass`) →
+**P0-17** (regex group numbering; blocks any named+unnamed mix) →
+**P0-16** (`PyFloatSubclass`, mirroring the existing `PyIntSubclass`) →
 **P0-14** (33 bytearray methods, mechanical families) → P0-8 / P0-9 (each needs a real
 feature: stream wrapping, loader protocol). P0-5 needs the static-`type` architecture
 decision and is deliberately last.
@@ -69,6 +69,7 @@ accepts silently).
 | P1-1 | builtin dunder materialization | `dir(int/bool/float/set/str/bytes)` missing their concrete dunders/methods, and they are not `getattr`-able (`hasattr(int,'__index__')` False). Implicit `+`,`//`,`round`,etc. all work. **Prereq: a public, frame-free binary/number dispatch bridge** (`PyVM.ExecuteBinaryOpType` is private today). Counts: int/bool 12, str 5, float 28, set 15, bytes 54 | p34 |
 | P1-2 | dict structural dunders | `dir(dict)` and `dict.__iter__/__len__/__contains__/__reversed__` (attribute path) missing. **Prereq: `PyClassInstance.GetDictStorage()`** — adding them without it recurses through the virtual `GetIterator()` (crash on `collections.OrderedDict`). `dir(list)`/`dir(tuple)` are done (p34) | p34 |
 | P1-3 | descriptor classification | `list.__len__` reported as `method_descriptor`; CPython → `wrapper_descriptor` (slot). Bound forms similarly | p27 |
+| P1-10 | native `re.error` identity | a `re.error` raised from native `_sre` reports `type(e).__name__ == 'ValueError'` (CPython `'error'`), and the instance has no `.pos` / `.msg` / `.lineno` / `.pattern`. `re.error` itself is correct (`error` → `Exception`, not a `ValueError` subclass), so this is the hybrid exception wrapper losing its Python class. `str(e)` matches CPython | p46 measured |
 | P1-9 | unbound `object.__str__`/`__repr__` on classes | `C.__str__()` → `__str__() missing required 'self' argument`; CPython → `descriptor '__str__' of 'object' object needs an argument`, because attribute lookup on a class finds `object.__str__` before the metaclass slot. Prereq is the same `object` protocol materialization as P1-1/P22 (exposing it naively broke repr dispatch once) | p43 measured |
 | P1-8 | `memoryview` slot wrappers | `hasattr(memoryview(b"a"), '__eq__' / '__ne__' / '__hash__' / '__buffer__')` is False; CPython True. The **behaviour** is now correct (p45) through CLR virtuals (`PyEquals`, `ToHash`); only the visible descriptors are missing. Deferred because exposing `__eq__` descriptors has broken CLR dispatch before (p22 lesson) | p42, behaviour fixed p45 |
 | P1-4 | legacy object repr | `object.__eq__` repr → `<wrapper_descriptor object at 0x…>`; CPython → `<slot wrapper '__eq__' of 'object' objects>` (new descriptors are already correct) | p34 |
@@ -109,6 +110,19 @@ accepts silently).
   `RuntimeHelpers.GetHashCode` directly, because CPython `memory_repr` never raises. This was
   caught by `tools/evaluate.py` (224/225: a released view's `repr` and
   `print(f"{writable_view}")`), not by the memoryview probe.
+- Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
+  `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
+  `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal
+  backslash followed by `k`, which .NET parsed as an escaped `k`. Every pattern containing
+  `(?P=name)` therefore matched nothing at all (`[]` / `None`) instead of raising. One
+  backslash fixes it (p46).
+- `re.sub()`/`subn()` replacement templates are now translated by `ToDotNetReplacement`, which
+  follows `re/_parser.py parse_template` rather than handing the Python template to .NET:
+  `\g<name>` and `\g<1>` → `${name}`/`${1}`, `\1`–`\99` group refs (max two digits), `\0` as
+  octal NUL **not** group 0, the C escapes `\a \b \f \n \r \t \v`, `\x`/`\u`/`\U`, a dropped
+  backslash before punctuation, literal `$` doubled to `$$` for .NET, and
+  `bad escape \q at position 0` for unknown letter escapes. Previously every template came out
+  verbatim, so `re.sub(r"(\w)", r"[\1]", "ab")` produced `[\1][\1]` instead of `[a][b]` (p46).
 - Numeric coercion dunders now follow `Objects/abstract.c`. `PyNumber_Long` order is
   exact-int → **`nb_int` (`__int__`) → `nb_index` (`__index__`)** → float → str/bytes, and
   `PyNumber_Float` is **`nb_float` → `nb_index`** and never `__int__` (measured on the same
