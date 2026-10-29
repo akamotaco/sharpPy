@@ -220,6 +220,16 @@ accepts silently).
   type, message), never on the presence of a word in stderr, and it must be diffed against CPython
   before being called a SharpPy bug.
 
+- **라이브러리 항목 스코프 정책 (2026-10-29).** 표준 라이브러리 전면 호환은 목적이 아니고, 필요한
+  surface를 C# 특징을 고려해 구현하는 방향으로 확정했다. 구성実측: `Lib` 41개 파일 18,922줄, native C#
+  module 20개. `math`는 `Lib/math.py`가 아예 없는 C# 전용이고, `abc`/`_collections_abc`/`io`/`os`/`re`/
+  `types`/`typing`은 Python이 native `_module`에 위임하며, `enum.py`(2108=2108)와 `re/__init__.py`
+  (385=385)는 CPython 그대로다. `io.py`(302 vs 99)와 `types.py`(396 vs 333)은 CPython보다 커서 shim이
+  붙어 있다. 따라서 **`tempfile` 미존재는 결함이 아니라 의도적 미구현**으로 재분류하고, 필요 시 CLR의
+  `Path.GetTempPath`/`GetRandomFileName`을 쓰는 C# native module로 만든다. P0-8(`io.TextIOWrapper`
+  생성자)과 P0-9(importlib loader)도 `Lib` 파일 교체가 아니라 `IoModule.cs` / `ImportlibModule.cs`
+  진입점에서 해결한다. 상세: docs/library_surface_policy.md
+
 - **P0-18 increment 5 (measured): `float` now publishes its numeric slots, and `sum` stops leaking
   the `NotImplemented` sentinel.** CPython's `float_as_number` (Objects/float.c, wired through
   Objects/slotdefs.c `nb_reflected`) exposes `__radd__`/`__rsub__`/`__rmul__`/`__rtruediv__`/
