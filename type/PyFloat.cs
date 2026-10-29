@@ -875,7 +875,10 @@ namespace SharpPy
         /// </summary>
         public override PyInt AsInt()
         {
-            return new PyInt(ToInt());
+            // AsInt is the *Python-type* conversion: arbitrary-precision, truncate
+            // toward zero. Must NOT go through ToInt() (a bounded C# Int32), or
+            // large finite floats overflow. This is the root fix behind p35.
+            return new PyInt(PyInt.FloatToIntegral(Value));
         }
         
         /// <summary>

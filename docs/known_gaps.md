@@ -36,6 +36,13 @@ genuine computation/result divergences and are worked first.
 | P0-7 | N-D memoryview | `cast(fmt, shape)` with ndim > 1 not modelled (flat view only) | p33 |
 | P0-8 | `io.TextIOWrapper(buffer, encoding=…)` | wrapping an existing stream with an encoding not supported | io follow-up |
 | P0-9 | importlib semantics | custom loader/spec beyond `__file__`; namespace-package behavior | p15/p18 follow-up |
+| P0-10 | numeric-coercion dunders | `int(C())`/`float(C())` with `__int__`/`__index__`/`__float__` raise `TypeError: ... not 'C'`; CPython calls the dunder (`int()` = `__index__` then `__int__`, `float()` = `__float__`). `AsInt()` is a CLR cast, not dunder dispatch. `__index__` dispatch already exists via `PyObject.TryGetIndex` | p36 finding |
+
+> API convention (enforced going forward): `To~()` → bounded **C#** value
+> (`ToInt`→int, `ToFloat`→double, `ToBool`→bool); `As~()` → **Python** type
+> (`AsInt`→`PyInt` arbitrary-precision, `AsFloat`→`PyFloat`, `ToStr`→`PyString`).
+> `As~` must never be bounded by a `To~` cast. Sole naming outlier: `AsString()`
+> returns a C# `string` (duplicate of `ToString()`); rename candidate deferred.
 
 ## P1 — introspection / display differs (implicit op already correct)
 

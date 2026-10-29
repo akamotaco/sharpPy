@@ -1518,7 +1518,7 @@ namespace SharpPy
             return value.AsInt();
         }
 
-        private static BigInteger FloatToIntegral(double d)
+        internal static BigInteger FloatToIntegral(double d)
         {
             if (double.IsNaN(d))
                 throw PyValueError.Create("cannot convert float NaN to integer");
