@@ -207,6 +207,18 @@ accepts silently).
   `1 + FSub(2.5)` still needs the same treatment on the float side; `abs(FSub)`,
   `"%.3f" % FSub`, list-subclass `repr`, and `format(Bs(b'ab'), '>4')` naming `bytes.__format__`
   instead of `Bs.__format__`.
+- **P0-19 (new, reliable reproducer): a caught exception escapes later in a long probe file.**
+  Three independent observations, always after roughly twenty handled exceptions in one file, and
+  the failing case *moves* when an earlier case is removed:
+  * appending the float cases to `tests/bughunt/p49_subclass_gates.py` -> unhandled `OverflowError`
+    attributed to `FSub(10 ** 400)` (CPython prints the same caught line and then continues);
+  * removing that case moved the escape to the final `x.no_such`;
+  * appending the round/hash cases moved it to `int.__round__(5, ndigits=2)`.
+  Each statement is caught and printed correctly when run in a short file - `tests/bughunt/p50_round_hash_slots.py`
+  (32 cases) and `tests/bughunt/p48_float_subclass.py` both pass - so this is state accumulated by
+  handled exceptions, not the statement itself. Same area as the p17 `PyFrame.HandledScopes` fix.
+  Workaround used, not a fix: keep probe files under ~25 caught-exception cases and split instead of
+  appending. Do not read the 55/55 pass as covering P0-19.
 - Unexplained, recorded rather than smoothed over: while extending the P0-18 probe with the float
   cases, the combined probe made **both** engines abort on `FSub(10 ** 400)` (CPython printed the
   same `EXC OverflowError ...` line first, then its own traceback), and after removing that case

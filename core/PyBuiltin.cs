@@ -1814,45 +1814,41 @@ namespace SharpPy
         // Delegates to __round__ special method
         private static PyObject CallRound(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"round expected 1 or 2 arguments ({args.Length} given)");
+            // CPython 3.12: Python/bltinmodule.c builtin_round is Clinic `round(number,
+            // ndigits=None)`, and its implementation only dispatches to type(number).__round__.
+            // The builtin rounding rules therefore live in the int/float __round__ slots, which is
+            // also why a user class defining __round__ (or a float subclass overriding it) has to
+            // be reached here rather than through a type test.
+            if (args.Length > 2)
+                throw PyTypeError.Create(
+                    $"round() takes at most 2 arguments ({args.Length + (kwargs?.Length() ?? 0)} given)");
+            if (args.Length == 0)
+                throw PyTypeError.Create("round() missing required argument 'number' (pos 1)");
 
             var number = args[0];
             PyObject ndigits = args.Length > 1 ? args[1] : null;
-
-            // CPython: builtin_round delegates to __round__ method
-            if (number is PyFloat f)
+            if (kwargs != null && kwargs.Length() != 0)
             {
-                return f.Round(ndigits);
-            }
-            else if (number is PyInt i)
-            {
-                // CPython int_round_impl (Objects/longobject.c):
-                //   ndigits >= 0 → same int; ndigits < 0 → round-half-even to 10^ndigits
-                if (ndigits == null || ndigits is PyNone)
-                    return i;
-
-                if (ndigits is not PyInt ndInt)
-                    throw PyTypeError.Create($"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
-
-                long nd;
-                try
+                if (kwargs.Contains(new PyString("ndigits")).ToBool())
                 {
-                    nd = ndInt.ToLong();
+                    ndigits ??= kwargs.GetItem(new PyString("ndigits"));
                 }
-                catch (OverflowException)
+                else
                 {
-                    throw PyOverflowError.Create("Python int too large to convert to C long");
+                    var firstName = (PyString)kwargs.Keys().GetItem(new PyInt(0));
+                    throw PyTypeError.Create(
+                        $"round() got an unexpected keyword argument '{firstName.Value}'");
                 }
-                if (nd >= 0)
-                    return i;
-                return new PyInt(PyInt.RoundIntToPowerOfTen(i.Value, -nd));
             }
-            else
-            {
-                throw PyTypeError.Create($"type {number.GetTypeName()} doesn't define __round__ method");
-            }
+
+            var rounder = number.LookupSpecialMethodUncached("__round__");
+            if (rounder == null)
+                throw PyTypeError.Create(
+                    $"type {number.GetTypeName()} doesn't define __round__ method");
+            return number.BindSpecialMethod(rounder).Call(
+                ndigits == null ? Array.Empty<PyObject>() : new PyObject[] { ndigits }, null);
         }
+
 
         // CPython 3.12: Python/bltinmodule.c:builtin_pow (lines 2633-2671)
         // Two-argument form: pow(x, y) computes x ** y

@@ -36,6 +36,51 @@ namespace SharpPy
         /// (Objects/longobject.c never demands an exact PyLong_Type). In CLR a PyIntSubclass is not
         /// a PyInt, so every `self is PyInt` gate is a subclass bug; they all route here instead.
         /// </summary>
+        /// <summary>
+        /// CPython 3.12: Objects/longobject.c long_round, shared by the builtin round() and the
+        /// int.__round__ slot so there is one implementation.
+        ///   - no ndigits / None            -> the value itself, as an exact int
+        ///   - ndigits &gt;= 0                     -> the value itself (nothing to truncate)
+        ///   - ndigits &lt; 0                      -> round half to even at 10**-ndigits
+        ///   - ndigits too big for C long   -> the value itself (measured: round(5, 10**30) == 5)
+        /// An int subclass rounds to a plain int, because PyLong_FromDouble/long_round does not
+        /// preserve the subtype.
+        /// </summary>
+        internal static PyObject RoundTo(PyObject self, PyObject ndigits)
+        {
+            var value = AsIntForRound(self);
+            if (ndigits == null || ndigits is PyNone)
+                return new PyInt(value.Value);
+
+            var index = PyObject.TryGetIndex(ndigits);
+            if (index == null)
+                throw PyTypeError.Create(
+                    $"'{ndigits.GetTypeName()}' object cannot be interpreted as an integer");
+
+            // Measured: round(5, 10**30) == 5. A positive ndigits beyond the digit count of the
+            // value means "nothing to truncate", so it is answered without converting through a
+            // bounded CLR integer.
+            if (index.Value > (System.Numerics.BigInteger)int.MaxValue)
+                return new PyInt(value.Value);
+
+            long nd = (long)index.Value;
+            if (nd >= 0)
+                return new PyInt(value.Value);
+            return new PyInt(RoundIntToPowerOfTen(value.Value, -nd));
+        }
+
+        // The self side of long_round reads the digits, so a subclass contributes its value.
+        private static PyInt AsIntForRound(PyObject self)
+        {
+            if (self is PyInt exact)
+                return exact;
+            if (self is PyIntSubclass subclass)
+                return subclass.GetIntValue();
+            if (self is PyBool flag)
+                return new PyInt(flag.Value ? System.Numerics.BigInteger.One : System.Numerics.BigInteger.Zero);
+            throw PyTypeError.Create($"type {self.GetTypeName()} doesn't define __round__ method");
+        }
+
         internal static bool TryLongSelf(PyObject self, out PyInt value)
         {
             if (self is PyInt exact)
@@ -211,6 +256,22 @@ namespace SharpPy
             regIntUn("__pos__", s => s.Positive());
             regIntUn("__invert__", s => s.BitwiseNot());
             regIntUn("__abs__", s => new PyInt(BigInteger.Abs(AsIntObj(s).Value)));
+
+            // CPython 3.12: Objects/longobject.c long_round exposed as the int.__round__ slot, so a
+            // subclass inherits rounding and the result is a plain int.
+            intType.TypeDict["__round__"] = new PyMethodDescriptor(
+                "__round__", intType,
+                (self, args, kwargs) => {
+                    // Measured CPython slot surface: keywords are refused with the qualified name,
+                    // extra positionals with the bare method name.
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("int.__round__() takes no keyword arguments");
+                    if (args.Length > 1)
+                        throw PyTypeError.Create(
+                            $"__round__ expected at most 1 argument, got {args.Length}");
+                    return PyInt.RoundTo(self, args.Length > 0 ? args[0] : null);
+                },
+                minArgs: 0, maxArgs: 1);
 
             intType.TypeDict["__hash__"] = new PyWrapperDescriptor(
                 "__hash__", intType,

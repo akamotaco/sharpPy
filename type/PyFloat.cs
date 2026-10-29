@@ -44,6 +44,53 @@ namespace SharpPy
         {
             var floatType = PyType.FloatType;
 
+            // CPython 3.12: Objects/floatobject.c float_round (float.__round__) and float_hash
+            // (the __hash__ slot wrapper). Without them `hasattr(float, '__round__')` and
+            // `hasattr(float, '__hash__')` are False, builtin round() refuses float subclasses, and
+            // hash(FSub(2.5)) falls back to identity so dict/set identity with plain floats breaks.
+            floatType.TypeDict["__round__"] = new PyMethodDescriptor(
+                "__round__", floatType,
+                (self, args, kwargs) => {
+                    if (!PyFloat.TryFloatSelf(self, out var roundTarget))
+                        throw PyTypeError.Create($"descriptor '__round__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("float.__round__() takes no keyword arguments");
+                    if (args.Length > 1)
+                        throw PyTypeError.Create(
+                            $"__round__ expected at most 1 argument, got {args.Length}");
+
+                    // CPython float_round resolves ndigits with PyNumber_Index, so an __index__
+                    // object is valid (measured: round(2.675, Q with __index__ -> 2.67). A positive
+                    // ndigits beyond the representable digit count leaves the value unchanged
+                    // (measured: round(1.5, 10**30) == 1.5).
+                    PyObject places = args.Length > 0 ? args[0] : null;
+                    if (places != null && places is not PyNone)
+                    {
+                        var index = PyObject.TryGetIndex(places);
+                        if (index == null)
+                            throw PyTypeError.Create(
+                                $"'{places.GetTypeName()}' object cannot be interpreted as an integer");
+                        if (index.Value > (System.Numerics.BigInteger)int.MaxValue)
+                            return new PyFloat(roundTarget.Value);
+                        places = index;
+                    }
+                    return roundTarget.Round(places);
+                },
+                minArgs: 0, maxArgs: 1);
+
+            floatType.TypeDict["__hash__"] = new PyWrapperDescriptor(
+                "__hash__", floatType,
+                (self, args, kwargs) => {
+                    if (!PyFloat.TryFloatSelf(self, out var hashTarget))
+                        throw PyTypeError.Create($"descriptor '__hash__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("wrapper __hash__() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    // CPython float_hash keeps the invariant hash(2.0) == hash(2).
+                    return new PyInt(hashTarget.PythonHash());
+                });
+
             // CPython 3.12: Objects/floatobject.c:1420-1430 - float_is_integer
             // Return True if the float is an integer.
             floatType.TypeDict["is_integer"] = new PyMethodDescriptor(
