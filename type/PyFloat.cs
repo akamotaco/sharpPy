@@ -892,7 +892,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyFloat를 PyString으로 변환
         /// </summary>
-        public override string AsString()
+        public override string ToClrString()
         {
             // CPython 3.12: float.__str__ is float.__repr__ (shortest round-trip form).
             return ToStr().Value;

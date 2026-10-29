@@ -5770,7 +5770,7 @@ namespace SharpPy
                         for (int i = 0; i < pyTupleFromlist.Items.Length; i++)
                         {
                             var item = pyTupleFromlist.Items[i];
-                            fromlistArray[i] = item is PyString s ? s.Value : item.AsString();
+                            fromlistArray[i] = item is PyString s ? s.Value : item.ToClrString();
                         }
                     }
 

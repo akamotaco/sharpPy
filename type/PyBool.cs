@@ -349,7 +349,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyBool을 PyString으로 변환
         /// </summary>
-        public override string AsString()
+        public override string ToClrString()
         {
             return Value ? "True" : "False";
         }

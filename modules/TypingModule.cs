@@ -107,7 +107,7 @@ namespace SharpPy.Modules
                     if (value.GetPyType().Name == builtinType.Name)
                         return true;
                 }
-                else if (type.AsString() == value.GetPyType().Name)
+                else if (type.ToClrString() == value.GetPyType().Name)
                 {
                     return true;
                 }
@@ -202,7 +202,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create("TypeVar() missing 1 required positional argument: 'name'");
 
-            var name = args[0].AsString();
+            var name = args[0].ToClrString();
             // Performance: Eliminated LINQ
             var constraints = new PyObject[args.Length - 1];
             for (int i = 1; i < args.Length; i++)

@@ -265,7 +265,7 @@ namespace SharpPy
                 return false;
             
             // Simple class name matching (could be enhanced with proper type checking)
-            if (!pyClass.GetAttribute("__class__").AsString().Contains(className))
+            if (!pyClass.GetAttribute("__class__").ToClrString().Contains(className))
                 return false;
             
             // Match positional arguments with object attributes
@@ -416,10 +416,10 @@ namespace SharpPy
                 var formatSpecValue = expr.FormatSpec.Evaluate(scope);
                 // Apply formatting based on format spec
                 // For now, simplified implementation
-                return new PyString(value.AsString());
+                return new PyString(value.ToClrString());
             }
 
-            return new PyString(value.AsString());
+            return new PyString(value.ToClrString());
         }
 
         /// <summary>

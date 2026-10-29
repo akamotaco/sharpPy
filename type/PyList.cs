@@ -957,7 +957,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyList를 PyString으로 변환 (str() 호출과 동일)
         /// </summary>
-        public override string AsString()
+        public override string ToClrString()
         {
             return ToRepr().Value; // CPython에서 str(list)는 repr(list)와 동일
         }

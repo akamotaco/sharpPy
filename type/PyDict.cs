@@ -1256,7 +1256,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyDict를 PyString으로 변환 (str() 호출과 동일)
         /// </summary>
-        public override string AsString()
+        public override string ToClrString()
         {
             return ToRepr().Value; // CPython에서 str(dict)는 repr(dict)와 동일
         }

@@ -1055,9 +1055,12 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// C# 네이티브 타입 변환: PyObject → C# string
+        /// To~ = C# (CLR) 값 / As~ = Python 타입. 이 메서드는 Python str()
+        /// 내용을 **C# string**으로 뽑는다(그러므로 To~). 이전 이름 AsString은
+        /// 규칙 위반이었음. Python 타입(PyString)이 필요하면 ToStr()를 쓴다.
+        /// ToString()은 별개: 디버깅 전용 identity(&lt;type object at 0x…&gt;).
         /// </summary>
-        public virtual string AsString() => ToStr().Value;
+        public virtual string ToClrString() => ToStr().Value;
 
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyList로 변환/캐스팅

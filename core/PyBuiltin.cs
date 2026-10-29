@@ -303,14 +303,14 @@ namespace SharpPy
                 try
                 {
                     var sepValue = kwargs.GetItem(new PyString("sep"));
-                    sep = sepValue as PyString ?? new PyString(sepValue.AsString());
+                    sep = sepValue as PyString ?? new PyString(sepValue.ToClrString());
                 }
                 catch { }
 
                 try
                 {
                     var endValue = kwargs.GetItem(new PyString("end"));
-                    end = endValue as PyString ?? new PyString(endValue.AsString());
+                    end = endValue as PyString ?? new PyString(endValue.ToClrString());
                 }
                 catch { }
 
@@ -1089,7 +1089,7 @@ namespace SharpPy
 
             // CPython 3.12: encoding == NULL and errors == NULL → PyObject_Str(x)
             if (args.Length == 1)
-                return new PyString(x.AsString());
+                return new PyString(x.ToClrString());
 
             // CPython 3.12: str(bytes, encoding, errors='strict') → PyUnicode_FromEncodedObject
             var encoding = args.Length > 1 ? args[1] : PyNone.Instance;
@@ -1098,7 +1098,7 @@ namespace SharpPy
             if (encoding == PyNone.Instance && errors is PyString errStr && errStr.Value == "strict")
             {
                 // No encoding specified, just convert to string
-                return new PyString(x.AsString());
+                return new PyString(x.ToClrString());
             }
 
             // Decode bytes with specified encoding
@@ -2285,7 +2285,7 @@ namespace SharpPy
                 #endif
             }
 
-            var className = name.AsString();
+            var className = name.ToClrString();
 
             // CPython 3.12: Call __prepare__ if metaclass has it
             Dictionary<string, PyObject> classNamespace = new Dictionary<string, PyObject>();
@@ -3390,7 +3390,7 @@ namespace SharpPy
             // Process positional arguments
             if (args.Length >= 1)
             {
-                name = args[0].AsString();
+                name = args[0].ToClrString();
             }
             if (args.Length >= 2 && args[1] != null && args[1] is not PyNone)
             {
@@ -3426,7 +3426,7 @@ namespace SharpPy
                         switch (keyStr.Value)
                         {
                             case "name":
-                                name = kvp.Value.AsString();
+                                name = kvp.Value.ToClrString();
                                 break;
                             case "globals":
                                 if (kvp.Value is PyDict gDict && kvp.Value is not PyNone)
@@ -3475,7 +3475,7 @@ namespace SharpPy
                 var result = new string[tuple.Items.Length];
                 for (int i = 0; i < tuple.Items.Length; i++)
                 {
-                    result[i] = tuple.Items[i] is PyString s ? s.Value : tuple.Items[i].AsString();
+                    result[i] = tuple.Items[i] is PyString s ? s.Value : tuple.Items[i].ToClrString();
                 }
                 return result;
             }
@@ -3487,7 +3487,7 @@ namespace SharpPy
                 var result = new string[items.Length];
                 for (int i = 0; i < items.Length; i++)
                 {
-                    result[i] = items[i] is PyString s ? s.Value : items[i].AsString();
+                    result[i] = items[i] is PyString s ? s.Value : items[i].ToClrString();
                 }
                 return result;
             }

@@ -377,7 +377,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"unsetenv() takes exactly one argument ({args.Length} given)");
-            string key = args[0] is PyString ps ? ps.Value : args[0].AsString();
+            string key = args[0] is PyString ps ? ps.Value : args[0].ToClrString();
             System.Environment.SetEnvironmentVariable(key, null);
             return new PyInt(0);
         }

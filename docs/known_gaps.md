@@ -41,8 +41,9 @@ genuine computation/result divergences and are worked first.
 > API convention (enforced going forward): `To~()` → bounded **C#** value
 > (`ToInt`→int, `ToFloat`→double, `ToBool`→bool); `As~()` → **Python** type
 > (`AsInt`→`PyInt` arbitrary-precision, `AsFloat`→`PyFloat`, `ToStr`→`PyString`).
-> `As~` must never be bounded by a `To~` cast. Sole naming outlier: `AsString()`
-> returns a C# `string` (duplicate of `ToString()`); rename candidate deferred.
+> `As~` must never be bounded by a `To~` cast. Naming outlier `AsString()` (C# string
+> under an `As` prefix) renamed to `ToClrString()` (p37). `ToStr()` (PyString under a
+> `To` prefix) stays grandfathered (133 call sites); `ToString()` is debug-identity only.
 
 ## P1 — introspection / display differs (implicit op already correct)
 

@@ -2960,7 +2960,7 @@ namespace SharpPy
         /// <summary>
         /// C# 네이티브 타입 변환: PyString → C# string
         /// </summary>
-        public override string AsString() => Value;
+        public override string ToClrString() => Value;
         
         /// <summary>
         /// CPython 호환: PyString을 PyInt로 변환

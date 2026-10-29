@@ -1339,7 +1339,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyInt를 PyString으로 변환
         /// </summary>
-        public override string AsString()
+        public override string ToClrString()
         {
             return DecimalString();
         }

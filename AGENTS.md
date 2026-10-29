@@ -23,6 +23,19 @@
 - 현재 상태는 계획 문서 상단 한 곳에서 관리한다. 과거 보고서와 원자료는 이력으로 보존한다.
   기본 통과 회귀와 별도 compatibility 실패, 최종 코드 검증과 이전 코드 검증을 구분한다.
 
+## 변환 API 관례 (PyObject)
+
+- `To~()` = **C#(CLR) 값** 추출: `ToInt()`→`int`, `ToFloat()`→`double`, `ToBool()`→`bool`,
+  `ToClrString()`→C# `string`.
+- `As~()` = **Python 타입** 변환: `AsInt()`→`PyInt`(임의정밀), `AsFloat()`→`PyFloat`,
+  `AsBool()`→`PyBool`, `ToStr()`→`PyString`(= Python `str()`).
+- `As~`는 절대 `To~` 캐스트로 bound되어선 안 된다. 예: `AsInt()`는 `ToInt()`(Int32)가
+  아니라 BigInteger로 절단해야 큰 float에서 넘치지 않는다 (p35/p36).
+- `ToString()`은 예외: **디버깅 전용 identity**(`<type object at 0x…>`). Python `str()`과
+  무관하며 `ToStr()`으로 위임하지 않는다.
+- `ToStr()`(Python형인데 `To` 접두)은 133개 호출부 때문에 관례 명명이 후퇴한 채 grandfather.
+  대규모 rename은 별도 작업으로 유보. 신규 코드는 위 규칙을 따른다.
+
 ## 실수 방지 대책 (2026-10-28 p16 세션 사고 기반)
 
 - 셸 명령은 한 번에 하나 동작. here-document 중첩 금지(직전 사고: `||` 대체 실행 안에
