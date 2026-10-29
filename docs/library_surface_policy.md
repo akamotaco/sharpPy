@@ -2,11 +2,19 @@
 
 ## 정책
 
-**CPython 표준 라이브러리의 전면 호환은 목적이 아니다.** 필요한 surface를 **C#의 특징을 고려해
-구현**한다. CPython `Lib` 복사는 수단의 하나일 뿐이며, 복제 자체를 목표로 삼지 않는다.
+**CPython 표준 라이브러리의 전면 호환은 목적이 아니다.** 필요하면 아래 순서로 채운다.
 
-- 필요한 것은 C#으로 구현한다. CLR이 이미 제공하는 것(임시 경로, 인코딩, 정규식, 숫자 포맷, 파일
-  API)을 Python 코드로 다시 감싸지 않는다.
+1. **CPython에 같은 이름 파일이 있으면 그대로 복사한다.** (예: `Lib/tempfile.py` → `Lib/tempfile.py`)
+2. 복사한 파일이 필요한 요소를 점검한다. **기존 SharpPy `Lib`의 다른 py 파일로 충족되면 그걸 쓰고**,
+   그 파일도 없으면 그 CPython 파일도 복사한다. Python으로 되는 것을 C#으로 다시 만들지 않는다.
+3. **`_thread`·`errno`·`_weakref`처럼 C 전용 구현인 것만 C#으로 구현해 연결한다.** CLR이 제공하는
+   primitives(lock, 경로, 인코딩, GC)는 이 단계에서 C# 쪽 구현체로 삼는다.
+
+즉 **Python 우선, C#은 C-전용 잔여분**. 단 1단계의 "복사 우선"은 **없는 모듈**에 대한 규칙이고, 이미
+있어서 자기 의도를 가진 파일(예: `Lib/io.py`)을 통채로 교체하는 것은 금지한다 — 그 경우 부분 수정.
+
+- C#이 이미 주는 것을 Python shim으로 두 겹으로 감싸지 않는다. 얹어야 한다면
+  실제 호출자와 이유, 제거 조건을 남긴다(AGENTS의 신규 adapter 금지 규칙과 동일).
 - 이미 C# native module이 surface를 제공하면 그 위에 Python shim을 얹지 않는다. 얹어야 한다면
   실제 호출자와 이유, 제거 조건을 남긴다(AGENTS의 신규 adapter 금지 규칙과 동일).
 - CPython `Lib`에서 가져온 파일은 **가져온 의도**를 확인해서 유지한다. CPython 파일로 일괄 교체하지
@@ -47,11 +55,19 @@
 
 라이브러리 항목은 **"CPython Lib를 옮긴다"가 아니라 "필요 surface를 C#으로 채운다"로 스코프한다.**
 
-- **`tempfile` 미존재** — 정책상 결함이 아니다. 필요해지면 C# native module로 만든다. CLR은
-  `Path.GetTempPath()`/`Path.GetRandomFileName()`을 이미 갖고 있으므로 CPython의 `_os` 조합 로직을
-  Python으로 복제할 이유가 없다. Windows에서 `GetTempFileName`은 65,536개 고갈 시 `WinError 206`,
-  `TemporaryDirectory` 정리 실패는 `PermissionError` 계열 — 메시지는 CPython에 맞춘다.
-  Godot에서는 임시 경로가 `user://` 관례와 충돌할 수 있으므로 `res://`/`user://` 정책을 따른다.
+- **`tempfile` — 정책 3단계를 적용한 첫 사례 (측정).** `Lib/tempfile.py` 956줄, 외부 심볼 사용은
+  **4개뿐**이다:
+
+  | 심볼 | 출처 | 처리 |
+  |---|---|---|
+  | `_errno.EEXIST`, `_errno.ENOENT` | `Lib`/`Modules`에 py 없음(C 전용) | **3단계**: C# `errno` native module (CLR 오류코드→errno 정수 매핑) |
+  | `_shutil.rmtree` | CPython `Lib/shutil.py` 1548줄, 자기 deps는 전부 py(os, sys, stat, fnmatch, collections, errno, warnings) | **2단계**: `shutil.py` 복사 (`stat`/`fnmatch`는 추가 복사 또는 축약) |
+  | `_thread.allocate_lock` | C 전용 (`_thread` py 없음) | **3단계**: C# `_thread.allocate_lock` (CLR `Monitor`/`Lock`) |
+  | `_weakref.finalize` | CPython `Lib/weakref.py` 674줄 (내부에서 `_weakref` C module 사용) | **2단계 + 3단계**: `weakref.py` 복사 + `_weakref` primitives는 CLR GC로 C# 구현 |
+
+  이미 있는 것: `functools`, `warnings`, `io`, `os`, `random`, `sys`, `types`. 즉 **복사 3개
+  (`tempfile`·`shutil`·`weakref`) + C# 3개(`errno`·`_thread`·`_weakref`)** 로 열린다. Godot에서는 임시
+  경로가 `user://` 관례와 충돌할 수 있으므로 그 정책을 따른다.
 - **P0-8 `io.TextIOWrapper(buffer, encoding=...)`** — `Lib/io.py`를 CPython 버전으로 교체하지 않고
   `modules/IoModule.cs`의 생성자 semantics로 해결한다. `Lib/io.py`는 이미 CPython보다 큰 shim이므로
   교체는 shim을 덮어쓸 위험이 있다.
@@ -61,8 +77,10 @@
 
 ## 판단 기준 (새 항목 검토용)
 
-1. C#/CLR이 이미 제공하는가? 제공하면 C#에서 쓰고 Python shim을 만들지 않는다.
-2. CPython `Lib`에 같은 이름 파일이 SharpPy에 이미 있는가? 있으면 **그 파일의 의도**를 먼저 확인하고
-   부분 수정한다. 통째 교체는 금지.
-3. 관찰 surface(함수·속성·예외 메시지) 중 실제로 프로그램이 사용하는 범위는 어디까지인가? 그 범위만
-   만든다. 나머지는 known_gaps에 "의도적 미구현"으로 남긴다.
+1. CPython에 같은 이름 py 파일이 있는가? 있고 SharpPy에 없으면 **그대로 복사**한다.
+2. 복사한 파일의 import와 사용 심볼을 나열한다. SharpPy `Lib`에 이미 있으면 그대로 쓰고, 없으면 그
+   CPython 파일도 복사한다. 이미 SharpPy에 있는 파일이면 **그 파일의 의도**를 먼저 확인하고 부분
+   수정한다(통째 교체 금지).
+3. 남은 것 중 C 전용(`_thread`, `errno`, `_weakref`, `_io`, `_sre`, `_abc` …)만 C#으로 구현해 연결한다.
+   C#에서는 CLR이 제공하는 primitives를 쓰고, 관찰되는 오류 타입과 메시지는 CPython에 맞춘다.
+4. 관찰 surface 중 실제로 필요한 범위를 정한다.넘치는 부분은 known_gaps에 "의도적 미구현"으로 남긴다.
