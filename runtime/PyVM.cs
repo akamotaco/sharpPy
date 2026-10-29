@@ -5938,7 +5938,49 @@ namespace SharpPy
                             }
                             catch { }
 
-                            throw PyAttributeError.Create($"module '{pkgModuleName}' has no attribute '{itemName}'");
+                            // CPython 3.12 import_from() raises ImportError, not AttributeError:
+                            //   cannot import name 'NOPE' from 'os' (C:\...\Lib\os.py)
+                            //   cannot import name 'NOPE' from 'sys' (unknown location)
+                            // The parenthesised part is __spec__.origin when there is one.
+                            // This is what makes io.py's
+                            //   try: from _io import _WindowsConsoleIO
+                            //   except ImportError: pass
+                            // work at all.
+                            string origin = "unknown location";
+                            try
+                            {
+                                var spec = module.GetAttribute("__spec__");
+                                if (spec != null && !(spec is PyNone))
+                                {
+                                    var specOrigin = spec.GetAttribute("origin");
+                                    if (specOrigin is PyString specOriginStr && specOriginStr.Value.Length > 0)
+                                        origin = specOriginStr.Value;
+                                }
+                            }
+                            catch { }
+
+                            if (origin == "unknown location")
+                            {
+                                // CPython reads __spec__.origin, which for a source module is its
+                                // file path; SharpPy modules carry __file__ without always having a
+                                // spec, so read the same value from there before giving up.
+                                try
+                                {
+                                    var fileAttr = module.GetAttribute("__file__");
+                                    // SharpPy's native modules carry placeholder __file__ values
+                                    // (_io.py, time.py, "<builtin sys module>"). CPython has no
+                                    // origin for extension and builtin modules and prints
+                                    // "unknown location", so only a file that actually exists
+                                    // counts as an origin.
+                                    if (fileAttr is PyString fileStr && fileStr.Value.Length > 0
+                                        && System.IO.File.Exists(fileStr.Value))
+                                        origin = fileStr.Value;
+                                }
+                                catch { }
+                            }
+
+                            throw PyImportError.Create(
+                                $"cannot import name '{itemName}' from '{pkgModuleName}' ({origin})");
                         }
 
                         frame.ValueStack.Push(importedItem);
