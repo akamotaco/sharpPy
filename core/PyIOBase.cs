@@ -441,14 +441,21 @@ public static class PyIOBaseSlots
                 }, minArgs: minArgs, maxArgs: maxArgs);
         }
 
+        // dir(_io._BufferedIOBase) in CPython lists exactly these; peek and raw are NOT among
+        // them (measured against SharpPy, which had them by assumption), so io.BytesIO does not
+        // inherit a peek/raw attribute at all.
         BufferedNotImplemented("read", 0, 1);
         BufferedNotImplemented("read1", 0, 1);
         BufferedNotImplemented("readinto", 1, 1);
         BufferedNotImplemented("readinto1", 1, 1);
         BufferedNotImplemented("write", 1, 1);
-        BufferedNotImplemented("peek", 0, 1);
-        BufferedNotImplemented("raw", 0, 0);
         BufferedNotImplemented("detach", 0, 0);
+
+        // dir(_io._TextIOBase) lists detach as well (measured); it reports unsupported.
+        TextIOBaseType.TypeDict["detach"] = new PyMethodDescriptor(
+            "detach", TextIOBaseType, (self, args, kwargs) =>
+                throw PyUnsupportedOperation.Create("detach"),
+            minArgs: 0, maxArgs: 0);
 
         // ---- _TextIOBase: read/write report unsupported rather than unimplemented.
         TextIOBaseType.TypeDict["read"] = new PyMethodDescriptor(

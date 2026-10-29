@@ -14,7 +14,7 @@ import abc
 # type objects here keeps isinstance(open(f), io.TextIOWrapper) true and gives the
 # "_io" __module__ in reprs.
 from _io import (
-    StringIO, TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair,
+    StringIO, BytesIO, TextIOWrapper, BufferedReader, BufferedWriter, BufferedRWPair,
     BufferedRandom,
     FileIO, IncrementalNewlineDecoder, UnsupportedOperation, text_encoding, open_code,
 )
@@ -109,79 +109,9 @@ class TextIOBase(IOBase):
 # library rule a C-only implementation is replaced in C#, and the native type is also what
 # gives StringIO its _TextIOBase -> _IOBase chain and its real _io identity.
 # Bytes I/O implementation
-class BytesIO(BufferedIOBase):
-    """Buffered I/O implementation using an in-memory bytes buffer."""
-
-    def __init__(self, initial_bytes=b""):
-        super().__init__()
-        self._buffer = bytearray(initial_bytes)
-        self._pos = 0
-
-    def getvalue(self):
-        """Return the entire contents of the BytesIO."""
-        return bytes(self._buffer)
-
-    def read(self, size=-1):
-        """Read and return at most size bytes."""
-        if size is None or size < 0:
-            result = self._buffer[self._pos:]
-            self._pos = len(self._buffer)
-        else:
-            result = self._buffer[self._pos:self._pos + size]
-            self._pos += len(result)
-        return bytes(result)
-
-    def write(self, b):
-        """Write bytes-like object b to the stream."""
-        if not isinstance(b, (bytes, bytearray)):
-            raise TypeError("a bytes-like object is required")
-
-        # Insert at current position, extending buffer if necessary
-        data = bytearray(b)
-        needed_len = self._pos + len(data)
-        if needed_len > len(self._buffer):
-            self._buffer.extend(b'\x00' * (needed_len - len(self._buffer)))
-
-        self._buffer[self._pos:self._pos + len(data)] = data
-        self._pos += len(data)
-        return len(data)
-
-    def seek(self, pos, whence=0):
-        """Change stream position."""
-        if whence == 0:  # SEEK_SET
-            new_pos = pos
-        elif whence == 1:  # SEEK_CUR
-            new_pos = self._pos + pos
-        elif whence == 2:  # SEEK_END
-            new_pos = len(self._buffer) + pos
-        else:
-            raise ValueError("whence must be 0, 1, or 2")
-
-        if new_pos < 0:
-            new_pos = 0
-
-        self._pos = new_pos
-        return self._pos
-
-    def tell(self):
-        """Return current stream position."""
-        return self._pos
-
-    def readable(self):
-        """Return whether object supports reading."""
-        return True
-
-    def writable(self):
-        """Return whether object supports writing."""
-        return True
-
-    def seekable(self):
-        """Return whether object supports seeking."""
-        return True
-
-
-# CPython reports this concrete in-memory type as belonging to _io.
-BytesIO.__module__ = '_io'
+# BytesIO is the native _io.BytesIO (core/PyBytesIO.cs, the counterpart of
+# Modules/_io/bytesio.c). Like StringIO this replaced a python stand-in; the native type
+# carries the BytesIO -> _BufferedIOBase -> _IOBase chain CPython has.
 
 
 # Constants

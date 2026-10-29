@@ -24,7 +24,7 @@ import 한다). C# 대체가 필요한 것은 **fallback 없이 C 모듈을 요�
 | `_thread` (`allocate_lock`) | **없음** | tempfile/shutil/threading 사슬이 요구 |
 | `_weakref` (`finalize`) | **없음** | tempfile/weakref가 요구 |
 | `errno` (`EEXIST`/`ENOENT`) | **없음** | tempfile·shutil·os 계열이 요구 |
-| `_io` in-memory stream | **B1/B2에서 부분 구현** | `_IOBase`/`_RawIOBase`/`_BufferedIOBase`/`_TextIOBase`와 `StringIO`는 C#으로 이동 완료(측정: write 경로 12,318ms → 110.7ms). 남은 것은 `BytesIO`(B3)와 `Lib/io.py` 자체의 CPython 형태화(B4) |
+| `_io` in-memory stream | **B1/B2에서 부분 구현** | `_IOBase`/`_RawIOBase`/`_BufferedIOBase`/`_TextIOBase`와 `StringIO`는 C#으로 이동 완료(측정: write 경로 12,318ms → 110.7ms). `BytesIO`도 C#으로 이동(`Lib/io.py` 303줄 → 145줄). 남은 것은 `Lib/io.py` 자체를 CPython 형태로 바꾸는 B4뿐. **기록된 편차 1건**: `BytesIO.getbuffer()`는 스냅샷이라 이후 write가 반영되지 않는다(CPython은 라이브 뷰) |
 
 
 **CPython 표준 라이브러리의 전면 호환은 목적이 아니다.** 필요하면 아래 순서로 채운다.

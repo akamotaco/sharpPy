@@ -33,6 +33,7 @@ namespace SharpPy.Modules
             // never imported.
             PyIOBaseSlots.Register();
             PyStringIO.Register();
+            PyBytesIO.Register();
 
             foreach (var t in new[] { FileIOType, BufferedRWPairType, IncrementalNewlineDecoderType })
                 t.TypeDict["__module__"] = new PyString("_io");
@@ -56,6 +57,7 @@ namespace SharpPy.Modules
             // CPython's abstract bases. Lib/io.py only adds abc.ABCMeta to these and virtually
             // registers the concrete classes, so every default implementation belongs here.
             module.ModuleDict["StringIO"] = PyStringIO.StringType;
+            module.ModuleDict["BytesIO"] = PyBytesIO.BytesType;
             module.ModuleDict["_IOBase"] = PyIOBaseSlots.IOBaseType;
             module.ModuleDict["_RawIOBase"] = PyIOBaseSlots.RawIOBaseType;
             module.ModuleDict["_BufferedIOBase"] = PyIOBaseSlots.BufferedIOBaseType;
