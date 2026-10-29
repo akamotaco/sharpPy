@@ -101,6 +101,7 @@ namespace SharpPy
         // A null reference marks a released view and drops the backing storage.
         private object _data;
         private readonly int _itemsize;
+        private readonly string _fmt;   // CPython Py_buffer.format ("" for byte views)
         // Physical storage is int-sized; only stride is exposed at native width.
         private readonly int _offset;
         private readonly int _length;
@@ -131,13 +132,11 @@ namespace SharpPy
                 if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
                     throw PyTypeError.Create($"tolist() takes no arguments ({args.Length} given)");
                 view.CheckReleased();
-                var data = view.Data;
-                var items = new PyObject[data.Length];
-                for (int i = 0; i < data.Length; i++)
-                {
-                    items[i] = new PyInt(data[i]);
-                }
-                return new PyTuple(items);
+                int n = view._length;
+                var items = new PyObject[n];
+                for (int i = 0; i < n; i++)
+                    items[i] = view.ReadElement(view.StorageIndex(i));
+                return new PyList(items);
             });
             type.TypeDict["hex"] = new PyMethodDescriptor("hex", type, (self, args, kwargs) =>
             {
@@ -185,6 +184,72 @@ namespace SharpPy
                     view.Release();
                     return PyNone.Instance;
                 });
+
+            // CPython 3.12: Objects/memoryobject.c memory_cast - reinterpret the
+            // buffer's bytes as a different native element type. Only the
+            // C-contiguous, single-character native formats are supported.
+            type.TypeDict["cast"] = new PyMethodDescriptor("cast", type, (self, args, kwargs) =>
+            {
+                if (self is not PyMemoryView view)
+                    throw PyTypeError.Create($"descriptor 'cast' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("cast() takes no keyword arguments");
+                view.CheckReleased();
+                if (args.Length < 1 || args.Length > 2)
+                    throw PyTypeError.Create($"cast() takes from 1 to 2 positional arguments but {args.Length} were given");
+                if (args[0] is not PyString fmtStr)
+                    throw PyValueError.Create("memoryview: destination format must be a native single character format prefixed with an optional '@'");
+                // CPython allows an optional native byte-order prefix; the host is
+                // little-endian so '@' (native), '=' and '<' decode identically.
+                string fs = fmtStr.Value;
+                if (fs.Length == 2 && (fs[0] == '@' || fs[0] == '=' || fs[0] == '<' || fs[0] == '>' || fs[0] == '!'))
+                    fs = fs.Substring(1);
+                if (fs.Length != 1)
+                    throw PyValueError.Create("memoryview: destination format must be a native single character format prefixed with an optional '@'");
+                char f = fs[0];
+                int isz = FormatSize(f);
+                if (isz < 0)
+                    throw PyValueError.Create("memoryview: destination format must be a native single character format prefixed with an optional '@'");
+                if (view._length > 1 && view._stride != view._itemsize)
+                    throw PyTypeError.Create("memoryview: underlying buffer is not C-contiguous");
+                long totalBytes = (long)view._length * view._itemsize;
+                if (totalBytes % isz != 0)
+                    throw PyTypeError.Create("memoryview: length is not a multiple of itemsize");
+                if (args.Length == 2)
+                {
+                    var dims = args[1] is PyTuple t ? t.Items
+                             : args[1] is PyList lst ? lst.Items
+                             : throw PyTypeError.Create("memoryview: shape must be a tuple of integers");
+                    long product = 1;
+                    foreach (var d in dims)
+                    {
+                        if (d is not PyInt di)
+                            throw PyTypeError.Create("memoryview: shape elements must be integers");
+                        product *= (long)di.Value;
+                    }
+                    if (product * isz != totalBytes)
+                        throw PyTypeError.Create("memoryview: product(shape) * itemsize != buffer size");
+                    if (dims.Length != 1)
+                        throw PyTypeError.Create("memoryview: only 1-dimensional cast is supported");
+                }
+                return view.Reinterpret(f.ToString(), isz);
+            });
+
+            // CPython memoryview is iterable and yields one element per position
+            // (honouring the current cast format/itemsize).
+            type.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", type, (self, args, kwargs) =>
+            {
+                if (self is not PyMemoryView view)
+                    throw PyTypeError.Create($"descriptor '__iter__' requires a 'memoryview' object but received a '{self.GetTypeName()}'");
+                if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                    throw PyTypeError.Create("__iter__() takes no arguments");
+                view.CheckReleased();
+                int n = view._length;
+                var items = new PyObject[n];
+                for (int i = 0; i < n; i++)
+                    items[i] = view.ReadElement(view.StorageIndex(i));
+                return new PyList(items).GetIterator();
+            });
         }
 
         public PyMemoryView(byte[] data, bool readOnly = false, int itemsize = 1)
@@ -199,17 +264,18 @@ namespace SharpPy
         private sealed class ExportedView : PyMemoryView
         {
             internal ExportedView(PyByteArray data, bool readOnly, int itemsize,
-                int offset, int length, nint stride) : base(data, readOnly, itemsize, offset, length, stride) { }
+                int offset, int length, nint stride, string fmt = "B") : base(data, readOnly, itemsize, offset, length, stride, fmt) { }
             internal ExportedView(PyMemoryView source, PySlice slice) : base(source, slice) { }
             ~ExportedView() { ReleaseExport(false); }
         }
 
         private PyMemoryView(object data, bool readOnly, int itemsize,
-            int offset, int length, nint stride)
+            int offset, int length, nint stride, string fmt = "B")
         {
             _data = data ?? throw new ArgumentNullException(nameof(data));
             _bufferState = readOnly ? 1u : 0u;
             _itemsize = itemsize;  // CPython: Py_buffer.itemsize
+            _fmt = fmt;
             _offset = offset;
             _length = length;
             _stride = stride;
@@ -224,7 +290,7 @@ namespace SharpPy
 
         private PyMemoryView(PyMemoryView source, PySlice slice)
             : this(source._data, source._readonly, source._itemsize,
-                   source._offset, source._length, source._stride)
+                   source._offset, source._length, source._stride, source._fmt)
         {
             // CPython registers the child before slice __index__ callbacks run.
             // Such callbacks may release the parent; the child still owns its export.
@@ -246,6 +312,53 @@ namespace SharpPy
 
         private byte ReadByte(int position) => _data is PyByteArray exporter
             ? exporter.ReadBufferByte(position) : ((byte[])_data)[position];
+
+        // CPython memoryview.cast element decoding. Native (little-endian on the
+        // supported hosts) struct interpretation of the raw bytes.
+        private static int FormatSize(char f) => f switch
+        {
+            'b' or 'B' or 'c' => 1,
+            'h' or 'H' => 2,
+            'i' or 'I' or 'l' or 'L' => 4,
+            'q' or 'Q' => 8,
+            'f' => 4,
+            'd' => 8,
+            _ => -1,
+        };
+
+        private PyObject ReadElement(int storageByte)
+        {
+            byte b0 = ReadByte(storageByte);
+            switch (_fmt)
+            {
+                case "":
+                case "B": return SmallIntCache.GetOrCreate(b0);
+                case "b": return SmallIntCache.GetOrCreate((sbyte)b0);
+                case "c": return new PyBytes(new[] { b0 });
+                case "H": return SmallIntCache.GetOrCreate((uint)(b0 | (ReadByte(storageByte + 1) << 8)));
+                case "h": return SmallIntCache.GetOrCreate((short)(b0 | (ReadByte(storageByte + 1) << 8)));
+                case "I":
+                case "L": return SmallIntCache.GetOrCreate((uint)(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24)));
+                case "i":
+                case "l": return SmallIntCache.GetOrCreate(b0 | (ReadByte(storageByte + 1) << 8) | (ReadByte(storageByte + 2) << 16) | (ReadByte(storageByte + 3) << 24));
+                case "Q": { ulong v = 0; for (int k = 0; k < 8; k++) v |= (ulong)ReadByte(storageByte + k) << (8 * k); return new PyInt(unchecked((long)v)); }
+                case "q": { long v = 0; for (int k = 0; k < 8; k++) v |= (long)ReadByte(storageByte + k) << (8 * k); return new PyInt(v); }
+                case "f": { uint u = 0; for (int k = 0; k < 4; k++) u |= (uint)ReadByte(storageByte + k) << (8 * k); return new PyFloat(BitConverter.ToSingle(BitConverter.GetBytes(u), 0)); }
+                case "d": { ulong u = 0; for (int k = 0; k < 8; k++) u |= (ulong)ReadByte(storageByte + k) << (8 * k); return new PyFloat(BitConverter.ToDouble(BitConverter.GetBytes(u), 0)); }
+                default: return SmallIntCache.GetOrCreate(b0);
+            }
+        }
+
+        // Build a new C-contiguous view over the same storage interpreted as
+        // `itemsize`-wide elements (element i starts at _offset + i*itemsize).
+        internal PyMemoryView Reinterpret(string fmt, int itemsize)
+        {
+            int total = _length * _itemsize;
+            int elems = total / itemsize;
+            return _data is PyByteArray e
+                ? new ExportedView(e, _readonly, itemsize, _offset, elems, itemsize, fmt)
+                : new PyMemoryView(_data, _readonly, itemsize, _offset, elems, itemsize, fmt);
+        }
 
         private int GetIndex(PyInt index, PyObject original = null)
         {
@@ -286,8 +399,8 @@ namespace SharpPy
         {
             CheckReleased();
             return _data is PyByteArray exporter
-                ? new ExportedView(exporter, _readonly, _itemsize, _offset, _length, _stride)
-                : new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride);
+                ? new ExportedView(exporter, _readonly, _itemsize, _offset, _length, _stride, _fmt)
+                : new PyMemoryView(_data, _readonly, _itemsize, _offset, _length, _stride, _fmt);
         }
 
         public byte[] Data
@@ -295,10 +408,13 @@ namespace SharpPy
             get
             {
                 CheckReleased();
-                if (_data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
+                if (_itemsize == 1 && _data is byte[] array && _offset == 0 && _stride == 1 && _length == array.Length)
                     return array;
-                var result = new byte[_length];
-                for (int i = 0; i < result.Length; i++) result[i] = ReadByte(StorageIndex(i));
+                int total = _length * _itemsize;
+                var result = new byte[total];
+                for (int i = 0; i < _length; i++)
+                    for (int j = 0; j < _itemsize; j++)
+                        result[i * _itemsize + j] = ReadByte(StorageIndex(i) + j);
                 return result;
             }
         }
@@ -323,6 +439,10 @@ namespace SharpPy
             {
                 return SmallIntCache.GetOrCreate(ItemSize);
             }
+            if (name == "format") { CheckReleased(); return new PyString(_fmt); }
+            if (name == "nbytes") { CheckReleased(); return SmallIntCache.GetOrCreate((long)_length * _itemsize); }
+            if (name == "ndim") { CheckReleased(); return SmallIntCache.GetOrCreate(1); }
+            if (name == "shape") { CheckReleased(); return new PyTuple(new PyObject[] { SmallIntCache.GetOrCreate(_length) }); }
             return base.GetAttribute(name);
         }
 
@@ -336,7 +456,7 @@ namespace SharpPy
             // CPython 3.12: line 2571-2576 - integer indexing
             if (index is PyInt pyInt)
             {
-                return SmallIntCache.GetOrCreate(ReadByte(GetIndex(pyInt)));
+                return ReadElement(GetIndex(pyInt));
             }
             // CPython 3.12: line 2578-2593 - slice support
             else if (index is PySlice slice)
@@ -347,7 +467,7 @@ namespace SharpPy
             if (converted == null) throw PyTypeError.Create("memoryview: invalid slice key");
             int position = GetIndex(converted, index);
             CheckReleased();
-            return SmallIntCache.GetOrCreate(ReadByte(position));
+            return ReadElement(position);
         }
 
         public override void SetItem(PyObject index, PyObject value)
@@ -469,6 +589,16 @@ namespace SharpPy
         }
 
         public override int Length() { CheckReleased(); return _length; }
+
+        public override PyObject GetIterator()
+        {
+            CheckReleased();
+            int n = _length;
+            var items = new PyObject[n];
+            for (int i = 0; i < n; i++)
+                items[i] = ReadElement(StorageIndex(i));
+            return new PyList(items).GetIterator();
+        }
         public override bool IsTrue() => Length() != 0;
         public override bool PyBoolValue() => IsTrue();
 
