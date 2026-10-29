@@ -57,7 +57,7 @@ namespace SharpPy
             _ => new PyDictItemIterator(_dictionary)
         };
         public override PyString ToRepr() => new PyString($"{GetTypeName()}({AsList().ToRepr().Value})");
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
 
         public override PyBool Contains(PyObject item)
         {

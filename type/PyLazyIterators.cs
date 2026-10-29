@@ -48,7 +48,7 @@ namespace SharpPy
         public override string GetTypeName() => "map";
         public override PyType GetPyType() => PyType.MapType;
         public override PyString ToRepr() => new PyString($"<map object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
     }
 
     /// <summary>
@@ -110,7 +110,7 @@ namespace SharpPy
         public override string GetTypeName() => "zip";
         public override PyType GetPyType() => PyType.ZipType;
         public override PyString ToRepr() => new PyString($"<zip object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
     }
 
     /// <summary>CPython filter object: lazy; func None means truthiness test.</summary>
@@ -143,7 +143,7 @@ namespace SharpPy
         public override string GetTypeName() => "filter";
         public override PyType GetPyType() => PyType.FilterType;
         public override PyString ToRepr() => new PyString($"<filter object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ namespace SharpPy
         public override string GetTypeName() => "callable_iterator";
         public override PyType GetPyType() => PyType.CallableIteratorType;
         public override PyString ToRepr() => new PyString($"<callable_iterator object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
     }
 
     /// <summary>

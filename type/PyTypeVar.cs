@@ -133,7 +133,7 @@ namespace SharpPy
         /// <summary>
         /// CPython str(): ~T (for simple TypeVars)
         /// </summary>
-        public override PyString ToStr()
+        public override PyString AsString()
         {
             // CPython 3.12: Simple TypeVars from PEP 695 show as ~T
             if (Bound == null && Constraints.Items.Length == 0 && !Covariant && !Contravariant)
@@ -204,7 +204,7 @@ namespace SharpPy
         public override string GetTypeName() => "ParamSpec";
 
         public override PyString ToRepr() => new PyString($"ParamSpec('{Name}')");
-        public override PyString ToStr() => new PyString($"~{Name}");
+        public override PyString AsString() => new PyString($"~{Name}");
 
         public override int ToHash()
         {
@@ -244,7 +244,7 @@ namespace SharpPy
         public override string GetTypeName() => "TypeVarTuple";
 
         public override PyString ToRepr() => new PyString($"TypeVarTuple('{Name}')");
-        public override PyString ToStr() => new PyString($"~{Name}");
+        public override PyString AsString() => new PyString($"~{Name}");
 
         public override int ToHash()
         {

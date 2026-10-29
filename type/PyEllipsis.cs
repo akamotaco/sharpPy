@@ -20,7 +20,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString("Ellipsis");
+        public override PyString AsString() => new PyString("Ellipsis");
         public override PyString ToRepr() => new PyString("Ellipsis");
         public override string ToString() => "Ellipsis";
 

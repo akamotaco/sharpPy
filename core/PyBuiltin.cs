@@ -156,7 +156,7 @@ namespace SharpPy
         // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
         // C# ToString(), so these must be overridden explicitly.
         public override PyString ToRepr() => new PyString($"<built-in function {Name}>");
-        public override PyString ToStr() => new PyString($"<built-in function {Name}>");
+        public override PyString AsString() => new PyString($"<built-in function {Name}>");
 
         /// <summary>
         /// CPython 호환: 내장 함수 구현 테이블 초기화
@@ -5041,6 +5041,6 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "object";
         public override PyString ToRepr() => new PyString($"<object object at 0x{GetHashCode():x}>");
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
     }
 }

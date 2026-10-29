@@ -21,7 +21,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString("<NULL>");
+        public override PyString AsString() => new PyString("<NULL>");
         public override PyString ToRepr() => new PyString("<NULL>");
         public override string ToString() => "<NULL>";
 

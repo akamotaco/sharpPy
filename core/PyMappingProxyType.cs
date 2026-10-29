@@ -88,7 +88,7 @@ namespace SharpPy
 
         #region String representation
 
-        public override PyString ToStr()
+        public override PyString AsString()
         {
             // Performance: Eliminated LINQ - manual loop instead of Select
             var items = new string[_mapping.Count];
@@ -100,7 +100,7 @@ namespace SharpPy
             return new PyString("{" + string.Join(", ", items) + "}");
         }
 
-        public override PyString ToRepr() => ToStr();
+        public override PyString ToRepr() => AsString();
 
         #endregion
 

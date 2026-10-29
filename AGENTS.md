@@ -28,13 +28,17 @@
 - `To~()` = **C#(CLR) 값** 추출: `ToInt()`→`int`, `ToFloat()`→`double`, `ToBool()`→`bool`,
   `ToClrString()`→C# `string`.
 - `As~()` = **Python 타입** 변환: `AsInt()`→`PyInt`(임의정밀), `AsFloat()`→`PyFloat`,
-  `AsBool()`→`PyBool`, `ToStr()`→`PyString`(= Python `str()`).
+  `AsBool()`→`PyBool`, `AsString()`→`PyString`(= Python `str()`).
+- `ToStr()`은 `AsString()`으로 위임하는 **비가상 호환 별명**이다(p39). 서브클래스는
+  반드시 `AsString()`을 override 하며, 그래서 `ToStr`/`AsString` 이중 경로가 생기지 않는다.
+- `AsString()`/`ToRepr()`는 CPython `PyObject_Str`/`PyObject_Repr` 의미: 특수메서드가
+  **없을 때만** repr로 폴백한다. 호출 중 예외는 전파, 반환이 str이 아니면 `TypeError`.
 - `As~`는 절대 `To~` 캐스트로 bound되어선 안 된다. 예: `AsInt()`는 `ToInt()`(Int32)가
   아니라 BigInteger로 절단해야 큰 float에서 넘치지 않는다 (p35/p36).
 - `ToString()`은 예외: **디버깅 전용 identity**(`<type object at 0x…>`). Python `str()`과
   무관하며 `ToStr()`으로 위임하지 않는다.
-- `ToStr()`(Python형인데 `To` 접두)은 133개 호출부 때문에 관례 명명이 후퇴한 채 grandfather.
-  대규모 rename은 별도 작업으로 유보. 신규 코드는 위 규칙을 따른다.
+- 신규 코드는 `AsString()`을 쓰고 `ToStr()` 별명은 기존 호출부 정리 전까지 유지한다.
+  과거 커밋의 `AsString()`은 C# `string`을 반환했던 이름이므로 이력 조회 시 혼동 주의.
 
 ## 실수 방지 대책 (2026-10-28 p16 세션 사고 기반)
 

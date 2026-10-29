@@ -140,7 +140,7 @@ namespace SharpPy
 
         // CPython 3.12: str(x) dispatches type(x).__str__. A user-defined __str__ in the
         // class dict wins over the inherited unicode tp_str (which returns contents).
-        public override PyString ToStr()
+        public override PyString AsString()
         {
             foreach (var mroType in _class.MRO)
             {

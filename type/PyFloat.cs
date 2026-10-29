@@ -329,9 +329,9 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => new PyString(FormatFloat(Value, ""));
+        public override PyString AsString() => new PyString(FormatFloat(Value, ""));
 
-        public override PyString ToRepr() => ToStr();
+        public override PyString ToRepr() => AsString();
 
         #endregion
 
@@ -895,7 +895,7 @@ namespace SharpPy
         public override string ToClrString()
         {
             // CPython 3.12: float.__str__ is float.__repr__ (shortest round-trip form).
-            return ToStr().Value;
+            return AsString().Value;
         }
 
         #endregion

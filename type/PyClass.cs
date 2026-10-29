@@ -2205,36 +2205,28 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            // CPython 3.12: Try to call __repr__ method if user defined it
-            // Check instance dict and class hierarchy (not object's default)
-            try
-            {
-                // First check instance dict
-                if (InstanceDict.ContainsKey("__repr__"))
-                {
-                    var reprMethod = InstanceDict["__repr__"];
-                    var result = reprMethod.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
-                    {
-                        return pyStr;
-                    }
-                }
+            // CPython PyObject_Repr: __repr__를 찾으면 호출하고 그 안에서 발생한 예외는
+            // 전파된다. 반환이 str이 아니면 TypeError고, __repr__가 없을 때만 아래 기본
+            // 표현(<module.Name object at 0x…>)을 쓴다.
+            bool hasRepr = false;
+            PyObject reprResult = null;
 
-                // Then check class hierarchy (but not object's __repr__)
+            if (InstanceDict.TryGetValue("__repr__", out var ownRepr))
+            {
+                hasRepr = true;
+                reprResult = ownRepr.Call(new PyObject[0], null);
+            }
+
+            if (!hasRepr)
+            {
                 foreach (var mroType in InstanceType.MRO)
                 {
                     if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__repr__"))
                     {
-                        var method = customClass.ClassDict["__repr__"];
-                        if (method is PyFunction func)
+                        if (customClass.ClassDict["__repr__"] is PyFunction func)
                         {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            var result = boundMethod.Call(new PyObject[0], null);
-                            if (result is PyString pyStr)
-                            {
-                                return pyStr;
-                            }
+                            hasRepr = true;
+                            reprResult = new PyMethod(this, func).Call(new PyObject[0], null);
                         }
                         break;
                     }
@@ -2245,9 +2237,12 @@ namespace SharpPy
                     }
                 }
             }
-            catch
+
+            if (hasRepr)
             {
-                // If __repr__ fails, fall back to default
+                if (reprResult is PyString reprStr)
+                    return reprStr;
+                throw PyTypeError.Create($"__repr__ returned non-string (type {reprResult.GetTypeName()})");
             }
 
             // Default representation: CPython prefixes the qualified name with the
@@ -2261,68 +2256,69 @@ namespace SharpPy
             return new PyString($"<{modulePrefix}{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
-        public override PyString ToStr()
+        // CPython PyObject_Str: __str__가 **없는 경우에만** __repr__로 폴백한다.
+        // __str__ 호출 중 발생한 예외는 그대로 전파되고, 반환이 str이 아니면 TypeError다.
+        public override PyString AsString()
         {
-            // CPython 3.12: Try to call __str__ method if user defined it
-            try
-            {
-                // First check instance dict
-                if (InstanceDict.ContainsKey("__str__"))
-                {
-                    var strMethod = InstanceDict["__str__"];
-                    var result = strMethod.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
-                    {
-                        return pyStr;
-                    }
-                }
+            bool hasStr = false;
+            PyObject result = null;
 
-                // Then check class hierarchy (but not object's __str__)
+            // Instance-level override wins in SharpPy's lookup order.
+            if (InstanceDict.TryGetValue("__str__", out var ownStr))
+            {
+                hasStr = true;
+                result = ownStr.Call(new PyObject[0], null);
+            }
+
+            if (!hasStr)
+            {
                 foreach (var mroType in InstanceType.MRO)
                 {
-                    // Check PyType (builtin types like BaseException, Exception)
-                    if (mroType is PyType pyType && pyType.TypeDict.ContainsKey("__str__"))
-                    {
-                        var method = pyType.TypeDict["__str__"];
-                        if (method is PyBuiltinFunction builtinFunc)
-                        {
-                            var result = builtinFunc.Call(new PyObject[] { this }, null);
-                            if (result is PyString pyStr)
-                            {
-                                return pyStr;
-                            }
-                        }
-                        break;
-                    }
-                    // Check PyClass (user-defined classes)
-                    else if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
-                    {
-                        var method = customClass.ClassDict["__str__"];
-                        if (method is PyFunction func)
-                        {
-                            // Bind to instance
-                            var boundMethod = new PyMethod(this, func);
-                            var result = boundMethod.Call(new PyObject[0], null);
-                            if (result is PyString pyStr)
-                            {
-                                return pyStr;
-                            }
-                        }
-                        break;
-                    }
                     // Stop before reaching object type
                     if (mroType.Name == "object")
+                        break;
+
+                    // Builtin types (BaseException, Exception, ...) expose __str__ in TypeDict
+                    if (mroType is PyType pyType && pyType.TypeDict.ContainsKey("__str__"))
                     {
+                        // CPython: __str__ = None is found and then *called* -> TypeError,
+                        // it is not treated as "no __str__".
+                        if (pyType.TypeDict["__str__"] is PyNone)
+                        {
+                            hasStr = true;
+                            result = PyNone.Instance.Call(new PyObject[0], null);
+                        }
+                        else if (pyType.TypeDict["__str__"] is PyBuiltinFunction builtinFunc)
+                        {
+                            hasStr = true;
+                            result = builtinFunc.Call(new PyObject[] { this }, null);
+                        }
+                        break;
+                    }
+
+                    // User-defined classes
+                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
+                    {
+                        if (customClass.ClassDict["__str__"] is PyNone)
+                        {
+                            hasStr = true;
+                            result = PyNone.Instance.Call(new PyObject[0], null);
+                        }
+                        else if (customClass.ClassDict["__str__"] is PyFunction func)
+                        {
+                            hasStr = true;
+                            result = new PyMethod(this, func).Call(new PyObject[0], null);
+                        }
                         break;
                     }
                 }
             }
-            catch
-            {
-                // If __str__ fails, fall back to __repr__
-            }
 
-            return ToRepr();
+            if (!hasStr)
+                return ToRepr();
+            if (result is PyString pyStr)
+                return pyStr;
+            throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");
         }
 
         public override PyObject RichCompare(PyObject other, CompareOp op)

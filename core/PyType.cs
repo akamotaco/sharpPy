@@ -3018,7 +3018,7 @@ namespace SharpPy
         // not "builtins"; use __qualname__ when present. Route repr()/str() through
         // the same TypeRepr() the type.__repr__ slot uses (they were diverging).
         public override PyString ToRepr() => TypeRepr();
-        public override PyString ToStr() => TypeRepr();
+        public override PyString AsString() => TypeRepr();
 
         #endregion
 

@@ -66,7 +66,7 @@ namespace SharpPy
             for (int i = 0; i < parts.Length; i++) parts[i] = Fields[i] + "=" + Items[i].ToRepr().Value;
             return new PyString("UnraisableHookArgs(" + string.Join(", ", parts) + ")");
         }
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
     }
 
     internal static class PyUnraisable

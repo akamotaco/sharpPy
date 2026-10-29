@@ -1815,7 +1815,7 @@ namespace SharpPy
         #region String Representation
 
         // Python str() - PyString은 이미 문자열이므로 자신을 반환
-        public override PyString ToStr() => this;
+        public override PyString AsString() => this;
 
         public override PyString ToRepr()
         {

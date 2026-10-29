@@ -205,7 +205,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToStr() => ToRepr();
+        public override PyString AsString() => ToRepr();
 
         public override PyString ToRepr()
         {

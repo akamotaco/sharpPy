@@ -30,6 +30,7 @@ genuine computation/result divergences and are worked first.
 |---|---|---|---|
 | P0-2 | `re` backref | `re.findall(r"(?P<c>\w) (?P=c)", …)` → `[]`; CPython → `['a','c']` (named `(?P=name)`). Plain numeric `\1` works | p31 |
 | P0-3 | bytes/bytearray argcheck | `b"…".find(b"c", "x")` / `count` / `index` silently ignore a non-integer start/stop; CPython → `TypeError: slice indices must be integers or None or have an __index__ method` (bool/None must still work) | p32 note |
+| P0-12 | metaclass `__str__`/`__repr__` | `class M(type): __str__` is ignored for class objects: `str(C)` → `<class '__main__.C'>`, CPython → `'META'`. `PyClass.AsString/ToRepr` never consults the metaclass | p39 finding |
 | P0-11 | bytearray argcheck + missing methods | `bytearray.find/count/index` still ignore non-int start/stop, and `bytearray.count` raises `AttributeError` (missing). Reuse `PyBytes.BytesIndex`; port validation + add `count`/`index` to `PyByteArray` | p38 finding |
 | P0-4 | `memoryview.__eq__` | `memoryview(b"abc") == memoryview(b"abc")` and `== b"abc"` → `False`; CPython → `True` | p33 |
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
@@ -44,7 +45,9 @@ genuine computation/result divergences and are worked first.
 > (`AsInt`→`PyInt` arbitrary-precision, `AsFloat`→`PyFloat`, `ToStr`→`PyString`).
 > `As~` must never be bounded by a `To~` cast. Naming outlier `AsString()` (C# string
 > under an `As` prefix) renamed to `ToClrString()` (p37). `ToStr()` (PyString under a
-> `To` prefix) stays grandfathered (133 call sites); `ToString()` is debug-identity only.
+> `To` prefix) is a **non-virtual alias** for `AsString()` (p39) — subclasses override
+> `AsString()` only, so no double dispatch path exists. `ToString()` is debug-identity
+> only. Note: in commits before p39, `AsString()` meant the C# `string` accessor.
 
 ## P1 — introspection / display differs (implicit op already correct)
 
@@ -77,3 +80,11 @@ genuine computation/result divergences and are worked first.
 - `bytes.find/count/index/rfind/rindex` now validate start/stop via `__index__`
   (int/bool/None ok, else CPython `TypeError`) across all 7 idiom sites (p38).
 - `AsString()` → renamed `ToClrString()` so `As~`=Python / `To~`=C# holds (p37).
+- `AsString()` is now the Python-`str()` virtual (`ToStr()` = non-virtual alias, all 41
+  subclass overrides moved) (p39).
+- `__str__`/`__repr__` exceptions **propagate** instead of being swallowed into a
+  fallback repr, and a non-string return raises CPython
+  `__str__ returned non-string (type X)` / `__repr__ returned non-string (type X)`;
+  `__str__ = None` now raises `'NoneType' object is not callable` (p39).
+  Residual: generator `repr()` still lacks the CPython qualname chain
+  (`<generator object <lambda>.<locals>.<genexpr> at 0x…>`) — P1 display gap.

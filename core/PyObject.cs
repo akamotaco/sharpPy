@@ -83,32 +83,39 @@ namespace SharpPy
             return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
-        // Python str() - returns PyString
-        public virtual PyString ToStr()
+        // Python str() - returns PyString.  As~ = Python 타입 변환 (AsInt/AsFloat/AsBool과 통일).
+        //
+        // CPython PyObject_Str: __str__가 **없는 경우에만** __repr__로 폴백한다.
+        // __str__ 호출 중 발생한 예외는 그대로 전파되고, 반환이 str이 아니면 TypeError다.
+        public virtual PyString AsString()
         {
-            // CPython 3.12: Try to call __str__ method if it exists
+            PyObject strAttr;
             try
             {
-                var strAttr = PyGetAttribute("__str__");
-                if (strAttr != null && strAttr != PyNone.Instance)
-                {
-                    var result = strAttr.Call(new PyObject[0], null);
-                    if (result is PyString pyStr)
-                    {
-                        return pyStr;
-                    }
-                }
+                strAttr = PyGetAttribute("__str__");
             }
             catch
             {
-                // If __str__ fails, fall back to __repr__
+                // 속성 조회 자체가 실패하면 없는 것으로 취급한다.
+                return ToRepr();
             }
 
-            return ToRepr();
+            if (strAttr == null || strAttr == PyNone.Instance)
+                return ToRepr();
+
+            var result = strAttr.Call(new PyObject[0], null);
+            if (result is PyString ok)
+                return ok;
+            throw PyTypeError.Create($"__str__ returned non-string (type {result.GetTypeName()})");
         }
 
-        // ❌ 절대 금지: ToString() → ToStr() 위임
-        // ToString()은 디버깅 전용입니다
+        // CPython-internal 호환 이름. **비가상**이므로 서브클래스는 반드시 AsString()을
+        // override 해야 하고(누락은 컴파일 오류로 드러난다), ToStr/AsString 이중 경로가
+        // 생기지 않는다.  신규 코드는 AsString()을 호출한다.
+        public PyString ToStr() => AsString();
+
+        // ❌ 절대 금지: ToString() → AsString() 위임
+        // ToString()은 CLR 디버깅 전용 identity(<type object at 0x…>)다.
         public override string ToString() => $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
 
         #endregion
@@ -1056,11 +1063,11 @@ namespace SharpPy
 
         /// <summary>
         /// To~ = C# (CLR) 값 / As~ = Python 타입. 이 메서드는 Python str()
-        /// 내용을 **C# string**으로 뽑는다(그러므로 To~). 이전 이름 AsString은
-        /// 규칙 위반이었음. Python 타입(PyString)이 필요하면 ToStr()를 쓴다.
-        /// ToString()은 별개: 디버깅 전용 identity(&lt;type object at 0x…&gt;).
+        /// 내용을 **C# string**으로 뽑는다(그러므로 To~).
+        /// Python 타입(PyString)이 필요하면 AsString()(호환 별명 ToStr()).
+        /// ToString()은 별개: CLR 디버깅 전용 identity(&lt;type object at 0x…&gt;).
         /// </summary>
-        public virtual string ToClrString() => ToStr().Value;
+        public virtual string ToClrString() => AsString().Value;
 
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyList로 변환/캐스팅
@@ -1683,7 +1690,7 @@ namespace SharpPy
         private PyNotImplemented() { }
 
         public override string GetTypeName() => "NotImplementedType";
-        public override PyString ToStr() => new PyString("NotImplemented");
+        public override PyString AsString() => new PyString("NotImplemented");
         public override PyString ToRepr() => new PyString("NotImplemented");
     }
 

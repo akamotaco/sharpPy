@@ -326,7 +326,7 @@ namespace SharpPy.Core
         public override PyType GetPyType() => PyType.ObjectType; // Internal type, no public PyType
 
         public override PyString ToRepr() => new PyString($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
-        public override PyString ToStr() => Value.ToStr();
+        public override PyString AsString() => Value.ToStr();
 
         public override bool Equals(object obj)
         {
