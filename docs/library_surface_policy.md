@@ -46,7 +46,7 @@
 | `functools.py` | 177 | 1009 | 축약 |
 | `_collections_abc.py` | 692 | 1173 | 축약 |
 | `warnings.py` | 233 | 598 | 축약 |
-| `io.py` | 302 | 99 | **오히려 큼** — re-export 외에 shim이 붙었다 |
+| `io.py` | 302 | 99 | **오히려 큼** — CPython의 C 레이어(`Modules/_io` 8,987줄)를 Python이 대신 구현 |
 | `types.py` | 396 | 333 | **오히려 큼** |
 
 즉 "일부는 py 코드를 가져오고, 일부는 C# builtin으로 보강했다"는 이해가 정확하다.
@@ -69,8 +69,8 @@
   (`tempfile`·`shutil`·`weakref`) + C# 3개(`errno`·`_thread`·`_weakref`)** 로 열린다. Godot에서는 임시
   경로가 `user://` 관례와 충돌할 수 있으므로 그 정책을 따른다.
 - **P0-8 `io.TextIOWrapper(buffer, encoding=...)`** — `Lib/io.py`를 CPython 버전으로 교체하지 않고
-  `modules/IoModule.cs`의 생성자 semantics로 해결한다. `Lib/io.py`는 이미 CPython보다 큰 shim이므로
-  교체는 shim을 덮어쓸 위험이 있다.
+  `modules/IoModule.cs`의 생성자 semantics로 해결한다. `Lib/io.py`에는 C 레이어 대체 구현 약 200줄이
+  들어 있으므로 CPython 파일로 교체하면 그 구현을 잃는다.
 - **P0-9 importlib 커스텀 loader/spec** — `importlib._bootstrap` 전체 이식이 아니라, SharpPy가
   실제로 호출하는 진입점(`ImportlibModule.cs`)에서 관찰되는 loader 프로토콜을 C#으로 지원한다.
 - **P1 stdlib surface 항목들**은 "필요성" 기준으로 판단하고, 필요하지 않으면 미구현으로 남긴다.
@@ -84,3 +84,43 @@
 3. 남은 것 중 C 전용(`_thread`, `errno`, `_weakref`, `_io`, `_sre`, `_abc` …)만 C#으로 구현해 연결한다.
    C#에서는 CLR이 제공하는 primitives를 쓰고, 관찰되는 오류 타입과 메시지는 CPython에 맞춘다.
 4. 관찰 surface 중 실제로 필요한 범위를 정한다.넘치는 부분은 known_gaps에 "의도적 미구현"으로 남긴다.
+
+## 감사: `Lib/io.py` 가 왜 302줄인가 (2026-10-29, 사용자 요청)
+
+**결론: 무의미한 코드 증폭/중복이 아니다. 부재한 C 레이어의 대체 구현이다.**
+
+- CPython의 `Lib/io.py` 99줄은 얇은 껍질이다. `io.StringIO`는 C 타입 `_io.StringIO`이고
+  실제 구현은 `Modules/_io` C 코드 **8,987줄**이다 (stringio.c 1039, bytesio.c 1133,
+  textio.c 3365, bufferedio.c 2711, _iomodule.c 739). `io.py`는 re-export만 한다.
+- SharpPy native `_io`에는 in-memory stream이 **존재하지 않는다**: `_io.StringIO` → 없음,
+  그리고 `*.cs` 어디에도 `PyStringIO`/`PyBytesIO`가 없다. 따라서 `Lib/io.py`의
+  `StringIO`(93줄)/`BytesIO`(104줄)이 그 레이어를 Python으로 구현한 것이다.
+  올바른 비교는 `302 vs 99`가 아니라 `302 vs (99 + 8,987 C)` 다.
+- 줄 구성: 총 303 = 코드 219 / 빈줄 63 / 주석 21. 주석 부풀리기 아님.
+- 중복 아님: C#에 동종 구현이 없다. 사용처는 실재한다 — `Lib/json/__init__.py`(json이 StringIO를
+  쓴다), bughunt p17/p19/p21. 같은 클래스 안에 선행 정의를 덮어쓰는 중복 `def`도 없다.
+
+### 대신 그 대가로 관측되는 차이 (측정, CPython 3.12.15 대비)
+
+| 항목 | CPython | SharpPy |
+|---|---|---|
+| `io.IOBase.__mro__` | `IOBase → _IOBase → object` | `IOBase → ABC → object` |
+| `_io.StringIO` / `_io.BytesIO` | C 타입 존재 | **없음** (Python 클래스가 `_io`를 이름을 사칭) |
+| `StringIO` 메서드 | 전부 있음 | `readlines`·`writelines`·`truncate`·`fileno`·`isatty`·`__iter__`·`__next__`·`detach`·`newlines`·`line_buffering` **누락(10)** |
+| `BytesIO` 메서드 | `newlines`·`line_buffering` 제외 전부 | 위 10개 + `readline` **누락(11)** |
+| `IOBase` 메서드 | `_IOBase`가 제공 | `read`·`readline`·`readlines`·`write`·`writelines`·`seek`·`tell`·`truncate`·`fileno`·`isatty`·`__iter__`·`__next__`·`detach` 등 누락 |
+
+`Lib/io.py:271-272`는 `StringIO.__module__ = '_io'` / `BytesIO.__module__ = '_io'`를 **명시적으로**
+설정한다. p19 시기에 repr을 CPython과 맞추려는 의도이고 효과도 있지만, 결과적으로 repr은 native처럼
+보이면서 `_io.StringIO`는 없는 상태가 된다. 즉 **관측 지점은 repr이 아니라 `_io` 모듈 surface**다.
+
+### 처리 방향 (정책 순서 기준)
+
+1. Python 구현은 유지한다. 정책 2단계(기존/복사 Python으로 충족)에 이미 부합하고, CPython도
+   `_pyio.py`로 같은 방식을 갖고 있다.
+2. 누락 메서드 10~11개는 Python에서 채운다 — `readlines`/`writelines`/`truncate`/`__iter__`/`__next__`
+   은 이미 있는 `read`/`readline`/`write`/`seek`만으로 정의된다. `fileno`/`isatty`/`newlines`/
+   `line_buffering`/`detach`는 CPython semantics를 측정해 구현(메모리 스트림이라 `fileno`는
+   `io.UnsupportedOperation` 계열).
+3. `_io` 모듈에 native 타입을 추가하는 것(`PyStringIO`/`PyBytesIO`)은 별도 판단: 그러면 Python 클래스와
+   두 경로가 생기므로, 하려면 Python 쪽을 지우고 re-export로 바꿔야 한다(중경로 유지 금지).
