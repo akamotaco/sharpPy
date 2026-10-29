@@ -407,3 +407,13 @@ accepts silently).
 - **P2**: `_io._WindowsConsoleIO` 미구현. Windows CPython에는 있다. `Lib/io.py`의
   `try: from _io import _WindowsConsoleIO / except ImportError` 가 의도대로 동작해서
   `import io` 는 깨지지 않는다.
+
+## 2026-10-29 성능 관측 (io B4 직후)
+
+- **P1(성능, attribution 미완료)**: `tools/perf_probe.py`의 `comp_lambda` +10.5~11.1%,
+  `call_heavy_fib20` +8.6~10.7%가 3회 실행에서 재현된다. baseline `int_loop`도 +2~3%라 기계
+  드리프트가 깔려 있고, 수정한 경로는 속성설정 실패/import 실패/`open` 정적화뿐이라 hot path와는
+  무관하다. 이전 바이너리와 A/B해서 귀속을 확정해야 한다.
+- **P1(성능)**: 모듈 import 비용. 측정값(프로세스 5회 min): `print("x")` 229.9 ms,
+  `import io` 278.0 ms(+48), `import abc` 265.5 ms(+36), `import json` 829.2 ms(+600).
+  CPython은 같은 항목이 23.3/18.8/18.7/32.8 ms다. 특히 json 600 ms가 크다.

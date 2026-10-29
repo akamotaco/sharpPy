@@ -62,3 +62,38 @@ in-memory 스트림 2종 — 을 C#으로 옮긴 뒤에는 Python 측 코드량�
 측정된 성능 근거(B2 보고서): `StringIO.write` 20만 회 12,318ms → 110.7ms, 반복은 아예
 동작하지 않던 것이 동작. 즉 이 라인은 "의미 없는 증폭"이 아니라 빠진 C 층의 대리물이었고, 이제
 그 대리물이 제거됐다.
+
+## 성능 관측 (B4 직후, attribution은 열려 있다)
+
+`tools/perf_probe.py` 3회 실행. 플래그(>15%)는 없었지만 두 micro workload의 증가가 **재현된다**:
+
+| workload | 1회 | 2회 | 3회 |
+|---|---|---|---|
+| `comp_lambda` | +11.1% | +11.1% | +10.5% |
+| `call_heavy_fib20` | +10.7% | +8.6% | +9.1% |
+| `dict_ops` | +6.1% | +3.6% | +5.6% |
+| `int_loop` (baseline) | +3.0% | +2.6% | +2.2% |
+
+baseline 자체가 +2~3%이므로 기계 상태 드리프트가 위에 깔려 있다. 그런데도 위 두 항목은 baseline
+드리프트보다 크다. 소음은 아니다.
+
+다만 수정한 경로는 전부 cold path다: 속성-설정 실패 분기, import 실패 분기, `open` 함수 정적화,
+그리고 PyType에 bool 필드 1개. closure/call hot path에는 없다.
+
+대신 시작 비용을 쟀고 새 사실이 나왔다 (현재 바이너리, 프로세스 5회 min):
+
+| 스크립트 | CPython | SharpPy |
+|---|---|---|
+| `print("x")` | 23.3 ms | 229.9 ms |
+| `import io` | 18.8 ms | 278.0 ms |
+| `import abc` | 18.7 ms | 265.5 ms |
+| `import json` | 32.8 ms | 829.2 ms |
+
+- `import io`가 SharpPy에서 **약 48 ms**, `import abc`가 **약 36 ms**, `import json`이 **약 600 ms**
+- CPython은 io/abc가 이미 뜨므로 추가 비용이 사실상 0이다
+- B4가 io 시작 비용을 올렸는지는 미확정이다. 이전 `Lib/io.py`(145줄)도 abc를 import하고 ABCMeta
+  클래스 6개를 정의했으므로 오히려 줄었을 가능성이 크다. 단정하지 않고 남긴다
+- 확실히 큰 것은 `import json`의 600 ms이고, 이건 io와 무관한 모듈 import 비용 문제다
+
+정리하면: 재현되는 micro +8~11%는 attribution 미완료로 열고, 모듈 import 비용(특히 json 600 ms)을
+별도 성능 항목으로 ledger에 올린다.
