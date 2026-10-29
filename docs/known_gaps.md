@@ -232,9 +232,36 @@ accepts silently).
   `METH_VARARGS|METH_KEYWORDS` versus plain `METH_VARARGS`/`METH_O`, so the fix is a per-descriptor
   "accepts keywords" notion in `PyMethodDescriptor` producing
   `{Type}.{name}() takes no keyword arguments`, then removing the hand-written copies. Needs its own
-  increment because it touches every builtin descriptor registration and must be measured against
-  the descriptors that legitimately do take keywords (`dict.get(default=...)` style is not one of
-  them, but `int(x, base=)`-form builtins are).
+  The mechanism is already half present and half dead: `PyMethodDescriptor` has an `acceptsKwargs`
+  constructor parameter that is stored in `_acceptsKwargs` and **never read anywhere**. A first
+  attempt (guard in `Call`, `CallWithReceiver`, and `PyBoundMethodDescriptor.Call`, default reject)
+  was implemented, measured, and **reverted** because a default-reject rollout is not safe without an
+  audit: it fixed `bit_length`/`is_integer`/`split`/`hex`/`copy` and restored `bytes.decode` and
+  `memoryview.cast`, but broke 9 of 55 probes, then 5 after flagging `str.format`, `str.format_map`
+  and `dict.update`.
+  Measured sets (CPython 3.12.15, this session):
+  * accept keywords: `bytes.decode(encoding=, errors=)`, `int.to_bytes(byteorder=, length=)`,
+    `str.splitlines(keepends=)`, `memoryview.cast(format=, shape=)`, `str.format(**kw)`,
+    `str.format_map(mapping, **kw)`, `dict.update(**kw)`;
+  * reject keywords: `int.bit_length`, `float.is_integer`, `str.upper`, `str.count`, `str.join`,
+    `str.replace`, `str.find`, `str.split`, `float.hex`, `dict.copy`.
+  Two extra gaps the attempt exposed, both required for a correct rollout:
+  1. flagging is not enough for `int.to_bytes` and `str.splitlines` - their delegates only read the
+     positional array, so once the guard lets the keywords through they answer with the *default*
+     (`to_bytes` raises `expected 1 to 2 arguments, got 0`, `splitlines(keepends=True)` drops the
+     `keepends`). The delegate has to resolve the keyword itself.
+  2. `str.upper/count/find/replace/join/startswith` do not go through `PyMethodDescriptor` at all on
+     the path the VM takes (the private `PyStringMethod` fallback noted in p32), so the descriptor
+     guard never runs and they keep returning values for bogus keywords
+     (`'a'.upper(x=1)` -> `'A'`). That fallback needs the same rejection with the
+     `{Type}.{name}() takes no keyword arguments` form.
+  The 5 still-failing probes after flagging (`matrix_dict_update_views`, `matrix_nameerror_suggestions`,
+  `p15_modules_stdlib`, `p17_traceback_frame`, `p22_dir_content`) name the remaining descriptors that
+  legitimately take keywords; enumerate them from their diffs rather than guessing by method name -
+  guessing already produced one wrong flag (`join`, which CPython rejects).
+  Also observed while testing: SharpPy prints an unformatted format string in one SyntaxError -
+  `SyntaxError: cannot use assignment expressions with %s` where CPython says
+  `invalid syntax` - worth a separate P1 entry if it survives isolation.
 
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
