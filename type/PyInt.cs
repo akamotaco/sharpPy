@@ -30,6 +30,28 @@ namespace SharpPy
         /// Initialize int type descriptors (CPython 3.12 compatible)
         /// CPython reference: Objects/longobject.c:5800-5900 - long_methods
         /// </summary>
+        /// <summary>
+        /// CPython PyLong_Check semantics for builtin int descriptors and getsets: a subclass
+        /// instance passes the self test and the stored digits are used directly
+        /// (Objects/longobject.c never demands an exact PyLong_Type). In CLR a PyIntSubclass is not
+        /// a PyInt, so every `self is PyInt` gate is a subclass bug; they all route here instead.
+        /// </summary>
+        internal static bool TryLongSelf(PyObject self, out PyInt value)
+        {
+            if (self is PyInt exact)
+            {
+                value = exact;
+                return true;
+            }
+            if (self is PyIntSubclass subclass)
+            {
+                value = subclass.GetIntValue();
+                return true;
+            }
+            value = null;
+            return false;
+        }
+
         public static void InitializeIntDescriptors()
         {
             var intType = PyType.IntType;
@@ -216,7 +238,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"bit_length() takes no arguments ({args.Length} given)");
-                    if (self is not PyInt intObj)
+                    if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'bit_length' requires a 'int' object but received a '{self.GetTypeName()}'");
 
                     // CPython 3.12: Objects/longobject.c long_bit_length via _PyLong_NumBits:
@@ -239,7 +261,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"bit_count() takes no arguments ({args.Length} given)");
-                    if (self is not PyInt intObj)
+                    if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'bit_count' requires a 'int' object but received a '{self.GetTypeName()}'");
 
                     // Reference: Objects/longobject.c::long_bit_count
@@ -263,7 +285,7 @@ namespace SharpPy
             intType.TypeDict["to_bytes"] = new PyMethodDescriptor(
                 "to_bytes", intType,
                 (self, args, kwargs) => {
-                    if (self is not PyInt intObj)
+                    if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'to_bytes' requires a 'int' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
@@ -400,7 +422,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"as_integer_ratio() takes no arguments ({args.Length} given)");
-                    if (self is not PyInt intObj)
+                    if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'as_integer_ratio' requires a 'int' object but received a '{self.GetTypeName()}'");
 
                     // For integers, the ratio is simply (self, 1)
@@ -416,7 +438,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"conjugate() takes no arguments ({args.Length} given)");
-                    if (self is not PyInt intObj)
+                    if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'conjugate' requires a 'int' object but received a '{self.GetTypeName()}'");
 
                     return intObj;  // For integers, conjugate is the number itself
@@ -429,7 +451,7 @@ namespace SharpPy
             intType.TypeDict["real"] = new PyGetSetDescriptor(
                 "real", intType,
                 getter: self => {
-                    if (self is not PyInt)
+                    if (!PyInt.TryLongSelf(self, out _))
                         throw PyTypeError.Create($"descriptor 'real' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
                     return self;  // For int, real is itself
                 }
@@ -440,7 +462,7 @@ namespace SharpPy
             intType.TypeDict["imag"] = new PyGetSetDescriptor(
                 "imag", intType,
                 getter: self => {
-                    if (self is not PyInt)
+                    if (!PyInt.TryLongSelf(self, out _))
                         throw PyTypeError.Create($"descriptor 'imag' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
                     return new PyInt(0);  // For int, imaginary part is 0
                 }
@@ -451,7 +473,7 @@ namespace SharpPy
             intType.TypeDict["numerator"] = new PyGetSetDescriptor(
                 "numerator", intType,
                 getter: self => {
-                    if (self is not PyInt)
+                    if (!PyInt.TryLongSelf(self, out _))
                         throw PyTypeError.Create($"descriptor 'numerator' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
                     return self;  // For int, numerator is itself
                 }
@@ -462,7 +484,7 @@ namespace SharpPy
             intType.TypeDict["denominator"] = new PyGetSetDescriptor(
                 "denominator", intType,
                 getter: self => {
-                    if (self is not PyInt)
+                    if (!PyInt.TryLongSelf(self, out _))
                         throw PyTypeError.Create($"descriptor 'denominator' for 'int' objects doesn't apply to a '{self.GetTypeName()}' object");
                     return new PyInt(1);  // For int, denominator is always 1
                 }
