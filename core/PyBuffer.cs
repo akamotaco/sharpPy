@@ -271,7 +271,7 @@ namespace SharpPy
                         throw PyTypeError.Create("memoryview: product(shape) * itemsize != buffer size");
                 }
                 return view.Reinterpret(f.ToString(), isz, shape);
-            });
+            }, acceptsKwargs: true);
 
             // p42: CPython exposes these as slot wrappers on the type, so they are
             // visible through dir()/getattr and callable in unbound form.

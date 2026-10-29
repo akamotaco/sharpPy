@@ -46,8 +46,18 @@ namespace SharpPy
         /// <summary>
         /// 메서드 호출 구현
         /// </summary>
+        // CPython str methods are METH_VARARGS/METH_FASTCALL without METH_KEYWORDS, so keywords are
+        // rejected using the defining type's qualname: 'a'.upper(x=1) ->
+        // TypeError: str.upper() takes no keyword arguments. Measured on CPython 3.12.15, only
+        // str.format, str.format_map and str.splitlines are METH_KEYWORDS.
+        private static readonly System.Collections.Generic.HashSet<string> AcceptsKeywords =
+            new() { "format", "format_map", "splitlines" };
+
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            if (kwargs != null && kwargs.Length() != 0 && !AcceptsKeywords.Contains(_methodName))
+                throw PyTypeError.Create($"str.{_methodName}() takes no keyword arguments");
+
             args ??= Array.Empty<PyObject>();
             return _method(args);
         }

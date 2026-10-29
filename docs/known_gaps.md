@@ -220,48 +220,62 @@ accepts silently).
   type, message), never on the presence of a word in stderr, and it must be diffed against CPython
   before being called a SharpPy bug.
 
-- **P0-20 (new, measured): builtin method descriptors silently accept keyword arguments.** CPython
-  rejects them and names the qualified method:
-  * `(1).bit_length(x=1)`  -> `TypeError: int.bit_length() takes no keyword arguments`
-  * `(1.5).is_integer(x=1)` -> `TypeError: float.is_integer() takes no keyword arguments`
-  * `'a'.upper(x=1)`       -> `TypeError: str.upper() takes no keyword arguments`
-  SharpPy returns a value for all three (`1`, `False`, `'A'`): the keywords are ignored. This is a
-  silent wrong answer rather than a wrong message, and it is systemic - every `PyMethodDescriptor`
-  registration shares it, including the two `__round__` slots added today, where the keyword check
-  had to be hand-written inside the delegate as a stopgap. The CPython distinction is
-  `METH_VARARGS|METH_KEYWORDS` versus plain `METH_VARARGS`/`METH_O`, so the fix is a per-descriptor
-  "accepts keywords" notion in `PyMethodDescriptor` producing
-  `{Type}.{name}() takes no keyword arguments`, then removing the hand-written copies. Needs its own
-  The mechanism is already half present and half dead: `PyMethodDescriptor` has an `acceptsKwargs`
-  constructor parameter that is stored in `_acceptsKwargs` and **never read anywhere**. A first
-  attempt (guard in `Call`, `CallWithReceiver`, and `PyBoundMethodDescriptor.Call`, default reject)
-  was implemented, measured, and **reverted** because a default-reject rollout is not safe without an
-  audit: it fixed `bit_length`/`is_integer`/`split`/`hex`/`copy` and restored `bytes.decode` and
-  `memoryview.cast`, but broke 9 of 55 probes, then 5 after flagging `str.format`, `str.format_map`
-  and `dict.update`.
-  Measured sets (CPython 3.12.15, this session):
-  * accept keywords: `bytes.decode(encoding=, errors=)`, `int.to_bytes(byteorder=, length=)`,
-    `str.splitlines(keepends=)`, `memoryview.cast(format=, shape=)`, `str.format(**kw)`,
-    `str.format_map(mapping, **kw)`, `dict.update(**kw)`;
-  * reject keywords: `int.bit_length`, `float.is_integer`, `str.upper`, `str.count`, `str.join`,
-    `str.replace`, `str.find`, `str.split`, `float.hex`, `dict.copy`.
-  Two extra gaps the attempt exposed, both required for a correct rollout:
-  1. flagging is not enough for `int.to_bytes` and `str.splitlines` - their delegates only read the
-     positional array, so once the guard lets the keywords through they answer with the *default*
-     (`to_bytes` raises `expected 1 to 2 arguments, got 0`, `splitlines(keepends=True)` drops the
-     `keepends`). The delegate has to resolve the keyword itself.
-  2. `str.upper/count/find/replace/join/startswith` do not go through `PyMethodDescriptor` at all on
-     the path the VM takes (the private `PyStringMethod` fallback noted in p32), so the descriptor
-     guard never runs and they keep returning values for bogus keywords
-     (`'a'.upper(x=1)` -> `'A'`). That fallback needs the same rejection with the
-     `{Type}.{name}() takes no keyword arguments` form.
-  The 5 still-failing probes after flagging (`matrix_dict_update_views`, `matrix_nameerror_suggestions`,
-  `p15_modules_stdlib`, `p17_traceback_frame`, `p22_dir_content`) name the remaining descriptors that
-  legitimately take keywords; enumerate them from their diffs rather than guessing by method name -
-  guessing already produced one wrong flag (`join`, which CPython rejects).
-  Also observed while testing: SharpPy prints an unformatted format string in one SyntaxError -
-  `SyntaxError: cannot use assignment expressions with %s` where CPython says
-  `invalid syntax` - worth a separate P1 entry if it survives isolation.
+- **P0-20 CLOSED: builtin keyword arguments now follow CPython's METH_KEYWORDS table.** CPython
+  rejects keywords on METH_O / METH_VARARGS / METH_FASTCALL builtins with
+  `{Type}.{name}() takes no keyword arguments`; SharpPy dropped the keywords and returned a value, so
+  `(1).bit_length(x=1)` answered `1` instead of raising. Root cause was a dead field:
+  `PyMethodDescriptor` took `acceptsKwargs` and stored it, but nothing ever read it.
+  What the rollout needed (the first attempt, a guard alone, broke 9 of 55 probes):
+  * the reject guard in `PyMethodDescriptor.Call`, `CallWithReceiver` and
+    `PyBoundMethodDescriptor.Call`, plus the same rejection in `PyStringMethod.Call`;
+  * `__new__` excluded from the generic message, because CPython answers it from the type-call
+    machinery with different labels (registered below as P0-21);
+  * `acceptsKwargs: true` on exactly the measured set: `dict.update`, `str.format`, `str.format_map`,
+    `str.split`, `str.rsplit`, `str.encode`, `str.expandtabs`, `str.splitlines`, `bytes.decode`,
+    `bytes.splitlines`, `int.to_bytes`, `memoryview.cast`;
+  * keyword projection (`PyObject.KwValue`, `PyString.ProjectKeywordSlots`) for delegates that only
+    read the positional array - flagging alone made `to_bytes(length=2, byteorder='little')` raise
+    `expected 1 to 2 arguments, got 0` and `splitlines(keepends=True)` silently drop the flag;
+  * `PyDict.GetItem` raises KeyError on a missing key, so a keyword lookup has to test presence
+    first; otherwise an absent keyword turns into `KeyError 'length'`.
+  Two findings that only the full audit produced:
+  * **`PyString.GetAttribute` shadowed the type.** Its switch returned instance closures for upper,
+    lower, title, strip, lstrip, rstrip, replace, split, join, find, count, encode, isidentifier -
+    all thirteen of which are registered as descriptors in `strType.TypeDict`. The shadow made the
+    duplicate closure path authoritative for keyword acceptance, arity messages and descriptor
+    identity. It is deleted; `base.GetAttribute` (MRO + descriptor) now answers, and the bound form
+    stays CPython-correct (`type('a'.upper).__name__ == 'builtin_function_or_method'`,
+    `<built-in method upper of str object at 0x...>`).
+  * **the shadow was hiding two wrong implementations**, which surfaced as soon as the descriptors
+    became reachable: `strType.TypeDict['title']` used `TextInfo.ToTitleCase` (.NET word-breaking) and
+    answered `It's A Test-Case 2Nd` where CPython gives `It'S A Test-Case 2Nd`; and
+    `PyString.StrEmptySpan` returned a negative count for a reversed range where CPython's
+    `"abc".count("", 3, 1)` is 0. Both now use the CPython-shaped implementations.
+  Cost, measured rather than assumed: 1.6M str attribute lookups in 400k iterations, old and new
+  binaries alternated - old median ~2.989 s, new median ~3.062 s, about **+2.4 %**. `perf_probe`
+  showed no flagged workload (`str_fmt +1.0 %`). Follow-up if that matters: cache the descriptor
+  lookup instead of walking the MRO per access.
+  Verified: `tests/bughunt/p51_keyword_args.py` (30 lines, diff 0), bughunt 55/55, evaluate unchanged
+  225/3/2, Godot replay 82 matched 0 other.
+  Corrections to this ledger's earlier draft: it claimed `str.split`, `str.rsplit`, `str.encode` and
+  `str.expandtabs` reject keywords. Measured on CPython 3.12.15 they accept them
+  (`split(sep=, maxsplit=)`, `encode(encoding=, errors=)`, `expandtabs(tabsize=)`). The claim came
+  from reading a diff instead of the interpreter.
+
+- **P0-21 (new, measured): `__new__` keyword errors use CPython's type-call labels.** Excluded from
+  the generic guard above because the generic `{Type}.{name}()` text is wrong here. Measured:
+  * `class A: pass; A(x=1)`             -> `TypeError: A() takes no arguments`
+  * `object.__new__(A, x=1)`            -> `TypeError: A() takes no arguments`
+  * `tuple.__new__(tuple, iterable=[])` -> `TypeError: tuple() takes no keyword arguments`
+  SharpPy currently answers the second with the generic descriptor text and the third likewise, and
+  the plain `A(x=1)` case already matches. Small, bounded, needs its own message path.
+
+- **P0-22 (new): `int.to_bytes` still truncates magnitudes wider than 64 bits.** The delegate reads
+  `intObj.Value` through a `(long)` cast, so the capacity rules added for P0-20
+  (`int too big to convert`, `can't convert negative int to unsigned`) are exact inside long range and
+  unverified outside it. CPython's `long_to_bytes_impl` works on the full magnitude; this needs the
+  BigInteger path, together with the `length`/`byteorder` type-error wording for non-int inputs.
+
 
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET

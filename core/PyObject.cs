@@ -390,6 +390,20 @@ namespace SharpPy
             return bound.Call(new PyObject[] { other }, null);
         }
 
+        /// <summary>
+        /// Keyword lookup for builtins that are METH_FASTCALL|METH_KEYWORDS in CPython but whose
+        /// SharpPy delegates read the positional array. PyDict.GetItem raises KeyError on a missing
+        /// key, so presence is checked first; a missing parameter must stay "absent" so the delegate's
+        /// own default and required-argument handling applies.
+        /// </summary>
+        internal static PyObject KwValue(PyDict kwargs, string name)
+        {
+            if (kwargs == null)
+                return null;
+            var key = new PyString(name);
+            return kwargs.ContainsKey(key) ? kwargs.GetItem(key) : null;
+        }
+
         internal static PyObject FindComparisonMethod(PyType owner, CompareOp op, PyType nativeBase)
         {
             string name = op switch

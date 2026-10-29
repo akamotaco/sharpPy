@@ -349,22 +349,38 @@ namespace SharpPy
                     if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'to_bytes' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"to_bytes expected 1 to 2 arguments, got {args.Length}");
+                    // CPython 3.12, Objects/longobject.c: long_to_bytes_impl is
+                    // METH_FASTCALL|METH_KEYWORDS with (length=1, byteorder='big', /, signed=False).
+                    // Measured on CPython 3.12.15:
+                    //   (5).to_bytes()                 -> b'\x05'   (length defaults to 1, not "minimal")
+                    //   (70000).to_bytes()             -> OverflowError: int too big to convert
+                    //   (-1).to_bytes()                -> OverflowError: can't convert negative int to unsigned
+                    //   (256).to_bytes(1)              -> OverflowError: int too big to convert
+                    //   (-1).to_bytes(1, signed=True)  -> b'\xff'
+                    //   (255).to_bytes(1,'big',signed=True) -> OverflowError: int too big to convert
+                    // The delegate reads the positional array, so keywords are projected into their
+                    // parameter slots first. `signed` is keyword-only in CPython.
+                    PyObject lengthArg = args.Length > 0 ? args[0] : KwValue(kwargs, "length");
+                    PyObject byteorderArg = args.Length > 1 ? args[1] : KwValue(kwargs, "byteorder");
+                    PyObject signedArg = KwValue(kwargs, "signed");
 
-                    // Get length argument
-                    if (args[0] is not PyInt lengthInt)
-                        throw PyTypeError.Create($"'length' must be an int, not '{args[0].GetTypeName()}'");
-                    int length = (int)lengthInt.Value;
-
-                    // Get byteorder argument (default 'big')
-                    string byteorder = "big";
-                    if (args.Length >= 2)
+                    int length = 1;
+                    if (lengthArg != null)
                     {
-                        if (args[1] is not PyString byteorderStr)
-                            throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
+                        if (lengthArg is not PyInt lengthInt)
+                            throw PyTypeError.Create($"'length' must be an int, not '{lengthArg.GetTypeName()}'");
+                        length = (int)lengthInt.Value;
+                    }
+
+                    string byteorder = "big";
+                    if (byteorderArg != null)
+                    {
+                        if (byteorderArg is not PyString byteorderStr)
+                            throw PyTypeError.Create($"'byteorder' must be a str, not '{byteorderArg.GetTypeName()}'");
                         byteorder = byteorderStr.Value;
                     }
+
+                    bool signed = signedArg != null && signedArg.ToBool();
 
                     if (byteorder != "big" && byteorder != "little")
                         throw PyValueError.Create($"byteorder must be either 'little' or 'big'");
@@ -372,6 +388,29 @@ namespace SharpPy
                     // CPython 3.12: Objects/longobject.c:5912-6010 - long_to_bytes
                     long value = (long)intObj.Value;
                     bool isNegative = value < 0;
+
+                    // Range checks in the same order as CPython long_to_bytes_impl. Values wider than
+                    // 64 bits still go through the (long) cast above, which is a separate registered
+                    // gap; within long range the capacity rule is exact.
+                    if (isNegative && !signed)
+                        throw PyOverflowError.Create("can't convert negative int to unsigned");
+                    if (length < 0)
+                        throw PyValueError.Create("length argument must be non-negative");
+                    if (length < 8)
+                    {
+                        if (signed)
+                        {
+                            long lo = -(1L << (8 * length - 1));
+                            long hi = (1L << (8 * length - 1)) - 1;
+                            if (value < lo || value > hi)
+                                throw PyOverflowError.Create("int too big to convert");
+                        }
+                        else if (value >= (1L << (8 * length)))
+                        {
+                            throw PyOverflowError.Create("int too big to convert");
+                        }
+                    }
+
                     if (isNegative)
                         value = -value;
 
@@ -404,8 +443,7 @@ namespace SharpPy
 
                     return new PyBytes(bytes);
                 },
-                minArgs: 1, maxArgs: 2
-            );
+                minArgs: 0, maxArgs: 2, acceptsKwargs: true);
 
             // CPython 3.12: Objects/longobject.c:5752-5820 - int_from_bytes (classmethod)
             // Return the integer represented by the given array of bytes.

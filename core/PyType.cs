@@ -2603,7 +2603,7 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            );
+, acceptsKwargs: true);
 
             // dict.setdefault(key, default=None)
             TypeDict["setdefault"] = new PyMethodDescriptor(

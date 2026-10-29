@@ -68,8 +68,31 @@ namespace SharpPy
         // Method descriptor는 직접 호출 불가 (unbound)
         public override bool IsCallable() => true;
 
+        /// <summary>
+        /// CPython 3.12: only descriptors declared with METH_KEYWORDS accept keyword arguments.
+        /// `int.bit_length` is METH_NOARGS and `str.upper` is METH_VARARGS, so CPython answers
+        ///   (1).bit_length(x=1)   -> TypeError: int.bit_length() takes no keyword arguments
+        ///   'a'.upper(x=1)        -> TypeError: str.upper() takes no keyword arguments
+        /// _acceptsKwargs existed but was never read, so keywords were dropped and the call returned
+        /// a value: a silent wrong answer rather than a wrong message.
+        /// </summary>
+        internal void RejectUnwantedKeywords(PyDict kwargs)
+        {
+            // `__new__` is excluded: CPython answers it from the type-call machinery, not from the
+            // descriptor flags, and the label differs. Measured on CPython 3.12.15:
+            //   class A: pass; A(x=1)                -> TypeError: A() takes no arguments
+            //   object.__new__(A, x=1)               -> TypeError: A() takes no arguments
+            //   tuple.__new__(tuple, iterable=[])    -> TypeError: tuple() takes no keyword arguments
+            // The generic `{Type}.{name}()` form below is wrong for those, so `__new__` keeps its own
+            // path and is tracked separately in docs/known_gaps.md.
+            if (!_acceptsKwargs && Name != "__new__" && kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{OwnerType.Name}.{Name}() takes no keyword arguments");
+        }
+
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
+            RejectUnwantedKeywords(kwargs);
+
             // Unbound method call: 첫 번째 인자가 self여야 함
             if (args.Length < 1)
             {
@@ -91,7 +114,10 @@ namespace SharpPy
         internal PyObject CallWithReceiver(PyObject receiver, PyObject[] args, PyDict kwargs)
         {
             if (GetType() == typeof(PyMethodDescriptor))
+            {
+                RejectUnwantedKeywords(kwargs);
                 return _implementation(receiver, args, kwargs);
+            }
 
             // Preserve Call overrides on C# descriptor subclasses.
             var fullArgs = new PyObject[args.Length + 1];
@@ -155,6 +181,7 @@ namespace SharpPy
             Console.WriteLine($"   Instance GetTypeName: {Instance?.GetTypeName()}");
 #endif
             // Bound method: self는 이미 바인딩되어 있음
+            MethodDescriptor.RejectUnwantedKeywords(kwargs);
             var result = MethodDescriptor._implementation(Instance, args, kwargs);
 #if DEBUG_DESCRIPTORS_LOG
             Console.WriteLine($"   Result: {result?.GetType().Name}");

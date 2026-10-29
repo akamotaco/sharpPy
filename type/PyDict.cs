@@ -267,7 +267,7 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 1
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: dict binary-operator slot wrappers (Objects/dictobject.c
             // dict_or/dict_ior and dict_richcompare via slotdefs).

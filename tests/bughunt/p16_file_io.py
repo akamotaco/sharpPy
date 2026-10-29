@@ -5,7 +5,16 @@ import sys
 # Scratch files live outside the repo root (Bughunt hygiene rule 2026-10-28):
 # the bughunt harness injects one shared directory so both interpreters observe
 # identical absolute paths in error text.
-tmp_base = (os.environ.get("BUGHUNT_SCRATCH") or ".").replace("\\", "/")
+# The fallback used to be ".", which left p16a.txt/p16b.bin in the repo root whenever the probe was
+# run directly instead of through the harness (observed 2026-10-29). The temp directory comes from the
+# environment rather than tempfile.gettempdir(), because SharpPy has no `tempfile` module yet: a
+# direct `import tempfile` here aborts the whole probe. Both interpreters read the same variables, so
+# the path text still compares, and the harness still overrides with one shared directory.
+tmp_base = (os.environ.get("BUGHUNT_SCRATCH")
+            or os.environ.get("TMPDIR")
+            or os.environ.get("TMP")
+            or os.environ.get("TEMP")
+            or ".").replace("\\", "/")
 tmp = tmp_base + "/p16a.txt"
 tmp2 = tmp_base + "/p16b.bin"
 _missing = tmp_base + "/p16_no_such_9876"

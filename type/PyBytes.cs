@@ -229,7 +229,7 @@ namespace SharpPy
                     }
                 },
                 minArgs: 0, maxArgs: 2
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/bytesobject.c:2560-2580 - bytes_hex
             // B.hex([sep[, bytes_per_sep]]) -> str
@@ -1354,14 +1354,12 @@ namespace SharpPy
                     if (self is not PyBytes selfBytes)
                         throw PyTypeError.Create("descriptor 'splitlines' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
 
-                    bool keepends = false;
-                    if (args.Length > 0)
-                    {
-                        if (args[0] is PyBool boolVal)
-                            keepends = boolVal.Value;
-                        else if (args[0] is PyInt intVal)
-                            keepends = intVal.Value != 0;
-                    }
+                    // CPython bytes.splitlines is METH_FASTCALL|METH_KEYWORDS with keepends=False:
+                    //   b'a\nb'.splitlines(keepends=True) -> [b'a\n', b'b']
+                    PyObject keependsArg = args.Length > 0
+                        ? args[0]
+                        : kwargs?.GetItem(new PyString("keepends"));
+                    bool keepends = keependsArg != null && keependsArg.ToBool();
 
                     byte[] data = selfBytes.Value;
                     var lines = new System.Collections.Generic.List<PyObject>();
@@ -1406,7 +1404,7 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 1
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/bytesobject.c:1850-1900 (bytes_expandtabs_impl)
             // bytes.expandtabs([tabsize]) - Expand tabs to spaces

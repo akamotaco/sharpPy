@@ -118,9 +118,12 @@ namespace SharpPy
                         }
                     }
 
-                    // Python's title() converts to titlecase (first char of each word uppercase)
-                    var textInfo = System.Globalization.CultureInfo.InvariantCulture.TextInfo;
-                    return new PyString(textInfo.ToTitleCase(str.Value.ToLowerInvariant()));
+                    // CPython str.title() uses Unicode cased/uncased word boundaries, so an apostrophe
+                    // keeps the next letter uppercase: "it's a test-case 2nd".title() ->
+                    // "It'S A Test-Case 2Nd". System.Globalization.TextInfo.ToTitleCase follows .NET
+                    // word-breaking and produced "It's A Test-Case 2Nd", so reuse the CPython-shaped
+                    // instance implementation instead of a second, divergent algorithm.
+                    return str.TitleMethod(Array.Empty<PyObject>());
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -139,15 +142,16 @@ namespace SharpPy
 
                     string sep = null;
                     int maxsplit = -1;
-                    if (args.Length >= 1 && args[0] is PyString sepStr)
+                    PyObject[] pa = ProjectKeywordSlots(args, kwargs, "sep", "maxsplit");
+                    if (pa.Length >= 1 && pa[0] is PyString sepStr)
                         sep = sepStr.Value;
-                    if (args.Length >= 2 && args[1] is PyInt maxsplitInt)
+                    if (pa.Length >= 2 && pa[1] is PyInt maxsplitInt)
                         maxsplit = (int)maxsplitInt.Value;
 
                     return str.Split(sep, maxsplit);
                 },
                 minArgs: 0, maxArgs: 2
-            );
+, acceptsKwargs: true);
 
             strType.TypeDict["strip"] = new PyMethodDescriptor(
                 "strip", strType,
@@ -903,15 +907,16 @@ namespace SharpPy
 
                     string sep = null;
                     int maxsplit = -1;
+                    PyObject[] pa = ProjectKeywordSlots(args, kwargs, "sep", "maxsplit");
 
-                    if (args.Length >= 1 && args[0] is not PyNone)
+                    if (pa.Length >= 1 && pa[0] is not PyNone)
                     {
-                        if (args[0] is not PyString sepStr)
+                        if (pa[0] is not PyString sepStr)
                             throw PyTypeError.Create("sep must be str or None");
                         sep = sepStr.Value;
                     }
 
-                    if (args.Length >= 2 && args[1] is PyInt maxInt)
+                    if (pa.Length >= 2 && pa[1] is PyInt maxInt)
                         maxsplit = (int)maxInt.Value;
 
                     // CPython: rsplit splits from the right but returns results in left-to-right order
@@ -955,7 +960,7 @@ namespace SharpPy
                     return new PyList(new System.Collections.Generic.List<PyObject>(items));
                 },
                 minArgs: 0, maxArgs: 2
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/unicodeobject.c:10248-10289 - unicode_splitlines
             // Return a list of the lines in the string, breaking at line boundaries
@@ -971,17 +976,20 @@ namespace SharpPy
                         }
                     }
 
-                    bool keepends = false;
-                    if (args.Length >= 1 && args[0] is PyBool keependsB)
-                        keepends = keependsB.Value;
-                    else if (args.Length >= 1 && args[0] is PyInt keependsI)
-                        keepends = keependsI.Value != 0;
+                    // CPython unicode_splitlines is METH_FASTCALL|METH_KEYWORDS with keepends=False,
+                    // so 'a\nb'.splitlines(keepends=True) -> ['a\n', 'b']. The delegate read only the
+                    // positional array, so the keyword is projected into its slot and resolved with
+                    // CPython truthiness instead of matching PyBool/PyInt only.
+                    PyObject keependsArg = args.Length >= 1
+                        ? args[0]
+                        : KwValue(kwargs, "keepends");
+                    bool keepends = keependsArg != null && keependsArg.ToBool();
 
                     // CPython unicode_splitlines: \n \r \r\n \v \f \x1c \x1d \x1e \x85 \u2028 \u2029
                     return new PyList(SplitLinesCore(str.Value, keepends));
                 },
                 minArgs: 0, maxArgs: 1
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/unicodeobject.c:10533-10550 - unicode_swapcase
             // Return a copy with uppercase characters converted to lowercase and vice versa
@@ -1456,7 +1464,8 @@ namespace SharpPy
                     }
 
                     int tabsize = 8;
-                    if (args.Length >= 1 && args[0] is PyInt tabInt)
+                    PyObject[] paTab = ProjectKeywordSlots(args, kwargs, "tabsize");
+                    if (paTab.Length >= 1 && paTab[0] is PyInt tabInt)
                         tabsize = (int)tabInt.Value;
 
                     if (tabsize <= 0)
@@ -1488,7 +1497,7 @@ namespace SharpPy
                     return new PyString(result.ToString());
                 },
                 minArgs: 0, maxArgs: 1
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/unicodeobject.c:11246-11250 - unicode_encode_impl
             // Encode the string using the specified encoding
@@ -1507,17 +1516,18 @@ namespace SharpPy
                     string encoding = "utf-8";
                     string errors = "strict";
 
-                    if (args.Length >= 1)
+                    PyObject[] paEnc = ProjectKeywordSlots(args, kwargs, "encoding", "errors");
+                    if (paEnc.Length >= 1 && paEnc[0] != null)
                     {
-                        if (args[0] is PyString encodingStr)
+                        if (paEnc[0] is PyString encodingStr)
                             encoding = encodingStr.Value.ToLowerInvariant();
                         else
                             throw PyTypeError.Create("encode() encoding must be str");
                     }
 
-                    if (args.Length >= 2)
+                    if (paEnc.Length >= 2 && paEnc[1] != null)
                     {
-                        if (args[1] is PyString errorsStr)
+                        if (paEnc[1] is PyString errorsStr)
                             errors = errorsStr.Value;
                         else
                             throw PyTypeError.Create("encode() errors must be str");
@@ -1544,7 +1554,7 @@ namespace SharpPy
                     }
                 },
                 minArgs: 0, maxArgs: 2
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/stringlib/unicode_format.h:940-958 - do_string_format
             // Format string using .format() method with {} placeholders
@@ -1560,7 +1570,7 @@ namespace SharpPy
 
                     return PyStringFormatter.Format(str.Value, args, kwargs);
                 }
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/stringlib/unicode_format.h:961-964 - do_string_format_map
             // Format string using .format_map() method with mapping object
@@ -1579,7 +1589,7 @@ namespace SharpPy
                     return PyStringFormatter.Format(str.Value, null, args[0]);
                 },
                 minArgs: 1, maxArgs: 1
-            );
+, acceptsKwargs: true);
 
             // CPython 3.12: Objects/unicodeobject.c:12889-12988 - unicode_maketrans_impl
             // Create translation table for translate()
@@ -2114,7 +2124,9 @@ namespace SharpPy
             if (end < 0) end += length;
             start = Math.Max(0, Math.Min(start, length));
             end = Math.Max(0, Math.Min(end, length));
-            return end - start + 1;
+            // CPython counts zero-width match positions inside the clamped [start, end] range, so a
+            // reversed range yields 0: measured "abc".count("", 3, 1) == 0.
+            return Math.Max(0, end - start + 1);
         }
 
         private static void ParseStrStartStop(PyObject[] args, int length, out int start, out int end)
@@ -2135,6 +2147,32 @@ namespace SharpPy
                     throw PyTypeError.Create("slice indices must be integers or None or have an __index__ method");
                 end = (int)si.Value;
             }
+        }
+
+        /// <summary>
+        /// CPython builtins declared METH_FASTCALL|METH_KEYWORDS resolve a keyword into its named
+        /// parameter slot (see Objects/clinic/unicodeobject.c.h for split/rsplit/encode/expandtabs).
+        /// SharpPy delegates read the positional array, so keywords are projected into that array and
+        /// the existing positional parsing - defaults, type checks, messages - then applies unchanged.
+        /// Arity checks keep using the original args array because CPython counts positional arguments
+        /// separately from keywords.
+        /// </summary>
+        private static PyObject[] ProjectKeywordSlots(PyObject[] args, PyDict kwargs, params string[] names)
+        {
+            if (kwargs == null || kwargs.Length() == 0)
+                return args;
+
+            var projected = new PyObject[Math.Max(args.Length, names.Length)];
+            Array.Copy(args, projected, args.Length);
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (i < args.Length)
+                    continue;
+                var value = KwValue(kwargs, names[i]);
+                if (value != null)
+                    projected[i] = value;
+            }
+            return projected;
         }
 
         internal static PyString AsStrReceiver(PyObject self)
@@ -3115,30 +3153,14 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
-            // CPython 3.12: For methods that have descriptors in TypeDict, delegate to base
-            // to use the descriptor protocol. This ensures correct behavior with start/end parameters.
-            if (name == "startswith" || name == "endswith")
-            {
-                return base.GetAttribute(name);
-            }
-
-            return name switch
-            {
-                "upper" => new PyStringMethod(this, "upper", Upper),
-                "lower" => new PyStringMethod(this, "lower", Lower),
-                "title" => new PyStringMethod(this, "title", TitleMethod),
-                "strip" => new PyStringMethod(this, "strip", Strip),
-                "lstrip" => new PyStringMethod(this, "lstrip", LStrip),
-                "rstrip" => new PyStringMethod(this, "rstrip", RStrip),
-                "replace" => new PyStringMethod(this, "replace", Replace),
-                "split" => new PyStringMethod(this, "split", Split),
-                "join" => new PyStringMethod(this, "join", Join),
-                "find" => new PyStringMethod(this, "find", Find),
-                "count" => new PyStringMethod(this, "count", Count),
-                "encode" => new PyStringMethod(this, "encode", EncodeMethod),
-                "isidentifier" => new PyStringMethod(this, "isidentifier", IsIdentifier),
-                _ => base.GetAttribute(name)
-            };
+            // CPython resolves str methods through the type: str.__dict__ holds the real
+            // method_descriptor objects. Every name that used to be answered by an instance-level
+            // closure here (upper, lower, title, strip, lstrip, rstrip, replace, split, join, find,
+            // count, encode, isidentifier, startswith, endswith) is registered as a descriptor in
+            // strType.TypeDict, so the closures only shadowed them: keyword acceptance
+            // (METH_KEYWORDS), arity messages and descriptor identity were decided by a duplicate path
+            // instead of by the descriptor. Deleting the shadow makes the descriptor authoritative.
+            return base.GetAttribute(name);
         }
 
         private PyObject Upper(PyObject[] args)
