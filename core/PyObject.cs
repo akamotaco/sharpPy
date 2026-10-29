@@ -206,6 +206,24 @@ namespace SharpPy
             return TryGetIndexSlow(obj);
         }
 
+        /// <summary>
+        /// CPython PyNumber_Index as used by bin(), hex(), oct() and operator.index().
+        /// TryGetIndex already carries the measured rule that an int subclass keeps long's C slot:
+        ///   class IO(int):  def __index__(self): return 3
+        ///   operator.index(IO(5)) -> 5, bin(IO(5)) -> '0b101', IO(5).__index__() -> 3
+        /// so the value is used and a Python-level override is not consulted for int subclasses,
+        /// while a plain user class still answers through __index__.
+        /// Failure text is CPython's "'T' object cannot be interpreted as an integer".
+        /// </summary>
+        internal static PyInt IndexOrThrow(PyObject obj)
+        {
+            var index = TryGetIndex(obj);
+            if (index != null)
+                return index;
+            throw PyTypeError.Create(
+                $"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+        }
+
         private static PyInt TryGetIndexSlow(PyObject obj)
         {
             // Special methods come from the type; exceptions are not "missing".
@@ -724,8 +742,15 @@ namespace SharpPy
                 Console.WriteLine($"     - checking {mroType.Name}");
                 #endif
 
-                // CPython 호환: TypeDict에서 descriptor 확인
-                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeAttr))
+                // CPython 3.12: a single MRO frame resolves in that type's own namespace first.
+                // SharpPy models one frame as ClassDict (the class's own namespace) plus TypeDict
+                // (the inherited / native merged slot view), so ClassDict has to win. TypeDict used
+                // to be consulted first, which let an inherited builtin slot wrapper shadow a user
+                // definition declared in the same frame: as soon as int published __index__, the
+                // user's IO.__index__ stopped being reachable through i.__index__().
+                if (mroType.TypeDict != null &&
+                    !(mroType is PyClass ownFrame && ownFrame.ClassDict.ContainsKey(name)) &&
+                    mroType.TypeDict.TryGetValue(name, out var typeAttr))
                 {
                     attr = typeAttr;
 

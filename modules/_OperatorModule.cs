@@ -169,17 +169,16 @@ namespace SharpPy.Modules
 
         private static PyObject Abs(PyObject[] args)
         {
+            // Measured arity text: "_operator.abs() takes exactly one argument (0 given)" - the
+            // module-qualified name and the word "one", not "abs() takes exactly 1 argument".
             if (args.Length != 1)
-                throw PyTypeError.Create($"abs() takes exactly 1 argument ({args.Length} given)");
+                throw PyTypeError.Create(
+                    $"_operator.abs() takes exactly one argument ({args.Length} given)");
 
-            // CPython 3.12: Modules/_operator.c:185-210 - _operator_abs
-            var obj = args[0];
-            return obj switch
-            {
-                PyInt pyInt => new PyInt(BigInteger.Abs(pyInt.Value)),
-                PyFloat pyFloat => new PyFloat(Math.Abs(pyFloat.Value)),
-                _ => throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'")
-            };
+            // CPython 3.12: Modules/_operator.c - _operator_abs goes through nb_absolute, the same
+            // meaning builtins.abs has. It used to have its own exact-type switch here, which made
+            // operator.abs(FSub(-2.5)) and operator.abs(a user class) fail while abs() worked.
+            return PyBuiltinFunction.Absolute(args[0]);
         }
 
         private static PyObject Add(PyObject[] args)
@@ -214,46 +213,18 @@ namespace SharpPy.Modules
 
         private static PyObject Index(PyObject[] args)
         {
+            // Measured text: "_operator.index() takes exactly one argument (0 given)" - the
+            // module-qualified name and the word "one".
             if (args.Length != 1)
-                throw PyTypeError.Create($"index() takes exactly 1 argument ({args.Length} given)");
+                throw PyTypeError.Create(
+                    $"_operator.index() takes exactly one argument ({args.Length} given)");
 
-            var obj = args[0];
-
-            // Fast path: PyInt (but not PyBool subclass)
-            if (obj is PyInt pyInt && obj is not PyBool)
-                return pyInt;
-
-            // Special case: PyBool → PyInt(0 or 1)
-            if (obj is PyBool pyBool)
-                return new PyInt(pyBool.Value ? 1 : 0);
-
-            // Try calling __index__() method (CPython 3.12 protocol)
-            try
-            {
-                var indexMethod = obj.GetAttribute("__index__");
-                if (indexMethod != null && indexMethod != PyNone.Instance)
-                {
-                    var result = indexMethod.Call(new PyObject[0], null);
-
-                    // Validate that __index__() returned an int
-                    if (result is PyInt resultInt)
-                    {
-                        return resultInt;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create(
-                            $"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-            }
-            catch (System.Exception ex) when (ex.Message.Contains("has no attribute '__index__'") ||
-                                               ex is PythonException pyEx && pyEx.PyException is PyAttributeError)
-            {
-                // __index__ not found, fall through to error
-            }
-
-            throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+            // One shared PyNumber_Index rule (see PyObject.IndexOrThrow). This copy resolved
+            // __index__ through an instance-level GetAttribute and then caught failures by
+            // sniffing the AttributeError message text, so an int subclass followed a user
+            // __index__ (3 where CPython answers with the value 5) and unrelated attribute errors
+            // were swallowed by the string match.
+            return PyObject.IndexOrThrow(args[0]);
         }
 
         private static PyObject Inv(PyObject[] args)

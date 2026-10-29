@@ -128,6 +128,30 @@ namespace SharpPy
             regFloatUn("__floor__", s => new PyInt((System.Numerics.BigInteger)Math.Floor(s.Value)));
             regFloatUn("__trunc__", s => new PyInt((System.Numerics.BigInteger)Math.Truncate(s.Value)));
             regFloatUn("__ceil__", s => new PyInt((System.Numerics.BigInteger)Math.Ceiling(s.Value)));
+            // Forward binary slots. CPython lists these on float as slot wrappers and SharpPy had
+            // none, so a float subclass reached through a dunder path found nothing at all; only
+            // the hard-coded exact-PyFloat CLR path worked.
+            void regFloatBin(string name, Func<PyObject, PyObject, PyObject> impl)
+            {
+                floatType.TypeDict[name] = new PyWrapperDescriptor(name, floatType, (self, args, kwargs) =>
+                {
+                    if (!PyFloat.TryFloatSelf(self, out var selfFloat))
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return impl(selfFloat, args[0]);
+                });
+            }
+
+            regFloatBin("__add__", (s, o) => s.Add(o));
+            regFloatBin("__sub__", (s, o) => s.Subtract(o));
+            regFloatBin("__mul__", (s, o) => s.Multiply(o));
+            regFloatBin("__truediv__", (s, o) => s.Divide(o));
+            regFloatBin("__floordiv__", (s, o) => s.FloorDivide(o));
+            regFloatBin("__mod__", (s, o) => s.Modulo(o));
+            regFloatBin("__pow__", (s, o) => s.Power(o));
             regFloatRev("__divmod__", (o, s) => s.DivMod(o));
 
             floatType.TypeDict["__hash__"] = new PyWrapperDescriptor(

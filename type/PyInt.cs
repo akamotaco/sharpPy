@@ -227,6 +227,19 @@ namespace SharpPy
                     return quotient;
                 return new PyTuple(quotient, self.Modulo(args[0]));
             });
+            // Measured against dir(int) in CPython, which also publishes __index__, __trunc__,
+            // __floor__, __ceil__, __int__ and __float__. SharpPy had none of them, so
+            // operator.index(ISub(5)) raised, and bin(ISub(5)) followed a user __index__ (0b11) while
+            // CPython uses the inherited value slot (0b101). The delegates read the payload through
+            // AsIntObj/IntLike, so a subclass contributes its own value and the result stays plain int.
+            regIntUn("__index__", s => s);
+            regIntUn("__trunc__", s => s);
+            regIntUn("__floor__", s => s);
+            regIntUn("__ceil__", s => s);
+            regIntUn("__int__", s => s);
+            regIntUn("__float__", s => new PyFloat((double)((PyInt)s).Value));
+            regIntRev("__rdivmod__", (o, s) => o.DivMod(s));
+
             intType.TypeDict["__pow__"] = new PyWrapperDescriptor("__pow__", intType, (self, args, kwargs) =>
             {
                 if (!IntLike(self))

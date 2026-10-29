@@ -433,13 +433,15 @@ namespace SharpPy
             }
         }
 
-        private static PyObject CallAbs(PyObject[] args, PyDict kwargs = null)
+        /// <summary>
+        /// One implementation of abs for every caller. CPython has a single nb_absolute meaning,
+        /// while SharpPy had four: builtins.abs, operator.abs, math.abs and this one, each with its
+        /// own type tests, so abs(FSub(2.5)) failed even though float.__abs__ existed and worked.
+        /// builtins.abs and operator.abs now delegate here.
+        /// </summary>
+        internal static PyObject Absolute(PyObject value)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
-
             // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
-            var value = args[0];
             // CPython builtin_abs goes through the nb_absolute slot: for an exact int/float that is
             // the C routine, for a heap type it is the __abs__ special method, and for a float or int
             // subclass it is the inherited base slot reading the value payload. CLR type tests express
@@ -458,14 +460,23 @@ namespace SharpPy
                     return complexVal.Absolute();
             }
 
+            // Measured: builtin_abs returns whatever __abs__ produced, NotImplemented included.
+            // class A: __abs__ returns NotImplemented  =>  abs(A()) IS NotImplemented, no TypeError.
+            // The "bad operand type" error only comes from the nb_absolute path, which runs when
+            // the type has no __abs__ at all. Filtering NotImplemented here turned that observable
+            // into an error, so the result is returned unconditionally.
             var absMethod = value.LookupSpecialMethodUncached("__abs__");
             if (absMethod != null)
-            {
-                var absResult = value.BindSpecialMethod(absMethod).Call(Array.Empty<PyObject>(), null);
-                if (!ReferenceEquals(absResult, PyNotImplemented.Instance))
-                    return absResult;
-            }
+                return value.BindSpecialMethod(absMethod).Call(Array.Empty<PyObject>(), null);
+
             throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'");
+        }
+
+        private static PyObject CallAbs(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
+            return Absolute(args[0]);
         }
 
         private static PyObject CallCallable(PyObject[] args, PyDict kwargs = null)

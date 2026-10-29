@@ -434,3 +434,25 @@ pre-B만으로도 `comp_lambda`가 이미 +6.3~7.9%다. 즉 플래그의 대부�
 HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했을 때의 산포(HEAD 자체 0.0345→0.0358 = 3.8%)
 안에 있다. 할 일은 없고 대신 micro workload 두 개(`comp_lambda`, `call_heavy_fib20`)의 baseline이
 노이즈 바닥에서 갱신돼야 한다는 것이 남았다. 모듈 import 비용 항목은 여전히 유효하다.
+
+## P0-23 (2026-10-30 등록): builtin 숫자 subclass의 dunder 디스패치 잔여
+
+같은 계열의 절반(`abs`, index 계열, `%` 서식, 슬롯 등록, 프레임 우선순위)은 같은 날짜 보고서로 닫았다.
+측정되고 남은 것:
+
+1. `divmod(FSub(2.5), 2)`, `divmod(2, FSub(2.5))`, `divmod(ISub(5), 2)` → CPython은 `(1.0, 0.5)` /
+   `(0.0, 2.0)` / `(2, 1)`. SharpPy는 TypeError. wrapper 타입(`PyFloatSubclass`, `PyIntSubclass`)이
+   CLR `DivMod`를 오버라이드하지 않아 dunder 조회 자체에 닿지 않는다.
+2. `math.floor/ceil/trunc(FSub)` → CPython은 user dunder를 존중한다(`'user-floor'`). SharpPy는
+   `must be real number, not FO`. `MathModule`의 정확 타입 검사.
+3. `int(FSub)`는 user `__int__`를 존중(측정 77), `float(FSub)`는 user `__float__`를 존중(측정 9.5).
+   SharpPy는 payload만 쓴다(2, 2.7). 단 **`operator.index`는 반대**인데, 그건 이미 맞췄다(int
+   subclass는 long의 값 슬롯).
+4. 산술 user dunder 우선순위 — `class F(float): def __add__` 를 CPython은 `'user-add'`로, SharpPy는
+   `4.5`로 답한다. `PyFloatSubclass`/`PyIntSubclass`의 산술 오버라이드가 payload로 곧장 가기 때문.
+5. `float.__int__`, `float.__float__` 슬롯 미등록(CPython에는 존재).
+
+재현 파일: `.artifacts/tmp/subdunder.py`, `.artifacts/tmp/subslots.py`(CPython/SharpPy 라인별 대조).
+설계 메모: wrapper 타입에서 dunder를 우선 조회하면 base 슬롯이 같은 CLR virtual로 되 들어와
+무한 재귀가 된다. 따라서 **user 프레임(PyClass.ClassDict)에서만 찾고 native 타입에서 멈추는**
+조회가 필요하다.

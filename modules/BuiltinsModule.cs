@@ -220,26 +220,11 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
-            // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
-            var obj = args[0];
-            if (obj is PyClassInstance userInstance)
-            {
-                // nb_absolute -> __abs__ for user-defined classes
-                var absResult = userInstance.AbsoluteOrNotImplemented();
-                if (!ReferenceEquals(absResult, PyNotImplemented.Instance))
-                {
-                    return absResult;
-                }
-                throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'");
-            }
-            return obj switch
-            {
-                PyInt pyInt => new PyInt(BigInteger.Abs(pyInt.Value)),
-                PyBool pyBool => new PyInt(pyBool.Value ? BigInteger.One : BigInteger.Zero),
-                PyFloat pyFloat => new PyFloat(Math.Abs(pyFloat.Value)),
-                PyComplex pyComplex => pyComplex.Absolute(),
-                _ => throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'")
-            };
+            // This was the implementation actually wired to builtins.abs, and it duplicated
+            // core/PyBuiltin's: exact CLR type tests plus a hand-coded PyClassInstance case, so a
+            // float or int subclass - which is neither - raised even though float.__abs__ works.
+            // One implementation now lives in PyBuiltin.Absolute.
+            return PyBuiltinFunction.Absolute(args[0]);
         }
 
         private static PyObject Len(PyObject[] args)
@@ -665,38 +650,11 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
             // BigInteger support for arbitrary precision integers
-            PyInt intValue;
-            if (obj is PyInt pyInt)
-            {
-                intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.Value ? 1 : 0);
-            }
-            else
-            {
-                // Try to call __index__ method
-                var indexMethod = obj.GetAttribute("__index__");
-                if (indexMethod != null && indexMethod != PyNone.Instance)
-                {
-                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyInt indexInt)
-                    {
-                        intValue = indexInt;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-                else
-                {
-                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
-                }
-            }
+            // PyNumber_Index: one shared rule (see PyObject.IndexOrThrow). These three
+            // builtins each had their own copy, which followed a user __index__ on an int
+            // subclass and reported AttributeError-shaped failures for float subclasses.
+            var intValue = PyObject.IndexOrThrow(obj);
 
-            // Delegate to PyInt.Bin() for proper BigInteger formatting
             return intValue.Bin();
         }
 
@@ -710,38 +668,11 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
             // BigInteger support for arbitrary precision integers
-            PyInt intValue;
-            if (obj is PyInt pyInt)
-            {
-                intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.Value ? 1 : 0);
-            }
-            else
-            {
-                // Try to call __index__ method
-                var indexMethod = obj.GetAttribute("__index__");
-                if (indexMethod != null && indexMethod != PyNone.Instance)
-                {
-                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyInt indexInt)
-                    {
-                        intValue = indexInt;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-                else
-                {
-                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
-                }
-            }
+            // PyNumber_Index: one shared rule (see PyObject.IndexOrThrow). These three
+            // builtins each had their own copy, which followed a user __index__ on an int
+            // subclass and reported AttributeError-shaped failures for float subclasses.
+            var intValue = PyObject.IndexOrThrow(obj);
 
-            // Delegate to PyInt.Hex() for proper BigInteger formatting
             return intValue.Hex();
         }
 
@@ -755,38 +686,11 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Python/bltinmodule.c - integer conversion via __index__
             // BigInteger support for arbitrary precision integers
-            PyInt intValue;
-            if (obj is PyInt pyInt)
-            {
-                intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.Value ? 1 : 0);
-            }
-            else
-            {
-                // Try to call __index__ method
-                var indexMethod = obj.GetAttribute("__index__");
-                if (indexMethod != null && indexMethod != PyNone.Instance)
-                {
-                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyInt indexInt)
-                    {
-                        intValue = indexInt;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-                else
-                {
-                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
-                }
-            }
+            // PyNumber_Index: one shared rule (see PyObject.IndexOrThrow). These three
+            // builtins each had their own copy, which followed a user __index__ on an int
+            // subclass and reported AttributeError-shaped failures for float subclasses.
+            var intValue = PyObject.IndexOrThrow(obj);
 
-            // Delegate to PyInt.Oct() for proper BigInteger formatting
             return intValue.Oct();
         }
 

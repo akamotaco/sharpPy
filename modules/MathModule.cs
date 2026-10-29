@@ -49,7 +49,8 @@ namespace SharpPy.Modules
             module.ModuleDict["radians"] = new PyMathFunction("radians");
 
             // 기타 함수들
-            module.ModuleDict["abs"] = new PyMathFunction("abs");
+            // measured: hasattr(math, "abs") is False in CPython - the C module has fabs, not abs.
+            // SharpPy exported an fabs-like abs here, which made hasattr(math, "abs") True.
             module.ModuleDict["ceil"] = new PyMathFunction("ceil");
             module.ModuleDict["floor"] = new PyMathFunction("floor");
             module.ModuleDict["trunc"] = new PyMathFunction("trunc");
@@ -129,7 +130,6 @@ namespace SharpPy.Modules
                 "radians" => CallRadians(args),
 
                 // 기타 함수들
-                "abs" => CallAbs(args),
                 "ceil" => CallCeil(args),
                 "floor" => CallFloor(args),
                 "trunc" => CallTrunc(args),
@@ -391,15 +391,6 @@ namespace SharpPy.Modules
         }
 
         // === 기타 함수들 ===
-
-        private PyObject CallAbs(PyObject[] args)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
-
-            var x = GetFloatValue(args[0]);
-            return new PyFloat(Math.Abs(x));
-        }
 
         // CPython 3.12: Modules/mathmodule.c:math_ceil (lines 2299-2310)
         // Delegates to __ceil__ special method

@@ -2398,9 +2398,13 @@ namespace SharpPy
                     {
                         numeric = true;
                         BigInteger ival;
-                        if (value is PyInt bi) ival = bi.Value;
-                        else if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
-                        else if (value is PyFloat bf) ival = (BigInteger)Math.Truncate(bf.Value);
+                        // CPython tests PyLong_Check / PyFloat_Check here, and both accept
+                        // subclasses, so the exact CLR type tests are replaced by the central
+                        // PyInt.TryLongSelf / PyFloat.TryFloatSelf helpers. Measured: "%d" % IO(5)
+                        // is '5' where IO is a user int subclass; SharpPy raised instead.
+                        if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
+                        else if (PyInt.TryLongSelf(value, out var intSelf)) ival = intSelf.Value;
+                        else if (PyFloat.TryFloatSelf(value, out var floatSelf)) ival = (BigInteger)Math.Truncate(floatSelf.Value);
                         else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
                         if (ival.Sign < 0) { sign = "-"; ival = -ival; }
                         else if (signPlus) sign = "+";
@@ -2414,8 +2418,10 @@ namespace SharpPy
                     {
                         numeric = true;
                         BigInteger ival;
-                        if (value is PyInt bi) ival = bi.Value;
-                        else if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
+                        // Same rule as %d: a subclass of int is still an int (CPython
+                        // PyLong_Check), a float is not.
+                        if (value is PyBool bb) ival = bb.Value ? BigInteger.One : BigInteger.Zero;
+                        else if (PyInt.TryLongSelf(value, out var intSelf)) ival = intSelf.Value;
                         else throw PyTypeError.Create($"%{conv} format: an integer is required, not {value.GetTypeName()}");
                         if (ival.Sign < 0) { sign = "-"; ival = -ival; }
                         else if (signPlus) sign = "+";
@@ -2447,9 +2453,11 @@ namespace SharpPy
                     {
                         numeric = true;
                         double dv;
-                        if (value is PyFloat fv) dv = fv.Value;
-                        else if (value is PyInt iv) dv = (double)iv.Value;
-                        else if (value is PyBool bv) dv = bv.Value ? 1.0 : 0.0;
+                        // Same rule as %d: PyFloat_Check / PyLong_Check accept subclasses, so
+                        // "%.3f" % FSub(2.5) formats the payload as '2.500' (measured).
+                        if (value is PyBool bv) dv = bv.Value ? 1.0 : 0.0;
+                        else if (PyFloat.TryFloatSelf(value, out var floatSelf)) dv = floatSelf.Value;
+                        else if (PyInt.TryLongSelf(value, out var intSelf)) dv = (double)intSelf.Value;
                         else throw PyTypeError.Create($"%{conv} format: a real number is required, not {value.GetTypeName()}");
                         body = conv switch
                         {
