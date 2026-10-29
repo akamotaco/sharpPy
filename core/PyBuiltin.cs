@@ -440,24 +440,32 @@ namespace SharpPy
 
             // CPython 3.12: Python/bltinmodule.c:2340-2355 - builtin_abs
             var value = args[0];
-            if (value is PyClassInstance userInstance)
+            // CPython builtin_abs goes through the nb_absolute slot: for an exact int/float that is
+            // the C routine, for a heap type it is the __abs__ special method, and for a float or int
+            // subclass it is the inherited base slot reading the value payload. CLR type tests express
+            // none of that: they matched only exact PyInt/PyFloat/PyComplex plus hand-coded
+            // PyClassInstance, so abs(FSub(2.5)) raised even though float.__abs__ now exists.
+            // Keep the exact-type fast paths and dispatch everything else through __abs__.
+            switch (value)
             {
-                // nb_absolute -> __abs__ for user-defined classes
-                var absResult = userInstance.AbsoluteOrNotImplemented();
-                if (!ReferenceEquals(absResult, PyNotImplemented.Instance))
-                {
-                    return absResult;
-                }
-                throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'");
+                case PyInt intVal:
+                    return new PyInt(BigInteger.Abs(intVal.Value));
+                case PyBool boolVal:
+                    return new PyInt(boolVal.Value ? BigInteger.One : BigInteger.Zero);
+                case PyFloat floatVal:
+                    return new PyFloat(Math.Abs(floatVal.Value));
+                case PyComplex complexVal:
+                    return complexVal.Absolute();
             }
-            return value switch
+
+            var absMethod = value.LookupSpecialMethodUncached("__abs__");
+            if (absMethod != null)
             {
-                PyInt intVal => new PyInt(BigInteger.Abs(intVal.Value)),
-                PyBool boolVal => new PyInt(boolVal.Value ? BigInteger.One : BigInteger.Zero),
-                PyFloat floatVal => new PyFloat(Math.Abs(floatVal.Value)),
-                PyComplex complexVal => complexVal.Absolute(),
-                _ => throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'")
-            };
+                var absResult = value.BindSpecialMethod(absMethod).Call(Array.Empty<PyObject>(), null);
+                if (!ReferenceEquals(absResult, PyNotImplemented.Instance))
+                    return absResult;
+            }
+            throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'");
         }
 
         private static PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
@@ -679,7 +687,19 @@ namespace SharpPy
                 while (true)
                 {
                     var item = iterator.Next();
-                    result = result.Add(item);
+                    var next = result.Add(item);
+                    if (ReferenceEquals(next, PyNotImplemented.Instance))
+                    {
+                        // CPython accumulates with PyNumber_Add, which tries the reflected operand and
+                        // then raises. The virtual Add here only reports NotImplemented, and leaking
+                        // that sentinel made the next iteration report
+                        // "unsupported operand type(s) for +: 'NotImplementedType' and ...".
+                        next = item.Add(result);
+                        if (ReferenceEquals(next, PyNotImplemented.Instance))
+                            throw PyTypeError.Create(
+                                $"unsupported operand type(s) for +: '{result.GetTypeName()}' and '{item.GetTypeName()}'");
+                    }
+                    result = next;
                 }
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)

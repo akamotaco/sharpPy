@@ -220,6 +220,26 @@ accepts silently).
   type, message), never on the presence of a word in stderr, and it must be diffed against CPython
   before being called a SharpPy bug.
 
+- **P0-18 increment 5 (measured): `float` now publishes its numeric slots, and `sum` stops leaking
+  the `NotImplemented` sentinel.** CPython's `float_as_number` (Objects/float.c, wired through
+  Objects/slotdefs.c `nb_reflected`) exposes `__radd__`/`__rsub__`/`__rmul__`/`__rtruediv__`/
+  `__rfloordiv__`/`__rmod__`/`__rpow__`/`__rdivmod__` plus `__abs__`/`__neg__`/`__pos__`/`__floor__`/
+  `__trunc__`/`__ceil__` as slot wrappers that read the value payload. SharpPy registered **none** of
+  them on `float`, so a subclass that carries a real float value (p48) still failed:
+  `1 + FSub(2.5)` -> `TypeError: unsupported operand type(s) for +: 'int' and 'FSub'`.
+  Registered through the same wrapper shape as the int family, reading `self` via `TryFloatSelf`, which
+  is the CLR counterpart of `nb_reflected` reading `ob_fval`: the subclass contributes its value and
+  the result stays a plain `float`. `sum()` was separately wrong: it accumulated with the virtual
+  `Add` and, when that returned `NotImplemented`, fed the sentinel into the next iteration, producing
+  `unsupported operand type(s) for +: 'NotImplementedType' and ...`; it now tries the reflected
+  operand and raises CPython's message if that is also `NotImplemented`.
+  Still divergent for a float subclass, measured: `abs(FSub(2.5))`, `divmod(FSub(2.5), 2)` and
+  `"%.3f" % FSub(2.5)`. `abs()` was changed to dispatch through `__abs__` for non-exact receivers, but
+  the lookup returns nothing for a `PyFloatSubclass`, so the remaining problem is that this CLR class
+  is not reachable through the special-method lookup machinery - it is not a missing slot anymore.
+  Verified: `tests/bughunt/p52_float_numeric_slots.py` (22 lines, diff 0), bughunt 57/57, evaluate
+  unchanged 225/3/2, Godot replay 82 matched 0 other.
+
 - **P0-20 CLOSED: builtin keyword arguments now follow CPython's METH_KEYWORDS table.** CPython
   rejects keywords on METH_O / METH_VARARGS / METH_FASTCALL builtins with
   `{Type}.{name}() takes no keyword arguments`; SharpPy dropped the keywords and returned a value, so

@@ -78,6 +78,58 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 1);
 
+            // CPython publishes the numeric slots of float as slot wrappers (Objects/float.c
+            // float_as_number, referenced through Objects/slotdefs.c nb_reflected), so
+            //   1 + FSub(2.5)  resolves float.__radd__(FSub(2.5), 1) -> 3.5
+            //   abs(FSub(2.5)) resolves float.__abs__                -> 2.5
+            // None of these were registered: the VM only had hard-coded CLR paths for an exact
+            // PyFloat, so a float subclass answered TypeError even though it carries a float value.
+            // `self` is read through TryFloatSelf, which is the CLR counterpart of nb_reflected
+            // reading ob_fval: the subclass contributes its own value, the result stays a plain float.
+            void regFloatRev(string name, Func<PyObject, PyObject, PyObject> fwd)
+            {
+                floatType.TypeDict[name] = new PyWrapperDescriptor(name, floatType, (self, args, kwargs) =>
+                {
+                    if (!PyFloat.TryFloatSelf(self, out var selfFloat))
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return fwd(args[0], selfFloat);
+                });
+            }
+
+            void regFloatUn(string name, Func<PyFloat, PyObject> impl)
+            {
+                floatType.TypeDict[name] = new PyWrapperDescriptor(name, floatType, (self, args, kwargs) =>
+                {
+                    if (!PyFloat.TryFloatSelf(self, out var selfFloat))
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create($"wrapper {name}() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    return impl(selfFloat);
+                });
+            }
+
+            regFloatRev("__radd__", (o, s) => o.Add(s));
+            regFloatRev("__rsub__", (o, s) => o.Subtract(s));
+            regFloatRev("__rmul__", (o, s) => o.Multiply(s));
+            regFloatRev("__rtruediv__", (o, s) => o.Divide(s));
+            regFloatRev("__rfloordiv__", (o, s) => o.FloorDivide(s));
+            regFloatRev("__rmod__", (o, s) => o.Modulo(s));
+            regFloatRev("__rpow__", (o, s) => o.Power(s));
+            regFloatRev("__rdivmod__", (o, s) => o.DivMod(s));
+            regFloatUn("__abs__", s => new PyFloat(Math.Abs(s.Value)));
+            regFloatUn("__neg__", s => new PyFloat(-s.Value));
+            regFloatUn("__pos__", s => s);
+            regFloatUn("__floor__", s => new PyInt((System.Numerics.BigInteger)Math.Floor(s.Value)));
+            regFloatUn("__trunc__", s => new PyInt((System.Numerics.BigInteger)Math.Truncate(s.Value)));
+            regFloatUn("__ceil__", s => new PyInt((System.Numerics.BigInteger)Math.Ceiling(s.Value)));
+            regFloatRev("__divmod__", (o, s) => s.DivMod(o));
+
             floatType.TypeDict["__hash__"] = new PyWrapperDescriptor(
                 "__hash__", floatType,
                 (self, args, kwargs) => {
