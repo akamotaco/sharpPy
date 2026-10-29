@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SharpPy
 {
@@ -283,107 +284,37 @@ namespace SharpPy
             );
             bytesType.TypeDict["fromhex"] = new PyClassMethodDescriptor("fromhex", bytesType, fromhexMethod);
 
-            // CPython 3.12: Objects/bytesobject.c:1900-1950 - bytes_find
-            // B.find(sub[, start[, end]]) -> int
-            bytesType.TypeDict["find"] = new PyMethodDescriptor(
-                "find", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'find' requires a 'bytes' object but received a '{self.GetTypeName()}'");
+                        // p41: one CPython-shaped dispatcher for the whole byte search/query family.
+            // CPython 3.12 Objects/bytesobject.c owns these: find_impl / reverse_find_impl
+            // (index_impl and rindex_impl wrap them with "subsection not found"),
+            // counting_impl, startswith_impl, and removeprefix_impl / removesuffix_impl
+            // (METH_O, hence "bytes.NAME() takes exactly one argument (N given)").
+            // PyByteArray delegates to the same cores, as bytearrayobject.c does.
+            PyMethodDescriptor Bts(string name, System.Func<PyBytes, PyObject[], PyObject> body, int min, int max)
+                => new PyMethodDescriptor(name, bytesType, (self, args, kwargs) => {
+                    if (self is not PyBytes selfBytes)
+                        throw PyTypeError.Create($"descriptor '{name}' requires a 'bytes' object but received a '{self.GetTypeName()}'");
+                    if (args.Length < min)
+                        throw PyTypeError.Create($"{name}() takes at least {min} argument ({args.Length} given)");
+                    if (args.Length > max)
+                        throw PyTypeError.Create(max == 1
+                            ? $"bytes.{name}() takes exactly one argument ({args.Length} given)"
+                            : $"{name}() takes at most {max} arguments ({args.Length} given)");
+                    return body(selfBytes, args);
+                }, minArgs: min, maxArgs: max);
 
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"find() takes at least 1 argument ({args.Length} given)");
+            bytesType.TypeDict["find"] = Bts("find", (b, args) => FindCore(b.Value, args, false, false), 1, 3);
+            bytesType.TypeDict["rfind"] = Bts("rfind", (b, args) => FindCore(b.Value, args, true, false), 1, 3);
+            bytesType.TypeDict["index"] = Bts("index", (b, args) => FindCore(b.Value, args, false, true), 1, 3);
+            bytesType.TypeDict["rindex"] = Bts("rindex", (b, args) => FindCore(b.Value, args, true, true), 1, 3);
+            bytesType.TypeDict["count"] = Bts("count", (b, args) => CountCore(b.Value, args), 1, 3);
+            bytesType.TypeDict["startswith"] = Bts("startswith", (b, args) => StartEndCore(b.Value, args, true), 1, 3);
+            bytesType.TypeDict["endswith"] = Bts("endswith", (b, args) => StartEndCore(b.Value, args, false), 1, 3);
+            bytesType.TypeDict["removeprefix"] = Bts("removeprefix", (b, args) => new PyBytes(TrimEdgeBytes(b.Value, args, true)), 1, 1);
+            bytesType.TypeDict["removesuffix"] = Bts("removesuffix", (b, args) => new PyBytes(TrimEdgeBytes(b.Value, args, false)), 1, 1);
 
-                    if (args[0] is not PyBytes sub)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
 
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    // Search for substring
-                    for (int i = start; i <= end - sub.Value.Length; i++)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sub.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sub.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) return new PyInt(i);
-                    }
-                    return new PyInt(-1);
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:2100-2150 - bytes_count
-            // B.count(sub[, start[, end]]) -> int
-            bytesType.TypeDict["count"] = new PyMethodDescriptor(
-                "count", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'count' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"count() takes at least 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes sub)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    // CPython: counting the empty subsection yields end - start + 1.
-                    // Without this early-out the non-overlap step (i += len - 1) below
-                    // would decrement forever and hang the interpreter.
-                    if (sub.Value.Length == 0)
-                        return new PyInt(Math.Max(0, end - start + 1));
-
-                    // Count occurrences
-                    int count = 0;
-                    for (int i = start; i <= end - sub.Value.Length; i++)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sub.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sub.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match)
-                        {
-                            count++;
-                            i += sub.Value.Length - 1; // Skip past this match
-                        }
-                    }
-                    return new PyInt(count);
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
+            
             // CPython 3.12: Objects/bytesobject.c:2200-2250 - bytes_replace
             // B.replace(old, new[, count]) -> bytes
             bytesType.TypeDict["replace"] = new PyMethodDescriptor(
@@ -452,85 +383,8 @@ namespace SharpPy
                 minArgs: 2, maxArgs: 3
             );
 
-            // CPython 3.12: Objects/bytesobject.c:2000-2030 - bytes_startswith
-            // B.startswith(prefix[, start[, end]]) -> bool
-            bytesType.TypeDict["startswith"] = new PyMethodDescriptor(
-                "startswith", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'startswith' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"startswith() takes at least 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes prefix)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    if (end - start < prefix.Value.Length)
-                        return PyBool.False;
-
-                    for (int i = 0; i < prefix.Value.Length; i++)
-                    {
-                        if (bytes.Value[start + i] != prefix.Value[i])
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:2050-2080 - bytes_endswith
-            // B.endswith(suffix[, start[, end]]) -> bool
-            bytesType.TypeDict["endswith"] = new PyMethodDescriptor(
-                "endswith", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'endswith' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"endswith() takes at least 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes suffix)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    if (end - start < suffix.Value.Length)
-                        return PyBool.False;
-
-                    int offset = end - suffix.Value.Length;
-                    for (int i = 0; i < suffix.Value.Length; i++)
-                    {
-                        if (bytes.Value[offset + i] != suffix.Value[i])
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
+            
+            
             // CPython 3.12: Objects/bytesobject.c:1700-1800 - bytes_split
             // B.split(sep=None, maxsplit=-1) -> list of bytes
             bytesType.TypeDict["split"] = new PyMethodDescriptor(
@@ -655,141 +509,9 @@ namespace SharpPy
                 minArgs: 1, maxArgs: 1
             );
 
-            // CPython 3.12: Objects/bytesobject.c:1950-2000 - bytes_index
-            // B.index(sub[, start[, end]]) -> int
-            bytesType.TypeDict["index"] = new PyMethodDescriptor(
-                "index", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'index' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"index() takes at least 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes sub)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    // Search for substring
-                    for (int i = start; i <= end - sub.Value.Length; i++)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sub.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sub.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) return new PyInt(i);
-                    }
-                    throw PyValueError.Create("subsection not found");
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1900-1950 - bytes_rfind
-            // B.rfind(sub[, start[, end]]) -> int
-            bytesType.TypeDict["rfind"] = new PyMethodDescriptor(
-                "rfind", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'rfind' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"rfind() takes at least 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes sub)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    // Search backwards for substring
-                    for (int i = end - sub.Value.Length; i >= start; i--)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sub.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sub.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) return new PyInt(i);
-                    }
-                    return new PyInt(-1);
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:2000-2050 - bytes_rindex
-            // B.rindex(sub[, start[, end]]) -> int
-            bytesType.TypeDict["rindex"] = new PyMethodDescriptor(
-                "rindex", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'rindex' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"rindex() takes at least 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes sub)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-
-                    int start = 0;
-                    int end = bytes.Value.Length;
-
-                    if (args.Length >= 2 && args[1] is not PyNone) start = BytesIndex(args[1]);
-                    if (args.Length >= 3 && args[2] is not PyNone) end = BytesIndex(args[2]);
-
-                    // Normalize indices
-                    if (start < 0) start += bytes.Value.Length;
-                    if (end < 0) end += bytes.Value.Length;
-                    start = Math.Max(0, Math.Min(start, bytes.Value.Length));
-                    end = Math.Max(0, Math.Min(end, bytes.Value.Length));
-
-                    // Search backwards for substring
-                    for (int i = end - sub.Value.Length; i >= start; i--)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sub.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sub.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) return new PyInt(i);
-                    }
-                    throw PyValueError.Create("subsection not found");
-                },
-                minArgs: 1, maxArgs: 3
-            );
-
+            
+            
+            
             // CPython 3.12: Objects/bytesobject.c:1550-1600 - bytes_partition
             // B.partition(sep) -> (head, sep, tail)
             bytesType.TypeDict["partition"] = new PyMethodDescriptor(
@@ -1542,95 +1264,10 @@ namespace SharpPy
                 maxArgs: 1
             );
 
-            // CPython 3.12: Objects/bytesobject.c:2100-2140 (bytes_removeprefix_impl)
             // bytes.removeprefix(prefix) - Remove prefix if present (Python 3.9+)
-            bytesType.TypeDict["removeprefix"] = new PyMethodDescriptor(
-                "removeprefix",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'removeprefix' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"removeprefix() takes exactly 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes prefix)
-                        throw PyTypeError.Create("removeprefix() argument must be bytes");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] prefixData = prefix.Value;
-
-                    if (prefixData.Length == 0 || prefixData.Length > data.Length)
-                        return selfBytes;
-
-                    // Check if starts with prefix
-                    bool matches = true;
-                    for (int i = 0; i < prefixData.Length; i++)
-                    {
-                        if (data[i] != prefixData[i])
-                        {
-                            matches = false;
-                            break;
-                        }
-                    }
-
-                    if (!matches)
-                        return selfBytes;
-
-                    // Remove prefix
-                    byte[] result = new byte[data.Length - prefixData.Length];
-                    Array.Copy(data, prefixData.Length, result, 0, result.Length);
-                    return new PyBytes(result);
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:2150-2190 (bytes_removesuffix_impl)
+            
             // bytes.removesuffix(suffix) - Remove suffix if present (Python 3.9+)
-            bytesType.TypeDict["removesuffix"] = new PyMethodDescriptor(
-                "removesuffix",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'removesuffix' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"removesuffix() takes exactly 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyBytes suffix)
-                        throw PyTypeError.Create("removesuffix() argument must be bytes");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] suffixData = suffix.Value;
-
-                    if (suffixData.Length == 0 || suffixData.Length > data.Length)
-                        return selfBytes;
-
-                    // Check if ends with suffix
-                    bool matches = true;
-                    int startPos = data.Length - suffixData.Length;
-                    for (int i = 0; i < suffixData.Length; i++)
-                    {
-                        if (data[startPos + i] != suffixData[i])
-                        {
-                            matches = false;
-                            break;
-                        }
-                    }
-
-                    if (!matches)
-                        return selfBytes;
-
-                    // Remove suffix
-                    byte[] result = new byte[data.Length - suffixData.Length];
-                    Array.Copy(data, 0, result, 0, result.Length);
-                    return new PyBytes(result);
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
-
+            
             // CPython 3.12: Objects/bytesobject.c:1360-1400 (bytes_lstrip_impl)
             // bytes.lstrip([chars]) - Remove leading bytes
             bytesType.TypeDict["lstrip"] = new PyMethodDescriptor(
@@ -2498,6 +2135,141 @@ namespace SharpPy
 
         // CPython bytes find/count/index start/stop: accept int, bool, or __index__;
         // anything else -> TypeError. None is filtered by the caller (means default).
+        // ---- p40/p41: CPython byte search/query family (shared by bytes+bytearray) ---
+        // Objects/bytesobject.c owns find_impl / counting_impl / startswith_impl
+        // and bytearray delegates to them, so the core lives on PyBytes.
+
+        internal static void ParseRange(PyObject[] args, int length, out int start, out int end)
+        {
+            start = 0;
+            end = length;
+            if (args.Length >= 2 && args[1] is not PyNone) start = PyBytes.BytesIndex(args[1]);
+            if (args.Length >= 3 && args[2] is not PyNone) end = PyBytes.BytesIndex(args[2]);
+            if (start < 0) start += length;
+            if (end < 0) end += length;
+            start = Math.Max(0, Math.Min(start, length));
+            end = Math.Max(0, Math.Min(end, length));
+        }
+
+        // find/count take int(0..255) or bytes-like; the prefix/suffix family takes
+        // bytes-like only, and the two cases have different CPython messages.
+        internal static byte[] SubArg(PyObject arg, bool allowInt)
+        {
+            if (arg is PyBytes pb) return pb.Value;
+            if (arg is PyByteArray pba) return pba.ToByteArrayCopy();
+            // Any object exposing a bytes-like buffer counts (CPythonPyObject_GetBuffer).
+            if (arg is PyMemoryView mv) return mv.Data;
+            if (allowInt && arg is PyInt pi)
+            {
+                long v = (long)pi.Value;
+                if (v < 0 || v > 255) throw PyValueError.Create("byte must be in range(0, 256)");
+                return new byte[] { (byte)v };
+            }
+            if (!allowInt)
+                throw PyTypeError.Create($"a bytes-like object is required, not '{arg.GetTypeName()}'");
+            throw PyTypeError.Create($"argument should be integer or bytes-like object, not '{arg.GetTypeName()}'");
+        }
+
+        internal static bool SameAt(System.Collections.Generic.IReadOnlyList<byte> data, int at, byte[] sub)
+        {
+            if (at < 0 || at + sub.Length > data.Count) return false;
+            for (int i = 0; i < sub.Length; i++)
+                if (data[at + i] != sub[i]) return false;
+            return true;
+        }
+
+        // find/rfind and index/rindex share one scan.
+        internal static PyObject FindCore(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args, bool backward, bool raiseWhenMissing)
+        {
+            byte[] sub = SubArg(args[0], allowInt: true);
+            ParseRange(args, data.Count, out int start, out int end);
+            if (sub.Length == 0)
+            {
+                // CPython matches the empty subsection at the range boundary.
+                return new PyInt(backward ? end : start);
+            }
+            if (backward)
+            {
+                for (int i = end - sub.Length; i >= start; i--)
+                    if (SameAt(data, i, sub)) return new PyInt(i);
+            }
+            else
+            {
+                for (int i = start; i + sub.Length <= end; i++)
+                    if (SameAt(data, i, sub)) return new PyInt(i);
+            }
+            if (raiseWhenMissing) throw PyValueError.Create("subsection not found");
+            return new PyInt(-1);
+        }
+
+        internal static PyObject CountCore(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args)
+        {
+            byte[] sub = SubArg(args[0], allowInt: true);
+            ParseRange(args, data.Count, out int start, out int end);
+            if (sub.Length == 0) return new PyInt(Math.Max(0, end - start + 1));
+            int count = 0;
+            for (int i = start; i + sub.Length <= end; i++)
+            {
+                if (SameAt(data, i, sub))
+                {
+                    count++;
+                    i += sub.Length - 1; // non-overlapping
+                }
+            }
+            return new PyInt(count);
+        }
+
+        // CPython startswith_impl: bytes-like or a tuple of bytes-like.
+        internal static PyObject StartEndCore(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args, bool prefix)
+        {
+            string name = prefix ? "startswith" : "endswith";
+            var candidates = new List<byte[]>();
+            if (args[0] is PyTuple tpl)
+            {
+                foreach (var item in tpl.Items)
+                {
+                    if (item is PyBytes or PyByteArray or PyMemoryView) candidates.Add(SubArg(item, allowInt: false));
+                    else throw PyTypeError.Create($"a bytes-like object is required, not '{item.GetTypeName()}'");
+                }
+            }
+            else if (args[0] is PyBytes or PyByteArray or PyMemoryView)
+            {
+                candidates.Add(SubArg(args[0], allowInt: false));
+            }
+            else
+            {
+                throw PyTypeError.Create($"{name} first arg must be bytes or a tuple of bytes, not {args[0].GetTypeName()}");
+            }
+
+            ParseRange(args, data.Count, out int start, out int end);
+            foreach (var sub in candidates)
+            {
+                if (sub.Length > end - start) continue;
+                if (prefix ? SameAt(data, start, sub) : SameAt(data, end - sub.Length, sub))
+                    return PyBool.True;
+            }
+            return PyBool.False;
+        }
+
+        // removeprefix/removesuffix: METH_O, bytes-like only, returns a copy.
+        internal static byte[] TrimEdgeBytes(System.Collections.Generic.IReadOnlyList<byte> data, PyObject[] args, bool prefix)
+        {
+            byte[] edge = SubArg(args[0], allowInt: false);
+            var rest = new List<byte>(data);
+            if (edge.Length > 0 && rest.Count >= edge.Length)
+            {
+                bool match = prefix
+                    ? SameAt(rest, 0, edge)
+                    : SameAt(rest, rest.Count - edge.Length, edge);
+                if (match)
+                {
+                    if (prefix) rest.RemoveRange(0, edge.Length);
+                    else rest.RemoveRange(rest.Count - edge.Length, edge.Length);
+                }
+            }
+            return rest.ToArray();
+        }
+
         internal static int BytesIndex(PyObject arg)
         {
             if (TryGetIntArg(arg, out var v)) return (int)v;

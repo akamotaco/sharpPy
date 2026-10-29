@@ -202,15 +202,15 @@ namespace SharpPy
                     return body(selfBa, args);
                 }, minArgs: min, maxArgs: max);
 
-            baType.TypeDict["find"] = Ba("find", (ba, args) => FindCore(ba._bytes, args, false, false), 1, 3);
-            baType.TypeDict["rfind"] = Ba("rfind", (ba, args) => FindCore(ba._bytes, args, true, false), 1, 3);
-            baType.TypeDict["index"] = Ba("index", (ba, args) => FindCore(ba._bytes, args, false, true), 1, 3);
-            baType.TypeDict["rindex"] = Ba("rindex", (ba, args) => FindCore(ba._bytes, args, true, true), 1, 3);
-            baType.TypeDict["count"] = Ba("count", (ba, args) => CountCore(ba._bytes, args), 1, 3);
-            baType.TypeDict["startswith"] = Ba("startswith", (ba, args) => StartEndCore(ba._bytes, args, true), 1, 3);
-            baType.TypeDict["endswith"] = Ba("endswith", (ba, args) => StartEndCore(ba._bytes, args, false), 1, 3);
-            baType.TypeDict["removeprefix"] = Ba("removeprefix", (ba, args) => TrimEdgeCore(ba, args, true), 1, 1);
-            baType.TypeDict["removesuffix"] = Ba("removesuffix", (ba, args) => TrimEdgeCore(ba, args, false), 1, 1);
+            baType.TypeDict["find"] = Ba("find", (ba, args) => PyBytes.FindCore(ba._bytes, args, false, false), 1, 3);
+            baType.TypeDict["rfind"] = Ba("rfind", (ba, args) => PyBytes.FindCore(ba._bytes, args, true, false), 1, 3);
+            baType.TypeDict["index"] = Ba("index", (ba, args) => PyBytes.FindCore(ba._bytes, args, false, true), 1, 3);
+            baType.TypeDict["rindex"] = Ba("rindex", (ba, args) => PyBytes.FindCore(ba._bytes, args, true, true), 1, 3);
+            baType.TypeDict["count"] = Ba("count", (ba, args) => PyBytes.CountCore(ba._bytes, args), 1, 3);
+            baType.TypeDict["startswith"] = Ba("startswith", (ba, args) => PyBytes.StartEndCore(ba._bytes, args, true), 1, 3);
+            baType.TypeDict["endswith"] = Ba("endswith", (ba, args) => PyBytes.StartEndCore(ba._bytes, args, false), 1, 3);
+            baType.TypeDict["removeprefix"] = Ba("removeprefix", (ba, args) => new PyByteArray(PyBytes.TrimEdgeBytes(ba._bytes, args, true)), 1, 1);
+            baType.TypeDict["removesuffix"] = Ba("removesuffix", (ba, args) => new PyByteArray(PyBytes.TrimEdgeBytes(ba._bytes, args, false)), 1, 1);
 
             baType.TypeDict["translate"] = new PyMethodDescriptor(
                 "translate", baType,
@@ -867,138 +867,6 @@ namespace SharpPy
         /// <summary>
         /// Validate and convert PyObject to byte value (0-255)
         /// </summary>
-        // ---- p40: CPython bytearray search/query family -------------------------
-        // Objects/bytearrayobject.c reuses the bytes algorithms (find_impl /
-        // counting_impl / startswith_impl); results keep bytearray semantics.
-
-        private static void ParseRange(PyObject[] args, int length, out int start, out int end)
-        {
-            start = 0;
-            end = length;
-            if (args.Length >= 2 && args[1] is not PyNone) start = PyBytes.BytesIndex(args[1]);
-            if (args.Length >= 3 && args[2] is not PyNone) end = PyBytes.BytesIndex(args[2]);
-            if (start < 0) start += length;
-            if (end < 0) end += length;
-            start = Math.Max(0, Math.Min(start, length));
-            end = Math.Max(0, Math.Min(end, length));
-        }
-
-        // int(0..255) or bytes-like -> byte[]; anything else -> CPython TypeError.
-        private static byte[] SubArg(PyObject arg)
-        {
-            if (arg is PyBytes pb) return pb.Value;
-            if (arg is PyByteArray pba) return pba._bytes.ToArray();
-            if (arg is PyInt pi)
-            {
-                long v = (long)pi.Value;
-                if (v < 0 || v > 255) throw PyValueError.Create("byte must be in range(0, 256)");
-                return new byte[] { (byte)v };
-            }
-            throw PyTypeError.Create($"argument should be integer or bytes-like object, not '{arg.GetTypeName()}'");
-        }
-
-        private static bool SameAt(List<byte> data, int at, byte[] sub)
-        {
-            if (at < 0 || at + sub.Length > data.Count) return false;
-            for (int i = 0; i < sub.Length; i++)
-                if (data[at + i] != sub[i]) return false;
-            return true;
-        }
-
-        // find/rfind and index/rindex share one scan.
-        private static PyObject FindCore(List<byte> data, PyObject[] args, bool backward, bool raiseWhenMissing)
-        {
-            byte[] sub = SubArg(args[0]);
-            ParseRange(args, data.Count, out int start, out int end);
-            if (sub.Length == 0)
-            {
-                // CPython matches the empty subsection at the range boundary.
-                return new PyInt(backward ? end : start);
-            }
-            if (backward)
-            {
-                for (int i = end - sub.Length; i >= start; i--)
-                    if (SameAt(data, i, sub)) return new PyInt(i);
-            }
-            else
-            {
-                for (int i = start; i + sub.Length <= end; i++)
-                    if (SameAt(data, i, sub)) return new PyInt(i);
-            }
-            if (raiseWhenMissing) throw PyValueError.Create("subsection not found");
-            return new PyInt(-1);
-        }
-
-        private static PyObject CountCore(List<byte> data, PyObject[] args)
-        {
-            byte[] sub = SubArg(args[0]);
-            ParseRange(args, data.Count, out int start, out int end);
-            if (sub.Length == 0) return new PyInt(Math.Max(0, end - start + 1));
-            int count = 0;
-            for (int i = start; i + sub.Length <= end; i++)
-            {
-                if (SameAt(data, i, sub))
-                {
-                    count++;
-                    i += sub.Length - 1; // non-overlapping
-                }
-            }
-            return new PyInt(count);
-        }
-
-        // CPython startswith_impl: bytes-like or a tuple of bytes-like.
-        private static PyObject StartEndCore(List<byte> data, PyObject[] args, bool prefix)
-        {
-            string name = prefix ? "startswith" : "endswith";
-            var candidates = new List<byte[]>();
-            if (args[0] is PyTuple tpl)
-            {
-                foreach (var item in tpl.Items)
-                {
-                    if (item is PyBytes || item is PyByteArray) candidates.Add(SubArg(item));
-                    else throw PyTypeError.Create($"a bytes-like object is required, not '{item.GetTypeName()}'");
-                }
-            }
-            else if (args[0] is PyBytes || args[0] is PyByteArray)
-            {
-                candidates.Add(SubArg(args[0]));
-            }
-            else
-            {
-                throw PyTypeError.Create($"{name} first arg must be bytes or a tuple of bytes, not {args[0].GetTypeName()}");
-            }
-
-            ParseRange(args, data.Count, out int start, out int end);
-            foreach (var sub in candidates)
-            {
-                if (sub.Length > end - start) continue;
-                if (prefix ? SameAt(data, start, sub) : SameAt(data, end - sub.Length, sub))
-                    return PyBool.True;
-            }
-            return PyBool.False;
-        }
-
-        private static PyObject TrimEdgeCore(PyByteArray self, PyObject[] args, bool prefix)
-        {
-            string name = prefix ? "removeprefix" : "removesuffix";
-            if (args.Length != 1)
-                throw PyTypeError.Create($"{name}() takes exactly one argument ({args.Length} given)");
-            byte[] edge = SubArg(args[0]);
-            var rest = new List<byte>(self._bytes);
-            if (edge.Length > 0 && rest.Count >= edge.Length)
-            {
-                bool match = prefix
-                    ? SameAt(rest, 0, edge)
-                    : SameAt(rest, rest.Count - edge.Length, edge);
-                if (match)
-                {
-                    if (prefix) rest.RemoveRange(0, edge.Length);
-                    else rest.RemoveRange(rest.Count - edge.Length, edge.Length);
-                }
-            }
-            return new PyByteArray(rest.ToArray());
-        }
-
         private static int GetByteValue(PyObject obj)
         {
             var pyInt = obj as PyInt ?? PyObject.TryGetIndex(obj);
