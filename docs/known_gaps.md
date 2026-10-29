@@ -236,7 +236,6 @@ accepts silently).
   the descriptors that legitimately do take keywords (`dict.get(default=...)` style is not one of
   them, but `int(x, base=)`-form builtins are).
 
-- (void, superseded by the retraction above) a caught exception escapes later in a long probe file.
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
   `Regex.Replace(pattern, ..., @"\\k<$1>")`, and the **replacement argument of .NET
   `Regex.Replace` is not a regex** — only `$` is special there — so it wrote a literal
