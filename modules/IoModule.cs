@@ -28,6 +28,11 @@ namespace SharpPy.Modules
         // bind the literal alongside the Module field used by type_repr.
         static IoModule()
         {
+            // The four abstract io bases live in this native module (Modules/_io/iobase.c);
+            // registering them here means the types are complete even when _io itself is
+            // never imported.
+            PyIOBaseSlots.Register();
+
             foreach (var t in new[] { FileIOType, BufferedRWPairType, IncrementalNewlineDecoderType })
                 t.TypeDict["__module__"] = new PyString("_io");
             // The file types and UnsupportedOperation set their own __module__ at their
@@ -46,6 +51,18 @@ namespace SharpPy.Modules
             module.ModuleDict["BufferedRWPair"] = BufferedRWPairType;
             module.ModuleDict["IncrementalNewlineDecoder"] = IncrementalNewlineDecoderType;
             module.ModuleDict["UnsupportedOperation"] = PyUnsupportedOperation.UnsupportedOperationPyType;
+
+            // CPython's abstract bases. Lib/io.py only adds abc.ABCMeta to these and virtually
+            // registers the concrete classes, so every default implementation belongs here.
+            module.ModuleDict["_IOBase"] = PyIOBaseSlots.IOBaseType;
+            module.ModuleDict["_RawIOBase"] = PyIOBaseSlots.RawIOBaseType;
+            module.ModuleDict["_BufferedIOBase"] = PyIOBaseSlots.BufferedIOBaseType;
+            module.ModuleDict["_TextIOBase"] = PyIOBaseSlots.TextIOBaseType;
+
+            // Names Lib/io.py re-exports from _io; measured absent from _io before this.
+            module.ModuleDict["DEFAULT_BUFFER_SIZE"] = new PyInt(8192);
+            module.ModuleDict["open"] = new PyBuiltinFunction("open");
+            module.ModuleDict["BlockingIOError"] = PyType.BlockingIOErrorType;
 
             // CPython _io.text_encoding(encoding, /): positional-only.
             // Non-None encoding is returned unchanged; None resolves to the locale /

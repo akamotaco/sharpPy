@@ -30,6 +30,11 @@
   이미 존재해서 자기 의도를 가진 파일은 통째로 교체하지 않고 부분 수정한다. 관찰되는 출력·예외는
   CPython 3.12.15와 일치해야 한다. 구성 실측과 사례는
   [라이브러리 surface 정책](docs/library_surface_policy.md)을 따른다.
+- Godot은 별도 IO를 쓴다. 파일·경로 접근은 `platform/helper_godot.cs`(`#if GODOT`, `Godot_IO`)와
+  `platform/helper_dotnet.cs`(`DotNet_IO`)의 대응 함수를 통하고 `res://`/`user://` 관례를 지킨다.
+  메모리 스트림처럼 OS가 없는 구현은 define과 무관하게 동일하게 동작해야 하며, Godot 전용 분기를
+  넣지 않는다. 두 helper의 공개 함수 집합은 대칭이 아니므로(`WriteAllText`·`Move` 등은 dotnet 쪽만)
+  새 파일 IO를 붙일 때 양쪽을 함께 확인한다.
 - 현재 상태는 계획 문서 상단 한 곳에서 관리한다. 과거 보고서와 원자료는 이력으로 보존한다.
   기본 통과 회귀와 별도 compatibility 실패, 최종 코드 검증과 이전 코드 검증을 구분한다.
 
