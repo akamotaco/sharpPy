@@ -284,6 +284,22 @@ namespace SharpPy
                 maxArgs: 0
             );
 
+            // CPython list.__reversed__ (mp_length+mp_subscript sequence reversed).
+            // Materialized so `reversed(list subclass)` and `list.__reversed__(l)`
+            // work through attribute lookup and dir(list) reports it.
+            listType.TypeDict["__reversed__"] = new PyMethodDescriptor(
+                "__reversed__",
+                listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__reversed__() takes no arguments");
+                    var list = GetListStorage(self);
+                    return new PyReversedIterator(list, list.Length(), "list_reverseiterator");
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
+
             // CPython 3.12: Objects/listobject.c:2783 (list_length)
             // __len__ method descriptor - enables len() for list subclasses
             listType.TypeDict["__len__"] = new PyMethodDescriptor(

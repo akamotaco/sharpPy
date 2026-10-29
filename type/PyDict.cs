@@ -26,6 +26,13 @@ namespace SharpPy
             // __hash__-is-None branch, so mutable builtins used as dict keys raise
             // "unhashable type: 'list'" etc. instead of silently hashing by identity.
             dictType.TypeDict["__hash__"] = PyNone.Instance;
+            // NOTE: dict.__iter__/__len__/__contains__/__reversed__ are intentionally
+            // NOT registered here. The VM's special-method lookup consults TypeDict, so
+            // a user dict subclass (e.g. collections.OrderedDict, modelled as a
+            // PyClassInstance with no CLR PyDict storage) would either recurse through
+            // the virtual GetIterator() or hit a wrong-self error, breaking iteration.
+            // Adding them requires a GetDictStorage() resolver (like PyList's
+            // GetListStorage) first; deferred. dir(dict) therefore still omits these.
 
             // Helper to get PyDict from self (handles both PyDict and PyClassInstance dict subclasses)
             static PyDict GetDict(PyObject self, PyType dictType)

@@ -27,6 +27,36 @@ namespace SharpPy
                 return new PyInt(tuple.Items.Length);
             });
 
+            // CPython materialises tuple's sequence/iteration slots in tp_dict so
+            // dir(tuple) lists them and tuple.__iter__/__contains__/__getnewargs__
+            // are callable through attribute lookup. __iter__/__contains__ are slot
+            // wrappers; __getnewargs__ is an explicit method.
+            tupleType.TypeDict["__iter__"] = new PyWrapperDescriptor(
+                "__iter__", tupleType,
+                (self, args, kwargs) => {
+                    // Strict typed call (not the PyObject virtual) to avoid re-entering
+                    // this descriptor for subclasses; CPython reads the tuple slot
+                    // directly for real tuples. Tuple subclasses are unmodelled here.
+                    if (self is not PyTuple it)
+                        throw PyTypeError.Create($"descriptor '__iter__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    return it.GetIterator();
+                }, minArgs: 0, maxArgs: 0);
+
+            tupleType.TypeDict["__contains__"] = new PyWrapperDescriptor(
+                "__contains__", tupleType,
+                (self, args, kwargs) => {
+                    if (self is not PyTuple ct)
+                        throw PyTypeError.Create($"descriptor '__contains__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
+                    if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return ct.Contains(args[0]);
+                }, minArgs: 1, maxArgs: 1);
+
+            tupleType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
+                "__getnewargs__", tupleType,
+                (self, args, kwargs) => new PyTuple(new PyObject[] { self }),
+                minArgs: 0, maxArgs: 0);
+
             // CPython 3.12: Objects/tupleobject.c:488-502 - tuple_index
             // T.index(value, [start, [stop]]) -> integer -- return first index of value.
             // Raises ValueError if the value is not present.
