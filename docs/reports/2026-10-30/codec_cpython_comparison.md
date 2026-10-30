@@ -15,7 +15,7 @@ P0-34 pre-work 코호트 1(코덱 경계)을 끝낸 시점에서, "같은 동작
     `reason = "ordinal not in range(128|256)"`.
   - 실패 시 `collstart`를 잡고 `while (collend < size && PyUnicode_READ(kind, data, collend) >= limit) collend++`
     로 **연속 구간**을 모은 뒤 `raise_encode_exception(&exc, encoding, unicode, collstart, collend, reason)`.
-    예외는 `[start, end)` 반开区间이고, 표시 단계에서 `end == start+1`이면 "character '\xe9' in position 0",
+    예외는 `[start, end)` 반开구간이고, 표시 단계에서 `end == start+1`이면 "character '\xe9' in position 0",
     아니면 "characters in position 1-2"가 된다.
   - `case _Py_ERROR_REPLACE: memset(str, '?', collend - collstart)` → 문자당 `?` 하나.
   - `unicode_encode_utf8` (`Objects/unicodeobject.c:5296`)는 surrogate를 별도 정책으로 본다 —
