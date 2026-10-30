@@ -1255,3 +1255,7 @@ P0-34에 묶여 남는 것 (인코더의 버그가 아니라 저장 표현의 �
 - `bytes.decode`의 utf-8/ascii 경로는 자체 구현(`DecodeUtf8Python`/`DecodeAsciiPython`)을 유지한다.
   바이트 위치 메시지가 `DecodeBytes`보다 정확하기 때문이고, 그 밖의 코덱은 `DecodeBytes`로 위임한다.
 
+- `namereplace` 핸들러는 미 구현: `chr(0xE9).encode('ascii', 'namereplace')`가 CPython은
+  `b'\N{LATIN SMALL LETTER E WITH ACUTE}'`, SharpPy는 `LookupError: unknown error handler name
+  'namereplace'`. Unicode 이름 표(= `unicodedata.name`의 근거 자료)가 있어야 한다.
+  `backslashreplace`와 `xmlcharrefreplace`는 p72로 고정됨.

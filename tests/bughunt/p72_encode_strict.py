@@ -95,6 +95,21 @@ s("h_empty_unused", lambda: "e".encode("ascii", ""))
 s("h_strict_explicit", lambda: "ab".encode("ascii", "strict"))
 s("h_kwargs", lambda: EAC.encode(encoding="ascii", errors="ignore"))
 
+# --- escape handlers: consulted per character, and the escape is always ASCII bytes ---------
+s("h_bs_ascii", lambda: EAC.encode("ascii", "backslashreplace"))
+s("h_bs_run", lambda: ("a" + EAC + EA2 + "b").encode("ascii", "backslashreplace"))
+s("h_bs_latin1_ok", lambda: EAC.encode("latin-1", "backslashreplace"))
+s("h_bs_nbsp", lambda: chr(0xA0).encode("ascii", "backslashreplace"))
+s("h_bs_lone", lambda: LONE_HI.encode("ascii", "backslashreplace"))
+s("h_bs_lone_utf8", lambda: LONE_HI.encode("utf-8", "backslashreplace"))
+s("h_xml_ascii", lambda: EAC.encode("ascii", "xmlcharrefreplace"))
+s("h_xml_run", lambda: ("a" + EAC + EA2 + "b").encode("ascii", "xmlcharrefreplace"))
+s("h_xml_latin1_ok", lambda: EAC.encode("latin-1", "xmlcharrefreplace"))
+s("h_xml_lone", lambda: LONE_HI.encode("utf-8", "xmlcharrefreplace"))
+s("h_astral_bs", lambda: B.encode("ascii", "backslashreplace"))
+s("h_astral_xml", lambda: B.encode("latin-1", "xmlcharrefreplace"))
+# namereplace는 Unicode 이름 데이터베이스가 필요해서 별도 항목으로 남긴다 (docs/known_gaps.md).
+
 # --- argument handling ---------------------------------------------------------------------
 s("too_many_args", lambda: "a".encode("ascii", "strict", "x"))
 s("bad_encoding_type", lambda: "a".encode(1))

@@ -3064,6 +3064,19 @@ namespace SharpPy
                         i += unitWidth;
                         cpIndex++;
                         continue;
+                    case "backslashreplace":
+                        // Measured: 'a' + chr(0xE9) + chr(0xEA) + 'b' under ascii gives
+                        // b'a\\xe9\\xeab', chr(0x10400) gives b'\\U00010400', a lone surrogate gives
+                        // b'\\ud800'. The escape is ASCII, so it is written raw for every codec.
+                        AppendEscape(bytes, loneSurrogate ? Value[i] : cp);
+                        i += unitWidth;
+                        cpIndex++;
+                        continue;
+                    case "xmlcharrefreplace":
+                        AppendAscii(bytes, $"&#{(loneSurrogate ? Value[i] : cp)};");
+                        i += unitWidth;
+                        cpIndex++;
+                        continue;
                     case "surrogateescape":
                         // CPython maps only U+DC80..U+DCFF back to the bytes 0x80..0xFF; any other
                         // surrogate is refused with the strict message, which is why
@@ -3133,6 +3146,22 @@ namespace SharpPy
                 bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
                 bytes.Add((byte)(0x80 | (cp & 0x3F)));
             }
+        }
+
+        /// <summary>
+        /// CPython's backslashreplace escape: \xNN up to 0xFF, \uXXXX up to 0xFFFF, \UXXXXXXXX
+        /// beyond, always lower-case hex, always ASCII bytes.
+        /// </summary>
+        private static void AppendEscape(List<byte> bytes, int cp)
+        {
+            if (cp <= 0xFF) AppendAscii(bytes, $"\\x{cp:x2}");
+            else if (cp <= 0xFFFF) AppendAscii(bytes, $"\\u{cp:x4}");
+            else AppendAscii(bytes, $"\\U{cp:x8}");
+        }
+
+        private static void AppendAscii(List<byte> bytes, string text)
+        {
+            for (int k = 0; k < text.Length; k++) bytes.Add((byte)text[k]);
         }
 
         private static void EmitUnit(List<byte> bytes, int unit, bool bigEndian)
