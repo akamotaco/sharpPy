@@ -130,6 +130,134 @@ namespace SharpPy
 
         #endregion
 
+        #region Type flags (CPython tp_flags)
+
+        /// <summary>
+        /// CPython's <c>tp_flags</c>. The whole point of this field is that "what kind of object
+        /// is this" is answered from the type, once, instead of being discovered per operation:
+        /// <c>PyList_Check(op)</c> is a feature test on <c>ob_type</c>
+        /// (Include/listobject.h:24) and the test itself is <c>PyType_HasFeature</c>
+        /// (Include/object.h:959; internal spelling <c>_PyType_HasFeature</c>, used at
+        /// Objects/typeobject.c:2789).
+        /// </summary>
+        private PyTypeFlags _flags;
+
+        public PyTypeFlags Flags => _flags;
+
+        /// <summary>
+        /// Include/object.h:959 <c>PyType_HasFeature</c>. Not <c>(flags &amp; f) == f</c>: a
+        /// feature test asks whether any of the named bits are set.
+        /// </summary>
+        internal bool HasFeature(PyTypeFlags feature) => (_flags & feature) != 0;
+
+        /// <summary>
+        /// The bits a subtype takes from its base. CPython's heap types copy the base flags and
+        /// then replace a few, which is measurable: a user class deriving from list has both
+        /// <c>Py_TPFLAGS_LIST_SUBCLASS</c> and <c>Py_TPFLAGS_SEQUENCE</c> (measured with
+        /// <c>class C(list): C.__flags__</c>). <c>inherit_special</c>
+        /// (Objects/typeobject.c:6726) is what propagates the family bits, and it also propagates
+        /// <c>_Py_TPFLAGS_MATCH_SELF</c> and <c>Py_TPFLAGS_ITEMS_AT_END</c>.
+        /// </summary>
+        /// <summary>
+        /// What inherit_special propagates (Objects/typeobject.c:6755-6790): the family bits from
+        /// the best base, plus _Py_TPFLAGS_MATCH_SELF and Py_TPFLAGS_ITEMS_AT_END. Notably **not**
+        /// BaseType - measured, PyBool_Type has no BaseType although its base int does, because a
+        /// static spec's tp_flags is the literal and the propagation list omits BaseType.
+        /// </summary>
+        private const PyTypeFlags InheritSpecialFlags =
+            PyTypeFlags.MatchSelf | PyTypeFlags.ItemsAtEnd |
+            PyTypeFlags.LongSubclass | PyTypeFlags.ListSubclass | PyTypeFlags.TupleSubclass |
+            PyTypeFlags.BytesSubclass | PyTypeFlags.UnicodeSubclass |
+            PyTypeFlags.DictSubclass | PyTypeFlags.BaseExceptionSubclass |
+            PyTypeFlags.TypeSubclass;
+
+        private const PyTypeFlags InheritableFlags =
+            PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.MatchSelf |
+            PyTypeFlags.ItemsAtEnd | PyTypeFlags.Sequence | PyTypeFlags.Mapping |
+            PyTypeFlags.LongSubclass | PyTypeFlags.ListSubclass | PyTypeFlags.TupleSubclass |
+            PyTypeFlags.BytesSubclass | PyTypeFlags.UnicodeSubclass |
+            PyTypeFlags.DictSubclass | PyTypeFlags.BaseExceptionSubclass |
+            PyTypeFlags.TypeSubclass | PyTypeFlags.ManagedWeakRef;
+
+        /// <summary>
+        /// tp_flags of the compiled-in static specs, one row per type literal, with the line the
+        /// bits come from. Bits not modelled in SharpPy (Py_TPFLAGS_DEFAULT's version-tag and
+        /// vectorcall bits) are left out. Unlisted builtins take the DEFAULT|BASETYPE shape most
+        /// static specs use, so adding a builtin does not silently make it un-subclassable.
+        /// </summary>
+        private static PyTypeFlags BuiltInSpecFlags(string name) => name switch
+        {
+            // Objects/boolobject.c:190 - tp_flags is Py_TPFLAGS_DEFAULT alone: bool is not
+            // subclassable, and Objects/typeobject.c:2789 is what says so.
+            "bool" => PyTypeFlags.None,
+            // Objects/longobject.c:6322
+            "int" => PyTypeFlags.BaseType | PyTypeFlags.LongSubclass | PyTypeFlags.MatchSelf,
+            // Objects/unicodeobject.c:14851
+            "str" => PyTypeFlags.BaseType | PyTypeFlags.UnicodeSubclass | PyTypeFlags.MatchSelf,
+            // Objects/bytesobject.c:2970
+            "bytes" => PyTypeFlags.BaseType | PyTypeFlags.BytesSubclass | PyTypeFlags.MatchSelf,
+            // Objects/tupleobject.c:864
+            "tuple" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.TupleSubclass |
+                       PyTypeFlags.MatchSelf | PyTypeFlags.Sequence,
+            // Objects/listobject.c:3147
+            "list" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.ListSubclass |
+                      PyTypeFlags.MatchSelf | PyTypeFlags.Sequence,
+            // Objects/dictobject.c:3863 - MAPPING, never SEQUENCE (Objects/typeobject.c:7021
+            // asserts the two are exclusive)
+            "dict" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.DictSubclass |
+                      PyTypeFlags.MatchSelf | PyTypeFlags.Mapping,
+            // Objects/setobject.c:2143 and :2246 - no family bit: PySet_Check is a subtype test
+            // (Include/setobject.h:36), so SharpPy keeps testing the MRO for these two
+            "set" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.MatchSelf,
+            "frozenset" => PyTypeFlags.BaseType | PyTypeFlags.HaveGC | PyTypeFlags.MatchSelf,
+            // Static specs whose tp_flags literal omits BASETYPE; each one is measured to refuse a
+            // subclass: Objects/object.c:1894 (_PyNone_Type), Objects/sliceobject.c:696
+            // (Py_TPFLAGS_DEFAULT | HAVE_GC), Objects/memoryobject.c:3390, Objects/rangeobject.c:785.
+            "NoneType" => PyTypeFlags.None,
+            "slice" => PyTypeFlags.HaveGC,
+            "memoryview" => PyTypeFlags.Sequence,
+            "range" => PyTypeFlags.Sequence,
+            _ => PyTypeFlags.BaseType,
+        };
+
+        private PyTypeFlags ComputeFlags()
+        {
+            // A class statement or type() call makes a heap type; a compiled builtin carries its
+            // spec flags (Include/object.h:497 Py_TPFLAGS_HEAPTYPE).
+            // CPython uses best_base for the family bits; with one payload base per CLR class the
+            // first base is the same object, and a second variable-size base is refused
+            // ("multiple bases have instance lay-out conflict", registered as P0-42).
+            var baseType = BaseTypes.Length > 0 ? BaseTypes[0] : null;
+            if (this is PyClass)
+            {
+                // type_new copies the base's flags into a heap type, which is measurable: a user
+                // class deriving from list carries LIST_SUBCLASS and SEQUENCE, and one deriving
+                // from bool carries nothing, which is what makes the base check fire.
+                return PyTypeFlags.HeapType |
+                       (baseType != null ? baseType._flags & InheritableFlags : PyTypeFlags.None);
+            }
+            return BuiltInSpecFlags(Name) |
+                   (baseType != null ? baseType._flags & InheritSpecialFlags : PyTypeFlags.None);
+        }
+
+        /// <summary>
+        /// Objects/typeobject.c:2789 - a base without Py_TPFLAGS_BASETYPE is refused before any
+        /// best_base/MRO work. Measured: <c>class C(bool)</c> raises, and PyBool_Type is the case
+        /// because its spec omits the bit.
+        /// </summary>
+        private void CheckBaseTypeAcceptable()
+        {
+            foreach (var baseType in BaseTypes)
+            {
+                if (baseType == null) continue;
+                if (!baseType.HasFeature(PyTypeFlags.BaseType))
+                    throw PyTypeError.Create(
+                        $"type '{baseType.Name}' is not an acceptable base type");
+            }
+        }
+
+        #endregion
+
         #region Type Version Tag System (CPython tp_version_tag)
 
         /// <summary>
@@ -439,7 +567,12 @@ namespace SharpPy
             // CPython 3.12: typeobject.c check_duplicates() runs before best_base()/MRO
             // computation and raises a catchable TypeError for a repeated base.
             CheckDuplicateBases();
+            // CPython: Objects/typeobject.c:2789, after check_duplicates and before best_base.
+            CheckBaseTypeAcceptable();
             MRO = CalculateC3MRO();
+            // tp_flags: static spec bits plus what inherit_special propagates from the base
+            // (Objects/typeobject.c:6726).
+            _flags = ComputeFlags();
 
             // CPython 3.12: Assign version tag for method cache
             _typeVersionTag = _nextVersionTag++;

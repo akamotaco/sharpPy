@@ -24,11 +24,15 @@ namespace SharpPy
         /// the storage a <c>set</c> subclass instance carries. Null when self is neither, which is
         /// what the descriptor self-check turns into a TypeError.
         /// </summary>
+        /// <summary>
+        /// The cast half of <c>PySet_Check</c>. There is no set family bit to consult, so the
+        /// caller's MRO test decides and this only performs the cast.
+        /// </summary>
         internal static PySet ForSet(PyObject self)
         {
             if (self is PySet set)
                 return set;
-            if (self is PyClassInstance instance)
+            if (self is PyClassInstance instance && instance.IsSetSubclass())
                 return instance.GetSetStorage();
             return null;
         }
@@ -42,26 +46,35 @@ namespace SharpPy
         {
             if (self is PyFrozenSet frozen)
                 return frozen;
-            if (self is PyClassInstance instance)
+            if (self is PyClassInstance instance && instance.IsFrozenSetSubclass())
                 return instance.GetFrozenStorage();
             return null;
         }
 
+        /// <summary>
+        /// CPython answers this with two steps: <c>PyList_Check(op)</c>, a feature test on
+        /// <c>ob_type</c> (Include/listobject.h:24), then a cast to the list layout. The test
+        /// becomes <see cref="PyType.HasFeature"/> and the cast becomes "the object itself when the
+        /// CLR type already is the layout, otherwise the storage this instance carries" - which is
+        /// the one thing C# cannot copy, because there is no layout cast.
+        /// </summary>
         internal static PyList ForList(PyObject self)
         {
             if (self is PyList list)
                 return list;
-            if (self is PyClassInstance instance)
-                return instance.GetListStorage();
+            if (self.GetPyType().HasFeature(PyTypeFlags.ListSubclass))
+                return (self as PyClassInstance)?.GetListStorage();
             return null;
         }
 
+        /// <summary>Same two steps as <see cref="ForList"/>, from Py_TPFLAGS_DICT_SUBCLASS
+        /// (Include/dictobject.h).</summary>
         internal static PyDict ForDict(PyObject self)
         {
             if (self is PyDict dict)
                 return dict;
-            if (self is PyClassInstance instance)
-                return instance.GetDictStorage();
+            if (self.GetPyType().HasFeature(PyTypeFlags.DictSubclass))
+                return (self as PyClassInstance)?.GetDictStorage();
             return null;
         }
 

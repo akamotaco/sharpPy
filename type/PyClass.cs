@@ -1326,23 +1326,24 @@ namespace SharpPy
             }
         }
 
-        public bool IsDictSubclass()
-        {
-            // Check if dict is in MRO (not just direct base types)
-            // This handles multi-level inheritance like TracedOrderedDict -> OrderedDict -> dict
-            return InstanceType.MRO.Any(bt => bt == PyType.DictType);
-        }
+        // "Is this instance a dict/list?" is a type question, so it is answered from the type
+        // flags rather than by walking the MRO per call, exactly as CPython's PyDict_Check and
+        // PyList_Check read Py_TPFLAGS_DICT_SUBCLASS / Py_TPFLAGS_LIST_SUBCLASS off ob_type
+        // (Include/dictobject.h, Include/listobject.h:24). Multi-level inheritance comes for free
+        // because inherit_special propagates the bit to every subtype
+        // (Objects/typeobject.c:6726) - TracedOrderedDict -> OrderedDict -> dict carries it.
+        public bool IsDictSubclass() => InstanceType.HasFeature(PyTypeFlags.DictSubclass);
 
-        public bool IsListSubclass()
-        {
-            // Check if list is in MRO (not just direct base types)
-            // This handles multi-level inheritance
-            return InstanceType.MRO.Any(bt => bt == PyType.ListType);
-        }
+        public bool IsListSubclass() => InstanceType.HasFeature(PyTypeFlags.ListSubclass);
 
-        public bool IsSetSubclass() => InstanceType.MRO.Any(bt => bt == PyType.SetType);
+        public bool IsStrSubclass() => InstanceType.HasFeature(PyTypeFlags.UnicodeSubclass);
 
-        public bool IsFrozenSetSubclass() => InstanceType.MRO.Any(bt => bt == PyType.FrozenSetType);
+        // set and frozenset have no family bit in CPython: PySet_Check (Include/setobject.h:36)
+        // and PyAnySet_Check (:30) are PyType_IsSubtype tests, so the MRO walk is the faithful
+        // answer for these two and is kept.
+        public bool IsSetSubclass() => InstanceType.IsSubclassOf(PyType.SetType);
+
+        public bool IsFrozenSetSubclass() => InstanceType.IsSubclassOf(PyType.FrozenSetType);
 
         /// <summary>
         /// The value a set subclass instance carries, or null when this is not one.
@@ -1385,11 +1386,6 @@ namespace SharpPy
             if (_setStorage != null) return _setStorage;
             if (IsFrozenSetSubclass()) return GetFrozenStorage();
             return GetStringStorage();
-        }
-
-        public bool IsStrSubclass()
-        {
-            return InstanceType.MRO.Any(bt => bt == PyType.StrType);
         }
 
         // Value storage for str subclasses; null when this is not a str subclass.

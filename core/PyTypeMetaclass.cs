@@ -516,7 +516,17 @@ namespace SharpPy
             var baseTypes = new PyType[basesTuple.Items.Length];
             for (int i = 0; i < basesTuple.Items.Length; i++)
             {
-                baseTypes[i] = (PyType)basesTuple.Items[i];
+                // A base that is not a type drags its own type in as the metaclass, and the winner
+                // must be a (non-strict) subclass of type - Objects/typeobject.c:3083. Measured in
+                // CPython 3.12.15, type("C", (b,), {}) raises exactly this conflict message for
+                // b = 5, an instance, len and None, because int / Inst /
+                // builtin_function_or_method / NoneType are not subclasses of type. The hard cast
+                // here used to leak a CLR InvalidCastException through Python's error machinery.
+                if (!(basesTuple.Items[i] is PyType baseType))
+                    throw PyTypeError.Create(
+                        "metaclass conflict: the metaclass of a derived class must be a (non-strict) " +
+                        "subclass of the metaclasses of all its bases");
+                baseTypes[i] = baseType;
             }
 
             // CPython 3.12: If bases is empty, add object as default base

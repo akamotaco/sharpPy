@@ -11,7 +11,8 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **84/84 matching** (p76 150 lines, p78, p79 added; all diff 0)
+- `tools/run_bughunt.py`: **85/85 matching** (p76 150 lines, p78, p79, p80 added; all diff 0)
+- `tools/cpython_similarity.py`: **0 broken C anchors**, 17 mechanism rows all cited from C#
 - `tools/argv_matrix.py`: **0 mismatches** (P0-41로 등록된 gap은 제외)
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
@@ -1564,4 +1565,77 @@ SharpPy가 아는 플래그 집합도 CPython보다 좁다(`-u`, `-O`, `-B` 등�
 `PyArgv`가 빈 기본값 — 인자를 설정하지 않는 임베딩의 CPython과 동일).
 자세한 측정값과 남은 차이는 [sys.argv와 명령 모드 실행](reports/2026-10-30/sys_argv_and_command_mode.md),
 남은 항목은 위의 **P0-41**.
+
+## P0-43 tp_flags 층 부재 → 닫힘 (2026-10-30)
+
+CPython은 "이 객체가 무슨 종류인가"를 항상 타입의 비트 하나로 답한다 — `PyList_Check(op)`는
+`ob_type`에 대한 feature test(`Include/listobject.h:24`)이고 테스트 자체는 두 명령
+(`Include/object.h:959`)이다. SharpPy에는 이 층이 **전혀** 없었다(`core/PyType.cs:432`에
+"TypeKind가 tp_flags 대응"이라는 주석만). 그래서 `self is PyList` 식의 CLR 검사 34곳과
+스토리지 API 참조 124곳이 site마다 기관을 다시 조합하는 형태였다.
+
+측정이 드러난 결함 두 개(모두 room A):
+
+1. `class C(bool)` — CPython `TypeError: type 'bool' is not an acceptable base type`
+   (`Objects/typeobject.c:2789`), SharpPy는 클래스를 만들었다. `NoneType`, `slice`도 같다.
+   정적 스펙은 BaseType을 **상속하지** 않는다(`PyBool_Type`의 `tp_flags`는 DEFAULT뿐，
+   `Objects/boolobject.c:190`) — heap 타입만 base 플래시를 복사한다（`class C(list)`는
+   `LIST_SUBCLASS`와 `SEQUENCE`를 모두 가짐，실측）.
+2. `type('C', (5,), {})` — CPython은 base의 타입을 metaclass로 끌어 `_PyType_CalculateMetaclass`
+   에서 충돌을 낸다(`Objects/typeobject.c:3083`). SharpPy는 `core/PyTypeMetaclass.cs:519`의 하드
+   캐스트가 CLR `InvalidCastException`을 그대로 흘렸다(`RuntimeError` + C# 스택). base 4종
+   (int/인스턴스/`len`/`None`) 모두 같은 충돌 메시지라 검사도 균일로 넣었다.
+
+구현: `core/PyTypeFlags.cs`(비트값을 `Include/object.h`에서 그대로 옮기고 라인별 앵커)、
+`PyType.Flags/HasFeature/ComputeFlags`(스택은 spec 행 + `inherit_special` 전파，heap은 base 복사)、
+`IsListSubclass/IsDictSubclass/IsStrSubclass` 플래시 판독(호출마다 MRO 스캔 5개 삭제)，
+`IsSetSubclass/IsFrozenSetSubclass`는 MRO 유지 — CPython도 저 둘에 플래시가 없고
+`PyType_IsSubtype`를 쓴다(`Include/setobject.h:36`, `:30`).
+
+검증 — bughunt **85/85**(`p80_type_flags.py` 89줄 diff 0: 거부 3종、비타입 base 충돌 4종、
+3단계 list 서브클래스、2단계 dict/set 서브클래스、frozenset hash、metaclass 정상)、
+evaluate 225/3/2、Godot 리플레이 82/0、`tools/cpython_similarity.py` 종료코드 0.
+
+다만 **모양 지표는 거의 움직이지 않았다**(스토리지 참조 124→126). 기관이 되는 층을 넣는 일과
+불필요한 표현을 지우는 일은 다르기 때문에, 나머지는 아래 P0-43b로 남긴다. 전체 해석은
+[type_flags와 허용되지 않는 base](reports/2026-10-30/type_flags_and_unacceptable_bases.md).
+
+## P0-43b 컨테이너 서브클래스의 표현이 CPython과 다르다 (측정 2026-10-30, 미해결)
+
+같은 파이썬 개념(내장 컨테이너의 서브클래스 인스턴스)에 대해 트리에 **4가지 표현**이 공존한다:
+`PyTupleSubclass : PyTuple`/`PyBytesSubclass : PyBytes`(CLR 상속 — CPython과 동일 형태)、
+`PyIntSubclass : PyObject` 류(값을 감쌈)、`PyClassInstance` + `_list/_dict/_set/_frozenStorage`
+(CPython에 없는 객체 하나 더)、`PyObject._customType`(`ob_type` 오버라이드의 올바른 대응).
+sealed인 타입은 없으므로 C# 단일 상속은 이를 강요하지 않았고, CPython도 단일 best_base라
+같은 결론이다. 수렴 순서: 컨테이너를 CLR 상속 래퍼로 옮겨 `x is PyList`가 곧 `PyList_Check`가
+되게 하고, `PyNativeStorage`는 캐스트만 남기고, `PyClassInstance`는 CPython이 주는 일(`__dict__
+를 가진 heap type`)만 지킨다. 선행 필요: `is PyClassInstance`로 서브클래스를 구분하는 지점
+(`core/PyBuiltin.cs:3776`, `core/PyType.cs:2882` 등) 함께 처리.
+
+## P0-44 class 문장에서 타입이 아닌 base (측정 2026-10-30, 미해결)
+
+P0-43은 `type('C', (b,), {})` 경로만 고쳤다. `class C(b): pass`는 다른 기관(계산된 metaclass를
+**호출**)을 쓰기 때문에 메시지가 다르며, SharpPy는 지금 클래스를 만들어 버린다:
+
+| base | CPython | SharpPy |
+|---|---|---|
+| `5` | `TypeError: int() takes at most 2 arguments (3 given)` | 생성 성공 |
+| 인스턴스 | `TypeError: Inst() takes no arguments` | 생성 성공 |
+| `len` | `TypeError: cannot create 'builtin_function_or_method' instances`(`tp_new`가 NULL) | 생성 성공 |
+| `None` | `TypeError: NoneType takes no arguments` | 생성 성공 |
+
+## P0-45 내장 타입 표면 결함 (측정 2026-10-30, 미해결)
+
+`tools/cpython_similarity.py`가 CPython 타입 스펙(`/* tp_repr */` 주석 기준으로 positional 파싱)과
+비교해 찾은 실제 결핍: `set.__reduce__`, `frozenset.__reduce__`(pickle 구멍), `set.__sizeof__`,
+`frozenset.__sizeof__`, `dict.__sizeof__`, `str.__getnewargs__`.
+도구 한계도 명시: `__eq__`/`__iter__`는 CLR virtual(`RichCompare`, `GetIterator`)이라 TypeDict
+등록으로 세지져 "missing"으로 표시되고, `set.test_c_api`는 CPython 자체 테스트 훅이다.
+
+## P0-46 등록 위치가 CPython의 타입별 스펙과 어긋난다 (측정 2026-10-30, 미해결)
+
+CPython은 타입마다 자기 스펙을 같은 .c 파일에 둔다(`set_methods`는 `Objects/setobject.c`).
+SharpPy는 set/frozenset의 표면을 자기 파일에 하나도 등록하지 않고 `core/PyType.cs` 중앙
+테이블(53항목)에 둔다(도구 M3의 own-file 열: set 0, frozenset 0, list 22, str 56).
+파일 단위로 옮기면 스펙 비교가 라인 단위로 가능해진다.
 
