@@ -1,6 +1,6 @@
 # P0-34 pre-work 코호트 1 후속 — 코덱 등록부(registry): 이름→CodecInfo, 그리고 non-text 코덱
 
-날짜: 2026-10-30 · 브랜치 `work/bug-hunt` · 기준 CPython 3.12.15 (`e848e4b0`) · 프로브 `tests/bughunt/p73_codec_registry.py` (116 케이스, diff 0)
+날짜: 2026-10-30 · 브랜치 `work/bug-hunt` · 기준 CPython 3.12.15 (`e848e4b0`) · 프로브 `tests/bughunt/p73_codec_registry.py` (측정 케이스 105개, 전부 diff 0 · 출력 116줄)
 
 ## 문제
 
@@ -96,7 +96,7 @@ core/PyModule.cs             +6  (binascii 등록)
 ## 게이트
 
 - 빌드: 오류 0
-- `tools/run_bughunt.py`: **78/78 matching** (p72 encode strict 유지, p73 신규 116 케이스 diff 0)
+- `tools/run_bughunt.py`: **78/78 matching** (p72 encode strict 유지, p73 신규 105 케이스 diff 0)
 - `tools/evaluate.py`: `{"matching_output": 225, "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
 - perf: `str_fmt +8.1%`, 나머지는 노이즈 대. 코덱 경로는 벤치마크가 건드리지 않고,
