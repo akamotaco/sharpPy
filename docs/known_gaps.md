@@ -1147,6 +1147,23 @@ CPython처럼 코드 포인트 인덱스로 바꾸려면 `PyString`의 표현 �
 두고 착수 순서를 기다린다. 당장의 우회는 없다 — 비-보조 평면을 쓰는 프로그램은 표시·인덱스가 모두
 틀리다.
 
+### 2026-10-30 조사 완료 (`docs/reports/2026-10-30/p034_string_representation_survey.md`)
+
+49케이스 실측에서 **28개 어긋남**을 확정했다. 길이·인덱싱·슬라이스·반복·검색 오프셋·패딩·정밀도·
+`chr`/`ord`/`%c`·`isalpha`·`sorted`/`max`가 전부 UTF-16 unit 기준이다. 여기에 두 가지가 더 있다:
+
+- **순서 자체가 다르다**: `sorted([chr(0x10FFFF), chr(0xE000), chr(0xFFFF), chr(0x41)])`가 CPython
+  `['A','','￿','􏿿']`, SharpPy `['A','􏿿','','￿']`.
+  비교는 `StringComparison.Ordinal`(culture 아님)이지만 UTF-16 사전순은 서로게이트 범위 때문에
+  U+E000-U+FFFF와 astral 사이에서 **코드 포인트 순서와 어긋난다**. `min/max/sorted`에 직접 영향.
+- 정상 Python `TypeError` 뒤에도 `--- C# Exception Details ---` 블록이 따라 나온다.
+
+진입점(`Length`/`GetItem`/`GetSlice`/비교 4곳)은 존재하지만 `Value.Length` 115지점 중 **69지점이
+`InitializeStringDescriptors` 인라인**이다. 권장안은 UTF-16 저장을 유지하고 **코드 포인트 시맨틱을
+`core/UnicodeText.cs` 한 곳**으로 모은 뒤 인라인 산술을 흡수 삭제하는 3커밋 계획이다 (A: PEP 393
+3종 저장은 `Value` 소비자 전수 정리가 선행돼야 해서 현 단계 각하, C: `int[]` 1급 저장은 숨은 O(n)).
+프로브 원자료: `.artifacts/tmp/p34_survey.py`.
+
 ## P0-35 (2026-10-30 등록): 소스 디코딩 — NUL 바이트와 decode 실패
 
 | 표현 | CPython | SharpPy |
