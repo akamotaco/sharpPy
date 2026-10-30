@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace SharpPy
 {
@@ -91,40 +91,26 @@ namespace SharpPy
                     
                     var condition = args[0];
                     var matchedExceptions = new List<PyException>();
-                    
-                    // Handle exception type or tuple of exception types
-                    if (condition is PyBuiltinType builtinType)
+
+                    // CPython 3.12: Objects/group.c matches through PyObject_IsInstance for a class or
+                    // tuple of classes, and through a callable predicate. There is one matcher now
+                    // (PyVM.ExceptionMatchesHandler); this class used to keep a second, CLR-name based
+                    // one that compared "PyValueError" against "ValueError".
+                    if (condition is PyType || condition is PyTuple)
                     {
-                        // Single exception type
                         foreach (var exc in Exceptions)
                         {
-                            if (ExceptionMatches(exc, condition))
+                            if (PyVM.ExceptionMatchesHandler(exc, condition) && exc is PyException pyExc)
                             {
-                                matchedExceptions.Add(exc);
+                                matchedExceptions.Add(pyExc);
                             }
                         }
                     }
-                    else if (condition is PyTuple typeTuple)
+                    else if (condition.IsCallable())
                     {
-                        // Tuple of exception types
                         foreach (var exc in Exceptions)
                         {
-                            foreach (var exceptionType in typeTuple.Items)
-                            {
-                                if (ExceptionMatches(exc, exceptionType))
-                                {
-                                    matchedExceptions.Add(exc);
-                                    break; // Don't add same exception twice
-                                }
-                            }
-                        }
-                    }
-                    else if (condition is PyObject callable && callable.IsCallable())
-                    {
-                        // Callable condition
-                        foreach (var exc in Exceptions)
-                        {
-                            var result = callable.Call(new PyObject[] { exc }, null);
+                            var result = condition.Call(new PyObject[] { exc }, null);
                             if (result.PyBoolValue())
                             {
                                 matchedExceptions.Add(exc);
@@ -151,18 +137,6 @@ namespace SharpPy
             return base.GetAttribute(name);
         }
         
-        /// <summary>
-        /// Helper method to check if exception matches type (similar to VM's ExceptionMatches)
-        /// </summary>
-        private bool ExceptionMatches(PyException exception, PyObject exceptionType)
-        {
-            if (exceptionType is PyBuiltinType builtinType)
-            {
-                string excTypeName = exception.GetType().Name;
-                return excTypeName.Replace("Py", "") == builtinType.Name.Replace("Error", "Error");
-            }
-            return false;
-        }
 
         public static PyBaseExceptionGroup Create(string message, List<PyException> exceptions)
         {

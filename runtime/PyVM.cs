@@ -1,4 +1,4 @@
-// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
+﻿// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
 
 using SharpPy.Core;
 
@@ -5259,135 +5259,14 @@ namespace SharpPy
                         throw PyRuntimeError.Create("CHECK_EXC_MATCH: expectedType is null");
                     }
 
-                    bool matches = false;
-
-                    // Match exception instance against expected type
-                    if (exceptionInstance is PyException pyException)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyException with OriginalClass={pyException.OriginalClass?.Name ?? "null"}");
-                        #endif
-
-                        // Check against user-defined class
-                        if (expectedType is PyClass userClass && pyException.OriginalClass != null)
-                        {
-                            matches = ExceptionClassMatches(pyException.OriginalClass, userClass);
-                        }
-                        // Check against built-in type
-                        else if (expectedType is PyBuiltinType builtinType)
-                        {
-                            matches = IsExceptionInstanceOf(pyException, builtinType.Name);
-                        }
-                        else if (expectedType is PyType pyType)
-                        {
-                            // A wrapped user exception must match through its ORIGINAL class MRO
-                            // (PyType_IsSubtype), not CLR class names: `class MyErr(RuntimeError,
-                            // ValueError)` has to be caught by `except ValueError`.
-                            if (pyException.OriginalClass != null)
-                            {
-                                matches = ExceptionClassMatches(pyException.OriginalClass, pyType);
-                            }
-                            else
-                            {
-                                matches = IsExceptionInstanceOf(pyException, pyType.Name);
-                            }
-                        }
-                        // Check against tuple of exception types: except (ValueError, TypeError)
-                        else if (expectedType is PyTuple exceptionTuple)
-                        {
-                            foreach (var excType in exceptionTuple.Items)
-                            {
-                                if (excType is PyBuiltinType tupleBuiltin)
-                                {
-                                    if (IsExceptionInstanceOf(pyException, tupleBuiltin.Name))
-                                    {
-                                        matches = true;
-                                        break;
-                                    }
-                                }
-                                else if (excType is PyType tuplePyType)
-                                {
-                                    if (pyException.OriginalClass != null)
-                                    {
-                                        if (ExceptionClassMatches(pyException.OriginalClass, tuplePyType))
-                                        {
-                                            matches = true;
-                                            break;
-                                        }
-                                    }
-                                    else if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
-                                    {
-                                        matches = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else if (exceptionInstance is PyBaseException builtinException)
-                    {
-                        // CPython 3.12: Python/errors.c:350-354
-                        // Direct builtin exception (PyValueError, PyTypeError, etc.)
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyBaseException {builtinException.GetType().Name}");
-                        #endif
-
-                        // CPython: Get exception class from instance
-                        var actualType = builtinException.GetType();
-
-                        if (expectedType is PyType pyType)
-                        {
-                            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
-                            var expectedCSharpType = GetExceptionTypeByName(pyType.Name);
-                            if (expectedCSharpType != null)
-                            {
-                                matches = expectedCSharpType.IsAssignableFrom(actualType);
-                            }
-                            else
-                            {
-                                // Fall back to name matching for unknown types
-                                string simpleName = actualType.Name.StartsWith("Py")
-                                    ? actualType.Name.Substring(2)
-                                    : actualType.Name;
-                                matches = pyType.Name == simpleName;
-                            }
-                        }
-                        else if (expectedType is PyBuiltinType builtinType)
-                        {
-                            // CPython: PyType_IsSubtype - check if actualType is subtype of expectedType
-                            var expectedCSharpType = GetExceptionTypeByName(builtinType.Name);
-                            if (expectedCSharpType != null)
-                            {
-                                matches = expectedCSharpType.IsAssignableFrom(actualType);
-                            }
-                            else
-                            {
-                                // Fall back to name matching for unknown types
-                                string simpleName = actualType.Name.StartsWith("Py")
-                                    ? actualType.Name.Substring(2)
-                                    : actualType.Name;
-                                matches = builtinType.Name == simpleName;
-                            }
-                        }
-                    }
-                    else if (exceptionInstance is PyClassInstance classInstance)
-                    {
-                        // User-defined exception instance
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance from {classInstance.InstanceType.Name}");
-                        #endif
-
-                        if (expectedType is PyClass userClass)
-                        {
-                            matches = ExceptionClassMatches(classInstance.InstanceType, userClass);
-                        }
-                        else if (expectedType is PyType pyType)
-                        {
-                            // Follow the MRO so a user exception is caught by any ancestor
-                            // (Exception/BaseException or a custom base class), not just the leaf.
-                            matches = ExceptionClassMatches(classInstance.InstanceType, pyType);
-                        }
-                    }
+                    // CPython 3.12: Python/ceval.c CHECK_EXC_MATCH is PyObject_IsInstance(exc, given)
+                    // and nothing else. This used to be a forest: CLR IsAssignableFrom reached through
+                    // a name -> CLR type map for natives, OriginalClass for wrapped user exceptions,
+                    // InstanceType for PyClassInstance, plus name-equality fallbacks. type(exc) is
+                    // authoritative for all three kinds (measured: ValueError in
+                    // type(SubValue("x")).__mro__ is True), so one walk over the raised object's own
+                    // MRO replaces all of them.
+                    bool matches = ExceptionMatchesHandler(exceptionInstance, expectedType);
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 CHECK_EXC_MATCH: Result = {matches}");
@@ -6946,95 +6825,6 @@ namespace SharpPy
             return currentPos + 1;
         }
 
-        /// <summary>
-        /// Check if exception matches the given type (CPython-compatible)
-        /// </summary>
-        private bool ExceptionMatches(PyObject exception, PyObject exceptionType)
-        {
-            // CPython-style exception matching
-            // exception: actual exception instance (e.g., ValueError("message")) or PyExceptionInfo
-            // exceptionType: exception class (e.g., ValueError class)
-
-            // Handle PyExceptionInfo wrapper (CPython 3.12 style)
-            PyException actualException = null;
-            if (exception is PyExceptionInfo excInfo)
-            {
-                actualException = excInfo.ExcValue as PyException;
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 ExceptionMatches: Extracted {actualException?.GetType().Name} from PyExceptionInfo");
-                #endif
-            }
-            else if (exception is PyException pyExc)
-            {
-                actualException = pyExc;
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 ExceptionMatches: Direct PyException {pyExc.GetType().Name}");
-                #endif
-            }
-
-            if (actualException != null)
-            {
-                // Get the exception's actual type name
-                string excTypeName = actualException.GetType().Name;
-                if (excTypeName.StartsWith("Py"))
-                    excTypeName = excTypeName.Substring(2); // Remove "Py" prefix
-
-                string targetTypeName = "";
-
-                // Handle different types of exception type objects
-                if (exceptionType is PyTuple tuple)
-                {
-                    // Handle tuple of exception types: except* (ValueError, RuntimeError)
-                    foreach (var item in tuple.Items)
-                    {
-                        if (ExceptionMatches(exception, item))
-                        {
-                            return true;
-                        }
-                    }
-                    return false; // No match in tuple
-                }
-                else if (exceptionType is PyBuiltinType builtinType)
-                {
-                    targetTypeName = builtinType.Name;
-                }
-                else if (exceptionType is PyType pyType)
-                {
-                    targetTypeName = pyType.Name;
-                }
-                else
-                {
-                    // Try to get the type name directly from the object
-                    targetTypeName = exceptionType.ToString();
-                    if (targetTypeName.Contains("'") && targetTypeName.Contains("class"))
-                    {
-                        // Extract class name from "<class 'ValueError'>"
-                        var start = targetTypeName.LastIndexOf("'") - targetTypeName.Length + targetTypeName.LastIndexOf("'") + 1;
-                        start = targetTypeName.IndexOf("'") + 1;
-                        var end = targetTypeName.LastIndexOf("'");
-                        if (end > start)
-                            targetTypeName = targetTypeName.Substring(start, end - start);
-                    }
-                }
-
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Exception match: {excTypeName} vs {targetTypeName}");
-                #endif
-
-                // Direct type match
-                bool matches = excTypeName.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase);
-
-                // Also check inheritance (Exception should match all exceptions)
-                if (!matches && targetTypeName == "Exception")
-                {
-                    matches = true; // All exceptions inherit from Exception
-                }
-
-                return matches;
-            }
-
-            return false;
-        }
 
         /// <summary>
         /// Execute intrinsic function with 1 argument (CPython 3.12 완전 호환)
@@ -7489,7 +7279,7 @@ namespace SharpPy
                             remainderExceptions.Add(remainderExc);
                         }
                     }
-                    else if (ExceptionMatches(exc, exceptionType))
+                    else if (ExceptionMatchesHandler(exc, exceptionType))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"✅ Match found: {exc.GetType().Name}");
@@ -7533,7 +7323,7 @@ namespace SharpPy
             }
 
             // Not an exception group - check if single exception matches
-            if (ExceptionMatches(actualException, exceptionType))
+            if (ExceptionMatchesHandler(exception ?? actualException, exceptionType))
             {
                 return (actualException, null);
             }
@@ -8576,6 +8366,48 @@ namespace SharpPy
                 case "RecursionError": return typeof(PyRecursionError);
                 default: return null;
             }
+        }
+
+        // CPython 3.12: Python/ceval.c CHECK_EXC_MATCH -> PyObject_IsInstance.
+        // The single rule for `except`, `except*` and ExceptionGroup.split():
+        //   * a tuple handler matches when any element matches;
+        //   * a handler that is not an exception class raises - even when the exception would
+        //     otherwise escape the try statement;
+        //   * otherwise the raised object's own type is walked through its MRO by reference.
+        // Exception type identity is authoritative; comparing CLR class names or Python names is
+        // what made two distinct classes with the same name catch each other.
+        internal static bool ExceptionMatchesHandler(PyObject raised, PyObject handler)
+        {
+            if (raised is PyExceptionInfo info)
+                raised = info.ExcValue;
+
+            if (handler is PyTuple tuple)
+            {
+                foreach (var item in tuple.Items)
+                {
+                    if (ExceptionMatchesHandler(raised, item))
+                        return true;
+                }
+                return false;
+            }
+
+            if (!(handler is PyType expected) || !DerivesFromBaseException(expected))
+                throw PyTypeError.Create(
+                    "catching classes that do not inherit from BaseException is not allowed");
+
+            var raisedType = raised?.GetPyType();
+            if (raisedType == null)
+                return false;
+
+            var mro = raisedType.MRO;
+            if (mro == null)
+                return ReferenceEquals(raisedType, expected);
+            for (int i = 0; i < mro.Count; i++)
+            {
+                if (ReferenceEquals(mro[i], expected))
+                    return true;
+            }
+            return false;
         }
 
         // CPython 3.12: Objects/typeobject.c PyType_IsSubtype for `except` matching.

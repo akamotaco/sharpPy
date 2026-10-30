@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SharpPy.Modules;
@@ -194,8 +194,6 @@ namespace SharpPy
             // 각 builtin 함수를 테이블에 등록
             _builtinImplementations["print"] = (args, kwargs) => CallPrint(args, kwargs);
             _builtinImplementations["input"] = (args, kwargs) => CallInput(args, kwargs);
-            _builtinImplementations["len"] = (args, kwargs) => CallLen(args, kwargs);
-            _builtinImplementations["abs"] = (args, kwargs) => CallAbs(args, kwargs);
             _builtinImplementations["callable"] = (args, kwargs) => CallCallable(args, kwargs);
             _builtinImplementations["range"] = (args, kwargs) => CallRange(args, kwargs);
             _builtinImplementations["enumerate"] = (args, kwargs) => CallEnumerate(args, kwargs);
@@ -209,8 +207,6 @@ namespace SharpPy
             _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
             _builtinImplementations["any"] = (args, kwargs) => CallAny(args, kwargs);
             _builtinImplementations["all"] = (args, kwargs) => CallAll(args, kwargs);
-            _builtinImplementations["isinstance"] = (args, kwargs) => CallIsInstance(args, kwargs);
-            _builtinImplementations["issubclass"] = (args, kwargs) => CallIsSubclass(args, kwargs);
             _builtinImplementations["hasattr"] = (args, kwargs) => CallHasAttr(args, kwargs);
             _builtinImplementations["getattr"] = (args, kwargs) => CallGetAttr(args, kwargs);
             _builtinImplementations["setattr"] = (args, kwargs) => CallSetAttr(args, kwargs);
@@ -252,15 +248,8 @@ namespace SharpPy
             _builtinImplementations["locals"] = (args, kwargs) => CallLocals(args, kwargs);
             _builtinImplementations["bytes"] = (args, kwargs) => CallBytes(args, kwargs);
             _builtinImplementations["bytearray"] = (args, kwargs) => CallBytearray(args, kwargs);
-            _builtinImplementations["memoryview"] = (args, kwargs) => CallMemoryview(args, kwargs);
-            _builtinImplementations["hex"] = (args, kwargs) => CallHex(args, kwargs);
-            _builtinImplementations["oct"] = (args, kwargs) => CallOct(args, kwargs);
-            _builtinImplementations["bin"] = (args, kwargs) => CallBin(args, kwargs);
-            _builtinImplementations["ascii"] = (args, kwargs) => CallAscii(args, kwargs);
             _builtinImplementations["slice"] = (args, kwargs) => CallSlice(args, kwargs);
             _builtinImplementations["object"] = (args, kwargs) => CallObject(args, kwargs);
-            _builtinImplementations["vars"] = (args, kwargs) => CallVars(args, kwargs);
-            _builtinImplementations["format"] = (args, kwargs) => CallFormat(args, kwargs);
             _builtinImplementations["help"] = (args, kwargs) => CallHelp(args, kwargs);
             _builtinImplementations["breakpoint"] = (args, kwargs) => CallBreakpoint(args, kwargs);
         }
@@ -444,27 +433,6 @@ namespace SharpPy
             }
         }
 
-        private static PyObject CallLen(PyObject[] args, PyDict kwargs = null)
-        {
-            // len()은 kwargs를 받지 않음
-            if (kwargs != null && kwargs.InternalDict.Count > 0)
-                throw PyTypeError.Create("len() takes no keyword arguments");
-
-            if (args.Length != 1)
-                throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
-
-            if (args[0] is PyRange range)
-                return new PyInt(range.PythonLength());
-
-            try
-            {
-                return new PyInt(args[0].Length());
-            }
-            catch (System.Exception)
-            {
-                throw PyTypeError.Create($"object of type '{args[0].GetTypeName()}' has no len()");
-            }
-        }
 
         /// <summary>
         /// One implementation of abs for every caller. CPython has a single nb_absolute meaning,
@@ -505,12 +473,6 @@ namespace SharpPy
             throw PyTypeError.Create($"bad operand type for abs(): '{value.GetTypeName()}'");
         }
 
-        private static PyObject CallAbs(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
-            return Absolute(args[0]);
-        }
 
         private static PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
         {
@@ -954,45 +916,6 @@ namespace SharpPy
 
         // === 타입 및 리플렉션 함수들 ===
 
-        private static PyObject CallIsInstance(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"isinstance expected exactly 2 arguments ({args.Length} given)");
-
-            var obj = args[0];
-            var classinfo = args[1];
-
-            // [TEMP LOG] isinstance 호출 추적
-            Console.WriteLine($"[isinstance] obj={obj?.GetType().Name}, classinfo={classinfo?.GetType().Name}");
-            Console.WriteLine($"[isinstance] classinfo is PyType? {classinfo is PyType}");
-            Console.WriteLine($"[isinstance] classinfo is PyTuple? {classinfo is PyTuple}");
-            if (classinfo != null)
-            {
-                Console.WriteLine($"[isinstance] classinfo.GetTypeName()={classinfo.GetTypeName()}");
-            }
-
-            if (classinfo is PyType type)
-            {
-                return PyBool.FromBool(IsInstanceExtended(obj, type));
-            }
-            else if (classinfo is PyTuple tuple)
-            {
-                // 여러 타입 중 하나인지 확인
-                foreach (var item in tuple.Items)
-                {
-                    if (item is PyType t && IsInstanceExtended(obj, t))
-                        return PyBool.True;
-                }
-                return PyBool.False;
-            }
-            else
-            {
-                // CPython 3.12: More helpful error message showing what was passed
-                string typename = classinfo?.GetTypeName() ?? "None";
-                Console.WriteLine($"[isinstance ERROR] classinfo C# type: {classinfo?.GetType().FullName}");
-                throw PyTypeError.Create($"isinstance() arg 2 must be a type or tuple of types, got '{typename}'");
-            }
-        }
         
         /// <summary>
         /// 제네릭 타입을 지원하는 확장된 isinstance 검사
@@ -1018,59 +941,6 @@ namespace SharpPy
             return false;
         }
 
-        private static PyObject CallIsSubclass(PyObject[] args, PyDict kwargs = null)
-        {
-#if DEBUG
-            Console.WriteLine($"[CallIsSubclass] Called with {args.Length} arguments");
-            Console.WriteLine($"  args[0] = {args[0]}, type = {args[0].GetType().Name}");
-            Console.WriteLine($"  args[1] = {args[1]}, type = {args[1].GetType().Name}");
-#endif
-
-            if (args.Length != 2)
-                throw PyTypeError.Create($"issubclass expected exactly 2 arguments ({args.Length} given)");
-
-            if (!(args[0] is PyType subclass))
-            {
-#if DEBUG
-                Console.WriteLine($"[CallIsSubclass] args[0] is not PyType!");
-#endif
-                throw PyTypeError.Create("issubclass() arg 1 must be a class");
-            }
-
-#if DEBUG
-            Console.WriteLine($"[CallIsSubclass] args[0] IS PyType: {subclass.Name}");
-#endif
-
-            if (args[1] is PyType superclass)
-            {
-#if DEBUG
-                Console.WriteLine($"[CallIsSubclass] args[1] IS PyType: {superclass.Name}");
-                Console.WriteLine($"[CallIsSubclass] Calling {subclass.Name}.IsSubclassOf({superclass.Name})");
-#endif
-                var result = subclass.IsSubclassOf(superclass);
-#if DEBUG
-                Console.WriteLine($"[CallIsSubclass] IsSubclassOf returned: {result}");
-#endif
-                return PyBool.FromBool(result);
-            }
-            else if (args[1] is PyTuple tuple)
-            {
-                // 여러 클래스 중 하나의 서브클래스인지 확인
-                foreach (var item in tuple.Items)
-                {
-                    if (item is PyType t && subclass.IsSubclassOf(t))
-                        return PyBool.True;
-                }
-                return PyBool.False;
-            }
-            else
-            {
-#if DEBUG
-                Console.WriteLine($"[CallIsSubclass] args[1] is NOT PyType or PyTuple!");
-#endif
-                throw PyTypeError.Create("issubclass() arg 2 must be a class or tuple of classes");
-            }
-        }
 
         // CPython 3.12: Python/bltinmodule.c builtin_getattr / builtin_hasattr / builtin_setattr /
         // builtin_delattr. Two separate defects lived here. The duplicates in modules/BuiltinsModule.cs
@@ -4059,7 +3929,7 @@ namespace SharpPy
         /// <summary>
         /// locals() builtin function - returns a dictionary of the current local symbol table
         /// </summary>
-        private static PyObject CallLocals(PyObject[] args, PyDict kwargs = null)
+        internal static PyObject CallLocals(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 0)
             {
@@ -4306,30 +4176,6 @@ namespace SharpPy
             throw PyTypeError.Create($"bytearray() argument must be bytes-like, not '{args[0]?.GetTypeName() ?? "None"}'");
         }
 
-        /// <summary>
-        /// memoryview() constructor - creates memory view objects
-        /// </summary>
-        private static PyObject CallMemoryview(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"memoryview() takes exactly one argument ({args.Length} given)");
-
-            var obj = args[0];
-
-            // Check if object supports buffer protocol
-            if (obj is PyBytesObject bytes)
-            {
-                return new PyMemoryViewObject(bytes);
-            }
-            else if (obj is PyBytearrayObject bytearray)
-            {
-                return new PyMemoryViewObject(bytearray);
-            }
-            else
-            {
-                throw PyTypeError.Create($"a bytes-like object is required, not '{obj.GetTypeName()}'");
-            }
-        }
 
         /// <summary>
         /// repr() built-in function - returns a printable representation of an object
@@ -4346,182 +4192,9 @@ namespace SharpPy
             return obj.ToRepr();
         }
 
-        /// <summary>
-        /// hex(x) - CPython 3.12: Python/bltinmodule.c:1439 (builtin_hex)
-        /// Convert an integer number to a lowercase hexadecimal string prefixed with "0x"
-        /// </summary>
-        private static PyObject CallHex(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"hex() takes exactly one argument ({args.Length} given)");
 
-            var obj = args[0];
 
-            // CPython 3.12: Python/bltinmodule.c:1803-1825 - builtin_hex
-            // CPython: PyNumber_Index() is called first
-            PyInt intValue;
-            if (obj is PyInt pyInt)
-            {
-                intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
-            }
-            else
-            {
-                // Try __index__ method
-                try
-                {
-                    var indexMethod = obj.GetAttribute("__index__");
-                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyInt indexResult)
-                    {
-                        intValue = indexResult;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-                catch
-                {
-                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
-                }
-            }
 
-            // Delegate to PyInt.Hex() for proper BigInteger formatting
-            return intValue.Hex();
-        }
-
-        /// <summary>
-        /// oct(x) - CPython 3.12: Python/bltinmodule.c:1855 (builtin_oct)
-        /// Convert an integer number to an octal string prefixed with "0o"
-        /// </summary>
-        private static PyObject CallOct(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"oct() takes exactly one argument ({args.Length} given)");
-
-            var obj = args[0];
-
-            // CPython 3.12: Python/bltinmodule.c:2069-2091 - builtin_oct
-            PyInt intValue;
-            if (obj is PyInt pyInt)
-            {
-                intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
-            }
-            else
-            {
-                try
-                {
-                    var indexMethod = obj.GetAttribute("__index__");
-                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyInt indexResult)
-                    {
-                        intValue = indexResult;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-                catch
-                {
-                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
-                }
-            }
-
-            // Delegate to PyInt.Oct() for proper BigInteger formatting
-            return intValue.Oct();
-        }
-
-        /// <summary>
-        /// bin(x) - CPython 3.12: Python/bltinmodule.c:541 (builtin_bin)
-        /// Convert an integer number to a binary string prefixed with "0b"
-        /// </summary>
-        private static PyObject CallBin(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"bin() takes exactly one argument ({args.Length} given)");
-
-            var obj = args[0];
-
-            // CPython 3.12: Python/bltinmodule.c:541-563 - builtin_bin
-            PyInt intValue;
-            if (obj is PyInt pyInt)
-            {
-                intValue = pyInt;
-            }
-            else if (obj is PyBool pyBool)
-            {
-                intValue = new PyInt(pyBool.IsTrue() ? 1 : 0);
-            }
-            else
-            {
-                try
-                {
-                    var indexMethod = obj.GetAttribute("__index__");
-                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
-                    if (result is PyInt indexResult)
-                    {
-                        intValue = indexResult;
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
-                    }
-                }
-                catch
-                {
-                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
-                }
-            }
-
-            // Delegate to PyInt.Bin() for proper BigInteger formatting
-            return intValue.Bin();
-        }
-
-        /// <summary>
-        /// ascii(obj) - CPython 3.12: Python/bltinmodule.c:414 (builtin_ascii)
-        /// Return string containing a printable representation of an object,
-        /// but escape non-ASCII characters using \x, \u, or \U escapes
-        /// </summary>
-        private static PyObject CallAscii(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"ascii() takes exactly one argument ({args.Length} given)");
-
-            var obj = args[0];
-            var repr = obj.ToRepr().Value;
-
-            // Escape non-ASCII characters
-            var sb = new System.Text.StringBuilder();
-            foreach (char c in repr)
-            {
-                if (c < 128)
-                {
-                    sb.Append(c);
-                }
-                else if (c <= 0xFF)
-                {
-                    sb.Append($"\\x{(int)c:x2}");
-                }
-                else if (c <= 0xFFFF)
-                {
-                    sb.Append($"\\u{(int)c:x4}");
-                }
-                else
-                {
-                    sb.Append($"\\U{(int)c:x8}");
-                }
-            }
-            return new PyString(sb.ToString());
-        }
 
         /// <summary>
         /// slice(stop) or slice(start, stop[, step]) - CPython 3.12: Python/bltinmodule.c:2379
@@ -4572,52 +4245,7 @@ namespace SharpPy
             return new PyBaseObject();
         }
 
-        /// <summary>
-        /// vars([object]) - CPython 3.12: Python/bltinmodule.c:2802 (builtin_vars)
-        /// Return the __dict__ attribute for a module, class, instance, or any other object
-        /// </summary>
-        private static PyObject CallVars(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length > 1)
-                throw PyTypeError.Create($"vars() takes at most 1 argument ({args.Length} given)");
 
-            if (args.Length == 0)
-            {
-                // vars() without argument returns locals()
-                return CallLocals(args, kwargs);
-            }
-
-            var obj = args[0];
-
-            // Try to get __dict__ attribute
-            try
-            {
-                var dict = obj.GetAttribute("__dict__");
-                return dict;
-            }
-            catch
-            {
-                throw PyTypeError.Create($"vars() argument must have __dict__ attribute");
-            }
-        }
-
-        /// <summary>
-        /// format(value[, format_spec]) - CPython 3.12: Python/bltinmodule.c:946 (builtin_format)
-        /// Return value.__format__(format_spec)
-        /// </summary>
-        private static PyObject CallFormat(PyObject[] args, PyDict kwargs = null)
-        {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
-
-            var value = args[0];
-            var formatSpec = args.Length > 1 ? args[1] : new PyString("");
-
-            if (formatSpec is not PyString specStr)
-                throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
-
-            return value.Format(specStr);
-        }
 
         /// <summary>
         /// help([object]) - Invoke the built-in help system.

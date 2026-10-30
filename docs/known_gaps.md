@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **74/74 matching**
+- `tools/run_bughunt.py`: **75/75 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -812,28 +812,78 @@ C#에는 같은 알고리즘을 그대로 옮겼다 (`PyFloat.ParseHexFloat`). p
 문자열 31개의 `fromhex(h).hex() == h` 왕복을 고정했다 (차이 0).
 
 
+## P0-33 (2026-10-30 등록): `except*`와 ExceptionGroup이 PEP 654를 못 따라간다
+
+이름 비교 매처를 MRO 매처 하나로 합치는 작업(p70)에서 드러났다. 매칭 규칙 문제는 정리됐고, 남은 것은
+**그룹이 예외를 CLR 타입으로 저장하는 구조**다. 재현자는 `p70`에 넣지 않았다 - 프로브가 틀린 동작을
+얼리는 걸로 끝나기 때문이다.
+
+| 재현 | CPython 3.12.15 | SharpPy |
+|---|---|---|
+| `ExceptionGroup("g", [MyErr("a")])` (user class) | 그룹 생성됨 | `TypeError: second argument (exceptions) must be a non-empty sequence` |
+| `ExceptionGroup("g", [MyErr("a"), 5])` | `ValueError: Item 1 of second argument (exceptions) is not an exception` | 위와 같은 TypeError |
+| `try: raise ExceptionGroup("g",[ValueError("a"),TypeError("b")])` `except* ValueError` | `['ValueError']` 만 잡힘 | 미처리로 빠져나감 |
+| 같은 코드에서 미처리 재던지기 | `ExceptionGroup` 재발생 | `RuntimeError: Unable to cast object of type 'SharpPy.PyNone'` |
+| `ExceptionGroup("g",[MyErr("a")]).split(KeyError)` | `(None, group)` | 위 캐스트 크래시 경로 |
+
+원인 (측정 근거):
+
+1. `PyBaseExceptionGroup`가 `List<PyException>`을 들고 있다. 사용자 정의 예외는 `PyClassInstance`라
+   리스트에 들어가지 못하고, 들어가지 못하면 "빈 시퀀스"가 되어 위 TypeError가 난다. CPython은
+   `PyObject *excs`이며 각 항목이 `BaseException`의 인스턴스인지만 본다.
+2. `PyVM.PrepReraiseStarExceptions`가 `exceptions.Add((PyException)item);`로 캐스트한다. 항목이
+   `PyClassInstance`이거나 `PyNone`이면 `InvalidCastException`이다 (`core` 전반에 `List<PyException>`
+   사용처 18곳).
+3. `subgroup()`/`split()`의 조건 처리와 메시지, `ExceptionGroup`이 `BaseException` 전용 항목을 거부하는
+   규칙(`ExceptionGroup`는 `Exception` 계열만 받는다)이 CPython과 대조되지 않았다.
+4. intrinsic 인자 순서가 뒤바뀌어 있어서 `// But PrepReraiseStarExceptions expects (list, orig), so swap`
+   라는 주석으로 보정되고 있다. CPython의 `PREP_RERAISE_STAR` 시그니처를 먼저 확인할 것.
+
+고치는 순서: 그룹 payload를 `List<PyObject>`로 바꾸고 항목 검증을 MRO (`DerivesFromBaseException`)로
+바꾼 뒤, `PrepReraiseStarExceptions`의 캐스트를 삭제하고, CPython `Objects/group.c`의 메시지
+(`Item %d of second argument (exceptions) is not an exception`)를 옮긴다. 그 다음에 위의 재현자들을
+프로브로 승격한다.
+
 ## P1 모음 (2026-10-30 검사): 같은 것을 두 번 구현한 자리
 
-1. **builtin 표 항목과 모듈 delegate가 둘 다 있는 것 13개** — `abs, ascii, bin, compile, format, hex,
-   isinstance, issubclass, len, memoryview, oct, pow, vars`. 뒤에 등록된 delegate가 이기므로
-   `core/PyBuiltin.cs`의 표 항목은 실행되지 않는 코드다. 하나로 합친다.
+1. **(닫힘) builtin 표 항목과 모듈 delegate가 둘 다 있던 것.** 스캐너는 13개를 지목했지만 실제로
+   중복이었던 것은 11개다 (`abs, ascii, bin, format, hex, isinstance, issubclass, len, memoryview,
+   oct, vars`). `compile`과 `pow`는 `_sre.compile`, `operator.pow`라는 **같은 이름을 가진 다른 모듈
+   속성**을 스캐너가 충돌로 읽은 오탐이었고, 등록은 원래부터 표 하나만 쓰고 있었다.
+   `builtins` 등록이 delegate를 넘기기 때문에 `core/PyBuiltin.cs`의 표 항목은 실행되지 않는 코드였고,
+   그중 `CallIsInstance`는 `Console.WriteLine("[isinstance] ...")` 디버그 출력을 무조건 내보내는
+   상태였다. 표 등록 11개와 메서드 본문 361줄을 삭제했다. 삭제 전후로 60케이스 프로브 출력이
+   의도한 3줄(`vars`/`format` 문구)을 제외하고 바이트 단위로 동일하다는 것을 확인했다.
 2. **`operator.pow`/`operator.abs`가 `builtins`와 별도 구현** — CPython이 거부하는 keyword까지 받고,
    라벨에 `_operator.` 접두가 없다 (CPython `_operator.pow() takes no keyword arguments`). `abs`에서
    한 구현으로 모았을 때 따랐던 길을 다시 벗어났다.
 3. **`set.copy`**가 `TypeDict`와 `GetAttribute` 특별 분기 두 곳에 등록되어 있다.
-4. **호출자가 없는 구 구현들** — `PyString.Upper()`, `PyString.Lower()`, `PyString.Capitalize()`는
-   호출자가 없고, `Capitalize`는 `CurrentCulture.TextInfo.ToTitleCase`를 쓴다. 살아있는 `title`이
-   CPython 단어 경계 규칙으로 의도적으로 바꾸어 놓았다는 것을 모르는 사람이 저 전화를 고치면 같은
-   오류가 되산다. 삭제한다.
-5. **예외 매칭이 두 갈래** — `runtime/PyVM.cs:7025`가 타입 이름을 `StringComparison.OrdinalIgnoreCase`로
-   비교하고 `"Exception"` 하드코딩까지 둔다. CPython의 매칭은 클래스 객체/MRO 기준이다. p07이 달성은
-   뒤에 MRO 경로가 먼저 이기기 때문이고, 이 이름 비교 경로 자체는 유효하다. 삭제하고 MRO 판정 하나로
-   합친다.
+4. **(닫힘) 호출자가 없는 구 구현들** — `PyString.Upper()`, `PyString.Lower()`,
+   `PyString.Capitalize()`를 삭제했다. 셋 다 소스 트리 전체에서 호출자가 0이었고
+   `Capitalize`는 `CurrentCulture.TextInfo.ToTitleCase`를 썼다. 살아있는 `title`이 CPython 단어 경계
+   규칙으로 의도적으로 옮겨간 것을 모르는 사람이 저 전화를 고치면 문화권 의존 회귀가 된다.
+   `str.upper`/`str.lower`도 같은 이유로 문화권 헬퍼를 쓰지 않는다.
+5. **(닫힘) 예외 이름 비교 경로.** 세 곳이 한 규칙을 나눠 가지고 있었다:
+   `PyVM`의 `CHECK_EXC_MATCH` 분기 숲(CLR 이름 → CLR 타입 표로 `IsAssignableFrom`, user 예외는
+   `OriginalClass`, `PyClassInstance`는 `InstanceType`, 이름 동등 폴백), `PyVM.ExceptionMatches`의
+   `StringComparison.OrdinalIgnoreCase` + `"Exception"` 하드코딩(`except*` 경로),
+   `PyBaseExceptionGroup.ExceptionMatches`(`"PyValueError"`과 `"ValueError"`을 비교).
+   `runtime/PyVM.cs`의 `ExceptionMatchesHandler` 하나로 합쳤다: 튜플은 임의 요소, 예외 클래스가 아닌
+   핸들러는 `catching classes that do not inherit from BaseException is not allowed`, 나머지는
+   raise된 객체 자신의 타입 MRO를 참조 동등으로 훑는다. `type(ValueError('x')) is ValueError`,
+   `type(MyErr('x')) is MyErr`, `ValueError in type(SubValue('x')).__mro__`가 모두 True라는 것을
+   먼저 측정했고, 그래서 이름 폴백이 필요 없다. 같은 이름의 다른 클래스가 서로를 잡을 수 있었던
+   (`m.Name == expected.Name`) 경로가 사라진 것을 p70의 `name_collision_not_caught`가 고정한다.
 6. **codec 호출이 표 밖에서 4개 파일** — `modules/_CodecsModule.cs`(4), `runtime/PyBinaryTypes.cs`(3),
    `core/PyFileContextManager.cs`(1)가 `Encoding.GetEncoding`을 직접 불러서 `core/PyString.cs`의
    `NormalizeCodecName` 별칭 표와 다른 경로로 간다. 모두 그 함수로 모은다.
 7. 인수 검사 문자열이 8계열 400개 넘게 흩어져 있다. 계량은 P0-29로 남긴다.
 
+p70과 함께 닫힌 것: `vars()`가 `NotImplementedError`를 던지던 것을 `locals()`로 합쳤고,
+`vars(1)`이 `AttributeError`를 새던 것을 `TypeError: vars() argument must have __dict__ attribute`로
+고쳤고, `vars`/`format`의 개수 문구를 CPython의 손글씨 계열(`vars expected at most 1 argument, got 2`,
+`format expected at least 1 argument, got 0`)로 바꿨다. `CHECK_EXC_MATCH` 축소는 예외 무거운
+워크로드 A/B에서 TOTAL -1.4%였다 (플래그 없음).
 ## P1 (2026-10-30 등록): codec 표의 범위와 strict 디코딩 한계
 
 `str(bytes, encoding)` / `bytes(str, encoding)`을 C#으로 옮기면서 남긴 경계. 정직하게 남긴다:
@@ -1003,6 +1053,13 @@ b"a".upper()               'AB'   (정상)
 | `"__getnewargs__" in dir(bytes)` | True | **False** |
 | `hasattr(type({}.keys()), "isdisjoint")` | True | **False** |
 | `hasattr(type(iter([])), "__length_hint__")` | True | **False** |
+| `sorted(vars(cls).keys())` (plain class) | `['__dict__', '__doc__', '__module__', '__weakref__']` | `__dict__`/`__weakref__` 없고 `__qualname__` 추가 |
+| `iter(vars(int))` | dict_keyiterator | **TypeError: 'mappingproxy' object is not iterable** |
+| `len(vars(int))` | 63 | 58 |
+| `locals() is locals()` (모듈 최상위) | True | **False** - `locals()`가 매번 사본을 만든다 |
+
+세 줄은 오늘 `vars()`를 `locals()`로 합치면서 새로 측정한 것이다. 마지막 줄은 특히 CPython에서
+최상위 `locals()`가 모듈 `__dict__` 그 자체라는 사실(`vars() is locals()`가 True)을 놓치고 있었다.
 
 동작 자체는 같은 경로로 된다(`frozenset([1]).union({2})`, `complex(1,2).conjugate()`,
 `memoryview(b"ab").cast("B")` 모두 정확). 디스패치는 맞고 검사 API만 틀린 상태다. `dir()` 내용

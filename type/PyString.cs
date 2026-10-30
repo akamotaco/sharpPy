@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text;
 using System.Globalization;
 using System.Numerics;
@@ -2865,9 +2865,6 @@ namespace SharpPy
 
         #region String Methods
 
-        public PyString Upper() => new PyString(Value.ToUpper());
-        public PyString Lower() => new PyString(Value.ToLower());
-        public PyString Capitalize() => new PyString(CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Value.ToLower()));
         // CPython unicode_title state machine: a cased character is uppercased when the
         // preceding character was not cased, lowercased otherwise ("it's" -> "It'S").
         public PyString Title() => new PyString(CPythonTitle(Value));

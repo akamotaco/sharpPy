@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 
 namespace SharpPy.Modules
@@ -679,35 +679,23 @@ namespace SharpPy.Modules
             return new PyString(result.ToString());
         }
 
-        // CPython 3.12: Python/bltinmodule.c:3079 - builtin_vars
+        // CPython 3.12: Python/bltinmodule.c:3079 builtin_vars.
+        // vars() with no argument is exactly locals(). vars(obj) looks __dict__ up as an attribute,
+        // so an object without one reports the TypeError below instead of letting an AttributeError
+        // escape (int has no __dict__, and GetAttribute raised). The argument-count texts are
+        // CPython's handwritten family: "vars expected at most 1 argument, got 2".
         private static PyObject Vars(PyObject[] args)
         {
-            if (args.Length == 0)
-            {
-                // No argument: return locals()
-                // This should return the current local symbol table
-                // For now, throw NotImplementedError as it requires VM integration
-                throw PyNotImplementedError.Create("vars() without arguments requires locals() implementation");
-            }
-            else if (args.Length == 1)
-            {
-                var obj = args[0];
+            if (args.Length > 1)
+                throw PyTypeError.Create($"vars expected at most 1 argument, got {args.Length}");
 
-                // Try to get __dict__ attribute
-                var dictAttr = obj.GetAttribute("__dict__");
-                if (dictAttr != null && dictAttr != PyNone.Instance)
-                {
-                    return dictAttr;
-                }
-                else
-                {
-                    throw PyTypeError.Create($"vars() argument must have __dict__ attribute");
-                }
-            }
-            else
-            {
-                throw PyTypeError.Create($"vars() takes at most 1 argument ({args.Length} given)");
-            }
+            if (args.Length == 0)
+                return PyBuiltinFunction.CallLocals(new PyObject[0]);
+
+            var dictAttr = args[0].LookupAttribute("__dict__");
+            if (dictAttr == null || dictAttr is PyNone)
+                throw PyTypeError.Create("vars() argument must have __dict__ attribute");
+            return dictAttr;
         }
 
         // CPython 3.12: Python/bltinmodule.c:689 - builtin_format
@@ -715,8 +703,12 @@ namespace SharpPy.Modules
         // Returns value.__format__(format_spec)
         private static PyObject Format(PyObject[] args)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
+            // CPython builtin_format: "format expected at least 1 argument, got 0" /
+            // "format expected at most 2 arguments, got 3".
+            if (args.Length < 1)
+                throw PyTypeError.Create($"format expected at least 1 argument, got {args.Length}");
+            if (args.Length > 2)
+                throw PyTypeError.Create($"format expected at most 2 arguments, got {args.Length}");
 
             var value = args[0];
             var formatSpec = args.Length == 2 ? args[1] : new PyString("");
