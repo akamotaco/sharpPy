@@ -405,6 +405,9 @@ public class PyModule : PyObject
             // base64 codecs need exist here; Lib/encodings/hex_codec.py and base64_codec.py import
             // this module, so it has a name of its own.
             ["binascii"] = () => PyBinascii.CreateBinasciiModule(),  // codecs.py가 사용
+            // CPython's gc is a built-in C module (Modules/gcmodule.c), so there is no Lib/gc.py
+            // to copy: the surface and its refusals are implemented against measured behaviour.
+            ["gc"] = () => SharpPy.Modules.GcModule.CreateGcModule(),
 
             // OS 인터페이스 C 모듈 (cross-platform)
             ["nt"] = () => SharpPy.Modules.NtModule.CreateNtModule(),  // os.py가 사용 (Windows/Linux/Mac)

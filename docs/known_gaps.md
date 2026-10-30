@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **80/80 matching**
+- `tools/run_bughunt.py`: **81/81 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -39,6 +39,14 @@ Reference interpreter: **CPython 3.12.15**
   "is not a text encoding" refusal family. The seventh copy of the decoder
   (`_codecs.*_decode` calling `Encoding.GetString`) is gone; those entry points now ask
   `DecodeBytes`. Open remainder is listed under **P1 codec registry follow-ups** below.
+- 2026-10-30 **P0-37** (`modules/GcModule.cs`, `core/PyFinalizer.cs`, p76): `import gc` stops raising
+  `ModuleNotFoundError`. `gc` is a built-in C module in CPython, so it is implemented rather than
+  copied: surface, `gc.`-prefixed refusals, threshold/debug/enable state, real `callbacks` that
+  `collect()` calls with a `{collected, generation, uncollectable}` dict, `garbage`, `get_stats`,
+  the measured `is_tracked` rule and `get_referents` traverse order. `__del__` is now dispatched as
+  a special method (subclass override, `super().__del__()`, inherited hook) and runs at interpreter
+  shutdown in creation order, with CPython's `Exception ignored in:` report on stderr. What cannot
+  match while lifetime belongs to the CLR collector is listed under **P0-37 remainder** below.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
 - Bytecode proximity: ~0.845; all 129 standard opcode names/numbers match.
 
@@ -1369,3 +1377,37 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
    repr·내부 검색처럼 unit이 맞는 단위 포함).
 7. **`bmp_methods` +7%** (교대 4라운드 실측, 기준 `bff3f11`): 창 정규화와 쌍 정렬 검사가 늘어난 비용.
    astral 워크로드와 `%` 포맷은 변화 없음(1.00x), `len_loop`/`list_comp`는 오히려 0.95~0.96x.
+
+## P0-37 remainder (측정으로 고정, 2026-10-30)
+
+수명은 CLR GC가 소유하고 참조 카운팅은 도입하지 않는다는 결정(P0-37)에서 파생된 잔여.
+`tools/run_bughunt.py` p76은 **합의된 범위만** 고정하고, 아래는 고정하지 않는다(고정하면
+알려진 격차를 통과 사례로 세탁하므로).
+
+1. **조기 도달 객체의 `__del__` 타이밍** — CPython은 마지막 참조가 사라진 즉시 부른다.
+   측정(`.artifacts/tmp/del1.py`): 함수 지역 객체를 버린 직후 CPython은 `del ran`을 출력하고
+   SharpPy는 출력하지 않는다(종료 시점에야 실행). 종료 전 순서가 관측되는 프로그램은 결과가
+   달라질 수 있다. 재논의 트리거: 실제 라이브러리 코드가 이 타이밍에 의존할 때.
+2. **`gc.get_objects()` / `gc.get_referrers()` 내용** — CPython은 추적 객체 목록을 순회해
+   `get_objects()`가 수천 개를 반환하고 `get_referrers`는 역참조를 찾는다. SharpPy는 객체를
+   추적하지 않으므로 빈 목록(`.artifacts/tmp/gc2.py` 18행 실측).
+3. **`gc.get_count()` / `get_stats()` 값** — 생성 카운터가 없어 `(0, 0, 0)` / 0. CPython 값은
+   프로세스마다 달라 어차피 고정 불가능하지만, SharpPy는 "모은 적이 없다"를 일관되게 답한다.
+4. **`gc.collect()`가 순환 미수거를 보고하지 않음** — 도달 불가능 주기를 찾을 수 없으므로 0을
+   반환하고 사이클을 실제로 해제하지 않는다(CLR이 대신 수거한다). `gc.callbacks`는 실제로
+   호출된다(p76 고정).
+5. **finalizer 등록 목록이 종료까지 줄지 않음** — `__del__`을 선언한 클래스의 인스턴스를
+   많이 만드는 프로그램은 `WeakReference` 항목이 쌓인다. 실측 100,000 생성 +2.6%
+   (`.artifacts/tmp/w_watch.py`, 기준 `fb625c4`와 교대 3라운드). 일반 클래스 생성은 1.00x
+   (`PyClass.DeclaresFinalizer()` 필드 한 번 읽기).
+6. **재부활(resurrection) 미구현** — CPython은 `__del__` 안에서 자기 자신을 살려 두 번째
+   호출을 허용한다. SharpPy는 한 번 확정하면 다시 부르지 않는다.
+7. **`sys.getrefcount`가 실제 값을 말하지 않음** — 측정: CPython은 지역+인자 참조로 `>= 2`,
+   SharpPy는 상수 `1`. 카운팅 메커니즘이 없어 정직한 값이 존재하지 않으므로, 값이 관측되는
+   이 함수는 이 항목에 남긴다(에러는 발생하지 않는다).
+8. **`weakref` 미구현** — `ModuleNotFoundError`. CPython은 내장 `_weakref` + `Lib/weakref.py` +
+   `Lib/_weakrefset.py` 구조이며, SharpPy는 `itertools`/`_collections_abc`를 이미 가지고 있어
+   같은 구조로 갈 수 있다. 네이티브 `_weakref`(ref/proxy/getweakrefcount/getweakrefs/
+   `_remove_dead_weakref`)가 남아 있는 작업. 사망 통지는 CLR 수거 시점이 아니라 참조 접근
+   시점에 결정되므로 콜백 타이밍이 추가 격차가 된다.
+

@@ -70,6 +70,9 @@ namespace SharpPy.Core
                     }
                     interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
                 }
+                // CPython runs pending __del__ hooks while it tears the interpreter down, after the
+                // program's own output and without changing the exit status.
+                PyFinalizer.RunAtShutdown();
             }
             catch (FileNotFoundException)
             {
@@ -96,6 +99,7 @@ namespace SharpPy.Core
                 // exits 1, but the CLR detail goes to stderr instead of stdout.
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
+                PyFinalizer.RunAtShutdown();
                 Environment.Exit(1);
             }
         }
@@ -117,6 +121,7 @@ namespace SharpPy.Core
             {
                 var interpreter = new IntegratedPythonInterpreter();
                 interpreter.Execute(codeString, "<string>", false, false, false);
+                PyFinalizer.RunAtShutdown();
             }
             catch (Exception ex)
             {
@@ -128,6 +133,7 @@ namespace SharpPy.Core
                 // exits 1, but the CLR detail goes to stderr instead of stdout.
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
+                PyFinalizer.RunAtShutdown();
                 Environment.Exit(1);
             }
         }

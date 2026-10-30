@@ -91,6 +91,23 @@ namespace SharpPy
         internal PyTuple _cachedMroTuple;
         internal PyTuple _cachedBasesTuple;
 
+        // Whether this class' MRO declares __del__, remembered so that creating an instance of an
+        // ordinary class costs one field read instead of an MRO walk. CPython answers the same
+        // question once, at type creation, by filling tp_finalize.
+        private bool _finalizerChecked;
+        private bool _declaresFinalizer;
+
+        internal bool DeclaresFinalizer()
+        {
+            if (!_finalizerChecked)
+            {
+                var hook = LookupInMRO("__del__");
+                _declaresFinalizer = hook != null && !(hook is PyNone);
+                _finalizerChecked = true;
+            }
+            return _declaresFinalizer;
+        }
+
         // CPython 3.12: __slots__ semantics - an instance has a __dict__ only when
         // some class in the MRO omits __slots__ (or lists '__dict__' explicitly).
         private bool? _instancesHaveDictCache;
@@ -231,6 +248,15 @@ namespace SharpPy
         }
 
         public new PyObject CreateInstance(PyObject[] args, PyDict kwargs)
+        {
+            var created = CreateInstanceCore(args, kwargs);
+            // A class whose MRO declares __del__ has to be noticed at creation time, because the
+            // only moment SharpPy can tell that an object is being let go is interpreter shutdown.
+            PyFinalizer.RegisterIfDeclared(this, created);
+            return created;
+        }
+
+        private PyObject CreateInstanceCore(PyObject[] args, PyDict kwargs)
         {
             // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
             // The correct pattern is:
