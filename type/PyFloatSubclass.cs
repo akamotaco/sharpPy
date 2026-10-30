@@ -42,22 +42,6 @@ namespace SharpPy
             InstanceDict = new Dictionary<string, PyObject>();
         }
 
-        /// <summary>
-        /// CPython float_subtype_new: convert the argument first, then carry the value into a new
-        /// instance of the subclass. Single implementation shared by PyClass.CreateInstance and
-        /// PyType.CreateInstance (PyClass hides CreateInstance with `new`, so both entry points
-        /// exist for a float-derived class depending on the static type of the receiver).
-        /// </summary>
-        public static PyObject FloatSubtypeNew(PyClass cls, PyObject[] args, PyDict kwargs)
-        {
-            // Measured against CPython: the subclass path reports the same texts as float itself.
-            if (kwargs != null && kwargs.Length() != 0)
-                throw PyTypeError.Create("float() takes no keyword arguments");
-            if (args.Length > 1)
-                throw PyTypeError.Create($"float expected at most 1 argument, got {args.Length}");
-            return new PyFloatSubclass(cls, args.Length == 0 ? new PyFloat(0.0) : args[0].AsFloat());
-        }
-
         public PyFloat GetFloatValue() => _floatValue;
         public double Value => _floatValue.Value;
 

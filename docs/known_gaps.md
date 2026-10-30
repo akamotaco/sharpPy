@@ -1620,7 +1620,7 @@ sealed인 타입은 없으므로 C# 단일 상속은 이를 강요하지 않았�
 제너릭 코드에 있던 계열 분기를 삭제했다: `PyClass.CreateInstanceCore`의 float 분기、
 `PyType.Call`의 bytes 서브클래스 분기、`PyClass.CreateInstanceCore`의 bytes 분기、그리고
 `PyType.Call`의 float 분기는 `FloatNew`로 위임(bytes는 `type/PyBytes.cs:210`이 기관)。
-측정 — `family branches in generic paths 7→4`, `*_subtype_new sites 7→5`、bughunt **86/86**
+측정 — `family branches in generic paths 7→3`, `*_subtype_new sites 7→3`(사를 있던 float 분기와 FloatSubtypeNew는 제거 후도 bughunt 86/86으로 살아있음을 증명)、bughunt **86/86**
 (`p81_float_new_and_super.py`: float 행렬 + 5개 payload base 전체의 `super().__new__` + 거부 3종)、
 evaluate 225/3/2、Godot 82/0、perf A/B 0.95x~1.03x(노이즈)。
 자세히는 [서브클래스 인스턴스는 그 타입이 만든다](reports/2026-10-31/subtype_new_belongs_to_the_type.md).

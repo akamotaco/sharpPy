@@ -55,9 +55,15 @@ paths* counts `DerivesFromType(` inside `core/PyType.cs`, `type/PyClass.cs` and 
 where CPython keeps nothing of the sort.
 
 ```
-family branches inside generic paths   7 -> 4
-*_subtype_new call sites               7 -> 5
+family branches inside generic paths   7 -> 3
+*_subtype_new call sites               7 -> 3
 ```
+
+The last two came from deleting, not from hiding: `PyType.Call`'s float-subclass branch turned out to
+be **dead** once the slot existed (removing it left bughunt at 86/86 and the float probe
+line-for-line identical to CPython), and `PyFloatSubclass.FloatSubtypeNew` - whose own doc comment
+claimed it was the "single implementation shared by PyClass.CreateInstance and PyType.CreateInstance" -
+lost its last caller at that point and went with it.
 
 ## Gates
 
