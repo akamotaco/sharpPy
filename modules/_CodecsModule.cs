@@ -126,12 +126,8 @@ namespace SharpPy.Modules
             var obj = args[0];
             string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
 
-            // For now, simple UTF-8 encoding
             if (obj is PyString pyStr)
-            {
-                byte[] bytes = Encoding.UTF8.GetBytes(pyStr.Value);
-                return new PyBytes(bytes);
-            }
+                return pyStr.Encode(encoding);
 
             throw PyTypeError.Create($"encode() argument must be str, not {obj.GetTypeName()}");
         }
@@ -231,18 +227,35 @@ namespace SharpPy.Modules
             });
         }
 
+        /// <summary>
+        /// One shape for the _codecs.*_encode entry points: hand the text to PyString.Encode (the
+        /// only strict encoder) and report the number of CHARACTERS consumed, which is what CPython
+        /// returns. Each entry point used to pick an Encoding on its own - so they reproduced
+        /// .NET's silent replacement instead of CPython's refusal - and utf_32_le_encode delegated
+        /// to utf_32_encode, handing back a BOM for the codec that must not have one.
+        /// </summary>
+        private static PyObject Encoded(PyObject[] args, string codec, string name)
+        {
+            // getargs.c words the positional errors of these parsers without the () that the
+            // clinic-generated ones carry: "utf_8_encode expected at most 2 arguments, got 3" and
+            // "utf_8_encode() argument 1 must be str, not bytes" for the converter itself.
+            if (args.Length < 1)
+                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
+            if (!(args[0] is PyString pyStr))
+                throw PyTypeError.Create($"{name}() argument 1 must be str, not {args[0].GetTypeName()}");
+            return new PyTuple(new PyObject[] { pyStr.Encode(codec), new PyInt(pyStr.Length()) });
+        }
+
         // UTF-8 encoding - CPython 3.12: Modules/_codecsmodule.c:488-520
         private static PyObject PyUtf8Encode(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"utf_8_encode() takes 1 or 2 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"utf_8_encode expected at most 2 arguments, got {args.Length}");
 
             if (!(args[0] is PyString pyStr))
-                throw PyTypeError.Create("utf_8_encode() argument must be str");
+                throw PyTypeError.Create($"utf_8_encode() argument 1 must be str, not {args[0].GetTypeName()}");
 
-            byte[] bytes = Encoding.UTF8.GetBytes(pyStr.Value);
-            int length = pyStr.Value.Length;
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(length) });
+            return Encoded(args, "utf-8", "utf_8_encode");
         }
 
         // UTF-8 decoding - CPython 3.12: Modules/_codecsmodule.c:522-565
@@ -264,8 +277,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.Unicode.GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "utf-16", "utf_16_encode");
         }
 
         private static PyObject PyUtf16Decode(PyObject[] args, PyDict kwargs = null)
@@ -280,8 +292,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.Unicode.GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "utf-16-le", "utf_16_le_encode");
         }
 
         private static PyObject PyUtf16LeDecode(PyObject[] args, PyDict kwargs = null)
@@ -296,8 +307,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.BigEndianUnicode.GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "utf-16-be", "utf_16_be_encode");
         }
 
         private static PyObject PyUtf16BeDecode(PyObject[] args, PyDict kwargs = null)
@@ -319,8 +329,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.UTF32.GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "utf-32", "utf_32_encode");
         }
 
         private static PyObject PyUtf32Decode(PyObject[] args, PyDict kwargs = null)
@@ -333,7 +342,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32LeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            return PyUtf32Encode(args, kwargs);
+            return Encoded(args, "utf-32-le", "utf_32_le_encode");
         }
 
         private static PyObject PyUtf32LeDecode(PyObject[] args, PyDict kwargs = null)
@@ -345,8 +354,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.GetEncoding("utf-32BE").GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "utf-32-be", "utf_32_be_encode");
         }
 
         private static PyObject PyUtf32BeDecode(PyObject[] args, PyDict kwargs = null)
@@ -367,8 +375,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.ASCII.GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "ascii", "ascii_encode");
         }
 
         private static PyObject PyAsciiDecode(PyObject[] args, PyDict kwargs = null)
@@ -384,8 +391,7 @@ namespace SharpPy.Modules
         {
             if (!(args[0] is PyString pyStr))
                 throw PyTypeError.Create("argument must be str");
-            byte[] bytes = Encoding.GetEncoding("iso-8859-1").GetBytes(pyStr.Value);
-            return new PyTuple(new PyObject[] { new PyBytes(bytes), new PyInt(pyStr.Value.Length) });
+            return Encoded(args, "latin-1", "latin_1_encode");
         }
 
         private static PyObject PyLatin1Decode(PyObject[] args, PyDict kwargs = null)

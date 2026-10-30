@@ -89,7 +89,7 @@ namespace SharpPy
         /// GetEncoding("utf8") fails here, so the names CPython's own tests and documentation use are
         /// mapped explicitly and anything else is CPython's LookupError.
         /// </summary>
-        private static string NormalizeCodecName(string name)
+        internal static string NormalizeCodecName(string name)
         {
             var lowered = name.ToLowerInvariant().Replace("_", "-");
             return lowered switch
@@ -98,9 +98,16 @@ namespace SharpPy
                 "latin" or "latin-1" or "latin1" or "iso-8859-1" or "iso8859-1" or "8859" or "cp819"
                     or "l1" => "latin-1",
                 "ascii" or "us-ascii" or "646" or "ansi_x3.4-1968" => "ascii",
-                "utf-16" or "utf-16le" or "utf16" or "utf-16-le" => "utf-16-le",
-                "utf-16be" or "utf-16-be" or "utf16be" => "utf-16-be",
-                "utf-32" or "utf-32le" or "utf32" => "utf-32-le",
+                // utf-16/utf-32 are BOM codecs in CPython; folding them onto -le dropped the
+                // preamble, so "ab".encode("utf-16") answered b'a\x00b\x00'. Measured:
+                //   "ab".encode("utf-16") -> b'\xff\xfea\x00b\x00'
+                //   "ab".encode("utf-32") -> b'\xff\xfe\x00\x00a\x00\x00\x00b\x00\x00\x00'
+                //   "".encode("utf-16")   -> b'\xff\xfe'
+                "utf-16" or "utf16" or "u16" => "utf-16",
+                "utf-16le" or "utf-16-le" => "utf-16-le",
+                "utf-16be" or "utf-16-be" => "utf-16-be",
+                "utf-32" or "utf32" or "u32" => "utf-32",
+                "utf-32le" or "utf-32-le" => "utf-32-le",
                 "utf-32be" or "utf-32-be" => "utf-32-be",
                 "big5" or "big5-tw" or "csbig5" => "big5",
                 "gbk" or "936" => "gbk",
@@ -123,10 +130,15 @@ namespace SharpPy
                 case "utf-8": return new System.Text.UTF8Encoding(false);
                 case "latin-1": return System.Text.Encoding.Latin1;
                 case "ascii": return new System.Text.ASCIIEncoding();
+                // BOM codecs: little-endian with a detectable preamble, which is CPython's "utf-16".
+                // (UnicodeEncoding's first argument is big-endian, not "emit a BOM"; passing true here
+                // decoded BOM-less b'a\x00b\x00' as big-endian and left the BOM in the result.)
+                case "utf-16": return new System.Text.UnicodeEncoding(false, true);
                 case "utf-16-le": return System.Text.UnicodeEncoding.Unicode;
                 case "utf-16-be": return System.Text.UnicodeEncoding.BigEndianUnicode;
+                case "utf-32": return new System.Text.UTF32Encoding(false, true);
                 case "utf-32-le": return new System.Text.UTF32Encoding(false, true);
-                case "utf-32-be": return new System.Text.UTF32Encoding(false, false);
+                case "utf-32-be": return new System.Text.UTF32Encoding(true, false);
                 default:
                     try
                     {
@@ -161,6 +173,41 @@ namespace SharpPy
                 ?? throw PyLookupError.Create($"unknown encoding: {encodingName}");
 
             string normalized = NormalizeCodecName(encodingName);
+
+            // CPython's utf-16/utf-32 consume the byte-order mark instead of putting it in the
+            // result; .NET's GetString left it as a leading U+FEFF in every round trip. A
+            // big-endian mark also flips the byte order, and no mark means native little-endian.
+            // Measured: "".encode("utf-16") == b'\xff\xfe'.
+            if (normalized == "utf-16" || normalized == "utf-32")
+            {
+                int unit = normalized == "utf-16" ? 2 : 4;
+                bool bigEndian = false;
+                int skip = 0;
+                bool littleMark = data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE &&
+                                  (unit == 2 || (data.Length >= 4 && data[2] == 0x00 && data[3] == 0x00));
+                bool bigMark = unit == 2
+                    ? data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF
+                    : data.Length >= 4 && data[0] == 0x00 && data[1] == 0x00 &&
+                      data[2] == 0xFE && data[3] == 0xFF;
+                if (littleMark) skip = unit;
+                else if (bigMark) { skip = unit; bigEndian = true; }
+
+                encoding = normalized == "utf-16"
+                    ? (System.Text.Encoding)(bigEndian
+                        ? System.Text.UnicodeEncoding.BigEndianUnicode
+                        : System.Text.UnicodeEncoding.Unicode)
+                    : (System.Text.Encoding)(bigEndian
+                        ? new System.Text.UTF32Encoding(true, false)
+                        : new System.Text.UTF32Encoding(false, false));
+
+                if (skip != 0 && data.Length >= skip)
+                {
+                    var rest = new byte[data.Length - skip];
+                    Buffer.BlockCopy(data, skip, rest, 0, rest.Length);
+                    data = rest;
+                }
+            }
+
             bool strict = errorName == null || errorName == "strict";
             if (!strict && errorName != "ignore" && errorName != "replace" &&
                 errorName != "surrogateescape" && errorName != "backslashreplace")
@@ -1439,9 +1486,10 @@ namespace SharpPy
                     if (paEnc.Length >= 1 && paEnc[0] != null)
                     {
                         if (paEnc[0] is PyString encodingStr)
-                            encoding = encodingStr.Value.ToLowerInvariant();
+                            encoding = encodingStr.Value;
                         else
-                            throw PyTypeError.Create("encode() encoding must be str");
+                            throw PyTypeError.Create(
+                                $"encode() argument 'encoding' must be str, not {paEnc[0].GetTypeName()}");
                     }
 
                     if (paEnc.Length >= 2 && paEnc[1] != null)
@@ -1449,28 +1497,14 @@ namespace SharpPy
                         if (paEnc[1] is PyString errorsStr)
                             errors = errorsStr.Value;
                         else
-                            throw PyTypeError.Create("encode() errors must be str");
+                            throw PyTypeError.Create(
+                                $"encode() argument 'errors' must be str, not {paEnc[1].GetTypeName()}");
                     }
 
-                    try
-                    {
-                        Encoding enc = encoding switch
-                        {
-                            "utf-8" or "utf8" => Encoding.UTF8,
-                            "ascii" => Encoding.ASCII,
-                            "utf-16" or "utf16" => Encoding.Unicode,
-                            "utf-32" or "utf32" => Encoding.UTF32,
-                            "latin-1" or "latin1" or "iso-8859-1" => Encoding.Latin1,
-                            _ => throw PyLookupError.Create($"unknown encoding: {encoding}")
-                        };
-
-                        byte[] bytes = enc.GetBytes(str.Value);
-                        return new PyBytes(bytes);
-                    }
-                    catch (EncoderFallbackException)
-                    {
-                        throw PyUnicodeEncodeError.Create($"'{encoding}' codec can't encode characters");
-                    }
+                    // One encoder. This descriptor kept its own codec table, so str.encode had two
+                    // implementations: Encoding.ASCII turned 'é' into b'?' here, while the faithful
+                    // refusal that PyString.Encode already had was reached from nowhere.
+                    return str.Encode(encoding, errors);
                 },
                 minArgs: 0, maxArgs: 2
 , acceptsKwargs: true);
@@ -2903,95 +2937,286 @@ namespace SharpPy
 
         #endregion
 
-        #region Encoding (Simplified)
+        #region Encoding
 
         /// <summary>
-        /// str.encode() - UTF-8로 인코딩 (간단한 구현)
+        /// The single strict encoder behind str.encode() and the _codecs.*_encode entry points.
+        /// There used to be two implementations: the live descriptor picked a .NET Encoding itself,
+        /// so .NET replaced whatever it could not encode - 'é'.encode('ascii') answered b'?' and a
+        /// lone surrogate answered b'\xef\xbf\xbd'. Silent corruption. CPython refuses, and these
+        /// refusals are measured with CHARACTER positions (a surrogate pair is one character, a lone
+        /// surrogate is one character):
+        ///   'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
+        ///   'ascii' codec can't encode character '\xe9' in position 1: ordinal not in range(128)
+        ///   'latin-1' codec can't encode characters in position 0-1: ordinal not in range(256)
+        /// The error handler is resolved on first use, not upfront, because CPython only consults it
+        /// when something actually fails: 'e'.encode('ascii', 'bogus') succeeds.
         /// </summary>
-        public PyBytes Encode(string encoding = "utf-8")
+        public PyBytes Encode(string encoding = "utf-8", string errors = null)
         {
-            try
+            string codec = PyStringNewArguments.NormalizeCodecName(encoding ?? "utf-8");
+            var ctx = new EncodeContext(codec, errors);
+
+            switch (codec)
             {
-                byte[] bytes;
-                var lowerEncoding = encoding.ToLower();
-                if (lowerEncoding == "utf-8" || lowerEncoding == "utf8")
-                    bytes = Encoding.UTF8.GetBytes(Value);
-                else if (lowerEncoding == "ascii")
-                    bytes = Encoding.ASCII.GetBytes(Value);
-                else if (lowerEncoding == "unicode" || lowerEncoding == "utf-16" ||
-                         lowerEncoding == "utf16" || lowerEncoding == "utf-16-le")
-                    bytes = Encoding.Unicode.GetBytes(Value);
-                else if (lowerEncoding == "utf-16-be")
-                    bytes = Encoding.BigEndianUnicode.GetBytes(Value);
-                else if (lowerEncoding == "latin-1" || lowerEncoding == "latin1" || lowerEncoding == "iso-8859-1")
-                {
-                    // CPython strict latin-1: report the first out-of-range run exactly.
-                    for (int i = 0; i < Value.Length; i++)
-                    {
-                        if (Value[i] > 0xFF)
-                        {
-                            int cp = Value[i];
-                            int endIdx = i;
-                            if (char.IsHighSurrogate(Value[i]) && i + 1 < Value.Length && char.IsLowSurrogate(Value[i + 1]))
-                            {
-                                cp = char.ConvertToUtf32(Value[i], Value[i + 1]);
-                                endIdx = i + 1;
-                            }
-                            int runEnd = endIdx;
-                            while (runEnd + 1 < Value.Length && Value[runEnd + 1] > 0xFF)
-                            {
-                                runEnd++;
-                                if (char.IsHighSurrogate(Value[runEnd]) && runEnd + 1 < Value.Length && char.IsLowSurrogate(Value[runEnd + 1]))
-                                    runEnd++;
-                            }
-                            string chDesc = cp <= 0xFFFF ? $"\'\\u{cp:x4}\'" : $"\'\\U{cp:x8}\'";
-                            string position = runEnd == i ? $"character {chDesc} in position {i}"
-                                                         : $"characters in position {i}-{runEnd}";
-                            throw PyUnicodeEncodeError.Create(
-                                $"'latin-1' codec can't encode {position}: ordinal not in range(256)");
-                        }
-                    }
-                    bytes = Encoding.Latin1.GetBytes(Value);
-                }
-                else
+                case "utf-8":
+                    return new PyBytes(EncodeCodePoints(ctx, bigEndian: false));
+                case "utf-16":
+                    return new PyBytes(WithPreamble(
+                        EncodeCodePoints(ctx, bigEndian: false), new byte[] { 0xFF, 0xFE }));
+                case "utf-16-le":
+                    return new PyBytes(EncodeCodePoints(ctx, bigEndian: false));
+                case "utf-16-be":
+                    return new PyBytes(EncodeCodePoints(ctx, bigEndian: true));
+                case "utf-32":
+                    return new PyBytes(WithPreamble(
+                        EncodeCodePoints(ctx, bigEndian: false), new byte[] { 0xFF, 0xFE, 0x00, 0x00 }));
+                case "utf-32-le":
+                    return new PyBytes(EncodeCodePoints(ctx, bigEndian: false));
+                case "utf-32-be":
+                    return new PyBytes(EncodeCodePoints(ctx, bigEndian: true));
+                case "ascii":
+                case "latin-1":
+                    return new PyBytes(EncodeCodePoints(ctx, bigEndian: false));
+                default:
+                    // CPython's LookupError names the encoding the caller asked for. Codecs beyond
+                    // these still have no encoder here; that limit stays in docs/known_gaps.md.
                     throw PyLookupError.Create($"unknown encoding: {encoding}");
-                return new PyBytes(bytes);
             }
-            catch (PythonException)
+        }
+
+        /// <summary>Everything the byte walk needs to know about the requested codec.</summary>
+        private sealed class EncodeContext
+        {
+            internal EncodeContext(string codec, string errors)
             {
-                throw; // LookupError/ValueError already carry CPython semantics
+                Codec = codec;
+                // codecs.lookup_error() resolves handler names case-insensitively.
+                Errors = (errors ?? "strict").ToLowerInvariant();
+                IsUtf = codec == "utf-8" || codec == "utf-16" || codec == "utf-16-le" ||
+                        codec == "utf-16-be" || codec == "utf-32" || codec == "utf-32-le" ||
+                        codec == "utf-32-be";
+                Limit = codec == "ascii" ? 0x7F : codec == "latin-1" ? 0xFF : int.MaxValue;
+                Width = codec == "utf-8" ? 0 : codec.StartsWith("utf-16") ? 2
+                      : codec.StartsWith("utf-32") ? 4 : 1;
             }
-            catch (Exception)
+
+            internal readonly string Codec;
+            internal readonly string Errors;
+            internal readonly bool IsUtf;
+            internal readonly int Limit;
+            internal readonly int Width;
+        }
+
+        /// <summary>
+        /// Walk code points and emit bytes: one pass, refusal included. Fixed-width codecs write
+        /// 1/2/4 bytes per character (UTF-16 splits an astral character into a surrogate pair, which
+        /// is why "chr(0x10400).encode('utf-16-be')" measures b'\xd8\x01\xdc\x00'); UTF-8 writes a
+        /// length that depends on the value.
+        /// </summary>
+        private byte[] EncodeCodePoints(EncodeContext ctx, bool bigEndian)
+        {
+            var bytes = new List<byte>(Value.Length * 2);
+            int cpIndex = 0;
+            int i = 0;
+            while (i < Value.Length)
             {
-                throw PyValueError.Create($"'{encoding}' codec can't encode characters in position 0-{Value.Length - 1}: character is not mapped");
+                int cp = Value[i];
+                int unitWidth = 1;
+                if (char.IsHighSurrogate(Value[i]) && i + 1 < Value.Length &&
+                    char.IsLowSurrogate(Value[i + 1]))
+                {
+                    cp = char.ConvertToUtf32(Value[i], Value[i + 1]);
+                    unitWidth = 2;
+                }
+
+                // A lone surrogate is out of range for every codec: CPython refuses
+                // chr(0xD800).encode('latin-1') too, with "ordinal not in range(256)". Only the UTF
+                // codecs get the "surrogates not allowed" wording, so the two refusals stay apart.
+                bool loneSurrogate = unitWidth == 1 && char.IsSurrogate(Value[i]);
+                bool outOfRange = cp > ctx.Limit;
+                bool unencodable = outOfRange || loneSurrogate && ctx.IsUtf;
+                bool surrogateRefusal = loneSurrogate && ctx.IsUtf;
+
+                if (!unencodable)
+                {
+                    Emit(bytes, cp, ctx, bigEndian);
+                    i += unitWidth;
+                    cpIndex++;
+                    continue;
+                }
+
+                switch (ctx.Errors)
+                {
+                    case "ignore":
+                        i += unitWidth;
+                        cpIndex++;
+                        continue;
+                    case "replace":
+                        // One '?' per character, including astral ones. Measured.
+                        bytes.Add((byte)'?');
+                        i += unitWidth;
+                        cpIndex++;
+                        continue;
+                    case "surrogatepass":
+                        if (!surrogateRefusal) throw RangeError(ctx, cpIndex, cp, unitWidth);
+                        Emit(bytes, Value[i], ctx, bigEndian);
+                        i += unitWidth;
+                        cpIndex++;
+                        continue;
+                    case "surrogateescape":
+                        // CPython maps only U+DC80..U+DCFF back to the bytes 0x80..0xFF; any other
+                        // surrogate is refused with the strict message, which is why
+                        // chr(0xD800).encode('utf-8', 'surrogateescape') still raises.
+                        if (loneSurrogate && ctx.Codec == "utf-8" && Value[i] >= 0xDC80 &&
+                            Value[i] <= 0xDCFF)
+                        {
+                            bytes.Add((byte)(Value[i] - 0xDC00));
+                            i += unitWidth;
+                            cpIndex++;
+                            continue;
+                        }
+                        throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[i])
+                                               : RangeError(ctx, cpIndex, cp, unitWidth);
+                    case "strict":
+                        throw surrogateRefusal ? SurrogateError(ctx, cpIndex, Value[i])
+                                               : RangeError(ctx, cpIndex, cp, unitWidth);
+                    default:
+                        throw PyLookupError.Create($"unknown error handler name '{ctx.Errors}'");
+                }
             }
+            return bytes.ToArray();
+        }
+
+        private static void Emit(List<byte> bytes, int cp, EncodeContext ctx, bool bigEndian)
+        {
+            if (ctx.Width == 0)
+            {
+                EmitUtf8(bytes, cp);
+                return;
+            }
+            if (ctx.Width == 2 && cp > 0xFFFF)
+            {
+                int v = cp - 0x10000;
+                EmitUnit(bytes, 0xD800 + (v >> 10), bigEndian);
+                EmitUnit(bytes, 0xDC00 + (v & 0x3FF), bigEndian);
+                return;
+            }
+            for (int k = 0; k < ctx.Width; k++)
+            {
+                int shift = bigEndian ? 8 * (ctx.Width - 1 - k) : 8 * k;
+                bytes.Add((byte)((cp >> shift) & 0xFF));
+            }
+        }
+
+        private static void EmitUtf8(List<byte> bytes, int cp)
+        {
+            if (cp < 0x80)
+            {
+                bytes.Add((byte)cp);
+            }
+            else if (cp < 0x800)
+            {
+                bytes.Add((byte)(0xC0 | (cp >> 6)));
+                bytes.Add((byte)(0x80 | (cp & 0x3F)));
+            }
+            else if (cp < 0x10000)
+            {
+                bytes.Add((byte)(0xE0 | (cp >> 12)));
+                bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
+                bytes.Add((byte)(0x80 | (cp & 0x3F)));
+            }
+            else
+            {
+                bytes.Add((byte)(0xF0 | (cp >> 18)));
+                bytes.Add((byte)(0x80 | ((cp >> 12) & 0x3F)));
+                bytes.Add((byte)(0x80 | ((cp >> 6) & 0x3F)));
+                bytes.Add((byte)(0x80 | (cp & 0x3F)));
+            }
+        }
+
+        private static void EmitUnit(List<byte> bytes, int unit, bool bigEndian)
+        {
+            if (bigEndian)
+            {
+                bytes.Add((byte)((unit >> 8) & 0xFF));
+                bytes.Add((byte)(unit & 0xFF));
+            }
+            else
+            {
+                bytes.Add((byte)(unit & 0xFF));
+                bytes.Add((byte)((unit >> 8) & 0xFF));
+            }
+        }
+
+        /// <summary>
+        /// CPython reports a run of unencodable characters: one is "character '\xe9' in position 1",
+        /// several are "characters in position 0-1". The escape follows the value - \xNN, \uXXXX,
+        /// \UXXXXXXXX - and the old code wrote '\u00e9' for a character CPython writes as '\xe9'.
+        /// </summary>
+        private PythonException RangeError(EncodeContext ctx, int cpIndex, int cp, int unitWidth)
+        {
+            int start = cpIndex;
+            int end = cpIndex;
+            // The scan extends the run AFTER the failing character; starting on it counted that
+            // character twice, so chr(0xE9).encode('ascii') claimed "characters in position 0-1"
+            // for a one-character string.
+            int at = UnitIndexOfCharacter(start) + unitWidth;
+            while (at < Value.Length)
+            {
+                int next = Value[at];
+                int nextWidth = 1;
+                if (char.IsHighSurrogate(Value[at]) && at + 1 < Value.Length &&
+                    char.IsLowSurrogate(Value[at + 1]))
+                {
+                    next = char.ConvertToUtf32(Value[at], Value[at + 1]);
+                    nextWidth = 2;
+                }
+                bool bad = nextWidth == 1 && char.IsSurrogate(Value[at]) ? ctx.IsUtf : next > ctx.Limit;
+                if (!bad) break;
+                end++;
+                at += nextWidth;
+            }
+
+            string chDesc = cp <= 0xFF ? $"'\\x{cp:x2}'"
+                            : cp <= 0xFFFF ? $"'\\u{cp:x4}'"
+                            : $"'\\U{cp:x8}'";
+            string position = start == end
+                ? $"character {chDesc} in position {start}"
+                : $"characters in position {start}-{end}";
+            return PyUnicodeEncodeError.Create(
+                $"'{ctx.Codec}' codec can't encode {position}: ordinal not in range({ctx.Limit + 1})");
+        }
+
+        private PythonException SurrogateError(EncodeContext ctx, int cpIndex, char unit) =>
+            PyUnicodeEncodeError.Create(
+                $"'{ctx.Codec}' codec can't encode character '\\u{(int)unit:x4}' " +
+                $"in position {cpIndex}: surrogates not allowed");
+
+        /// <summary>Unit offset of a character index: the one place encode() converts the two.</summary>
+        private int UnitIndexOfCharacter(int cpIndex)
+        {
+            int units = 0;
+            for (int seen = 0; seen < cpIndex && units < Value.Length; seen++)
+            {
+                if (char.IsHighSurrogate(Value[units]) && units + 1 < Value.Length &&
+                    char.IsLowSurrogate(Value[units + 1])) units += 2;
+                else units++;
+            }
+            return units;
+        }
+
+        private static byte[] WithPreamble(byte[] body, byte[] preamble)
+        {
+            var all = new byte[preamble.Length + body.Length];
+            Buffer.BlockCopy(preamble, 0, all, 0, preamble.Length);
+            Buffer.BlockCopy(body, 0, all, preamble.Length, body.Length);
+            return all;
         }
 
         #endregion
 
         #region Static Factory Methods
-
-        public static PyString FromBytes(byte[] bytes, string encoding = "utf-8")
-        {
-            try
-            {
-                string result;
-                var lowerEncoding = encoding.ToLower();
-                if (lowerEncoding == "utf-8" || lowerEncoding == "utf8")
-                    result = Encoding.UTF8.GetString(bytes);
-                else if (lowerEncoding == "ascii")
-                    result = Encoding.ASCII.GetString(bytes);
-                else if (lowerEncoding == "unicode")
-                    result = Encoding.Unicode.GetString(bytes);
-                else
-                    throw PyLookupError.Create($"unknown encoding: {encoding}");
-                return new PyString(result);
-            }
-            catch (Exception)
-            {
-                throw PyValueError.Create($"'{encoding}' codec can't decode bytes");
-            }
-        }
 
         #endregion
 

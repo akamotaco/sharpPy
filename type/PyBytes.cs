@@ -272,30 +272,11 @@ namespace SharpPy
                         return new PyString(DecodeAsciiPython(bytes.Value, errors));
                     }
 
-                    // Handle encoding parameter
-                    System.Text.Encoding enc = encLower switch
-                    {
-                        "utf-16" or "utf16" => System.Text.Encoding.Unicode,
-                        "utf-32" or "utf32" => System.Text.Encoding.UTF32,
-                        "latin-1" or "latin1" or "iso-8859-1" => System.Text.Encoding.Latin1,
-                        _ => throw PyLookupError.Create($"unknown encoding: {encoding}")
-                    };
-
-                    try
-                    {
-                        return new PyString(enc.GetString(bytes.Value));
-                    }
-                    catch (System.Text.DecoderFallbackException ex)
-                    {
-                        if (errors == "strict")
-                            throw PyUnicodeDecodeError.Create($"'{encoding}' codec can't decode bytes: {ex.Message}");
-                        else if (errors == "ignore")
-                            return new PyString(enc.GetString(bytes.Value)); // Try without exceptions
-                        else if (errors == "replace")
-                            return new PyString(enc.GetString(bytes.Value)); // Use replacement char
-                        else
-                            throw PyLookupError.Create($"unknown error handler name '{errors}'");
-                    }
+                    // Everything else goes to the one decoder the str(bytes, enc, errors) path uses.
+                    // This local table knew four names, so b'ab'.decode('utf-16-le') reported an
+                    // unknown encoding while str(b'ab', 'utf-16-le') worked, and the catch below could
+                    // never fire because .NET's default decoder fallback replaces rather than throws.
+                    return new PyString(PyStringNewArguments.DecodeBytes(bytes.Value, encoding, errors));
                 },
                 minArgs: 0, maxArgs: 2
 , acceptsKwargs: true);

@@ -1088,24 +1088,11 @@ namespace SharpPy
                 throw PyTypeError.Create($"str() argument 3 must be str, not {errors.GetTypeName()}");
             }
 
-            // Decode bytes using specified encoding
-            // For now, only support 'utf-8' and 'latin-1' encodings
-            string encodingName = encStr.Value.ToLower();
-            try
-            {
-                System.Text.Encoding enc = encodingName switch
-                {
-                    "utf-8" or "utf8" => System.Text.Encoding.UTF8,
-                    "latin-1" or "latin1" or "iso-8859-1" => System.Text.Encoding.Latin1,
-                    "ascii" => System.Text.Encoding.ASCII,
-                    _ => throw PyLookupError.Create($"unknown encoding: {encStr.Value}")
-                };
-                return new PyString(enc.GetString(pyBytes.Value));
-            }
-            catch (Exception ex)
-            {
-                throw PyUnicodeDecodeError.Create($"'{encStr.Value}' codec can't decode bytes: {ex.Message}");
-            }
+            // One decoder. str() kept a three-name table of its own while PyStringNewArguments
+            // already had the decoder the str(bytes, enc, errors) constructor path uses, so
+            // str(b'ab', 'utf-16-le') reported an unknown encoding that str() itself accepts.
+            return new PyString(PyStringNewArguments.DecodeBytes(
+                pyBytes.Value, encStr.Value, ((PyString)errors).Value));
         }
 
         // CPython 3.12: Objects/longobject.c:5598-5641 (long_new_impl)
@@ -4008,15 +3995,9 @@ namespace SharpPy
 
             if (effective.Length >= 2 && effective[0] is PyString strSrc && effective[1] is PyString encName)
             {
-                var enc = encName.Value.ToLowerInvariant() switch
-                {
-                    "utf-8" or "utf8" => System.Text.Encoding.UTF8,
-                    "ascii" or "us-ascii" => System.Text.Encoding.ASCII,
-                    "latin-1" or "latin1" or "iso-8859-1" => System.Text.Encoding.Latin1,
-                    "utf-16" or "utf16" => System.Text.Encoding.Unicode,
-                    _ => throw PyLookupError.Create($"unknown encoding: {encName.Value}")
-                };
-                return new PyBytes(enc.GetBytes(strSrc.Value));
+                // Same single encoder as str.encode(): the local four-name table used .NET's
+                // lenient GetBytes, so bytes('é', 'ascii') answered b'?' where CPython refuses.
+                return strSrc.Encode(encName.Value);
             }
             if (effective.Length >= 2 && effective[0] is PyString strNoEnc)
             {

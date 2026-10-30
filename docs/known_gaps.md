@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **76/76 matching**
+- `tools/run_bughunt.py`: **77/77 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -1218,3 +1218,40 @@ UTF-16을 직접 걸어 중간 `int[]` 패스를 없애기, 시그마가 없는 
 `eval("%s")` (그 자체로 잘못된 코드)을 CPython이 `SyntaxError: invalid syntax (<string>, line 1)`로
 내는 반면, SharpPy는 `SyntaxError: invalid syntax`만 낸다. `compile()`/`eval()` 경로에서 파일명·줄
 번호가 붙지 않는다. traceback 표시와 같은 계열(`p17`)이지만 진입점이 다르다.
+
+## P0-34 pre-work 코호트 1 (2026-10-30 완료): 코덱 경계
+
+`str.encode`, `bytes(str, enc)`, `str(bytes, enc, errors)`, `bytes.decode`, `_codecs.*_encode`
+다섯 곳이 저마다의 코덱 표를 갖고 있었다. .NET 인코더는 인코딩할 수 없는 것을 `?`(또는 U+FFFD)로
+바꾸므로 라이브 쪽 경로는 `'é'.encode('ascii')`에 `b'?'`, lone surrogate에 `b'\xef\xbf\xbd'`를
+답했다. CPython은 거부한다. `PyString.Encode`에는 이미 faithful한 거부 코드가 있었는데 아무도
+부르지 않는 사본이었다. 이제 인코딩은 `PyString.Encode`, 디코딩은
+`PyStringNewArguments.DecodeBytes` 한 곳으로 모았다. 데드 사본 `PyString.FromBytes`는 삭제.
+증거: `tests/bughunt/p72_encode_strict.py` 106 case diff 0.
+
+이 코호트에서 함께 고친 것:
+- `utf-16`/`utf-32`는 BOM 코덱인데 별칭이 `-le`로 접혀 있어 BOM이 사라졌다 (`"ab".encode("utf-16")`
+  가 `b'a\x00b\x00'`). `_codecs.utf_32_le_encode`는 `utf_32_encode`에 위임해 BOM 없는 코덱에 BOM을 붙였다.
+- 디코딩이 BOM을 결과에 남겼다 (`'\ufeff...'`). BOM을 소비하고 BE 마크는 바이트 순서를 뒤집는다.
+- `utf-32-be`가 little-endian으로 디코딩돼 라운드트립이 U+FFFD로 망가졌다.
+- 거부 메시지의 escape 폭(`\xNN`/`\uXXXX`/`\UXXXXXXXX`)과 run 셀 수. 한 문자 문자열에서
+  "characters in position 0-1"이라고 답했다.
+- `_codecs` 인코딩 진입점의 이름·arity 메시지 (`utf_8_encode expected at most 2 arguments, got 3`,
+  `utf_8_encode() argument 1 must be str, not bytes`).
+
+P0-34에 묶여 남는 것 (인코더의 버그가 아니라 저장 표현의 한계):
+- `_codecs.utf_8_encode(chr(0x10400))`의 소비 수가 2 (CPython은 1). `PyString.Length()`가 아직
+  code unit 기준이기 때문이고, 자리는 `Encoded()` 한 곳이다.
+- CPython의 "별도 surrogate 코드포인트 두 개"는 .NET `string`으로 표현할 수 없다.
+  `'\ud800\udc00'.encode('utf-16')`에서 SharpPy는 유효한 서러게이트 쌍으로 봐 CESU 바이트를 내고
+  CPython은 거부한다.
+- repr/len이 astral 문자를 서러게이트 쌍으로 보여주는 것(기존 P0-34 본체).
+
+별도 잔여:
+- 코덱 표는 utf-8/utf-16*/utf-32*/ascii/latin-1까지. 그 밖의 코드 페이지는 여전히 LookupError
+  (아래 P1 codec 항목에 이미 등록).
+- `surrogateescape`는 utf-8의 U+DC80..U+DCFF만 구현했다. 다른 코덱에서의 동작은 측정하지 않았고
+  지금은 strict 메시지로 거부한다.
+- `bytes.decode`의 utf-8/ascii 경로는 자체 구현(`DecodeUtf8Python`/`DecodeAsciiPython`)을 유지한다.
+  바이트 위치 메시지가 `DecodeBytes`보다 정확하기 때문이고, 그 밖의 코덱은 `DecodeBytes`로 위임한다.
+
