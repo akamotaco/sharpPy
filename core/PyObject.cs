@@ -687,6 +687,35 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Looks up a special method declared by user classes only, stopping where the C slots take
+        /// over. The value-carrying wrappers (PyIntSubclass, PyFloatSubclass) need this narrowing:
+        /// their arithmetic is implemented as CLR calls into the wrapped value, so consulting the
+        /// full MRO would hand the call straight back to the same virtual (int.__divmod__ reads the
+        /// value through FloorDivide) and recurse. What has to win is a dunder the user declared in
+        /// their own class; anything else falls through to the inherited base slot, which is exactly
+        /// what CPython does with an inherited slot.
+        /// </summary>
+        internal PyObject LookupUserSpecial(string name)
+        {
+            foreach (var mroType in GetPyType().MRO)
+            {
+                if (mroType is PyClass userClass &&
+                    userClass.ClassDict.TryGetValue(name, out var declared))
+                    return declared;
+                if (!(mroType is PyClass))
+                    break;
+            }
+            return null;
+        }
+
+        /// <summary>Call a user-declared special method, or null when the user declared none.</summary>
+        internal PyObject CallUserSpecialOrNull(string name, PyObject[] args)
+        {
+            var method = LookupUserSpecial(name);
+            return method == null ? null : BindSpecialMethod(method).Call(args, null);
+        }
+
+        /// <summary>
         /// Bind a type-level special method, including Python descriptor __get__.
         /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method.
         /// Descriptor exceptions must propagate, rather than mean "method missing".

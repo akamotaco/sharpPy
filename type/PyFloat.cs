@@ -121,7 +121,7 @@ namespace SharpPy
             regFloatRev("__rfloordiv__", (o, s) => o.FloorDivide(s));
             regFloatRev("__rmod__", (o, s) => o.Modulo(s));
             regFloatRev("__rpow__", (o, s) => o.Power(s));
-            regFloatRev("__rdivmod__", (o, s) => o.DivMod(s));
+            regFloatRev("__rdivmod__", (o, s) => DivModValues(o, s));
             regFloatUn("__abs__", s => new PyFloat(Math.Abs(s.Value)));
             regFloatUn("__neg__", s => new PyFloat(-s.Value));
             regFloatUn("__pos__", s => s);
@@ -145,6 +145,22 @@ namespace SharpPy
                 });
             }
 
+            // CPython publishes float.__int__ and float.__float__ too. __float__ returns the object
+            // itself, not a fresh float, so it needs the raw self rather than the payload.
+            regFloatUn("__int__", s => s.AsInt());
+            floatType.TypeDict["__float__"] = new PyWrapperDescriptor("__float__", floatType,
+                (self, args, kwargs) =>
+                {
+                    if (!PyFloat.TryFloatSelf(self, out _))
+                        throw PyTypeError.Create(
+                            $"descriptor '__float__' requires a 'float' object but received a '{self.GetTypeName()}'");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("wrapper __float__() takes no keyword arguments");
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
+                    return self;
+                });
+
             regFloatBin("__add__", (s, o) => s.Add(o));
             regFloatBin("__sub__", (s, o) => s.Subtract(o));
             regFloatBin("__mul__", (s, o) => s.Multiply(o));
@@ -152,7 +168,7 @@ namespace SharpPy
             regFloatBin("__floordiv__", (s, o) => s.FloorDivide(o));
             regFloatBin("__mod__", (s, o) => s.Modulo(o));
             regFloatBin("__pow__", (s, o) => s.Power(o));
-            regFloatRev("__divmod__", (o, s) => s.DivMod(o));
+            regFloatRev("__divmod__", (o, s) => DivModValues(s, o));
 
             floatType.TypeDict["__hash__"] = new PyWrapperDescriptor(
                 "__hash__", floatType,
@@ -767,29 +783,44 @@ namespace SharpPy
         /// CPython: Objects/floatobject.c:float_divmod (lines 711-723)
         /// Returns tuple of (quotient, remainder) equivalent to (a // b, a % b)
         /// </summary>
-        public override PyObject DivMod(PyObject other)
-        {
-            double otherValue;
-            switch (other)
-            {
-                case PyFloat otherFloat:
-                    otherValue = otherFloat.Value;
-                    break;
-                case PyInt otherInt:
-                    otherValue = (double)otherInt.Value;
-                    break;
-                case PyBool otherBool:
-                    otherValue = otherBool.Value ? 1.0 : 0.0;
-                    break;
-                default:
-                    return PyNotImplemented.Instance;
-            }
+        public override PyObject DivMod(PyObject other) => DivModValues(this, other);
 
-            if (otherValue == 0.0)
+        /// <summary>
+        /// CPython float_divmod with both operands read as numbers. Shared by __divmod__ and
+        /// __rdivmod__ because the reflected form is the same arithmetic with the operands the other
+        /// way round: measured divmod(2, FSub(2.5)) is (0.0, 2.0). Going through
+        /// other.DivMod(self) instead could not work, since int's divmod answers NotImplemented for
+        /// float operands and there was nothing left to try.
+        /// Operands are read through TryFloatSelf/TryLongSelf, so a numeric subclass contributes its
+        /// own value while the result stays a plain float pair.
+        /// </summary>
+        internal static PyObject DivModValues(PyObject left, PyObject right)
+        {
+            double leftValue;
+            if (PyFloat.TryFloatSelf(left, out var leftFloat))
+                leftValue = leftFloat.Value;
+            else if (PyInt.TryLongSelf(left, out var leftInt))
+                leftValue = (double)leftInt.Value;
+            else if (left is PyBool leftBool)
+                leftValue = leftBool.Value ? 1.0 : 0.0;
+            else
+                return PyNotImplemented.Instance;
+
+            double rightValue;
+            if (PyFloat.TryFloatSelf(right, out var rightFloat))
+                rightValue = rightFloat.Value;
+            else if (PyInt.TryLongSelf(right, out var rightInt))
+                rightValue = (double)rightInt.Value;
+            else if (right is PyBool rightBool)
+                rightValue = rightBool.Value ? 1.0 : 0.0;
+            else
+                return PyNotImplemented.Instance;
+
+            if (rightValue == 0.0)
                 throw PyZeroDivisionError.Create("float divmod()");
 
             // CPython: Objects/floatobject.c:721-722
-            FloatDivMod(Value, otherValue, out double floordiv, out double mod);
+            FloatDivMod(leftValue, rightValue, out double floordiv, out double mod);
             return new PyTuple(new PyFloat(floordiv), new PyFloat(mod));
         }
 

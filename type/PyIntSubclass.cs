@@ -52,40 +52,72 @@ namespace SharpPy
 
         #region Arithmetic Operations - Delegate to PyInt
 
+        /// <summary>
+        /// CPython resolves the arithmetic slot through the subclass, so a dunder the user declared
+        /// wins and the base slot on the value only runs when they declared none (measured: a float
+        /// subclass with __add__ answers 'user-add', an int subclass with __add__ answers
+        /// 'user-iadd'; SharpPy answered 4.5 and 7). Only user frames are consulted here, because
+        /// going through the full MRO would land on int's/float's own slot delegate, which reads the
+        /// value back through this same CLR virtual and recurses.
+        /// </summary>
+        private PyObject Num(string dunder, PyObject other, System.Func<PyObject> valueOp)
+            => CallUserSpecialOrNull(dunder, new[] { other }) ?? valueOp();
+
+        private PyObject Num0(string dunder, System.Func<PyObject> valueOp)
+            => CallUserSpecialOrNull(dunder, System.Array.Empty<PyObject>()) ?? valueOp();
+
+
         public override PyObject Add(PyObject other)
         {
             // CPython: int 연산 결과는 base int 타입 반환
-            return _intValue.Add(other);
+            return Num("__add__", other, () => _intValue.Add(other));
         }
 
         public override PyObject Subtract(PyObject other)
         {
-            return _intValue.Subtract(other);
+            return Num("__sub__", other, () => _intValue.Subtract(other));
         }
 
         public override PyObject Multiply(PyObject other)
         {
-            return _intValue.Multiply(other);
+            return Num("__mul__", other, () => _intValue.Multiply(other));
         }
 
         public override PyObject Divide(PyObject other)
         {
-            return _intValue.Divide(other);
+            return Num("__truediv__", other, () => _intValue.Divide(other));
         }
 
         public override PyObject FloorDivide(PyObject other)
         {
-            return _intValue.FloorDivide(other);
+            return Num("__floordiv__", other, () => _intValue.FloorDivide(other));
         }
 
         public override PyObject Modulo(PyObject other)
         {
-            return _intValue.Modulo(other);
+            return Num("__mod__", other, () => _intValue.Modulo(other));
+        }
+
+        /// <summary>
+        /// CPython reads nb_divmod through the subclass: a user __divmod__ wins, otherwise int's
+        /// arithmetic on the payload. Not overridden before, so divmod() never reached a dunder for
+        /// an int subclass.
+        /// </summary>
+        public override PyObject DivMod(PyObject other)
+        {
+            var declared = CallUserSpecialOrNull("__divmod__", new[] { other });
+            if (declared != null)
+                return declared;
+            var self = GetIntValue();
+            var quotient = self.FloorDivide(other);
+            if (ReferenceEquals(quotient, PyNotImplemented.Instance))
+                return quotient;
+            return new PyTuple(quotient, self.Modulo(other));
         }
 
         public override PyObject Power(PyObject other)
         {
-            return _intValue.Power(other);
+            return Num("__pow__", other, () => _intValue.Power(other));
         }
 
         #endregion
@@ -237,12 +269,12 @@ namespace SharpPy
 
         public override PyObject Negative()
         {
-            return _intValue.Negative();
+            return Num0("__neg__", () => _intValue.Negative());
         }
 
         public override PyObject Positive()
         {
-            return _intValue.Positive();
+            return Num0("__pos__", () => _intValue.Positive());
         }
 
         #endregion

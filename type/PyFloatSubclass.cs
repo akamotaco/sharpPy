@@ -66,15 +66,30 @@ namespace SharpPy
 
         #region Arithmetic - float semantics, result reported as plain float (CPython)
 
-        public override PyObject Add(PyObject other) => _floatValue.Add(other);
-        public override PyObject Subtract(PyObject other) => _floatValue.Subtract(other);
-        public override PyObject Multiply(PyObject other) => _floatValue.Multiply(other);
-        public override PyObject Divide(PyObject other) => _floatValue.Divide(other);
-        public override PyObject FloorDivide(PyObject other) => _floatValue.FloorDivide(other);
-        public override PyObject Modulo(PyObject other) => _floatValue.Modulo(other);
-        public override PyObject Power(PyObject other) => _floatValue.Power(other);
-        public override PyObject Negative() => _floatValue.Negative();
-        public override PyObject Positive() => _floatValue.Positive();
+        /// <summary>
+        /// CPython resolves the arithmetic slot through the subclass, so a dunder the user declared
+        /// wins and the base slot on the value only runs when they declared none (measured: a float
+        /// subclass with __add__ answers 'user-add', an int subclass with __add__ answers
+        /// 'user-iadd'; SharpPy answered 4.5 and 7). Only user frames are consulted here, because
+        /// going through the full MRO would land on int's/float's own slot delegate, which reads the
+        /// value back through this same CLR virtual and recurses.
+        /// </summary>
+        private PyObject Num(string dunder, PyObject other, System.Func<PyObject> valueOp)
+            => CallUserSpecialOrNull(dunder, new[] { other }) ?? valueOp();
+
+        private PyObject Num0(string dunder, System.Func<PyObject> valueOp)
+            => CallUserSpecialOrNull(dunder, System.Array.Empty<PyObject>()) ?? valueOp();
+
+
+        public override PyObject Add(PyObject other) => Num("__add__", other, () => _floatValue.Add(other));
+        public override PyObject Subtract(PyObject other) => Num("__sub__", other, () => _floatValue.Subtract(other));
+        public override PyObject Multiply(PyObject other) => Num("__mul__", other, () => _floatValue.Multiply(other));
+        public override PyObject Divide(PyObject other) => Num("__truediv__", other, () => _floatValue.Divide(other));
+        public override PyObject FloorDivide(PyObject other) => Num("__floordiv__", other, () => _floatValue.FloorDivide(other));
+        public override PyObject Modulo(PyObject other) => Num("__mod__", other, () => _floatValue.Modulo(other));
+        public override PyObject Power(PyObject other) => Num("__pow__", other, () => _floatValue.Power(other));
+        public override PyObject Negative() => Num0("__neg__", () => _floatValue.Negative());
+        public override PyObject Positive() => Num0("__pos__", () => _floatValue.Positive());
 
         #endregion
 
@@ -92,11 +107,44 @@ namespace SharpPy
 
         public override double ToFloat() => _floatValue.ToFloat();
         public override int ToInt() => _floatValue.ToInt();
-        public override PyInt AsInt() => _floatValue.AsInt();
+
 
         // float(FSub(2.5)) must return an exact float, not the subclass
         // (Objects/abstract.c PyNumber_Float: nb_float then PyFloat_Check).
-        public override PyFloat AsFloat() => new PyFloat(_floatValue.Value);
+        /// <summary>
+        /// Measured: float(FO) answers through a user __float__ (9.5), and keeps the payload when
+        /// the class declares none (2.7). Validation text is CPython's, which names the type.
+        /// </summary>
+        public override PyFloat AsFloat()
+        {
+            var declared = CallUserSpecialOrNull("__float__", System.Array.Empty<PyObject>());
+            if (declared != null)
+                return declared as PyFloat ?? throw PyTypeError.Create(
+                    $"{_class.Name}.__float__ returned non-float (type {declared.GetTypeName()})");
+            return new PyFloat(_floatValue.Value);
+        }
+
+        /// <summary>
+        /// Measured: int(FO) honours a user __int__ (77); with none declared, float's truncation
+        /// applies (2).
+        /// </summary>
+        public override PyInt AsInt()
+        {
+            var declared = CallUserSpecialOrNull("__int__", System.Array.Empty<PyObject>());
+            if (declared != null)
+                return declared as PyInt ?? throw PyTypeError.Create(
+                    $"__int__ returned non-int (type {declared.GetTypeName()})");
+            return _floatValue.AsInt();
+        }
+
+        /// <summary>
+        /// CPython reads nb_divmod through the subclass, so a user __divmod__ wins and anything
+        /// else falls back to float's arithmetic on the payload. This virtual was not overridden at
+        /// all before, so divmod() never reached a dunder for a float subclass.
+        /// </summary>
+        public override PyObject DivMod(PyObject other)
+            => CallUserSpecialOrNull("__divmod__", new[] { other })
+               ?? PyFloat.DivModValues(_floatValue, other);
 
         public override bool PyBoolValue() => _floatValue.PyBoolValue();
 

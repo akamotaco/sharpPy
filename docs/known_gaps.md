@@ -435,7 +435,25 @@ HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했�
 안에 있다. 할 일은 없고 대신 micro workload 두 개(`comp_lambda`, `call_heavy_fib20`)의 baseline이
 노이즈 바닥에서 갱신돼야 한다는 것이 남았다. 모듈 import 비용 항목은 여전히 유효하다.
 
-## P0-23 (2026-10-30 등록): builtin 숫자 subclass의 dunder 디스패치 잔여
+## P0-23 (2026-10-30 **닫힘**): builtin 숫자 subclass의 dunder 디스패치 잔여
+
+같은 날짜 두 커밋으로 전부 닫았다: `e70c3ea`(abs/index/% 서식/슬롯 등록/프레임 우선순위)과
+이번 커밋(아래 1~5). 회귀 probe `tests/bughunt/p58_numeric_subclass_dunders.py` 33케이스 diff 0.
+보고서 `docs/reports/2026-10-30/numeric_subclass_dunders.md`.
+핵심은 `PyObject.LookupUserSpecial` — user 프레임(PyClass.ClassDict)에서만 찾고 native 타입에서
+멈춘다. MRO 전체를 조회하면 base 슬롯이 같은 CLR virtual로 되 들어와 무한 재귀가 된다.
+`divmod(2, IPlain(5))`는 `(0, 2)`, `divmod(2, FSub(2.5))`는 `(0.0, 2.0)`,
+`math.floor(FO)`는 `'user-floor'`, `math.floor(PF)`는 `0`, `f + 2`는 `'user-add'`.
+`float.__int__`/`float.__float__` 슬롯도 등록(`__float__`는 self를 그대로 반환).
+
+남은 계열(같은 병리, 다른 family): **str subclass**가 VM fast path에서 자기 `__len__`/`__iter__`/
+`__contains__`/`__reversed__`를 잃는다. `tests/bughunt/p49_subclass_gates.py`가 SKIP으로 기록.
+
+---
+
+### 등록 당시 기록(이력은 아래 측정을 남긴다)
+
+같은 계열의 절반(`abs`, index 계열, `%` 서식, 슬롯 등록, 프레임 우선순위)은 같은 날짜 보고서로 닫았다.
 
 같은 계열의 절반(`abs`, index 계열, `%` 서식, 슬롯 등록, 프레임 우선순위)은 같은 날짜 보고서로 닫았다.
 측정되고 남은 것:
@@ -452,7 +470,5 @@ HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했�
    `4.5`로 답한다. `PyFloatSubclass`/`PyIntSubclass`의 산술 오버라이드가 payload로 곧장 가기 때문.
 5. `float.__int__`, `float.__float__` 슬롯 미등록(CPython에는 존재).
 
-재현 파일: `.artifacts/tmp/subdunder.py`, `.artifacts/tmp/subslots.py`(CPython/SharpPy 라인별 대조).
-설계 메모: wrapper 타입에서 dunder를 우선 조회하면 base 슬롯이 같은 CLR virtual로 되 들어와
-무한 재귀가 된다. 따라서 **user 프레임(PyClass.ClassDict)에서만 찾고 native 타입에서 멈추는**
-조회가 필요하다.
+재현 파일(측정 당시): `.artifacts/tmp/subdunder.py`, `.artifacts/tmp/subslots.py`.
+지속 회귀로 승격: `tests/bughunt/p58_numeric_subclass_dunders.py`.

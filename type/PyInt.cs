@@ -1038,7 +1038,16 @@ namespace SharpPy
         /// </summary>
         public override PyObject DivMod(PyObject other)
         {
-            if (other is not PyInt otherInt)
+            // CPython's long_divmod hands a float operand to float_divmod, so an int on the left
+            // and a float (or float subclass) on the right answers with the float pair: measured
+            // divmod(2, FSub(2.5)) is (0.0, 2.0). Answering NotImplemented here left nothing to
+            // try, because the reflected side is reached through the VM's own dispatch.
+            if (PyFloat.TryFloatSelf(other, out var otherFloat))
+                return PyFloat.DivModValues(this, otherFloat);
+
+            // PyLong_Check accepts subclasses, so divmod(2, IPlain(5)) is (0, 2); an exact CLR test
+            // answered NotImplemented and nothing downstream recovered.
+            if (!PyInt.TryLongSelf(other, out var otherInt))
                 return PyNotImplemented.Instance;
 
             if (otherInt.Value == 0)
@@ -1046,8 +1055,11 @@ namespace SharpPy
 
             // CPython: Objects/longobject.c:4515-4516 - Call l_divmod which returns quotient and remainder
             // Use existing FloorDivide and Modulo to ensure consistency
-            var quotient = FloorDivide(other);
-            var remainder = Modulo(other);
+            // The operands here are the resolved payloads, not the originals: FloorDivide/Modulo
+            // answer NotImplemented for an int subclass, which used to build (NotImplemented,
+            // NotImplemented) into the tuple. Results stay plain ints, as in CPython.
+            var quotient = FloorDivide(otherInt);
+            var remainder = Modulo(otherInt);
 
             return new PyTuple(quotient, remainder);
         }

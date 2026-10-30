@@ -394,18 +394,29 @@ namespace SharpPy.Modules
 
         // CPython 3.12: Modules/mathmodule.c:math_ceil (lines 2299-2310)
         // Delegates to __ceil__ special method
+        /// <summary>
+        /// CPython m_floor / m_ceil / m_trunc are thin wrappers over PyNumber_Floor and friends,
+        /// i.e. the operand type's __floor__ / __ceil__ / __trunc__ slot. int and float publish
+        /// those slots and the delegates read the payload, so a plain subclass answers with its
+        /// value, while a user __floor__ in the subclass wins because the MRO reaches it first
+        /// (measured: math.floor(FO) is 'user-floor', math.floor(PF) is 0, math.floor(PI) is 0).
+        /// The previous code tested exact CLR PyFloat/PyInt here, which is why every subclass got
+        /// "must be real number".
+        /// </summary>
+        private static PyObject SlotNumeric(PyObject value, string slotName)
+        {
+            var method = value.LookupSpecialMethodUncached(slotName);
+            if (method != null)
+                return value.BindSpecialMethod(method).Call(System.Array.Empty<PyObject>(), null);
+            throw PyTypeError.Create($"must be real number, not {value.GetTypeName()}");
+        }
+
         private PyObject CallCeil(PyObject[] args)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"ceil() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create("ceil() takes exactly one argument ({args.Length} given)");
 
-            // CPython: math.ceil delegates to __ceil__
-            if (args[0] is PyFloat f)
-                return f.Ceil();
-            else if (args[0] is PyInt i)
-                return i; // Integer returns itself
-            else
-                throw PyTypeError.Create($"must be real number, not {args[0].GetTypeName()}");
+            return SlotNumeric(args[0], "__ceil__");
         }
 
         // CPython 3.12: Modules/mathmodule.c:math_floor (lines 2282-2293)
@@ -413,15 +424,9 @@ namespace SharpPy.Modules
         private PyObject CallFloor(PyObject[] args)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"floor() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create("floor() takes exactly one argument ({args.Length} given)");
 
-            // CPython: math.floor delegates to __floor__
-            if (args[0] is PyFloat f)
-                return f.Floor();
-            else if (args[0] is PyInt i)
-                return i; // Integer returns itself
-            else
-                throw PyTypeError.Create($"must be real number, not {args[0].GetTypeName()}");
+            return SlotNumeric(args[0], "__floor__");
         }
 
         // CPython 3.12: Modules/mathmodule.c:math_trunc (lines 2265-2276)
@@ -429,15 +434,9 @@ namespace SharpPy.Modules
         private PyObject CallTrunc(PyObject[] args)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"trunc() takes exactly one argument ({args.Length} given)");
+                throw PyTypeError.Create("trunc() takes exactly one argument ({args.Length} given)");
 
-            // CPython: math.trunc delegates to __trunc__
-            if (args[0] is PyFloat f)
-                return f.Trunc();
-            else if (args[0] is PyInt i)
-                return i; // Integer returns itself
-            else
-                throw PyTypeError.Create($"must be real number, not {args[0].GetTypeName()}");
+            return SlotNumeric(args[0], "__trunc__");
         }
 
         private PyObject CallRound(PyObject[] args)
