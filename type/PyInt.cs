@@ -398,60 +398,44 @@ namespace SharpPy
                     if (byteorder != "big" && byteorder != "little")
                         throw PyValueError.Create($"byteorder must be either 'little' or 'big'");
 
-                    // CPython 3.12: Objects/longobject.c:5912-6010 - long_to_bytes
-                    long value = (long)intObj.Value;
-                    bool isNegative = value < 0;
+                    // CPython 3.12: Objects/longobject.c long_to_bytes_impl / long_to_bytes.
+                    // An int is arbitrary precision, so the capacity test compares bit counts and the
+                    // bytes come out of the BigInteger. The previous code cast to long: for 2**70 that
+                    // leaked System.OverflowException, which is not a Python exception, so the program
+                    // died with a CLR stack trace instead of reporting OverflowError.
+                    System.Numerics.BigInteger big = intObj.Value;
+                    bool isNegative = big.Sign < 0;
 
-                    // Range checks in the same order as CPython long_to_bytes_impl. Values wider than
-                    // 64 bits still go through the (long) cast above, which is a separate registered
-                    // gap; within long range the capacity rule is exact.
+                    // Order of the checks is CPython's.
                     if (isNegative && !signed)
                         throw PyOverflowError.Create("can't convert negative int to unsigned");
                     if (length < 0)
                         throw PyValueError.Create("length argument must be non-negative");
-                    if (length < 8)
+
+                    // CPython tests _PyLong_NumBits against length * 8, and for signed additionally
+                    // against the sign bit: -128 fits in one signed byte, 128 does not; -1 fits, 255
+                    // does not.
+                    if ((System.Numerics.BigInteger)BigBitLength(big)
+                        > (System.Numerics.BigInteger)length * 8)
+                        throw PyOverflowError.Create("int too big to convert");
+                    if (signed && length > 0)
                     {
-                        if (signed)
-                        {
-                            long lo = -(1L << (8 * length - 1));
-                            long hi = (1L << (8 * length - 1)) - 1;
-                            if (value < lo || value > hi)
-                                throw PyOverflowError.Create("int too big to convert");
-                        }
-                        else if (value >= (1L << (8 * length)))
-                        {
+                        var signBit = System.Numerics.BigInteger.One << (length * 8 - 1);
+                        if (isNegative ? big < -signBit : big >= signBit)
                             throw PyOverflowError.Create("int too big to convert");
-                        }
                     }
 
+                    // Two's complement over exactly `length` bytes, so negative values need no
+                    // separate invert-and-increment pass.
                     if (isNegative)
-                        value = -value;
+                        big += System.Numerics.BigInteger.One << (length * 8);
 
                     byte[] bytes = new byte[length];
-                    for (int i = 0; i < length; i++)
+                    for (int i2 = 0; i2 < length; i2++)
                     {
-                        int index = byteorder == "big" ? length - 1 - i : i;
-                        bytes[index] = (byte)(value & 0xFF);
-                        value >>= 8;
-                    }
-
-                    // For negative numbers, convert to two's complement
-                    if (isNegative)
-                    {
-                        for (int i = 0; i < length; i++)
-                            bytes[i] = (byte)~bytes[i];
-
-                        // Add 1 for two's complement
-                        int carry = 1;
-                        for (int i = (byteorder == "big" ? length - 1 : 0);
-                             byteorder == "big" ? i >= 0 : i < length;
-                             i += (byteorder == "big" ? -1 : 1))
-                        {
-                            int sum = bytes[i] + carry;
-                            bytes[i] = (byte)(sum & 0xFF);
-                            carry = sum >> 8;
-                            if (carry == 0) break;
-                        }
+                        int index = byteorder == "big" ? length - 1 - i2 : i2;
+                        bytes[index] = (byte)(int)(big & 255);
+                        big >>= 8;
                     }
 
                     return new PyBytes(bytes);
@@ -467,60 +451,52 @@ namespace SharpPy
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"from_bytes() takes from 1 to 2 positional arguments but {args.Length} were given");
 
-                    // Get bytes argument
-                    if (args[0] is not PyBytes bytesObj)
-                        throw PyTypeError.Create($"'bytes' must be a bytes object, not '{args[0].GetTypeName()}'");
+                    // The argument is bytes-like or an iterable of ints; the conversion and its
+                    // error text live in GetBytesLikeBytes, so no exact-PyBytes gate goes here.
 
                     // Get byteorder argument (default 'big')
+                    // The delegate reads the positional array, so byteorder= has to be resolved
+                    // from the keywords as well; reading only args[1] silently kept the 'big'
+                    // default and int.from_bytes(b' ', byteorder='little') answered 256.
                     string byteorder = "big";
-                    if (args.Length >= 2)
+                    PyObject byteorderArg = args.Length >= 2 ? args[1] : KwValue(kwargs, "byteorder");
+                    if (byteorderArg != null)
                     {
-                        if (args[1] is not PyString byteorderStr)
-                            throw PyTypeError.Create($"'byteorder' must be a str, not '{args[1].GetTypeName()}'");
+                        if (byteorderArg is not PyString byteorderStr)
+                            throw PyTypeError.Create($"'byteorder' must be a str, not '{byteorderArg.GetTypeName()}'");
                         byteorder = byteorderStr.Value;
                     }
 
                     if (byteorder != "big" && byteorder != "little")
                         throw PyValueError.Create($"byteorder must be either 'little' or 'big'");
 
-                    byte[] bytes = bytesObj.Value;
-                    long result = 0;
-                    bool isNegative = bytes.Length > 0 && (bytes[byteorder == "big" ? 0 : bytes.Length - 1] & 0x80) != 0;
+                    // CPython signature is from_bytes(bytes, byteorder='big', *, signed=False).
+                    // `signed` was not parsed at all here.
+                    bool signedValue = false;
+                    var signedArg = KwValue(kwargs, "signed");
+                    if (signedArg != null)
+                        signedValue = signedArg.ToBool();
 
-                    if (isNegative)
+                    // CPython long_from_bytes: read the bytes as an unsigned magnitude, then apply
+                    // the sign only when signed=True. Two defects were here: the accumulator was a
+                    // long, so 10 bytes of 2**70 shifted out and the call returned 0 silently; and
+                    // the top bit was read as a sign unconditionally, so int.from_bytes(b'\xff', 'big')
+                    // answered -1 where CPython answers 255.
+                    var data = GetBytesLikeBytes(args[0]);
+                    System.Numerics.BigInteger magnitude = 0;
+                    for (int i = 0; i < data.Length; i++)
                     {
-                        // Two's complement for negative numbers
-                        byte[] complemented = new byte[bytes.Length];
-                        Array.Copy(bytes, complemented, bytes.Length);
-
-                        // Subtract 1
-                        int borrow = 1;
-                        for (int i = (byteorder == "big" ? bytes.Length - 1 : 0);
-                             byteorder == "big" ? i >= 0 : i < bytes.Length;
-                             i += (byteorder == "big" ? -1 : 1))
-                        {
-                            int diff = complemented[i] - borrow;
-                            complemented[i] = (byte)(diff & 0xFF);
-                            borrow = diff < 0 ? 1 : 0;
-                            if (borrow == 0) break;
-                        }
-
-                        // Invert bits
-                        for (int i = 0; i < bytes.Length; i++)
-                            complemented[i] = (byte)~complemented[i];
-
-                        bytes = complemented;
+                        int index = byteorder == "big" ? data.Length - 1 - i : i;
+                        magnitude += (System.Numerics.BigInteger)data[index] << (8 * i);
                     }
 
-                    for (int i = 0; i < bytes.Length; i++)
-                    {
-                        int index = byteorder == "big" ? i : bytes.Length - 1 - i;
-                        result = (result << 8) | bytes[index];
-                    }
+                    if (signedValue && data.Length > 0 &&
+                        (data[byteorder == "big" ? 0 : data.Length - 1] & 0x80) != 0)
+                        magnitude -= System.Numerics.BigInteger.One << (8 * data.Length);
 
-                    return new PyInt(isNegative ? -result : result);
+                    return new PyInt(magnitude);
                 },
-                minArgs: 1, maxArgs: 2
+                minArgs: 1, maxArgs: 2, acceptsKwargs: true
             );
             // Wrap in classmethod descriptor
             intType.TypeDict["from_bytes"] = new PyClassMethodDescriptor("from_bytes", intType, fromBytesMethod);
@@ -1036,6 +1012,88 @@ namespace SharpPy
         /// CPython: Objects/longobject.c:long_divmod (lines 4509-4526)
         /// Returns tuple of (quotient, remainder) equivalent to (a // b, a % b)
         /// </summary>
+        /// <summary>
+        /// CPython int.from_bytes accepts any bytes-like object as well as an iterable of ints
+        /// (Objects/longobject.c long_from_bytes -> PyObject_Bytes semantics).
+        /// </summary>
+        internal static byte[] GetBytesLikeBytes(PyObject value)
+        {
+            if (value is PyBytes bytesValue)
+                return bytesValue.Value;
+            if (value is PyByteArray byteArrayValue)
+                return byteArrayValue.ToByteArrayCopy();
+            if (value is PyMemoryView viewValue)
+                return viewValue.Data;
+            // CPython applies PyObject_Bytes semantics: a bytes-like object, or an iterable of ints.
+            // A str is refused explicitly even though it iterates, and anything without an iteration
+            // protocol reports the same conversion failure.
+            if (value is PyString)
+                throw PyTypeError.Create($"cannot convert '{value.GetTypeName()}' object to bytes");
+
+            PyObject iterator;
+            try
+            {
+                iterator = value.GetIterator();
+            }
+            catch (PythonException)
+            {
+                throw PyTypeError.Create($"cannot convert '{value.GetTypeName()}' object to bytes");
+            }
+
+            var collected = new System.Collections.Generic.List<byte>();
+            int position = 0;
+            while (true)
+            {
+                PyObject item;
+                try
+                {
+                    item = iterator.Next();
+                }
+                catch (PythonException exc) when (exc.PyException is PyStopIteration)
+                {
+                    break;
+                }
+                if (!PyInt.TryLongSelf(item, out var itemValue))
+                    throw PyTypeError.Create(
+                        $"'{item.GetTypeName()}' object cannot be interpreted as an integer");
+                collected.Add((byte)ItemToByte(itemValue));
+                position++;
+            }
+            return collected.ToArray();
+        }
+
+        private static int ItemToByte(PyInt value)
+        {
+            var item = value.Value;
+            if (item.Sign < 0 || item > 255)
+                throw PyValueError.Create("bytes must be in range(0, 256)");
+            return (int)item;
+        }
+
+        /// <summary>
+        /// CPython _PyLong_NumBits: the number of bits in the magnitude, 0 for zero.
+        /// </summary>
+        private static int BigBitLength(System.Numerics.BigInteger value)
+        {
+            if (value.Sign == 0)
+                return 0;
+            // BigInteger.BitLength is an explicit IBinaryInteger member here, not reachable
+            // directly on net8.0, so the top byte is scanned.
+            var bytes = System.Numerics.BigInteger.Abs(value)
+                .ToByteArray(isUnsigned: true, isBigEndian: false);
+            int top = bytes.Length - 1;
+            while (top > 0 && bytes[top] == 0)
+                top--;
+            int bits = top * 8;
+            byte high = bytes[top];
+            while (high > 0)
+            {
+                bits++;
+                high >>= 1;
+            }
+            return bits;
+        }
+
         public override PyObject DivMod(PyObject other)
         {
             // CPython's long_divmod hands a float operand to float_divmod, so an int on the left

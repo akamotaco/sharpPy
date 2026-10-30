@@ -300,11 +300,25 @@ accepts silently).
   SharpPy currently answers the second with the generic descriptor text and the third likewise, and
   the plain `A(x=1)` case already matches. Small, bounded, needs its own message path.
 
-- **P0-22 (new): `int.to_bytes` still truncates magnitudes wider than 64 bits.** The delegate reads
-  `intObj.Value` through a `(long)` cast, so the capacity rules added for P0-20
-  (`int too big to convert`, `can't convert negative int to unsigned`) are exact inside long range and
-  unverified outside it. CPython's `long_to_bytes_impl` works on the full magnitude; this needs the
-  BigInteger path, together with the `length`/`byteorder` type-error wording for non-int inputs.
+- **P0-22 (2026-10-30 **닫힘**): `int.to_bytes` / `int.from_bytes`의 64비트 이상.** 예측보다 나빴다.
+  `to_bytes`는 `(long)` 캐스트 때문에CLR `System.OverflowException`을 **그대로 흘렸다** — Python
+  예외가 아니므로 트레이스백이 아니라 CLR 스택으로 프로세스가 죽었다(`to_bytes` 하나로 스크립트
+  전체가 중단). 이제 BigInteger 경로이고 용량 검사도 CPython식(bit 수 비교 + signed일 때 부호비트):
+  `2**70` 10바이트, signed 2의 보수, `(0).to_bytes(0)` 포함. 회귀 probe `p60` 42케이스 diff 0.
+  조사 중에 **장부에 없던 조용한 오답 두 개**가 나왔다:
+  1. `int.from_bytes`누적자가 `long`이라 넓은 입력에서 **조용히 0**을 반환했다.
+     `int.from_bytes((2**70).to_bytes(10,'big'),'big')` → CPython `1180591620717411303424`,
+     SharpPy `0`. 예외조차 없었다.
+  2. `signed` 키워드 파싱이 **아예 없고** 상위 비트를 무조건 부호로 읽었다.
+     그래서 `int.from_bytes(b'\xff','big')`는 CPython `255`인데 SharpPy는 `-1`. 반대 케이스
+     (`signed=True`)는 키워드 미지정으로 깨지거나 같은 값으로 우연히 맞았다.
+  3. `byteorder=` 키워드가 positional만 보는 delegate에서 무시됐다
+     (`int.from_bytes(b'\x01\x00', byteorder='little')` → 256, CPython 1).
+  동시에 bytes-like 인수도 CPython처럼 넓혔다(`bytearray`/`memoryview`/int iterable, str은
+  `cannot convert 'str' object to bytes`로 거부, 요소 오류는 `'X' object cannot be interpreted as
+  an integer`, 범위 밖은 `bytes must be in range(0, 256)`).
+  교훈: **예외 타입이 CLR이면 테스트가 아예 실행되지 않는다.** 같은 코드라인에서 조용한 오답이
+  두 개 더 나온 것은, 크래시가 가시성을 없애는 동시에 인접 결함도 함께 숨긴다는 뜻이다.
 
 
 - Named backreferences work. `(?P=name)` → `\k<name>` was already being emitted, but through
