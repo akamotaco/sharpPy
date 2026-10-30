@@ -933,19 +933,30 @@ namespace SharpPy
 
             var type = GetPyType();
 
-            // 1. 타입의 MRO에서 data descriptor 찾기
+            // 1. CPython resolves the name with _PyType_Lookup, i.e. the MERGED type dict: a user class
+            //    frame and a native type frame are the same tp_dict there. The loop used to look only at
+            //    PyClass frames, so a getset published in float's TypeDict was invisible to assignment
+            //    and setattr(2.5, "real", 1) answered "'float' object has no attribute 'real'" instead of
+            //    the getset's own "attribute 'real' of 'float' objects is not writable".
+            PyObject resolved = null;
             foreach (var mroType in type.MRO)
             {
-                if (mroType is PyClass customType && customType.ClassDict.ContainsKey(name))
+                if (mroType is PyClass frameClass && frameClass.ClassDict.TryGetValue(name, out var classAttr))
                 {
-                    var attr = customType.ClassDict[name];
-                    if (attr is IDescriptor desc && desc.IsDataDescriptor())
-                    {
-                        desc.Set(this, value);
-                        return;
-                    }
+                    resolved = classAttr;
                     break;
                 }
+                if (mroType.TypeDict.TryGetValue(name, out var typeAttr))
+                {
+                    resolved = typeAttr;
+                    break;
+                }
+            }
+
+            if (resolved is IDescriptor descriptor && descriptor.IsDataDescriptor())
+            {
+                descriptor.Set(this, value);
+                return;
             }
 
             // 2. instance dictionary에 저장
@@ -960,8 +971,12 @@ namespace SharpPy
             }
             else
             {
-                // CPython generic setattr on an instance with no __dict__ and no
-                // matching data descriptor: "'<T>' object has no attribute '<n>'".
+                // No instance dict to write into. CPython splits this by whether the name resolved at all
+                // (Objects/object.c:1589-1599): something without a setter is read-only, nothing is
+                // "has no attribute".
+                if (resolved != null)
+                    throw PyAttributeError.Create(
+                        $"'{GetTypeName()}' object attribute '{name}' is read-only");
                 throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
             }
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text;
 
 namespace SharpPy
@@ -30,15 +30,57 @@ namespace SharpPy
                 (self, args, kwargs) =>
                 {
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"__format__() takes exactly one argument ({args.Length} given)");
+                        throw PyTypeError.Create($"complex.__format__() takes exactly one argument ({args.Length} given)");
                     if (args[0] is not PyString specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
                     if (self is not PyComplex cx)
-                        throw PyTypeError.Create($"descriptor '__format__' requires a 'complex' object but received a '{self.GetTypeName()}'");
+                        throw WrongComplexSelf("__format__", self);
                     return new PyString(FormatComplex(cx.Real, cx.Imag, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1);
+
+            // Objects/complexobject.c:398-410 publishes real/imag as getsets and conjugate as a method
+            // in the type dict. They used to live only in a GetAttribute override below, which made
+            // hasattr(complex, "real") False while (1+2j).real worked - two answers about one attribute.
+            PyType.ComplexType.TypeDict["real"] = new PyGetSetDescriptor(
+                "real", PyType.ComplexType,
+                getter: self => self is PyComplex cx ? new PyFloat(cx.Real)
+                    : throw WrongComplexSelf("real", self));
+            PyType.ComplexType.TypeDict["imag"] = new PyGetSetDescriptor(
+                "imag", PyType.ComplexType,
+                getter: self => self is PyComplex cx ? new PyFloat(cx.Imag)
+                    : throw WrongComplexSelf("imag", self));
+            PyType.ComplexType.TypeDict["conjugate"] = new PyMethodDescriptor(
+                "conjugate", PyType.ComplexType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create(
+                            $"complex.conjugate() takes no arguments ({args.Length} given)");
+                    if (self is not PyComplex cx)
+                        throw WrongComplexSelf("conjugate", self);
+                    // complex_conjugate builds a new object from the C value.
+                    return new PyComplex(cx.Real, -cx.Imag);
+                },
+                minArgs: 0, maxArgs: 0);
+
+            // Objects/complexobject.c:653-664 complex.__getnewargs__ -> (real, imag)
+            PyType.ComplexType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
+                "__getnewargs__", PyType.ComplexType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create(
+                            $"complex.__getnewargs__() takes no arguments ({args.Length} given)");
+                    if (self is not PyComplex cx)
+                        throw WrongComplexSelf("__getnewargs__", self);
+                    return new PyTuple(new PyFloat(cx.Real), new PyFloat(cx.Imag));
+                },
+                minArgs: 0, maxArgs: 0);
         }
+
+        // Objects/descrobject.c descr_check wording.
+        internal static System.Exception WrongComplexSelf(string name, PyObject self) =>
+            PyTypeError.Create(
+                $"descriptor '{name}' for 'complex' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         /// <summary>
         /// CPython complex_format: format real and |imag| as floats, join with the
@@ -254,20 +296,14 @@ namespace SharpPy
         #region Attribute Access
 
         /// <summary>
-        /// CPython 3.12: Objects/complexobject.c:398-410 (complex_getset)
+        /// real, imag and conjugate are published in the type dict now (Objects/complexobject.c:398-410),
+        /// so they reach here through the normal descriptor path. Only __abs__ is still answered here;
+        /// CPython exposes it as a slot wrapper, and moving it belongs to the type-surface item P0-28.
         /// </summary>
         public override PyObject GetAttribute(string name)
         {
             switch (name)
             {
-                case "real":
-                    return new PyFloat(Real);
-                case "imag":
-                    return new PyFloat(Imag);
-                case "conjugate":
-                    // CPython 3.12: Return a bound method - instance already bound
-                    var conjugateMethod = new PyBuiltinMethod("conjugate", (s, args) => ((PyComplex)s).Conjugate(), 0);
-                    return new PyBoundBuiltinMethod(this, conjugateMethod);
                 case "__abs__":
                     var absMethod = new PyBuiltinMethod("__abs__", (s, args) => ((PyComplex)s).Absolute(), 0);
                     return new PyBoundBuiltinMethod(this, absMethod);

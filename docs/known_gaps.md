@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **72/72 matching**
+- `tools/run_bughunt.py`: **73/73 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -694,6 +694,8 @@ P0-26이 keyword면을 정리하고 남긴 것은 위치 인수 문구다. 표�
 | `any()` | `any() takes exactly one argument (0 given)` | `any expected exactly 1 arguments (0 given)` |
 | `enumerate()` | `enumerate() missing required argument 'iterable'` | (p66에서 고정) |
 
+네 번째 계열이 추가됐다: method descriptor의 과잉 인수 문구는 정의 타입을 붙인다 (`int.bit_length() takes no arguments (1 given)`), slot wrapper는 `expected 0 arguments, got 1`을 쓴다. p68이 numeric 계열 파일을 고정했고, 나머지는 아직이다.
+
 CPython에는 세 계열이 공존한다: clinic의 `X() missing required argument 'k' (pos N)`,
 generic의 `X() takes exactly one argument (N given)`, 그리고 직접 작성된
 `X expected [at least|at most] N argument[s], got M`. SharpPy는 `{name} expected exactly N arguments (M given)`
@@ -735,7 +737,7 @@ CPython의 `getattr` 기본값은 **AttributeError만** 잡는다. SharpPy는 `B
   가지는지, 이름이 어떤 슬롯에서 resolution되었는지로 결정된다.
 - 남은 것은 attribute 계열이 아닌 나머지 builtin의 위치 인수 문구다.
 
-## P0-30 (2026-10-30 등록): 숫자 타입의 속성 표면 - bool이 int 디스크립터를 미치고, real/__getnewargs__가 보이지 않는다
+## P0-30 (2026-10-30 **닫힘**): 숫자 타입의 속성 표면 - bool은 int이고, 값은 receiver가 아니다
 
 구조 검사가 내보낸 두 계열.
 
@@ -748,9 +750,29 @@ CPython의 `getattr` 기본값은 **AttributeError만** 잡는다. SharpPy는 `B
 | `hasattr(1+2j, "__getnewargs__")` | `True` | `False` |
 | `setattr(1.5, "real", 2)` | `AttributeError: attribute 'real' of 'float' objects is not writable` | `AttributeError: 'float' object has no attribute 'real'` |
 
-`bool`은 `int`의 하위 타입이므로 CPython에서 int 슬롯은 `PyLong_Check` 통과 경로다. 지금은 정확히 타입을
-비교해서 거부하고, 거기다 그 메시지 자체가 CPython에 없는 형태이며 큰따옴표까지 붙어서 나온다.
-`__getnewargs__`는 pickle 협정 표면이고 P0-28의 남은 가정 목록에 이미 같은 종류로 들어 있다.
+`bool`은 `int`의 하위 타입이므로 CPython에서 int 슬롯은 `PyLong_Check` 통과 경로다. CLR이 bool을 `PyInt`로
+모델링하지 않기 때문에 그 검사 지점마다 bool을 명시해야 한다 (`TryLongSelf`).
+
+측정해서 고친 것 (p68, 46케이스 차이 0):
+
+| 규칙 | CPython 근거 | 고친 곳 |
+|---|---|---|
+| `real`/`numerator`/`conjugate`는 receiver가 아니라 `long_long` | longobject.c:5358-5367 - 정확히 int만 같은 객체, bool과 int 하위 타입은 평범한 int 사본 | `type(I(3).real)`이 `int`가 됐다 |
+| `float.real`/`conjugate`는 항상 새 `PyFloat` | floatobject.c `float_getreal`이 `PyFloat_FromDouble` | `type(F(2.5).real)`이 `float` |
+| `__getnewargs__`는 타입 dict에 공개된 메서드 | longobject.c:5679 / floatobject.c:1714 / complexobject.c:653 | int/float/complex 모두 등록 |
+| 대입은 **합쳐진** 타입 dict를 본다 (`_PyType_Lookup`) | object.c:1560-1599 | `PySetAttribute`가 PyClass 프레임만 봐서 float의 getset을 못 찾았다 |
+| unbound self 검사는 하나의 문구 | descrobject.c descr_check | int/float/complex의 제각각 문구를 통일 |
+| method descriptor 과잉 인수 문구는 정의 타입을 붙인다 | `int.bit_length() takes no arguments (1 given)` | bit_length/bit_count/as_integer_ratio/is_integer/hex/fromhex/conjugate/__getnewargs__/complex.__format__ |
+| slot wrapper는 다른 문구 | `expected 0 arguments, got 1` | `float.__repr__` |
+
+남은 두 가지는 이 항목이 아니라 타입 표면 항목이다 (P0-28/P1로 옮긴다):
+
+- `int.__dict__["real"].__get__(5)` — CPython은 `5`를 주지만 SharpPy의 내장 디스크립터 객체에는
+  `__get__`/`__set__`/`__delete__`가 없다.
+- `type(int.__dict__["real"]).__name__` — CPython `getset_descriptor`, SharpPy `property`.
+
+그리고 위의 **정의 타입 접두 문구 계열**은 numeric 파일 밖에도 넓게 퍼져 있다. `bytearray`에서 이미
+확인했고 (`bytearray.upper() takes no arguments (1 given)`), P0-29의 한 갈래로 센다.
 
 ## P0-31 (2026-10-30 등록): `str.upper()` / `str.lower()`가 ASCII 이상에서 아무 반응도 없다
 

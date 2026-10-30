@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 
 namespace SharpPy
@@ -39,6 +39,11 @@ namespace SharpPy
             value = null;
             return false;
         }
+
+        // Objects/descrobject.c descr_check wording, shared by float's methods and getsets.
+        internal static System.Exception WrongFloatSelf(string name, PyObject self) =>
+            PyTypeError.Create(
+                $"descriptor '{name}' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
 
         public static void InitializeFloatDescriptors()
         {
@@ -189,7 +194,7 @@ namespace SharpPy
                 "is_integer", floatType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"is_integer() takes no arguments ({args.Length} given)");
+                        throw PyTypeError.Create($"float.is_integer() takes no arguments ({args.Length} given)");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor 'is_integer' requires a 'float' object but received a '{self.GetTypeName()}'");
 
@@ -208,7 +213,7 @@ namespace SharpPy
                 "as_integer_ratio", floatType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"as_integer_ratio() takes no arguments ({args.Length} given)");
+                        throw PyTypeError.Create($"float.as_integer_ratio() takes no arguments ({args.Length} given)");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor 'as_integer_ratio' requires a 'float' object but received a '{self.GetTypeName()}'");
 
@@ -246,7 +251,7 @@ namespace SharpPy
                 "hex", floatType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"hex() takes no arguments ({args.Length} given)");
+                        throw PyTypeError.Create($"float.hex() takes no arguments ({args.Length} given)");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor 'hex' requires a 'float' object but received a '{self.GetTypeName()}'");
 
@@ -265,7 +270,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // self is the class (PyType) when called as classmethod
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"fromhex() takes exactly one argument ({args.Length} given)");
+                        throw PyTypeError.Create($"float.fromhex() takes exactly one argument ({args.Length} given)");
 
                     if (args[0] is not PyString hexStr)
                         throw PyTypeError.Create($"fromhex() argument must be a string, not '{args[0].GetTypeName()}'");
@@ -392,11 +397,15 @@ namespace SharpPy
                 "conjugate", floatType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"conjugate() takes no arguments ({args.Length} given)");
+                        throw PyTypeError.Create(
+                            $"float.conjugate() takes no arguments ({args.Length} given)");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
-                        throw PyTypeError.Create($"descriptor 'conjugate' requires a 'float' object but received a '{self.GetTypeName()}'");
+                        throw PyFloat.WrongFloatSelf("conjugate", self);
 
-                    return floatObj;  // For real numbers, conjugate is the number itself
+                    // float_conjugate IS float_real in floatobject.c, and float_real builds a new
+                    // PyFloat from the double - it never hands back the receiver, so a float subclass
+                    // loses its type and an exact float comes back as a different object.
+                    return new PyFloat(floatObj.Value);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -406,9 +415,10 @@ namespace SharpPy
             floatType.TypeDict["real"] = new PyGetSetDescriptor(
                 "real", floatType,
                 getter: self => {
-                    if (!PyFloat.TryFloatSelf(self, out _))
-                        throw PyTypeError.Create($"descriptor 'real' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
-                    return self;  // For float, real is itself
+                    if (!PyFloat.TryFloatSelf(self, out var floatValue))
+                        throw PyFloat.WrongFloatSelf("real", self);
+                    // float_getreal: PyFloat_FromDouble(ob_fval), so type(F(2.5).real) is float.
+                    return new PyFloat(floatValue.Value);
                 }
             );
 
@@ -418,10 +428,23 @@ namespace SharpPy
                 "imag", floatType,
                 getter: self => {
                     if (!PyFloat.TryFloatSelf(self, out _))
-                        throw PyTypeError.Create($"descriptor 'imag' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
-                    return new PyFloat(0.0);  // For float, imaginary part is 0
+                        throw PyFloat.WrongFloatSelf("imag", self);
+                    return new PyFloat(0.0);  // float_getimag
                 }
             );
+
+            // CPython Objects/floatobject.c:1714-1723 float.__getnewargs__ -> (double,)
+            floatType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
+                "__getnewargs__", floatType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create(
+                            $"float.__getnewargs__() takes no arguments ({args.Length} given)");
+                    if (!PyFloat.TryFloatSelf(self, out var floatValue))
+                        throw PyFloat.WrongFloatSelf("__getnewargs__", self);
+                    return new PyTuple(new PyFloat(floatValue.Value));
+                },
+                minArgs: 0, maxArgs: 0);
 
             // CPython 3.12: Objects/floatobject.c:1710-1750 - float_format
             // float.__format__(format_spec) - Format the float according to format_spec
@@ -430,7 +453,7 @@ namespace SharpPy
                 "__repr__", floatType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                        throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
                     if (!PyFloat.TryFloatSelf(self, out var floatObj))
                         throw PyTypeError.Create($"descriptor '__repr__' requires a 'float' object but received a '{self.GetTypeName()}'");
                     return new PyString(FormatFloat(floatObj.Value, ""));
