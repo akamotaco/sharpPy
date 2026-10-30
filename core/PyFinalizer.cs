@@ -55,12 +55,14 @@ namespace SharpPy
         // Registration order is the order finalizers run, matching measured CPython shutdown order.
         private static readonly List<Entry> Pending = new List<Entry>();
 
-        // "Only once" per Objects/object.c:362. KNOWN WEAKNESS: PyObject overrides GetHashCode to
-        // return the Python hash, so this set hashes by user-defined __hash__ rather than by
-        // reference identity. Distinct objects still compare by reference (object.Equals is not
-        // overridden), but a user __hash__ that raises would surface on the registration path.
-        // Tracked as docs/known_gaps.md P0-37 remainder 9; the fix is a reference comparer.
-        private static readonly HashSet<PyObject> Finalized = new HashSet<PyObject>();
+        // "Only once" per Objects/object.c:362. CPython implements it with a flag in the GC header
+        // (_PyGC_FINALIZED / _PyGC_SET_FINALIZED): reference identity, never a hash lookup. The same
+        // meaning needs a comparer here, because PyObject.GetHashCode returns the Python hash
+        // (core/PyObject.cs:130) - hashing by it would let a user-defined __hash__ choose the bucket
+        // and the cost of registering an instance, and any user code reachable from it would run from
+        // inside the construction path. With the reference comparer Contains is a pointer comparison.
+        private static readonly HashSet<PyObject> Finalized =
+            new HashSet<PyObject>(ReferenceEqualityComparer.Instance);
         private static bool running;
 
         private struct Entry

@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **82/82 matching**
+- `tools/run_bughunt.py`: **82/82 matching** (p76 is now 148 lines, still diff 0)
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -1410,10 +1410,15 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
    같은 구조로 갈 수 있다. 네이티브 `_weakref`(ref/proxy/getweakrefcount/getweakrefs/
    `_remove_dead_weakref`)가 남아 있는 작업. 사망 통지는 CLR 수거 시점이 아니라 참조 접근
    시점에 결정되므로 콜백 타이밍이 추가 격차가 된다.
-9. **`PyFinalizer`의 "1회만" 판정이 참조 동일성이 아님** — `HashSet<PyObject>`는 키 해시로
-   Python `ToHash()`를 쓴다(`PyObject.GetHashCode()`가 이를 오버라이드). 서로 다른 객체는
-   `object.Equals`가 참조 비교이므로 지금은 정상이지만, 사용자 `__hash__`가 예외를 던지면
-   finalizer 등록 경로로 새어나온다. reference comparer 교정 예정.
+9. ~~**`PyFinalizer`의 "1회만" 판정이 참조 동일성이 아님**~~ → **교정함** (`ReferenceEqualityComparer`).
+   다만 이것이 관찰 가능한 버그였는지는 측정으로 기각되었다. 기준 커밋 `83b23b1` worktree 빌드와
+   수정 후 빌드에 같은 프로브를 돌려 출력이 완전히 같았다: (a) `__hash__`가 예외를 던지는 클래스,
+   (b) `__eq__`가 항상 True이고 `__hash__`가 0인 클래스의 두 인스턴스, (c) `__hash__ = None`,
+   (d) 값이 같은 `str`/`int`/`list` 서브클래스 인스턴스 두 개. 이유는 `PyObject.ToHash()` 의 기저
+   구현이 `RuntimeHelpers.GetHashCode(this)`(참조 identity)이고 Python `__hash__` dispatch는 별도
+   함수인 `GetPythonHash()` 가 담당하기 때문이다(`core/PyObject.cs:125-146`). 따라서 이 변경은
+   **우연한 정확성을 명시적 정확성으로 바꾼 hardening** 이고, 이제 CPython의 `_PyGC_FINALIZED`
+   플래그(`Objects/object.c:362`) 와 같은 의미를 갖는다. (a)(b)(c)는 p76에 고정.
 10. ~~**C방(자원 상태) 실패**~~ → **P0-38로 해결** (아래 별도 절). 잔여는 타이밍 항목만 남는다.
 
 이 항목들의 판단 근거·기각된 선택지·CPython 앵커 표는 **`docs/lifetime_and_gc_policy.md`** 에 있다.
@@ -1461,6 +1466,32 @@ CPython `remove ok` / SharpPy `remove failed: PermissionError` → **이제 양�
    handle 상한을 실제로 소진하는 프로브는 만들지 않았다.
 5. **자원 타입 확대 미착수** — socket·Godot 리소스 등은 아직 bus에 등록되지 않았다.
    `PyFile`이 첫 고객이고, 등록부는 임의의 `Action`을 받도록 이미 일반화되어 있다.
+
+## P0-40 용기 클래스 서브클래스 4종 (측정 2026-10-30, 미해결)
+
+`.artifacts/tmp/submatrix.py`가 9개 내장 타입의 서브클래스를 같은 표면(repr/str, len, 인덱스,
+슬라이스, 순회, eq, `__mro__`, 메서드 위임)으로 비교한 결과 **4/9 갈린다**:
+
+| 기본형 | 판정 | 갈리는 것 |
+|---|---|---|
+| `list` | DIFF | `repr(x)`/`str(x)` 가 `<__main__.C object at 0x…>` — CPython은 `[1, 2, 3]`. len/idx/slice/iter/eq/mro 은 정상이므로 **repr 경로만** 빠짐 |
+| `dict` | DIFF | 동일 — `{'a': 1}` 대신 object repr. 나머지는 정상 |
+| `set` | DIFF | **생성자가 인자를 거부**: `C([1, 2])` → `TypeError: C() takes no arguments` (스크립트 중단) |
+| `frozenset` | DIFF | 동일 — `C([1])` 거부 |
+| `tuple` `bytes` `str` `int` `float` | OK | — |
+
+원인은 이름으로 드러난다. 서브클래스 래퍼가 `PyTupleSubclass`(`type/PyClass.cs:2523`),
+`PyStrSubclass`, `PyBytesSubclass`, `PyIntSubclass`, `PyFloatSubclass` **다섯 개만** 있고
+list/dict/set/frozenset 대응이 없다. 생성 시 래퍼를 고르는 지점에서 빠지면 object 기본 repr로
+떨어지고, set 계열은 생성자 인자 파싱 자체가 연결되지 않는다.
+지난 작업 [tuple 서브클래스와 사라진 CustomType](reports/2026-10-30/tuple_subclass_and_the_missing_customtype.md),
+[컨테이너 서브클래스 dunder](reports/2026-10-30/container_subclass_dunders.md) 범위에서 repr과
+set/frozenset 생성자는 빠졌다.
+
+조치 방향(미실행): 래퍼 4종을 추가하기보다 **repr을 기본형으로 위임하는 단일 지점**을 먼저 본다 —
+`PyList`/`PyDict`은 값을가지하므로 서브클래스에서도 `ToRepr()` 를 기본형 구현으로 부를 수 있다.
+set/frozenset은 생성자 인자 경로를 list와 같이 붙인다. 선행 측정: 서브클래스 `__repr__` 오버라이드
+우선, `x.append(x)` 재귀 repr, `C()` 무인자, iterable 아닌 것 전달 시 문구.
 
 ## P0-39 `sys.argv`가 비어 있다 (측정 2026-10-30, 미해결)
 

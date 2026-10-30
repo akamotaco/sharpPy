@@ -107,5 +107,44 @@ second = Child()
 third = Inherits()
 
 
+# The "only once" decision is reference identity in CPython - a flag in the GC header
+# (Objects/object.c:362 _PyGC_FINALIZED), not a hash lookup. SharpPy's PyObject.GetHashCode returns
+# the Python hash, so a set without a reference comparer would consult user-defined __hash__ while
+# registering an instance. A class whose __eq__ accepts anything and whose __hash__ is constant must
+# still get one __del__ per instance, and a __hash__ that raises must not disturb construction.
+class Degenerate:
+    def __del__(self):
+        print('del degenerate')
+
+    def __eq__(self, other):
+        return True
+
+    def __hash__(self):
+        return 0
+
+
+class Exploding:
+    def __del__(self):
+        print('del exploding')
+
+    def __hash__(self):
+        raise RuntimeError('user hash ran')
+
+
+class Unhashable:
+    __hash__ = None
+
+    def __del__(self):
+        print('del unhashable')
+
+
+same1 = Degenerate()
+same2 = Degenerate()
+boom = Exploding()
+unhashable = Unhashable()
+print('degenerate equal', same1 == same2, hash(same1) == hash(same2))
+print('constructed all')
+
+
 print('main start')
 print('main end')
