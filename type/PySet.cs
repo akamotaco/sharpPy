@@ -205,12 +205,25 @@ namespace SharpPy
 
         public override PyString AsString() => ToRepr();
 
-        public override PyString ToRepr()
+        public override PyString ToRepr() => Repr("set", exactType: true);
+
+        /// <summary>
+        /// CPython Objects/setobject.c:507 set_repr formats with Py_TYPE(so)-&gt;tp_name, which is why
+        /// the three shapes differ only by who is asking:
+        ///   empty            "%s()"        -&gt; set(), frozenset(), C()
+        ///   exact set        "{%U}"        -&gt; {1, 2}
+        ///   any other type   "%s({%U})"    -&gt; frozenset({1, 2}), C({1, 2})
+        /// frozenset shares this function: PySet_CheckExact() is false for it, so an exact
+        /// frozenset also takes the prefixed branch and prints frozenset({1, 2}).
+        /// A subclass of set therefore needs the same code with its own name, not a second repr.
+        /// </summary>
+        internal PyString Repr(string typeName, bool exactType)
         {
-            if (_items.Count == 0) return StringCache.GetOrCreate("set()");
+            if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
 
             // Performance: Eliminated LINQ (Select) - use StringBuilder
-            var sb = new System.Text.StringBuilder("{");
+            bool prefix = !exactType;
+            var sb = new System.Text.StringBuilder(prefix ? typeName + "({" : "{");
             bool first = true;
             foreach (var item in _items)
             {
@@ -218,7 +231,7 @@ namespace SharpPy
                 sb.Append(item.ToRepr().Value);
                 first = false;
             }
-            sb.Append("}");
+            sb.Append(prefix ? "})" : "}");
             return StringCache.GetOrCreate(sb.ToString());
         }
 
@@ -226,9 +239,11 @@ namespace SharpPy
 
         #region Hash and Equality
 
+        // set_richcompare tests the other operand with PySet_Check/PyFrozenSet_Check, which accept
+        // subclasses, so {1,2} == C({1,2}) has to see through the user object to its storage.
         protected override PyObject PyEquals(PyObject other)
         {
-            return other switch
+            return PyNativeStorage.Unwrap(other) switch
             {
                 PySet otherSet => PyBool.FromBool(_items.SetEquals(otherSet._items)),
                 PyFrozenSet frozenSet => PyBool.FromBool(_items.SetEquals(frozenSet.Items)),
@@ -455,7 +470,11 @@ namespace SharpPy
 
         internal static void RequireAnySet(PyObject self, PyObject other, string op)
         {
-            if (!(other is PySet) && !(other is PyFrozenSet))
+            // set_or / set_and / set_sub / set_xor test both operands with PyAnySet_Check, which
+            // accepts subclasses, so {1} | C({2}) is a union and not a TypeError. The message still
+            // names the operand the caller passed, which is what CPython prints.
+            var mate = PyNativeStorage.Unwrap(other);
+            if (!(mate is PySet) && !(mate is PyFrozenSet))
                 throw PyTypeError.Create($"unsupported operand type(s) for {op}: '{self.GetTypeName()}' and '{other.GetTypeName()}'");
         }
 
@@ -528,6 +547,10 @@ namespace SharpPy
         /// </summary>
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
+            // set_richcompare tests the operands with PySet_Check / PyAnySet_Check, which accept
+            // subclasses, so F([1]) < S([2]) has to see through both user objects to their values.
+            other = PyNativeStorage.Unwrap(other);
+
             // CPython: Objects/setobject.c:1923-1925 - Type check
             if (other is not PySet && other is not PyFrozenSet)
                 return PyNotImplemented.Instance;
@@ -681,11 +704,11 @@ namespace SharpPy
     /// </summary>
     public class PyFrozenSet : PyObject
     {
-        static PyFrozenSet()
-        {
-            PyType.FrozenSetType.TypeDict["copy"] = new PyMethodDescriptor("copy", PyType.FrozenSetType,
-                (self, args, kwargs) => ((PyFrozenSet)self).Copy(), minArgs: 0, maxArgs: 0);
-        }
+        // The frozenset method table (including copy) is registered once in
+        // PyType.InitializeFrozenSetTypeDescriptors. It used to be registered here too, and that
+        // copy hard-cast self to PyFrozenSet, which made C([1]).copy() die with an CLR
+        // InvalidCastException instead of answering through the subclass's storage.
+
         #region Core Properties
 
         private readonly PySetStorage _items;
@@ -706,12 +729,16 @@ namespace SharpPy
 
         public override PyString AsString() => ToRepr();
 
-        public override PyString ToRepr()
+        // set_repr is shared with set (see PySet.Repr): the prefix is always present because
+        // PySet_CheckExact() is false for a frozenset, giving frozenset({1, 2}) and frozenset().
+        public override PyString ToRepr() => Repr("frozenset");
+
+        internal PyString Repr(string typeName)
         {
-            if (_items.Count == 0) return StringCache.GetOrCreate("frozenset()");
+            if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
 
             // Performance: Eliminated LINQ (Select) - use StringBuilder
-            var sb = new System.Text.StringBuilder("frozenset({");
+            var sb = new System.Text.StringBuilder(typeName).Append("({");
             bool first = true;
             foreach (var item in _items)
             {
@@ -733,7 +760,8 @@ namespace SharpPy
 
         protected override PyObject PyEquals(PyObject other)
         {
-            return other switch
+            // PyFrozenSet_Check accepts subclasses: frozenset({1}) == C({1}) compares contents.
+            return PyNativeStorage.Unwrap(other) switch
             {
                 PyFrozenSet otherFrozen => PyBool.FromBool(_items.SetEquals(otherFrozen._items)),
                 PySet set => PyBool.FromBool(_items.SetEquals(set.Items)),
@@ -766,6 +794,10 @@ namespace SharpPy
         /// </summary>
         public override PyObject RichCompare(PyObject other, CompareOp op)
         {
+            // set_richcompare tests the operands with PySet_Check / PyAnySet_Check, which accept
+            // subclasses, so F([1]) < S([2]) has to see through both user objects to their values.
+            other = PyNativeStorage.Unwrap(other);
+
             // CPython: Objects/setobject.c:1923-1925 - Type check
             if (other is not PySet && other is not PyFrozenSet)
                 return PyNotImplemented.Instance;

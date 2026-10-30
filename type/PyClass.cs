@@ -1275,6 +1275,17 @@ namespace SharpPy
         // CPython 3.12: List subclasses have internal list storage
         private PyList _listStorage;
 
+        // CPython 3.12: set subclasses carry a mutable set value. tp_new (make_new_set,
+        // Objects/setobject.c:949) allocates it empty and tp_init (setobject.c:1977 set_init)
+        // clears and fills it from the one optional iterable argument.
+        private PySet _setStorage;
+
+        // CPython 3.12: frozenset has **no** tp_init (Objects/setobject.c:2262 "0, /* tp_init */"),
+        // so the value exists only because frozenset_new (setobject.c:1003) built it out of the
+        // construction arguments. SharpPy materializes it lazily from those arguments, the same way
+        // _strStorage below does for str, and never re-reads them.
+        private PyFrozenSet _frozenStorage;
+
         // CPython 3.12: str subclasses carry their immutable value in the object itself
         // (PyUnicode_Subclass). SharpPy materializes it lazily from the construction
         // arguments: str() semantics (no arg -> "", one arg -> str(x), more -> TypeError).
@@ -1307,6 +1318,12 @@ namespace SharpPy
             {
                 _listStorage = new PyList();
             }
+
+            // CPython 3.12: make_new_set gives a set (sub)class an empty table before tp_init runs.
+            if (IsSetSubclass())
+            {
+                _setStorage = new PySet();
+            }
         }
 
         public bool IsDictSubclass()
@@ -1321,6 +1338,53 @@ namespace SharpPy
             // Check if list is in MRO (not just direct base types)
             // This handles multi-level inheritance
             return InstanceType.MRO.Any(bt => bt == PyType.ListType);
+        }
+
+        public bool IsSetSubclass() => InstanceType.MRO.Any(bt => bt == PyType.SetType);
+
+        public bool IsFrozenSetSubclass() => InstanceType.MRO.Any(bt => bt == PyType.FrozenSetType);
+
+        /// <summary>
+        /// The value a set subclass instance carries, or null when this is not one.
+        /// </summary>
+        public PySet GetSetStorage() => _setStorage;
+
+        /// <summary>
+        /// The value a frozenset subclass instance carries, built the way CPython's frozenset_new
+        /// builds it: at most one positional iterable, taken from the construction arguments.
+        /// </summary>
+        public PyFrozenSet GetFrozenStorage()
+        {
+            if (_frozenStorage != null)
+                return _frozenStorage;
+            if (!IsFrozenSetSubclass())
+                return null;
+
+            var a = ConstructorArgs ?? new PyObject[0];
+            // Objects/setobject.c:1013 PyArg_UnpackTuple(args, type->tp_name, 0, 1, &iterable)
+            if (a.Length > 1)
+                throw PyTypeError.Create($"{InstanceType.Name} expected at most 1 argument, got {a.Length}");
+            _frozenStorage = a.Length == 0
+                ? new PyFrozenSet()
+                : new PyFrozenSet(PySet.IterableItems(a[0]));
+            return _frozenStorage;
+        }
+
+        /// <summary>
+        /// The builtin container value this instance carries, or null for a plain class. CPython
+        /// answers this with slot inheritance (PyType_Ready installs the base's C slot on the
+        /// subclass); here the value lives in a storage object, and a class can carry at most one
+        /// variable-size builtin base - CPython refuses the combination with "multiple bases have
+        /// instance lay-out conflict". Every protocol operation (length, containment, iteration,
+        /// repr) asks this one question instead of repeating the per-type branch.
+        /// </summary>
+        internal PyObject NativeStorage()
+        {
+            if (_dictStorage != null) return _dictStorage;
+            if (_listStorage != null) return _listStorage;
+            if (_setStorage != null) return _setStorage;
+            if (IsFrozenSetSubclass()) return GetFrozenStorage();
+            return GetStringStorage();
         }
 
         public bool IsStrSubclass()
@@ -1546,16 +1610,9 @@ namespace SharpPy
             var declaredContains = CallUserSpecialOrNull("__contains__", new[] { item });
             if (declaredContains != null)
                 return PyBool.FromBool(declaredContains.PyBoolValue());
-            if (_dictStorage != null)
-            {
-                return _dictStorage.Contains(item);
-            }
-            if (_listStorage != null)
-                return _listStorage.Contains(item);
-            // CPython 3.12: str subclasses inherit unicode_contains.
-            var strStorage = GetStringStorage();
-            if (strStorage != null)
-                return strStorage.Contains(item);
+            var container = NativeStorage();
+            if (container != null)
+                return container.Contains(item);
             return base.Contains(item);
         }
 
@@ -1568,13 +1625,9 @@ namespace SharpPy
             var declaredLength = CallUserSpecialOrNull("__len__", System.Array.Empty<PyObject>());
             if (declaredLength != null)
                 return ToLengthResult(declaredLength);
-            if (_dictStorage != null)
-                return _dictStorage.Length();
-            if (_listStorage != null)
-                return _listStorage.Length();
-            var strStorage = GetStringStorage();
-            if (strStorage != null)
-                return strStorage.Length();
+            var container = NativeStorage();
+            if (container != null)
+                return container.Length();
             return base.Length();
         }
 
@@ -1584,11 +1637,10 @@ namespace SharpPy
             var method = LookupSpecialMethodUncached("__iter__");
             if (method != null) return InvokeIteratorMethod(method);
 
-            // Builtin dict subclasses store their mapping separately.
-            if (_dictStorage != null) return _dictStorage.GetIterator();
-            // CPython 3.12: str subclasses iterate their characters.
-            var strIterStorage = GetStringStorage();
-            if (strIterStorage != null) return strIterStorage.GetIterator();
+            // The value of the builtin base in the MRO (dict/list/set/frozenset/str) is iterated,
+            // because CPython's slot for that base was inherited by the subclass.
+            var containerIter = NativeStorage();
+            if (containerIter != null) return containerIter.GetIterator();
             if (LookupSpecialMethodUncached("__getitem__") != null)
                 return new PyGenericIterator(this);
             return base.GetIterator();
@@ -1667,28 +1719,46 @@ namespace SharpPy
             return null;
         }
 
+        /// <summary>
+        /// The operator slot a subclass inherits from its builtin base. CPython installs it through
+        /// slot inheritance, so C([1]) + [2], C([1]) * 2, S([1]) | {2} and D({'a':1}) | {'b':2} work
+        /// even though the class never mentions an operator (Objects/listobject.c list_add /
+        /// list_repeat, Objects/setobject.c set_or/set_and/set_sub/set_xor, Objects/dictobject.c
+        /// dict_or). The other operand is seen through as well, because those slots test with
+        /// PyList_Check / PySet_Check / PyDict_Check, which accept subclasses.
+        /// Null means "no such slot", which lets the caller produce the normal TypeError.
+        /// </summary>
+        private PyObject InheritedSlotBinary(PyObject other, Func<PyObject, PyObject, PyObject> slot)
+        {
+            var container = NativeStorage();
+            if (container == null)
+                return null;
+            var value = slot(container, PyNativeStorage.Unwrap(other));
+            return ReferenceEquals(value, PyNotImplemented.Instance) ? null : value;
+        }
+
         // CPython 3.12: Magic method overrides for binary operations
         public override PyObject Add(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__add__", "__radd__");
             if (result != null) return result;
-            // CPython 3.12: str subclasses inherit unicode_add on the left side.
-            var strStorage = GetStringStorage();
-            if (strStorage != null)
-                return strStorage.Add(other);
+            var inherited = InheritedSlotBinary(other, (a, b) => a.Add(b));
+            if (inherited != null) return inherited;
             return base.Add(other);
         }
 
         public override PyObject Subtract(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__sub__", "__rsub__");
-            return result ?? base.Subtract(other);
+            if (result != null) return result;
+            return InheritedSlotBinary(other, (a, b) => a.Subtract(b)) ?? base.Subtract(other);
         }
 
         public override PyObject Multiply(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__mul__", "__rmul__");
-            return result ?? base.Multiply(other);
+            if (result != null) return result;
+            return InheritedSlotBinary(other, (a, b) => a.Multiply(b)) ?? base.Multiply(other);
         }
 
         public override PyObject Divide(PyObject other)
@@ -1730,19 +1800,22 @@ namespace SharpPy
         public override PyObject BitwiseAnd(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__and__", "__rand__");
-            return result ?? base.BitwiseAnd(other);
+            if (result != null) return result;
+            return InheritedSlotBinary(other, (a, b) => a.BitwiseAnd(b)) ?? base.BitwiseAnd(other);
         }
 
         public override PyObject BitwiseOr(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__or__", "__ror__");
-            return result ?? base.BitwiseOr(other);
+            if (result != null) return result;
+            return InheritedSlotBinary(other, (a, b) => a.BitwiseOr(b)) ?? base.BitwiseOr(other);
         }
 
         public override PyObject BitwiseXor(PyObject other)
         {
             var result = BinaryOpWithMagicMethod(other, "__xor__", "__rxor__");
-            return result ?? base.BitwiseXor(other);
+            if (result != null) return result;
+            return InheritedSlotBinary(other, (a, b) => a.BitwiseXor(b)) ?? base.BitwiseXor(other);
         }
 
         public override PyObject MatrixMultiply(PyObject other)
@@ -2419,6 +2492,23 @@ namespace SharpPy
                 throw PyTypeError.Create($"__repr__ returned non-string (type {reprResult.GetTypeName()})");
             }
 
+            // No Python-level __repr__ in the MRO does **not** mean object's repr. PyType_Ready
+            // installs the builtin base's C slot on the subclass (update_one_slot: a list subclass
+            // gets list_repr at Objects/listobject.c:379, a dict subclass dict_repr at
+            // Objects/dictobject.c:2400, a set subclass set_repr at Objects/setobject.c:507), and
+            // the storage object holds exactly the value those slots would have read.
+            var inheritedRepr = NativeStorage();
+            if (inheritedRepr != null)
+            {
+                // set_repr formats with Py_TYPE(so)->tp_name, so the subclass name has to travel
+                // with it: C({1, 2}) and C(), never a bare {1, 2}.
+                if (inheritedRepr is PySet mutableSet)
+                    return mutableSet.Repr(GetTypeName(), exactType: false);
+                if (inheritedRepr is PyFrozenSet frozenSet)
+                    return frozenSet.Repr(GetTypeName());
+                return inheritedRepr.ToRepr();
+            }
+
             // Default representation: CPython prefixes the qualified name with the
             // class's module (except builtins): <__main__.O object at 0x...>.
             string modulePrefix = "";
@@ -2500,16 +2590,51 @@ namespace SharpPy
             var result = TryCompareSpecial(other, op);
             if (result != null) return result;
 
-            // CPython 3.12: str subclasses inherit unicode comparison, so SS("x") == "x"
-            // compares contents (and such instances work as dict keys).
-            var mine = GetStringStorage();
+            // No Python-level comparison: the base's C slot is still there. unicode_richcompare,
+            // list_richcompare, dict_equal and set_richcompare all compare contents and all accept
+            // subclasses, so SS("x") == "x", C([1, 2]) == [1, 2] and D({'a': 1}) == {'a': 1} are
+            // True for classes that never mention comparison. The storage is the value those slots
+            // would have read, and the other side is seen through the same way.
+            var mine = NativeStorage();
             if (mine != null)
             {
-                var theirs = other as PyString ?? (other as PyClassInstance)?.GetStringStorage();
+                var theirs = PyNativeStorage.Unwrap(other);
                 if (theirs != null)
                     return mine.RichCompare(theirs, op);
             }
             return base.RichCompare(other, op);
+        }
+
+        // CPython 3.12: Objects/object.c:1675-1697 (PyObject_IsTrue) tries nb_bool, then
+        // sq_length/mp_length. A container subclass inherits that length slot from its base, so an
+        // empty C() is false without the class declaring __bool__ or __len__ - and a declared one
+        // still wins, which is why the user lookup runs first.
+        // CPython: a frozenset subclass inherits frozenset_hash (Objects/setobject.c), so
+        // hash(C([1, 2])) equals hash(frozenset([1, 2])) and the two are the same dict key. SharpPy
+        // found no __hash__ in the MRO and fell back to identity, which made an instance unequal-
+        // by-hash to every equal value of its own base type. list/dict/set answer through the MRO as
+        // __hash__ = None, so the unhashable refusal still comes from base.GetPythonHash().
+        internal override long GetPythonHash()
+        {
+            if (LookupSpecialMethodUncached("__hash__") == null)
+            {
+                var container = NativeStorage();
+                if (container is PyFrozenSet || container is PyString)
+                    return container.GetPythonHash();
+            }
+            return base.GetPythonHash();
+        }
+
+        public override bool IsTrue()
+        {
+            if (LookupSpecialMethodUncached("__bool__") == null &&
+                LookupSpecialMethodUncached("__len__") == null)
+            {
+                var container = NativeStorage();
+                if (container != null)
+                    return container.IsTrue();
+            }
+            return base.IsTrue();
         }
 
     }

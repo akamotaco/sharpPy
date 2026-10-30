@@ -1408,6 +1408,15 @@ namespace SharpPy
         private static PyObject ObjectInitDescriptor() =>
             ObjectType != null && ObjectType.TypeDict.TryGetValue("__init__", out var d) ? d : null;
 
+        /// <summary>
+        /// CPython builds constructor and descriptor messages from type-&gt;tp_name, which is the
+        /// class's own name. PyObject.GetTypeName() answers the type *of* the object, so for a class
+        /// value it says 'type' and produces messages like "set.__new__(type): type is not a subtype
+        /// of set" where CPython says int. Classes are asked for their own name here.
+        /// </summary>
+        internal static string TpName(PyObject cls) =>
+            cls is PyType typeObject ? typeObject.Name : cls.GetTypeName();
+
         internal static bool TypeNewIsObjectNew(PyType type) =>
             type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__new__"), ObjectNewDescriptor());
 
@@ -2133,6 +2142,61 @@ namespace SharpPy
             // its hash). See the same mechanism noted in InitializeDictDescriptors.
             TypeDict["__hash__"] = PyNone.Instance;
 
+            // set.__new__(cls, /) - Objects/setobject.c:1038 set_new, which is literally
+            //   return make_new_set(type, NULL);
+            // The iterable a caller passes is **not** read here; set_init reads it. Registering the
+            // descriptor also matters for the constructor guard: PyType.TypeNewIsObjectNew compares
+            // the MRO answer against object.__new__, and while set's tp_new existed only as C code
+            // SharpPy saw object.__new__ and refused every argument with "C() takes no arguments".
+            TypeDict["__new__"] = new PyMethodDescriptor(
+                "__new__",
+                setType,
+                (self, args, kwargs) => {
+                    var cls = self;
+                    if (cls == PyType.SetType)
+                        return new PySet();
+                    if (!(cls is PyClass setClass)) {
+                        string foreign = TpName(cls);
+                        throw PyTypeError.Create(
+                            "set.__new__(" + foreign + "): " + foreign + " is not a subtype of set");
+                    }
+                    var created = new PyClassInstance(setClass);
+                    created.ConstructorArgs = args;
+                    return created;
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            );
+
+            // set.__init__(iterable=(), /) - Objects/setobject.c:1977 set_init:
+            //   if (!_PyArg_NoKeywords("set", kwds))                     name is hardcoded "set"
+            //   PyArg_UnpackTuple(args, Py_TYPE(self)->tp_name, 0, 1, &iterable)   name is the type's own
+            //   if (self->fill) set_clear_internal(self);                 re-initialising empties it
+            //   self->hash = -1;
+            //   if (iterable == NULL) return 0;
+            //   return set_update_internal(self, iterable);
+            // The two names differing is observable: C([1],[2]) says "C expected at most 1 argument,
+            // got 2" while C(x=[1]) says "set() takes no keyword arguments" (measured).
+            TypeDict["__init__"] = new PyWrapperDescriptor(
+                "__init__",
+                setType,
+                (self, args, kwargs) => {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("set() takes no keyword arguments");
+                    if (args.Length > 1)
+                        throw PyTypeError.Create(
+                            $"{self.GetTypeName()} expected at most 1 argument, got {args.Length}");
+                    var target = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create(
+                        "object.__init__() takes exactly one argument (the instance to initialize)");
+                    target.Clear();
+                    if (args.Length == 1)
+                        target.Update(args[0]);
+                    return PyNone.Instance;
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            );
+
             // set.add(elem)
             TypeDict["add"] = new PyMethodDescriptor(
                 "add",
@@ -2140,13 +2204,23 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"add() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'add' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'add' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Add(args[0]);
                 },
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // nb_inplace_or / nb_inplace_and / nb_inplace_subtract / nb_inplace_xor are visible in
+            // dir(set) as __ior__ / __iand__ / __isub__ / __ixor__ (Objects/setobject.c
+            // set_inplace_union and the *_update helpers). They mutate the object and return the
+            // same object, so s |= {2} keeps a subclass instance and keeps aliases live; without
+            // these entries SharpPy fell back to the plain operator and rebound a new exact set
+            // (and reported the failure with '|' where CPython says '|=').
+            RegisterSetInplace("__ior__", "|=", (target, other) => target.Update(other));
+            RegisterSetInplace("__iand__", "&=", (target, other) => target.IntersectionUpdate(other));
+            RegisterSetInplace("__isub__", "-=", (target, other) => target.DifferenceUpdate(other));
+            RegisterSetInplace("__ixor__", "^=", (target, other) => target.SymmetricDifferenceUpdate(other));
 
             // set.remove(elem)
             TypeDict["remove"] = new PyMethodDescriptor(
@@ -2155,8 +2229,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'remove' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'remove' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Remove(args[0]);
                 },
                 minArgs: 1,
@@ -2170,8 +2243,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"discard() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'discard' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'discard' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Discard(args[0]);
                 },
                 minArgs: 1,
@@ -2185,8 +2257,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"pop() takes no arguments ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'pop' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'pop' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Pop();
                 },
                 minArgs: 0,
@@ -2200,8 +2271,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'clear' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'clear' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Clear();
                 },
                 minArgs: 0,
@@ -2215,8 +2285,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'copy' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'copy' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Copy();
                 },
                 minArgs: 0,
@@ -2228,8 +2297,7 @@ namespace SharpPy
                 "update",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // CPython set_update(set, *others)
                     foreach (var other in args)
                         set.Update(other);
@@ -2243,8 +2311,7 @@ namespace SharpPy
                 "union",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'union' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'union' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // CPython set_union(set, *others)
                     PySet acc = null;
                     foreach (var other in args)
@@ -2264,8 +2331,7 @@ namespace SharpPy
                 "intersection",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'intersection' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'intersection' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // CPython set_intersection(se, *others)
                     PySet acc = null;
                     foreach (var other in args)
@@ -2285,8 +2351,7 @@ namespace SharpPy
                 "difference",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // CPython set_difference(set, *others)
                     PySet acc = null;
                     foreach (var other in args)
@@ -2306,8 +2371,7 @@ namespace SharpPy
                 "symmetric_difference",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'symmetric_difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'symmetric_difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     // CPython set_symmetric_difference takes exactly one other argument.
                     if (args.Length != 1)
                         throw PyTypeError.Create($"symmetric_difference expected 1 argument, got {args.Length}");
@@ -2324,8 +2388,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"issubset() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'issubset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'issubset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.IsSubset(args[0]);
                 },
                 minArgs: 1,
@@ -2339,8 +2402,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"issuperset() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'issuperset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'issuperset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.IsSuperset(args[0]);
                 },
                 minArgs: 1,
@@ -2354,8 +2416,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"isdisjoint() takes exactly 1 argument ({args.Length} given)");
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'isdisjoint' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'isdisjoint' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.IsDisjoint(args[0]);
                 },
                 minArgs: 1,
@@ -2368,8 +2429,7 @@ namespace SharpPy
                 "intersection_update",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'intersection_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'intersection_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     foreach (var other in args)
                         set.IntersectionUpdate(other);
                     return PyNone.Instance;
@@ -2383,8 +2443,7 @@ namespace SharpPy
                 "difference_update",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     foreach (var other in args)
                         set.DifferenceUpdate(other);
                     return PyNone.Instance;
@@ -2398,8 +2457,7 @@ namespace SharpPy
                 "symmetric_difference_update",
                 setType,
                 (self, args, kwargs) => {
-                    if (self is not PySet set)
-                        throw PyTypeError.Create("descriptor 'symmetric_difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'symmetric_difference_update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"symmetric_difference_update expected 1 argument, got {args.Length}");
                     return set.SymmetricDifferenceUpdate(args[0]);
@@ -2418,6 +2476,33 @@ namespace SharpPy
         /// <summary>
         /// frozenset 타입의 descriptor 테이블 초기화
         /// </summary>
+        /// <summary>
+        /// One of set's four in-place operators. The operand test is PyAnySet_Check - which is why
+        /// s |= [1] is an error even though s.update([1]) is not, and why the message has to carry
+        /// the in-place symbol. Returning self rather than the storage is what preserves identity and
+        /// the subclass.
+        /// </summary>
+        private void RegisterSetInplace(string name, string symbol, Action<PySet, PyObject> mutate)
+        {
+            TypeDict[name] = new PyMethodDescriptor(
+                name,
+                this,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create(
+                            $"{name}() takes exactly one argument ({args.Length} given)");
+                    var target = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create(
+                        "descriptor '" + name + "' for 'set' objects doesn't apply to a '" +
+                        self.GetTypeName() + "' object");
+                    PySet.RequireAnySet(self, args[0], symbol);
+                    mutate(target, args[0]);
+                    return self;
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            );
+        }
+
         private void InitializeFrozenSetTypeDescriptors()
         {
             var frozensetType = this;
@@ -2428,7 +2513,114 @@ namespace SharpPy
                 (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
             );
 
-            // TODO: frozenset 메서드들 구현
+            // frozenset.__new__(cls, iterable=(), /) - Objects/setobject.c:1003 frozenset_new:
+            //   if ((type == &PyFrozenSet_Type || type->tp_init == PyFrozenSet_Type.tp_init)
+            //       && !_PyArg_NoKeywords("frozenset", kwds)) return NULL;
+            //   PyArg_UnpackTuple(args, type->tp_name, 0, 1, &iterable)
+            // frozenset declares **no** tp_init (Objects/setobject.c:2262 "0, /* tp_init */"), so
+            // this is the only place the value is built, and the keyword test's condition is false
+            // for a subclass: the subclass inherits object_init, not frozenset's absent one. The
+            // observable result is that frozenset(x=1) is an error while C(x=1) quietly builds C().
+            TypeDict["__new__"] = new PyMethodDescriptor(
+                "__new__",
+                frozensetType,
+                (self, args, kwargs) => {
+                    var cls = self;
+                    bool exact = cls == PyType.FrozenSetType;
+                    // The condition in frozenset_new compares tp_init against frozenset's own.
+                    // A subclass that declares no __init__ ends up with the very same object_init
+                    // frozenset itself has (Objects/setobject.c:2262 leaves tp_init 0), so the
+                    // refusal applies there too: F(x=1) raises, measured on 3.12.15. Only a class
+                    // that defines its own __init__ escapes this check.
+                    bool initIsFrozensetInit = exact || PyType.TypeInitIsObjectInit(cls as PyType);
+                    if (initIsFrozensetInit && kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("frozenset() takes no keyword arguments");
+                    if (args.Length > 1)
+                        throw PyTypeError.Create(
+                            $"{TpName(cls)} expected at most 1 argument, got {args.Length}");
+                    if (exact)
+                        return args.Length == 0
+                            ? new PyFrozenSet()
+                            : new PyFrozenSet(PySet.IterableItems(args[0]));
+                    if (cls is PyClass frozenClass) {
+                        var created = new PyClassInstance(frozenClass);
+                        // The value is read from these arguments later, in GetFrozenStorage(),
+                        // which is SharpPy's stand-in for make_new_frozenset.
+                        created.ConstructorArgs = args;
+                        return created;
+                    }
+                    string foreign = TpName(cls);
+                    throw PyTypeError.Create(
+                        "frozenset.__new__(" + foreign + "): " + foreign +
+                        " is not a subtype of frozenset");
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            );
+
+            // frozenset's methods live in Objects/setobject.c frozenset_methods as METH_NOARGS /
+            // METH_O / METH_VARARGS entries, so a subclass inherits them as builtins bound to the
+            // instance. SharpPy had them only as CLR methods on PyFrozenSet, and a subclass instance
+            // is not a PyFrozenSet: C([1]).union([2]) raised AttributeError while the same call on a
+            // plain frozenset worked. Arity refusals keep the measured wording, which names the
+            // defining type rather than the subclass:
+            //   frozenset.copy() takes no arguments (1 given)
+            //   frozenset.issubset() takes exactly one argument (0 given)
+            RegisterFrozenSetMethod("copy", 0, 0, (frozen, a) => frozen.Copy());
+            RegisterFrozenSetMethod("union", 0, int.MaxValue, (frozen, a) => {
+                PyFrozenSet result = frozen;
+                foreach (var other in a) result = result.Union(other);
+                return result;
+            });
+            RegisterFrozenSetMethod("intersection", 0, int.MaxValue, (frozen, a) => {
+                PyFrozenSet result = frozen;
+                foreach (var other in a) result = result.Intersection(other);
+                return result;
+            });
+            RegisterFrozenSetMethod("difference", 0, int.MaxValue, (frozen, a) => {
+                PyFrozenSet result = frozen;
+                foreach (var other in a) result = result.Difference(other);
+                return result;
+            });
+            RegisterFrozenSetMethod("symmetric_difference", 1, 1,
+                (frozen, a) => frozen.SymmetricDifference(a[0]));
+            RegisterFrozenSetMethod("isdisjoint", 1, 1, (frozen, a) => frozen.IsDisjoint(a[0]));
+            RegisterFrozenSetMethod("issubset", 1, 1, (frozen, a) => frozen.IsSubset(a[0]));
+            RegisterFrozenSetMethod("issuperset", 1, 1, (frozen, a) => frozen.IsSuperset(a[0]));
+        }
+
+        /// <summary>
+        /// One frozenset method table entry. The self check goes through PyNativeStorage because a
+        /// subclass instance carries the value in storage instead of being a PyFrozenSet, and
+        /// PyAnySet_Check accepts it. The refusal wording is Objects/descrobject.c's
+        /// method_descriptor form: "descriptor 'union' for 'frozenset' objects doesn't apply to a
+        /// 'C' object".
+        /// </summary>
+        private void RegisterFrozenSetMethod(string name, int minCount, int maxCount,
+            Func<PyFrozenSet, PyObject[], PyObject> body)
+        {
+            TypeDict[name] = new PyMethodDescriptor(
+                name,
+                this,
+                (self, args, kwargs) => {
+                    if (args.Length < minCount || args.Length > maxCount)
+                    {
+                        string phrase = maxCount == 0
+                            ? "takes no arguments"
+                            : minCount == 1 && maxCount == 1
+                                ? "takes exactly one argument"
+                                : "takes at least " + minCount + " arguments";
+                        throw PyTypeError.Create(
+                            "frozenset." + name + "() " + phrase + " (" + args.Length + " given)");
+                    }
+                    var frozen = PyNativeStorage.ForFrozenSet(self) ?? throw PyTypeError.Create(
+                        "descriptor '" + name + "' for 'frozenset' objects doesn't apply to a '" +
+                        self.GetTypeName() + "' object");
+                    return body(frozen, args);
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            );
         }
 
         /// <summary>
@@ -2555,6 +2747,29 @@ namespace SharpPy
         private void InitializeDictTypeDescriptors()
         {
             var dictType = this;
+
+            // dict.__new__(cls, /) - Objects/dictobject.c dict_new builds an empty dict while
+            // dict_init consumes the mapping argument. Same reason as list.__new__: the class's
+            // tp_new is dict_new, not object_new.
+            TypeDict["__new__"] = new PyMethodDescriptor(
+                "__new__",
+                dictType,
+                (self, args, kwargs) => {
+                    var cls = self;
+                    if (cls == PyType.DictType)
+                        return new PyDict();
+                    if (!(cls is PyClass dictClass)) {
+                        string foreign = TpName(cls);
+                        throw PyTypeError.Create(
+                            "dict.__new__(" + foreign + "): " + foreign + " is not a subtype of dict");
+                    }
+                    var created = new PyClassInstance(dictClass);
+                    created.ConstructorArgs = args;
+                    return created;
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            );
 
             // dict.keys()
             TypeDict["keys"] = new PyMethodDescriptor(

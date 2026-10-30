@@ -17,18 +17,11 @@ namespace SharpPy
             if (self is PyList list)
                 return list;
 
-            // Check if it's a list subclass (PyClassInstance with list base)
-            if (self is PyClassInstance instance)
-            {
-                // Use reflection to call GetListStorage
-                var method = typeof(PyClassInstance).GetMethod("GetListStorage");
-                if (method != null)
-                {
-                    var storage = method.Invoke(instance, null) as PyList;
-                    if (storage != null)
-                        return storage;
-                }
-            }
+            // A list subclass keeps its value in storage; PyNativeStorage is the one place that
+            // knows how to reach it (no reflection: the getter is a normal API).
+            var subclassStorage = PyNativeStorage.ForList(self);
+            if (subclassStorage != null)
+                return subclassStorage;
 
             throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
         }
@@ -45,16 +38,9 @@ namespace SharpPy
             if (self is PyList list)
                 return list;
 
-            if (self is PyClassInstance instance)
-            {
-                var method = typeof(PyClassInstance).GetMethod("GetListStorage");
-                if (method != null)
-                {
-                    var storage = method.Invoke(instance, null) as PyList;
-                    if (storage != null)
-                        return storage;
-                }
-            }
+            var subclassStorage = PyNativeStorage.ForList(self);
+            if (subclassStorage != null)
+                return subclassStorage;
 
             throw PyTypeError.Create(slotStyleMessage
                 ? $"descriptor '{name}' requires a 'list' object but received a '{self.GetTypeName()}'"
@@ -64,6 +50,29 @@ namespace SharpPy
         private static void InitializeListDescriptors()
         {
             var listType = PyType.ListType;
+
+            // list.__new__(cls, /) - Objects/listobject.c list_new builds an empty list and ignores
+            // the iterable (list___init___impl at listobject.c:2785 is what reads it). Registering
+            // it is what makes PyType.TypeNewIsObjectNew answer "no" for a list subclass: CPython's
+            // tp_new is list_new, never object_new, so the constructor guard must not treat the
+            // arguments as excess.
+            listType.TypeDict["__new__"] = new PyMethodDescriptor(
+                "__new__", listType,
+                (self, args, kwargs) => {
+                    var cls = self;
+                    if (cls == PyType.ListType)
+                        return new PyList();
+                    if (!(cls is PyClass listClass)) {
+                        string foreign = PyType.TpName(cls);
+                        throw PyTypeError.Create(
+                            "list.__new__(" + foreign + "): " + foreign + " is not a subtype of list");
+                    }
+                    var created = new PyClassInstance(listClass);
+                    created.ConstructorArgs = args;
+                    return created;
+                },
+                minArgs: 0, maxArgs: int.MaxValue
+            );
 
             // CPython 3.12: list.__hash__ is None (mutable sequence is unhashable).
             // PyObject.GetPythonHash has an explicit __hash__-is-None branch that raises
@@ -413,7 +422,11 @@ namespace SharpPy
             // (Objects/typeobject.c slotdefs + listobject.c METH_VARARGS list_inplace_*/
             // list_repeat). Error strings measured against CPython 3.12.15; the varargs
             // list_repeat family has the distinctive leading-space message.
-            void regListBin(string name, bool varargsStyle, Func<PyList, PyObject, PyObject> impl)
+            // returnsSelf: nb_inplace_add / nb_inplace_multiply return the object itself, which for
+            // a subclass instance is the user's object and not the storage. Returning the storage
+            // there made x += [...] rebind a plain list and broke aliasing (y = x saw nothing).
+            void regListBin(string name, bool varargsStyle, Func<PyList, PyObject, PyObject> impl,
+                bool returnsSelf = false)
             {
                 listType.TypeDict[name] = new PyWrapperDescriptor(name, listType, (self, args, kwargs) =>
                 {
@@ -424,7 +437,8 @@ namespace SharpPy
                         throw PyTypeError.Create(varargsStyle
                             ? $" expected 1 argument, got {args.Length}"
                             : $"expected 1 argument, got {args.Length}");
-                    return impl(list, args[0]);
+                    var produced = impl(list, args[0]);
+                    return returnsSelf ? self : produced;
                 });
             }
             regListBin("__add__", false, (list, other) =>
@@ -452,12 +466,12 @@ namespace SharpPy
                 list._items.Clear();
                 list._items.AddRange(repeated._items);
                 return list; // CPython returns the same list object
-            });
+            }, returnsSelf: true);
             regListBin("__iadd__", false, (list, other) =>
             {
                 list.Extend(other); // accepts any iterable; raises like list.extend
                 return list;
-            });
+            }, returnsSelf: true);
 
             // CPython 3.12: list tp_richcompare wrappers; non-list other -> NotImplemented.
             string[] listComparisonNames = { "__lt__", "__le__", "__eq__", "__ne__", "__gt__", "__ge__" };
@@ -553,6 +567,22 @@ namespace SharpPy
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("[]");
 
+            // Objects/listobject.c:379 list_repr calls Py_ReprEnter: a list that contains itself
+            // prints [1, [...]] instead of recursing forever.
+            if (!PyReprGuard.Enter(this))
+                return StringCache.GetOrCreate("[...]");
+            try
+            {
+                return ToReprContents();
+            }
+            finally
+            {
+                PyReprGuard.Leave(this);
+            }
+        }
+
+        private PyString ToReprContents()
+        {
             // Performance: string.Create() - CPython-style single allocation
 
             // Step 1: Calculate total length and cache reprs
@@ -982,6 +1012,9 @@ namespace SharpPy
         /// </summary>
         protected override PyObject PyEquals(PyObject other)
         {
+            // list_richcompare tests the other operand with PyList_Check, which accepts subclasses,
+            // so [1, 2] == C([1, 2]) has to see through the user object to its storage.
+            other = PyNativeStorage.Unwrap(other);
             if (other is not PyList otherList)
                 return PyBool.False;
 
@@ -1004,6 +1037,9 @@ namespace SharpPy
         /// </summary>
         public override PyObject Add(PyObject other)
         {
+            // list_concat tests the right operand with PyList_Check, which accepts subclasses, so
+            // [2] + C([1]) is [2, 1] (a plain list, which is what CPython returns).
+            other = PyNativeStorage.Unwrap(other);
             if (other is not PyList otherList)
                 throw PyTypeError.Create($"can only concatenate list (not \"{other.GetTypeName()}\") to list");
 

@@ -219,7 +219,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+                    if (PyNativeStorage.ForDict(self) is not PyDict dict)
                         throw PyTypeError.Create($"descriptor 'popitem' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return dict.PopItem();
@@ -234,7 +234,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+                    if (PyNativeStorage.ForDict(self) is not PyDict dict)
                         throw PyTypeError.Create($"descriptor 'clear' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     return dict.Clear();
@@ -621,6 +621,22 @@ namespace SharpPy
         {
             if (_dict.Count == 0) return StringCache.GetOrCreate("{}");
 
+            // Objects/dictobject.c:2400 dict_repr calls Py_ReprEnter, so a self-containing dict
+            // prints {1: {...}} instead of recursing until the process dies.
+            if (!PyReprGuard.Enter(this))
+                return StringCache.GetOrCreate("{...}");
+            try
+            {
+                return ToReprContents();
+            }
+            finally
+            {
+                PyReprGuard.Leave(this);
+            }
+        }
+
+        private PyString ToReprContents()
+        {
             // Python 3.7+: 삽입 순서대로 출력
             // Performance: string.Create() - CPython-style single allocation
 
@@ -673,9 +689,11 @@ namespace SharpPy
 
         #region Hash and Equality
 
+        // dict_equal tests the other operand with PyDict_Check, which accepts subclasses, so
+        // {'a': 1} == D({'a': 1}) compares contents.
         protected override PyObject PyEquals(PyObject other)
         {
-            return other switch
+            return PyNativeStorage.Unwrap(other) switch
             {
                 PyDict otherDict => PyBool.FromBool(CheckDictEquality(otherDict)),
                 _ => PyBool.False
@@ -1268,7 +1286,9 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseOr(PyObject other)
         {
-            // CPython: Objects/dictobject.c:3149-3152 - Type check
+            // CPython: Objects/dictobject.c:3149-3152 - Type check. dict_or (PEP 584) tests with
+            // PyDict_Check, which accepts subclasses, so {'a': 1} | D({'b': 2}) merges.
+            other = PyNativeStorage.Unwrap(other);
             if (other is not PyDict otherDict)
             {
                 return PyNotImplemented.Instance;

@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **83/83 matching** (p76 150 lines, p78 added; all diff 0)
+- `tools/run_bughunt.py`: **84/84 matching** (p76 150 lines, p78, p79 added; all diff 0)
 - `tools/argv_matrix.py`: **0 mismatches** (P0-41로 등록된 gap은 제외)
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
@@ -1468,7 +1468,7 @@ CPython `remove ok` / SharpPy `remove failed: PermissionError` → **이제 양�
 5. **자원 타입 확대 미착수** — socket·Godot 리소스 등은 아직 bus에 등록되지 않았다.
    `PyFile`이 첫 고객이고, 등록부는 임의의 `Action`을 받도록 이미 일반화되어 있다.
 
-## P0-40 용기 클래스 서브클래스 4종 (측정 2026-10-30, 미해결)
+## P0-40 용기 클래스 서브클래스 → 닫힘 (2026-10-30)
 
 `.artifacts/tmp/submatrix.py`가 9개 내장 타입의 서브클래스를 같은 표면(repr/str, len, 인덱스,
 슬라이스, 순회, eq, `__mro__`, 메서드 위임)으로 비교한 결과 **4/9 갈린다**:
@@ -1489,10 +1489,42 @@ list/dict/set/frozenset 대응이 없다. 생성 시 래퍼를 고르는 지점�
 [컨테이너 서브클래스 dunder](reports/2026-10-30/container_subclass_dunders.md) 범위에서 repr과
 set/frozenset 생성자는 빠졌다.
 
-조치 방향(미실행): 래퍼 4종을 추가하기보다 **repr을 기본형으로 위임하는 단일 지점**을 먼저 본다 —
-`PyList`/`PyDict`은 값을가지하므로 서브클래스에서도 `ToRepr()` 를 기본형 구현으로 부를 수 있다.
-set/frozenset은 생성자 인자 경로를 list와 같이 붙인다. 선행 측정: 서브클래스 `__repr__` 오버라이드
-우선, `x.append(x)` 재귀 repr, `C()` 무인자, iterable 아닌 것 전달 시 문구.
+**해결**._repr만 빠진 것_이 아니었다. 측정을 넓히면 set/frozenset 서브클래스는 전혀 작동하지
+않았고(`len` 실패、`add` 실패、생성자 거부)、비교·truthiness·hash·연산자 전체가 서브클래스에서
+사라져 있었다. 기준은 CPython의 **슬롯 상속**(`inherit_slots`/`update_one_slot`) 하나로 잡았다 —
+서브클래스에 메서드를 복사하는 게 아니라 기본형의 C 슬롯을 그대로 갖는 것.
+
+| 기관 | 앵커 |
+|---|---|
+| set_repr가 `tp_name`을 출력(`C({1,2})`, `C()`) | `Objects/setobject.c:507` |
+| `set_new`는 iterable을 무시, `set_init`가 소비(문구의 이름 두 개가 다름) | `setobject.c:1038`, `:1977` |
+| frozenset는 tp_init 자체가 없음 → 값은 tp_new에서만 만들어진다 | `setobject.c:1003`, `:2262` |
+| 키워드 거부가 서브클래스에도 적용(`F(x=1)` Raises) | `frozenset_new`의 `tp_init` 비교 |
+| eq/concat/merge는 서브클래스를 허용 | `PyList_Check`/`PyDict_Check`/`PyAnySet_Check` |
+| `bool(C())` False | `Objects/object.c:1675` — nb_bool → sq_length/mp_length |
+| `x += y`는 객체를 돌려준다 | `nb_inplace_add`/`set_inplace_union` |
+| 재귀 repr은 `[...]` | `Py_ReprEnter` |
+
+구현: `core/PyNativeStorage.cs`(신규 — 값 접근의 단일 지점, `PyList`의 **리플렉션** 2곳과
+`PyFrozenSet` 정적 생성자의 `(PyFrozenSet)self` 하드캐스트를 대체)、`core/PyReprGuard.cs`(신규)、
+`PyClassInstance`에 set/frozenset 스토리지 + `NativeStorage()` 하나로 repr/len/in/iter/hash/truthiness/
+비교/연산자 슬롯을 모두 라우팅、list/dict/set/frozenset `__new__` 과 set `__init__` 등록、frozenset
+메서드 테이블 신설(`// TODO` 였다)、17개 set 디스크립터 self-check、`TpName()`、
+`regListBin(..., returnsSelf:)`.
+
+검증 — bughunt **84/84**(`p79_container_subclasses.py` 137줄 diff 0)、evaluate 225/3/2、
+Godot 리플레이 82 matched 0 other、perf A/B 총합 **1.00x**(repr_list 1.00x、list_concat 1.01x).
+자세한 측정표는 [컨테이너 서브클래스 슬롯](reports/2026-10-30/container_subclass_slots.md).
+
+## P0-42 다중 상속 레이아웃 충돌과 in-place 다이렉트 호출 (측정 2026-10-30, 미해결)
+
+1. `class M(list, dict)` — CPython은 `TypeError: multiple bases have instance lay-out conflict`, 
+   SharpPy는 받아들인다. 기준은 CPython의 best-base 계산인데 `class E(str, int)`(IntEnum)는
+   합법이어야 하므로 "두 타입 비교"로 대신할 수 없다. 별도 커밋.
+2. `s.__ior__([2])`를 **직접** 호출하면 CPython은 `NotImplemented`를 돌려주지만 SharpPy는
+   `unsupported operand type(s) for |=: 'S' and 'list'` 를 던진다. 의도적 선택: 테스트는 공유하고, 
+   실제 코드가 쓰는 연산자 형태(`s |= [2]`)의 문구가 `|=` 를 유지하는 쪽을 택했다.
+3. 이 생성들의 traceback 캐럿 길이(`^^^^^^` vs `^`)차이는 P0-34 cohort 3(칼럼 좌표)소속이다.
 
 ## P0-41 stdin 스크립트 실행과 usage 진단 (측정 2026-10-30, 미해결)
 
