@@ -7,6 +7,11 @@
 [판단 오류 기록](reports/2026-10-13/process_failures_and_corrective_actions.md)에 남긴다.
 작업 시 [저장소 지침](../AGENTS.md)을 함께 따른다.
 
+객체 수명·`__del__`·`gc`·weakref 계열의 판단은 [수명·gc·weakref 정책](lifetime_and_gc_policy.md)을
+따른다. 그 문서는 CPython 앵커 표, 기각된 선택지, 그리고 "동일해야 하는 관측량 / 원리적으로
+동일할 수 없는 관측량 / 결과는 같게 만들어야 하는 자원 상태" 구분을 담고 있으므로, 이 계열을
+다루기 전에 먼저 읽는다.
+
 현재 우선 작업은 **namespace의 중복 저장·동기화 경로 정리** 하나다.
 CPython의 진입점·호출 경로, 기존 실패 재현, 실제 호스트 호출자를 먼저 대응시킨다.
 PyNamespace/PyGlobalsDict/cache/legacy adapter의 역할과 제거할 경로를 정하고,

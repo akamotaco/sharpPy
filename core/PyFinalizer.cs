@@ -5,31 +5,61 @@ namespace SharpPy
 {
     /// <summary>
     /// The __del__ hook, and the one place its timing is decided.
+    /// POLICY: docs/lifetime_and_gc_policy.md (Korean) - lifetime belongs to the CLR collector,
+    /// release is explicit, and only the *moment of unreachability* is an accepted divergence.
     ///
-    /// CPython calls tp_finalize from deallocate (Objects/object.c:1285 call_finalizer), so a
-    /// __del__ runs the instant the last reference drops. SharpPy has no reference counter: an
-    /// object's lifetime belongs to the CLR collector, whose timing is not observable and cannot be
-    /// made deterministic without a write barrier at every Python-visible reference slot. That is
-    /// why this file does not try to emulate reference counting. It does two things instead:
+    /// CPython's mechanism, in reading order:
+    ///   Objects/typeobject.c:9499  TPSLOT(__del__, tp_finalize, slot_tp_finalize, ...) maps the
+    ///                              Python-level method onto a C slot at type-creation time.
+    ///   Objects/typeobject.c:9071  slot_tp_finalize looks the method up on the type, which is why
+    ///                              a subclass override wins and super().__del__() reaches the base.
+    ///   Objects/object.c:357       PyObject_CallFinalizer runs it, with the comment at :362
+    ///                              "tp_finalize should only be called once", a _PyGC_FINALIZED flag
+    ///                              test, and _PyGC_SET_FINALIZED afterwards.
+    ///   Objects/object.c:374       PyObject_CallFinalizerFromDealloc handles resurrection; :398
+    ///                              "tp_finalize resurrected it!".
+    ///   Objects/typeobject.c:1901  subtype_dealloc: "Maybe call finalizer; exit early if resurrected".
+    /// The point of the chain: in CPython the *time* of the call is a function of the reference
+    /// count, and that is the only part SharpPy cannot reproduce.
     ///
-    /// 1. It resolves __del__ through the type, so a subclass override wins and super().__del__()
-    ///    reaches the base implementation - a finalizer is a special method, and the lookup has to
-    ///    behave like one even though the call site is not CPython's.
-    /// 2. It runs the pending finalizers at interpreter shutdown, which is the one moment CPython's
-    ///    answer and SharpPy's answer are the same: module globals are dropped, every object with a
-    ///    __del__ loses its last reference, and each __del__ runs exactly once.
+    /// SharpPy has no reference counter, and adding one (a write barrier at every Python-visible
+    /// reference slot) is rejected in the policy document. It does two things instead:
     ///
-    /// Measured against CPython 3.12.15, the order at shutdown is creation order, and an exception
+    /// 1. It resolves __del__ through the type, exactly as slot_tp_finalize does, so a subclass
+    ///    override wins and super().__del__() reaches the base implementation. This half matches
+    ///    CPython behaviourally and is pinned by tests/bughunt/p76_gc_and_finalizers.py.
+    /// 2. It runs the pending finalizers at interpreter shutdown. That is the one moment the two
+    ///    answers coincide: CPython's own shutdown collects twice and clears weakref lists
+    ///    (Python/pylifecycle.c:1573 finalize_modules, :1609 and :1649 _PyGC_CollectNoFail,
+    ///    :1630 finalize_modules_clear_weaklist), so every remaining object with a __del__ loses
+    ///    its last reference and must be finalized before the process ends.
+    ///
+    /// Measured against CPython 3.12.15: the order at shutdown is creation order, and an exception
     /// raised inside __del__ is reported on stderr as "Exception ignored in: &lt;function ...&gt;"
-    /// without changing the exit status. Both are reproduced here.
+    /// plus "Traceback (most recent call last):" and the error line, without changing the exit
+    /// status. Both are reproduced here.
     ///
-    /// The registered difference (docs/known_gaps.md, P0-37): an object that becomes unreachable
-    /// mid-run still has its __del__ deferred to shutdown, because SharpPy cannot see unreachability.
+    /// DELIBERATE DIVERGENCE (docs/known_gaps.md, P0-37 remainder 1): an object that becomes
+    /// unreachable mid-run keeps its __del__ deferred to shutdown. Making that immediate would
+    /// require either reference counting (rejected) or a CLR finalizer, which is forbidden:
+    /// a finalizer runs on its own thread where a Python exception terminates the process, the
+    /// module globals and stdout may already be gone, Godot's native context may be destroyed, and
+    /// pending finalizers may be skipped at exit. See policy section 4.
+    ///
+    /// NOT IMPLEMENTED, on purpose: resurrection. CPython re-runs __del__ if the finalizer revives
+    /// the object, because it can see the reference count go back up (Objects/object.c:398).
+    /// Here a finalized object stays finalized (policy: P0-37 remainder 6).
     /// </summary>
     internal static class PyFinalizer
     {
         // Registration order is the order finalizers run, matching measured CPython shutdown order.
         private static readonly List<Entry> Pending = new List<Entry>();
+
+        // "Only once" per Objects/object.c:362. KNOWN WEAKNESS: PyObject overrides GetHashCode to
+        // return the Python hash, so this set hashes by user-defined __hash__ rather than by
+        // reference identity. Distinct objects still compare by reference (object.Equals is not
+        // overridden), but a user __hash__ that raises would surface on the registration path.
+        // Tracked as docs/known_gaps.md P0-37 remainder 9; the fix is a reference comparer.
         private static readonly HashSet<PyObject> Finalized = new HashSet<PyObject>();
         private static bool running;
 

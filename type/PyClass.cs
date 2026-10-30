@@ -93,7 +93,10 @@ namespace SharpPy
 
         // Whether this class' MRO declares __del__, remembered so that creating an instance of an
         // ordinary class costs one field read instead of an MRO walk. CPython answers the same
-        // question once, at type creation, by filling tp_finalize.
+        // question once, at type creation: Objects/typeobject.c:9499 binds __del__ to tp_finalize
+        // through the slotdef table, and subtype_dealloc (Objects/typeobject.c:1901) then tests
+        // tp_finalize per object without searching. This field is the SharpPy equivalent of that
+        // slot. See docs/lifetime_and_gc_policy.md section 3 for what does and does not follow.
         private bool _finalizerChecked;
         private bool _declaresFinalizer;
 

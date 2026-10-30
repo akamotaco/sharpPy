@@ -71,7 +71,11 @@ namespace SharpPy.Core
                     interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
                 }
                 // CPython runs pending __del__ hooks while it tears the interpreter down, after the
-                // program's own output and without changing the exit status.
+                // program's own output and without changing the exit status. The order it follows is
+                // visible in Python/pylifecycle.c: finalize_modules (:1573), delete_special (:1590),
+                // _PyGC_CollectNoFail (:1609), finalize_modules_clear_weaklist (:1630), then a
+                // second _PyGC_CollectNoFail (:1649). Shutdown is also the only point where
+                // SharpPy's answer and CPython's coincide - see docs/lifetime_and_gc_policy.md.
                 PyFinalizer.RunAtShutdown();
             }
             catch (FileNotFoundException)

@@ -1410,4 +1410,16 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
    같은 구조로 갈 수 있다. 네이티브 `_weakref`(ref/proxy/getweakrefcount/getweakrefs/
    `_remove_dead_weakref`)가 남아 있는 작업. 사망 통지는 CLR 수거 시점이 아니라 참조 접근
    시점에 결정되므로 콜백 타이밍이 추가 격차가 된다.
+9. **`PyFinalizer`의 "1회만" 판정이 참조 동일성이 아님** — `HashSet<PyObject>`는 키 해시로
+   Python `ToHash()`를 쓴다(`PyObject.GetHashCode()`가 이를 오버라이드). 서로 다른 객체는
+   `object.Equals`가 참조 비교이므로 지금은 정상이지만, 사용자 `__hash__`가 예외를 던지면
+   finalizer 등록 경로로 새어나온다. reference comparer 교정 예정.
+10. **C방(자원 상태) 실패 — GC에 넘기면 안 된다** — 실측(`.artifacts/tmp/lock.py`):
+    4000회 `open(p,'a')` 후 `os.remove(p)`가 CPython은 `remove ok`, SharpPy는
+    `PermissionError`(Windows 파일 잠금). 단 20000회(`lock2.py`)는 통과하므로 **누수가 아니라
+    비결정적 해제**이며, 따라서 테스트로 고정할 수 없다. handle·socket·Godot 리소스는 메모리가
+    아니라 개수로 소진된다. 조치는 "PyFile 전용 확정 해제(release bus)"이며 참조 카운팅
+    재도입으로 풀지 않는다. 정책: `docs/lifetime_and_gc_policy.md`.
+
+이 항목들의 판단 근거·기각된 선택지·CPython 앵커 표는 **`docs/lifetime_and_gc_policy.md`** 에 있다.
 

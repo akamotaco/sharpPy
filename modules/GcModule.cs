@@ -7,6 +7,17 @@ namespace SharpPy.Modules
     /// <summary>
     /// gc: CPython's collector module (Modules/gcmodule.c), built-in there (gc.__spec__.origin is
     /// 'built-in'), so it has no .py file to copy and is implemented here.
+    /// POLICY: docs/lifetime_and_gc_policy.md (Korean) - the surface stays CPython's, the numbers
+    /// are the ones SharpPy can answer truthfully, and a missing introspection answer is written
+    /// down rather than faked.
+    ///
+    /// Which half of this file is which, using the policy's three classes:
+    ///   A (identical to CPython, pinned by p76): the attribute set, both refusal mechanisms and
+    ///     their wording, enable/disable/debug state, threshold values, the tracked-object rule,
+    ///     get_referents traversal order, and gc.callbacks actually being called by collect().
+    ///   B (permanently different, see get_* below): anything that would require knowing what is
+    ///     unreachable at this instant.
+    ///   C (must end up identical): not this file's business - resource release is the release bus.
     ///
     /// What is faithful: the whole visible surface and its error families, the enable/disable and
     /// debug state, the threshold values, the refusal wording, gc.callbacks being a real list that
@@ -14,7 +25,7 @@ namespace SharpPy.Modules
     /// is_tracked, and the referent graph get_referents() reports for containers.
     ///
     /// What cannot be faithful while object lifetime belongs to the CLR collector, and is recorded
-    /// in docs/known_gaps.md (P0-37) rather than papered over:
+    /// in docs/known_gaps.md (P0-37 remainder 2-4) rather than papered over:
     ///   get_objects()   - CPython walks its tracked-object list; SharpPy keeps none, so it returns
     ///                     an empty list. A program that enumerates live objects sees fewer objects.
     ///   get_referrers() - needs the reverse of that list, so it returns an empty list too.
@@ -136,8 +147,16 @@ namespace SharpPy.Modules
                     if (generation < 0 || generation >= Generations)
                         throw PyValueError.Create("invalid generation");
                 }
-                // CPython calls gc.callbacks with ("start", None) and ("stop", info) around the
-                // pass. SharpPy's pass collects nothing, but the hook is real and ordered.
+                // PLANNED, and load-bearing for weakref semantics: this is where a real
+                // GC.Collect(generation) + GC.WaitForPendingFinalizers() belongs. It would give
+                // SharpPy the same reconciliation anchor CPython has, so that
+                //     del x; gc.collect(); assert ref() is None
+                // holds (policy doc section 5.1). It must be verified first: the VM's operand stack
+                // and scope caches have to not be holding x, or the anchor silently never fires.
+                //
+                // CPython calls gc.callbacks with (phase, info) around the pass, where info is a
+                // dict with the keys collected / generation / uncollectable on both calls (measured,
+                // not assumed). SharpPy's pass collects nothing, but the hook is real and ordered.
                 InvokeCallbacks("start", generation);
                 InvokeCallbacks("stop", generation);
                 return new PyInt(0);
