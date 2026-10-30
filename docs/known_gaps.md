@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **75/75 matching**
+- `tools/run_bughunt.py`: **76/76 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -774,17 +774,71 @@ CPython의 `getattr` 기본값은 **AttributeError만** 잡는다. SharpPy는 `B
 그리고 위의 **정의 타입 접두 문구 계열**은 numeric 파일 밖에도 넓게 퍼져 있다. `bytearray`에서 이미
 확인했고 (`bytearray.upper() takes no arguments (1 given)`), P0-29의 한 갈래로 센다.
 
-## P0-31 (2026-10-30 등록): `str.upper()` / `str.lower()`가 ASCII 이상에서 아무 반응도 없다
+## P0-31 (2026-10-30 **닫힘**): case 운영은 단순 매핑이 아니라 완전 매핑이다
 
-| 표현 | CPython | SharpPy |
+등록할 때 적었던 진술은 **틀렸다**. "casefold·title·swapcase·istitle은 정확하므로 문제는 upper/lower
+뿐"이라는 근거는 ASCII 표본 검사에서 나온 것이었다. 0x0000-0x10FFFF 전체에서 case 매핑이 항등이 아닌
+코드 포인트 2,927개를 뽑아 9개 메서드를 전부 대비한 결과:
+
+| 메서드 | 어긋난 코드 포인트 | 첫 사례 |
 |---|---|---|
-| `"ß".upper()` | `'SS'` | `'ß'` 그대로 |
-| `"İ".lower()` | `'i\u0307'` | `'İ'` 그대로 |
+| `upper` | 623 | `"ß".upper()` → CPython `'SS'`, SharpPy `'ß'` |
+| `lower` | 521 | `"İ".lower()` → CPython `'i\u0307'`, SharpPy `'İ'` |
+| `swapcase` | 682 | `"ß".swapcase()` → CPython `'SS'` |
+| `capitalize` | 627 | `"ß".capitalize()` → CPython `'Ss'` |
+| `title` | 670 | `"ß".title()` → CPython `'Ss'` |
+| `casefold` | 807 | `"µ".casefold()` → CPython `'μ'`(U+03BC), SharpPy 그대로 |
+| `isupper` | 302 | `"Ⅰ".isupper()` → CPython `True` |
+| `islower` | 303 | `"ͅ".islower()` → CPython `True` |
+| `istitle` | 333 | `"ǅ".istitle()` → CPython `True` |
 
-`casefold`(`'ß' → 'ss'`), `title`, `swapcase`, `istitle`은 정확하므로 문제는 표가 아니라 이 두 메서드가
-단순화된 처리로 돌아간다는 것이다. CPython은 Unicode 기준 대소문자 운영(`unicode_upper`/`unicode_lower`,
-최대 확장 길이 3까지)을 쓴다. 증상이 안 보이던 이유는 p02 검사가 ASCII 기준이었기 때문이다. p02를
-비-ASCII 검사로 확장하고, culture 영향이 없는 경로로 바꾼다.
+원인은 하나로 수렴한다. .NET의 `ToUpperInvariant`/`ToLowerInvariant`/`char.IsUpper`는 Unicode의
+**단순(simple) 1:1 매핑**과 단순 속성만 구현하고, CPython은 **완전(full) 매핑**과
+cased / case-ignorable / uppercase / lowercase / titlecase 속성을 쓴다. 단순 매핑이 항등인
+Other_Uppercase / Other_Lowercase / Lt 문자(로마 숫자 Ⅰ, 동그라미 문자 Ⓐ, ǅ)에서는 속성 판정까지
+함께 틀린다. `char.GetUnicodeCategory`로 만든 기존 `IsCasedChar`(Lu/Ll/Lt)도 같은 이유로 틀렸다.
+
+### 구현: 표는 CPython에서 만들고, 알고리즘은 CPython 것을 옮긴다
+
+- `core/UnicodeCaseData.cs` — **생성물**(`.artifacts/tmp/gen_unicode_case.py`).
+  - 매핑: 기준 해석기 3.12.15에서 `chr(cp).upper()/.lower()/.title()/.casefold()`를 직접 측정해
+    담았다. 다중 코드 포인트 확장 103개(U+00DF → `SS`, U+0130 → `i`+U+0307 …)가 이 방식으로 들어온다.
+  - 속성: Python에는 코드 포인트 단위 API가 없으므로 고정된 `Objects/unicodetype_db.h`를
+    `gettyperecord()`와 같은 경로(`index2[index1[ch>>7]<<7 | ch&0x7f]`)로 파싱해
+    `LOWER 0x08 / TITLE 0x40 / UPPER 0x80 / CASE_IGNORABLE 0x1000 / CASED 0x2000` 비트를 읽었다.
+    디코더는 기동 시 자체 점검(U+0041, U+01C5, U+2160, U+24B6, U+0300, U+0027, U+03A3, U+03C2)을 돈다.
+    `'`가 case-ignorable로 나오는 것까지 CPython과 일치한다(`"Σ'Σ".lower() == "ς'ς"`의 근거).
+- `core/PyUnicodeCase.cs` — `do_upper` / `do_lower` / `do_title` / `do_capitalize` / `do_swapcase` /
+  `do_casefold` / `unicode_isupper_impl` / `unicode_islower_impl` / `unicode_istitle_impl`과
+  `lower_ucs4` + `handle_capital_sigma`(그리스 대문자 시그마 하나뿐인 문맥 의존 매핑)의 필사.
+  `capitalize`의 첫 문자가 **upper가 아니라 title** 매핑이라는 점, `title`의 `previous_is_cased`가
+  **원본 문자열**을 본다는 점을 그대로 지킨다.
+- `type/PyString.cs`에서 손으로 작성하던 `CaseFold`(다중 매핑 12개 하드코딩 + 나머지
+  `ToLowerInvariant`)·`IsCasedChar`·`CPythonTitle`, 그리고 호출자 없던 `Upper(PyObject[])` /
+  `Lower(PyObject[])` / `TitleMethod` / `Title()` / `IsUpper()` / `IsLower()` / `IsTitle()`을 삭제했다.
+  case 운영만 해도 **구현이 네 겹**(descriptor / private helper / public instance method / static
+  helper)이었다.
+
+### 김에 정리한 것 (P0-29 계열, 측정이 근거)
+
+- str 메서드 descriptor 46곳이 각자 쓰던 수신자 오류 문구를 `PyString.AsStrReceiver(self, name)`
+  하나로 모았다. CPython `descr_check`의 문구는
+  `descriptor 'upper' for 'str' objects doesn't apply to a 'int' object`이고, SharpPy가 쓰던
+  `requires a 'str' object but received a 'int'`는 CPython이 만들지 않는 문구였다.
+  **단, dunder 슬래퍼 래퍼는 사정이 다르다**: `str.__len__(5)`는 CPython도
+  `descriptor '__len__' requires a 'str' object but received a 'int'`라고 답하므로 그 11곳은 그대로 뒀다.
+- 과잉 인수를 거절하는 제로 인자 메서드 19곳의 문형에 정의 타입 접두를 붙였다:
+  `str.upper() takes no arguments (1 given)` (측정: `str.isdigit()` 등 9개 모두 동일 계열).
+
+### 회귀
+
+- `tests/bughunt/p71_unicode_case.py`: 93케이스, CPython 대비 차이 0. 출력은 UTF-8 hex로 내보낸다
+  — SharpPy는 문자열을 UTF-16 code unit으로 인덱싱해서(P0-34) `ascii()`/`len()`이 비교를 오염시킨다.
+- 풀 매트릭스 26,343비교 + 문자열 코퍼스 4,140비교(시그마 문맥, 임의 혼합, 비-보조 평면 포함) 차이 0.
+  성능 손질을 위해 만든 회귀들이 실제로 두 번(재사용 버퍼의 시그마 스캔, 블록 인덱스의 끝 범위
+  검사 누락) 어긋남을 잡아냈다.
+- `tools/run_bughunt.py` **76/76**, `tools/evaluate.py` 그대로 `225 / 3 / 2`, Godot 4.7.2 mono
+  replay `82 matched, 0 other`.
 
 ## P0-32 (2026-10-30 **닫힘**): `float.fromhex`는 반올림까지 CPython의 것이다
 
@@ -1070,3 +1124,64 @@ b"a".upper()               'AB'   (정상)
 `tests/bughunt/p65_registration_order.py` — 객체를 만들기 전에 타입 표면을 읽는 순서를 고정한다.
 지금 맞는 부분까지 검증하고, 위 남은 6건은 이 항목에 문자로 남기되 프로브가 같이 무너지지는
 않도록 넣지 않았다.
+
+
+## P0-34 (2026-10-30 등록): `str`은 UTF-16 code unit으로 인덱싱한다 (비-보조 평면 전체)
+
+P0-31을 비-ASCII로 확장하다가 드러났다. case 운영은 이제 코드 포인트 단위로 움직이지만 SharpPy의
+`str` 자체는 여전히 .NET `string`의 UTF-16 unit을 쓴다.
+
+| 표현 | CPython | SharpPy |
+|---|---|---|
+| `len("\U0001F600")` | `1` | `2` |
+| `ord("\U0001F600"[0])` | `0x1F600` | `0xD800` |
+| `"x\U0001F600"[:2]` | `'x\U0001F600'` | 서rogate 절반에서 잘림 |
+| `"%c" % 0x1F600` | `'\U0001F600'` | `ValueError: %c arg not in range(0x10000)` |
+| `ascii("\U0001F600")` | `'\U0001f600'` | `'\ud800\ude00'` |
+
+`UnicodeCaseData.AppendCp`가 서서히 surrogate pair를 조합하도록 만든 것은 이 격차를 case 운영
+내부에서라도 없애기 위한 것이었다. 문자열 자체는 `char` 인덱스·`Length`·`Substring`에 기대고 있어서,
+CPython처럼 코드 포인트 인덱스로 바꾸려면 `PyString`의 표현 자체(UTF-32 또는 latin-1/ucs2/ucs4
+3단)를 옮겨야 한다. CPython이 `PyUnicodeObject`의 kind을 세 가지로 나눈 이유와 같다. 파급 면이
+넓어서(슬라이스, `find`/`index`, `encode`, `sys.stdout` 인코딩, 포맷, 정규식 매칭 위치) 별도 항목으로
+두고 착수 순서를 기다린다. 당장의 우회는 없다 — 비-보조 평면을 쓰는 프로그램은 표시·인덱스가 모두
+틀리다.
+
+## P0-35 (2026-10-30 등록): 소스 디코딩 — NUL 바이트와 decode 실패
+
+| 표현 | CPython | SharpPy |
+|---|---|---|
+| 소스에 NUL 바이트 | `SyntaxError: source code cannot contain null bytes` | 조용히 넘어간다 |
+| 파일에 무효 UTF-8 바이트 | `SyntaxError: Non-UTF-8 code starting with 'ÿ' in file <path> on line N` | CLR 스택 트레이스가 그대로 새어나온다 (`Generated.PyParserRuntime.ParseSource` ...) |
+
+측정 그대로 적는다. SharpPy는 파일을 읽을 때 `U+FFFD`로 대체 디코딩하고, 그 문자가 토크나이저를
+이상한 상태로 만들어 CPython에는 존재하지 않는 CLR 예외가 난다. 즉 **입력 단계의 거절**이 없다:
+CPython은 바이트→문자 디코딩(`Py_DecodeUTF8` strict + NUL 검사)에서 멈추고, SharpPy는 오염된 문자로
+계속 진행한 뒤 엉뚱한 곳에서 무너진다. 진입점 한 곳을 strict 디코딩 + NUL 검사로 바꾸면 두 증상이
+사라진다.
+
+## P0-36 (2026-10-30 등록): case 운영은 CLR intrinsic보다 비싸다 (측정된 대가)
+
+P0-31을 닫으면서 정확성을 사서 온 비용이다. 합성 하니스(200-540자 문자열 25,000회, 3-5라운드 best)로
+같은 커밋 worktree와 교차 측정한 값:
+
+| workload | 이전 | 이후 | 증감 |
+|---|---|---|---|
+| `upper()` ASCII (변화 있음) | 0.0653 | 0.0906 | +39% |
+| `lower()` ASCII (변화 없음) | 0.0651 | 0.0874 | +34% |
+| `upper()` 그리스어 | 0.0388 | 0.0856 | +121% |
+| `lower()` 그리스어 | 0.0392 | 0.1367 | +249% |
+| `casefold()` 그리스어 | 0.0716 | 0.1523 | +113% |
+| `capitalize()` 혼합 | 0.0356 | 0.0779 | +119% |
+| `swapcase()` 혼합 | 0.0591 | 0.0777 | +31% |
+| `isupper()` ASCII | 0.0199 | 0.0201 | +1% |
+| `istitle()` 혼합 | 0.0204 | 0.0217 | +6% |
+
+ASCII 경로는 "전부 ASCII인가"를 한 번 스캔한 뒤 `ToUpperInvariant`/`ToLowerInvariant`에 위임한다 —
+ASCII 범위에서 그 intrinsic이 CPython의 ASCII 매핑과 동일하고(문화 개입 여지 없음) 벡터화돼 있기
+때문이다. 남는 +35%는 그 스캔 한 바퀴다. 비-ASCII는 블록 인덱스(256 코드 포인트 단위)로 표를 찾아도
+`int[]` 채우기 + `StringBuilder` 경로가 남는다. 후보: 목적지를 `char[]`/`string.Create`로 두고
+UTF-16을 직접 걸어 중간 `int[]` 패스를 없애기, 시그마가 없는 문자열은 배열 경로 없이 바로 쓰기.
+`tools/perf_probe.py`의 표준 스위트에는 영향이 없다(case 운영을 부르지 않는다): old/new 교차에서
+`str_fmt +3.6%`, `list_comp -0.4%`, 나머지 ±0. 몇 라운드 눈에 띈 `list_comp +71%`는 같은 바이너리
+재측정에서 -0.8%로 돌아오는 기계 상태 노이즈였다.

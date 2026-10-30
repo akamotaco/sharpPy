@@ -214,12 +214,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'join' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "join");
 
                     return str.Join(args[0]);
                 },
@@ -231,14 +226,9 @@ namespace SharpPy
                 "upper", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'upper' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
-                    return new PyString(str.Value.ToUpperInvariant());
+                        throw PyTypeError.Create($"str.upper() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "upper");
+                    return new PyString(PyUnicodeCase.Upper(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -247,14 +237,9 @@ namespace SharpPy
                 "lower", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'lower' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
-                    return new PyString(str.Value.ToLowerInvariant());
+                        throw PyTypeError.Create($"str.lower() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "lower");
+                    return new PyString(PyUnicodeCase.Lower(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -266,25 +251,17 @@ namespace SharpPy
                 "capitalize", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"capitalize() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'capitalize' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.capitalize() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "capitalize");
 
                     // Empty string remains empty
                     if (str.Value.Length == 0)
                         return str;
 
-                    // CPython 3.12: Objects/unicodeobject.c:9575-9596 - do_capitalize
-                    // First character to title case (upper for most chars), rest to lower case
-                    var textInfo = CultureInfo.InvariantCulture.TextInfo;
-                    return new PyString(
-                        char.ToUpperInvariant(str.Value[0]) +
-                        (str.Value.Length > 1 ? str.Value.Substring(1).ToLowerInvariant() : "")
-                    );
+                    // CPython 3.12: Objects/unicodeobject.c do_capitalize - the first character goes
+                    // through the TITLE mapping (not upper) and the rest through the full lower
+                    // mapping, which is why "ǅ".capitalize() keeps ǅ and "ß".capitalize() is "Ss".
+                    return new PyString(PyUnicodeCase.Capitalize(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -294,20 +271,14 @@ namespace SharpPy
                 "title", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'title' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.title() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "title");
 
                     // CPython str.title() uses Unicode cased/uncased word boundaries, so an apostrophe
                     // keeps the next letter uppercase: "it's a test-case 2nd".title() ->
                     // "It'S A Test-Case 2Nd". System.Globalization.TextInfo.ToTitleCase follows .NET
-                    // word-breaking and produced "It's A Test-Case 2Nd", so reuse the CPython-shaped
-                    // instance implementation instead of a second, divergent algorithm.
-                    return str.TitleMethod(Array.Empty<PyObject>());
+                    // word-breaking, so the word rule lives in PyUnicodeCase.Title (do_title).
+                    return new PyString(PyUnicodeCase.Title(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -317,12 +288,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 2)
                         throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'split' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "split");
 
                     string sep = null;
                     int maxsplit = -1;
@@ -342,12 +308,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"strip() takes at most 1 argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'strip' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "strip");
 
                     if (args.Length == 0)
                         return new PyString(str.Value.Trim());
@@ -363,12 +324,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 2 || args.Length > 3)
                         throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'replace' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "replace");
 
                     var old = args[0] is PyString oldStr ? oldStr.Value : throw PyTypeError.Create("replace() old must be str");
                     var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyTypeError.Create("replace() new must be str");
@@ -386,12 +342,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"zfill() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'zfill' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "zfill");
 
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("zfill() width must be an integer");
@@ -427,13 +378,8 @@ namespace SharpPy
                 "isdigit", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isdigit() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isdigit' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isdigit() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isdigit");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -454,13 +400,8 @@ namespace SharpPy
                 "isalpha", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isalpha() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isalpha' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isalpha() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isalpha");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -481,13 +422,8 @@ namespace SharpPy
                 "isalnum", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isalnum() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isalnum' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isalnum() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isalnum");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -508,13 +444,8 @@ namespace SharpPy
                 "isspace", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isspace() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isspace' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isspace() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isspace");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -535,26 +466,14 @@ namespace SharpPy
                 "isupper", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isupper() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isupper' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isupper() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isupper");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
 
-                    bool hasCased = false;
-                    foreach (char c in str.Value)
-                    {
-                        if (char.IsLower(c))
-                            return PyBool.False;
-                        if (char.IsUpper(c))
-                            hasCased = true;
-                    }
-                    return PyBool.FromBool(hasCased);
+                    // unicode_isupper_impl: no lowercase/titlecase character, at least one uppercase.
+                    return PyBool.FromBool(PyUnicodeCase.IsUpper(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -565,26 +484,14 @@ namespace SharpPy
                 "islower", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"islower() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'islower' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.islower() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "islower");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
 
-                    bool hasCased = false;
-                    foreach (char c in str.Value)
-                    {
-                        if (char.IsUpper(c))
-                            return PyBool.False;
-                        if (char.IsLower(c))
-                            hasCased = true;
-                    }
-                    return PyBool.FromBool(hasCased);
+                    // unicode_islower_impl: no uppercase/titlecase character, at least one lowercase.
+                    return PyBool.FromBool(PyUnicodeCase.IsLower(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -596,12 +503,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"find() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'find' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "find");
 
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -635,12 +537,7 @@ namespace SharpPy
                         throw PyTypeError.Create("str.index() takes no keyword arguments");
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"index() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'index' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "index");
 
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -674,12 +571,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"rfind() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'rfind' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "rfind");
 
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -714,12 +606,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"rindex() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'rindex' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "rindex");
 
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -913,12 +800,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"count() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'count' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "count");
 
                     if (args[0] is not PyString sub)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -963,12 +845,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"startswith() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'startswith' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "startswith");
 
                     // CPython unicode_startswith accepts a str or a tuple of str.
                     var prefixes = NormalizePrefixTuple(args[0], "startswith");
@@ -998,12 +875,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
                         throw PyTypeError.Create($"endswith() takes from 1 to 3 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'endswith' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "endswith");
 
                     // CPython unicode_endswith accepts a str or a tuple of str.
                     var suffixes = NormalizePrefixTuple(args[0], "endswith");
@@ -1032,12 +904,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"lstrip() takes at most 1 argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'lstrip' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "lstrip");
 
                     if (args.Length == 0)
                         return new PyString(str.Value.TrimStart());
@@ -1057,12 +924,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"rstrip() takes at most 1 argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'rstrip' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "rstrip");
 
                     if (args.Length == 0)
                         return new PyString(str.Value.TrimEnd());
@@ -1082,12 +944,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 2)
                         throw PyTypeError.Create($"rsplit() takes at most 2 arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'rsplit' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "rsplit");
 
                     string sep = null;
                     int maxsplit = -1;
@@ -1153,12 +1010,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"splitlines() takes at most 1 argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'splitlines' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "splitlines");
 
                     // CPython unicode_splitlines is METH_FASTCALL|METH_KEYWORDS with keepends=False,
                     // so 'a\nb'.splitlines(keepends=True) -> ['a\n', 'b']. The delegate read only the
@@ -1181,25 +1033,12 @@ namespace SharpPy
                 "swapcase", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"swapcase() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'swapcase' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.swapcase() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "swapcase");
 
-                    var result = new System.Text.StringBuilder(str.Value.Length);
-                    foreach (char c in str.Value)
-                    {
-                        if (char.IsUpper(c))
-                            result.Append(char.ToLowerInvariant(c));
-                        else if (char.IsLower(c))
-                            result.Append(char.ToUpperInvariant(c));
-                        else
-                            result.Append(c);
-                    }
-                    return new PyString(result.ToString());
+                    // do_swapcase decides by the uppercase/lowercase PROPERTIES, and the lowercase
+                    // branch needs the sigma context, so it is not a per-char ToLower/ToUpper loop.
+                    return new PyString(PyUnicodeCase.SwapCase(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -1210,15 +1049,10 @@ namespace SharpPy
                 "casefold", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"casefold() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'casefold' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.casefold() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "casefold");
 
-                    return new PyString(CaseFold(str.Value));
+                    return new PyString(PyUnicodeCase.CaseFold(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -1230,12 +1064,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"center() takes from 1 to 2 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'center' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "center");
 
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("center() width must be an integer");
@@ -1271,12 +1100,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"ljust() takes from 1 to 2 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'ljust' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "ljust");
 
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("ljust() width must be an integer");
@@ -1306,12 +1130,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"rjust() takes from 1 to 2 positional arguments but {args.Length} were given");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'rjust' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "rjust");
 
                     if (args[0] is not PyInt widthInt)
                         throw PyTypeError.Create("rjust() width must be an integer");
@@ -1340,13 +1159,8 @@ namespace SharpPy
                 "isascii", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isascii() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isascii' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isascii() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isascii");
 
                     foreach (char c in str.Value)
                     {
@@ -1364,13 +1178,8 @@ namespace SharpPy
                 "isdecimal", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isdecimal() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isdecimal' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isdecimal() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isdecimal");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1391,13 +1200,8 @@ namespace SharpPy
                 "isnumeric", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isnumeric() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isnumeric' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isnumeric() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isnumeric");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1418,13 +1222,8 @@ namespace SharpPy
                 "isidentifier", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isidentifier() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isidentifier' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isidentifier() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isidentifier");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
@@ -1453,13 +1252,8 @@ namespace SharpPy
                 "isprintable", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"isprintable() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'isprintable' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.isprintable() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "isprintable");
 
                     foreach (char c in str.Value)
                     {
@@ -1477,42 +1271,13 @@ namespace SharpPy
                 "istitle", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
-                        throw PyTypeError.Create($"istitle() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'istitle' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                        throw PyTypeError.Create($"str.istitle() takes no arguments ({args.Length} given)");
+                    PyString str = AsStrReceiver(self, "istitle");
 
                     if (str.Value.Length == 0)
                         return PyBool.False;
 
-                    bool inWord = false;
-                    bool hasCased = false;
-
-                    foreach (char c in str.Value)
-                    {
-                        if (char.IsUpper(c))
-                        {
-                            if (inWord)
-                                return PyBool.False;
-                            inWord = true;
-                            hasCased = true;
-                        }
-                        else if (char.IsLower(c))
-                        {
-                            if (!inWord)
-                                return PyBool.False;
-                            hasCased = true;
-                        }
-                        else
-                        {
-                            inWord = false;
-                        }
-                    }
-
-                    return PyBool.FromBool(hasCased);
+                    return PyBool.FromBool(PyUnicodeCase.IsTitle(str.Value));
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -1524,12 +1289,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"partition() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'partition' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "partition");
 
                     if (args[0] is not PyString sep)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -1557,12 +1317,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"rpartition() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'rpartition' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "rpartition");
 
                     if (args[0] is not PyString sep)
                         throw PyTypeError.Create("must be str, not " + args[0].GetTypeName());
@@ -1590,12 +1345,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"removeprefix() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'removeprefix' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "removeprefix");
 
                     if (args[0] is not PyString prefix)
                         throw PyTypeError.Create("prefix must be str, not " + args[0].GetTypeName());
@@ -1615,12 +1365,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"removesuffix() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'removesuffix' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "removesuffix");
 
                     if (args[0] is not PyString suffix)
                         throw PyTypeError.Create("suffix must be str, not " + args[0].GetTypeName());
@@ -1640,12 +1385,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"expandtabs() takes at most 1 argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'expandtabs' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "expandtabs");
 
                     int tabsize = 8;
                     PyObject[] paTab = ProjectKeywordSlots(args, kwargs, "tabsize");
@@ -1690,12 +1430,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 2)
                         throw PyTypeError.Create($"encode() takes at most 2 arguments ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'encode' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "encode");
 
                     string encoding = "utf-8";
                     string errors = "strict";
@@ -1745,12 +1480,7 @@ namespace SharpPy
             strType.TypeDict["format"] = new PyMethodDescriptor(
                 "format", strType,
                 (self, args, kwargs) => {
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'format' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "format");
 
                     return PyStringFormatter.Format(str.Value, args, kwargs);
                 }
@@ -1763,12 +1493,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"format_map() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'format_map' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "format_map");
 
                     return PyStringFormatter.Format(str.Value, null, args[0]);
                 },
@@ -1864,12 +1589,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"translate() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyString str){
-                            str = AsStrReceiver(self);
-                            if (str == null){
-                                throw PyTypeError.Create($"descriptor 'translate' requires a 'str' object but received a '{self.GetTypeName()}'");
-                        }
-                    }
+                    PyString str = AsStrReceiver(self, "translate");
 
                     if (args[0] is not PyDict table)
                         throw PyTypeError.Create("translate() argument must be a dict");
@@ -2236,64 +1956,6 @@ namespace SharpPy
             return items;
         }
 
-        // .NET has no casefold(); CPython's is full case folding (CaseFolding.txt F).
-        // Handle the multi-character and special mappings explicitly, then use
-        // invariant lowercasing for the single-character remainder.
-        private static string CaseFold(string s)
-        {
-            var sb = new StringBuilder(s.Length);
-            foreach (var ch in s)
-            {
-                switch (ch)
-                {
-                    case '\u00DF': sb.Append("ss"); break;                 // ß
-                    case '\u0130': sb.Append('i').Append('\u0307'); break; // İ -> i + combining dot
-                    case '\u0131': sb.Append('i'); break;
-                    case '\u0149': sb.Append('\u02BC').Append('n'); break; // ŉ
-                    case '\u1E9E': sb.Append("ss"); break;
-                    case '\uFB00': sb.Append("ff"); break;
-                    case '\uFB01': sb.Append("fi"); break;
-                    case '\uFB02': sb.Append("fl"); break;
-                    case '\uFB03': sb.Append("ffi"); break;
-                    case '\uFB04': sb.Append("ffl"); break;
-                    case '\uFB05': sb.Append("st"); break;
-                    case '\uFB06': sb.Append("st"); break;
-                    case '\u017F': sb.Append('s'); break;                  // ſ
-                    default: sb.Append(char.ToLowerInvariant(ch)); break;
-                }
-            }
-            return sb.ToString();
-        }
-
-        // CPython 'cased' = Unicode categories Lu, Ll, Lt.
-        private static bool IsCasedChar(char ch)
-        {
-            var cat = char.GetUnicodeCategory(ch);
-            return cat == UnicodeCategory.UppercaseLetter ||
-                   cat == UnicodeCategory.LowercaseLetter ||
-                   cat == UnicodeCategory.TitlecaseLetter;
-        }
-
-        private static string CPythonTitle(string s)
-        {
-            var sb = new StringBuilder(s.Length);
-            bool previousCased = false;
-            foreach (var ch in s)
-            {
-                if (IsCasedChar(ch))
-                {
-                    sb.Append(previousCased ? char.ToLowerInvariant(ch) : char.ToUpperInvariant(ch));
-                    previousCased = true;
-                }
-                else
-                {
-                    sb.Append(ch);
-                    previousCased = false;
-                }
-            }
-            return sb.ToString();
-        }
-
         // Receiver resolution for str descriptors: exact str or the content storage of a
         // str subclass instance (CPython looks through the subclass via the unicode type).
         /// <summary>
@@ -2365,6 +2027,20 @@ namespace SharpPy
             return self as PyString
                 ?? (self as PyStrSubclass)?.GetStrValue()
                 ?? (self as PyClassInstance)?.GetStringStorage();
+        }
+
+        /// <summary>
+        /// Receiver resolution plus CPython's own complaint. Objects/descrobject.c descr_check
+        /// produces "descriptor 'NAME' for 'str' objects doesn't apply to a 'X' object"; every str
+        /// method descriptor used to hand-write "requires a 'str' object but received a 'X'", which
+        /// is a wording CPython never emits. One helper, one message (P0-29).
+        /// </summary>
+        internal static PyString AsStrReceiver(PyObject self, string name)
+        {
+            PyString value = AsStrReceiver(self);
+            if (value == null)
+                throw PyTypeError.Create($"descriptor '{name}' for 'str' objects doesn't apply to a '{self.GetTypeName()}' object");
+            return value;
         }
 
         /// <summary>
@@ -2865,10 +2541,6 @@ namespace SharpPy
 
         #region String Methods
 
-        // CPython unicode_title state machine: a cased character is uppercased when the
-        // preceding character was not cased, lowercased otherwise ("it's" -> "It'S").
-        public PyString Title() => new PyString(CPythonTitle(Value));
-        
         public PyString Strip(string chars = null)
         {
             if (chars == null)
@@ -3061,38 +2733,6 @@ namespace SharpPy
             }
             return PyBool.True;
         }
-
-        public PyBool IsUpper()
-        {
-            bool hasLetter = false;
-            for (int i = 0; i < Value.Length; i++)
-            {
-                if (char.IsLetter(Value[i]))
-                {
-                    hasLetter = true;
-                    if (!char.IsUpper(Value[i]))
-                        return PyBool.False;
-                }
-            }
-            return PyBool.FromBool(hasLetter);
-        }
-
-        public PyBool IsLower()
-        {
-            bool hasLetter = false;
-            for (int i = 0; i < Value.Length; i++)
-            {
-                if (char.IsLetter(Value[i]))
-                {
-                    hasLetter = true;
-                    if (!char.IsLower(Value[i]))
-                        return PyBool.False;
-                }
-            }
-            return PyBool.FromBool(hasLetter);
-        }
-
-        public PyBool IsTitle() => PyBool.FromBool(Value == CPythonTitle(Value));
 
         #endregion
 
@@ -3353,27 +2993,6 @@ namespace SharpPy
             return base.GetAttribute(name);
         }
 
-        private PyObject Upper(PyObject[] args)
-        {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
-            return new PyString(Value.ToUpperInvariant());
-        }
-
-        private PyObject Lower(PyObject[] args)
-        {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
-            return new PyString(Value.ToLowerInvariant());
-        }
-
-        private PyObject TitleMethod(PyObject[] args)
-        {
-            if (args.Length != 0)
-                throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
-            return Title();
-        }
-
         private PyObject Strip(PyObject[] args)
         {
             if (args.Length > 1)
@@ -3612,7 +3231,7 @@ namespace SharpPy
             // Returns True if the string is a valid identifier according to Python language definition
             // Note: This returns True for keywords too (e.g., "if", "class")
             if (args.Length != 0)
-                throw PyTypeError.Create($"isidentifier() takes no arguments ({args.Length} given)");
+                throw PyTypeError.Create($"str.isidentifier() takes no arguments ({args.Length} given)");
 
             if (string.IsNullOrEmpty(Value))
                 return PyBool.False;
