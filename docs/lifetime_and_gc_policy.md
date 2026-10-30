@@ -42,7 +42,10 @@ CPython과 **어디에서 같아지고 어디에서 영원히 달라지는가**�
 
 |anchor|내용|
 |---|---|
-|`Objects/object.c:1285` 부근 `deallocate`|참조 수 0 → `tp_finalize`/`tp_del` → `tp_free`. **시점이 참조 수의 함수**라는 사실의 근원|
+|`Include/object.h:690` / `:705`|`Py_DECREF` 가 0 에 도달하면 `_Py_Dealloc(op)` 으로 넘긴다|
+|`Objects/object.c:2623 _Py_Dealloc`|`tp_dealloc` 으로 위임. **소멸 시점이 참조 수의 함수**라는 사실의 근원|
+|`Objects/typeobject.c:1903`|`subtype_dealloc` → `PyObject_CallFinalizerFromDealloc`. 히프 타입(사용자 클래스)의 `__del__` 지점|
+|`Objects/genobject.c:137`|히프 타입이 아닌 쪽 호출 사례(제너레이터). `tp_finalize` 이 타입별 dealloc 안에서 직접 불리기도 함|
 |`Objects/object.c:357 PyObject_CallFinalizer`|`tp_finalize` 호출. `:362` 주석 `tp_finalize should only be called once`, `_PyGC_FINALIZED` 플래그 검사, 호출 후 `_PyGC_SET_FINALIZED`|
 |`Objects/object.c:374 PyObject_CallFinalizerFromDealloc`|재부활(resurrection) 처리. `:398` "tp_finalize resurrected it!"|
 |`Objects/typeobject.c:1901`|`subtype_dealloc` 의 `/* Maybe call finalizer; exit early if resurrected */`|
@@ -168,7 +171,9 @@ SharpPy가 종료 sweep을 구현한 이유는 **양쪽 답이 일치하는 유�
 - `gc.get_stats()`/generation 수 변화, `Py_Finalize` 재작성(free-threading) 으로 인한
   `finalize_modules` 라인 이동.
 - `Py_TPFLAGS_HAVE_GC`/`tp_weaklistoffset` 변경 → weakref 가능/불가 타입 목록 재실측 필요.
-- `Modules/gcmodule.c` 가 3.13 에서 `internal/mimalloc` 쪽으로 나뉘는 등 파일 위치 이동.
+- 3.13 계열에서는 free-threading 과 allocator 교체로 파일 위치·함수 이름이 이동했을 수 있다.
+  이 문서의 앵커는 **3.12.15 pin 기준**이므로, 버전 업 시에는 위 표의 각 줄을 새 소스에서
+  다시 grep 해서 확인한 뒤 사용한다(줄 번호를 믿지 말고 함수 이름으로 찾을 것).
 
 관련 문서: `docs/reports/2026-10-30/gc_module_and_finalizers.md` (P0-37 implementation),
 `docs/known_gaps.md` 의 **P0-37 remainder**, `docs/library_surface_policy.md`.
