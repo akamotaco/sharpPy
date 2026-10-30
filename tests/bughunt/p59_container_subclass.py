@@ -10,6 +10,9 @@ class SUser(str):
     def __len__(self):
         return 99
 
+    def __iter__(self):
+        return iter(["u", "s", "e", "r"])
+
     def __contains__(self, x):
         return "user-contains"
 
@@ -51,6 +54,24 @@ class LPlain(list):
     pass
 
 
+class IUser(int):
+    def __iter__(self):
+        return iter([3, 4])
+
+
+class IPlain(int):
+    pass
+
+
+class FUser(float):
+    def __iter__(self):
+        return iter([9])
+
+
+class FPlain(float):
+    pass
+
+
 def s(label, fn):
     try:
         print(label, repr(fn()))
@@ -78,6 +99,18 @@ s("d_len", lambda: len(du))
 s("d_in_declared", lambda: "zz" in du)
 s("l_len", lambda: len(lu))
 s("l_in_declared_false", lambda: 1 in lu)
+
+# iteration: the declared __iter__ wins on every value-carrying wrapper, and the not-iterable
+# error names the subclass rather than the base type
+s("s_iter", lambda: list(su))
+s("s_iter_for", lambda: [c for c in su])
+s("s_iter_type", lambda: type(iter(su)).__name__)
+s("i_iter", lambda: list(IUser(5)))
+s("i_iter_type", lambda: type(iter(IUser(5))).__name__)
+s("f_iter", lambda: list(FUser(1.5)))
+s("i_plain_iter", lambda: iter(IPlain(5)))
+s("f_plain_iter", lambda: iter(FPlain(1.5)))
+s("s_plain_iter", lambda: list(SPlain("xy")))
 
 # nothing declared: the base slot reads the value, and the value protocol keeps working
 s("plain_s_len", lambda: len(sp))

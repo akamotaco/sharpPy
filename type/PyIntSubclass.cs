@@ -99,6 +99,20 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Measured: iter(Q(1)) is a list_iterator when the class declares __iter__, and
+        /// TypeError: 'Q' object is not iterable when it does not - the message names the subclass,
+        /// which the payload's own error could not do. Lookup only, then InvokeIteratorMethod: the
+        /// call-and-return helper would hand an iterator back to be called again.
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            var declared = LookupUserSpecial("__iter__");
+            if (declared != null)
+                return InvokeIteratorMethod(declared);
+            throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
+        }
+
+        /// <summary>
         /// CPython reads nb_divmod through the subclass: a user __divmod__ wins, otherwise int's
         /// arithmetic on the payload. Not overridden before, so divmod() never reached a dunder for
         /// an int subclass.

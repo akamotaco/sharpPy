@@ -138,6 +138,18 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Same rule as the int wrapper: a declared __iter__ is honoured, and the not-iterable error
+        /// names the subclass rather than float.
+        /// </summary>
+        public override PyObject GetIterator()
+        {
+            var declared = LookupUserSpecial("__iter__");
+            if (declared != null)
+                return InvokeIteratorMethod(declared);
+            throw PyTypeError.Create($"'{GetTypeName()}' object is not iterable");
+        }
+
+        /// <summary>
         /// CPython reads nb_divmod through the subclass, so a user __divmod__ wins and anything
         /// else falls back to float's arithmetic on the payload. This virtual was not overridden at
         /// all before, so divmod() never reached a dunder for a float subclass.

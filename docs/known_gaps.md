@@ -493,14 +493,14 @@ HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했�
 
 남은 것(측정값, 7줄):
 
-1. **str subclass의 `__iter__`** — CPython `list(su)`는 `['u','s','e','r']`, SharpPy는 `'a','b','c'`.
-   user dunder로 라우팅하면 이번엔 `TypeError: 'list_iterator' object is not callable`이 난다.
-   호출 지점이 이 클래스 밖에 있다: `InvokeIteratorMethod`가 만든 iterator를 누군가 다시 부른다.
-   같은 코드를 plain 클래스(`class P: def __iter__`)로 돌리면 정상이라, str wrapper 경로의
-   `iter()` 하위 호출을 따로 추적해야 한다. 지금은 **값은 틀지만 크래시는 아닌** payload iterator를
-   유지한다(`.artifacts/tmp/it7.py`: `for x in r` → `['a','b']`).
-2. **int subclass의 `__iter__`** — CPython은 `list_iterator`, SharpPy는
-   `TypeError: 'Q' object is not iterable`. `PyIntSubclass`가 `GetIterator()`를 오버라이드하지 않는다.
+1. **str subclass의 `__iter__`** — **수정 완료**. 원인은 조수(assistant)가 만든 헬퍼 오용이었다:
+   `CallUserSpecialOrNull`은 조회+**호출** 헬퍼인데, 그 결과(list_iterator)를 다시
+   `InvokeIteratorMethod`에 넣었다 → iterator를 호출했다. 크래시를 외부 경로로 오인하고
+   payload로 되돌린 것도 잘못이었다. 조회 전용 `LookupUserSpecial` + `InvokeIteratorMethod`로
+   해결(`p59`에 `s_iter`/`s_iter_for`/`s_iter_type` 고정).
+2. **int subclass의 `__iter__`** — **수정 완료**. `PyIntSubclass`/`PyFloatSubclass`에
+   `GetIterator()`를 넣었다: 선언 dunder 우선, 없으면 `'<subclass>' object is not iterable`
+   (기반 타입명이 아니라 **서브클래스명**을 낸다는 것도 측정했다).
 3. **tuple subclass** — `len`/`__iter__`/`__add__`가 user dunder를 무시(`t_len 2`, `t_add (1,2,3)`).
    `PyTuple`에는 `_customType` 인지가 **아예 없다**(grep 0 hits).
 4. **bytes subclass** — 같은 형태(`b_len 2`, `b_iter [97,98]`, `b_add b'abc'`). `PyBytes`도 `_customType` 0.

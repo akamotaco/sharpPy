@@ -51,16 +51,19 @@ propagating a weird value or reporting the wrong message.
 
 ## What is left, with its measured shape (P0-24)
 
-1. **str subclass `__iter__`.** Routing it to the user dunder produced a new failure:
-   `TypeError: 'list_iterator' object is not callable`. The user method is called and does return a
-   `list_iterator`; something downstream calls that iterator again. The identical code on a plain
-   class (`class P: def __iter__`) works, so the extra call is specific to this path and is outside
-   `PyStrSubclass`. I did **not** ship the routing: the payload iterator stays, which gives a wrong
-   value (`['a','b']` instead of the user's `['u','s','e','r']`) instead of a crash, and the code
-   says so where it stands. Chasing it needs the `iter(obj)` call chain traced, which is a separate
-   increment.
-2. **int subclass `__iter__`** — `PyIntSubclass` does not override `GetIterator()` at all, so
-   `iter(Q(1))` raises `'Q' object is not iterable` where CPython returns a `list_iterator`.
+1. **str subclass `__iter__` — fixed in the follow-up commit, after one wrong diagnosis worth
+   recording.** Routing it to the user dunder first produced `TypeError: 'list_iterator' object is
+   not callable`. I read that as a call site outside this class and reverted to the payload
+   iterator, calling it "wrong value, no crash". That was wrong: the helper I had used,
+   `CallUserSpecialOrNull`, *looks up and calls*, so it returned the iterator and I passed that
+   iterator to `InvokeIteratorMethod`, which called it. Lookup-only (`LookupUserSpecial`) plus
+   `InvokeIteratorMethod` is all it needed. The lesson is about the helper's name being load-bearing:
+   `Call~` returns a result, `Lookup~` returns a method, and mixing them produced a crash I then
+   blamed on the interpreter.
+2. **int subclass `__iter__` — fixed in the same follow-up.** `PyIntSubclass` and `PyFloatSubclass`
+   override `GetIterator()`: a declared dunder wins, otherwise
+   `TypeError: 'Q' object is not iterable` naming the *subclass*, which the payload's error could
+   not do.
 3. **tuple subclass** — `len`, `__iter__`, `__add__` ignore the declared dunder.
 4. **bytes subclass** — same shape for `len`, `__iter__`, `__add__`.
 
