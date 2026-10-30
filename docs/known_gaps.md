@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **81/81 matching**
+- `tools/run_bughunt.py`: **82/82 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -1414,12 +1414,63 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
    Python `ToHash()`를 쓴다(`PyObject.GetHashCode()`가 이를 오버라이드). 서로 다른 객체는
    `object.Equals`가 참조 비교이므로 지금은 정상이지만, 사용자 `__hash__`가 예외를 던지면
    finalizer 등록 경로로 새어나온다. reference comparer 교정 예정.
-10. **C방(자원 상태) 실패 — GC에 넘기면 안 된다** — 실측(`.artifacts/tmp/lock.py`):
-    4000회 `open(p,'a')` 후 `os.remove(p)`가 CPython은 `remove ok`, SharpPy는
-    `PermissionError`(Windows 파일 잠금). 단 20000회(`lock2.py`)는 통과하므로 **누수가 아니라
-    비결정적 해제**이며, 따라서 테스트로 고정할 수 없다. handle·socket·Godot 리소스는 메모리가
-    아니라 개수로 소진된다. 조치는 "PyFile 전용 확정 해제(release bus)"이며 참조 카운팅
-    재도입으로 풀지 않는다. 정책: `docs/lifetime_and_gc_policy.md`.
+10. ~~**C방(자원 상태) 실패**~~ → **P0-38로 해결** (아래 별도 절). 잔여는 타이밍 항목만 남는다.
 
 이 항목들의 판단 근거·기각된 선택지·CPython 앵커 표는 **`docs/lifetime_and_gc_policy.md`** 에 있다.
+
+## P0-38 resource release bus (2026-10-30 닫힘)
+
+실측된 실패가 닫혔다. `.artifacts/tmp/lock.py`(4000회 `open(p,'a')` 후 `os.remove(p)`):
+CPython `remove ok` / SharpPy `remove failed: PermissionError` → **이제 양쪽 `remove ok`**.
+
+- `core/PyResourceBus.cs` (new): 파일 객체의 weak 참조 + **객체가 아니라 stream을 캡처한**
+  release action 등록부. `this`를 캡처하면 등록부가 객체를 살려 두므로 해제가 영구 불가 —
+  그 점이 이 설계의 핵심 제약이다.
+- 발화점 4개: `close()`/`with`(결정적, CPython과 동일) · 등록 주도 sweep(기하급 임계치라
+  20000회 open도 2차수가 되지 않음) · `gc.collect()`(reconciliation 앵커) · 종료 시
+  (finalizer 이후 — `__del__`이 열려 있는 파일에 쓸 수 있으므로).
+- `os.remove`/`unlink`/`rmdir`/`rename`은 실패 시 해제를 시도하고 **한 번만** 재시도한다
+  (`modules/NtModule.cs RetryAfterRelease`). 성공 경로 비용은 0이고, 이미 실패하던 경로에만
+  든다. CPython은 애초에 그 상태가 되지 않는다(참조 수가 0이 되어 `iobase_finalize`가
+  `close()`를 부름, `Modules/_io/iobase.c:298`).
+- 프로브 `tests/bughunt/p77_resource_release.py`(116줄, diff 0)가 고정하는 것:
+  재바인딩 누수 루프 제거 성공, 리스트 버림+`collect()` 후 제거 성공, 버려진 쓰기 내용의
+  가독성, `with` 후 `.closed is True`, **살아 있는 파일은 컬렉트 후에도 해제되지 않음**,
+  버려진 writer 후 `rename`, 마지막 핸들이 살아 있으면 제거 실패(양쪽 동일), 1500개 누수 후 제거.
+- 성능(`.artifacts/tmp/lockcase/p38_ab.py`, 기준 `132c65d` worktree와 5라운드 교대):
+  `closed`(with 4000) **0.97x**, `compute` **1.00x**, `abandoned`(닫지 않은 3000)
+  **1.37x 느림** — 그러나 CPython 대비 **0.93x**. 기준 코드가 빨랐던 이유는 handle 3000개를
+  finalizer 스레드에 미우면서 백그라운드에서 해체했기 때문이다. 같은 정직한 작업을 CPython보다
+  덜 쓰는 셈이므로 이 비용은 수용한다.
+- Godot 4.7.2 mono 리플레이 82 matched, 0 other.
+
+### P0-38 remainder
+
+1. **해제 시점은 여전히 관측점이지 사망 시점이 아니다** — CPython은 마지막 참조가 사라진
+   즉시 닫는다. SharpPy는 `open()` 시 sweep, `gc.collect()`, 제거/이름변경 실패 시,
+   그리고 종료 시에 닫는다. 결과가 관측에 영향을 주지 않도록 제거·이름변경 재시도로
+   방어했지만, "잠금 여부"를 `os` 밖에서 관찰하는 경로(예: 다른 프로세스와의 경쟁)는
+   여전히 타이밍 차이가 난다.
+2. **`close()` 오버라이드는 사망 시 불리지 않는다** — CPython의 `iobase_finalize`는 객체에서
+   Python 수준 `close()`를 찾아 호출하므로 서브클래스 재정의가 실행된다. SharpPy의 bus는
+   네이티브 해제만 수행한다. 이 시점에 객체는 이미 수집되어 dispatch 대상이 없다.
+3. **`ResourceWarning`을 내지 않는다** — CPython은 미해제 파일이 수집될 때 경고한다
+   (`Modules/_io/fileio.c:90`). SharpPy는 대신 닫아주므로 경고가 없다(기본 필터가 무시하지만
+   `-W error` 실행에서는 차이가 난다).
+4. **`open()` 경로 자체는 재시도하지 않는다** — handle 고갈성 실패는 미측정이며, Windows
+   handle 상한을 실제로 소진하는 프로브는 만들지 않았다.
+5. **자원 타입 확대 미착수** — socket·Godot 리소스 등은 아직 bus에 등록되지 않았다.
+   `PyFile`이 첫 고객이고, 등록부는 임의의 `Action`을 받도록 이미 일반화되어 있다.
+
+## P0-39 `sys.argv`가 비어 있다 (측정 2026-10-30, 미해결)
+
+`.artifacts/tmp/lockcase/argvchk.py`를 `script.py one two`로 실행:
+
+- CPython 3.12.15: `3` / `['.artifacts/tmp/lockcase/argvchk.py', 'one', 'two']`
+- SharpPy: `0` / `[]`
+
+스크립트 경로 자체가 들어가지 않는다. 인자를 읽는 모든 스크립트가 깨지므로 A방(결정적 결과)
+실패이며, 타이밍과 무관하게 즉시 고칠 수 있는 종류다. 관련해서 `Program.cs`는 `-c`를 파싱만
+하고 `ExecuteCodeString` 호출이 주석 처리되어 있어 `sharppy.dll -c "print(123)"`가 아무것도
+출력하지 않고 0으로 끝난다(같은 절의 문제).
 

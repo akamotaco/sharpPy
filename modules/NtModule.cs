@@ -157,11 +157,14 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"rmdir() takes exactly 1 argument ({args.Length} given)");
 
             string path = args[0].ToStr().Value;
+            int attempt = 0;
+            while (true)
             try
             {
                 IOHelper.DeleteDirectory(path, false);
                 return PyNone.Instance;
             }
+            catch (Exception ex) when (RetryAfterRelease(ex, ref attempt)) { }
             catch (DirectoryNotFoundException)
             {
                 throw PyOSError.Create($"[Errno 2] No such file or directory: '{path}'");
@@ -184,6 +187,8 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
 
             string path = args[0].ToStr().Value;
+            int attempt = 0;
+            while (true)
             try
             {
                 // .NET File.Delete is silent for missing files; CPython reports them.
@@ -198,6 +203,7 @@ namespace SharpPy.Modules
                 IOHelper.DeleteFile(path);
                 return PyNone.Instance;
             }
+            catch (Exception ex) when (RetryAfterRelease(ex, ref attempt)) { }
             catch (FileNotFoundException)
             {
                 throw WindowsOr(2, path);
@@ -214,6 +220,21 @@ namespace SharpPy.Modules
             {
                 throw WindowsOr(5, path);
             }
+        }
+
+        // Windows refuses to delete or rename anything a handle still has open. CPython does not get
+        // here for an abandoned open(), because its reference count hit zero and iobase_finalize
+        // already ran close() (Modules/_io/iobase.c:298). SharpPy can still hold the handle when the
+        // CLR has not collected the dead file object yet, so before reporting a failure we let the
+        // release bus take back whatever Python can no longer reach and try once (core/PyResourceBus.cs).
+        // The outcome then matches CPython; only the moment of release differs, which is exactly the
+        // trade docs/lifetime_and_gc_policy.md records for resource state. Success path pays nothing:
+        // the filter is never entered.
+        private static bool RetryAfterRelease(Exception error, ref int attempt)
+        {
+            if (attempt++ != 0) return false;
+            if (!(error is IOException) && !(error is UnauthorizedAccessException)) return false;
+            return PyResourceBus.ReleaseUnreferenced(forceCollection: true) > 0;
         }
 
         // Host-shaped error text: Windows CPython uses "[WinError n] <localized>",
@@ -246,6 +267,8 @@ namespace SharpPy.Modules
 
             string src = args[0].ToStr().Value;
             string dst = args[1].ToStr().Value;
+            int attempt = 0;
+            while (true)
             try
             {
                 if (IOHelper.FileExists(src) || IOHelper.DirExists(src))
@@ -254,6 +277,7 @@ namespace SharpPy.Modules
                     throw new FileNotFoundException();
                 return PyNone.Instance;
             }
+            catch (Exception ex) when (RetryAfterRelease(ex, ref attempt)) { }
             catch (FileNotFoundException)
             {
                 throw WindowsOr(2, src, dst);

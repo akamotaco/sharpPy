@@ -147,12 +147,18 @@ namespace SharpPy.Modules
                     if (generation < 0 || generation >= Generations)
                         throw PyValueError.Create("invalid generation");
                 }
-                // PLANNED, and load-bearing for weakref semantics: this is where a real
-                // GC.Collect(generation) + GC.WaitForPendingFinalizers() belongs. It would give
-                // SharpPy the same reconciliation anchor CPython has, so that
-                //     del x; gc.collect(); assert ref() is None
-                // holds (policy doc section 5.1). It must be verified first: the VM's operand stack
-                // and scope caches have to not be holding x, or the anchor silently never fires.
+                // What this pass really does in SharpPy: it gives the release bus its deterministic
+                // reconciliation point, so that
+                //     f = open(p, 'w'); f.write('x'); del f; gc.collect(); os.remove(p)
+                // behaves like CPython, whose collect closes files (Modules/_io/iobase.c:298).
+                // ReleaseUnreferenced forces a CLR collection only when something is still open and
+                // the cheap pass freed nothing, so a program that never opens a file pays nothing.
+                //
+                // PLANNED, and load-bearing for weakref semantics: this is also where the same forced
+                // collection would make `del x; gc.collect(); assert ref() is None` hold (policy doc
+                // section 5.1). It needs verification first: the VM's operand stack and scope caches
+                // must not be holding x, or the anchor silently never fires. Decided with weakref.
+                PyResourceBus.ReleaseUnreferenced(forceCollection: true);
                 //
                 // CPython calls gc.callbacks with (phase, info) around the pass, where info is a
                 // dict with the keys collected / generation / uncollectable on both calls (measured,

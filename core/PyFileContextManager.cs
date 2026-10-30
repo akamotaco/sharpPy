@@ -14,6 +14,9 @@ public class PyFileContextManager : PyContextManager
     private StreamWriter? writer;
     private Encoding? textEncoding;
     private bool closed;
+    // Watched by the release bus so an abandoned open() cannot keep a file locked; see the
+    // registration at the end of the constructor and core/PyResourceBus.cs.
+    private PyResourceBus.Token? _bus;
     // CPython text-mode tell() reports decoded character offsets (opaque
     // cookies that equal char counts for the common aligned cases).
     private long textPos;
@@ -113,6 +116,32 @@ public class PyFileContextManager : PyContextManager
             if (ex is IOException || ex is UnauthorizedAccessException) throw FileError(ex, true);
             throw;
         }
+        // CPython closes an abandoned file the moment its last reference drops, and it does so by
+        // calling the object's own close() from tp_finalize (Modules/_io/iobase.c:298, installed at
+        // :896, reached through fileio_dealloc at Modules/_io/fileio.c:530). SharpPy's lifetime
+        // belongs to the CLR collector, so the bus watches this object and performs the native half
+        // of close() once Python can no longer reach it - see docs/lifetime_and_gc_policy.md room C.
+        // The delegate captures the streams and must never capture `this`: the registry would then
+        // hold the file object alive and nothing would ever be released.
+        Stream ownedStream = stream!;
+        StreamWriter? ownedWriter = writer;
+        _bus = PyResourceBus.Register(this, () => ReleaseOwned(ownedStream, ownedWriter));
+    }
+
+    // Mirrors the flush-then-dispose of Close() without a Python-visible owner to report to. CPython
+    // silences failures of this exact kind during finalization (iobase_finalize, quoted in
+    // core/PyResourceBus.cs), so SharpPy does too.
+    private static void ReleaseOwned(Stream? stream, StreamWriter? writer)
+    {
+        try { writer?.Flush(); }
+        catch (IOException) { }
+        catch (ObjectDisposedException) { }
+        finally
+        {
+            try { stream?.Dispose(); }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+        }
     }
 
     // CPython codecs accept these aliases for the built-in Windows codepages.
@@ -193,6 +222,7 @@ public class PyFileContextManager : PyContextManager
         finally
         {
             closed = true;
+            PyResourceBus.MarkReleased(_bus);
             try { stream?.Dispose(); }
             catch (IOException ex) { throw FileError(ex); }
             finally { stream = null; reader = null; writer = null; }

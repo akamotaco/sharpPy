@@ -103,6 +103,10 @@ namespace SharpPy
                     if (!entry.Target.TryGetTarget(out var target)) continue;
                     Invoke(entry.Class, target);
                 }
+                // Finalizers first, external resources second: a __del__ may still write to a file it
+                // kept open. CPython's own shutdown likewise flushes the standard streams only at the
+                // end (Python/pylifecycle.c:1673 flush_std_files, reached from :1896/:1925/:2952).
+                PyResourceBus.ReleaseAllAtShutdown();
             }
             finally
             {

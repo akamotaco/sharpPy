@@ -98,6 +98,7 @@ SharpPy가 종료 sweep을 구현한 이유는 **양쪽 답이 일치하는 유�
 |`deallocate` 시점 호출|`PyFinalizer.RunAtShutdown()` (`FileExecutor.ExecuteFile` / `ExecuteCodeString` 종료 직전)| **B 방 격차의 정체**. 조기 도달 객체는 종료까지 대기 |
 |`slot_tp_finalize` 의 타입 조회|같은 방식 (`cls.LookupInMRO("__del__")` 후 self 인자 호출)| A 방: semantics 는 동일 |
 |`ClearWeakRefs` + `tp_weaklistoffset` |(미구현) planned: `ConditionalWeakTable<PyObject, List<PyWeakReference>>` + ref 쪽 `WeakReference<PyObject>` | CWT 는 **참조 동일성** 비교라 `ToHash()` 오버라이드와 충돌하지 않음. 인스턴스에 weaklist 필드를 두는 방식은 전 객체 +8B 라 기각 |
+|`iobase_finalize`(`Modules/_io/iobase.c:298`) 의 close-on-death|`core/PyResourceBus.cs` | C 방. stream 만 캡처한 release action + 4 개 발화점 + 삭제/이름변경 1 회 재시도. **결과는 동일, 시점은 관측점** (P0-38). Python `close()` dispatch 와 `ResourceWarning` 은 잔여 |
 |`gc` 모듈 표면|`modules/GcModule.cs` | 표면·문구 일치(프로브 p76). 값은 우리의 진실 |
 |`Py_FinalizeEx` 의 2회 컬렉션|종료 sweep 1회 | 재부활 미구현이므로 1회로 충분 |
 
@@ -132,8 +133,18 @@ SharpPy가 종료 sweep을 구현한 이유는 **양쪽 답이 일치하는 유�
    **검증 요구**: VM 스택/스코프 캐시가 대상을 붙잡으면 성립하지 않는다. `_weakref` 1단계에서
    가장 먼저 프로브로 확인할 것.
 2. **종료 시 finalizer sweep** (구현됨) — 결정적이고 프로브로 고정 가능.
-3. **release bus** (planned) — OS 개수를 먹는 타입(io/socket/Godot resource)만 `with` exit /
-   스코프 종료 / 종료 시 확정 해제. C 방의 결과를 동일하게 만든다.
+3. **release bus** (구현됨, P0-38) — `core/PyResourceBus.cs`. OS 개수를 먹는 자원을 약참조로
+   감시하고 다음에서 해제한다: `open()` 주도 sweep(기하급 임계치) · `gc.collect()` ·
+   **삭제/이름변경이 실패했을 때 1 회 재시도** · 종료 시(finalizer 이후).
+   C 방의 결과가 여기서 동일해진다.
+
+   구현에서 지킨 두 가지:
+   - release action 은 **대상 객체가 아니라 stream 을 캡처**한다. `this` 를 캡처한 closure 를
+     등록하면 등록부가 객체를 강참조하여 약참조가 결코 죽지 않고, 해제는 한 번도 일어나지 않는다.
+   - `close()` 오버라이드 dispatch 는 포기했다. CPython 의 `iobase_finalize`
+     (`Modules/_io/iobase.c:298`) 은 객체에서 Python `close()` 를 찾아 부르지만, SharpPy 가
+     대상이 죽었음을 알아채는 시점에는 객체가 이미 수집되어 dispatch 대상이 없다. 같은 이유로
+     weakref 래퍼 방식도 기각되었다 (§4.3).
 
 콜백 시점의 성격: **"살아 있는가" 는 결정적으로 답하고, "언제 콜백이 도는가" 만 격차로 남긴다.**
 
@@ -144,11 +155,12 @@ SharpPy가 종료 sweep을 구현한 이유는 **양쪽 답이 일치하는 유�
 | 실험 | CPython 3.12.15 | SharpPy |
 |---|---|---|
 |`scope()` 안에서 지역 객체 버림 (`del1.py`) | `del ran` 이 즉시 출력 | 출력 없음 (종료까지 대기) → **B 방** |
-|4000 회 `open(p,'a')` 후 `os.remove(p)` (`lock.py`) | `remove ok` | `remove failed: PermissionError` → **C 방, 현재 실패** |
+|4000 회 `open(p,'a')` 후 `os.remove(p)` (`lock.py`) | `remove ok` | `remove failed: PermissionError` → release bus 이후 **양쪽 `remove ok`** (p77 고정) |
 |같은 방식으로 20000 회 (`lock2.py`) | 통과 | 통과 (handle 은 결국 회수됨) → **누수가 아니라 비결정적 해제**. 재현 시점이 옮겨다니므로 테스트로 고정 불가 |
 |`__del__` 2개 객체 종료 순서 (`del3.py`) | 생성 순서, `super().__del__()` 동작, stderr `Exception ignored in:`, exit 0 | 동일 (p76 고정) |
 |일반 클래스 인스턴스 300,000 | — | 기준 커밋 대비 `1.00x` |
 |`__del__` 선언 클래스 100,000 | — | `1.03x` (WeakReference 등록) |
+|닫지 않은 `open` 3000 회 (`p38_bench.py`) | 257 ms | 239 ms. 기준 커밋은 174 ms 였지만, 그것은 handle 3000 개를 finalizer 스레드에 밀어 넣고 백그라운드에서 해체한 값이다. 같은 정직한 작업을 CPython 보다 적게 쓴다 (`closed` 0.97x, `compute` 1.00x) |
 
 ---
 
@@ -158,7 +170,10 @@ SharpPy가 종료 sweep을 구현한 이유는 **양쪽 답이 일치하는 유�
 2. `PyObject`/`PyString` 등에 **참조 카운트 필드를 추가하지 않는다.**
 3. `weakref` 를 "있으면 좋은 것"으로 구현하지 않는다. **`ref.clear()`, `ref.alive` 는 3.12 에
    없다**(3.13 에서 추가). 만들면 호환성 실패다.
-4. 자원 해제를 `__del__`/finalizer 타이밍에 의존시키지 않는다. `with` 나 release bus 를 쓴다.
+4. 자원 해제를 `__del__`/finalizer 타이밍에 의존시키지 않는다. `with` 나 release bus 를
+   쓴다. **새로운 자원 보유 타입(IO/socket/Godot resource)을 만들면 생성자에서
+   `PyResourceBus.Register` 를 부르되, release action 에 `this` 를 capture 하지 말 것**
+   (stream 만 capture 하는 정적 메서드로 분리한다). 쓴다.
 5. 약참조 등록부(WeakReference 목록)가 무한정 자라지 않게, 관측 시점에 dead 항목을 제거한다.
 6. `gc` 의 값을 "모른다"가 아니라 **우리가 truly 답하는 값**(0, 빈 목록)으로 답하고, 그 사실을
    문서에 남긴다. introspection 이 거짓 청신호를 켜는 것을 방치하지 않는다.
