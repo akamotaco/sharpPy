@@ -72,6 +72,21 @@ class FPlain(float):
     pass
 
 
+class TUser(tuple):
+    def __len__(self):
+        return 99
+
+    def __iter__(self):
+        return iter(["t"])
+
+    def __add__(self, other):
+        return "user-tadd"
+
+
+class TPlain(tuple):
+    pass
+
+
 def s(label, fn):
     try:
         print(label, repr(fn()))
@@ -136,6 +151,27 @@ s("sub_no_dunder_len", lambda: len(type("Z", (str,), {})("abcd")))
 s("sub_with_attr", lambda: (lambda o: (o.n, len(o)))(type("Z", (str,), {"n": 3})("ab")))
 s("subclass_of_subclass", lambda: len(type("Y", (SUser,), {})("ab")))
 s("subclass_of_subclass_own", lambda: len(type("Y", (SUser,), {"__len__": lambda self: 4})("ab")))
+
+# tuple subclass: the declared dunder wins, and the plain tuple keeps its value protocol
+s("t_len", lambda: len(TUser((1, 2))))
+s("t_iter", lambda: list(TUser((1, 2))))
+s("t_for", lambda: [x for x in TUser((1, 2))])
+s("t_add", lambda: TUser((1, 2)) + (3,))
+s("t_plain_len", lambda: len(TPlain((1, 2))))
+s("t_plain_iter", lambda: list(TPlain((1, 2))))
+s("t_plain_add", lambda: TPlain((1, 2)) + (3,))
+s("t_plain_mul", lambda: TPlain((1,)) * 3)
+s("t_plain_getitem", lambda: TPlain((1, 2))[1])
+s("t_plain_slice", lambda: TPlain((1, 2, 3))[0:2])
+s("t_plain_count", lambda: TPlain((1, 1, 2)).count(1))
+s("t_plain_index", lambda: TPlain((1, 2)).index(2))
+s("t_plain_contains", lambda: 2 in TPlain((1, 2)))
+s("t_unpack", lambda: [x for x in TPlain((1, 2))][1])
+a, b = TPlain((7, 8))
+print("t_star_unpack", a, b)
+s("t_nested_cmp", lambda: TPlain((1, 2)) == (1, 2))
+s("t_hash", lambda: hash(TPlain((1, 2))) == hash((1, 2)))
+s("t_dict_key", lambda: {(TPlain((1, 2))): "v"}[(1, 2)])
 
 # __len__ must produce an int, as CPython converts it through __index__
 s("bad_len", lambda: len(type("Bad", (object,), {"__len__": lambda self: "short"})()))

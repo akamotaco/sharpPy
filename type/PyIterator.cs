@@ -198,6 +198,24 @@ namespace SharpPy
     /// <summary>
     /// 튜플 이터레이터 구현
     /// </summary>
+    /// <summary>
+    /// Drives an arbitrary Python iterator object as a CLR PyIterator. Needed because a few builtin
+    /// types override GetIterator with the covariant PyIterator return type, while a user __iter__ on
+    /// a subclass of tuple or bytes may return any object with __next__ - a PyClassInstance, which is
+    /// an iterator in CPython's terms (tp_iternext dispatches to __next__) but is not a PyIterator.
+    /// </summary>
+    public class PyObjectIteratorShim : PyIterator
+    {
+        private readonly PyObject _inner;
+
+        public PyObjectIteratorShim(PyObject inner)
+        {
+            _inner = inner;
+        }
+
+        public override PyObject Next() => _inner.Next();
+    }
+
     public class PyTupleIterator : PyIterator
     {
         private readonly PyTuple _tuple;

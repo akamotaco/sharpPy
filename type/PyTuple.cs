@@ -7,6 +7,28 @@ namespace SharpPy
     /// </summary>
     public class PyTuple : PyObject
     {
+        /// <summary>
+        /// A subclass of tuple/bytes resolves the slot through its own type: a declared dunder wins
+        /// and the inherited base slot only runs when the class declares none (measured: a tuple
+        /// subclass with __len__/__iter__/__add__ answered 2, (1, 2) and (1, 2, 3) where CPython
+        /// answered 99, ['t'] and 'user-tadd'). Every entry below is guarded by HasCustomType, so an
+        /// exact tuple or bytes pays one field read; these are the hottest paths in the interpreter.
+        /// </summary>
+        private PyObject CallDeclared(string dunder, PyObject[] args)
+        {
+            // LookupUserSpecial stops at the first non-PyClass MRO frame, so an exact tuple costs
+            // one GetPyType plus one type test and never reaches the call below.
+            var declared = LookupUserSpecial(dunder);
+            return declared == null ? null : BindSpecialMethod(declared).Call(args, null);
+        }
+
+        private PyObject LookupDeclaredIterator()
+        {
+            // Lookup only: the dunder must be invoked by InvokeIteratorMethod, not before it.
+            return LookupUserSpecial("__iter__");
+        }
+
+
         static PyTuple()
         {
             InitializeTupleDescriptors();
@@ -313,6 +335,10 @@ namespace SharpPy
         /// </summary>
         public override PyObject Add(PyObject other)
         {
+            var declaredAdd = CallDeclared("__add__", new[] { other });
+            if (declaredAdd != null)
+                return declaredAdd;
+
             if (other is PyTuple otherTuple)
             {
                 // Performance: Eliminated LINQ (.Concat + .ToArray) - manual array concatenation + Cache
@@ -485,6 +511,12 @@ namespace SharpPy
         /// </summary>
         public override PyIterator GetIterator()
         {
+            var declared = LookupDeclaredIterator();
+            if (declared != null)
+            {
+                var result = InvokeIteratorMethod(declared);
+                return result is PyIterator iterator ? iterator : new PyObjectIteratorShim(result);
+            }
             return new PyTupleIterator(this);
         }
 
@@ -492,7 +524,13 @@ namespace SharpPy
 
         #region Length and Type Checking
 
-        public override int Length() => Items.Length;
+        public override int Length()
+        {
+            var declaredLength = CallDeclared("__len__", System.Array.Empty<PyObject>());
+            if (declaredLength != null)
+                return ToLengthResult(declaredLength);
+            return Items.Length;
+        }
         public override bool PyBoolValue() => Items.Length > 0;
 
         #endregion
@@ -554,6 +592,10 @@ namespace SharpPy
         public override PyList AsList()
         {
             // CPython list(tuple) 동작: 튜플 요소들을 리스트로 변환
+            // A declared __iter__ takes over first: CPython's list() goes through tp_iter, so
+            // copying Items directly answered (1, 2) where CPython answered ['t'].
+            if (LookupDeclaredIterator() != null)
+                return base.AsList();
             return ListCache.Create(Items);
         }
         

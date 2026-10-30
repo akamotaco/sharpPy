@@ -5,6 +5,28 @@ namespace SharpPy
 {
     public class PyBytes : PyObject
     {
+        /// <summary>
+        /// A subclass of tuple/bytes resolves the slot through its own type: a declared dunder wins
+        /// and the inherited base slot only runs when the class declares none (measured: a tuple
+        /// subclass with __len__/__iter__/__add__ answered 2, (1, 2) and (1, 2, 3) where CPython
+        /// answered 99, ['t'] and 'user-tadd'). Every entry below is guarded by HasCustomType, so an
+        /// exact tuple or bytes pays one field read; these are the hottest paths in the interpreter.
+        /// </summary>
+        private PyObject CallDeclared(string dunder, PyObject[] args)
+        {
+            // LookupUserSpecial stops at the first non-PyClass MRO frame, so an exact tuple costs
+            // one GetPyType plus one type test and never reaches the call below.
+            var declared = LookupUserSpecial(dunder);
+            return declared == null ? null : BindSpecialMethod(declared).Call(args, null);
+        }
+
+        private PyObject LookupDeclaredIterator()
+        {
+            // Lookup only: the dunder must be invoked by InvokeIteratorMethod, not before it.
+            return LookupUserSpecial("__iter__");
+        }
+
+
         static PyBytes()
         {
             InitializeBytesDescriptors();
@@ -1763,6 +1785,10 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetIterator()
         {
+            var declared = LookupDeclaredIterator();
+            if (declared != null)
+                return InvokeIteratorMethod(declared);
+
             var items = new PyObject[Value.Length];
             for (int i = 0; i < Value.Length; i++)
             {
@@ -1797,7 +1823,13 @@ namespace SharpPy
             return new PyString(sb.ToString());
         }
         
-        public override int Length() => Value.Length;
+        public override int Length()
+        {
+            var declaredLength = CallDeclared("__len__", System.Array.Empty<PyObject>());
+            if (declaredLength != null)
+                return ToLengthResult(declaredLength);
+            return Value.Length;
+        }
         public override bool PyBoolValue() => Value.Length > 0;
 
         #region Buffer Protocol (PEP 688)
@@ -1829,6 +1861,10 @@ namespace SharpPy
         /// </summary>
         public override PyObject Add(PyObject other)
         {
+            var declaredAdd = CallDeclared("__add__", new[] { other });
+            if (declaredAdd != null)
+                return declaredAdd;
+
             if (other is PyBytes otherBytes)
             {
                 var result = new byte[Value.Length + otherBytes.Value.Length];

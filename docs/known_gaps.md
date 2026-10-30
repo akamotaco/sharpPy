@@ -501,9 +501,18 @@ HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했�
 2. **int subclass의 `__iter__`** — **수정 완료**. `PyIntSubclass`/`PyFloatSubclass`에
    `GetIterator()`를 넣었다: 선언 dunder 우선, 없으면 `'<subclass>' object is not iterable`
    (기반 타입명이 아니라 **서브클래스명**을 낸다는 것도 측정했다).
-3. **tuple subclass** — `len`/`__iter__`/`__add__`가 user dunder를 무시(`t_len 2`, `t_add (1,2,3)`).
-   `PyTuple`에는 `_customType` 인지가 **아예 없다**(grep 0 hits).
-4. **bytes subclass** — 같은 형태(`b_len 2`, `b_iter [97,98]`, `b_add b'abc'`). `PyBytes`도 `_customType` 0.
+3. **tuple subclass** — **수정 완료**(`t_len 99`, `t_iter ['t']`, `t_add 'user-tadd'`).
+   추정과 달리 instance는 `PyTupleSubclass : PyTuple`이었고, `_customType`이 아니라
+   `InstanceType`으로 타입을 추적한다. 그래서 첫 시도의 `HasCustomType` 가드가 아무것도 잡지 못했다.
+   `LookupUserSpecial`은 첫 non-PyClass MRO 프레임에서 멈추므로 가드 없이도 exact tuple은
+   `GetPyType()` + 타입 검사 한 번이다. `list(t)`는 `AsList()`가 `Items`를 직접 복사해 우회하고 있었
+   다 — CPython의 `list()`는 `tp_iter`를 거친다는 점이 수정 근거였다. hot path라 A/B 교대 측정:
+   TOTAL `+0.3%`, tuple 관련 workload 차이 없음.
+4. **bytes subclass** — **원인이 예상과 달랐다.** dunder 디스패치가 아니라 **생성 시 subclass가
+   소실**한다: `class B(bytes): pass` 에서 `type(B(b"xy")).__name__` 이 CPython은 `'B'`, SharpPy는
+   `'bytes'`. 따라서 어떤 dunder도 도달할 수 없고 `len`/`__iter__`/`__add__` 분기는 전부 이 하나의
+   결함에서 나온다. `PyBytesSubclass`는 존재하지 않고(`PyTupleSubclass`는 존재), bytes 생성 경로는
+   class를 버린다. 재현 `.artifacts/tmp/tbsub.py`. wrapper와 생성 경로를 함께 만들어야 하는 별건.
 
 3번과 4번은 hot path에 user-frame 조회를 추가하므로 `_customType == null` 조기 반환으로 가두고
 측정해야 한다. A/B 교대 재측정(`.artifacts/tmp/ab/ab_run.py`, 5라운드) 결과 이번 container 수정은
