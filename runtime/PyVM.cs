@@ -4933,16 +4933,17 @@ namespace SharpPy
                     Console.WriteLine($"🔧 CHECK_EG_MATCH: exception={egException?.GetType().Name}, type={egType?.GetType().Name}");
                     #endif
 
-                    var (matched, remainder) = ExceptionGroupMatches(egException, egType);
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 CHECK_EG_MATCH: matched={matched?.GetType().Name}, remainder={remainder?.GetType().Name}");
-                    #endif
+                    ExceptionGroupMatch(egException, egType,
+                        out PyObject egMatch, out PyObject egRest);
 
                     // CPython 3.12: CHECK_EG_MATCH pushes remainder first, then matched
                     // This way, STORE_NAME gets the matched exception group
-                    frame.ValueStack.Push(remainder ?? PyNone.Instance);
-                    frame.ValueStack.Push(matched ?? PyNone.Instance);
+                    frame.ValueStack.Push(egRest ?? PyNone.Instance);
+                    frame.ValueStack.Push(egMatch ?? PyNone.Instance);
+                    // PyErr_SetHandledException(match): inside the clause, the handled exception
+                    // is the matched part, not the group that arrived.
+                    if (!(egMatch is PyNone) && egMatch is PyBaseException handledPart)
+                        frame.CurrentException = handledPart;
                     break;
 
                 case ByteCodeOp.RAISE_VARARGS:
@@ -7167,7 +7168,8 @@ namespace SharpPy
                     // CPython signature: _PyExc_PrepReraiseStar(orig, excs)
                     // Stack layout: [orig, excs] -> arg1=orig, arg2=excs (list)
                     // But PrepReraiseStarExceptions expects (list, orig), so swap
-                    return PrepReraiseStarExceptions(arg2, arg1);
+                    // CPython passes (orig, excs) to the intrinsic.
+                    return PrepReraiseStar(arg1, arg2);
                 case (int)IntrinsicFunction.INTRINSIC_SET_FUNCTION_TYPE_PARAMS: // PEP 695 Generic Function
                     return SetFunctionTypeParams(arg1, arg2);
                 default:
@@ -7197,141 +7199,134 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: INTRINSIC_PREP_RERAISE_STAR - prepare exceptions for reraise in except* handlers
         /// </summary>
-        private PyObject PrepReraiseStarExceptions(PyObject exceptionList, PyObject handledException)
+        /// <summary>
+        /// INTRINSIC_PREP_RERAISE_STAR - Objects/exceptions.c _PyExc_PrepReraiseStar(orig, excs).
+        ///
+        /// The except* chain left a list of what its clause bodies raised (None for a clause that
+        /// finished without raising). Two kinds of entry appear: exceptions a handler re-raised,
+        /// which keep the original's metadata and therefore its place in the nesting, and
+        /// exceptions raised fresh, which become siblings next to the rebuilt original part.
+        /// CPython names the wrapper group with an empty message; the old version of this method
+        /// invented a group of all entries with the message "unhandled exceptions", which is
+        /// observable in repr and in the traceback.
+        /// </summary>
+        private static PyObject PrepReraiseStar(PyObject orig, PyObject excs)
         {
-            // If there are no remaining exceptions, return None
-            if (exceptionList is PyList list)
+            PyObject original = orig is PyExceptionInfo origInfo ? origInfo.ExcValue : orig;
+
+            PyObject[] entries = excs is PyList list
+                ? list.Items
+                : (excs is PyTuple excTuple ? excTuple.Items : new PyObject[] { excs });
+
+            if (entries.Length == 0) return PyNone.Instance;
+
+            if (!(original is PyBaseExceptionGroup originalGroup))
             {
-                if (list.Length() == 0)
-                {
-                    return PyNone.Instance;
-                }
-
-                // If there's only one exception in the list, return it directly
-                if (list.Length() == 1)
-                {
-                    return list.Items[0];
-                }
-
-                // If there are multiple exceptions, create an ExceptionGroup
-                if (list.Length() > 1)
-                {
-                    // Performance: Eliminated LINQ - manual cast to List<PyException>
-                    var exceptions = new List<PyException>();
-                    foreach (var item in list.Items)
-                    {
-                        exceptions.Add((PyException)item);
-                    }
-                    return new PyExceptionGroup("unhandled exceptions", exceptions);
-                }
+                // A naked exception was caught and wrapped, so at most one except* clause ran.
+                foreach (PyObject entry in entries)
+                    if (!(entry is PyNone)) return entry;
+                return PyNone.Instance;
             }
 
-            return PyNone.Instance;
+            var raised = new List<PyObject>();
+            var reraised = new List<PyObject>();
+            foreach (PyObject entry in entries)
+            {
+                if (entry is PyNone) continue;
+                if (PyBaseExceptionGroup.SameMetadata(entry, original)) reraised.Add(entry);
+                else raised.Add(entry);
+            }
+
+            PyObject reraisedPart = originalGroup.Projection(reraised);
+            if (raised.Count == 0) return reraisedPart;
+            if (!(reraisedPart is PyNone)) raised.Add(reraisedPart);
+            return raised.Count > 1
+                ? PyBaseExceptionGroup.Create("", new PyList(raised))
+                : raised[0];
         }
 
         /// <summary>
-        /// PEP 654: ExceptionGroup matching - returns (matched, remainder)
+        /// CHECK_EG_MATCH - Python/ceval.c exception_group_match. Three cases, in this order:
+        /// the exception itself matches (a group is taken as is, a naked exception is wrapped in
+        /// ExceptionGroup("", [exc])); or it is a group that partially matches, and CPython calls
+        /// the group's own split() - an ordinary attribute lookup, so a subclass can override it;
+        /// or nothing matches and the exception lands in the rest part.
+        /// The VM has no copy of the splitting logic any more.
         /// </summary>
-        private (PyObject?, PyObject?) ExceptionGroupMatches(PyObject exception, PyObject exceptionType)
+        private static void ExceptionGroupMatch(PyObject excValue, PyObject matchType,
+                                                out PyObject match, out PyObject rest)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 ExceptionGroupMatches: exception={exception?.GetType().Name}, type={exceptionType?.GetType().Name}");
-            #endif
+            if (excValue is PyExceptionInfo info) excValue = info.ExcValue;
 
-            // Extract actual exception from PyExceptionInfo if needed
-            PyObject actualException = exception;
-            if (exception is PyExceptionInfo exceptionInfo)
+            // check_except_star_type_valid: match_type is a class or a tuple of classes that
+            // inherit BaseException, otherwise "catching classes that do not inherit from
+            // BaseException is not allowed" - before any matching is attempted.
+            CheckExceptStarTypeValid(matchType);
+
+            if (excValue is PyNone)
             {
-                actualException = exceptionInfo.ExcValue;
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Extracted exception from PyExceptionInfo: {actualException?.GetType().Name}");
-                #endif
+                match = PyNone.Instance;
+                rest = PyNone.Instance;
+                return;
             }
 
-            if (actualException is PyBaseExceptionGroup group)
+            if (ExceptionMatchesHandler(excValue, matchType))
             {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Processing ExceptionGroup with {group.Exceptions.Count} exceptions");
-                #endif
-
-                var matchedExceptions = new List<PyException>();
-                var remainderExceptions = new List<PyException>();
-
-                foreach (var exc in group.Exceptions)
+                if (excValue is PyBaseExceptionGroup)
                 {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Checking exception: {exc.GetType().Name} vs {exceptionType?.GetType().Name}");
-                    #endif
-
-                    // CPython 3.12: If exc is also an ExceptionGroup, recursively split it
-                    if (exc is PyBaseExceptionGroup nestedGroup)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔄 Recursively checking nested ExceptionGroup with {nestedGroup.Exceptions.Count} exceptions");
-                        #endif
-
-                        var (nestedMatched, nestedRemainder) = ExceptionGroupMatches(exc, exceptionType);
-
-                        if (nestedMatched != null && nestedMatched is PyException matchedExc)
-                        {
-                            matchedExceptions.Add(matchedExc);
-                        }
-
-                        if (nestedRemainder != null && nestedRemainder is PyException remainderExc)
-                        {
-                            remainderExceptions.Add(remainderExc);
-                        }
-                    }
-                    else if (ExceptionMatchesHandler(exc, exceptionType))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"✅ Match found: {exc.GetType().Name}");
-                        #endif
-                        matchedExceptions.Add(exc);
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"❌ No match: {exc.GetType().Name}");
-                        #endif
-                        remainderExceptions.Add(exc);
-                    }
+                    match = excValue;
                 }
-
-                PyObject? matched = null;
-                if (matchedExceptions.Count > 0)
+                else
                 {
-                    if (exception is PyExceptionGroup)
-                        matched = new PyExceptionGroup(group.Message, matchedExceptions);
-                    else
-                        matched = new PyBaseExceptionGroup(group.Message, matchedExceptions);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"📦 Created matched group with {matchedExceptions.Count} exceptions");
-                    #endif
+                    // naked exception - wrap it, and give the wrapper the traceback of what is
+                    // being handled, as CPython builds one from the current frame
+                    PyObject wrapped = PyBaseExceptionGroup.Create(
+                        "", new PyTuple(new PyObject[] { excValue }));
+                    if (excValue is PyBaseException naked &&
+                        wrapped is PyBaseException wrapper)
+                        wrapper.__traceback__ = naked.__traceback__;
+                    match = wrapped;
                 }
-
-                PyObject? remainder = null;
-                if (remainderExceptions.Count > 0)
-                {
-                    if (exception is PyExceptionGroup)
-                        remainder = new PyExceptionGroup(group.Message, remainderExceptions);
-                    else
-                        remainder = new PyBaseExceptionGroup(group.Message, remainderExceptions);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"📦 Created remainder group with {remainderExceptions.Count} exceptions");
-                    #endif
-                }
-
-                return (matched, remainder);
+                rest = PyNone.Instance;
+                return;
             }
 
-            // Not an exception group - check if single exception matches
-            if (ExceptionMatchesHandler(exception ?? actualException, exceptionType))
+            if (excValue is PyBaseExceptionGroup group)
             {
-                return (actualException, null);
+                PyObject splitter = group.GetAttribute("split");
+                PyObject pair = splitter.Call(new PyObject[] { matchType }, null);
+                if (!(pair is PyTuple pairTuple))
+                    throw PyTypeError.Create(
+                        $"{group.GetTypeName()}.split must return a tuple, not {pair.GetTypeName()}");
+                if (pairTuple.Items.Length < 2)
+                    throw PyTypeError.Create(
+                        $"{group.GetTypeName()}.split must return a 2-tuple, got tuple of size " +
+                        $"{pairTuple.Items.Length}");
+                match = pairTuple.Items[0];
+                rest = pairTuple.Items[1];
+                return;
             }
 
-            return (null, actualException);
+            match = PyNone.Instance;
+            rest = excValue;
+        }
+
+        /// <summary>
+        /// check_except_star_type_valid in Python/ceval.c.
+        /// </summary>
+        private static void CheckExceptStarTypeValid(PyObject matchType)
+        {
+            if (matchType is PyTuple tuple)
+            {
+                foreach (PyObject item in tuple.Items)
+                    if (!(item is PyType))
+                        throw PyTypeError.Create(
+                            "catching classes that do not inherit from BaseException is not allowed");
+                return;
+            }
+            if (matchType is PyType) return;
+            throw PyTypeError.Create(
+                "catching classes that do not inherit from BaseException is not allowed");
         }
 
         /// <summary>

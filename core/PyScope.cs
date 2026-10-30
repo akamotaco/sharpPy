@@ -145,41 +145,14 @@ namespace SharpPy
                     message = args.Length > 0 ? args[0].ToStr().Value : "";
                     return new PyException(message);
                 
-                // Handle Exception Groups (PEP 654)
+                // Exception groups (PEP 654): the second copy of the constructor. The one that
+                // stays lives with the class, transliterating BaseExceptionGroup_new.
                 case "ExceptionGroup":
-                    if (args.Length < 2)
-                        throw PyTypeError.Create("ExceptionGroup() missing required arguments");
-                    string groupMessage = args[0].ToStr().Value;
-                    var exceptions = new List<PyException>();
-                    if (args[1] is PyList list)
-                    {
-                        foreach (var item in list.Items)
-                        {
-                            if (item is PyException exc)
-                                exceptions.Add(exc);
-                            else
-                                throw PyTypeError.Create("ExceptionGroup requires list of exceptions");
-                        }
-                    }
-                    return new PyExceptionGroup(groupMessage, exceptions);
+                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: false);
 
                 case "BaseExceptionGroup":
-                    if (args.Length < 2)
-                        throw PyTypeError.Create("BaseExceptionGroup() missing required arguments");
-                    groupMessage = args[0].ToStr().Value;
-                    exceptions = new List<PyException>();
-                    if (args[1] is PyList list2)
-                    {
-                        foreach (var item in list2.Items)
-                        {
-                            if (item is PyException exc)
-                                exceptions.Add(exc);
-                            else
-                                throw PyTypeError.Create("BaseExceptionGroup requires list of exceptions");
-                        }
-                    }
-                    return new PyBaseExceptionGroup(groupMessage, exceptions);
-                    
+                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: true);
+
                 default:
                     return base.Call(args, kwargs);
             }

@@ -1007,64 +1007,15 @@ namespace SharpPy
                     return new PyNotADirectoryError(args, kwargs);
                 case "IsADirectoryError":
                     return new PyIsADirectoryError(args, kwargs);
+                // Both names go to the one constructor transliteration
+                // (Objects/exceptions.c BaseExceptionGroup_new). It used to have a copy here and
+                // another one in PyScope, both of which quietly dropped members that were not
+                // PyException, so BaseExceptionGroup('m', [KeyboardInterrupt()]) reported a group
+                // with no members instead of refusing or keeping the member.
                 case "BaseExceptionGroup":
-                    {
-                        // BaseExceptionGroup(message, exceptions) - handle the special constructor
-                        if (args.Length >= 2)
-                        {
-                            string msg = args[0] is PyString msgStr ? msgStr.Value : "";
-                            var exceptions = new List<PyException>();
-
-                            if (args[1] is PyList exceptionList)
-                            {
-                                foreach (var item in exceptionList.Items)
-                                {
-                                    if (item is PyException exc)
-                                        exceptions.Add(exc);
-                                }
-                            }
-                            else if (args[1] is PyTuple exceptionTuple)
-                            {
-                                foreach (var item in exceptionTuple.Items)
-                                {
-                                    if (item is PyException exc)
-                                        exceptions.Add(exc);
-                                }
-                            }
-
-                            return new PyBaseExceptionGroup(msg, exceptions);
-                        }
-                        return new PyBaseExceptionGroup(message, new List<PyException>());
-                    }
+                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: true);
                 case "ExceptionGroup":
-                    {
-                        // ExceptionGroup(message, exceptions) - handle the special constructor
-                        if (args.Length >= 2)
-                        {
-                            string msg = args[0] is PyString msgStr ? msgStr.Value : "";
-                            var exceptions = new List<PyException>();
-
-                            if (args[1] is PyList exceptionList)
-                            {
-                                foreach (var item in exceptionList.Items)
-                                {
-                                    if (item is PyException exc)
-                                        exceptions.Add(exc);
-                                }
-                            }
-                            else if (args[1] is PyTuple exceptionTuple)
-                            {
-                                foreach (var item in exceptionTuple.Items)
-                                {
-                                    if (item is PyException exc)
-                                        exceptions.Add(exc);
-                                }
-                            }
-
-                            return new PyExceptionGroup(msg, exceptions);
-                        }
-                        return new PyExceptionGroup(message, new List<PyException>());
-                    }
+                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: false);
                 case "mappingproxy":
                     // CPython 3.12: mappingproxy(dict) - create read-only dict proxy
                     if (args.Length != 1)

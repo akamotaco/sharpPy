@@ -88,12 +88,14 @@ namespace SharpPy.Core
             }
             catch (Exception ex)
             {
-                // PyInterpreter already handles and prints Python-style errors
-                // TEMPORARY: Always show C# stack trace for debugging
-                Console.WriteLine("--- C# Exception Details ---");
-                Console.WriteLine(ex.ToString());
-
-                // Exit with non-zero code to indicate error
+                // Measured: every uncaught Python exception printed a second block,
+                // "--- C# Exception Details ---" followed by the CLR exception text, on stdout.
+                // The interpreter has already reported a Python-level exception in CPython's own
+                // format by the time control reaches here, so that dump was pure divergence (and
+                // was marked TEMPORARY). A failure nobody reported is an interpreter bug: it still
+                // exits 1, but the CLR detail goes to stderr instead of stdout.
+                if (!(ex is PythonException))
+                    Console.Error.WriteLine(ex.ToString());
                 Environment.Exit(1);
             }
         }
@@ -118,12 +120,14 @@ namespace SharpPy.Core
             }
             catch (Exception ex)
             {
-                // PyInterpreter already handles and prints Python-style errors
-                // TEMPORARY: Always show C# stack trace for debugging
-                Console.WriteLine("--- C# Exception Details ---");
-                Console.WriteLine(ex.ToString());
-
-                // Exit with non-zero code to indicate error
+                // Measured: every uncaught Python exception printed a second block,
+                // "--- C# Exception Details ---" followed by the CLR exception text, on stdout.
+                // The interpreter has already reported a Python-level exception in CPython's own
+                // format by the time control reaches here, so that dump was pure divergence (and
+                // was marked TEMPORARY). A failure nobody reported is an interpreter bug: it still
+                // exits 1, but the CLR detail goes to stderr instead of stdout.
+                if (!(ex is PythonException))
+                    Console.Error.WriteLine(ex.ToString());
                 Environment.Exit(1);
             }
         }

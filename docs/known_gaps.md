@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **78/78 matching**
+- `tools/run_bughunt.py`: **79/79 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -19,6 +19,13 @@ Reference interpreter: **CPython 3.12.15**
 - 2026-10-30 closings after that snapshot: P0-21 (mostly), P0-23, P0-24 items 1-4, P0-22,
   **P0-25** (builtin constructor keyword signatures), **P0-27** (bytes subclasses). The table
   above still shows P0-16 as partial; p48 plus the P0-18/P0-23 sequence closed it.
+- 2026-10-30 **P0-33** (`core/PyExceptionGroup.cs` rewritten from `Objects/exceptions.c`, p74):
+  exception groups stop losing their members. `repr`/`.message`/`.args`/`split`/`subgroup`/
+  `derive` and the constructor error family now match CPython, the VM calls `exc.split(...)` like
+  `exception_group_match` in `Python/ceval.c` instead of keeping its own matcher, and
+  `_PyExc_PrepReraiseStar` is transliterated. Every uncaught exception also stopped printing a
+  second `--- C# Exception Details ---` block on stdout. What is left is listed under
+  **P0-33 remainder** below.
 - 2026-10-30 codec registry (`core/PyCodecRegistry.cs`, p73): `codecs.lookup` /
   `getencoder` / `getdecoder` / `register` / `unregister`, CPython name normalisation and
   canonical names, `rot-13` / `hex` / `base64` as real non-text codecs, and the
@@ -1296,3 +1303,34 @@ p73이 통과하는 범위 밖으로, 다음 다섯 family이 열려 있다. 전
 5. **`_codecs` 함수 표면 36 vs 45.** 빠져 있는 이름: `code_page_decode/encode`,
    `mbcs_decode/encode`, `oem_decode/encode`, `readbuffer_encode`, `utf_7_decode/encode`
    (그리고 `unregister`는 추가됨). `dir(codecs)`도 81 vs 90. 3번과 같은 원인이다.
+
+### P0-33 remainder (측정으로 고정, 2026-10-30)
+
+p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 두었다.
+
+1. **처리되지 않은 그룹의 traceback 배치.** CPython은 `+ Exception Group Traceback (most recent
+   call last):` 헤더와 `+-+---------------- 1 ----------------` 서브 블록 안에 멤버를 인쇄한다.
+   이 interpreter는 일반 traceback 한 장 뒤 `ExceptionGroup: g (1 sub-exception)`만 인쇄
+   (`.artifacts/tmp/x1.py`). `Lib/traceback.py`의 그룹 포맷터에 대응하는 native 출력이 없다.
+2. **traceback이 stdout으로 나간다.** CPython은 stderr. `tools/evaluate.py`가 stdout을 비교하므로
+   현재 게이트는 이 차이를 보지 못한다. 스트림을 옮기면 미caught 예외 fixture들이 한꺼번에
+   바뀌므로 별도 단계로 처리해야 한다.
+3. **`__notes__`/`add_note` 미구현.** 저장소가 없어서 CPython의
+   `is_same_exception_metadata`가 비교하는 네 필드 중 notes가 관찰 불가능하고,
+   `exceptiongroup_subset`의 `__notes__` 복사도 따라갈 것이 없다.
+4. **`KeyboardInterrupt` · `SystemExit` · `EncodingWarning`이 builtins에 없다** (`NameError`).
+   그래서 `BaseExceptionGroup`의 "BaseException 전용 멤버" 규칙을 Python에서 만들 수 없고,
+   `ExceptionGroup('m',[KeyboardInterrupt()])` → `TypeError: Cannot nest BaseExceptions in an
+   ExceptionGroup` 경로도 고정할 수 없다.별그 관찰: `dir(builtins)`는 이 이름들을 CPython과 같은
+   62개 목록으로 보고하지만 `hasattr(builtins, name)`과 이름 조회는 실패한다 — dir과 속성 조회가
+   서로 다른 표를 본다.
+5. **`class Custom(ExceptionGroup)` 의 타입 보존.** SharpPy는 `Custom('c', [...])`에서
+   `ExceptionGroup` 인스턴스를 돌려준다. ceval은 `exc.split(...)`을 속성 호출로 부르므로, 사용자
+   재정의가 호출되지 않는다. builtin 서브클래스 동일성(P0-27계열)과 같은 뿌리.
+6. **`except*` 절 안 `return`/`break`/`continue`.** CPython은
+   `SyntaxError: 'break', 'continue' and 'return' cannot appear in an except* block`,
+   SharpPy는 컴파일 through. `Python/compile.c`의 except* 게이트에 대응하는 검증이 없다.
+
+함께 닫은 것: 던져진 모든 예외에서 stdout에 두 번 째로 인쇄되던 `--- C# Exception Details ---`
++ CLR 스택 덤프(`core/FileExecutor.cs`의 `TEMPORARY` 디버그 출력) 제거. 종료 코드는 CPython과
+같이 1. 인터프리터가 보고하지 않은 failure만 stderr로 간다.
