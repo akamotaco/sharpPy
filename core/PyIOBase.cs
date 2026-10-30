@@ -71,7 +71,7 @@ public class PyIOBaseInstance : PyObject, IInstanceDictAccessor
     {
         var readline = GetAttribute("readline");
         var line = BindSpecialMethod(readline).Call(Array.Empty<PyObject>(), null);
-        if (line is PyString s ? s.Value.Length == 0 : StaticSizeOf(line) <= 0)
+        if (line is PyString s ? s.Length() == 0 : StaticSizeOf(line) <= 0)
             throw PyStopIteration.Create();
         return line;
     }
@@ -179,7 +179,7 @@ public static class PyIOBaseSlots
 
     private static int StaticSize(PyObject o) => o switch
     {
-        PyString s => s.Value.Length,
+        PyString s => s.Length(),
         PyBytes b => b.Value.Length,
         PyByteArray ba => ba.Length(),
         PyList l => l.Length(),

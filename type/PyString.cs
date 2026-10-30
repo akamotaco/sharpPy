@@ -1848,11 +1848,33 @@ namespace SharpPy
 
         #region Comparison Operations
 
+        /// <summary>
+        /// The single place Python text ordering is decided. Everything that compares str values
+        /// (str, str subclasses, and anything that sorts them) must go through here.
+        ///
+        /// It is UTF-16 ordinal today, which is what SharpPy has always done. That is NOT
+        /// CPython's ordering: code-unit order puts astral characters between U+D7FF and U+E000,
+        /// so sorted([chr(0x10FFFF), chr(0xE000), chr(0xFFFF), chr(0x41)]) disagrees with
+        /// CPython 3.12 and min()/max() pick the wrong element. Registered as P0-34; flipping this
+        /// one function to code-point lexicographic order is the fix, and it needs the
+        /// Value consumers moved off raw unit arithmetic first (see
+        /// docs/reports/2026-10-30/p034_value_consumer_inventory.md).
+        /// </summary>
+        internal static int CompareText(string left, string right) =>
+            string.CompareOrdinal(left, right);
+
+        /// <summary>
+        /// The value of the character at a Python index, for ord(). Returns a UTF-16 code unit
+        /// today; PEP 393 style code-point indexing (P0-34) changes this without moving its
+        /// callers. ord() on astral text is wrong until then, which is P0-34, not a hidden bug.
+        /// </summary>
+        internal int CodePointAt(int index) => Value[index];
+
         protected override PyObject PyLess(PyObject other)
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) < 0),
+                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) < 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1861,7 +1883,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) <= 0),
+                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) <= 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1870,7 +1892,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) > 0),
+                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) > 0),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -1879,7 +1901,7 @@ namespace SharpPy
         {
             return other switch
             {
-                PyString otherStr => PyBool.FromBool(string.Compare(Value, otherStr.Value, StringComparison.Ordinal) >= 0),
+                PyString otherStr => PyBool.FromBool(CompareText(Value, otherStr.Value) >= 0),
                 _ => PyNotImplemented.Instance
             };
         }

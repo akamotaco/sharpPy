@@ -1888,14 +1888,14 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
 
-            if (args[0] is PyString str && str.Value.Length == 1)
+            if (args[0] is PyString str && str.Length() == 1)
             {
-                return new PyInt((int)str.Value[0]);
+                return new PyInt(str.CodePointAt(0));
             }
             else
             {
                 throw PyTypeError.Create("ord() expected a character, but string of length " + 
-                    (args[0] is PyString s ? s.Value.Length.ToString() : "?") + " found");
+                    (args[0] is PyString s ? s.Length().ToString() : "?") + " found");
             }
         }
 

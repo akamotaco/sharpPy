@@ -3278,7 +3278,9 @@ namespace SharpPy
                     }
                     else if (lenSubject is PyString str)
                     {
-                        length = new PyInt(str.Value.Length);
+                        // One length implementation: PyString.Length(). This used to recompute it
+                        // from the UTF-16 buffer, i.e. a second len(str).
+                        length = new PyInt(str.Length());
                     }
                     else if (lenSubject is PyDict dictDup)
                     {
@@ -5453,15 +5455,16 @@ namespace SharpPy
                     }
                     else if (sequence is PyString str)
                     {
-                        if (str.Value.Length != unpackCount)
+                        if (str.Length() != unpackCount)
                         {
-                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {str.Value.Length})");
+                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {str.Length()})");
                         }
 
-                        // CPython pushes characters in reverse order
-                        for (int i = str.Value.Length - 1; i >= 0; i--)
+                        // CPython pushes characters in reverse order, and "character" means whatever
+                        // str[i] hands back, so go through GetItem rather than cutting the buffer.
+                        for (int i = str.Length() - 1; i >= 0; i--)
                         {
-                            frame.ValueStack.Push(new PyString(str.Value[i].ToString()));
+                            frame.ValueStack.Push(str.GetItem(i));
                         }
                     }
                     else

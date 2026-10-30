@@ -1164,6 +1164,16 @@ CPython처럼 코드 포인트 인덱스로 바꾸려면 `PyString`의 표현 �
 3종 저장은 `Value` 소비자 전수 정리가 선행돼야 해서 현 단계 각하, C: `int[]` 1급 저장은 숨은 O(n)).
 프로브 원자료: `.artifacts/tmp/p34_survey.py`.
 
+### 2026-10-30 사전 작업 1단계 착수 (`docs/reports/2026-10-30/p034_value_consumer_inventory.md`)
+
+`PyString.Value` 소비자 장부를 만들었다(외부 239지점 + PyString.cs 내부 bare `Value` 314언급).
+첫 라우팅으로 **중복 구현이 줄었다**: `len(str)`을 계산하던 4곳(VM `len` 빠른길, starred unpack,
+`len()` 상수 폴딩, `n * str` 폭발 가드, `PyIOBase`)을 `PyString.Length()` 하나로, 텍스트 비교 8곳
+(`PyString` 4 + `PyStrSubclass` 4)을 `PyString.CompareText` 하나로, `ord()`는 `CodePointAt`으로 모았다.
+거동은 전달만 했으므로 그대로이고, flip은 `CompareText`/`CodePointAt` 한 곳에서 일어나게 뒀다.
+남은 코호트: codec 경계(`_CodecsModule` 소비 위치 반환 7곳) → PyString.cs 내부 115지점 흡수 삭제 →
+parse/compile 열 좌표 → regex/`StringIO` 좌표 → 진짜 interop 6지점의 명시적 탈출구화.
+
 ## P0-35 (2026-10-30 등록): 소스 디코딩 — NUL 바이트와 decode 실패
 
 | 표현 | CPython | SharpPy |
@@ -1202,3 +1212,9 @@ UTF-16을 직접 걸어 중간 `int[]` 패스를 없애기, 시그마가 없는 
 `tools/perf_probe.py`의 표준 스위트에는 영향이 없다(case 운영을 부르지 않는다): old/new 교차에서
 `str_fmt +3.6%`, `list_comp -0.4%`, 나머지 ±0. 몇 라운드 눈에 띈 `list_comp +71%`는 같은 바이너리
 재측정에서 -0.8%로 돌아오는 기계 상태 노이즈였다.
+
+## P1 (2026-10-30 등록): 평가된 소스의 SyntaxError에 위치 정보가 없다
+
+`eval("%s")` (그 자체로 잘못된 코드)을 CPython이 `SyntaxError: invalid syntax (<string>, line 1)`로
+내는 반면, SharpPy는 `SyntaxError: invalid syntax`만 낸다. `compile()`/`eval()` 경로에서 파일명·줄
+번호가 붙지 않는다. traceback 표시와 같은 계열(`p17`)이지만 진입점이 다르다.

@@ -153,7 +153,7 @@ namespace SharpPy
             var otherStr = other as PyString;
             if (otherStr == null)
                 throw PyTypeError.Create($"'<' not supported between instances of 'str' and '{other.GetTypeName()}'");
-            return string.CompareOrdinal(_strValue.Value, otherStr.Value) < 0 ? PyBool.True : PyBool.False;
+            return PyString.CompareText(_strValue.Value, otherStr.Value) < 0 ? PyBool.True : PyBool.False;
         }
 
         protected override PyObject PyLessEqual(PyObject other)
@@ -163,7 +163,7 @@ namespace SharpPy
             var otherStr = other as PyString;
             if (otherStr == null)
                 throw PyTypeError.Create($"'<=' not supported between instances of 'str' and '{other.GetTypeName()}'");
-            return string.CompareOrdinal(_strValue.Value, otherStr.Value) <= 0 ? PyBool.True : PyBool.False;
+            return PyString.CompareText(_strValue.Value, otherStr.Value) <= 0 ? PyBool.True : PyBool.False;
         }
 
         protected override PyObject PyGreater(PyObject other)
@@ -173,7 +173,7 @@ namespace SharpPy
             var otherStr = other as PyString;
             if (otherStr == null)
                 throw PyTypeError.Create($"'>' not supported between instances of 'str' and '{other.GetTypeName()}'");
-            return string.CompareOrdinal(_strValue.Value, otherStr.Value) > 0 ? PyBool.True : PyBool.False;
+            return PyString.CompareText(_strValue.Value, otherStr.Value) > 0 ? PyBool.True : PyBool.False;
         }
 
         protected override PyObject PyGreaterEqual(PyObject other)
@@ -183,7 +183,7 @@ namespace SharpPy
             var otherStr = other as PyString;
             if (otherStr == null)
                 throw PyTypeError.Create($"'>=' not supported between instances of 'str' and '{other.GetTypeName()}'");
-            return string.CompareOrdinal(_strValue.Value, otherStr.Value) >= 0 ? PyBool.True : PyBool.False;
+            return PyString.CompareText(_strValue.Value, otherStr.Value) >= 0 ? PyBool.True : PyBool.False;
         }
 
         #endregion
