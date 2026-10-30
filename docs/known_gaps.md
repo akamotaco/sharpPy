@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **70/70 matching**
+- `tools/run_bughunt.py`: **71/71 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -47,7 +47,7 @@ genuine computation/result divergences and are worked first.
 
 Suggested order (risk × effort, cheapest real-computation wins first):
 **P0-16 residuals** (reflected ops / `abs` / float descriptor self-check / hash) →
-**P0-28** (builtin type surfaces still unpublished for `frozenset`, `complex`, `memoryview`, the dict views and the iterator types) → P0-8 / P0-9 (each needs a real
+**P0-29** (builtin positional-arity message families; getattr/hasattr swallow user exceptions and exist twice) and **P0-28** (builtin type surfaces still unpublished for `frozenset`, `complex`, `memoryview`, the dict views and the iterator types) → P0-8 / P0-9 (each needs a real
 feature: stream wrapping, loader protocol). P0-5 needs the static-`type` architecture
 decision and is deliberately last.
 
@@ -624,19 +624,102 @@ return builtinFunc.Call(args, null);   // kwargs = null
   0.058~0.107의 bimodal 분포 — 회귀가 아니다. 이 항목은 hot path이 아니라 생성자 진입부이므로
   메커니즘도 성능을 지지하지 않는다.
 
-## P0-26 (2026-10-30 등록): builtin **함수**의 keyword 인자
+## P0-26 (2026-10-30 **닫힘**): builtin 함수의 keyword 시그니처
 
-P0-20이 *descriptor*(메서드)의 keyword 표를 고쳤고 P0-25가 *생성자*를 고쳤지만, module-level
-builtin 함수는 여전히 CPython이 받는 keyword를 거부한다. 측정:
+P0-20은 *descriptor*(메서드)의 keyword 표를 고쳤고 P0-25는 *생성자*를 고쳤다. 모듈 레벨 builtin
+함수는 여전히 CPython이 받는 것을 거부하고, 거부하지 않을 때는 **keyword를 버린 뒤 그 keyword가
+채울 인수가 없다고 불평**했다.
+
+```text
+abs(x=-5)          CPython: abs() takes no keyword arguments
+                   이전:    abs() takes exactly one argument (0 given)
+hasattr(obj=1, ...) CPython: hasattr() takes no keyword arguments
+                   이전:    hasattr() takes exactly 2 arguments (0 given)
+```
+
+거부해야 할 호출을 다른 호출로 바꿔 보고 있었으므로 메시지 문제가 아니라 실행 문제였다.
+
+### 표는 생성했다
+
+`__text_signature__`에서 인수 이름을 읽어 케이스를 만들었다(`.artifacts/tmp/gen_builtin_kw_table.py`,
+결과 JSON `.artifacts/tmp/builtin_kw_table.json`). 추측 금지 규칙을 지키려고 표를 손으로 쓰지 않았다.
+규칙: 첫 번째 맨 `/` 앞은 positional-only, 그리고 `/`가 뒤에 붙은 인수는 그 뒤에라도
+positional-only다. `sorted(dict, key=len)`은 되고 `sorted(iterable=[1])`는 안 되는 이유가 후자다.
+
+- **keyword를 전혀 받지 않는 32개** — abs, aiter, all, anext, any, ascii, bin, callable, chr,
+  delattr, dir, divmod, eval, format, getattr, globals, hasattr, hash, hex, id, input, isinstance,
+  issubclass, iter, len, locals, next, oct, ord, repr, setattr, vars. 전부 같은 문구
+  `name() takes no keyword arguments` → `PyBuiltinFunction.Call`에 중앙 게이트.
+- **이름을 받는 것들** — `round(number, ndigits)`, `pow(base, exp, mod)`,
+  `print(*args, sep, end, file, flush)`, `sorted(*, key, reverse)`, `sum(iterable, start)`,
+  `min/max(*, key, default)`, `enumerate(iterable, start)`, `zip(*iterables, strict)`과
+  `exec(*, closure)`, `compile(...)`, `__import__(name, ...)`. `round`/`pow`/`sum`/`enumerate`는
+  이름 인수를 **바인딩하지 않았다**(`pow(2, 3, mod=5)`가 `mod`를 무시하고 8을 줬다).
+
+### 측정으로 드러난 함수별 차이
+
+| 사실 | 근거 |
+|---|---|
+| `sorted`의 모른 이름 메시지는 `sort()` | `sorted([1], zzz=1)` → `'zzz' is an invalid keyword argument for sort()` — list.sort와 파서를 공유 |
+| arity가 keyword 검사보다 먼저인 함수가 있다 | `min(zzz=1)` → `min expected at least 1 argument, got 0` |
+| 반대 순서인 함수가 있다 | `enumerate(zzz=1)` → `'zzz' is an invalid keyword argument for enumerate()` |
+| 필수 인수가 없으면 위치를 찍는다 | `pow()` → `pow() missing required argument 'base' (pos 1)`, `round()` → `...'number' (pos 1)` |
+| `enumerate`는 positional-only가 아니다 | `list(enumerate(iterable=[7])) == [(0, 7)]` — ledger에 있던 "`enumerate(iterable=…)`가 동작해야 한다"는 맞았지만 이유 달성이 달랐다 |
+| `reversed`는 positional-only다 | `reversed(sequence=[1])` → `reversed() takes no keyword arguments` |
+| `map`/`filter`/`range`는 CPython도 거부 | `map(function=None, …)` → `map() takes no keyword arguments` |
+
+### 회귀·성능
+
+- `tests/bughunt/p66_builtin_keywords.py` — 생성 표 63케이스 + 이름 인수/모른 이름/순서 35케이스,
+  차이 0.
+- bughunt **71/71**, evaluate 불변 (`225 / 3 / 2`).
+- Godot 4.7.2 mono replay `82 matched, 0 other`, 오류 0개 빌드.
+- `tools/perf_probe.py` 지적 없음(모두 +0~9% 대역, 이전 기록의 노이즈 대역 안). 게이트는
+  `kwargs != null`일 때만 동작하고, 이름 인수를 읽는 추가는 kwargs가 있는 호출만 탄다.
+
+## P0-29 (2026-10-30 등록): positional 과잉 인수의 **문구 계열**, 그리고 getattr/hasattr가 예외를 삼킨다
+
+P0-26이 keyword면을 정리하고 남긴 것은 위치 인수 문구다. 표본 15개 중 **11개**가 다르다(측정):
 
 | 표현 | CPython | SharpPy |
-| --- | --- | --- |
-| `enumerate(iterable=[1])` | enumerate 객체 | `TypeError: enumerate expected at most 2 arguments, got 0` |
+|---|---|---|
+| `divmod(7)` | `divmod expected 2 arguments, got 1` | `divmod expected exactly 2 arguments (1 given)` |
+| `reversed([1], 2)` | `reversed expected 1 argument, got 2` | (p66에서 고정) |
+| `next(it, 2, 3)` | `next expected at most 2 arguments, got 3` | `next expected 1 or 2 arguments (3 given)` |
+| `id()` | `id() takes exactly one argument (0 given)` | `id expected exactly 1 arguments (0 given)` |
+| `chr(65, 66)` | `chr() takes exactly one argument (2 given)` | `chr expected exactly 1 arguments (2 given)` |
+| `isinstance(1)` | `isinstance expected 2 arguments, got 1` | `isinstance() takes exactly 2 arguments (1 given)` |
+| `getattr(1)` | `getattr expected at least 2 arguments, got 1` | `getattr expected 2 or 3 arguments (1 given)` |
+| `format(1, "", "")` | `format expected at most 2 arguments, got 3` | `format() takes 1 or 2 arguments (3 given)` |
+| `any()` | `any() takes exactly one argument (0 given)` | `any expected exactly 1 arguments (0 given)` |
+| `enumerate()` | `enumerate() missing required argument 'iterable'` | (p66에서 고정) |
 
-`zip(strict=)`은 이미 동작하므로 표가 부분적으로만 존재한다. 남은 대표 항목: `enumerate(iterable/start)`,
-`sorted(key/reverse)` 계열의 keyword 경로, `map`/`filter`는 CPython도 keyword 거부(p29에서 측정·고정).
-`PyBuiltinFunction` 호출부에 함수별 허용 keyword를 붙이는 방식인데, P0-20과 같은 근거(측정된 표,
-그리고 **flag만 주고 delegate가 읽지 않으면 조용한 무시**)가 필요하다.
+CPython에는 세 계열이 공존한다: clinic의 `X() missing required argument 'k' (pos N)`,
+generic의 `X() takes exactly one argument (N given)`, 그리고 직접 작성된
+`X expected [at least|at most] N argument[s], got M`. SharpPy는 `{name} expected exactly N arguments (M given)`
+같은 **혼합형**을 만들어 어느 계열에도 속하지 않는다. 함수마다 어느 계열인가를 측정 표로 두고
+한 번에 정리할 것 — p66이 `reversed`/`enumerate`/`pow`/`round`/`sorted`/`sum`은 이미 고정했으므로,
+남은 것은 나머지 함수들이다.
+
+### 같은 항목의 두 번째 부분: getattr/hasattr가 사용자 예외를 삼킨다
+
+```python
+class Boom:
+    def __getattr__(self, name):
+        raise ValueError("boom")
+```
+
+| 표현 | CPython | SharpPy |
+|---|---|---|
+| `getattr(Boom(), "anything", "D")` | `ValueError: boom` | `'D'` |
+| `hasattr(Boom(), "anything")` | `ValueError: boom` | `False` |
+
+CPython의 `getattr` 기본값은 **AttributeError만** 잡는다. SharpPy는 `BuiltinsModule.GetAttr`가
+`catch { return defaultValue; }`이고 `CallHasAttr`도 `AttributeError`만 잡는 경로와 이중으로
+ 존재한다. 또한 `getattr` 구현이 두 개다 — `modules/BuiltinsModule.cs`와 `core/PyBuiltin.cs:CallGetAttr`
+ — 그리고 `CallGetAttr`에는 `result is PyNone && default != null → 기본값`이라는 별도 우회가 있어
+ `x = None`인 속성을 잘못 삼킬 수 있다(측정으로는 module 쪽이 이기고 있어 지금은 증상이 안 난다).
+ `abs`에서 했던 것처럼 구현을 하나로 합치고 `AttributeError`만 잡도록 고친다.
 
 ## P1 (2026-10-30 등록): codec 표의 범위와 strict 디코딩 한계
 

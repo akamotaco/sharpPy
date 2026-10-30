@@ -120,6 +120,30 @@ namespace SharpPy
         private static readonly Dictionary<string, Func<PyObject[], PyDict, PyObject>> _builtinImplementations
             = new Dictionary<string, Func<PyObject[], PyDict, PyObject>>();
 
+        /// <summary>
+        /// The module-level builtins whose CPython signature is entirely positional-only, read off
+        /// CPython 3.12.15's __text_signature__ values. All of them answer a keyword with the same
+        /// text, "name() takes no keyword arguments".
+        ///
+        /// Before this guard SharpPy dropped the keyword on the floor and then complained about the
+        /// argument that keyword was meant to supply: abs(x=-5) said "abs() takes exactly one argument
+        /// (0 given)" and hasattr(obj=1, ...) said "hasattr() takes exactly 2 arguments (0 given)".
+        /// The call being refused was not even the call being reported.
+        ///
+        /// Deliberately absent, because these do take keywords: round(number, ndigits),
+        /// pow(base, exp, mod), print(*args, sep, end, file, flush), sorted(*, key, reverse),
+        /// sum(iterable, start), exec(*, closure), compile(...), __import__(name, ...) and open(file,
+        /// mode, ...). min and max take key/default too and report a handwritten text for anything
+        /// else ("min expected at least 1 argument, got 0"); that family is tracked separately.
+        /// </summary>
+        internal static readonly HashSet<string> PositionalOnlyBuiltins = new()
+        {
+            "abs", "aiter", "all", "anext", "any", "ascii", "bin", "callable", "chr", "delattr",
+            "dir", "divmod", "eval", "format", "getattr", "globals", "hasattr", "hash", "hex",
+            "id", "input", "isinstance", "issubclass", "iter", "len", "locals", "next", "oct",
+            "ord", "repr", "setattr", "vars",
+        };
+
         static PyBuiltinFunction()
         {
             InitializeBuiltinImplementations();
@@ -248,6 +272,11 @@ namespace SharpPy
             Console.WriteLine($"[PyBuiltinFunction.Call] Name={Name}, args.Length={args.Length}");
 #endif
 
+            // CPython: a positional-only signature has no way to receive a keyword, and the generic
+            // parser refuses it before looking at anything else.
+            if (kwargs != null && kwargs.Length() != 0 && PositionalOnlyBuiltins.Contains(Name))
+                throw PyTypeError.Create($"{Name}() takes no keyword arguments");
+
             // kwargs 지원 구현이 있으면 우선 사용
             if (_kwargsImplementation != null)
             {
@@ -296,6 +325,10 @@ namespace SharpPy
             var end = new PyString("\n");
             PyObject file = null; // sys.stdout는 추후 구현
             var flush = PyBool.False;
+
+            // CPython prints *args and accepts exactly sep/end/file/flush; anything else is named in
+            // the error rather than ignored.
+            RejectUnknownKeywords(kwargs, "print", "sep", "end", "file", "flush");
 
             // kwargs 처리
             if (kwargs != null)
@@ -516,10 +549,18 @@ namespace SharpPy
 
         private static PyObject CallEnumerate(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"enumerate expected at most 2 arguments, got {args.Length}");
+            // enumerate's CPython signature is (iterable, start=0) with no positional-only marker, so
+            // both names are legal keywords: list(enumerate(iterable=[1])) is [(0, 1)]. Too many
+            // positionals and a missing iterable have different texts, and an unknown name is named.
+            if (args.Length > 2)
+                throw PyTypeError.Create($"enumerate() takes at most 2 arguments ({args.Length} given)");
 
-            var iterable = args[0];
+            // Order matters and is measured: enumerate(zzz=1) reports the invalid keyword, while
+            // min(zzz=1) reports the missing argument. enumerate parses keywords first.
+            RejectUnknownKeywords(kwargs, "enumerate", "iterable", "start");
+            var iterable = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "iterable");
+            if (iterable == null)
+                throw PyTypeError.Create("enumerate() missing required argument 'iterable'");
 
             // CPython 3.12: Objects/enumobject.c:246-292 - enum_new
             // Check kwargs for 'start' parameter first, then positional arg
@@ -590,11 +631,41 @@ namespace SharpPy
             return new PyFilterIterator(func, iterable.GetIterator());
         }
 
+        /// <summary>
+        /// CPython parses keywords per function, so an unrecognised name is reported against that
+        /// function's own label. Two labels are surprises worth naming: sorted() says sort(), because it
+        /// shares list.sort()'s keyword parser, and a function that is missing a required positional
+        /// reports the arity first - min(zzz=1) says "min expected at least 1 argument, got 0", not
+        /// anything about the keyword. All of this is measured against CPython 3.12.15.
+        /// </summary>
+        private static void RejectUnknownKeywords(PyDict kwargs, string label, params string[] allowed)
+        {
+            if (kwargs == null)
+                return;
+            foreach (var entry in kwargs.GetInternalDict())
+            {
+                string key = entry.Key.ToClrString();
+                bool known = false;
+                foreach (var name in allowed)
+                {
+                    if (name == key)
+                    {
+                        known = true;
+                        break;
+                    }
+                }
+                if (!known)
+                    throw PyTypeError.Create($"'{key}' is an invalid keyword argument for {label}()");
+            }
+        }
+
         private static PyObject CallSorted(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: sorted(iterable, *, key=None, reverse=False)
+            // CPython 3.12: sorted(iterable, /, *, key=None, reverse=False). The iterable is
+            // positional-only, so sorted(iterable=[1]) is an arity error, not a keyword error.
             if (args.Length != 1)
-                throw PyTypeError.Create($"sorted expected exactly 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"sorted expected 1 argument, got {args.Length}");
+            RejectUnknownKeywords(kwargs, "sort", "key", "reverse");
 
             // CPython materializes the iterable before list.sort parses keywords.
             var result = new PyList();
@@ -614,8 +685,12 @@ namespace SharpPy
             // CPython 3.12: Objects/enumobject.c reversed_new:
             // 1) __reversed__; 2) sequence protocol (length + __getitem__);
             // else TypeError "'T' object is not reversible". Iteration is lazy.
+            // CPython's signature is reversed(seq, /): a keyword is refused outright, and the arity
+            // text is "reversed expected 1 argument, got N".
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("reversed() takes no keyword arguments");
             if (args.Length != 1)
-                throw PyTypeError.Create($"reversed expected exactly 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"reversed expected 1 argument, got {args.Length}");
 
             var seq = args[0];
 
@@ -685,11 +760,18 @@ namespace SharpPy
 
         private static PyObject CallSum(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"sum expected at most 2 arguments ({args.Length} given)");
+            // Measured: sum(iterable, start=0) takes the iterable positionally only, and reports too
+            // few and too many positionals with two different texts.
+            if (args.Length < 1)
+                throw PyTypeError.Create($"sum() takes at least 1 positional argument ({args.Length} given)");
+            if (args.Length > 2)
+                throw PyTypeError.Create($"sum() takes at most 2 arguments ({args.Length} given)");
+            RejectUnknownKeywords(kwargs, "sum", "start");
 
             var iterable = args[0];
-            var start = args.Length > 1 ? args[1] : new PyInt(0);
+            var start = args.Length > 1
+                ? args[1]
+                : PyObject.KwValue(kwargs, "start") ?? new PyInt(0);
             var result = start;
             var iterator = iterable.GetIterator();
 
@@ -740,6 +822,12 @@ namespace SharpPy
             string fname = isMin ? "min" : "max";
             var better = isMin ? PyObject.CompareOp.LT : PyObject.CompareOp.GT;
 
+            // Arity is checked before the keywords: min(zzz=1) and min(key=5) both report the missing
+            // argument in CPython, because the parser counts positionals first.
+            if (args.Length == 0)
+                throw PyTypeError.Create($"{fname} expected at least 1 argument, got 0");
+            RejectUnknownKeywords(kwargs, fname, "key", "default");
+
             PyObject keyFn = null;
             bool hasDefault = false;
             PyObject defaultVal = null;
@@ -764,11 +852,6 @@ namespace SharpPy
             PyObject KeyOf(PyObject x)
             {
                 return keyFn == null ? x : keyFn.Call(new PyObject[] { x }, null);
-            }
-
-            if (args.Length == 0)
-            {
-                throw PyTypeError.Create($"{fname} expected at least 1 argument, got 0");
             }
 
             PyObject best = null;
@@ -1850,27 +1933,18 @@ namespace SharpPy
             // The builtin rounding rules therefore live in the int/float __round__ slots, which is
             // also why a user class defining __round__ (or a float subclass overriding it) has to
             // be reached here rather than through a type test.
+            // CPython's clinic parser fills the positional parameters first and then matches keywords
+            // by name, so round(number=2.567, ndigits=2) is a legal call. A name matching neither is
+            // invalid, and a missing required parameter is reported before that: round(zzz=1) says
+            // "round() missing required argument 'number' (pos 1)".
             if (args.Length > 2)
-                throw PyTypeError.Create(
-                    $"round() takes at most 2 arguments ({args.Length + (kwargs?.Length() ?? 0)} given)");
-            if (args.Length == 0)
-                throw PyTypeError.Create("round() missing required argument 'number' (pos 1)");
+                throw PyTypeError.Create($"round() takes at most 2 arguments ({args.Length} given)");
 
-            var number = args[0];
-            PyObject ndigits = args.Length > 1 ? args[1] : null;
-            if (kwargs != null && kwargs.Length() != 0)
-            {
-                if (kwargs.Contains(new PyString("ndigits")).ToBool())
-                {
-                    ndigits ??= kwargs.GetItem(new PyString("ndigits"));
-                }
-                else
-                {
-                    var firstName = (PyString)kwargs.Keys().GetItem(new PyInt(0));
-                    throw PyTypeError.Create(
-                        $"round() got an unexpected keyword argument '{firstName.Value}'");
-                }
-            }
+            var number = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "number");
+            PyObject ndigits = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "ndigits");
+            if (number == null)
+                throw PyTypeError.Create("round() missing required argument 'number' (pos 1)");
+            RejectUnknownKeywords(kwargs, "round", "number", "ndigits");
 
             var rounder = number.LookupSpecialMethodUncached("__round__");
             if (rounder == null)
@@ -1886,12 +1960,19 @@ namespace SharpPy
         // Three-argument form: pow(x, y, z) computes (x ** y) % z efficiently
         private static PyObject CallPow(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"pow expected 2 or 3 arguments ({args.Length} given)");
+            // Measured clinic behaviour: base/exp/mod are positional-or-keyword, a missing required
+            // parameter names its position, and too many positionals gets its own text.
+            if (args.Length > 3)
+                throw PyTypeError.Create($"pow() takes at most 3 arguments ({args.Length} given)");
 
-            var base_ = args[0];
-            var exp = args[1];
-            var mod = args.Length > 2 ? args[2] : null;
+            var base_ = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "base");
+            var exp = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "exp");
+            var mod = args.Length > 2 ? args[2] : PyObject.KwValue(kwargs, "mod");
+            if (base_ == null)
+                throw PyTypeError.Create("pow() missing required argument 'base' (pos 1)");
+            if (exp == null)
+                throw PyTypeError.Create("pow() missing required argument 'exp' (pos 2)");
+            RejectUnknownKeywords(kwargs, "pow", "base", "exp", "mod");
 
             if (mod != null)
             {
