@@ -619,15 +619,10 @@ namespace SharpPy
             };
         }
 
-        private static IEnumerable<PyObject> ConvertStringToCharArray(string str)
-        {
-            var result = new List<PyObject>(str.Length);
-            for (int i = 0; i < str.Length; i++)
-            {
-                result.Add(new PyString(str[i].ToString()));
-            }
-            return result;
-        }
+        // set('a\U00010000b') has three members: iterating a str yields characters, so this defers
+        // to the one coordinate-aware splitter instead of looping over UTF-16 units.
+        private static IEnumerable<PyObject> ConvertStringToCharArray(string str) =>
+            PyString.Characters(str);
 
         private PyObject GetFirstItem()
         {

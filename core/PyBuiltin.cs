@@ -700,7 +700,7 @@ namespace SharpPy
             {
                 case PyList pl: length = pl.Length(); return true;
                 case PyTuple pt: length = pt.Items.Length; return true;
-                case PyString ps: length = ps.Value.Length; return true;
+                case PyString ps: length = ps.Length(); return true;
                 case PyRange pr:
                     unchecked { length = (long)pr.LengthUnsigned(); }
                     return true;

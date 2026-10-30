@@ -1250,7 +1250,10 @@ namespace SharpPy
                         return selfBytes;
 
                     int totalPad = width - data.Length;
-                    int leftPad = totalPad / 2;
+                    // CPython Objects/stringlib/transmogrify.h: left = marg/2 + (marg & width & 1),
+                    // so with an odd margin the extra byte goes left only when width is odd too
+                    // (b'ab'.center(5) is b'--ab-', not b'-ab--').
+                    int leftPad = totalPad / 2 + (totalPad & width & 1);
                     int rightPad = totalPad - leftPad;
 
                     byte[] result = new byte[width];

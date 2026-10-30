@@ -5538,8 +5538,9 @@ namespace SharpPy
                     }
                     else if (unpackExSequence is PyString unpackExStr)
                     {
-                        // Convert string to array of single-character strings
-                        itemsToUnpack = unpackExStr.Value.Select(c => (PyObject)new PyString(c.ToString())).ToArray();
+                        // Unpacking a str yields characters (Objects/abstract.c unpack_iterable goes
+                        // through PyObject_GetIter), so this uses the one coordinate-aware splitter.
+                        itemsToUnpack = PyString.Characters(unpackExStr.Value);
                     }
                     else
                     {

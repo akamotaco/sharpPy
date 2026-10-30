@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **79/79 matching**
+- `tools/run_bughunt.py`: **80/80 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -19,6 +19,13 @@ Reference interpreter: **CPython 3.12.15**
 - 2026-10-30 closings after that snapshot: P0-21 (mostly), P0-23, P0-24 items 1-4, P0-22,
   **P0-25** (builtin constructor keyword signatures), **P0-27** (bytes subclasses). The table
   above still shows P0-16 as partial; p48 plus the P0-18/P0-23 sequence closed it.
+- 2026-10-30 **P0-34 cohort 2** (`type/PyString.cs` code-point coordinates, p75): len, indexing,
+  slicing, iteration, `reversed`, `find`/`index`/`rfind`/`rindex`, `count`, `startswith`/`endswith`,
+  `ljust`/`rjust`/`center`/`zfill`, the format mini-language, text ordering, `ascii()` and the
+  character class tests now all count **characters**. One conversion point replaced four copies of
+  the find/index arithmetic and four dead predicate methods; repository `Value.Length` sites went
+  from 153 to 107 (`type/PyString.cs` 70 to 26). `bytes.center` also stopped rounding the extra byte
+  to the wrong side. What is left is listed under **P0-34 remainder** below.
 - 2026-10-30 **P0-33** (`core/PyExceptionGroup.cs` rewritten from `Objects/exceptions.c`, p74):
   exception groups stop losing their members. `repr`/`.message`/`.args`/`split`/`subgroup`/
   `derive` and the constructor error family now match CPython, the VM calls `exc.split(...)` like
@@ -1334,3 +1341,31 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 함께 닫은 것: 던져진 모든 예외에서 stdout에 두 번 째로 인쇄되던 `--- C# Exception Details ---`
 + CLR 스택 덤프(`core/FileExecutor.cs`의 `TEMPORARY` 디버그 출력) 제거. 종료 코드는 CPython과
 같이 1. 인터프리터가 보고하지 않은 failure만 stderr로 간다.
+
+### P0-34 remainder (측정으로 고정, 2026-10-30)
+
+코호트 2가 좌표계를 하나로 합친 뒤에 남는 것. 각각 CPython 3.12.15에서 직접 측정해 두었다.
+
+1. **인접한 고아 서러게이트는 표현 자체가구분하지 못한다.** CPython은
+   `chr(0xD800) + chr(0xDC00)`를 code point 두 개로 보관한다 (`len` 2,
+   `find(chr(0xDC00))` → 1). SharpPy의 `.NET string`은 같은 내용을 U+10000 **하나**로 읽는다
+   (`len` 1, `find` -1). PEP 393식 저장을 채택하지 않은 대가로 남는 본질적 한계 —
+   코호트 1~5는 좌표계만 정리했고 이 모호성은 남긴다.
+2. **`'\U0000d800'` 이스케이프가 파서를 죽인다.** CPython은 이를 허용한다 (`len(s) == 1`,
+   `ord(s) == 0xd800`). SharpPy는
+   `RuntimeError: A valid UTF32 value is between 0x000000 and 0x10ffff, inclusive, and should not
+   include surrogate codepoint values` (`PyParserRuntime.ProcessEscapeSequences`가
+   `System.Char.ConvertFromUtf32`에 서러게이트를 넘겨 CLR 예외가 그대로 드러난다). Python 레벨
+   `SyntaxError`가 아니라 CLR 진단이라는 점이 별도 결함. p75는 그래서 고아 서러게이트를 `chr()`로만 만든다.
+3. **`isdigit`는 Nd만 본다.** CPython은 Additional_Numeric_Property(digit)도 참으로 본다:
+   `'²'.isdigit()` → True, `'①'.isdigit()` → True. SharpPy는 False.
+   (`isdecimal`은 Nd로 일치: `'٣'`, `'𝟙'` 모두 이제 True.)
+4. **`isprintable`은 Cn(미배정)을 거르지 못한다.** .NET에 미배정 코드 포인트를 나타내는 카테고리가
+   없어서 Cc/Cf/Cs/Co/Zl/Zp/Zs만 본다. CPython 표(`Objects/unicodetype_db.h`)가 필요하다.
+5. **`isidentifier`는 근사다.** XID_Start/XID_Continue 표와 NFC 정규화 요구 대신 카테고리를 쓴다.
+   astral 첫 문자(`'\U00010000x'`)는 이제 맞지만 NFC 요구는 미충족.
+6. **`Value.Length` 잔존 107지점** (코호트 3~5): `type/PyBytes.cs` 36, `modules/_SreModule.cs` 6,
+   `core/PyCodecRegistry.cs` 3, `core/PyFileContextManager.cs` 3, `type/PyString.cs` 26(인코딩 루프·
+   repr·내부 검색처럼 unit이 맞는 단위 포함).
+7. **`bmp_methods` +7%** (교대 4라운드 실측, 기준 `bff3f11`): 창 정규화와 쌍 정렬 검사가 늘어난 비용.
+   astral 워크로드와 `%` 포맷은 변화 없음(1.00x), `len_loop`/`list_comp`는 오히려 0.95~0.96x.

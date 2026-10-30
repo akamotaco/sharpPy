@@ -654,25 +654,29 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"__repr__ returned non-string (type {reprStr.GetTypeName()})");
             }
 
-            // Escape non-ASCII characters
+            // Escape non-ASCII characters. CPython escapes one *code point* at a time
+            // (Python/run.c repr with the ASCII flag), so an astral character becomes a single
+            // \UXXXXXXXX and not two \uXXXX halves.
             var result = new System.Text.StringBuilder();
-            foreach (char c in pyStr.Value)
+            string text = pyStr.Value;
+            for (int i = 0; i < text.Length; i += PyString.PairWidth(text, i))
             {
+                int c = PyString.CodePointAtUnit(text, i);
                 if (c < 128)
                 {
-                    result.Append(c);
+                    result.Append((char)c);
                 }
                 else if (c <= 0xFF)
                 {
-                    result.Append($"\\x{(int)c:x2}");
+                    result.Append($"\\x{c:x2}");
                 }
                 else if (c <= 0xFFFF)
                 {
-                    result.Append($"\\u{(int)c:x4}");
+                    result.Append($"\\u{c:x4}");
                 }
                 else
                 {
-                    result.Append($"\\U{(int)c:x8}");
+                    result.Append($"\\U{c:x8}");
                 }
             }
 

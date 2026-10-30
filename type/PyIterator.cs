@@ -272,12 +272,17 @@ namespace SharpPy
             _name = ascii ? "str_ascii_iterator" : "str_iterator";
         }
 
+        // CPython iter(str) yields characters (Objects/unicodeobject.c unicode_iterator next with
+        // PyUnicode_READ), so an astral character comes out whole instead of as two halves.
         public override PyObject Next()
         {
             if (_index >= _string.Length)
                 throw PyStopIteration.Create();
-            
-            return new PyString(_string[_index++].ToString());
+
+            int width = PyString.PairWidth(_string, _index);
+            var ch = new PyString(_string.Substring(_index, width));
+            _index += width;
+            return ch;
         }
 
         protected override string IteratorName => _name;

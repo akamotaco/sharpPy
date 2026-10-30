@@ -273,12 +273,8 @@ namespace SharpPy
         {
             if (value is PyList list) return list.Items.ToArray();
             if (value is PyTuple tuple) return tuple.Items.ToArray();
-            if (value is PyString text)
-            {
-                var chars = new PyObject[text.Value.Length];
-                for (int i = 0; i < chars.Length; i++) chars[i] = new PyString(text.Value[i].ToString());
-                return chars;
-            }
+            // A str argument contributes characters, not UTF-16 units.
+            if (value is PyString text) return PyString.Characters(text.Value);
             if (value is PyBytes bytes)
             {
                 var ints = new PyObject[bytes.Value.Length];
