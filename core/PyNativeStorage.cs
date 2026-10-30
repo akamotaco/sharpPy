@@ -60,11 +60,11 @@ namespace SharpPy
         /// </summary>
         internal static PyList ForList(PyObject self)
         {
-            if (self is PyList list)
-                return list;
-            if (self.GetPyType().HasFeature(PyTypeFlags.ListSubclass))
-                return (self as PyClassInstance)?.GetListStorage();
-            return null;
+            // PyList_Check is the flag test and the CLR type test is the cast that follows it: an
+            // instance of a user class deriving from list really is a PyList
+            // (type/PyListSubclass.cs), so there is no second object to reach through. The storage
+            // version of this function needed three steps and a special case for PyClassInstance.
+            return self as PyList;
         }
 
         /// <summary>Same two steps as <see cref="ForList"/>, from Py_TPFLAGS_DICT_SUBCLASS

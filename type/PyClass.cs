@@ -1260,7 +1260,6 @@ namespace SharpPy
         private PyDict _dictStorage;
 
         // CPython 3.12: List subclasses have internal list storage
-        private PyList _listStorage;
 
         // CPython 3.12: set subclasses carry a mutable set value. tp_new (make_new_set,
         // Objects/setobject.c:949) allocates it empty and tp_init (setobject.c:1977 set_init)
@@ -1298,12 +1297,6 @@ namespace SharpPy
             if (IsDictSubclass())
             {
                 _dictStorage = new PyDict();
-            }
-
-            // CPython 3.12: If this is a list subclass, create internal list storage
-            if (IsListSubclass())
-            {
-                _listStorage = new PyList();
             }
 
             // CPython 3.12: make_new_set gives a set (sub)class an empty table before tp_init runs.
@@ -1369,7 +1362,6 @@ namespace SharpPy
         internal PyObject NativeStorage()
         {
             if (_dictStorage != null) return _dictStorage;
-            if (_listStorage != null) return _listStorage;
             if (_setStorage != null) return _setStorage;
             if (IsFrozenSetSubclass()) return GetFrozenStorage();
             return GetStringStorage();
@@ -1397,12 +1389,6 @@ namespace SharpPy
         public PyDict GetDictStorage()
         {
             return _dictStorage;
-        }
-
-        // CPython 3.12: Provide access to internal list storage for list subclasses
-        public PyList GetListStorage()
-        {
-            return _listStorage;
         }
 
         public override string ToString()

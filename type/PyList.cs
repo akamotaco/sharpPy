@@ -67,9 +67,9 @@ namespace SharpPy
                         throw PyTypeError.Create(
                             "list.__new__(" + foreign + "): " + foreign + " is not a subtype of list");
                     }
-                    var created = new PyClassInstance(listClass);
-                    created.ConstructorArgs = args;
-                    return created;
+                    // list_new allocates the list layout with ob_type set to the subclass; the
+                    // iterable is consumed by list.__init__, not here.
+                    return new PyListSubclass(listClass) { ConstructorArgs = args };
                 },
                 minArgs: 0, maxArgs: int.MaxValue
             );
@@ -173,7 +173,7 @@ namespace SharpPy
                     if (args.Length > 3)
                         throw PyTypeError.Create($"index expected at most 3 arguments, got {args.Length}");
                     var list = GetListStorage(self);
-                    long n = list.Length();
+                    long n = list.RawCount();
                     long start = 0, stop = n;
                     if (args.Length >= 2) {
                         var si = PyObject.TryGetIndex(args[1]);
@@ -287,7 +287,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__iter__() takes no arguments");
 
                     var list = GetListStorage(self);
-                    return list.GetIterator();  // Use existing PyListIterator implementation
+                    return list.RawIterator();
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -303,7 +303,7 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create("__reversed__() takes no arguments");
                     var list = GetListStorage(self);
-                    return new PyReversedIterator(list, list.Length(), "list_reverseiterator");
+                    return new PyReversedIterator(list, list.RawCount(), "list_reverseiterator");
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -319,7 +319,7 @@ namespace SharpPy
                         throw PyTypeError.Create("__len__() takes no arguments");
 
                     var list = GetListStorage(self);
-                    return new PyInt(list.Length());
+                    return new PyInt(list.RawCount());
                 },
                 minArgs: 0,
                 maxArgs: 0
@@ -386,7 +386,7 @@ namespace SharpPy
                     if (key is PySlice slice)
                     {
                         // CPython 3.12: list_ass_subscript with slice (value == NULL)
-                        var length = list.Length();
+                        var length = list.RawCount();
                         var (start, stop, step) = slice.StorageIndices(length);
                         int count = PySlice.GetLength(start, stop, step);
                         list.DeleteSlice(start, step, count);
@@ -394,7 +394,7 @@ namespace SharpPy
                     else
                     {
                         int idx = PyObject.GetIndex(key, "list");
-                        int len = list.Length();
+                        int len = list.RawCount();
                         if (idx < 0) idx += len;
                         if (idx < 0 || idx >= len)
                             throw PyIndexError.Create("list assignment index out of range");
@@ -618,7 +618,30 @@ namespace SharpPy
 
             return StringCache.GetOrCreate(result);
         }
-        public override int Length() => _items.Count;
+        /// <summary>
+        /// list_length (Objects/listobject.c) - the count straight off the layout. Reachable without
+        /// virtual dispatch on purpose: <c>list.__len__(x)</c> is the base's own method_descriptor and
+        /// keeps reporting the real length even when x's class declares <c>__len__</c>, which is how
+        /// _warnings can scan <c>sys.filters</c> without a filter list being able to interfere.
+        /// Python-level <c>len(x)</c> goes through the slot and may call the declared method.
+        /// </summary>
+        internal int RawCount() => _items.Count;
+
+        /// <summary>The layout iterator, non-virtual for the same reason as RawCount.</summary>
+        internal PyObject RawIterator() => new PyListIterator(this);
+
+        /// <summary>list_contains, non-virtual for the same reason.</summary>
+        internal bool RawContains(PyObject item)
+        {
+            foreach (var listItem in _items)
+            {
+                if (AreEqual(listItem, item))
+                    return true;
+            }
+            return false;
+        }
+
+        public override int Length() => RawCount();
         public override bool PyBoolValue() => _items.Count > 0;
 
         // 인덱싱 지원
@@ -924,10 +947,7 @@ namespace SharpPy
         }
 
         // 이터레이터 지원
-        public override PyObject GetIterator()
-        {
-            return new PyListIterator(this);
-        }
+        public override PyObject GetIterator() => RawIterator();
         
         #region Type Conversion (CPython Compatible)
 
@@ -997,15 +1017,7 @@ namespace SharpPy
         /// <summary>
         /// CPython __contains__ 메소드 구현 - in 연산자 지원
         /// </summary>
-        public override PyBool Contains(PyObject item)
-        {
-            foreach (var listItem in _items)
-            {
-                if (AreEqual(listItem, item))
-                    return PyBool.True;
-            }
-            return PyBool.False;
-        }
+        public override PyBool Contains(PyObject item) => PyBool.FromBool(RawContains(item));
 
         /// <summary>
         /// PyList 동등성 비교 - CPython 호환

@@ -1625,6 +1625,20 @@ sealed인 타입은 없으므로 C# 단일 상속은 이를 강요하지 않았�
 evaluate 225/3/2、Godot 82/0、perf A/B 0.95x~1.03x(노이즈)。
 자세히는 [서브클래스 인스턴스는 그 타입이 만든다](reports/2026-10-31/subtype_new_belongs_to_the_type.md).
 
+**Q2 부분 완료 (2026-10-31)** — `list` 계열은 CLR 서브타입으로 수렴했다. `PyListSubclass : PyList`
+가 그 자리를 대신하고, `_listStorage`·생성 시 할당·`GetListStorage()`·`PyNativeStorage.ForList`의
+3단계 특례를 삭제했다(지금은 `self as PyList` 한 줄). 도중에 `evaluate`가
+`tests/warnings_boundary_regression.py`를 실패로 잡았는데, CPython에는 길이로 가는 두 갈래가
+공존하기 때문이다: `len(x)`는 `sq_length` 슬롯이라 서브클래스가 선언한 `__len__`이 이기지만,
+`list.__len__(x)`는 `list_length`라 layout을 직접 읽는다(`_warnings`가 필터 스캔에 쓰는 것).
+그래서 `RawCount`/`RawIterator`/`RawContains`(virtual 아님)를 두고 슬롯 쪽이 거기에 위임한다 —
+일은 한 번 구현되고 dispatch만 두 갈래다(`type/PyList.cs`). 선언된 dunder가 이기는 규칙
+(`update_one_slot`)은 네 컨테이너 서브클래스가 재발명하지 않게 `SubclassInstanceSupport`에 담았다.
+남은 저장소: `_dictStorage`/`_setStorage`/`_frozenStorage`/`_strStorage` — 타입별로 두 갈래를
+먼저 나눈 뒤 같은 방식으로 지운다. 게이트: bughunt **86/86**, evaluate `225/3/2`, Godot 82/0,
+perf `list_comp` baseline 대비 -2.3%. 상세는
+[list subclass is the layout](reports/2026-10-31/list_subclass_is_the_layout.md).
+
 남은 branch: `core/PyType.cs:1004`/`:1010`(str — `str.__new__`는 이미 존재
 `type/PyString.cs:1625`)、`:975`의 bytes-like encoding 검사. 그리고 `float.__new__` repr이
 `<builtin_function_or_method object at 0x…>`(CPython은 `<built-in method __new__ of type object …>`)。
