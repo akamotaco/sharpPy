@@ -716,6 +716,23 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Turns the result of __len__ into a length the way PyObject_Size does, through
+        /// _PyNumber_Index. Measured: a __len__ returning 'short' raises
+        /// TypeError: 'str' object cannot be interpreted as an integer.
+        /// </summary>
+        internal static int ToLengthResult(PyObject value)
+        {
+            if (value is PyInt exact)
+                return (int)exact.Value;
+            if (value is PyBool asBool)
+                return asBool.Value ? 1 : 0;
+            if (value is PyIntSubclass intSub)
+                return (int)intSub.AsInt().Value;
+            throw PyTypeError.Create(
+                $"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        }
+
+        /// <summary>
         /// Bind a type-level special method, including Python descriptor __get__.
         /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method.
         /// Descriptor exceptions must propagate, rather than mean "method missing".

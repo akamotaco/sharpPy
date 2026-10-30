@@ -1459,10 +1459,17 @@ namespace SharpPy
         // CPython 3.12: Dict subclasses support 'in' operator
         public override PyBool Contains(PyObject item)
         {
+            // A declared dunder comes first, because in CPython sq_contains is the slot wrapper
+            // around __contains__; consulting the storage first skipped the class's own method.
+            var declaredContains = CallUserSpecialOrNull("__contains__", new[] { item });
+            if (declaredContains != null)
+                return PyBool.FromBool(declaredContains.PyBoolValue());
             if (_dictStorage != null)
             {
                 return _dictStorage.Contains(item);
             }
+            if (_listStorage != null)
+                return _listStorage.Contains(item);
             // CPython 3.12: str subclasses inherit unicode_contains.
             var strStorage = GetStringStorage();
             if (strStorage != null)
@@ -1473,6 +1480,16 @@ namespace SharpPy
         // CPython 3.12: str subclasses inherit sq_length/unicode_length.
         public override int Length()
         {
+            // The declared __len__ wins, otherwise the inherited base slot reads the storage.
+            // Only str's storage was consulted here, so len() of a plain dict subclass raised
+            // "object of type 'DPlain' has no len()" while its own __len__ happened to work.
+            var declaredLength = CallUserSpecialOrNull("__len__", System.Array.Empty<PyObject>());
+            if (declaredLength != null)
+                return ToLengthResult(declaredLength);
+            if (_dictStorage != null)
+                return _dictStorage.Length();
+            if (_listStorage != null)
+                return _listStorage.Length();
             var strStorage = GetStringStorage();
             if (strStorage != null)
                 return strStorage.Length();

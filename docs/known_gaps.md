@@ -472,3 +472,41 @@ HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했�
 
 재현 파일(측정 당시): `.artifacts/tmp/subdunder.py`, `.artifacts/tmp/subslots.py`.
 지속 회귀로 승격: `tests/bughunt/p58_numeric_subclass_dunders.py`.
+
+## P0-24 (2026-10-30 등록): container subclass dunder 디스패치 잔여
+
+`e70c3ea`/`054eb8c`(숫자)로 증명한 병리가 container 계열에도 있다. 같은 측정 메서드로 범위를
+잡았다: `class X(기반): def __dunder__` 형태에서 CPython은 **선언된 dunder**를 부르고, SharpPy는
+**payload 슬롯**을 부른다. 재현 파일 `.artifacts/tmp/container_sub.py`.
+
+수정 완료(지속 회귀 `tests/bughunt/p59_container_subclass.py`, 34케이스 diff 0):
+
+- `len(dict subclass)` → CPython은 `1`. SharpPy는 `TypeError: object of type 'DPlain' has no len()`.
+  `PyClassInstance.Length()`가 `_strStorage`만 참조했고 `_dictStorage`/`_listStorage`를 못 봤다.
+  이건 값이 틀린 게 아니라 **깨진 동작**이었다.
+- 선언 dunder 우선순위를 `Length()`/`Contains()`에 넣었다(storage 조회가 먼저라서 클래스의
+  `__len__`/`__contains__`가 무시되던 순서 문제).
+- `PyStrSubclass`의 `__add__`/`__mul__`/`__mod__`/`__len__`/`__contains__`/richcompare → user dunder
+  우선. 수정 전 `SUser("abc") + "z"`는 `'abcz'`, `su == "z"`는 `False`였다.
+- `__len__` 반환값은 CPython처럼 `__index__`로 변환해 검증한다(`'str' object cannot be interpreted
+  as an integer`).
+
+남은 것(측정값, 7줄):
+
+1. **str subclass의 `__iter__`** — CPython `list(su)`는 `['u','s','e','r']`, SharpPy는 `'a','b','c'`.
+   user dunder로 라우팅하면 이번엔 `TypeError: 'list_iterator' object is not callable`이 난다.
+   호출 지점이 이 클래스 밖에 있다: `InvokeIteratorMethod`가 만든 iterator를 누군가 다시 부른다.
+   같은 코드를 plain 클래스(`class P: def __iter__`)로 돌리면 정상이라, str wrapper 경로의
+   `iter()` 하위 호출을 따로 추적해야 한다. 지금은 **값은 틀지만 크래시는 아닌** payload iterator를
+   유지한다(`.artifacts/tmp/it7.py`: `for x in r` → `['a','b']`).
+2. **int subclass의 `__iter__`** — CPython은 `list_iterator`, SharpPy는
+   `TypeError: 'Q' object is not iterable`. `PyIntSubclass`가 `GetIterator()`를 오버라이드하지 않는다.
+3. **tuple subclass** — `len`/`__iter__`/`__add__`가 user dunder를 무시(`t_len 2`, `t_add (1,2,3)`).
+   `PyTuple`에는 `_customType` 인지가 **아예 없다**(grep 0 hits).
+4. **bytes subclass** — 같은 형태(`b_len 2`, `b_iter [97,98]`, `b_add b'abc'`). `PyBytes`도 `_customType` 0.
+
+3번과 4번은 hot path에 user-frame 조회를 추가하므로 `_customType == null` 조기 반환으로 가두고
+측정해야 한다. A/B 교대 재측정(`.artifacts/tmp/ab/ab_run.py`, 5라운드) 결과 이번 container 수정은
+회귀가 없었다: `dict_ops -0.2%`, `closure_calls -2.4%`, TOTAL `+0.1%`. `perf_probe`가 먼저
+`dict_ops +15.6%`/`closure_calls +21.5%`로 플래그했지만 라운드 0의 편차(list_comp 0.0578↔0.1026)가
+보여주듯 산위가 크다 — 플래그는 세 번째 반복해서 기각된 셈이다.

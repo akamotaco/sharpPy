@@ -49,33 +49,79 @@ namespace SharpPy
 
         #region String Operations - Delegate to PyString
 
-        public override PyObject Add(PyObject other)
-        {
-            // CPython: str 연산 결과는 base str 타입 반환
-            return _strValue.Add(other);
-        }
+        /// <summary>
+        /// Same rule that closed P0-23 for the numeric wrappers: CPython resolves sq_concat,
+        /// sq_length, sq_item and tp_richcompare through type(v), and for a heap type those slots
+        /// are the wrapper around whatever dunder the class publishes. So a user declaration wins
+        /// and the payload slot only runs when they declared none. Only user frames are consulted,
+        /// because the full MRO lands on str's own slot delegate, which comes back through this
+        /// same virtual.
+        /// </summary>
+        private PyObject StrOp(string dunder, PyObject[] args, System.Func<PyObject> valueOp)
+            => CallUserSpecialOrNull(dunder, args) ?? valueOp();
 
-        public override PyObject Multiply(PyObject other)
-        {
-            return _strValue.Multiply(other);
-        }
+        public override PyObject Add(PyObject other) =>
+            StrOp("__add__", new[] { other }, () => _strValue.Add(other));
+
+        public override PyObject Multiply(PyObject other) =>
+            StrOp("__mul__", new[] { other }, () => _strValue.Multiply(other));
 
         // SS("%s") % 7 dispatches the % operator virtually; without this override
         // the subclass fell through to the generic unsupported-operand error.
-        public override PyObject Modulo(PyObject other)
-        {
-            return _strValue.Modulo(other);
-        }
+        public override PyObject Modulo(PyObject other) =>
+            StrOp("__mod__", new[] { other }, () => _strValue.Modulo(other));
 
         // CPython 3.12: str subclasses inherit the whole unicode protocol; these slots
         // were missing, so len()/indexing/slices/`in`/iteration failed on subclasses.
-        public override int Length() => _strValue.Length();
+        public override int Length()
+        {
+            var declared = CallUserSpecialOrNull("__len__", System.Array.Empty<PyObject>());
+            return declared == null ? _strValue.Length() : ToLengthResult(declared);
+        }
 
         public override PyObject GetItem(PyObject index) => _strValue.GetItem(index);
 
-        public override PyBool Contains(PyObject item) => _strValue.Contains(item);
+        public override PyBool Contains(PyObject item)
+        {
+            // `x in s` is always a bool: CPython coerces whatever __contains__ returns.
+            var declared = CallUserSpecialOrNull("__contains__", new[] { item });
+            return declared == null ? _strValue.Contains(item) : PyBool.FromBool(declared.PyBoolValue());
+        }
 
+        // NOTE (measured, still open): a user __iter__ on a str subclass is not honoured here yet.
+        // Routing it through InvokeIteratorMethod raises "'list_iterator' object is not callable"
+        // from a call site outside this class - iter(obj) reaches a Call on the iterator that
+        // InvokeIteratorMethod produced, while the identical code path on a plain class is fine.
+        // Registered in docs/known_gaps.md with the reproducer; the payload iterator is kept so
+        // subclass iteration still works instead of crashing.
         public override PyObject GetIterator() => _strValue.GetIterator();
+
+        /// <summary>
+        /// CPython's tp_richcompare for a str subclass is the slot wrapper around the declared
+        /// dunder: measured su == "z" is 'user-str-eq' where SharpPy answered False, because the
+        /// inherited value comparison produced an answer before the class was consulted.
+        /// NotImplemented still falls through to the payload comparison, as in CPython.
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            var dunder = op switch
+            {
+                CompareOp.EQ => "__eq__",
+                CompareOp.NE => "__ne__",
+                CompareOp.LT => "__lt__",
+                CompareOp.LE => "__le__",
+                CompareOp.GT => "__gt__",
+                CompareOp.GE => "__ge__",
+                _ => null,
+            };
+            if (dunder != null)
+            {
+                var declared = CallUserSpecialOrNull(dunder, new[] { other });
+                if (declared != null && !ReferenceEquals(declared, PyNotImplemented.Instance))
+                    return declared;
+            }
+            return _strValue.RichCompare(other, op);
+        }
 
         #endregion
 
