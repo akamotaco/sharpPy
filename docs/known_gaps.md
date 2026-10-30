@@ -553,3 +553,99 @@ HEAD와 pre-B의 차이는 같은 바이너리를 라운드별로 재측정했�
 회귀가 없었다: `dict_ops -0.2%`, `closure_calls -2.4%`, TOTAL `+0.1%`. `perf_probe`가 먼저
 `dict_ops +15.6%`/`closure_calls +21.5%`로 플래그했지만 라운드 0의 편차(list_comp 0.0578↔0.1026)가
 보여주듯 산위가 크다 — 플래그는 세 번째 반복해서 기각된 셈이다.
+
+
+## P0-25 (2026-10-30 **닫힘**): builtin 생성자의 keyword 시그니처 — kwargs가 **버려지던** 경로
+
+`PyType.CreateInstance` 끝부분이 이랬다:
+
+```csharp
+var builtinFunc = new PyBuiltinFunction(Name);
+return builtinFunc.Call(args, null);   // kwargs = null
+```
+
+즉 special-case된 타입(float/int/set/…)을 제외한 모든 builtin 생성에서 keyword 인자가 **사라졌다**.
+측정 결과 이것은 메시지 결함이 아니라 **조용한 오답**이었다:
+
+| 표현 | CPython 3.12.15 | SharpPy (수정 전) |
+| --- | --- | --- |
+| `dict(a=1)` | `{'a': 1}` | `{}` |
+| `dict([("a",1)], b=2)` | `{'a': 1, 'b': 2}` | `{'a': 1}` |
+| `str(object=5)` | `'5'` | `''` |
+| `str(nope=1)` | `TypeError: 'nope' is an invalid keyword argument for str()` | `''` |
+| `bool(x=1)` | `TypeError: bool() takes no keyword arguments` | `False` |
+| `complex(real=1, imag=2)` | `(1+2j)` | `0j` |
+| `bytes("é", encoding="utf8")` | `b'\xc3\xa9'` | `TypeError: 'str' object cannot be interpreted as an integer` |
+| `str(b"ab", "utf8")` | `'ab'` | `"b'ab'"` |
+
+`str` 계열은 `encoding`/`errors` 자체도 죽어 있었다 — `H(b"ab","utf8")`이 `str()`으로 재버전된
+`"b'ab'"`를 반환했다. `p48` 이후 subclass 생성을 만져왔지만 이 경로는 아무도 건드리지 않았다.
+
+### CPython의 두 가지 거절 문형
+
+측정으로 고정한 표(signature의 positional-only 여부):
+
+- **keyword 절대 불가** → `X() takes no keyword arguments`: `tuple`, `list`, `set`, `frozenset`,
+  `bool`, `float`, `range`, `slice`
+- **명명된 파라미터 있음** → `'x' is an invalid keyword argument for X()`: `str`(object/encoding/
+  errors), `bytes`·`bytearray`(encoding/errors), `complex`(real/imag)
+- `dict`는 임의 keyword를 **항목으로**accept한다.
+
+두 문형을 혼동하면 안 된다. 전자(`tuple(iterable=[])`)에 후자 문형을 쓰면 그것이 곧 새 bugs가 된다.
+
+### 구현
+
+- `PyType.CheckConstructorKeywords` — 위 표. hot path에서는 `kwargs == null` 조기 반환 한 번.
+- `str` 생성과 str subclass 생성이 같은 `PyStringNewArguments`(unicode_new 문법)를 공유한다.
+  `Project(args, kwargs, hasReceiver)`로 `str.__new__`(args[0]이 수신 클래스)와 `str(...)`를 한
+  구현으로 처리한다.
+- bytes/bytearray는 text+codec 경로를 `PyBytesTextConstruct`로 만들었다. text에 encoding 없이
+  `string argument without an encoding`을 내는 것까지 CPython과 일치.
+- `tuple.__new__`는 CPython `tuple_new`의 세 거절을 모두 갖췄다: keyword 불가, positional 1개 초과
+  불가(`tuple expected at most 1 argument, got N`), 그리고 **tuple 하위가 아닌 클래스**
+  (`tuple.__new__(H): H is not a subtype of tuple`). 마지막 것은 `cls.GetTypeName()`이 `type`을
+  반환해서 메시지에 클래스 이름이 안 나오던 것까지 고쳤다(CPython은 자기 `tp_name`).
+- arity 문형도 함께 잡았다: SharpPy는 `X expected at most 1 arguments (2 given)`이었고 CPython은
+  `X expected at most 1 argument, got 2` (`bool`/`list`/`tuple`/`dict`/`set`/`frozenset`/`dir`).
+
+### 회귀·성능
+
+- `tests/bughunt/p62_constructor_keywords.py` **51케이스 diff 0** (str/bytes/text 표 + tuple.__new__
+  + arity 문형 포함). bughunt **67/67**, evaluate 불변 `225 / 3 / 2`, Godot 4.7.2 mono replay
+  `82 matched, 0 other`.
+- `perf_probe`가 `str_fmt +30.6%` / `list_comp +20.9%`로 플래그했고 실제로 내가 건드린 경로와
+  겹쳤지만, 9라운드 교대 A/B(`6a95c68` vs HEAD)에서 `str_fmt +1.7%`, `list_comp +3.0%`,
+  **TOTAL -0.9%**였다. old가 new보다 빠른 라운드가 섞이고 `list_comp`는 양쪽 모두
+  0.058~0.107의 bimodal 분포 — 회귀가 아니다. 이 항목은 hot path이 아니라 생성자 진입부이므로
+  메커니즘도 성능을 지지하지 않는다.
+
+## P0-26 (2026-10-30 등록): builtin **함수**의 keyword 인자
+
+P0-20이 *descriptor*(메서드)의 keyword 표를 고쳤고 P0-25가 *생성자*를 고쳤지만, module-level
+builtin 함수는 여전히 CPython이 받는 keyword를 거부한다. 측정:
+
+| 표현 | CPython | SharpPy |
+| --- | --- | --- |
+| `enumerate(iterable=[1])` | enumerate 객체 | `TypeError: enumerate expected at most 2 arguments, got 0` |
+
+`zip(strict=)`은 이미 동작하므로 표가 부분적으로만 존재한다. 남은 대표 항목: `enumerate(iterable/start)`,
+`sorted(key/reverse)` 계열의 keyword 경로, `map`/`filter`는 CPython도 keyword 거부(p29에서 측정·고정).
+`PyBuiltinFunction` 호출부에 함수별 허용 keyword를 붙이는 방식인데, P0-20과 같은 근거(측정된 표,
+그리고 **flag만 주고 delegate가 읽지 않으면 조용한 무시**)가 필요하다.
+
+## P1 (2026-10-30 등록): codec 표의 범위와 strict 디코딩 한계
+
+`str(bytes, encoding)` / `bytes(str, encoding)`을 C#으로 옮기면서 남긴 경계. 정직하게 남긴다:
+
+- CPython은 수백 개 alias를 `_codec_encodings` 테이블로 받는다. SharpPy는 문서/테스트에 나오는
+  집합(utf-8/latin-1/ascii/utf-16*/utf-32*/big5/gbk/shift_jis/koi8-r/cp125x)만 명시 매핑하고
+  나머지는 .NET `CodePagesEncodingProvider`에 위임한다. 따라서 CPython이 받는 마이너 alias가
+  `LookupError: unknown encoding: X`로 나올 수 있다.
+- **strict 모드는 UTF-8만 정확하다.** .NET의 `GetString`은 invalid input을 조용히 치환하므로
+  strict에는 throw하는 encoding이 필요한데, `UTF8Encoding(false, true)`만 그렇게 만들었다.
+  다른 codec에서는 invalid byte가 `UnicodeDecodeError` 대신 U+FFFD가 된다.
+- `errors`는 strict/ignore/replace만 안다. CPython의 `surrogateescape`, `backslashreplace`,
+  `xmlcharrefreplace`, `namereplace`는 미구현(`LookupError`로 거절하는 쪽을 택했다 — 조용한 오답보다
+  낫다).
+- `bytes(str, encoding)`의 `UnicodeEncodeError` 메시지는 위치/사유를 축약했다
+  (`'X' codec can't encode character: unencodable text`). CPython은 문자·위치·사유를 모두 본다.

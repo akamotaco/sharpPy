@@ -1684,7 +1684,7 @@ namespace SharpPy
         private static PyObject CallBool(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"bool expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"bool expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return PyBool.False;
@@ -1698,7 +1698,7 @@ namespace SharpPy
         private static PyObject CallList(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"list expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"list expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return new PyList(new PyObject[0]);
@@ -1709,7 +1709,7 @@ namespace SharpPy
         private static PyObject CallTuple(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"tuple expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"tuple expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return new PyTuple();
@@ -1720,7 +1720,7 @@ namespace SharpPy
         private static PyObject CallDict(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"dict expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"dict expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return new PyDict();
@@ -1779,7 +1779,7 @@ namespace SharpPy
         private static PyObject CallSet(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"set expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return PySet.Empty;
@@ -1790,7 +1790,7 @@ namespace SharpPy
         private static PyObject CallFrozenSet(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"frozenset expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"frozenset expected at most 1 argument, got {args.Length}");
 
             if (args.Length == 0)
                 return new PyFrozenSet();
@@ -2002,7 +2002,7 @@ namespace SharpPy
         private static PyObject CallDir(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
-                throw PyTypeError.Create($"dir expected at most 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"dir expected at most 1 argument, got {args.Length}");
 
             // CPython 3.12: Python/bltinmodule.c:844-851 - builtin_dir
             // CPython 3.12: Objects/object.c:1754-1781 - _dir_object

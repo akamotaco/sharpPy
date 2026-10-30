@@ -824,6 +824,16 @@ namespace SharpPy
                 return PyFloatSubclass.FloatSubtypeNew(floatSubclass, args, kwargs);
             }
 
+            // str subclass construction shares CPython's unicode_new grammar with str itself.
+            if (DerivesFromType(StrType) && this is PyClass strSubclass &&
+                (args.Length != 0 || (kwargs != null && kwargs.Length() != 0)))
+            {
+                PyStringNewArguments.Project(args, kwargs, false,
+                    out PyObject subObject, out PyObject subEncoding, out PyObject subErrors);
+                return new PyStrSubclass(strSubclass,
+                    PyStringNewArguments.Build(subObject, subEncoding, subErrors));
+            }
+
             // 예외 타입들에 대한 특별 처리
             string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
 
@@ -1023,16 +1033,20 @@ namespace SharpPy
                     }
                     throw PyTypeError.Create($"mappingproxy() argument must be dict, not '{args[0].GetTypeName()}'");
                 case "set":
-                    // set() constructor - create a new set
+                    // set() constructor - create a new set. CPython's set_new rejects keywords first.
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("set() takes no keyword arguments");
                     if (args.Length == 0)
                         return PySet.Empty;
                     if (args.Length == 1)
                     {
                         return new PySet(PySet.IterableItems(args[0]));
                     }
-                    throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
+                    throw PyTypeError.Create($"set expected at most 1 argument, got {args.Length}");
                 case "frozenset":
                     // frozenset() constructor - create a new frozenset
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("frozenset() takes no keyword arguments");
                     if (args.Length == 0)
                         return new PyFrozenSet();
                     if (args.Length == 1)
@@ -1040,9 +1054,18 @@ namespace SharpPy
                         if (args[0] is PyFrozenSet frozen) return frozen;
                         return new PyFrozenSet(PySet.IterableItems(args[0]));
                     }
-                    throw PyTypeError.Create($"frozenset expected at most 1 arguments ({args.Length} given)");
+                    throw PyTypeError.Create($"frozenset expected at most 1 argument, got {args.Length}");
                 case "bytearray":
-                    // bytearray() constructor - create a mutable byte array
+                    // bytearray() constructor - create a mutable byte array. A str argument needs an
+                    // explicit encoding, exactly like bytes_new; without one CPython refuses it.
+                    if (args.Length > 0 && args[0] is PyString)
+                    {
+                        if (args.Length < 2 && (kwargs == null || PyObject.KwValue(kwargs, "encoding") == null))
+                            throw PyTypeError.Create("string argument without an encoding");
+                        var textBuilt = PyBytesTextConstruct(args, kwargs ?? new PyDict(), true);
+                        if (textBuilt != null)
+                            return textBuilt;
+                    }
                     if (args.Length == 0)
                         return new PyByteArray();
                     if (args.Length == 1)
@@ -1057,9 +1080,127 @@ namespace SharpPy
                     throw PyTypeError.Create($"bytearray() takes at most 1 argument ({args.Length} given)");
             }
 
+            // CPython checks a constructor's keyword signature before it does any work. The
+            // fall-through below used to hand the arguments to PyBuiltinFunction with kwargs replaced
+            // by null, so dict(a=1) built an empty dict and str(nope=1) built an empty string -
+            // silently wrong values, not merely missing error messages.
+            CheckConstructorKeywords(kwargs);
+
+            // str() is (object='', encoding='utf-8', errors='strict') and the keywords are part of the
+            // semantics, not decoration: str(object=5) is '5', str(b'ab', 'utf8') is 'ab'.
+            if (ReferenceEquals(this, StrType))
+            {
+                PyStringNewArguments.Project(args, kwargs, false,
+                    out PyObject strObject, out PyObject strEncoding, out PyObject strErrors);
+                return new PyString(PyStringNewArguments.Build(strObject, strEncoding, strErrors));
+            }
+
+            if (Name == "complex" && kwargs != null && kwargs.Length() != 0)
+            {
+                // complex(real=0, imag=0): map the named parameters onto the positional form.
+                PyObject complexReal = PyObject.KwValue(kwargs, "real") ?? (args.Length > 0 ? args[0] : null);
+                PyObject complexImag = PyObject.KwValue(kwargs, "imag") ?? (args.Length > 1 ? args[1] : null);
+                args = new PyObject[] { complexReal ?? new PyInt(0), complexImag ?? new PyInt(0) };
+                kwargs = null;
+            }
+
+            if ((Name == "bytes" || Name == "bytearray") && kwargs != null && kwargs.Length() != 0)
+            {
+                // bytes(str, encoding, errors) with the codec named by keyword.
+                var encoded = PyBytesTextConstruct(args, kwargs, Name == "bytearray");
+                if (encoded != null)
+                    return encoded;
+            }
+
+            if (Name == "dict" && kwargs != null && kwargs.Length() != 0)
+            {
+                // dict(mapping_or_iterable, **kwargs) - the keywords become items.
+                var builtinForPositional = new PyBuiltinFunction(Name);
+                var built = builtinForPositional.Call(args, null);
+                if (built is PyDict builtDict)
+                {
+                    foreach (var entry in kwargs.GetInternalDict())
+                        builtDict.SetItem(entry.Key, entry.Value);
+                    return builtDict;
+                }
+            }
+
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
             var builtinFunc = new PyBuiltinFunction(Name);
-            return builtinFunc.Call(args, null);
+            return builtinFunc.Call(args, kwargs);
+        }
+
+        /// <summary>
+        /// The keyword signature of each builtin constructor, measured against CPython 3.12.15.
+        /// "takes no keyword arguments" and "'x' is an invalid keyword argument for str()" are two
+        /// different refusals: the first is a positional-only signature, the second a named one.
+        /// </summary>
+        private void CheckConstructorKeywords(PyDict kwargs)
+        {
+            if (kwargs == null || kwargs.Length() == 0)
+                return;
+
+            string[] allowed = Name switch
+            {
+                "list" or "tuple" or "set" or "frozenset" or "bool" or "range" or "slice" => null,
+                "complex" => new[] { "real", "imag" },
+                "bytes" or "bytearray" => new[] { "encoding", "errors" },
+                "str" => new[] { "object", "encoding", "errors" },
+                "dict" => new[] { "__any__" },
+                _ => new[] { "__any__" },
+            };
+
+            if (allowed == null)
+                throw PyTypeError.Create($"{Name}() takes no keyword arguments");
+            if (allowed.Length == 1 && allowed[0] == "__any__")
+                return;
+
+            foreach (var entry in kwargs.GetInternalDict())
+            {
+                string key = entry.Key.ToClrString();
+                bool ok = false;
+                foreach (var candidate in allowed)
+                    if (candidate == key) { ok = true; break; }
+                if (!ok)
+                    throw PyTypeError.Create(
+                        $"'{key}' is an invalid keyword argument for {Name}()");
+            }
+        }
+
+        private static PyObject PyBytesTextConstruct(PyObject[] args, PyDict kwargs, bool mutable)
+        {
+            PyObject encodingArg = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "encoding");
+            PyObject errorsArg = args.Length > 2 ? args[2] : PyObject.KwValue(kwargs, "errors");
+            PyObject textArg = args.Length > 0 ? args[0] : null;
+            if (textArg is not PyString text)
+                return null;
+            if (encodingArg is not PyString encodingName)
+                throw PyTypeError.Create(
+                    "string argument without an encoding");
+
+            string encoding = encodingName.Value;
+            string errors = (errorsArg as PyString)?.Value;
+            if (!string.IsNullOrEmpty(errors) && errors != "strict" && errors != "ignore" &&
+                errors != "replace")
+                throw PyLookupError.Create($"'{errors}' is not a known error handler");
+
+            System.Text.Encoding codec = PyStringNewArguments.ResolveCodecPublic(encoding)
+                ?? throw PyLookupError.Create($"unknown encoding: {encoding}");
+            byte[] encodedBytes;
+            try
+            {
+                encodedBytes = codec.GetBytes(text.Value);
+            }
+            catch (EncoderFallbackException)
+            {
+                if (errors == "ignore")
+                    encodedBytes = System.Text.Encoding.ASCII
+                        .GetBytes(text.Value.Replace("\ufffd", ""));
+                else
+                    throw PyUnicodeEncodeError.Create(
+                        $"'{encoding}' codec can't encode character: unencodable text");
+            }
+            return mutable ? (PyObject)new PyByteArray(encodedBytes) : new PyBytes(encodedBytes);
         }
 
         // Special method lookup (MRO 기반) with method cache
@@ -2326,6 +2467,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     // __new__ is a static method, 'self' is actually the class
                     var cls = self;
+
+                    // CPython tuple_new takes exactly one positional argument, no keywords, and only
+                    // for a tuple subtype. All three refusals were missing: keywords were dropped, a
+                    // second positional was read as the size argument Python 2 used to have, and a
+                    // foreign class happily produced a tuple.
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("tuple() takes no keyword arguments");
+                    if (args.Length > 1)
+                        throw PyTypeError.Create(
+                            $"tuple expected at most 1 argument, got {args.Length}");
+                    if (!(cls is PyType newCls) || !newCls.IsSubclassOf(TupleType))
+                    {
+                        string clsName = cls is PyType asType ? asType.Name : cls.GetTypeName();
+                        throw PyTypeError.Create(
+                            $"tuple.__new__({clsName}): {clsName} is not a subtype of tuple");
+                    }
 
                     // Get the iterable argument (default to empty tuple)
                     PyObject iterable = null;

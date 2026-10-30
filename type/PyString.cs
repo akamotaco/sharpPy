@@ -8,6 +8,190 @@ namespace SharpPy
     /// <summary>
     /// Python str 타입 구현 - C# string을 기반으로 한 문자열
     /// </summary>
+    /// <summary>
+    /// Helpers implementing CPython's unicode_new argument grammar (Objects/unicodeobject.c).
+    /// </summary>
+    internal static class PyStringNewArguments
+    {
+        /// <param name="hasReceiver">true when args[0] is the class receiver of str.__new__, false
+        /// for the ordinary str(...) type call.</param>
+        internal static void Project(PyObject[] args, PyDict kwargs, bool hasReceiver,
+            out PyObject objectArg, out PyObject encodingArg, out PyObject errorsArg)
+        {
+            int offset = hasReceiver ? 1 : 0;
+            int count = System.Math.Max(0, args.Length - offset);
+            if (count > 3)
+                throw PyTypeError.Create($"str() takes at most 3 arguments ({count} given)");
+
+            objectArg = count > 0 ? args[offset] : null;
+            encodingArg = count > 1 ? args[offset + 1] : null;
+            errorsArg = count > 2 ? args[offset + 2] : null;
+
+            if (kwargs != null)
+            {
+                foreach (var entry in kwargs.GetInternalDict())
+                {
+                    var key = entry.Key.ToClrString();
+                    switch (key)
+                    {
+                        case "object":
+                            objectArg ??= entry.Value;
+                            break;
+                        case "encoding":
+                            encodingArg ??= entry.Value;
+                            break;
+                        case "errors":
+                            errorsArg ??= entry.Value;
+                            break;
+                        default:
+                            throw PyTypeError.Create(
+                                $"'{key}' is an invalid keyword argument for str()");
+                    }
+                }
+            }
+        }
+
+        internal static string Build(PyObject objectArg, PyObject encodingArg, PyObject errorsArg)
+        {
+            bool decodingRequested = encodingArg != null || errorsArg != null;
+
+            if (!decodingRequested)
+            {
+                if (objectArg == null)
+                    return "";
+                // Measured: str(65) is '65', not 'A' - unicode_new runs PyObject_Str, and chr() is a
+                // different function. An earlier draft here converted ints with chr() and was wrong.
+                return objectArg.ToStr().Value;
+            }
+
+            // With encoding or errors present, CPython never accepts a str and never calls str().
+            if (objectArg is PyString || objectArg is PyStrSubclass)
+                throw PyTypeError.Create("decoding str is not supported");
+            if (encodingArg != null && encodingArg is not PyString)
+                throw PyTypeError.Create(
+                    $"str() argument 'encoding' must be str, not {encodingArg.GetTypeName()}");
+            if (errorsArg != null && errorsArg is not PyString)
+                throw PyTypeError.Create(
+                    $"str() argument 'errors' must be str, not {errorsArg.GetTypeName()}");
+
+            byte[] data = RawBytesOrNull(objectArg);
+            if (data == null)
+                throw PyTypeError.Create(
+                    $"decoding to str: need a bytes-like object, {objectArg.GetTypeName()} found");
+
+            string encodingName = (encodingArg as PyString)?.Value ?? "utf-8";
+            string errorName = (errorsArg as PyString)?.Value;
+            return DecodeBytes(data, encodingName, errorName);
+        }
+
+        /// <summary>
+        /// CPython resolves codecs through its alias table; .NET's name table is different enough that
+        /// GetEncoding("utf8") fails here, so the names CPython's own tests and documentation use are
+        /// mapped explicitly and anything else is CPython's LookupError.
+        /// </summary>
+        private static string NormalizeCodecName(string name)
+        {
+            var lowered = name.ToLowerInvariant().Replace("_", "-");
+            return lowered switch
+            {
+                "u8" or "utf" or "utf-8" or "utf8" => "utf-8",
+                "latin" or "latin-1" or "latin1" or "iso-8859-1" or "iso8859-1" or "8859" or "cp819"
+                    or "l1" => "latin-1",
+                "ascii" or "us-ascii" or "646" or "ansi_x3.4-1968" => "ascii",
+                "utf-16" or "utf-16le" or "utf16" or "utf-16-le" => "utf-16-le",
+                "utf-16be" or "utf-16-be" or "utf16be" => "utf-16-be",
+                "utf-32" or "utf-32le" or "utf32" => "utf-32-le",
+                "utf-32be" or "utf-32-be" => "utf-32-be",
+                "big5" or "big5-tw" or "csbig5" => "big5",
+                "gbk" or "936" => "gbk",
+                "shift_jis" or "shift-jis" or "sjis" or "csshiftjis" => "shift_jis",
+                "koi8-r" or "koi8" => "koi8-r",
+                "cp1250" or "windows-1250" => "cp1250",
+                "cp1251" or "windows-1251" => "cp1251",
+                "cp1252" or "windows-1252" => "cp1252",
+                "idna" => "idna",
+                _ => lowered,
+            };
+        }
+
+        internal static System.Text.Encoding ResolveCodecPublic(string name) => ResolveCodec(name);
+
+        private static System.Text.Encoding ResolveCodec(string name)
+        {
+            switch (NormalizeCodecName(name))
+            {
+                case "utf-8": return new System.Text.UTF8Encoding(false);
+                case "latin-1": return System.Text.Encoding.Latin1;
+                case "ascii": return new System.Text.ASCIIEncoding();
+                case "utf-16-le": return System.Text.UnicodeEncoding.Unicode;
+                case "utf-16-be": return System.Text.UnicodeEncoding.BigEndianUnicode;
+                case "utf-32-le": return new System.Text.UTF32Encoding(false, true);
+                case "utf-32-be": return new System.Text.UTF32Encoding(false, false);
+                default:
+                    try
+                    {
+                        return System.Text.CodePagesEncodingProvider.Instance
+                            .GetEncoding(NormalizeCodecName(name));
+                    }
+                    catch (ArgumentException)
+                    {
+                        return null;
+                    }
+                    catch (NotSupportedException)
+                    {
+                        return null;
+                    }
+            }
+        }
+
+        private static byte[] RawBytesOrNull(PyObject value)
+        {
+            if (value is PyBytes bytesValue)
+                return bytesValue.Value;
+            if (value is PyByteArray byteArrayValue)
+                return byteArrayValue.ToByteArrayCopy();
+            if (value is PyMemoryView viewValue)
+                return viewValue.Data;
+            return null;
+        }
+
+        internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
+        {
+            System.Text.Encoding encoding = ResolveCodec(encodingName)
+                ?? throw PyLookupError.Create($"unknown encoding: {encodingName}");
+
+            string normalized = NormalizeCodecName(encodingName);
+            bool strict = errorName == null || errorName == "strict";
+            if (!strict && errorName != "ignore" && errorName != "replace" &&
+                errorName != "surrogateescape" && errorName != "backslashreplace")
+                throw PyLookupError.Create($"'{errorName}' is not a known error handler");
+
+            // .NET's GetString replaces invalid input silently, so strict mode needs an encoding that
+            // throws. UTF-8 has one. For other codecs .NET only offers replacement text, so an invalid
+            // byte there yields U+FFFD instead of UnicodeDecodeError; that divergence is recorded in
+            // docs/known_gaps.md rather than hidden.
+            if (strict && normalized == "utf-8")
+            {
+                try
+                {
+                    return new System.Text.UTF8Encoding(false, true).GetString(data);
+                }
+                catch (DecoderFallbackException exc)
+                {
+                    int position = exc.Index;
+                    byte bad = position >= 0 && position < data.Length ? data[position] : (byte)0;
+                    throw PyUnicodeDecodeError.Create(
+                        $"'utf-8' codec can't decode byte 0x{bad:x2} in position {position}: invalid start byte");
+                }
+            }
+
+            string decoded = encoding.GetString(data);
+            if (errorName == "ignore")
+                decoded = decoded.Replace("�", "");
+            return decoded;
+        }
+    }
+
     public class PyString : PyObject
     {
         static PyString()
@@ -1770,14 +1954,15 @@ namespace SharpPy
                     if (cls == null)
                         throw PyTypeError.Create("str.__new__(X): X is not a type object");
 
-                    // Get the value argument (args[1] if present)
-                    string value = "";
-                    if (args.Length >= 2 && args[1] != PyNone.Instance)
-                    {
-                        // CPython: Line 14720 - unicode = PyObject_Str(x)
-                        var strObj = args[1].ToStr();
-                        value = strObj.Value;
-                    }
+                    // CPython unicode_new takes (object='', encoding='utf-8', errors='strict'), and
+                    // the encoding/errors pair changes the meaning of the call completely: bytes get
+                    // decoded, a str is refused ("decoding str is not supported"), and a non
+                    // bytes-like object is refused ("decoding to str: need a bytes-like object, int
+                    // found"). None of that was here - the arguments were dropped and everything went
+                    // through str(), so H(b"ab", "utf8") produced "b'ab'" instead of 'ab'.
+                    PyStringNewArguments.Project(args, kwargs, true,
+                        out PyObject objectArg, out PyObject encodingArg, out PyObject errorsArg);
+                    string value = PyStringNewArguments.Build(objectArg, encodingArg, errorsArg);
 
                     // CPython: Line 14726-14728
                     // if (unicode != NULL && type != &PyUnicode_Type) {
