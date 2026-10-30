@@ -292,13 +292,33 @@ accepts silently).
   (`split(sep=, maxsplit=)`, `encode(encoding=, errors=)`, `expandtabs(tabsize=)`). The claim came
   from reading a diff instead of the interpreter.
 
-- **P0-21 (new, measured): `__new__` keyword errors use CPython's type-call labels.** Excluded from
-  the generic guard above because the generic `{Type}.{name}()` text is wrong here. Measured:
-  * `class A: pass; A(x=1)`             -> `TypeError: A() takes no arguments`
-  * `object.__new__(A, x=1)`            -> `TypeError: A() takes no arguments`
-  * `tuple.__new__(tuple, iterable=[])` -> `TypeError: tuple() takes no keyword arguments`
-  SharpPy currently answers the second with the generic descriptor text and the third likewise, and
-  the plain `A(x=1)` case already matches. Small, bounded, needs its own message path.
+- **P0-21 (2026-10-30 대부분 닫힘): `object_new` / `object_init` 인자 규칙.**
+  **이 항목의 등록 문장이 틀렸다.** "plain `A(x=1)`는 이미 맞다"고 적었지만 실제측정은
+  SharpPy가 인자를 **조용히 무시하고 인스턴스를 만들었다** — 메시지 문제가 아니라 실행 결함이었다.
+  그래서 메시지만 고치는 작업이 아니라 `type_call` 규칙을 넣는 작업이 됐다.
+
+  소스에서 정확한 규칙(`Objects/typeobject.c:5416-5457`): 판정은 두 개의 술어 —
+  `tp_new == object_new`인가, `tp_init == object_init`인가. CLR에서는 "MRO가 object 고유의
+  디스크립터로 해석되는가"로 번역했다. 구현 후 일치:
+  * `A(1)` / `A(x=1)` / `A(1,2)`          -> `TypeError: A() takes no arguments`
+  * `C(x=1)` (user `__init__(self,x)`)   -> object_new는 침묵, user 함수가 자기 arity를 보고
+  * `object.__new__(A, 1)` / `(A, x=1)`  -> `A() takes no arguments`
+  * `object.__init__(A(), 1)`            -> `A.__init__() takes exactly one argument (the instance to initialize)`
+  * `object.__init__(C(1), 2)`           -> `object.__init__() takes exactly one argument (the instance to initialize)`
+  * 내장 기반(`dict`/`list`/`int`)은 자기 `tp_new`가 인자를 받으므로 object_new에 닿지 않는다
+    — `MD(a=1)`류가 새로 깨지지 않는 것을 probe로 고정.
+  회귀: `tests/bughunt/p61_object_new_init_rules.py` 37케이스 diff 0. repr 주소는 별도 표시 결함이라
+  probe에서 `<instance>`로 정규화했다.
+
+  **남은 것(builtin 전용 `__new__` 인자 문구):**
+  * `tuple.__new__(tuple, iterable=[])` -> CPython `tuple() takes no keyword arguments`, SharpPy `()`
+  * `H("ab", encoding="utf8")` (str subclass) -> CPython `decoding str is not supported`
+  * `str.__new__(H, 5, 6)` -> CPython `str() argument 'encoding' must be str, not int`
+  일반 규칙과 달리 각 builtin의 `__new__` 인자 검사(`PyArg_Parse*` 형식)를 옮겨와야 한다.
+
+- **P1-새(2026-10-30): object repr의 주소 형태.** CPython `<__main__.A object at 0x000002730A8DE3C0>`
+  vs SharpPy `<__main__.A object at 0x1189baa>`. 값이 아니라 표시 형식 차이이지만 repr 대조 probe에서
+  주소를 정규화해야 하므로 남긴다. (주소 자체는 원래 휘발성 — 형태만 문제.)
 
 - **P0-22 (2026-10-30 **닫힘**): `int.to_bytes` / `int.from_bytes`의 64비트 이상.** 예측보다 나빴다.
   `to_bytes`는 `(long)` 캐스트 때문에CLR `System.OverflowException`을 **그대로 흘렸다** — Python

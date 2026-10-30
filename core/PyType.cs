@@ -1255,6 +1255,24 @@ namespace SharpPy
         /// object 타입의 descriptor 테이블 초기화 (CPython typeobject.c 참조)
         /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
+        /// <summary>
+        /// CPython picks these messages with two predicates: whether tp_new is object_new and whether
+        /// tp_init is object_init (Objects/typeobject.c:5416-5457). The SharpPy equivalent asks
+        /// whether the MRO resolves the dunder to object's own descriptor, rather than to a user
+        /// function or to a builtin base's implementation.
+        /// </summary>
+        private static PyObject ObjectNewDescriptor() =>
+            ObjectType != null && ObjectType.TypeDict.TryGetValue("__new__", out var d) ? d : null;
+
+        private static PyObject ObjectInitDescriptor() =>
+            ObjectType != null && ObjectType.TypeDict.TryGetValue("__init__", out var d) ? d : null;
+
+        internal static bool TypeNewIsObjectNew(PyType type) =>
+            type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__new__"), ObjectNewDescriptor());
+
+        internal static bool TypeInitIsObjectInit(PyType type) =>
+            type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__init__"), ObjectInitDescriptor());
+
         private void InitializeObjectTypeDescriptors()
         {
             var objectType = this;
@@ -1264,7 +1282,21 @@ namespace SharpPy
                 "__init__",
                 objectType,
                 (self, args, kwargs) => {
-                    // object.__init__() does nothing and returns None
+                    // CPython object_init: object.__init__(A(), 1) is
+                    // "A.__init__() takes exactly one argument (the instance to initialize)", while
+                    // a type that has its own __init__ gets "object.__init__() takes exactly one
+                    // argument (the instance to initialize)". SharpPy accepted the extras and
+                    // returned None.
+                    if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                    {
+                        var selfType = self.GetPyType();
+                        if (!TypeInitIsObjectInit(selfType))
+                            throw PyTypeError.Create(
+                                "object.__init__() takes exactly one argument (the instance to initialize)");
+                        if (TypeNewIsObjectNew(selfType))
+                            throw PyTypeError.Create(
+                                $"{selfType.Name}.__init__() takes exactly one argument (the instance to initialize)");
+                    }
                     return PyNone.Instance;
                 },
                 minArgs: 0,
@@ -1280,6 +1312,25 @@ namespace SharpPy
                     // CPython 3.12: __new__ is a static method, but exposed as method_descriptor
                     // 'self' parameter here is actually 'cls' (the class to instantiate)
                     // args contains additional arguments passed to __new__ (should be empty for object.__new__)
+
+                    // CPython object_new is reached here for object.__new__(A, 1) as well, and it
+                    // refuses the arguments: measured "A() takes no arguments" when A's tp_new is
+                    // object_new and A has no __init__ of its own, and "object.__new__() takes
+                    // exactly one argument (the type to instantiate)" when the class's tp_new comes
+                    // from somewhere else.
+                    if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                    {
+                        if (self is PyType newTarget && TypeNewIsObjectNew(newTarget))
+                        {
+                            if (TypeInitIsObjectInit(newTarget))
+                                throw PyTypeError.Create($"{newTarget.Name}() takes no arguments");
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create(
+                                "object.__new__() takes exactly one argument (the type to instantiate)");
+                        }
+                    }
 
                     PyClass cls;
                     if (self is PyClass clsArg)

@@ -261,6 +261,19 @@ namespace SharpPy
                 return new PyFloatSubclass(this, floatValue);
             }
 
+            // CPython runs tp_new first, and for a class with neither its own __new__ nor an
+            // __init__ that consumes arguments, object_new refuses them. SharpPy passed the extras
+            // to object.__new__ and built the instance silently, so A(1) and A(x=1) returned an
+            // object where CPython raises TypeError: A() takes no arguments. When the class does
+            // have an __init__, object_new falls through and the user __init__ reports its own
+            // arity error; when __new__ comes from a builtin base (dict, int, tuple), that base's
+            // tp_new handles the arguments and object_new is never reached.
+            if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+            {
+                if (PyType.TypeNewIsObjectNew(this) && PyType.TypeInitIsObjectInit(this))
+                    throw PyTypeError.Create($"{Name}() takes no arguments");
+            }
+
             PyObject instance;
             if (newMethod != null)
             {
