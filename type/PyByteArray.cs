@@ -29,6 +29,7 @@ namespace SharpPy
         private static void InitializeByteArrayDescriptors()
         {
             var baType = PyType.BytearrayType;
+            RegisterBytesBackedMethods(baType);
 
             // CPython 3.12: bytearray.__setitem__ (index or slice, int 0..255 value)
             baType.TypeDict["__setitem__"] = new PyMethodDescriptor(
@@ -870,6 +871,189 @@ namespace SharpPy
         /// <summary>
         /// Validate and convert PyObject to byte value (0-255)
         /// </summary>
+        /// <summary>
+        /// CPython's bytearray carries the whole bytes method surface, and its non-mutating methods
+        /// return bytearray - with split/rsplit/splitlines/partition/rpartition/join producing
+        /// bytearrays for every element too. SharpPy had the bytes half and none of this: 32 names
+        /// were missing from dir(bytearray), including upper, strip, split, replace, hex and the whole
+        /// is* family, so `bytearray(b"ab").upper(...)` was an AttributeError.
+        ///
+        /// The algorithms are not copied a second time. A bytearray method calls the descriptor bytes
+        /// already registers, against a read-only proxy holding the same bytes, and converts the
+        /// result type back - one implementation per operation.
+        /// </summary>
+        private static readonly string[] BytesBackedMethods =
+        {
+            "capitalize", "center", "decode", "expandtabs", "hex", "isalnum", "isalpha", "isascii",
+            "isdigit", "islower", "isspace", "istitle", "isupper", "join", "ljust", "lower",
+            "lstrip", "partition", "replace", "rjust", "rpartition", "rsplit", "rstrip", "split",
+            "splitlines", "strip", "swapcase", "title", "upper", "zfill",
+        };
+
+        /// <summary>
+        /// Methods whose CPython arity/keyword errors are the generic *qualified* form, with the exact
+        /// number of arguments CPython allows. Measured, not derived: bytearray.center() and
+        /// bytearray.strip() produce handwritten texts instead ("center expected at least 1 argument,
+        /// got 0"), and those come from the delegated bytes implementation untouched.
+        /// </summary>
+        private static readonly Dictionary<string, int[]> QualifiedArity = new()
+        {
+            ["capitalize"] = new[] { 0, 0 },
+            ["isalnum"] = new[] { 0, 0 },
+            ["isalpha"] = new[] { 0, 0 },
+            ["isascii"] = new[] { 0, 0 },
+            ["isdigit"] = new[] { 0, 0 },
+            ["islower"] = new[] { 0, 0 },
+            ["isspace"] = new[] { 0, 0 },
+            ["istitle"] = new[] { 0, 0 },
+            ["isupper"] = new[] { 0, 0 },
+            ["lower"] = new[] { 0, 0 },
+            ["swapcase"] = new[] { 0, 0 },
+            ["title"] = new[] { 0, 0 },
+            ["upper"] = new[] { 0, 0 },
+            ["join"] = new[] { 1, 1 },
+            ["partition"] = new[] { 1, 1 },
+            ["rpartition"] = new[] { 1, 1 },
+            ["zfill"] = new[] { 1, 1 },
+        };
+
+        /// <summary>
+        /// Methods CPython parses by parameter name, so an unknown keyword is reported as
+        /// "'zz' is an invalid keyword argument for split()" rather than as a blanket refusal.
+        /// </summary>
+        private static readonly HashSet<string> NamedKeywordMethods = new()
+        {
+            "decode", "expandtabs", "hex", "rsplit", "split", "splitlines",
+        };
+
+        private static void RegisterBytesBackedMethods(PyType baType)
+        {
+            foreach (var name in BytesBackedMethods)
+            {
+                if (!PyType.BytesType.TypeDict.TryGetValue(name, out PyObject bytesDescriptor))
+                    continue;   // bytes does not have it either; nothing to delegate to
+
+                string methodName = name;
+                // acceptsKwargs: the keyword decision belongs to the bytes descriptor being delegated
+                // to - bytearray.split(sep=b",") is legal in CPython, and a guard here would refuse it.
+                baType.TypeDict[name] = new PyMethodDescriptor(name, baType,
+                    (self, args, kwargs) =>
+                    {
+                        if (self is not PyByteArray ba)
+                            throw PyTypeError.Create(
+                                $"descriptor '{methodName}' for 'bytearray' objects doesn't apply to a '{self.GetTypeName()}' object");
+                        return BytesBackedCall(methodName, bytesDescriptor, ba, args, kwargs);
+                    }, acceptsKwargs: true);
+            }
+
+            // The two class-level helpers, and the dunder surface CPython publishes for bytearray.
+            // Registered as plain callables rather than classmethod descriptors: a classmethod binding
+            // (PyCMethod) moves the class into the positional argument list, which the delegated bytes
+            // implementation then counts as an argument - bytearray.fromhex("01ab") reported
+            // "fromhex() takes exactly one argument (2 given)". type(bytearray.fromhex) is
+            // builtin_function_or_method either way, which is what CPython shows.
+            baType.TypeDict["fromhex"] = new PyBuiltinFunction("fromhex", (args, kwargs) =>
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create(
+                        $"bytearray.fromhex() takes exactly one argument ({args.Length} given)");
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("bytearray.fromhex() takes no keyword arguments");
+                return BytesBackedStatic("fromhex", args, kwargs);
+            });
+            baType.TypeDict["maketrans"] = new PyBuiltinFunction("maketrans", (args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("bytearray.maketrans() takes no keyword arguments");
+                return BytesBackedStatic("maketrans", args, kwargs);
+            });
+
+            // Measured surface: bytearray has __add__/__mul__/__rmul__/__iter__, and does NOT have
+            // __bytes__ or __getnewargs__ (bytes has both). An earlier draft published them.
+            baType.TypeDict["__add__"] = new PyMethodDescriptor("__add__", baType,
+                (self, args, kwargs) => self.Add(args[0]), minArgs: 1, maxArgs: 1);
+            baType.TypeDict["__mul__"] = new PyMethodDescriptor("__mul__", baType,
+                (self, args, kwargs) => self.Multiply(args[0]), minArgs: 1, maxArgs: 1);
+            baType.TypeDict["__rmul__"] = new PyMethodDescriptor("__rmul__", baType,
+                (self, args, kwargs) => self.Multiply(args[0]), minArgs: 1, maxArgs: 1);
+            baType.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", baType,
+                (self, args, kwargs) => self.GetIterator(), minArgs: 0, maxArgs: 0);
+        }
+
+        private static PyObject BytesBackedCall(string name, PyObject descriptor,
+            PyByteArray self, PyObject[] args, PyDict kwargs)
+        {
+            // The delegated implementation reports "bytes."; CPython's generic argument parser reports
+            // the defining type, which here is bytearray. Only the qualified families are rewritten -
+            // handwritten texts are passed through unchanged.
+            if (QualifiedArity.TryGetValue(name, out int[] allowed))
+            {
+                if (args.Length < allowed[0] || args.Length > allowed[1])
+                {
+                    if (allowed[1] == 0)
+                        throw PyTypeError.Create(
+                            $"bytearray.{name}() takes no arguments ({args.Length} given)");
+                    throw PyTypeError.Create(
+                        $"bytearray.{name}() takes exactly one argument ({args.Length} given)");
+                }
+            }
+            if (kwargs != null && kwargs.Length() != 0 && !NamedKeywordMethods.Contains(name))
+                throw PyTypeError.Create($"bytearray.{name}() takes no keyword arguments");
+
+            var proxy = new PyBytes(self.ToByteArrayCopy());
+            if (descriptor is not PyMethodDescriptor methodDescriptor)
+                throw PyTypeError.Create($"bytearray.{name}() is not available in this build");
+            return ByteArrayResult(methodDescriptor.CallWithReceiver(proxy, args, kwargs));
+        }
+
+        private static PyObject BytesBackedStatic(string name, PyObject[] args, PyDict kwargs)
+        {
+            // bytes.fromhex and bytes.maketrans are classmethod descriptors. The implementation behind
+            // them ignores its receiver and reads positionals, so it is called with the bytearray type
+            // as receiver: binding through __get__ instead pushed the class into the argument list and
+            // produced "fromhex() takes exactly one argument (2 given)".
+            if (!PyType.BytesType.TypeDict.TryGetValue(name, out PyObject entry))
+                throw PyAttributeError.Create($"type object 'bytes' has no attribute '{name}'");
+            if (entry is not PyClassMethodDescriptor classMethod)
+                throw PyAttributeError.Create($"type object 'bytes' has no attribute '{name}'");
+            PyObject implementation = classMethod.CallableForDelegation;
+            PyObject result = implementation is PyMethodDescriptor methodDescriptor
+                ? methodDescriptor.CallWithReceiver(PyType.BytearrayType, args, kwargs)
+                : implementation.Call(args, kwargs);
+            // bytearray.maketrans returns a bytes translation table, not a bytearray; fromhex does
+            // return bytearray. The difference is CPython's, and it is measured.
+            return name == "maketrans" ? result : ByteArrayResult(result);
+        }
+
+        /// <summary>
+        /// bytes methods hand back bytes; CPython's bytearray methods hand back bytearray, including
+        /// inside the lists and tuples that split/partition produce. Anything else (str, bool, int)
+        /// passes through unchanged.
+        /// </summary>
+        private static PyObject ByteArrayResult(PyObject value)
+        {
+            switch (value)
+            {
+                case PyBytes bytesValue:
+                    return new PyByteArray(bytesValue.Value);
+                case PyList listValue:
+                    var convertedItems = new System.Collections.Generic.List<PyObject>(listValue.Items.Length);
+                    foreach (var item in listValue.Items)
+                        convertedItems.Add(ByteArrayResult(item));
+                    return new PyList(convertedItems);
+                case PyTuple tupleValue:
+                    var convertedParts = new PyObject[tupleValue.Items.Length];
+                    for (int i = 0; i < convertedParts.Length; i++)
+                        convertedParts[i] = ByteArrayResult(tupleValue.Items[i]);
+                    return new PyTuple(convertedParts);
+                default:
+                    return value;
+            }
+        }
+
+        private static byte[] AsBytes(PyObject self)
+            => self is PyByteArray ba ? ba.ToByteArrayCopy() : System.Array.Empty<byte>();
+
         private static int GetByteValue(PyObject obj)
         {
             var pyInt = obj as PyInt ?? PyObject.TryGetIndex(obj);

@@ -11,7 +11,9 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **68/68 matching**
+- `tools/run_bughunt.py`: **70/70 matching**
+- P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
+  guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
 - 2026-10-30 closings after that snapshot: P0-21 (mostly), P0-23, P0-24 items 1-4, P0-22,
@@ -35,7 +37,7 @@ genuine computation/result divergences and are worked first.
 |---|---|---|---|
 | ~~P0-17~~ **FIXED (p47)** | regex group **numbering** | .NET numbers capturing groups with the **unnamed ones first**, so a named group declared before an unnamed one gets a different number than CPython. Measured: `re.findall(r"(?P<a>\w)(\w)", "ab")` → CPython `[('a','b')]`, SharpPy `[('b','a')]`; `m.span(1)` → CPython `(0, 1)`, SharpPy `(2, 3)`; `m.group(1)`/`group(2)` swapped while `group("a")` is correct; and `re.findall(r"(?P<a>\w) (\w) (?P=a) \2", "a b a b")` → CPython `[('a','b')]`, SharpPy `[]` (nothing matches). Fix needs Python numbering pinned at translation time - give every capture group an explicit canonical name (`(?<__g1>...)`) and rewrite `\1`/`(?P=name)`/`$n` to that name, then map `group(n)`/`span(n)`/`findall` tuples through it | p46 measured |
 
-| P0-14 | bytearray surface | 33 methods still missing on `bytearray`: `capitalize center decode expandtabs fromhex hex isalnum isalpha isascii isdigit islower isspace istitle isupper join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill` (CPython has all; only `isprintable` legitimately absent) | p40 measured |
+| ~~P0-14~~ **FIXED (p64)** | bytearray surface | the 32 bytes methods bytearray is meant to carry (`capitalize center decode expandtabs fromhex hex is* join ljust lower lstrip maketrans partition replace rjust rpartition rsplit rstrip split splitlines strip swapcase title upper zfill`) are published and return `bytearray`; `isprintable` stays absent because CPython's bytearray lacks it too. Closing note at the bottom. | p64 |
 
 | P0-5 | static `type` | `type.foo = 1` succeeds; CPython → `TypeError: cannot set 'foo' attribute of immutable type 'type'` (SharpPy `type` is a heap `PyClass`) | p28 |
 
@@ -45,7 +47,7 @@ genuine computation/result divergences and are worked first.
 
 Suggested order (risk × effort, cheapest real-computation wins first):
 **P0-16 residuals** (reflected ops / `abs` / float descriptor self-check / hash) →
-**P0-14** (33 bytearray methods, mechanical families) → P0-8 / P0-9 (each needs a real
+**P0-28** (builtin type surfaces still unpublished for `frozenset`, `complex`, `memoryview`, the dict views and the iterator types) → P0-8 / P0-9 (each needs a real
 feature: stream wrapping, loader protocol). P0-5 needs the static-`type` architecture
 decision and is deliberately last.
 
@@ -224,7 +226,7 @@ accepts silently).
   before being called a SharpPy bug.
 
 - **라이브러리 항목 스코프 정책 (2026-10-29).** 표준 라이브러리 전면 호환은 목적이 아니고, 필요한
-  surface를 C# 특징을 고려해 구현하는 방향으로 확정했다. 구성実측: `Lib` 41개 파일 18,922줄, native C#
+  surface를 C# 특징을 고려해 구현하는 방향으로 확정했다. 구성 측정: `Lib` 41개 파일 18,922줄, native C#
   module 20개. `math`는 `Lib/math.py`가 아예 없는 C# 전용이고, `abc`/`_collections_abc`/`io`/`os`/`re`/
   `types`/`typing`은 Python이 native `_module`에 위임하며, `enum.py`(2108=2108)와 `re/__init__.py`
   (385=385)는 CPython 그대로다. `io.py`(302 vs 99)와 `types.py`(396 vs 333)은 CPython보다 커서 shim이
@@ -704,3 +706,114 @@ non-PyClass에서 멈춘다. 인스턴스용 `LookupUserSpecial`과 클래스용
 - A/B(9라운드, `2ef7b82` vs 이 변경): `str_fmt +3.5%`, `list_comp +1.9%`, **TOTAL +1.1%** — 이전에
   same-flag로 노이즈로 판정된 대역 안. bytes subclass 생성 외 경로이고, 신규 코드는 생성 진입부와
   타입 등록 시점에만 돈다.
+
+
+---
+
+## P0-14 (2026-10-30 **닫힘**): bytearray은 bytes 메서드 표면을 위임으로 가져온다
+
+`bytearray(b"ab").upper()`가 `AttributeError`였다. p40/p41이 search/query 계열(`find`, `count`,
+`index`, `startswith` 등)만 다뤘고 `upper`, `strip`, `split`, `replace`, `hex`, `join`, `is*` 계열
+32개는 `bytearray`에 아예 존재하지 않았다. CPython은 두 타입이 같은 로직을 갖고 있으나 결과를
+자기 타입으로 되돌려 주고, `split`·`rsplit`·`splitlines`·`partition`·`rpartition`·`join`은 결과
+안의 **원소까지** `bytearray`로 만든다.
+
+### 구현: 두 번째 구현을 쓰지 않는다
+
+bytes 메서드가 두 번 등록되는 형태는 이 프로젝트가 받아들이지 않는다. 위임 구조는 이렇게: bytearray
+메서드는 자기 바이트 배열로 같은 bytes 프록시를 만들어 bytes가 등록한 디스크립터에
+`CallWithReceiver`로 건네고, 되돌아온 `bytes`를 `bytearray`로 바꾸며 결과 목록/튜플 안 원소까지
+재귀 변환한다. 그래서 `bytes.upper`를 고치면 `bytearray.upper`도 함께 고쳐진다. 예외가 하나 있는데,
+`maketrans`는 CPython도 `bytes`를 되돌려 주므로 변환하지 않는다 (`fromhex`는 `bytearray`).
+
+### 위임이 드러낸 bytes 쪽 결함 (P0-28이 아닌 별개 건들)
+
+| 건 | 전 | 후 (CPython과 동일) |
+|---|---|---|
+| `bytes.hex(sep)` | 인수를 무시 | `'01:ab'`, `sep` 길이가 1이 아니면 `sep must be length 1.`, buffer가 아니면 `object of type 'int' has no len()` |
+| `bytes.join` | `PyList` 안의 `PyBytes`만 | 임의 iterable 허용. 원소는 bytes/bytearray/memoryview만 (`str`이면 `sequence item 0: expected a bytes-like object, str found`), iterable이 아니면 `can only join an iterable` |
+| `bytes.split` / `rsplit` | kwargs 무시, 세 번째 위치 인수도 무시 | `sep`/`maxsplit` 이름 허용, `split() takes at most 2 arguments (3 given)` |
+| `bytes.expandtabs` | kwargs 무시 | `tabsize=` 허용 |
+| `bytes.fromhex` | 공백 제거 후 단순 채번, 위치 없는 메시지 | CPython처럼 원문 인덱스를 쫓는 조회. `non-hexadecimal number found in fromhex() arg at position 3` (`'abc'`는 반 조각이 남으면 문자열 끝 위치) |
+| `bytes.maketrans` | `maketrans() takes exactly 2 arguments (1 given)` | `maketrans expected 2 arguments, got 1` |
+
+`bytes.hex`는 구분자가 `str`도 받는 예외다(`hex(":")` 동작). `split`은 `str`을 거절한다
+(`a bytes-like object is required, not 'str'`). CPython이 그렇게 다르므로 두 포맷을 통합하지 않았다.
+
+### 함정 두 가지
+
+1. **classmethod 바인딩이 위치 인수를 삼킨다.** `bytearray.fromhex`를
+   `PyClassMethodDescriptor`로 등록하면 `Get()`이 `PyCMethod`를 만들면서 클래스를 첫 위치 인수로
+   넣는다. 위임된 bytes 구현은 이를 자기 인수로 계산해서
+   `fromhex() takes exactly one argument (2 given)`을 낸다. 결과형과 메시지형이 다 어긋난다.
+   해결은 일반 함수로 등록하고, 클래스 접두가 필요한 검사만 위임 전에 책임지는 방식(아래 2항)이다.
+   CPython도 `type(bytearray.fromhex)`가 `builtin_function_or_method`라 관측 차이는 없다.
+2. **일반 과잉 인자 메시지는 정의 타입으로 접두가 붙는다.** CPython의 일반 인수 파서는
+   `bytearray.upper() takes no arguments (1 given)`처럼 풀네임을 찍고, 직접 작성된 파서는
+   `strip expected at most 1 argument, got 2`처럼 고유 문구를 쓴다. 위임하면 `bytes.` 접두가
+   나오는데 후자는 그대로 나와야 한다. 그래서 위임 래퍼는 측정으로 만든 표(QualifiedArity /
+   NamedKeywordMethods)로 접두 계열만 자체 생성하고 나머지는 bytes 구현에 그대로 맡긴다.
+   `bytearray.decode(encoding=...)`를 위임 래퍼의 키워드 거부로 막으면 안 되고
+   `bytearray.upper(x=1)`은 막아야 한다는, 반대 방향 요구가 동시에 성립해야 하는 자리다.
+
+### 회귀·성능
+
+- `tests/bughunt/p64_bytearray_bytes_backed.py` — 값/결과형/클래스 함수/오류 메시지 포함 차이 0.
+- bughunt **70/70**, evaluate 불변 (`225 / 3 / 2`).
+- Godot 4.7.2 mono: 소스 포함 Release 빌드 → replay `82 matched, 0 other`, 기본 프로브
+  `SHARPPY_GODOT_PASS` (호스트 .NET 10.0.12).
+- `tools/perf_probe.py`는 3번 실행에서 `str_fmt +23.1%`, `list_comp +21.8%`를 지적했다. 같은
+  바이너리로 뒤이은 9라운드 교차 A/B(`c260a27` vs 이 변경)에서는 `str_fmt -2.3%`,
+  `list_comp -6.9%`, **TOTAL -0.8%**. 두 바이너리 모두 `list_comp`가 0.053–0.122 사이 두 봉우리
+  분포 → 노이즈.
+
+## P0-28 (2026-10-30 등록): 내장 타입 표면이 **어떤 객체를 먼저 만들었는지**에 걸려 있었다
+
+P0-14를 위임 구조로 바꾸던 중에 나온 결함이다. 모든 내장 타입은 자기 TypeDict 항목을 CLR **정적
+생성자**에서 붙이는데, 그 시점은 Python 타입을 처음 쓰는 시점이 아니라 해당 CLR 클래스를 처음
+건드리는 시점이다. 두 시점이 어긋난다.
+
+측정 결과 (bytes 객체를 하나도 만들지 않은 스크립트):
+
+```text
+bytes.TypeDict 항목 수     1  (같은 런타임의 str 63, list 33, int 57)
+dir(bytes)                 24 (CPython 78)
+hasattr(bytes, "upper")    False
+getattr(bytes, "fromhex")  AttributeError: type object 'bytes' has no attribute 'fromhex'
+b"a".upper()               'AB'   (정상)
+```
+
+성질 자체가 두 갈래라 강하다. 호출은 같은 디스크립터를 타는데 `hasattr`/`getattr`/`dir`/ 타입
+사전/ABC 구조 검사만 못 본다. 이전에 `collections.abc` 구조 검사를 네이티브 능력 프리미티브로
+처리해야 했던 것도 같은 무릎을 판다.
+
+### 고친 부분
+
+`PyType` 정적 생성자가 `RuntimeHelpers.RunClassConstructor`로 관련 정적 생성자들을 강제 초기화한다.
+돌아가야 하는 순서가 있다: `str`과 숫자 타입이 먼저(코덱과 에러 문구가 이들을 쓴다), 그다음 `bytes`,
+`bytes` 다음 `bytearray`(bytearray의 위임 표면이 bytes의 TypeDict에서 복사된다), 사용자 클래스를
+세우는 `PyClass`가 맨 뒤. 효과: `dir(bytes)` 24 → 70, `bytearray` → 80,
+`hasattr(bytes, "upper")` True, `getattr(bytes, "fromhex")` → `builtin_function_or_method`.
+
+### 남은 부분 (이 항목이 열려 있는 이유)
+
+정적 생성자는 있는데 TypeDict를 채우지 않는 타입들이 남았다. 모두 측정했다.
+
+| 검사 | CPython | SharpPy |
+|---|---|---|
+| `hasattr(frozenset, "union")` | True | **False** |
+| `hasattr(complex, "conjugate")` | True | **False** (`dir(complex)` 24) |
+| `hasattr(memoryview, "cast")` | True | **False** (`dir(memoryview)` 24) |
+| `"__getnewargs__" in dir(bytes)` | True | **False** |
+| `hasattr(type({}.keys()), "isdisjoint")` | True | **False** |
+| `hasattr(type(iter([])), "__length_hint__")` | True | **False** |
+
+동작 자체는 같은 경로로 된다(`frozenset([1]).union({2})`, `complex(1,2).conjugate()`,
+`memoryview(b"ab").cast("B")` 모두 정확). 디스패치는 맞고 검사 API만 틀린 상태다. `dir()` 내용
+부족(기존 P1)과 같은 단계에서 합쳐 처리할 가능성이 있다.
+
+### 가드
+
+`tests/bughunt/p65_registration_order.py` — 객체를 만들기 전에 타입 표면을 읽는 순서를 고정한다.
+지금 맞는 부분까지 검증하고, 위 남은 6건은 이 항목에 문자로 남기되 프로브가 같이 무너지지는
+않도록 넣지 않았다.

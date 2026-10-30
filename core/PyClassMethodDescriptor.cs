@@ -26,6 +26,14 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Objects/funcobject.c:1034-1050 - cm_descr_get
         /// </summary>
+        /// <summary>
+        /// The wrapped callable, for the one case that needs it: bytearray reuses bytes.fromhex and
+        /// bytes.maketrans rather than implementing them again, and must call that implementation with
+        /// its own receiver instead of going through __get__, which would move the class into the
+        /// positional argument list.
+        /// </summary>
+        internal PyObject CallableForDelegation => _callable;
+
         public PyObject Get(PyObject instance, PyType owner)
         {
             if (_callable == null)

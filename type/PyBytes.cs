@@ -308,15 +308,44 @@ namespace SharpPy
                     if (self is not PyBytes bytes)
                         throw PyTypeError.Create($"descriptor 'hex' requires a 'bytes' object but received a '{self.GetTypeName()}'");
 
-                    // Simple hex conversion (separator support can be added later)
-                    var sb = new System.Text.StringBuilder(bytes.Value.Length * 2);
-                    foreach (byte b in bytes.Value)
+                    // Measured against CPython 3.12.15: hex() parses one separator that may be str or a
+                    // buffer, takes at most two positionals, and ignores the second. bytes_offset does
+                    // not exist in 3.12 - hex(sep=':', bytes_offset=1) says it is an invalid keyword.
+                    // A separator whose length is not 1 is ValueError; a non-buffer argument fails
+                    // inside len(), and that is the message CPython reports.
+                    if (args.Length > 2)
+                        throw PyTypeError.Create($"hex() takes at most 2 arguments ({args.Length} given)");
+                    if (kwargs != null)
                     {
-                        sb.Append($"{b:x2}");
+                        foreach (var entry in kwargs.GetInternalDict())
+                        {
+                            string key = entry.Key.ToClrString();
+                            if (key != "sep")
+                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for hex()");
+                        }
+                    }
+
+                    PyObject sepArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "sep");
+                    string separator = "";
+                    if (sepArg != null && sepArg != PyNone.Instance)
+                    {
+                        byte[] sepBytes = StringOrBufferOrNull(sepArg)
+                            ?? throw PyTypeError.Create($"object of type '{sepArg.GetTypeName()}' has no len()");
+                        if (sepBytes.Length != 1)
+                            throw PyValueError.Create("sep must be length 1.");
+                        separator = ((char)sepBytes[0]).ToString();
+                    }
+
+                    var sb = new System.Text.StringBuilder(bytes.Value.Length * 2 + separator.Length);
+                    for (int position = 0; position < bytes.Value.Length; position++)
+                    {
+                        if (position > 0)
+                            sb.Append(separator);
+                        sb.Append($"{bytes.Value[position]:x2}");
                     }
                     return new PyString(sb.ToString());
                 },
-                minArgs: 0, maxArgs: 0
+                minArgs: 0, maxArgs: 2, acceptsKwargs: true
             );
 
             // CPython 3.12: Objects/bytesobject.c:2450-2500 - bytes_fromhex (classmethod)
@@ -324,30 +353,43 @@ namespace SharpPy
             var fromhexMethod = new PyMethodDescriptor(
                 "fromhex", bytesType,
                 (self, args, kwargs) => {
+                    // Measured: the arity/keyword texts are qualified with the defining type, while the
+                    // argument-type text is not. bytearray repeats the qualified form with its own name.
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"fromhex() takes exactly one argument ({args.Length} given)");
+                        throw PyTypeError.Create($"bytes.fromhex() takes exactly one argument ({args.Length} given)");
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("bytes.fromhex() takes no keyword arguments");
 
                     if (args[0] is not PyString hexStr)
                         throw PyTypeError.Create($"fromhex() argument must be str, not {args[0].GetTypeName()}");
 
-                    string s = hexStr.Value.Replace(" ", "").Replace("\t", "").Replace("\n", "").Replace("\r", "");
-
-                    if (s.Length % 2 != 0)
-                        throw PyValueError.Create("non-hexadecimal number found in fromhex() arg");
-
-                    var bytes = new byte[s.Length / 2];
-                    for (int i = 0; i < bytes.Length; i++)
+                    // CPython 3.12 Objects/bytesobject.c bytes_fromhex scans the original string, skips
+                    // ASCII whitespace, and reports the position in that original string. A dangling
+                    // nibble reports the end of the string, so fromhex("abc") points at position 3.
+                    string text = hexStr.Value;
+                    var decoded = new System.Collections.Generic.List<byte>(text.Length / 2 + 1);
+                    int high = -1;
+                    for (int i = 0; i < text.Length; i++)
                     {
-                        try
+                        char c = text[i];
+                        if (c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r')
+                            continue;
+                        int digit = HexDigitOf(c);
+                        if (digit < 0)
+                            throw PyValueError.Create(
+                                $"non-hexadecimal number found in fromhex() arg at position {i}");
+                        if (high < 0)
+                            high = digit;
+                        else
                         {
-                            bytes[i] = Convert.ToByte(s.Substring(i * 2, 2), 16);
-                        }
-                        catch
-                        {
-                            throw PyValueError.Create("non-hexadecimal number found in fromhex() arg");
+                            decoded.Add((byte)((high << 4) | digit));
+                            high = -1;
                         }
                     }
-                    return new PyBytes(bytes);
+                    if (high >= 0)
+                        throw PyValueError.Create(
+                            $"non-hexadecimal number found in fromhex() arg at position {text.Length}");
+                    return new PyBytes(decoded.ToArray());
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -462,17 +504,42 @@ namespace SharpPy
                     if (self is not PyBytes bytes)
                         throw PyTypeError.Create($"descriptor 'split' requires a 'bytes' object but received a '{self.GetTypeName()}'");
 
+                    // CPython bytes_split reports its own arity text and accepts sep/maxsplit by name.
+                    if (args.Length > 2)
+                        throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
+                    if (kwargs != null)
+                    {
+                        foreach (var entry in kwargs.GetInternalDict())
+                        {
+                            string key = entry.Key.ToClrString();
+                            if (key != "sep" && key != "maxsplit")
+                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for split()");
+                        }
+                    }
+
                     PyBytes? sep = null;
                     int maxsplit = -1;
 
-                    if (args.Length > 0 && args[0] != PyNone.Instance)
+                    PyObject sepArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "sep");
+                    PyObject maxsplitArg = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "maxsplit");
+
+                    if (sepArg != null && sepArg != PyNone.Instance)
                     {
-                        if (args[0] is not PyBytes sepBytes)
-                            throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-                        sep = sepBytes;
+                        // b"a,b".split(",") is legal in CPython: the separator is parsed as a buffer,
+                        // and str is accepted where a buffer is.
+                        byte[] sepBytes = BufferOrNull(sepArg)
+                            ?? throw PyTypeError.Create(
+                                $"a bytes-like object is required, not '{sepArg.GetTypeName()}'");
+                        sep = new PyBytes(sepBytes);
                     }
-                    if (args.Length > 1 && args[1] is PyInt maxsplitInt)
-                        maxsplit = (int)maxsplitInt.Value;
+                    if (maxsplitArg != null && maxsplitArg != PyNone.Instance)
+                    {
+                        if (PyInt.TryLongSelf(maxsplitArg, out var maxsplitInt))
+                            maxsplit = (int)maxsplitInt.Value;
+                        else
+                            throw PyTypeError.Create(
+                                $"an integer is required (got type {maxsplitArg.GetTypeName()})");
+                    }
 
                     var result = new System.Collections.Generic.List<PyObject>();
 
@@ -545,7 +612,7 @@ namespace SharpPy
 
                     return new PyList(result.ToArray());
                 },
-                minArgs: 0, maxArgs: 2
+                minArgs: 0, maxArgs: 2, acceptsKwargs: true
             );
 
             // CPython 3.12: Objects/bytesobject.c:1600-1650 - bytes_join
@@ -559,18 +626,31 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
 
-                    if (args[0] is not PyList list)
-                        throw PyTypeError.Create($"can only join an iterable");
+                    // CPython joins any iterable containing any bytes-like object. Requiring a PyList of
+                    // PyBytes made b",".join((b"a", b"b")) fail, and made
+                    // b",".join([b"a", bytearray(b"b")]) report "expected bytes, bytearray" instead of
+                    // "expected a bytes-like object, bytearray found".
+                    var elements = new System.Collections.Generic.List<PyObject>();
+                    try
+                    {
+                        foreach (var element in PySet.IterableItems(args[0]))
+                            elements.Add(element);
+                    }
+                    catch (PythonException error) when (error.PyException is PyTypeError)
+                    {
+                        throw PyTypeError.Create("can only join an iterable");
+                    }
 
                     var result = new System.Collections.Generic.List<byte>();
-                    for (int i = 0; i < list.Items.Length; i++)
+                    for (int i2 = 0; i2 < elements.Count; i2++)
                     {
-                        if (list.Items[i] is not PyBytes item)
-                            throw PyTypeError.Create($"sequence item {i}: expected bytes, {list.Items[i].GetTypeName()} found");
+                        byte[] itemBytes = BufferOrNull(elements[i2])
+                            ?? throw PyTypeError.Create(
+                                $"sequence item {i2}: expected a bytes-like object, {elements[i2].GetTypeName()} found");
 
-                        if (i > 0)
+                        if (i2 > 0)
                             result.AddRange(separator.Value);
-                        result.AddRange(item.Value);
+                        result.AddRange(itemBytes);
                     }
 
                     return new PyBytes(result.ToArray());
@@ -1485,10 +1565,23 @@ namespace SharpPy
                     if (self is not PyBytes selfBytes)
                         throw PyTypeError.Create("descriptor 'expandtabs' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
 
-                    int tabsize = 8;
-                    if (args.Length > 0)
+                    if (args.Length > 1)
+                        throw PyTypeError.Create($"expandtabs() takes at most 1 argument ({args.Length} given)");
+                    if (kwargs != null)
                     {
-                        if (args[0] is PyInt tabInt)
+                        foreach (var entry in kwargs.GetInternalDict())
+                        {
+                            string key = entry.Key.ToClrString();
+                            if (key != "tabsize")
+                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for expandtabs()");
+                        }
+                    }
+                    PyObject tabArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "tabsize");
+
+                    int tabsize = 8;
+                    if (tabArg != null && tabArg is not PyNone)
+                    {
+                        if (PyInt.TryLongSelf(tabArg, out var tabInt))
                             tabsize = (int)tabInt.Value;
                         else
                             throw PyTypeError.Create("expandtabs() argument must be int");
@@ -1526,7 +1619,7 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 1
-            );
+            , acceptsKwargs: true);
 
             // CPython 3.12: Objects/bytesobject.c:2200-2280 (bytes_translate_impl)
             // bytes.translate(table[, delete]) - Translate bytes using table
@@ -1605,8 +1698,10 @@ namespace SharpPy
                 bytesType,
                 (self, args, kwargs) =>
                 {
+                    // Measured: bytes.maketrans reports its arity with its own wording, and the same
+                    // text comes out of bytearray.maketrans, which delegates here.
                     if (args.Length != 2)
-                        throw PyTypeError.Create($"maketrans() takes exactly 2 arguments ({args.Length} given)");
+                        throw PyTypeError.Create($"maketrans expected 2 arguments, got {args.Length}");
 
                     if (args[0] is not PyBytes frmBytes)
                         throw PyTypeError.Create("maketrans() argument 1 must be bytes");
@@ -1632,7 +1727,8 @@ namespace SharpPy
 
                     return new PyBytes(table);
                 },
-                minArgs: 2,
+                // Validation happens in the body so the message above is the one reported.
+                minArgs: 0,
                 maxArgs: 2
             );
             bytesType.TypeDict["maketrans"] = new PyClassMethodDescriptor("maketrans", bytesType, maketransMethod);
@@ -1651,17 +1747,31 @@ namespace SharpPy
                     byte[] sep = null;
                     int maxsplit = -1;
 
-                    if (args.Length > 0 && args[0] is not PyNone)
+                    if (args.Length > 2)
+                        throw PyTypeError.Create($"rsplit() takes at most 2 arguments ({args.Length} given)");
+                    if (kwargs != null)
                     {
-                        if (args[0] is PyBytes sepBytes)
-                            sep = sepBytes.Value;
-                        else
-                            throw PyTypeError.Create("rsplit() argument 1 must be bytes or None");
+                        foreach (var entry in kwargs.GetInternalDict())
+                        {
+                            string key = entry.Key.ToClrString();
+                            if (key != "sep" && key != "maxsplit")
+                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for rsplit()");
+                        }
+                    }
+                    PyObject rsSepArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "sep");
+                    PyObject rsMaxArg = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "maxsplit");
+
+                    if (rsSepArg != null && rsSepArg is not PyNone)
+                    {
+                        byte[] sepBytes = BufferOrNull(rsSepArg)
+                            ?? throw PyTypeError.Create("rsplit() argument 1 must be bytes or None, not "
+                                + rsSepArg.GetTypeName());
+                        sep = sepBytes;
                     }
 
-                    if (args.Length > 1)
+                    if (rsMaxArg != null && rsMaxArg is not PyNone)
                     {
-                        if (args[1] is PyInt maxInt)
+                        if (PyInt.TryLongSelf(rsMaxArg, out var maxInt))
                             maxsplit = (int)maxInt.Value;
                         else
                             throw PyTypeError.Create("rsplit() argument 2 must be int");
@@ -1765,7 +1875,7 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 2
-            );
+            , acceptsKwargs: true);
 
             // CPython 3.12: Objects/bytesobject.c:2890-2920 - bytes_iter
             // bytes.__iter__() - Return an iterator over the bytes
@@ -2238,6 +2348,49 @@ namespace SharpPy
 
         // find/count take int(0..255) or bytes-like; the prefix/suffix family takes
         // bytes-like only, and the two cases have different CPython messages.
+        /// <summary>
+        /// Buffer extraction for arguments CPython parses as a pure buffer: bytes, bytearray,
+        /// memoryview. str is deliberately excluded - b"a,b".split(",") is refused with
+        /// "a bytes-like object is required, not 'str'", measured. Returns null so the caller raises
+        /// the message its own format string produces.
+        /// </summary>
+        internal static byte[] BufferOrNull(PyObject value)
+        {
+            switch (value)
+            {
+                case PyBytes bytesValue:
+                    return bytesValue.Value;
+                case PyByteArray byteArrayValue:
+                    return byteArrayValue.ToByteArrayCopy();
+                case PyMemoryView viewValue:
+                    return viewValue.Data;
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// hex() is the one bytes method whose separator is parsed as "s#", which accepts str as well
+        /// as a buffer: b"\x01\xab".hex(":") works while split(",") does not.
+        /// </summary>
+        internal static byte[] StringOrBufferOrNull(PyObject value)
+        {
+            if (value is PyString strValue)
+                return System.Text.Encoding.Latin1.GetBytes(strValue.Value);
+            return BufferOrNull(value);
+        }
+
+        /// <summary>
+        /// CPython's Py_xdigit: the nibble value of a hex digit, or -1.
+        /// </summary>
+        internal static int HexDigitOf(char c)
+        {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        }
+
         internal static byte[] SubArg(PyObject arg, bool allowInt)
         {
             if (arg is PyBytes pb) return pb.Value;
