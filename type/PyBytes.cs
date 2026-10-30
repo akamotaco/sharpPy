@@ -197,6 +197,53 @@ namespace SharpPy
         {
             var bytesType = PyType.BytesType;
 
+            // CPython publishes bytes' sequence slots as slot wrappers in type.__dict__
+            // (Objects/slotdefs.c sq_concat / sq_repeat → bytes_concat / bytes_repeat). None were
+            // registered here, so the reflected half was unreachable: 3 * B(b"a") for class B(bytes)
+            // raised "unsupported operand type(s) for *" instead of repeating the value. Measured set
+            // is __add__, __mul__, __rmul__ - CPython has no bytes.__radd__; sq_concat handles both
+            // sides in C.
+            // bytes.__new__ was not registered at all, so attribute lookup fell through to the generic
+            // fallback and a user __new__ that forwards to bytes.__new__(cls, value) - a normal way to
+            // write an immutable byte wrapper - died with "type.__new__() takes exactly 4 arguments".
+            // CPython's bytes_new honours the requested type via bytes_subtype_new.
+            bytesType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__",
+                (args, kwargs) => {
+                    var requested = args.Length > 0 ? args[0] : (PyObject)bytesType;
+                    var rest = args.Length > 1 ? args[1..] : System.Array.Empty<PyObject>();
+                    if (requested is PyClass requestedClass && !ReferenceEquals(requestedClass, bytesType))
+                        return PyBytesSubclass.BytesSubtypeNew(requestedClass, rest, kwargs);
+                    if (!(requested is PyType))
+                        throw PyTypeError.Create(
+                            $"bytes.__new__(X): X is not a type object ({requested.GetTypeName()})");
+                    return PyBuiltinFunction.CallBytes(rest, kwargs);
+                });
+
+            bytesType.TypeDict["__add__"] = new PyWrapperDescriptor("__add__", bytesType,
+                (self, args, kwargs) => {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("wrapper __add__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return self.Add(args[0]);
+                });
+            bytesType.TypeDict["__mul__"] = new PyWrapperDescriptor("__mul__", bytesType,
+                (self, args, kwargs) => {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("wrapper __mul__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return self.Multiply(args[0]);
+                });
+            bytesType.TypeDict["__rmul__"] = new PyWrapperDescriptor("__rmul__", bytesType,
+                (self, args, kwargs) => {
+                    if (kwargs != null && kwargs.Length() != 0)
+                        throw PyTypeError.Create("wrapper __rmul__() takes no keyword arguments");
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    return self.Multiply(args[0]);
+                });
+
             // CPython 3.12: Objects/bytesobject.c:2300-2320 - bytes_decode
             // B.decode(encoding='utf-8', errors='strict') -> str
             bytesType.TypeDict["decode"] = new PyMethodDescriptor(

@@ -11,9 +11,12 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **52/52 matching**
+- `tools/run_bughunt.py`: **68/68 matching**
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
   of them is a stale entry. Byte argcheck (old P0-3) closed via p38/p40/p41 and is gone.
+- 2026-10-30 closings after that snapshot: P0-21 (mostly), P0-23, P0-24 items 1-4, P0-22,
+  **P0-25** (builtin constructor keyword signatures), **P0-27** (bytes subclasses). The table
+  above still shows P0-16 as partial; p48 plus the P0-18/P0-23 sequence closed it.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
 - Bytecode proximity: ~0.845; all 129 standard opcode names/numbers match.
 
@@ -649,3 +652,55 @@ builtin 함수는 여전히 CPython이 받는 keyword를 거부한다. 측정:
   낫다).
 - `bytes(str, encoding)`의 `UnicodeEncodeError` 메시지는 위치/사유를 축약했다
   (`'X' codec can't encode character: unencodable text`). CPython은 문자·위치·사유를 모두 본다.
+
+
+## P0-24 항목 4 / P0-27 (2026-10-30 **닫힘**): `class B(bytes)`가 subclass identity를 잃던 것
+
+측정 (`p63`, 58케이스)으로 확인된 원인은 세 겹이었다.
+
+1. **생성 경로가 subclass를 지운다.** `PyClass.Call`이 MRO에 bytes를 보는 즉시
+   `return PyBuiltinFunction.CallBytes(args, kwargs);` — CPython은 `bytes_new`가 **요청된 타입을
+   존중**해서 `bytes_subtype_new`로 값 먼저 만들고 subclass로 할당한다. SharpPy는 plain bytes를
+   반환하므로 `type(B(b"xy")).__name__`이 `'bytes'`였고, 선언한 `__len__`/`__add__`/`__contains__`/
+   `__iter__`/`__getitem__`/`__eq__`/`__hash__`/`__repr__`가 **모두** 도달 불가였다.
+2. **`bytes.__new__`가 아예 등록되어 있지 않다.** attribute lookup이 generic fallback으로 떨어져
+   `bytes.__new__(cls, value)`가 `type.__new__`로 해석됐다 → user `__new__`에서 위임하는 보통의
+   불변 byte 래퍼가 `TypeError: type.__new__() takes exactly 4 arguments`로 죽었다. 이제
+   `bytes.__new__(B, b"zz")`는 B를 만들고, `bytes.__new__(5, …)`는 CPython 문구
+   `bytes.__new__(X): X is not a type object (int)`를 낸다.
+3. **bytes에 sequence slot wrapper가 없다.** CPython `bytes.__dict__`에는 `__add__`/`__mul__`/
+   `__rmul__`가 있고 **`__radd__`는 없다**(sq_concat이 C에서 양쪽을 처리). SharpPy는 셋 다 없어서
+   `3 * B(b"a")`가 `unsupported operand type(s) for *`였다. wrapper_descriptor로 등록했고 메시지
+   형식도 CPython slot wrapper다(`wrapper __mul__() takes no keyword arguments`,
+   `expected 1 argument, got 2`).
+
+### 함정: `LookupUserSpecial`은 클래스 객체에게 다른 답을 준다
+
+gate를 "`__new__`를 user가 선언했는가"로 만들 때 `LookupUserSpecial("__new__")`를 썼더니
+`class B(bytes)`에서도 non-null이 나왔다. 그 헬퍼는 `GetPyType().MRO`를 walk하는데, **클래스 객체의
+`GetPyType()`은 metaclass**다. 즉 "이 클래스가 `__new__`를 선언했나"가 아니라 "type이 `__new__`를
+선언했나"를 답하고 있었다. worktree 계측으로 확인:
+
+```
+DBG CI B derives=True userNew=PyStaticBuiltinMethod getPyType=type newMethod=PyNewMethodDescriptor mro=B,bytes,object
+```
+
+그래서 `PyClass.DeclaresUserSpecial(name)`을 넣었다 — **자기 자신의 MRO**에서 PyClass frame만 보고
+non-PyClass에서 멈춘다. 인스턴스용 `LookupUserSpecial`과 클래스용 `DeclaresUserSpecial`은 서로 다른
+질문이며, 이 구별을 코드에 명시했다.
+
+### 남은 중복 (정직하게)
+
+생성 진입점이 두 개다: `PyType.CreateInstance`(virtual)과 `PyClass.CreateInstance`(`public new` —
+**shadowing이라 virtual dispatch가 base를 부른다**). 그래서 `B(b"x")`는 메타클래스 경유 여부에 따라
+다른 메소드로 들어간다. bytes는 두 쪽 모두에 gate를 걸었지만, 이 shadowing 자체는remove해야 할
+중복 경로다. 지금도 `PyType.Call → CreateInstance`는 base 구현을 부르고, `PyTypeMetaclass.cs:211`의
+`pyClass.CreateInstance(args)`는 파생 구현을 부른다. 한 곳으로 합치는 작업이 남았다.
+
+### 회귀·성능
+
+- `tests/bughunt/p63_bytes_subclass.py` 58케이스 diff 0. bughunt **68/68**, evaluate 불변.
+- Godot 4.7.2 mono replay `82 matched, 0 other`.
+- A/B(9라운드, `2ef7b82` vs 이 변경): `str_fmt +3.5%`, `list_comp +1.9%`, **TOTAL +1.1%** — 이전에
+  same-flag로 노이즈로 판정된 대역 안. bytes subclass 생성 외 경로이고, 신규 코드는 생성 진입부와
+  타입 등록 시점에만 돈다.

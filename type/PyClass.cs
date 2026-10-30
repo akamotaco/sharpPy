@@ -261,6 +261,15 @@ namespace SharpPy
                 return new PyFloatSubclass(this, floatValue);
             }
 
+            // CPython bytes_new for a subclass builds the byte value first and then allocates the
+            // subclass around that payload. SharpPy instead returned a plain bytes object, so
+            // type(B(b"xy")).__name__ reported 'bytes' and a declared __len__/__add__/__contains__/
+            // __iter__/__getitem__/__eq__/__hash__/__repr__ could never be reached.
+            if (DerivesFromType(BytesType) && !DeclaresUserSpecial("__new__"))
+            {
+                return PyBytesSubclass.BytesSubtypeNew(this, args, kwargs);
+            }
+
             // CPython runs tp_new first, and for a class with neither its own __new__ nor an
             // __init__ that consumes arguments, object_new refuses them. SharpPy passed the extras
             // to object.__new__ and built the instance silently, so A(1) and A(x=1) returned an
@@ -431,6 +440,25 @@ namespace SharpPy
         /// Used for special method lookup (PEP 252: "Special method lookup bypasses __getattribute__()")
         /// Reference: Objects/typeobject.c:4725 (_PyType_Lookup)
         /// </summary>
+        /// <summary>
+        /// Whether this class - not its metaclass - declares the dunder in one of its own user frames.
+        /// PyObject.LookupUserSpecial walks GetPyType().MRO, and for a class object GetPyType() is the
+        /// metaclass, so asking it about __new__ answers "does type declare __new__" instead. Measured
+        /// while wiring bytes subclasses: the gate reported a user __new__ for class B(bytes) and every
+        /// subclass construction fell back to object's path.
+        /// </summary>
+        internal bool DeclaresUserSpecial(string name)
+        {
+            foreach (var mroType in MRO)
+            {
+                if (mroType is PyClass userClass && userClass.ClassDict.ContainsKey(name))
+                    return true;
+                if (!(mroType is PyClass))
+                    break;
+            }
+            return false;
+        }
+
         public PyObject LookupInMRO(string name)
         {
             // Phase 2: Use global TypeMethodCache (CPython-style array cache)
@@ -441,13 +469,19 @@ namespace SharpPy
         // 클래스 호출 시 인스턴스 생성
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: bytes subclasses inherit bytes_new semantics
-            // ("string argument without an encoding", iterable-of-ints, etc.).
+            // CPython: bytes subclasses inherit bytes_new, and bytes_new honours the type it was asked
+            // for - Objects/bytesobject.c dispatches to bytes_subtype_new, which builds the value and
+            // then allocates it as the subclass. This used to return the plain bytes object, which
+            // erased the subclass: type(B(b"xy")).__name__ said 'bytes', and a declared __len__,
+            // __add__, __contains__, __iter__, __getitem__, __eq__, __hash__ or __repr__ was
+            // unreachable. A user-declared __new__ is a real slot and still runs first.
             foreach (var t in MRO)
             {
                 if (ReferenceEquals(t, PyType.BytesType))
                 {
-                    return PyBuiltinFunction.CallBytes(args, kwargs);
+                    if (!DeclaresUserSpecial("__new__"))
+                        return PyBytesSubclass.BytesSubtypeNew(this, args, kwargs);
+                    break;
                 }
             }
 
@@ -2481,66 +2515,14 @@ namespace SharpPy
             return base.IsInstance(type);
         }
 
-        // Override GetAttribute to support user-defined descriptors and __dict__
-        public override PyObject GetAttribute(string name)
-        {
-            // First check if there's a descriptor in the class
-            PyObject classAttribute = null;
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    classAttribute = classValue;
-                    break;
-                }
-            }
+        // User-defined descriptors, methods and the instance __dict__ live in the Python class dict,
+        // which CLR inheritance cannot see. Shared with PyBytesSubclass.
+        public override PyObject GetAttribute(string name) =>
+            SubclassInstanceSupport.GetAttribute(this, InstanceType, InstanceDict, name,
+                n => base.GetAttribute(n));
 
-            // If it's a descriptor, use it
-            if (classAttribute is IDescriptor desc)
-            {
-                return desc.Get(this, InstanceType);
-            }
-            else if (classAttribute is PyFunction function)
-            {
-                return new PyMethod(this, function);
-            }
-
-            // Check instance __dict__
-            if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
-            {
-                return instanceValue;
-            }
-
-            // Return class attribute if found
-            if (classAttribute != null)
-            {
-                return classAttribute;
-            }
-
-            // Fall back to base PyTuple behavior
-            return base.GetAttribute(name);
-        }
-
-        // Override SetAttribute to support instance __dict__
-        public override void SetAttribute(string name, PyObject value)
-        {
-            // Check if there's a data descriptor in the class
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
-                    {
-                        desc.Set(this, value);
-                        return;
-                    }
-                    break;
-                }
-            }
-
-            // Set in instance __dict__
-            InstanceDict[name] = value;
-        }
+        public override void SetAttribute(string name, PyObject value) =>
+            SubclassInstanceSupport.SetAttribute(this, InstanceType, InstanceDict, name, value);
     }
 
 #region Super Implementation

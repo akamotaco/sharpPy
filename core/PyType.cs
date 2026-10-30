@@ -799,9 +799,21 @@ namespace SharpPy
         {
             // CPython 3.12: bytes_new semantics also apply to bytes subclasses
             // (Objects/bytesobject.c bytes_new -> "string argument without an encoding").
-            if (!ReferenceEquals(this, BytesType) && DerivesFromType(BytesType))
+            // CPython bytes_new pairs the two refusals: a string without a codec is
+            // "string argument without an encoding", a codec without a string is
+            // "encoding without a string argument". Only the first one was reachable here.
+            bool bytesLikeTarget = ReferenceEquals(this, BytesType) || DerivesFromType(BytesType);
+            if (bytesLikeTarget && !(args.Length > 0 && args[0] is PyString) &&
+                (args.Length > 1 || (kwargs != null && PyObject.KwValue(kwargs, "encoding") != null)))
+                throw PyTypeError.Create("encoding without a string argument");
+
+            if (!ReferenceEquals(this, BytesType) && this is PyClass bytesClass &&
+                DerivesFromType(BytesType) && !bytesClass.DeclaresUserSpecial("__new__"))
             {
-                return PyBuiltinFunction.CallBytes(args, kwargs);
+                // CPython builds a bytes object whose type slot is the subclass, so value semantics and
+                // the subclass's dunders both survive. Returning the plain bytes here is what made
+                // type(B(b"xy")).__name__ report 'bytes' and every declared dunder go unseen.
+                return PyBytesSubclass.BytesSubtypeNew(bytesClass, args, kwargs);
             }
 
             // CPython 3.12: Objects/floatobject.c float_new forwards to PyNumber_Float and
