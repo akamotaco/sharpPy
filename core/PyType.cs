@@ -366,6 +366,43 @@ namespace SharpPy
         public static readonly PyType NoReturnType = new PyType("NoReturn", new[] { ObjectType });
         public static readonly PyType ProtocolType = new PyType("Protocol", new[] { ObjectType });
 
+        /// <summary>
+        /// Every builtin type adds its observable surface - TypeDict entries, slot wrappers, method
+        /// descriptors - from a CLR static constructor, which runs the first time that CLR class is
+        /// touched rather than the first time the Python type is used. Measured before this existed, a
+        /// script that named `bytes` without ever creating a bytes object saw bytes.TypeDict holding one
+        /// entry: dir(bytes) returned 24 names instead of 78, hasattr(bytes, "upper") was False and
+        /// getattr(bytes, "fromhex") raised AttributeError, while b"a".upper() worked normally. The
+        /// visible surface of a type therefore depended on which objects a program happened to build
+        /// first. Forcing the class constructors here, in dependency order, removes that order
+        /// dependence: str and the numeric types first because codecs and error texts use them, bytes
+        /// before bytearray because bytearray's methods are delegated out of bytes' TypeDict, and
+        /// PyClass last because user classes are built on top of all of it.
+        /// </summary>
+        static PyType()
+        {
+            static void Init<T>() =>
+                System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(T).TypeHandle);
+
+            Init<PyString>();
+            Init<PyInt>();
+            Init<PyFloat>();
+            Init<PyBytes>();
+            Init<PyByteArray>();
+            Init<PyList>();
+            Init<PyTuple>();
+            Init<PyDict>();
+            Init<PyDictView>();
+            Init<PyFrozenSet>();
+            Init<PyComplex>();
+            Init<PyIterator>();
+            Init<PyGenerator>();
+            Init<SharpPy.Core.PyAsyncGenerator>();
+            Init<SharpPy.Core.PyCoroutine>();
+            Init<PyMemoryView>();
+            Init<PyClass>();
+        }
+
         #endregion
 
         #region Core Properties
