@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **77/77 matching**
+- `tools/run_bughunt.py`: **78/78 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -19,6 +19,12 @@ Reference interpreter: **CPython 3.12.15**
 - 2026-10-30 closings after that snapshot: P0-21 (mostly), P0-23, P0-24 items 1-4, P0-22,
   **P0-25** (builtin constructor keyword signatures), **P0-27** (bytes subclasses). The table
   above still shows P0-16 as partial; p48 plus the P0-18/P0-23 sequence closed it.
+- 2026-10-30 codec registry (`core/PyCodecRegistry.cs`, p73): `codecs.lookup` /
+  `getencoder` / `getdecoder` / `register` / `unregister`, CPython name normalisation and
+  canonical names, `rot-13` / `hex` / `base64` as real non-text codecs, and the
+  "is not a text encoding" refusal family. The seventh copy of the decoder
+  (`_codecs.*_decode` calling `Encoding.GetString`) is gone; those entry points now ask
+  `DecodeBytes`. Open remainder is listed under **P1 codec registry follow-ups** below.
 - Godot 4.7.2 mono replay (Release DLL): **82 matched, 0 other**
 - Bytecode proximity: ~0.845; all 129 standard opcode names/numbers match.
 
@@ -1259,3 +1265,34 @@ P0-34에 묶여 남는 것 (인코더의 버그가 아니라 저장 표현의 �
   `b'\N{LATIN SMALL LETTER E WITH ACUTE}'`, SharpPy는 `LookupError: unknown error handler name
   'namereplace'`. Unicode 이름 표(= `unicodedata.name`의 근거 자료)가 있어야 한다.
   `backslashreplace`와 `xmlcharrefreplace`는 p72로 고정됨.
+
+### P1 codec registry follow-ups (측정으로 고정, 2026-10-30)
+
+p73이 통과하는 범위 밖으로, 다음 다섯 family이 열려 있다. 전부 CPython 3.12.15에서 직접
+측정해 두른 것이다 (`.artifacts/tmp/reg_spec*.py`, 출력 `.artifacts/tmp/reg_spec*_c.txt`).
+
+1. **`CodecInfo`의 repr과 tuple 서브클래스 지위.** CPython은
+   `repr(codecs.lookup('utf-8'))`가
+   `<codecs.CodecInfo object for encoding utf-8 at 0x...>`이고 `ci[1]`은
+   `<function decode at 0x...>`이며 `ci[2]/ci[3]`은 `encodings.utf_8.StreamReader/StreamWriter`
+   클래스다. SharpPy는 `codecs.CodecInfo(...)`를 Python에서 호출해 객체를 만들지만
+   `tuple` 서브클래스의 `__new__`/`__repr__`가 honoring되지 않아 repr이 평범한 tuple repr이고,
+   `ci[2]/ci[3]`은 `codecs.StreamReader/StreamWriter`다 (`unpack a,b,c,d = ci`의 bool 판정은
+   이제 일치). 원인은 코덱이 아니라 interpreter의 `__new__` 처리 — P0 후보 후보.
+2. **코덱별 `StreamReader`/`StreamWriter`/`Incremental{Encoder,Decoder}`가 없다.** CPython은
+   `encodings/utf_8.py` 등이 자체 클래스를 정의하고, SharpPy는 `codecs`의 base 클래스를 넣는다.
+   클래스 *생성*은 되고 이름도 같지만 module이 다르고, base `IncrementalEncoder.encode`는
+   `NotImplementedError`라 실제 증분 인코딩은 동작하지 않는다.
+3. **구현되지 않은 코덱 family.** 별칭 표는 CPython `Lib/encodings/aliases.py`에서 생성했지만
+   엔트리 함수가 있는 코덱은 utf-8/utf-8-sig/utf-16*/utf-32*/ascii/iso8859-1 + rot-13/hex/base64
+   뿐이다. CPython이 응답하는 `cp1252`, `cp1251`, `big5`, `shift_jis`, `koi8-r`, `iso8859-*`,
+   `mac_roman`, `unicode_escape`, `raw_unicode_escape`, `utf_7`, `punycode`, `idna`,
+   `quopri`, `uu`, 압축 코덱(`zlib`/`bz2`)은 여전히 `unknown encoding`. charmap 계열은
+   `PyStringNewArguments.ResolveCodec`이 코드 페이지를 아는데도 엔트리가 없어 노출되지 않는다.
+4. **`binascii.Error`의 타입 이름.** 메시지는 같다 (`Odd-length string`,
+   `Non-hexadecimal digit found`, `Incorrect padding`) 하지만 SharpPy는 `ValueError`로 표시된다.
+   CPython은 `binascii.Error`(ValueError 서브클래스)고 `except binascii.Error`가 성립한다.
+   SharpPy에는 전용 PyType이 없어서 `binascii.Error` 속성 자체가 없다.
+5. **`_codecs` 함수 표면 36 vs 45.** 빠져 있는 이름: `code_page_decode/encode`,
+   `mbcs_decode/encode`, `oem_decode/encode`, `readbuffer_encode`, `utf_7_decode/encode`
+   (그리고 `unregister`는 추가됨). `dir(codecs)`도 81 vs 90. 3번과 같은 원인이다.

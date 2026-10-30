@@ -276,6 +276,9 @@ namespace SharpPy
                     // This local table knew four names, so b'ab'.decode('utf-16-le') reported an
                     // unknown encoding while str(b'ab', 'utf-16-le') worked, and the catch below could
                     // never fire because .NET's default decoder fallback replaces rather than throws.
+                    // Refuse a non-text codec the way CPython's bytes.decode does, then stay on the
+                    // one native decoder (it handles error handlers and byte-order marks).
+                    PyCodecRegistry.RefuseNonTextEncoding(encoding, "codecs.decode()");
                     return new PyString(PyStringNewArguments.DecodeBytes(bytes.Value, encoding, errors));
                 },
                 minArgs: 0, maxArgs: 2

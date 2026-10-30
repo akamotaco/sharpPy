@@ -22,6 +22,7 @@ namespace SharpPy.Modules
             // CPython 3.12: Modules/_codecsmodule.c:1077-1127
             module.ModuleDict["register"] = new PyBuiltinFunction("register", PyRegister);
             module.ModuleDict["lookup"] = new PyBuiltinFunction("lookup", PyLookup);
+            module.ModuleDict["unregister"] = new PyBuiltinFunction("unregister", PyUnregister);
             module.ModuleDict["encode"] = new PyBuiltinFunction("encode", PyEncode);
             module.ModuleDict["decode"] = new PyBuiltinFunction("decode", PyDecode);
             module.ModuleDict["register_error"] = new PyBuiltinFunction("register_error", PyRegisterError);
@@ -78,13 +79,19 @@ namespace SharpPy.Modules
         private static PyObject PyRegister(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"register() takes exactly 1 argument ({args.Length} given)");
+                throw PyTypeError.Create(
+                    $"_codecs.register() takes exactly one argument ({args.Length} given)");
 
-            var searchFunction = args[0];
-            if (!searchFunction.IsCallable())
-                throw PyTypeError.Create("argument must be callable");
+            PyCodecRegistry.Register(args[0]);
+            return PyNone.Instance;
+        }
 
-            _searchPath.Add(searchFunction);
+        // CPython 3.12: Python/codecs.c:56 (PyCodec_Unregister)
+        private static PyObject PyUnregister(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"unregister() takes exactly one argument ({args.Length} given)");
+            PyCodecRegistry.Unregister(args[0]);
             return PyNone.Instance;
         }
 
@@ -95,60 +102,76 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"lookup() takes exactly 1 argument ({args.Length} given)");
 
             if (!(args[0] is PyString encodingStr))
-                throw PyTypeError.Create("encoding must be a string");
+                // CPython writes None here, not NoneType: measured
+                // "lookup() argument must be str, not None".
+                throw PyTypeError.Create("lookup() argument must be str, not " +
+                    (args[0] is PyNone ? "None" : args[0].GetTypeName()));
 
-            string encoding = encodingStr.Value.ToLowerInvariant().Replace("-", "").Replace("_", "");
-
-            // Check cache first
-            if (_cache.TryGetValue(encoding, out var cached))
-                return cached;
-
-            // Search through registered search functions
-            foreach (var searchFunc in _searchPath)
-            {
-                var result = searchFunc.Call(new[] { args[0] }, null);
-                if (result != PyNone.Instance)
-                {
-                    _cache[encoding] = result;
-                    return result;
-                }
-            }
-
-            throw SharpPy.PyLookupError.Create($"unknown encoding: {encodingStr.Value}");
+            return PyCodecRegistry.Lookup(encodingStr.Value);
         }
 
         // CPython 3.12: Modules/_codecsmodule.c:82-107 (codec_encode)
         private static PyObject PyEncode(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"encode() takes 1 or 2 arguments ({args.Length} given)");
-
+            RequireArgs(args, "encode");
             var obj = args[0];
             string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
+            string errors = args.Length > 2 && args[2] is PyString errStr ? errStr.Value : "strict";
 
-            if (obj is PyString pyStr)
-                return pyStr.Encode(encoding);
+            // Registry first, like _codecsmodule.c: the codec answers for the name, so
+            // _codecs.encode(b'ab') reports utf_8_encode's own refusal and _codecs.encode('ab',
+            // 'rot13') reaches the non-text codec instead of being rejected as "not str". Like
+            // codec_encode in that file, the wrapper hands back the result and not the
+            // (result, consumed) pair the codec function returns.
+            return ResultOf(PyCodecRegistry.EncodeAny(obj, encoding, errors));
+        }
 
-            throw PyTypeError.Create($"encode() argument must be str, not {obj.GetTypeName()}");
+        /// <summary>
+        /// _codecsmodule.c:82-107 extracts item 0 of the codec's (result, consumed) pair. Measured:
+        /// codecs.encode(b'ab','hex') is b'6162', not (b'6162', 2).
+        /// </summary>
+        private static PyObject ResultOf(PyObject codecResult)
+        {
+            if (codecResult is PyTuple pair && pair.Items.Length == 2) return pair.Items[0];
+            return codecResult;
         }
 
         // CPython 3.12: Modules/_codecsmodule.c:109-134 (codec_decode)
         private static PyObject PyDecode(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 2)
-                throw PyTypeError.Create($"decode() takes 1 or 2 arguments ({args.Length} given)");
-
+            RequireArgs(args, "decode");
             var obj = args[0];
             string encoding = args.Length > 1 && args[1] is PyString encStr ? encStr.Value : "utf-8";
+            string decErrors = args.Length > 2 && args[2] is PyString errStr ? errStr.Value : "strict";
 
-            // For now, simple UTF-8 decoding
-            if (obj is PyBytes pyBytes)
-            {
-                string str = Encoding.UTF8.GetString(pyBytes.Value);
-                return new PyString(str);
-            }
+            return ResultOf(PyCodecRegistry.DecodeAny(obj, encoding, decErrors));
+        }
 
+        /// <summary>
+        /// The clinic wording, measured: encode() missing required argument 'obj' (pos 1) and
+        /// encode() takes from 1 to 3 positional arguments but 4 were given.
+        /// </summary>
+        private static void RequireArgs(PyObject[] args, string name)
+        {
+            if (args.Length < 1)
+                throw PyTypeError.Create($"{name}() missing required argument 'obj' (pos 1)");
+            if (args.Length > 3)
+                throw PyTypeError.Create(
+                    $"{name}() takes from 1 to 3 positional arguments but {args.Length} were given");
+        }
+
+        private static byte[] ByteArrayOf(PyObject obj)
+        {
+            if (obj is PyBytes b) return b.Value;
+            if (obj is PyByteArray ba) return ba.ToByteArrayCopy();
             throw PyTypeError.Create($"decode() argument must be bytes, not {obj.GetTypeName()}");
+        }
+
+        private static int Consumed(PyObject obj)
+        {
+            if (obj is PyBytes b) return b.Value.Length;
+            if (obj is PyByteArray ba) return ba.ToByteArrayCopy().Length;
+            return 0;
         }
 
         // CPython 3.12: Python/codecs.c:381-398 (PyCodec_RegisterError)
@@ -234,6 +257,26 @@ namespace SharpPy.Modules
         /// .NET's silent replacement instead of CPython's refusal - and utf_32_le_encode delegated
         /// to utf_32_encode, handing back a BOM for the codec that must not have one.
         /// </summary>
+        /// <summary>
+        /// Every *_decode entry point of this module used to call Encoding.GetString itself. That is
+        /// a seventh, eighth, ... copy of the decoder, and the copies were the weak ones: they left
+        /// a byte-order mark in the result of utf_16_decode and silently replaced undecodable bytes
+        /// instead of consulting the error handler. They now all ask the one decoder
+        /// PyStringNewArguments.DecodeBytes, which is the copy the str(bytes, enc, errors) built-in
+        /// and bytes.decode() use. Measured: codecs.getdecoder("utf-16")(b"\xff\xfea\x00") is
+        /// ("a", 4) - the mark is consumed, not decoded.
+        /// </summary>
+        private static PyObject Decoded(PyObject[] args, string codec, string name)
+        {
+            if (args.Length < 1)
+                throw PyTypeError.Create($"{name} expected at least 1 argument, got 0");
+            if (!(args[0] is PyBytes pyBytes))
+                throw PyTypeError.Create($"{name}() argument 1 must be bytes, not {args[0].GetTypeName()}");
+            string errors = args.Length > 1 && args[1] is PyString errorName ? errorName.Value : null;
+            string decoded = PyStringNewArguments.DecodeBytes(pyBytes.Value, codec, errors);
+            return new PyTuple(new PyObject[] { new PyString(decoded), new PyInt(pyBytes.Value.Length) });
+        }
+
         private static PyObject Encoded(PyObject[] args, string codec, string name)
         {
             // getargs.c words the positional errors of these parsers without the () that the
@@ -282,10 +325,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16Decode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.Unicode.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "utf-16", "utf16decode");
         }
 
         private static PyObject PyUtf16LeEncode(PyObject[] args, PyDict kwargs = null)
@@ -297,10 +337,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16LeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.Unicode.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "utf-16-le", "utf16ledecode");
         }
 
         private static PyObject PyUtf16BeEncode(PyObject[] args, PyDict kwargs = null)
@@ -312,10 +349,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf16BeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.BigEndianUnicode.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "utf-16-be", "utf16bedecode");
         }
 
         private static PyObject PyUtf16ExDecode(PyObject[] args, PyDict kwargs = null)
@@ -334,10 +368,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32Decode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.UTF32.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "utf-32", "utf32decode");
         }
 
         private static PyObject PyUtf32LeEncode(PyObject[] args, PyDict kwargs = null)
@@ -359,10 +390,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyUtf32BeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.GetEncoding("utf-32BE").GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "utf-32-be", "utf32bedecode");
         }
 
         private static PyObject PyUtf32ExDecode(PyObject[] args, PyDict kwargs = null)
@@ -380,10 +408,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyAsciiDecode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.ASCII.GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "ascii", "asciidecode");
         }
 
         // Latin-1 encoding
@@ -396,10 +421,7 @@ namespace SharpPy.Modules
 
         private static PyObject PyLatin1Decode(PyObject[] args, PyDict kwargs = null)
         {
-            if (!(args[0] is PyBytes pyBytes))
-                throw PyTypeError.Create("argument must be bytes");
-            string str = Encoding.GetEncoding("iso-8859-1").GetString(pyBytes.Value);
-            return new PyTuple(new PyObject[] { new PyString(str), new PyInt(pyBytes.Value.Length) });
+            return Decoded(args, "iso8859-1", "latin1decode");
         }
 
         // Charmap encoding - stub implementations

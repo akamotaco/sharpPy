@@ -169,8 +169,16 @@ namespace SharpPy
 
         internal static string DecodeBytes(byte[] data, string encodingName, string errorName)
         {
-            System.Text.Encoding encoding = ResolveCodec(encodingName)
-                ?? throw PyLookupError.Create($"unknown encoding: {encodingName}");
+            System.Text.Encoding encoding = ResolveCodec(encodingName);
+            if (encoding == null)
+            {
+                // The registry decides which of CPython's two refusals this is: a codec that exists
+                // but is not about text ('base64') is reported as such, a name nothing implements is
+                // the unknown encoding. Measured: str(b'ab', 'base64') ->
+                // LookupError: 'base64' is not a text encoding; use codecs.decode() ...
+                PyCodecRegistry.RefuseNonTextEncoding(encodingName, "codecs.decode()");
+                throw PyLookupError.Create($"unknown encoding: {encodingName}");
+            }
 
             string normalized = NormalizeCodecName(encodingName);
 
@@ -2979,9 +2987,16 @@ namespace SharpPy
                 case "latin-1":
                     return new PyBytes(EncodeCodePoints(ctx, bigEndian: false));
                 default:
-                    // CPython's LookupError names the encoding the caller asked for. Codecs beyond
-                    // these still have no encoder here; that limit stays in docs/known_gaps.md.
-                    throw PyLookupError.Create($"unknown encoding: {encoding}");
+                    // Not in the native table: the registry answers. A non-text codec is refused by
+                    // name ('ab'.encode('rot13') -> "'rot13' is not a text encoding; use
+                    // codecs.encode() to handle arbitrary codecs"), a registered text codec is
+                    // called, and anything else is still CPython's LookupError naming the caller's
+                    // spelling. Codecs with no implementation here stay in docs/known_gaps.md.
+                    PyObject viaRegistry = PyCodecRegistry.EncodeText(this, encoding, ctx.Errors);
+                    if (!(viaRegistry is PyBytes encoded))
+                        throw PyTypeError.Create(
+                            $"encoding with '{encoding}' must return bytes, not {viaRegistry.GetTypeName()}");
+                    return encoded;
             }
         }
 
