@@ -114,7 +114,10 @@ namespace SharpPy.Core
         /// <param name="codeString">실행할 Python 코드</param>
         public void ExecuteCodeString(string codeString)
         {
-            if (string.IsNullOrEmpty(codeString))
+            // `python -c ""` runs the empty program and exits 0 (measured on the pinned reference).
+            // Only a missing operand is an error, and that case never reaches here: the parser does
+            // not set CodeString without one.
+            if (codeString == null)
             {
                 Console.WriteLine("❌ 실행할 코드가 지정되지 않았습니다.");
                 Environment.Exit(1);

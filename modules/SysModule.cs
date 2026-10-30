@@ -60,8 +60,14 @@ namespace SharpPy.Modules
             module.ModuleDict["stdout"] = new PyFile("stdout");
             module.ModuleDict["stderr"] = new PyFile("stderr");
 
-            // 명령줄 인수 (빈 리스트로 초기화)
-            module.ModuleDict["argv"] = new PyList();
+            // sys.argv is a copy of what the host put in PyConfig.argv
+            // (Python/sysmodule.c:3612 COPY_LIST("argv", config->argv)). Program.Main fills it for the
+            // CLI; an embedded host such as the Godot probe leaves PyArgv at its empty default, which
+            // is what an embedding that sets no argv produces in CPython as well.
+            var argvValues = SharpPy.Core.PyArgv.Values;
+            var argvItems = new PyObject[argvValues.Length];
+            for (int i = 0; i < argvValues.Length; i++) argvItems[i] = new PyString(argvValues[i]);
+            module.ModuleDict["argv"] = new PyList(argvItems);
 
             // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
             module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();

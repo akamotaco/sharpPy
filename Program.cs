@@ -18,7 +18,8 @@ namespace SharpPy
             {
                 // 명령줄 옵션 파싱
                 var parser = new CommandLineParser();
-                var (parsedArgs, pythonFile) = parser.Parse(args);
+                var line = parser.Parse(args);
+                var parsedArgs = line.Options;
 
                 // 플래그 처리
                 ConfigureOptions(parsedArgs);
@@ -81,14 +82,23 @@ namespace SharpPy
                 // }
                 else if (parsedArgs.ContainsKey("-c"))
                 {
-                    // new FileExecutor().ExecuteCodeString(parsedArgs["-c"], showTokenize, showAst, showBytecode);
+                    // config_update_argv forces sys.argv[0] = '-c' for command mode and keeps the
+                    // operands that follow it (Python/initconfig.c:2723).
+                    PyArgv.Set(PyArgv.ForCommand(line.CodeArgs));
+                    new FileExecutor().ExecuteCodeString(line.CodeString);
                 }
-                else if (!string.IsNullOrEmpty(pythonFile))
+                else if (!string.IsNullOrEmpty(line.PythonFile))
                 {
-                    new FileExecutor().ExecuteFile(pythonFile, showTokenize, showAst, showBytecode, compileOnly);
+                    // sys.argv[0] is the script path exactly as typed; the rest belongs to the
+                    // program. See core/PyArgv.cs.
+                    PyArgv.Set(PyArgv.ForScript(line.PythonFile, line.ScriptArgs));
+                    new FileExecutor().ExecuteFile(line.PythonFile, showTokenize, showAst, showBytecode, compileOnly);
                 }
                 else
                 {
+                    // Bare interpreter: CPython guarantees one (empty) argument is seen, so
+                    // sys.argv == ['']. Script reading from stdin is not implemented (known_gaps).
+                    PyArgv.SetEmptyArg();
                     // 기본 모드: REPL 실행
                     new SharpPyRepl().Start();
                 }

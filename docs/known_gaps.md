@@ -11,7 +11,8 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **82/82 matching** (p76 is now 148 lines, still diff 0)
+- `tools/run_bughunt.py`: **83/83 matching** (p76 150 lines, p78 added; all diff 0)
+- `tools/argv_matrix.py`: **0 mismatches** (P0-41로 등록된 gap은 제외)
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -1493,7 +1494,22 @@ set/frozenset 생성자는 빠졌다.
 set/frozenset은 생성자 인자 경로를 list와 같이 붙인다. 선행 측정: 서브클래스 `__repr__` 오버라이드
 우선, `x.append(x)` 재귀 repr, `C()` 무인자, iterable 아닌 것 전달 시 문구.
 
-## P0-39 `sys.argv`가 비어 있다 (측정 2026-10-30, 미해결)
+## P0-41 stdin 스크립트 실행과 usage 진단 (측정 2026-10-30, 미해결)
+
+`tools/argv_matrix.py`가 등록한 세 가지. P0-39를 닫을 때 함께 고치지 **않고** 남긴 항목이다.
+
+1. `python - one` — CPython은 stdin을 스크립트로 실행하고 `sys.argv == ['-','one']`. SharpPy는
+   REPL을 시작한다.
+2. 인자 없이 실행(`python < file`) — CPython은 조용히 실행한다. SharpPy REPL은 배너와 `>>> `를
+   출력해 stdout이 달라진다. 다만 그 안에서 `sys.argv == ['']` 가 정확한 것은 직접 확인했다.
+3. `python -c`(피연산자 없음) — CPython은 `Argument expected for the -c option` + usage 후 **exit 2**,
+   SharpPy는 REPL 시작 후 exit 0. usage 문자열은 프로그램 이름을 포함하므로 별도 결정 사항.
+
+SharpPy가 아는 플래그 집합도 CPython보다 좁다(`-u`, `-O`, `-B` 등은 unrecognized이라 거부되지 않고
+건너뛴다). `core/CommandLineParser.cs`는 **위치지키 규칙**만 미러한다는 주석이 있다.
+`sys.executable`, `-m` 실행(`Program.cs`에서 분기가 아직 주석)은 이번 범위 밖.
+
+## P0-39 `sys.argv`가 비어 있다 → 닫힘 (2026-10-30)
 
 `.artifacts/tmp/lockcase/argvchk.py`를 `script.py one two`로 실행:
 
@@ -1503,5 +1519,17 @@ set/frozenset은 생성자 인자 경로를 list와 같이 붙인다. 선행 측
 스크립트 경로 자체가 들어가지 않는다. 인자를 읽는 모든 스크립트가 깨지므로 A방(결정적 결과)
 실패이며, 타이밍과 무관하게 즉시 고칠 수 있는 종류다. 관련해서 `Program.cs`는 `-c`를 파싱만
 하고 `ExecuteCodeString` 호출이 주석 처리되어 있어 `sharppy.dll -c "print(123)"`가 아무것도
-출력하지 않고 0으로 끝난다(같은 절의 문제).
+출력하지 않고 0으로 끝났다(같은 절의 문제).
+
+**해결**: `core/PyArgv.cs`(`PyConfig.argv`의 대응) + `core/CommandLineParser.cs`(각할 규칙) +
+`Program.cs`의 `-c` 실행 활성화 + `modules/SysModule.cs`의 `argv` 생성.
+기관은 CPython과 같다: `sys.argv`는 `PyConfig.argv` 복사(`Python/sysmodule.c:3612`)이고,
+`config_update_argv`(`Python/initconfig.c:2723`)가 첫 non-option부터 슬라이스하고 비면 `L""`을
+넣으며 `-c`/`-m`은 `argv[0]`을 강제로 바꾼다. SharpPy도 같은 세 규칙을 그대로 구현했다.
+
+검증 — `tools/argv_matrix.py`: 스크립트+인자 / 무인자 / 인터프리터 플래그 선행 / 역슬래시 경로 /
+`-c` / `-c`+인자 / `-c ""` **7/7 일치**. godot 리플레이 82 matched, 0 other (임베딩에서는
+`PyArgv`가 빈 기본값 — 인자를 설정하지 않는 임베딩의 CPython과 동일).
+자세한 측정값과 남은 차이는 [sys.argv와 명령 모드 실행](reports/2026-10-30/sys_argv_and_command_mode.md),
+남은 항목은 위의 **P0-41**.
 
