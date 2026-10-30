@@ -61,7 +61,7 @@ ANCHORS = [
     ("object_new refuses arguments",
      "Objects/typeobject.c", 5444, "object_new", ["core/PyType.cs"]),
     ("repr recursion guard (Py_ReprEnter)",
-     "Objects/object.c", 0, "Py_ReprEnter", ["core/PyReprGuard.cs"]),
+     "Objects/object.c", 2370, "Py_ReprEnter", ["core/PyReprGuard.cs"]),
     ("PyObject_IsTrue: nb_bool then sq_length/mp_length",
      "Objects/object.c", 1675, "PyObject_IsTrue", ["type/PyClass.cs"]),
     ("Py_DECREF reaching zero routes to tp_dealloc",

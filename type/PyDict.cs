@@ -549,6 +549,28 @@ namespace SharpPy
             dictType.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__",
                 (cls, arg) => new PyGenericAlias(cls as PyType ?? throw PyTypeError.Create("Expected type"), arg)
             );
+
+            // dict_sizeof (Objects/dictobject.c). The pinned interpreter reports 48 empty and 208
+            // with two items, so those are the values here. The table term past the first entry is
+            // an estimate: SharpPy's storage is a CLR dictionary, not a C allocatable table, and
+            // docs/known_gaps.md P0-45 records that the exact figure is not CPython's.
+            dictType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
+                "__sizeof__", dictType,
+                (self, args, kwargs) => {
+                    PyType.RefuseExtra(dictType, "__sizeof__", args);
+                    return new PyInt(DictSizeInBytes(
+                        ((PyDict)PyType.NeedStorage(self, "__sizeof__", "dict",
+                            PyNativeStorage.ForDict(self))).Length()));
+                },
+                minArgs: 0, maxArgs: 0);
+        }
+
+        internal static long DictSizeInBytes(int count)
+        {
+            if (count == 0) return 48;
+            long table = 8;
+            while (count * 3 >= table * 2) table *= 2;
+            return 48 + table * 20;
         }
 
         #region Core Properties

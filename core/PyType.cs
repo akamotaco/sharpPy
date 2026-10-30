@@ -1531,6 +1531,78 @@ namespace SharpPy
         internal static string TpName(PyObject cls) =>
             cls is PyType typeObject ? typeObject.Name : cls.GetTypeName();
 
+        /// <summary>
+        /// set_reduce / frozenset_reduce (Objects/setobject.c): (type(self), (list(self),), state),
+        /// state being the instance dict or None. Measured on the pinned interpreter:
+        /// set([1, 2]).__reduce__() == (set, ([1, 2],), None).
+        /// </summary>
+        internal static PyObject BuildSetReduce(PyObject self, IEnumerable<PyObject> items)
+        {
+            var itemList = new PyList(items);
+            PyObject state = PyNone.Instance;
+            if (self is IInstanceDictAccessor accessor && accessor.InstanceDict.Count > 0)
+            {
+                var saved = new PyDict();
+                foreach (var entry in accessor.InstanceDict)
+                    saved.SetItem(new PyString(entry.Key), entry.Value);
+                state = saved;
+            }
+            return new PyTuple(new PyObject[]
+            {
+                self.GetPyType(),
+                new PyTuple(new PyObject[] { itemList }),
+                state
+            });
+        }
+
+        /// <summary>
+        /// METH_NOARGS refusal. CPython has two shapes for this and they do not agree: the
+        /// vectorcall path a direct call takes names the class that *defines* the method
+        /// (measured S().__sizeof__(1) -> "set.__sizeof__() takes no arguments (1 given)"), while
+        /// the generic call path used when a test unpacks a bound method names the receiving type
+        /// ("S.__sizeof__() ..."). SharpPy follows the direct-call shape, which is what ordinary
+        /// code hits; the other is recorded in docs/known_gaps.md P0-45.
+        /// </summary>
+        internal static void RefuseExtra(PyType defining, string name, PyObject[] args)
+        {
+            if (args.Length == 0) return;
+            throw PyTypeError.Create(
+                $"{defining.Name}.{name}() takes no arguments ({args.Length} given)");
+        }
+
+        /// <summary>
+        /// The receiver check of a method_descriptor: calling set.__sizeof__(3) reaches the C
+        /// function with an int and CPython answers with this wording rather than a cast failure.
+        /// </summary>
+        internal static PyObject NeedStorage(PyObject self, string name, string defining, PyObject storage)
+        {
+            if (storage != null) return storage;
+            throw PyTypeError.Create(
+                $"descriptor '{name}' for '{defining}' objects doesn't apply to a " +
+                $"'{self.GetTypeName()}' object");
+        }
+
+        internal static int CountItems(IEnumerable<PyObject> items)
+        {
+            int n = 0;
+            foreach (var _ in items) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// set_sizeof (Objects/setobject.c). The pinned interpreter reports 200 for an empty set and
+        /// still 200 with two items, because the initial table is part of the object. Past that,
+        /// SharpPy's storage is a CLR hash set rather than a C table, so the growth term is an
+        /// estimate and not the allocator's figure (docs/known_gaps.md P0-45).
+        /// </summary>
+        internal static long SetSizeInBytes(int count)
+        {
+            if (count <= 4) return 200;
+            long table = 8;
+            while (count * 5 >= table * 3) table *= 4;
+            return 200 + table * 16;
+        }
+
         internal static bool TypeNewIsObjectNew(PyType type) =>
             type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__new__"), ObjectNewDescriptor());
 
@@ -2680,6 +2752,48 @@ namespace SharpPy
             // defining type rather than the subclass:
             //   frozenset.copy() takes no arguments (1 given)
             //   frozenset.issubset() takes exactly one argument (0 given)
+            // set_reduce / frozenset_reduce and set_sizeof / frozenset_sizeof
+            // (Objects/setobject.c). A subclass inherits them as builtins, and __reduce__ names the
+            // subclass so pickle can rebuild it: S([1]).__reduce__() is (S, ([1],), None).
+            // Both are METH_NOARGS, and CPython's refusal names the receiving class - measured
+            // S().__reduce__(1) gives "S.__reduce__() takes no arguments (1 given)", while calling
+            // the descriptor with a foreign receiver gives
+            // "descriptor '__sizeof__' for 'set' objects doesn't apply to a 'int' object".
+            PyType.SetType.TypeDict["__reduce__"] = new PyMethodDescriptor(
+                "__reduce__", PyType.SetType,
+                (self, args, kwargs) => {
+                    RefuseExtra(PyType.SetType, "__reduce__", args);
+                    return BuildSetReduce(self, PySet.IterableItems(NeedStorage(self, "__reduce__", "set",
+                        PyNativeStorage.ForSet(self))));
+                },
+                minArgs: 0, maxArgs: 0);
+            PyType.SetType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
+                "__sizeof__", PyType.SetType,
+                (self, args, kwargs) => {
+                    RefuseExtra(PyType.SetType, "__sizeof__", args);
+                    return new PyInt(SetSizeInBytes(CountItems(PySet.IterableItems(
+                        NeedStorage(self, "__sizeof__", "set", PyNativeStorage.ForSet(self))))));
+                },
+                minArgs: 0, maxArgs: 0);
+            frozensetType.TypeDict["__reduce__"] = new PyMethodDescriptor(
+                "__reduce__", frozensetType,
+                (self, args, kwargs) => {
+                    RefuseExtra(PyType.FrozenSetType, "__reduce__", args);
+                    return BuildSetReduce(self, PySet.IterableItems(
+                        NeedStorage(self, "__reduce__", "frozenset",
+                            PyNativeStorage.ForFrozenSet(self))));
+                },
+                minArgs: 0, maxArgs: 0);
+            frozensetType.TypeDict["__sizeof__"] = new PyMethodDescriptor(
+                "__sizeof__", frozensetType,
+                (self, args, kwargs) => {
+                    RefuseExtra(PyType.FrozenSetType, "__sizeof__", args);
+                    return new PyInt(SetSizeInBytes(CountItems(PySet.IterableItems(
+                        NeedStorage(self, "__sizeof__", "frozenset",
+                            PyNativeStorage.ForFrozenSet(self))))));
+                },
+                minArgs: 0, maxArgs: 0);
+
             RegisterFrozenSetMethod("copy", 0, 0, (frozen, a) => frozen.Copy());
             RegisterFrozenSetMethod("union", 0, int.MaxValue, (frozen, a) => {
                 PyFrozenSet result = frozen;

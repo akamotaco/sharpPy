@@ -1655,7 +1655,21 @@ P0-43은 `type('C', (b,), {})` 경로만 고쳤다. `class C(b): pass`는 다른
 | `len` | `TypeError: cannot create 'builtin_function_or_method' instances`(`tp_new`가 NULL) | 생성 성공 |
 | `None` | `TypeError: NoneType takes no arguments` | 생성 성공 |
 
-## P0-45 내장 타입 표면 결함 (측정 2026-10-30, 미해결)
+## P0-45 내장 타입 표면 결함 (측정 2026-10-30, 2026-10-31 해결)
+
+여섯 항목을 넣었다: `set.__reduce__`/`frozenset.__reduce__`는 측정 모양 그대로
+`(type(self), (list(self),), state)`(`state`는 인스턴스 dict 또는 None), `str.__getnewargs__`는
+값을 담는다, `set`/`frozenset`/`dict`의 `__sizeof__`는 int를 반환한다. 거부는 CPython 실측대로
+`S`가 아니라 정의 타입 이름을 쓴다(`set.__reduce__() takes no arguments (1 given)`)．
+시험: `tests/bughunt/p82_reduce_and_sizeof.py`.
+
+남긴 두 가지:
+1. `__sizeof__`의 값. 고정 인터프리터에서 실측한 기준(빈 set/frozenset 200, 빈 dict 48, 두 항목
+   208)은 맞췄지만, 표가 커진 뒤의 항은 추정치다. SharpPy의 저장소는 CLR 해시 구조라 C 할당자가
+   보고하는 수와 일치시킬 수 없다 — B방(시점)이 아니라 값이 다른 것으로 기록한다.
+2. METH_NOARGS arity 메시지에 CPython 스스로 두 모양이 있다: 직접 호출(vectorcall)은 정의 타입
+   이름을, bound method를 unpack하는 일반 호출 경로는 수신 타입 이름을 쓴다(모두 실측).
+   SharpPy는 일반 코드가 지나는 직접 호출 모양을 따른다.
 
 `tools/cpython_similarity.py`가 CPython 타입 스펙(`/* tp_repr */` 주석 기준으로 positional 파싱)과
 비교해 찾은 실제 결핍: `set.__reduce__`, `frozenset.__reduce__`(pickle 구멍), `set.__sizeof__`,

@@ -14,8 +14,9 @@ namespace SharpPy
     /// which is not even a Python exception and kills the whole run. Measured on a list subclass:
     /// <c>x = [1]; x.append(x); repr(x)</c> printed nothing and died.
     ///
-    /// The set holds only the objects on the current repr path (removed in a finally block) and is
-    /// per-thread, because two threads can be repr-ing different graphs at the same time.
+    /// The mechanism translated is Py_ReprEnter/Py_ReprLeave (Objects/object.c:2370): the set holds
+    /// only the objects on the current repr path (removed in a finally block) and is per-thread,
+    /// because two threads can be repr-ing different graphs at the same time.
     /// </summary>
     internal static class PyReprGuard
     {

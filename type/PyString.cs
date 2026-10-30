@@ -684,6 +684,16 @@ namespace SharpPy
                     return new PyString("'" + reprSelf.Value + "'");
                 });
 
+            // Objects/unicodeobject.c: unicode_getnewargs - pickle and copy reconstruct a str (or a
+            // str subclass) from this tuple, so a subclass needs the value, not the wrapper.
+            strType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
+                "__getnewargs__", strType,
+                (self, args, kwargs) => new PyTuple(new PyObject[]
+                {
+                    (self as PyClassInstance)?.GetStringStorage() ?? self
+                }),
+                minArgs: 0, maxArgs: 0);
+
             // CPython 3.12: str % (nb_remainder via PyUnicode_Format) slot wrapper.
             strType.TypeDict["__mod__"] = new PyWrapperDescriptor(
                 "__mod__", strType,
