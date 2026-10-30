@@ -261,130 +261,28 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 0
             );
 
-            // CPython 3.12: Objects/floatobject.c:1311-1540 - float_fromhex (classmethod)
-            // Create a floating-point number from a hexadecimal string.
-            // Format: [sign] ['0x'] integer ['.' fraction] ['p' exponent]
-            // Example: '0x1.921fb54442d18p+1' = pi
+            // CPython 3.12: Objects/floatobject.c:1311-1549 float_fromhex.
+            // The conversion is *correctly rounded*: CPython extracts the mantissa bits and applies
+            // round-half-even, so 0x1.00000000000008p+0 is 1.0 while 0x1.00000000000018p+0 is
+            // 1.0000000000000004. The previous accumulate-then-ScaleB version got those wrong,
+            // returned 0.0 for every coefficient without a point (the two accumulation loops
+            // cancelled each other), accepted trailing junk ("0x1p3x"), and treated NBSP as
+            // whitespace.
             var fromhexMethod = new PyMethodDescriptor(
                 "fromhex", floatType,
                 (self, args, kwargs) => {
-                    // self is the class (PyType) when called as classmethod
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"float.fromhex() takes exactly one argument ({args.Length} given)");
+                        throw PyTypeError.Create(
+                            $"float.fromhex() takes exactly one argument ({args.Length} given)");
+                    if (args[0] is not PyString hexText)
+                        throw PyTypeError.Create(
+                            $"fromhex() argument must be a string, not '{args[0].GetTypeName()}'");
 
-                    if (args[0] is not PyString hexStr)
-                        throw PyTypeError.Create($"fromhex() argument must be a string, not '{args[0].GetTypeName()}'");
-
-                    string s = hexStr.Value.Trim();
-                    int i = 0;
-
-                    // Handle inf/nan
-                    if (s.Length >= 3)
-                    {
-                        string lower = s.ToLowerInvariant();
-                        if (lower.StartsWith("inf") || lower.StartsWith("+inf"))
-                            return new PyFloat(double.PositiveInfinity);
-                        if (lower.StartsWith("-inf"))
-                            return new PyFloat(double.NegativeInfinity);
-                        if (lower.StartsWith("nan") || lower.StartsWith("+nan") || lower.StartsWith("-nan"))
-                            return new PyFloat(double.NaN);
-                    }
-
-                    // Optional sign
-                    bool negate = false;
-                    if (i < s.Length && s[i] == '-')
-                    {
-                        negate = true;
-                        i++;
-                    }
-                    else if (i < s.Length && s[i] == '+')
-                    {
-                        i++;
-                    }
-
-                    // Optional 0x prefix
-                    if (i + 1 < s.Length && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X'))
-                    {
-                        i += 2;
-                    }
-
-                    // Parse coefficient: <integer> [. <fraction>]
-                    int coeffStart = i;
-                    while (i < s.Length && IsHexDigit(s[i]))
-                        i++;
-
-                    int fractionStart = i;
-                    int fractionDigits = 0;
-                    if (i < s.Length && s[i] == '.')
-                    {
-                        i++;
-                        fractionStart = i;
-                        while (i < s.Length && IsHexDigit(s[i]))
-                        {
-                            fractionDigits++;
-                            i++;
-                        }
-                    }
-
-                    int coeffEnd = i;
-                    if (coeffEnd == coeffStart)
-                        throw PyValueError.Create($"invalid hexadecimal floating-point string: '{hexStr.Value}'");
-
-                    // Parse exponent: [p <exponent>]
-                    long exp = 0;
-                    if (i < s.Length && (s[i] == 'p' || s[i] == 'P'))
-                    {
-                        i++;
-                        bool expNeg = false;
-                        if (i < s.Length && s[i] == '-')
-                        {
-                            expNeg = true;
-                            i++;
-                        }
-                        else if (i < s.Length && s[i] == '+')
-                        {
-                            i++;
-                        }
-
-                        int expStart = i;
-                        while (i < s.Length && char.IsDigit(s[i]))
-                            i++;
-
-                        if (i == expStart)
-                            throw PyValueError.Create($"invalid hexadecimal floating-point string: '{hexStr.Value}'");
-
-                        exp = long.Parse(s.Substring(expStart, i - expStart));
-                        if (expNeg)
-                            exp = -exp;
-                    }
-
-                    // Build the value: mantissa * 2^exponent
-                    double x = 0.0;
-
-                    // Parse hex digits from coefficient
-                    for (int j = coeffStart; j < fractionStart - 1; j++)
-                    {
-                        if (s[j] != '.')
-                            x = 16.0 * x + HexValue(s[j]);
-                    }
-                    for (int j = fractionStart; j < coeffEnd; j++)
-                    {
-                        x = 16.0 * x + HexValue(s[j]);
-                    }
-
-                    // Adjust exponent for fractional part (each hex digit = 4 bits)
-                    exp -= 4 * fractionDigits;
-
-                    // Apply exponent using ldexp (x * 2^exp)
-                    if (exp != 0)
-                    {
-                        x = Math.ScaleB(x, (int)exp);  // ScaleB(x, n) = x * 2^n
-                    }
-
-                    if (negate)
-                        x = -x;
-
-                    return new PyFloat(x);
+                    double value = ParseHexFloat(hexText.Value);
+                    // float_fromhex rebuilds through `type` when the classmethod reached a subclass.
+                    if (self is PyType cls && !ReferenceEquals(cls, floatType))
+                        return cls.Call(new PyObject[] { new PyFloat(value) });
+                    return new PyFloat(value);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -1310,6 +1208,236 @@ namespace SharpPy
         private static bool IsHexDigit(char c)
         {
             return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        }
+
+
+        /// <summary>
+        /// CPython 3.12: Objects/floatobject.c:1311-1549 float_fromhex, transliterated. Whitespace is
+        /// ASCII-only (Py_ISSPACE), the exponent is optional, the result is correctly rounded with
+        /// round-half-even, overflow raises OverflowError and an unparseable string raises ValueError
+        /// with CPython's own text.
+        /// </summary>
+        internal static double ParseHexFloat(string text)
+        {
+            const int DblMantDig = 53;
+            const int DblMinExp = -1021;
+            const int DblMaxExp = 1024;
+            long longHalfMax = long.MaxValue / 2;
+            long longHalfMin = long.MinValue / 2;
+
+            int end = text.Length;
+            int s = 0;
+            while (s < end && IsAsciiSpace(text[s]))
+                s++;
+
+            // Infinities and nans consume their own sign and jump to the trailing-whitespace check.
+            {
+                int probe = s;
+                bool probeNegate = false;
+                if (probe < end && (text[probe] == '-' || text[probe] == '+'))
+                {
+                    probeNegate = text[probe] == '-';
+                    probe++;
+                }
+
+                string tail = text.Substring(probe).ToLowerInvariant();
+                if (tail.StartsWith("inf"))
+                {
+                    probe += 3;
+                    if (text.Length - probe >= 5 && text.Substring(probe, 5).ToLowerInvariant() == "inity")
+                        probe += 5;
+                    s = probe;
+                    // The sign belongs to the parsed value, not to the negate flag.
+                    return FinishHex(false,
+                        probeNegate ? double.NegativeInfinity : double.PositiveInfinity, text, s, end);
+                }
+
+                if (tail.StartsWith("nan"))
+                {
+                    probe += 3;
+                    s = probe;
+                    return FinishHex(false, double.NaN, text, s, end);
+                }
+            }
+
+            bool negate = false;
+            if (s < end && text[s] == '-')
+            {
+                negate = true;
+                s++;
+            }
+            else if (s < end && text[s] == '+')
+                s++;
+
+            // [0x]
+            int prefixStore = s;
+            if (AsciiCharAt(text, s) == '0')
+            {
+                s++;
+                if (AsciiCharAt(text, s) == 'x' || AsciiCharAt(text, s) == 'X')
+                    s++;
+                else
+                    s = prefixStore;
+            }
+
+            // coefficient: <integer> [. <fraction>]
+            int coeffStart = s;
+            while (HexDigitOrMinus1(AsciiCharAt(text, s)) >= 0)
+                s++;
+            int fractionStore = s;
+            int coeffEnd;
+            if (AsciiCharAt(text, s) == '.')
+            {
+                s++;
+                while (HexDigitOrMinus1(AsciiCharAt(text, s)) >= 0)
+                    s++;
+                coeffEnd = s - 1;
+            }
+            else
+            {
+                coeffEnd = s;
+            }
+
+            int ndigits = coeffEnd - coeffStart;
+            int fdigits = coeffEnd - fractionStore;
+            if (ndigits == 0)
+                throw HexParseError();
+            long digitLimit = Math.Min(DblMinExp - DblMantDig - longHalfMin,
+                longHalfMax + 1 - DblMaxExp) / 4;
+            if (ndigits > digitLimit)
+                throw PyValueError.Create("hexadecimal string too long to convert");
+
+            long exp = 0;
+            if (AsciiCharAt(text, s) == 'p' || AsciiCharAt(text, s) == 'P')
+            {
+                s++;
+                int expStart = s;
+                if (AsciiCharAt(text, s) == '-' || AsciiCharAt(text, s) == '+')
+                    s++;
+                if (!(AsciiCharAt(text, s) >= '0' && AsciiCharAt(text, s) <= '9'))
+                    throw HexParseError();
+                s++;
+                while (AsciiCharAt(text, s) >= '0' && AsciiCharAt(text, s) <= '9')
+                    s++;
+                exp = ParseClampedInt64(text.Substring(expStart, s - expStart));
+            }
+
+            // HEX_DIGIT(j) gives the jth most significant hex digit.
+            int HexDigitAt(int j) => HexDigitOrMinus1(
+                AsciiCharAt(text, j < fdigits ? coeffEnd - j : coeffEnd - 1 - j));
+
+            while (ndigits > 0 && HexDigitAt(ndigits - 1) == 0)
+                ndigits--;
+            double x;
+            if (ndigits == 0 || exp < longHalfMin)
+                return FinishHex(negate, 0.0, text, s, end);
+            if (exp > longHalfMax)
+                throw HexOverflowError();
+
+            exp = exp - 4L * fdigits;
+            long topExp = exp + 4L * (ndigits - 1);
+            for (int digit = HexDigitAt(ndigits - 1); digit != 0; digit /= 2)
+                topExp++;
+
+            if (topExp < DblMinExp - DblMantDig)
+                return FinishHex(negate, 0.0, text, s, end);
+            if (topExp > DblMaxExp)
+                throw HexOverflowError();
+
+            long lsb = Math.Max(topExp, DblMinExp) - DblMantDig;
+            x = 0.0;
+            if (exp >= lsb)
+            {
+                for (int i = ndigits - 1; i >= 0; i--)
+                    x = 16.0 * x + HexDigitAt(i);
+                x = Math.ScaleB(x, (int)exp);
+                return FinishHex(negate, x, text, s, end);
+            }
+
+            int halfEps = 1 << (int)((lsb - exp - 1) % 4);
+            int keyDigit = (int)((lsb - exp - 1) / 4);
+            for (int i = ndigits - 1; i > keyDigit; i--)
+                x = 16.0 * x + HexDigitAt(i);
+            int keyHex = HexDigitAt(keyDigit);
+            x = 16.0 * x + (double)(keyHex & (16 - 2 * halfEps));
+
+            // round-half-even
+            if ((keyHex & halfEps) != 0)
+            {
+                bool roundUp;
+                if ((keyHex & (3 * halfEps - 1)) != 0 ||
+                    (halfEps == 8 && keyDigit + 1 < ndigits && (HexDigitAt(keyDigit + 1) & 1) != 0))
+                {
+                    roundUp = true;
+                }
+                else
+                {
+                    roundUp = false;
+                    for (int i = keyDigit - 1; i >= 0; i--)
+                    {
+                        if (HexDigitAt(i) != 0)
+                        {
+                            roundUp = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (roundUp)
+                {
+                    x += 2 * halfEps;
+                    if (topExp == DblMaxExp && x == Math.ScaleB((double)(2 * halfEps), DblMantDig))
+                        throw HexOverflowError();
+                }
+            }
+
+            x = Math.ScaleB(x, (int)(exp + 4L * keyDigit));
+            return FinishHex(negate, x, text, s, end);
+        }
+
+        private static double FinishHex(bool negate, double value, string text, int s, int end)
+        {
+            // optional trailing whitespace leading to the end of the string
+            while (s < end && IsAsciiSpace(text[s]))
+                s++;
+            if (s != end)
+                throw HexParseError();
+            return negate ? -value : value;
+        }
+
+        private static Exception HexParseError() =>
+            PyValueError.Create("invalid hexadecimal floating-point string");
+
+        private static Exception HexOverflowError() =>
+            PyOverflowError.Create("hexadecimal value too large to represent as a float");
+
+        private static bool IsAsciiSpace(char c) =>
+            c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+
+        private static char AsciiCharAt(string text, int index) =>
+            index >= 0 && index < text.Length ? text[index] : '\0';
+
+        private static int HexDigitOrMinus1(char c)
+        {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        }
+
+        private static long ParseClampedInt64(string digits)
+        {
+            // strtol saturates; the caller only compares the result against LONG_MIN/2 and LONG_MAX/2.
+            bool negative = digits.Length > 0 && digits[0] == '-';
+            int i = digits.Length > 0 && (digits[0] == '-' || digits[0] == '+') ? 1 : 0;
+            long value = 0;
+            for (; i < digits.Length; i++)
+            {
+                if (value > (long.MaxValue - 9) / 10)
+                    return negative ? long.MinValue : long.MaxValue;
+                value = value * 10 + (digits[i] - '0');
+            }
+            return negative ? -value : value;
         }
 
         private static int HexValue(char c)

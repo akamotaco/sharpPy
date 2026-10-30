@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **73/73 matching**
+- `tools/run_bughunt.py`: **74/74 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -786,10 +786,31 @@ CPython의 `getattr` 기본값은 **AttributeError만** 잡는다. SharpPy는 `B
 최대 확장 길이 3까지)을 쓴다. 증상이 안 보이던 이유는 p02 검사가 ASCII 기준이었기 때문이다. p02를
 비-ASCII 검사로 확장하고, culture 영향이 없는 경로로 바꾼다.
 
-## P0-32 (2026-10-30 등록): `float.fromhex`가 예외 없이 0.0을 반환한다
+## P0-32 (2026-10-30 **닫힘**): `float.fromhex`는 반올림까지 CPython의 것이다
 
-`float.fromhex("0x1p3")`은 CPython `8.0`, SharpPy `0.0`. 조용히 틀리는 것이 최악이다. CPython의
-`float_fromhex_core`가 받는 문법(16진 가수·지수, `inf`/`nan`, 공백, 부호)을 기준으로 다시 쓴다.
+`float.fromhex("0x1p3")`은 CPython `8.0`, SharpPy `0.0`이었다. 조용히 틀리는 것이 최악이다.
+
+원인은 두 개였다. 가수 누적 루프 두 개가 점을 포함하지 않는 가수에서 서로를 무효화해서(첫 루프는
+`j < fractionStart - 1`, 둘째 루프는 `j`가 이미 `coeffEnd`) 모든 자리에서 0.0이 나왔다. 그리고
+파싱이 끝난 위치를 확인하지 않아 뒤의 잡음을 버렸다. 그런데 CPython 소스를 열어보니
+(`Objects/floatobject.c:1311-1549`, 3.12에는 `float_fromhex_core`가 아니라 `float_fromhex`다)
+단순 누적 방식 자체가 틀린 설계였다:
+
+- CPython은 가수 비트를 뽑아 **round-half-even**으로 반올림한다.
+  `0x1.00000000000008p+0` → `1.0`, `0x1.00000000000018p+0` → `1.0000000000000004`.
+  누적 후 `ldexp` 방식은 이 두 개를 구별하지 못한다.
+- 공백은 ASCII뿐이다 (`Py_ISSPACE`). NBSP는 `ValueError`.
+- 부호 뒤·`p` 앞의 공백도 허용하지 않는다. 선후미 공백만.
+- `inf`/`infinity`/`nan`은 부호를 포함해 자체 파싱 후 꼬리 공백 검사로 바로 넘어간다. `nan)abc`는 `ValueError`.
+- 자릿수 상한을 넘으면 `ValueError: hexadecimal string too long to convert`,
+  값이 커지면 `OverflowError: hexadecimal value too large to represent as a float`,
+  그 외 파싱 실패는 `ValueError: invalid hexadecimal floating-point string` (접미사 없이).
+- classmethod는 도달한 클래스로 값을 다시 만든다 (`PyObject_CallOneArg(type, result)`).
+  따라서 `G.fromhex(...)`에서 `G.__new__`가 실행되고 예외를 던질 수도 있다.
+
+C#에는 같은 알고리즘을 그대로 옮겼다 (`PyFloat.ParseHexFloat`). p69가 48개 명명 케이스 + 고정 16진
+문자열 31개의 `fromhex(h).hex() == h` 왕복을 고정했다 (차이 0).
+
 
 ## P1 모음 (2026-10-30 검사): 같은 것을 두 번 구현한 자리
 
