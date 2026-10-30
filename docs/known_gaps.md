@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **71/71 matching**
+- `tools/run_bughunt.py`: **72/72 matching**
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
   guarded by p65; the surface gap it exposed for other builtin types is **P0-28**.
 - Every open P0 below was **re-measured 2026-10-29** (`.artifacts/tmp/p0rest.py`), so none
@@ -677,7 +677,7 @@ positional-only다. `sorted(dict, key=len)`은 되고 `sorted(iterable=[1])`는 
 - `tools/perf_probe.py` 지적 없음(모두 +0~9% 대역, 이전 기록의 노이즈 대역 안). 게이트는
   `kwargs != null`일 때만 동작하고, 이름 인수를 읽는 추가는 kwargs가 있는 호출만 탄다.
 
-## P0-29 (2026-10-30 등록): positional 과잉 인수의 **문구 계열**, 그리고 getattr/hasattr가 예외를 삼킨다
+## P0-29 (2026-10-30 등록, attribute 계열은 닫힘): positional 과잉 인수의 **문구 계열**
 
 P0-26이 keyword면을 정리하고 남긴 것은 위치 인수 문구다. 표본 15개 중 **11개**가 다르다(측정):
 
@@ -720,6 +720,76 @@ CPython의 `getattr` 기본값은 **AttributeError만** 잡는다. SharpPy는 `B
  — 그리고 `CallGetAttr`에는 `result is PyNone && default != null → 기본값`이라는 별도 우회가 있어
  `x = None`인 속성을 잘못 삼킬 수 있다(측정으로는 module 쪽이 이기고 있어 지금은 증상이 안 난다).
  `abs`에서 했던 것처럼 구현을 하나로 합치고 `AttributeError`만 잡도록 고친다.
+
+
+### 닫힌 부분 (p67): getattr/hasattr/setattr/delattr
+
+- 기본값을 받는 `getattr`과 `hasattr`는 **AttributeError만**suppress한다. BuiltinsModule에 있던
+  두 번째 구현이 모든 예외를 잡아서 `getattr(Boom(), "anything", "D")`가 `'D'`를 반환했다. 이제 구현은
+  하나다. `x = None`인 속성을 없는 속성으로 취급하던 분기도 제거했다.
+- 이름 인수 메시지는 네 함수 모두 CPython과 같아졌다: `attribute name must be string, not 'int'`.
+- 위치 인수 문구도 측정한 대로 고쳤다 (`hasattr expected 2 arguments, got 3`,
+  `getattr expected at least 2 arguments, got 1`).
+- 삭제 메시지는 CPython에서 네 갈래다 (descrobject.c getset / object.c read-only / dict 경로 /
+  `object_set_class`)라는 것을 소스에서 확인하고 그대로 옮겼다. `gate`는 객체가 인스턴스 dict를
+  가지는지, 이름이 어떤 슬롯에서 resolution되었는지로 결정된다.
+- 남은 것은 attribute 계열이 아닌 나머지 builtin의 위치 인수 문구다.
+
+## P0-30 (2026-10-30 등록): 숫자 타입의 속성 표면 - bool이 int 디스크립터를 미치고, real/__getnewargs__가 보이지 않는다
+
+구조 검사가 내보낸 두 계열.
+
+| 표현 | CPython | SharpPy |
+|---|---|---|
+| `(True).real` | `1` | `TypeError: descriptor 'real' for 'int' objects doesn't apply to ...` |
+| `(True).imag`, `(True).conjugate()` | `0`, `1` | 같은 `TypeError` |
+| `hasattr(1, "__getnewargs__")` | `True` | `False` |
+| `hasattr(1.5, "__getnewargs__")` | `True` | `False` |
+| `hasattr(1+2j, "__getnewargs__")` | `True` | `False` |
+| `setattr(1.5, "real", 2)` | `AttributeError: attribute 'real' of 'float' objects is not writable` | `AttributeError: 'float' object has no attribute 'real'` |
+
+`bool`은 `int`의 하위 타입이므로 CPython에서 int 슬롯은 `PyLong_Check` 통과 경로다. 지금은 정확히 타입을
+비교해서 거부하고, 거기다 그 메시지 자체가 CPython에 없는 형태이며 큰따옴표까지 붙어서 나온다.
+`__getnewargs__`는 pickle 협정 표면이고 P0-28의 남은 가정 목록에 이미 같은 종류로 들어 있다.
+
+## P0-31 (2026-10-30 등록): `str.upper()` / `str.lower()`가 ASCII 이상에서 아무 반응도 없다
+
+| 표현 | CPython | SharpPy |
+|---|---|---|
+| `"ß".upper()` | `'SS'` | `'ß'` 그대로 |
+| `"İ".lower()` | `'i\u0307'` | `'İ'` 그대로 |
+
+`casefold`(`'ß' → 'ss'`), `title`, `swapcase`, `istitle`은 정확하므로 문제는 표가 아니라 이 두 메서드가
+단순화된 처리로 돌아간다는 것이다. CPython은 Unicode 기준 대소문자 운영(`unicode_upper`/`unicode_lower`,
+최대 확장 길이 3까지)을 쓴다. 증상이 안 보이던 이유는 p02 검사가 ASCII 기준이었기 때문이다. p02를
+비-ASCII 검사로 확장하고, culture 영향이 없는 경로로 바꾼다.
+
+## P0-32 (2026-10-30 등록): `float.fromhex`가 예외 없이 0.0을 반환한다
+
+`float.fromhex("0x1p3")`은 CPython `8.0`, SharpPy `0.0`. 조용히 틀리는 것이 최악이다. CPython의
+`float_fromhex_core`가 받는 문법(16진 가수·지수, `inf`/`nan`, 공백, 부호)을 기준으로 다시 쓴다.
+
+## P1 모음 (2026-10-30 검사): 같은 것을 두 번 구현한 자리
+
+1. **builtin 표 항목과 모듈 delegate가 둘 다 있는 것 13개** — `abs, ascii, bin, compile, format, hex,
+   isinstance, issubclass, len, memoryview, oct, pow, vars`. 뒤에 등록된 delegate가 이기므로
+   `core/PyBuiltin.cs`의 표 항목은 실행되지 않는 코드다. 하나로 합친다.
+2. **`operator.pow`/`operator.abs`가 `builtins`와 별도 구현** — CPython이 거부하는 keyword까지 받고,
+   라벨에 `_operator.` 접두가 없다 (CPython `_operator.pow() takes no keyword arguments`). `abs`에서
+   한 구현으로 모았을 때 따랐던 길을 다시 벗어났다.
+3. **`set.copy`**가 `TypeDict`와 `GetAttribute` 특별 분기 두 곳에 등록되어 있다.
+4. **호출자가 없는 구 구현들** — `PyString.Upper()`, `PyString.Lower()`, `PyString.Capitalize()`는
+   호출자가 없고, `Capitalize`는 `CurrentCulture.TextInfo.ToTitleCase`를 쓴다. 살아있는 `title`이
+   CPython 단어 경계 규칙으로 의도적으로 바꾸어 놓았다는 것을 모르는 사람이 저 전화를 고치면 같은
+   오류가 되산다. 삭제한다.
+5. **예외 매칭이 두 갈래** — `runtime/PyVM.cs:7025`가 타입 이름을 `StringComparison.OrdinalIgnoreCase`로
+   비교하고 `"Exception"` 하드코딩까지 둔다. CPython의 매칭은 클래스 객체/MRO 기준이다. p07이 달성은
+   뒤에 MRO 경로가 먼저 이기기 때문이고, 이 이름 비교 경로 자체는 유효하다. 삭제하고 MRO 판정 하나로
+   합친다.
+6. **codec 호출이 표 밖에서 4개 파일** — `modules/_CodecsModule.cs`(4), `runtime/PyBinaryTypes.cs`(3),
+   `core/PyFileContextManager.cs`(1)가 `Encoding.GetEncoding`을 직접 불러서 `core/PyString.cs`의
+   `NormalizeCodecName` 별칭 표와 다른 경로로 간다. 모두 그 함수로 모은다.
+7. 인수 검사 문자열이 8계열 400개 넘게 흩어져 있다. 계량은 P0-29로 남긴다.
 
 ## P1 (2026-10-30 등록): codec 표의 범위와 strict 디코딩 한계
 

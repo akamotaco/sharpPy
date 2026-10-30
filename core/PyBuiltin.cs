@@ -1072,89 +1072,76 @@ namespace SharpPy
             }
         }
 
+        // CPython 3.12: Python/bltinmodule.c builtin_getattr / builtin_hasattr / builtin_setattr /
+        // builtin_delattr. Two separate defects lived here. The duplicates in modules/BuiltinsModule.cs
+        // caught every exception, so a ValueError from a user __getattr__ turned into the default value
+        // (or into hasattr returning False); CPython's default suppresses AttributeError only. And the
+        // name-type check invented "getattr(): attribute name must be string", while CPython says
+        // "attribute name must be string, not 'int'" for all four builtins.
+        private static string AttributeNameOf(PyObject name)
+        {
+            if (name is PyString strName)
+                return strName.Value;
+            throw PyTypeError.Create($"attribute name must be string, not '{name.GetTypeName()}'");
+        }
+
         private static PyObject CallHasAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
-                throw PyTypeError.Create($"hasattr expected exactly 2 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"hasattr expected 2 arguments, got {args.Length}");
 
             var obj = args[0];
-            var name = args[1];
+            var name = AttributeNameOf(args[1]);
 
-            if (!(name is PyString strName))
-                throw PyTypeError.Create("hasattr expected str object, not '" + name.GetTypeName() + "'");
-
-            try
-            {
-                obj.GetAttribute(strName.Value);
-                return PyBool.True;
-            }
-            catch (PythonException ex) when (ex.PyException is PyAttributeError)
-            {
-                return PyBool.False;
-            }
+            // CPython's builtin_hasattr is _PyObject_LookupAttr plus "if the error was AttributeError,
+            // clear it and answer False". LookupAttribute is that primitive: a user __getattr__ that
+            // raises ValueError still propagates.
+            return obj.LookupAttribute(name) != null ? PyBool.True : PyBool.False;
         }
 
         private static PyObject CallGetAttr(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"getattr expected 2 or 3 arguments ({args.Length} given)");
+            // Measured: getattr's arity texts use "at least" / "at most", unlike hasattr's plain form.
+            if (args.Length < 2)
+                throw PyTypeError.Create($"getattr expected at least 2 arguments, got {args.Length}");
+            if (args.Length > 3)
+                throw PyTypeError.Create($"getattr expected at most 3 arguments, got {args.Length}");
 
             var obj = args[0];
-            var name = args[1];
+            var name = AttributeNameOf(args[1]);
             var defaultValue = args.Length > 2 ? args[2] : null;
 
-            if (!(name is PyString strName))
-                throw PyTypeError.Create("getattr expected str object, not '" + name.GetTypeName() + "'");
+            if (defaultValue == null)
+                return obj.GetAttribute(name);
 
-            try
-            {
-                var result = obj.GetAttribute(strName.Value);
-
-                // CPython 3.12: If GetAttribute returns None, treat it as AttributeError for default value handling
-                // Some attributes (like __qualname__) may return None instead of raising AttributeError
-                if (result is PyNone && defaultValue != null)
-                {
-                    return defaultValue;
-                }
-
-                return result;
-            }
-            catch (PythonException ex) when (ex.PyException is PyAttributeError)
-            {
-                if (defaultValue != null)
-                    return defaultValue;
-                throw;
-            }
+            // The two-argument form raises; the three-argument form suppresses AttributeError only.
+            // LookupAttribute returns CLR null exactly when the lookup failed with AttributeError, and
+            // propagates anything else. A Python None here is a real attribute value, returned as
+            // itself - an earlier version treated it as missing, which turned x = None into a default.
+            return obj.LookupAttribute(name) ?? defaultValue;
         }
 
         private static PyObject CallSetAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 3)
-                throw PyTypeError.Create($"setattr expected exactly 3 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"setattr expected 3 arguments, got {args.Length}");
 
             var obj = args[0];
-            var name = args[1];
-            var value = args[2];
+            var name = AttributeNameOf(args[1]);
 
-            if (!(name is PyString strName))
-                throw PyTypeError.Create("setattr expected str object, not '" + name.GetTypeName() + "'");
-
-            obj.SetAttribute(strName.Value, value);
+            obj.SetAttribute(name, args[2]);
             return PyNone.Instance;
         }
 
         private static PyObject CallDelAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
-                throw PyTypeError.Create($"delattr expected exactly 2 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"delattr expected 2 arguments, got {args.Length}");
 
             var obj = args[0];
-            var name = args[1];
+            var name = AttributeNameOf(args[1]);
 
-            if (!(name is PyString strName))
-                throw PyTypeError.Create("delattr expected str object, not '" + name.GetTypeName() + "'");
-
-            obj.DelAttribute(strName.Value);
+            obj.DelAttribute(name);
             return PyNone.Instance;
         }
 

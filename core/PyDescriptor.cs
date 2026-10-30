@@ -261,9 +261,15 @@ namespace SharpPy
             _setter(instance, value);
         }
 
+        // Deletion reaches the same slot as assignment (CPython calls descr_set with value=NULL), so
+        // a getset without a setter reports the getset_set error, not a generic "can't delete":
+        // Objects/descrobject.c:255-264 - AttributeError "attribute 'real' of 'int' objects is not
+        // writable". That is what delattr(1, "real") shows, while delattr("s", "real") - where nothing
+        // resolves - reports "has no attribute" instead.
         public void Delete(PyObject instance)
         {
-            throw PyAttributeError.Create($"can't delete attribute '{Name}' of '{OwnerType.Name}' objects");
+            throw PyAttributeError.Create(
+                $"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
         }
 
         // Native getset descriptors have a setting slot even when it only
@@ -391,9 +397,14 @@ namespace SharpPy
             throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
         }
 
+        // A wrapper/method descriptor has no tp_descr_set at all, so CPython reports it one level up,
+        // in _PyObject_GenericSetAttrWithDict (Objects/object.c:1592-1598): the name resolved but the
+        // object has no instance dict to delete from -
+        // AttributeError "'int' object attribute '__add__' is read-only".
         public void Delete(PyObject instance)
         {
-            throw PyAttributeError.Create($"can't delete attribute '{Name}' of '{OwnerType.Name}' objects");
+            throw PyAttributeError.Create(
+                $"'{OwnerType.Name}' object attribute '{Name}' is read-only");
         }
 
         public bool IsDataDescriptor() => false;

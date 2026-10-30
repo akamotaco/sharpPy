@@ -629,17 +629,21 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject LookupAttribute(string name)
         {
+            // CPython's _PyObject_LookupAttr runs the object's NORMAL tp_getattro and suppresses only
+            // AttributeError. It must not be narrowed to GenericGetAttribute: in this runtime several
+            // types implement their attributes in a GetAttribute override instead of TypeDict
+            // descriptors (complex.real is one), so the generic path reports "no attribute" for
+            // attributes that getattr finds. Measured: hasattr(1 + 2j, "real") went False while
+            // (1 + 2j).real kept working, which is two disagreeing answers about one attribute.
             try
             {
-                // Use GenericGetAttribute but catch AttributeError
-                return GenericGetAttribute(name);
+                return GetAttribute(name);
             }
             catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
-                // CPython: AttributeError is suppressed, return null
                 return null;
             }
-            // Other exceptions are propagated
+            // Anything a user __getattr__ raises still propagates.
         }
 
         /// <summary>
@@ -974,6 +978,12 @@ namespace SharpPy
             if (this is PyType nativeType && !(nativeType is PyClass))
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type '{nativeType.Name}'");
 
+            // Objects/typeobject.c:5712-5719: __class__ is a getset whose setter rejects deletion with
+            // TypeError before any MRO search, so delattr(obj, "__class__") is
+            // "can't delete __class__ attribute" for every object whose type is writable.
+            if (name == "__class__")
+                throw PyTypeError.Create("can't delete __class__ attribute");
+
             var type = GetPyType();
 
             #if DEBUG_LOG
@@ -1049,10 +1059,21 @@ namespace SharpPy
                 }
             }
 
-            // 4. Attribute not found - raise AttributeError (CPython behavior)
+            // 4. CPython's _PyObject_GenericSetAttrWithDict(..., value=NULL) splits at
+            //    Objects/object.c:1589-1599.  When the object has no instance dict, a name that DID
+            //    resolve to something without tp_descr_set reports
+            //    "'int' object attribute '__add__' is read-only", while an unresolved name reports
+            //    "'str' object has no attribute 'real'".  When the object DOES have an instance dict the
+            //    delete falls into that dict, so even a class attribute that resolved answers
+            //    "'C' object has no attribute 'cls_attr'" - measured, and the reason the dict-carrying
+            //    cases are excluded from the read-only text.  (Writable-but-read-only descriptors such as
+            //    int.real never get here: their own Delete slot raises, see core/PyDescriptor.cs.)
             #if DEBUG_LOG
-            Console.WriteLine($"   ❌ attribute not found anywhere, raising AttributeError");
+            Console.WriteLine($"   ❌ attribute not deletable, raising AttributeError");
             #endif
+            if (attr != null && !(this is PyClassInstance) && !(this is IInstanceDictAccessor))
+                throw PyAttributeError.Create(
+                    $"'{GetTypeName()}' object attribute '{name}' is read-only");
             throw AttributeNotFound(name);
         }
 

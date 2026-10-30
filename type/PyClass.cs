@@ -773,6 +773,12 @@ namespace SharpPy
         // CPython 3.12: Override DelAttribute for type objects
         protected override void PyDelAttribute(string name)
         {
+            // A heap class is writable, so type_setattro reaches object_set_class, which refuses
+            // deletion of __class__ with TypeError (Objects/typeobject.c:5712-5719). Without this the
+            // lookup below answered "type object 'C' has no attribute '__class__'".
+            if (name == "__class__")
+                throw PyTypeError.Create("can't delete __class__ attribute");
+
             if (ClassDict.ContainsKey(name))
             {
                 ClassDict.Remove(name);
@@ -2223,6 +2229,11 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PyClassInstance.DelAttributeDefault: {InstanceType.Name} instance.{name}");
             #endif
+
+            // __class__ is a getset on object whose setter rejects deletion with TypeError
+            // (Objects/typeobject.c:5712-5719), so it is answered before the MRO search.
+            if (name == "__class__")
+                throw PyTypeError.Create("can't delete __class__ attribute");
 
             // CPython 3.12 descriptor protocol:
             // 1. 클래스 MRO에서 data descriptor 찾기

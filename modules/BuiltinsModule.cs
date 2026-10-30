@@ -141,9 +141,13 @@ namespace SharpPy.Modules
             module.ModuleDict["len"] = new PyBuiltinFunction("len", Len);
             module.ModuleDict["isinstance"] = new PyBuiltinFunction("isinstance", IsInstance);
             module.ModuleDict["issubclass"] = new PyBuiltinFunction("issubclass", IsSubclass);
-            module.ModuleDict["hasattr"] = new PyBuiltinFunction("hasattr", HasAttr);
-            module.ModuleDict["getattr"] = new PyBuiltinFunction("getattr", GetAttr);
-            module.ModuleDict["setattr"] = new PyBuiltinFunction("setattr", SetAttr);
+            // hasattr/getattr/setattr used to have a second implementation here as well, and this one
+            // won because it was passed as the delegate. It caught every exception, so
+            // getattr(obj, "x", "D") returned "D" for a ValueError raised inside a user __getattr__.
+            // There is one implementation now: PyBuiltinFunction._builtinImplementations.
+            module.ModuleDict["hasattr"] = new PyBuiltinFunction("hasattr");
+            module.ModuleDict["getattr"] = new PyBuiltinFunction("getattr");
+            module.ModuleDict["setattr"] = new PyBuiltinFunction("setattr");
 
             // CPython 3.12: Python/bltinmodule.c:246-278
             // __import__ is registered without explicit implementation here.
@@ -578,67 +582,8 @@ namespace SharpPy.Modules
             return PyBool.False;
         }
 
-        private static PyObject HasAttr(PyObject[] args)
-        {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"hasattr() takes exactly 2 arguments ({args.Length} given)");
-
-            var obj = args[0];
-            var name = args[1];
-
-            if (!(name is PyString nameStr))
-                throw PyTypeError.Create("hasattr(): attribute name must be string");
-
-            try
-            {
-                obj.GetAttribute(nameStr.Value);
-                return PyBool.True;
-            }
-            catch
-            {
-                return PyBool.False;
-            }
-        }
-
-        private static PyObject GetAttr(PyObject[] args)
-        {
-            if (args.Length < 2 || args.Length > 3)
-                throw PyTypeError.Create($"getattr expected 2 or 3 arguments, got {args.Length}");
-
-            var obj = args[0];
-            var name = args[1];
-            var defaultValue = args.Length > 2 ? args[2] : null;
-
-            if (!(name is PyString nameStr))
-                throw PyTypeError.Create("getattr(): attribute name must be string");
-
-            try
-            {
-                return obj.GetAttribute(nameStr.Value);
-            }
-            catch
-            {
-                if (defaultValue != null)
-                    return defaultValue;
-                throw;
-            }
-        }
-
-        private static PyObject SetAttr(PyObject[] args)
-        {
-            if (args.Length != 3)
-                throw PyTypeError.Create($"setattr expected exactly 3 arguments, got {args.Length}");
-
-            var obj = args[0];
-            var name = args[1];
-            var value = args[2];
-
-            if (!(name is PyString nameStr))
-                throw PyTypeError.Create("setattr(): attribute name must be string");
-
-            obj.SetAttribute(nameStr.Value, value);
-            return PyNone.Instance;
-        }
+        // The attribute builtins live in PyBuiltinFunction only. See P0-29 in docs/known_gaps.md for
+        // the measured argument texts and for which exception the default in getattr suppresses.
 
         // CPython 3.12: Python/bltinmodule.c:560 - builtin_bin
         private static PyObject Bin(PyObject[] args)
