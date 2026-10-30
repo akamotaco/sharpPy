@@ -977,26 +977,11 @@ namespace SharpPy
                 (args.Length > 1 || (kwargs != null && PyObject.KwValue(kwargs, "encoding") != null)))
                 throw PyTypeError.Create("encoding without a string argument");
 
-            if (!ReferenceEquals(this, BytesType) && this is PyClass bytesClass &&
-                DerivesFromType(BytesType) && !bytesClass.DeclaresUserSpecial("__new__"))
-            {
-                // CPython builds a bytes object whose type slot is the subclass, so value semantics and
-                // the subclass's dunders both survive. Returning the plain bytes here is what made
-                // type(B(b"xy")).__name__ report 'bytes' and every declared dunder go unseen.
-                return PyBytesSubclass.BytesSubtypeNew(bytesClass, args, kwargs);
-            }
-
-            // CPython 3.12: Objects/floatobject.c float_new forwards to PyNumber_Float and
-            // declares no keyword parameters. Routing here keeps float() on the same slot
-            // order as any other conversion (nb_float → nb_index → text form).
+            // A bytes subclass needs no branch of its own: the MRO resolves bytes.__new__, and that
+            // slot honours the requested type through bytes_subtype_new (Objects/bytesobject.c), so
+            // a second copy of the rule here could only drift from it. Same for float.
             if (ReferenceEquals(this, FloatType))
-            {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("float() takes no keyword arguments");
-                if (args.Length > 1)
-                    throw PyTypeError.Create($"float expected at most 1 argument, got {args.Length}");
-                return args.Length == 0 ? new PyFloat(0.0) : args[0].AsFloat();
-            }
+                return PyFloat.FloatNew(FloatType, args, kwargs);
 
             // CPython float_subtype_new: constructing a float subclass produces a float object
             // whose type slot is the subclass, so value semantics survive. Passing this through

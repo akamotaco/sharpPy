@@ -45,6 +45,38 @@ namespace SharpPy
             PyTypeError.Create(
                 $"descriptor '{name}' for 'float' objects doesn't apply to a '{self.GetTypeName()}' object");
 
+        /// <summary>
+        /// float_new / float_subtype_new, one implementation for both entry points: the
+        /// <c>float.__new__</c> slot below and the <c>float(...)</c> call path in PyType.Call.
+        /// CPython likewise has a single parser for both - float_new_impl, reached from
+        /// float_vectorcall too (Objects/floatobject.c:1698).
+        /// </summary>
+        internal static PyObject FloatNew(PyObject cls, PyObject[] valueArgs, PyDict kwargs)
+        {
+            // x is positional-only (clinic header at Objects/floatobject.c:1644), so any keyword is
+            // refused by _PyArg_CheckPositional (Objects/floatobject.c:1705).
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("float() takes no keyword arguments");
+            if (valueArgs.Length > 1)
+                throw PyTypeError.Create(
+                    $"float expected at most 1 argument, got {valueArgs.Length}");
+
+            // float_new_impl with x == NULL substitutes 0 (Objects/floatobject.c:1655).
+            var value = valueArgs.Length == 0 ? new PyInt(0) : valueArgs[0];
+
+            if (ReferenceEquals(cls, PyType.FloatType))
+                return value.AsFloat();
+
+            if (!(cls is PyClass subtype))
+                throw PyTypeError.Create(
+                    $"float.__new__(X): X is not a type object ({cls.GetTypeName()})");
+
+            // float_subtype_new (Objects/floatobject.c:1677): convert with the exact type first, so
+            // conversion errors are reported the same way, then allocate the subtype and copy the
+            // value across.
+            return new PyFloatSubclass(subtype, value.AsFloat());
+        }
+
         public static void InitializeFloatDescriptors()
         {
             var floatType = PyType.FloatType;
@@ -206,6 +238,22 @@ namespace SharpPy
                 },
                 minArgs: 0, maxArgs: 0
             );
+
+            // CPython: Objects/floatobject.c:1644 float.__new__ (clinic: x: object = 0, /
+            // - positional only), arity checked by _PyArg_CheckPositional("float", nargs, 0, 1) at
+            // Objects/floatobject.c:1705, and a subtype routed to float_subtype_new
+            // (Objects/floatobject.c:1677) which converts first and then allocates the subtype.
+            //
+            // This slot was missing, and the absence was observable in two ways: PyClass had to
+            // special-case float subclasses in CreateInstanceCore, and super().__new__(cls, v) in a
+            // user float subclass resolved to object.__new__ and raised
+            // "object.__new__() takes exactly one argument (the type to instantiate)" where CPython
+            // returns the converted value.
+            floatType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__",
+                (args, kwargs) => FloatNew(
+                    args.Length > 0 ? args[0] : floatType,
+                    args.Length > 1 ? args[1..] : System.Array.Empty<PyObject>(),
+                    kwargs));
 
             // CPython 3.12: Objects/floatobject.c:1432-1470 - float_as_integer_ratio
             // Return a pair of integers, whose ratio is exactly equal to the original float.

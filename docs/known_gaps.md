@@ -11,7 +11,7 @@ Reference interpreter: **CPython 3.12.15**
 
 - `tools/evaluate.py`: `{"matching_output": 225,
   "matching_except_volatile_fields": 3, "self_test_no_reference": 2}`
-- `tools/run_bughunt.py`: **85/85 matching** (p76 150 lines, p78, p79, p80 added; all diff 0)
+- `tools/run_bughunt.py`: **86/86 matching** (p76 150 lines, p78, p79, p80, p81 added; all diff 0)
 - `tools/cpython_similarity.py`: **0 broken C anchors**, 17 mechanism rows all cited from C#
 - `tools/argv_matrix.py`: **0 mismatches** (P0-41로 등록된 gap은 제외)
 - P0-14 closed by p64. The registration-order fix P0-14's delegation depends on is
@@ -1611,6 +1611,23 @@ sealed인 타입은 없으므로 C# 단일 상속은 이를 강요하지 않았�
 되게 하고, `PyNativeStorage`는 캐스트만 남기고, `PyClassInstance`는 CPython이 주는 일(`__dict__
 를 가진 heap type`)만 지킨다. 선행 필요: `is PyClassInstance`로 서브클래스를 구분하는 지점
 (`core/PyBuiltin.cs:3776`, `core/PyType.cs:2882` 등) 함께 처리.
+
+**Q1 완료 (2026-10-31)** — 서브클래스 인스턴스는 그 타입 자신의 tp_new가 만든다(CPython에 중앙
+팩토리는 없다). `float`에는 `__new__` 슬롯 자체가 없어서 `super().__new__(cls, v)`가
+`object.__new__`로 이어지며 `TypeError: object.__new__() takes exactly one argument`를 냈다
+(실측: CPython `D(2.0)` → `4.0`). 이제 `type/PyFloat.cs:48 FloatNew`가
+`float_new`/`float_subtype_new`(`floatobject.c:1644`, `:1677`, arity는 `:1705`)의 단일 구현이고,
+제너릭 코드에 있던 계열 분기를 삭제했다: `PyClass.CreateInstanceCore`의 float 분기、
+`PyType.Call`의 bytes 서브클래스 분기、`PyClass.CreateInstanceCore`의 bytes 분기、그리고
+`PyType.Call`의 float 분기는 `FloatNew`로 위임(bytes는 `type/PyBytes.cs:210`이 기관)。
+측정 — `family branches in generic paths 7→4`, `*_subtype_new sites 7→5`、bughunt **86/86**
+(`p81_float_new_and_super.py`: float 행렬 + 5개 payload base 전체의 `super().__new__` + 거부 3종)、
+evaluate 225/3/2、Godot 82/0、perf A/B 0.95x~1.03x(노이즈)。
+자세히는 [서브클래스 인스턴스는 그 타입이 만든다](reports/2026-10-31/subtype_new_belongs_to_the_type.md).
+
+남은 branch: `core/PyType.cs:1004`/`:1010`(str — `str.__new__`는 이미 존재
+`type/PyString.cs:1625`)、`:975`의 bytes-like encoding 검사. 그리고 `float.__new__` repr이
+`<builtin_function_or_method object at 0x…>`(CPython은 `<built-in method __new__ of type object …>`)。
 
 ## P0-44 class 문장에서 타입이 아닌 base (측정 2026-10-30, 미해결)
 

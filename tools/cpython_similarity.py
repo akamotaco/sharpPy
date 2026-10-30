@@ -327,14 +327,24 @@ def metric_detours(root):
     todo = 0
     capability_tables = 0
     per_type_switch = 0
+    family_branches = 0
+    subtype_new_sites = 0
     for path in cs_files(root):
         text = read(path)
+        rel = os.path.relpath(path, root).replace("\\", "/")
         todo += len(re.findall(r"//\s*(TODO|FIXME|미구현|나중에)", text))
         if "_nativeCaps" in text or "NativeBuiltinState" in text:
             capability_tables += 1
         per_type_switch += len(re.findall(r'GetTypeName\(\)\s*==\s*"', text))
+        # A builtin family handled inside generic code (PyClass.CreateInstanceCore, PyType.Call)
+        # is a place where CPython has nothing: each type's own tp_new owns its subtype.
+        if rel in ("core/PyType.cs", "type/PyClass.cs", "runtime/PyVM.cs"):
+            family_branches += len(re.findall(r"DerivesFromType\(", text))
+        subtype_new_sites += len(re.findall(r"\w+SubtypeNew\(", text))
     return {"todo_markers": todo, "hand_maintained_capability_sites": capability_tables,
-            "type_name_string_comparisons": per_type_switch}
+            "type_name_string_comparisons": per_type_switch,
+            "family_branches_in_generic_paths": family_branches,
+            "subtype_new_call_sites": subtype_new_sites}
 
 
 def main():
@@ -379,6 +389,8 @@ def main():
     print("  TODO/FIXME: %d, capability tables: %d, type-name string compares: %d" %
           (m4["todo_markers"], m4["hand_maintained_capability_sites"],
            m4["type_name_string_comparisons"]))
+    print("  family branches inside generic paths: %d, *_subtype_new call sites: %d" %
+          (m4["family_branches_in_generic_paths"], m4["subtype_new_call_sites"]))
 
     if a.compare:
         before = json.load(io.open(a.compare, encoding="utf-8"))
@@ -391,6 +403,8 @@ def main():
             print("  %-22s %5d -> %5d  (%+d, %.1f%%)" %
                   (label, b, n, n - b, 100.0 * (n - b) / max(1, b)))
         for key, label in (("todo_markers", "TODO markers"),
+                           ("family_branches_in_generic_paths", "family branches"),
+                           ("subtype_new_call_sites", "subtype_new sites"),
                            ("type_name_string_comparisons", "type-name compares")):
             b = before["M4_detours"][key]
             n = m4[key]

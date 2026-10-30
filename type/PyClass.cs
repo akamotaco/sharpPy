@@ -271,33 +271,20 @@ namespace SharpPy
             // CPython 3.12: Objects/typeobject.c:1667
             var newMethod = LookupInMRO("__new__");
 
-            // CPython 3.12: Objects/floatobject.c float_new
-            //   if (type == &PyFloat_Type) { ...plain float... }
-            //   return float_subtype_new(type, args, kwds);
-            // and float_subtype_new converts the argument with PyNumber_Float, allocates the
-            // subclass, then copies ob_fval - so a float subclass instance carries the value.
-            // Only when the class does not define its own __new__; a user __new__ is a real
-            // slot and must run (it may call float.__new__(cls, ...) itself).
-            if (DerivesFromType(FloatType) && (newMethod is PyStaticBuiltinMethod
-                                            || newMethod is PyBuiltinMethod
-                                            || newMethod is PyMethodDescriptor
-                                            || newMethod is PyBuiltinFunction))
-            {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create(
-                        "float.__new__() takes exactly one argument (the type to instantiate)");
-                var floatValue = args.Length == 0 ? new PyFloat(0.0) : args[0].AsFloat();
-                return new PyFloatSubclass(this, floatValue);
-            }
+            // No builtin family is special-cased here any more. Each base type builds its own
+            // subtype instance in its own tp_new, the way CPython does (float_subtype_new
+            // Objects/floatobject.c:1677, unicode_subtype_new, long_subtype_new, bytes_new,
+            // tuple_new), and the lookup above already resolved that __new__ through the MRO. A
+            // branch here can only duplicate what the base knows - and did: float's branch gave
+            // "float.__new__() takes exactly one argument (the type to instantiate)" for keywords
+            // where CPython says "float() takes no keyword arguments", and because float had no
+            // __new__ slot at all, super().__new__(cls, v) in a user subclass fell through to
+            // object.__new__ and refused the value.
 
             // CPython bytes_new for a subclass builds the byte value first and then allocates the
             // subclass around that payload. SharpPy instead returned a plain bytes object, so
             // type(B(b"xy")).__name__ reported 'bytes' and a declared __len__/__add__/__contains__/
             // __iter__/__getitem__/__eq__/__hash__/__repr__ could never be reached.
-            if (DerivesFromType(BytesType) && !DeclaresUserSpecial("__new__"))
-            {
-                return PyBytesSubclass.BytesSubtypeNew(this, args, kwargs);
-            }
 
             // CPython runs tp_new first, and for a class with neither its own __new__ nor an
             // __init__ that consumes arguments, object_new refuses them. SharpPy passed the extras
