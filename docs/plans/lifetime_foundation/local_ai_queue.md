@@ -125,7 +125,7 @@ guard.Entry = null;
 ## L2.1 — L2 점검 결과 수정
 
 L1, L2는 완료됐다 (`c425681`, `fa6f57a`). 점검 기준 게이트는 bughunt 95/95, evaluate 225/3/2,
-similarity exit 0, Godot 82/0이다. 아래를 **커밋 하나**로 한다. 이 항목이 **지금 할 일**이고, 끝나면 멈춘다.
+similarity exit 0, Godot 82/0이다. **완료 (`aff002c`).** 아래는 기록으로 남긴다.
 다음 L3은 C1 커밋이 있어야 열린다.
 
 **합격.** `--filter l2b_` 일치, `--filter l2_` 일치 유지, 게이트 통과. 사본: `p89_atexit_edges.py`.
@@ -161,6 +161,32 @@ similarity exit 0, Godot 82/0이다. 아래를 **커밋 하나**로 한다. 이 
 - `import pickle` 실패
 - `sharppy -m x`가 모듈을 실행하지 않고 REPL로 들어감 (`Program.cs:74`의 분기가 주석 처리됨)
 
+## L2.2 — 지금 할 일 (C1 전)
+
+L2.1 점검 기준 게이트: bughunt 96/96, evaluate 225/3/2, similarity exit 0, Godot 82/0.
+**아래 세 커밋이 끝나면 멈춘다.** C1이 같은 작업 트리를 쓰므로 함께 진행하지 않는다. L3은 C1 커밋 뒤에 열린다.
+
+**이 단계의 경계.** `core/PyFinalizer.cs`와 `modules/AtexitModule.cs`는 고치지 않는다. 고쳐야만 될 것처럼 보이면
+멈추고 보고한다.
+
+**1. 기록 정정 (커밋 하나).**
+
+- P0-60의 "`raise ... from`와 `__notes__`(3.11+) 계열이 이 위에 올라 있다"에서 `raise ... from`을 뺀다. 점검에서
+  `raise ... from`과 `__cause__`는 속성 대입이 실패하는 지금도 CPython과 같게 동작했다.
+- P0-63의 "L4에서 함께 다룬다"를 지운다. `pickle`은 L4 범위가 아니고 별도 미배정 항목이다.
+- `.artifacts/tmp/l2b_gap_measure.py`, `.artifacts/tmp/modx/x.py`를 `probes/gap_l2b_measure.py`,
+  `probes/gap_l2b_modx/x.py`로 옮기고 P0-59~64의 재현 명령을 고친다. `.artifacts/tmp/`는 gitignore 대상이라
+  저장소만으로 재현할 수 없다. `--filter`에 잡히지 않는 합격 기준 밖의 파일이다.
+
+**2. P0-53 (커밋 하나).** 아래 L5 표의 지시를 따른다. `SystemExit`과 `KeyboardInterrupt`가 builtins에 없다는 기록이
+`docs/known_gaps.md` 1338행에 있으니 여기서부터 본다. 끝나면 L2에서 미룬 `sys.exit` 경로를 확인해 보고서에
+적는다: atexit 콜백이 돌고, 종료 코드가 CPython과 같아야 한다. 콜백 안의 `sys.exit(5)`는 종료 코드를 바꾸지 않아야 한다.
+
+**3. P0-54 (커밋 하나).** 아래 L5 표의 지시를 따른다.
+
+**P0-55, P0-56은 C1 뒤로 둔다.** P0-55는 생성 시점에 등록되는 가드(`PyFinalizer.RegisterIfDeclared`)와 얽히고,
+P0-56은 할당 경로를 바꿔서 C1의 H3 비용 측정 기준을 흔든다.
+
 ## L3 — `weakref.py`, 타입 플래그 (C1 뒤)
 
 **C1이 커밋되기 전에 시작하지 않는다.** `_weakref`의 `ref`가 있어야 관측할 수 있다.
@@ -183,7 +209,7 @@ Q5(`proxy`)와 무관하게 L3 뒤에 시작할 수 있다. 절차와 합격은 
 ## L5 — 기존 표면 결함
 
 수명 작업과 무관하게 기준 커밋(`d95c129`)부터 있던 결함이다. 재현: `probes/gap_outside_lifetime.py`.
-L1~L4 뒤에 **항목당 커밋 하나**로 한다. 각 항목은 착수 전에 최소 프로브를 CPython 출력으로 고정한다.
+P0-53, P0-54는 L2.2에서 먼저 한다. P0-55, P0-56은 L1~L4 뒤에 **항목당 커밋 하나**로 한다. 각 항목은 착수 전에 최소 프로브를 CPython 출력으로 고정한다.
 이 항목에 한해 프로브를 로컬 AI가 쓰고, 다음 점검에서 경계 사례를 따로 확인한다.
 
 | 항목 | 현상 | 주의 |

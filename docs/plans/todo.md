@@ -81,11 +81,12 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 | 완료 | **P0-50** | `Live` 슬롯, `__del__` 바인딩, `__del__ = None` (L1, 2026-10-31) | 로컬 AI | p92, p93 |
 | 완료 | L2 | ReferenceError, atexit (2026-10-31, 문서: reports/2026-10-31/atexit_before_the_guards.md) | 로컬 AI | p95 |
 | 완료 | L2.1 | L2 점검 결과: `unregister` 비교, 재진입, 인자 검사, 기록 정정 (2026-10-31, 문서: reports/2026-10-31/atexit_edges_and_corrections.md) | 로컬 AI | p89 |
+| L2.2 | P0-53, 54 | 기록 정정, `sys.exit` 코드, bound method `==` (C1 전) | 로컬 AI | 착수 시 |
 | C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
 | L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |
-| Q5 | | `proxy` (별도 커밋) | Claude | p89 |
-| L5 | P0-53~56 | `sys.exit` 코드, bound method `==`, `__class__` 대입, `is` | 로컬 AI | 착수 시 |
+| Q5 | | `proxy` (별도 커밋) | Claude | p90 |
+| L5 | P0-55, 56 | `__class__` 대입, `is` | 로컬 AI | 착수 시 |
 | | **P0-52** | 재귀 깊이 100 크래시 | Claude | C1 뒤 판단 |
 
 순서를 바꾸지 않는다. `copy.deepcopy`는 `id()`에 의존하고, weakref callback은 안전점 없이는 돌 곳이 없다.

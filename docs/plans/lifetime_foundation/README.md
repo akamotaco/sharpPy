@@ -393,7 +393,7 @@ return new PyInt(0);
 조용히 바꿀 수 있다. 그래서 분리한다.
 앵커: `Objects/weakrefobject.c`의 proxy 구현. 죽은 proxy 접근은
 `ReferenceError: weakly-referenced object no longer exists` (`:396`).
-착수 전에 참조 인터프리터로 슬롯별 프로브를 먼저 만들고, `p89_weakref_proxy.py`로 고정한다.
+착수 전에 참조 인터프리터로 슬롯별 프로브를 먼저 만들고, `p90_weakref_proxy.py`로 고정한다.
 
 ### Q6 — `copy`, `tempfile`, `shutil` — 담당 로컬 AI (L4)
 
