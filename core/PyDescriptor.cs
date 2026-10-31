@@ -350,9 +350,17 @@ namespace SharpPy
             _setter(instance, value);
         }
 
+        /// <summary>
+        /// A writable T_OBJECT member is deleted by member_set with NULL (Objects/descrobject.c), and
+        /// PyMember_GetOne reads that NULL back as None - which is exactly what del e.code followed by
+        /// e.code shows for SystemExit. A read-only member reports the same "is not writable" error a
+        /// failed assignment gives.
+        /// </summary>
         public void Delete(PyObject instance)
         {
-            throw PyAttributeError.Create($"can't delete attribute '{Name}' of '{OwnerType.Name}' objects");
+            if (_readonly || _setter == null)
+                throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
+            _setter(instance, PyNone.Instance);
         }
 
         public bool IsDataDescriptor() => !_readonly && _setter != null;

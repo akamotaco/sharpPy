@@ -105,8 +105,11 @@ namespace SharpPy.Core
                 // exits 1, but the CLR detail goes to stderr instead of stdout.
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
+                // The status and the message come first, then teardown, exactly in the order
+                // handle_system_exit (:786) -> Py_Exit (:777) uses.
+                int exitStatus = ReportExitState(ex);
                 PyFinalizer.Shutdown();
-                Environment.Exit(ExitStatusOf(ex));
+                Environment.Exit(exitStatus);
             }
         }
 
@@ -142,37 +145,83 @@ namespace SharpPy.Core
                 // exits 1, but the CLR detail goes to stderr instead of stdout.
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
+                int exitStatus = ReportExitState(ex);
                 PyFinalizer.Shutdown();
-                Environment.Exit(ExitStatusOf(ex));
+                Environment.Exit(exitStatus);
             }
         }
 
         /// <summary>
-        /// The status the process ends with. SystemExit is not an error: CPython converts it where
-        /// the exception reaches the top of the interpreter (_Py_HandleSystemExit,
-        /// Python/pythonrun.c:708, reached from _PyErr_PrintEx at :786) and prints no traceback for
-        /// it - which is why runtime/PyInterpreter.cs:236 re-throws it without printing.
-        /// None means 0, an integer means that value truncated to C int, anything else is written to
-        /// stderr with a trailing newline and means 1 (:735-:762). Status is decided before
-        /// PyFinalizer.Shutdown() runs, so a sys.exit() raised inside an atexit callback cannot
-        /// change it: that callback's exception is reported and dropped.
+        /// The message and the status, produced where the exception reaches the top of the
+        /// interpreter. _PyErr_PrintEx calls handle_system_exit first (:786) and that function both
+        /// writes the message and fixes the status; only then does Py_Exit (:777) finalize. So the
+        /// status cannot depend on anything an atexit callback does afterwards, and the message goes
+        /// to the sys.stderr of this moment (:747-:761), not to the CLR console: reassigning
+        /// sys.stderr moves it (probes/l23_exit_message.py).
+        /// Nothing here may escape as a CLR exception - a code whose __str__ raises still has to reach
+        /// shutdown with status 1, which is what PyErr_Clear (:753) buys in CPython.
         /// </summary>
-        private static int ExitStatusOf(Exception ex)
+        private static int ReportExitState(Exception ex)
         {
-            if (!(ex is PythonException pythonError) || !(pythonError.PyException is PySystemExit exit))
+            if (!(ex is PythonException pythonError) || !PySystemExit.Matches(pythonError.PyException))
                 return 1;
-            int status = exit.HandleStatus(out var toWrite, out var tooLarge);
-            if (toWrite != null)
+            var error = pythonError.PyException;
+
+            // :732 PyObject_GetAttr(exc, "code"); a failed lookup falls through to the writer.
+            PyObject code;
+            try { code = error.GetAttribute("code"); }
+            catch (System.Exception) { code = null; }
+
+            int status = PySystemExit.StatusOfCode(code, out var toWrite, out var tooLarge);
+            try
             {
-                Console.Error.Write(toWrite.ToStr().Value);
-                Console.Error.WriteLine();
+                if (toWrite != null)
+                {
+                    // PyFile_WriteObject then PySys_WriteStderr("\n") - two writes on the same
+                    // stream (:755, :761).
+                    WriteOnStderr(toWrite.ToStr().Value);
+                    WriteOnStderr("\n");
+                }
+                else if (tooLarge)
+                {
+                    // PyLong_AsLong returns -1 and leaves OverflowError raised (:743).
+                    WriteOnStderr("OverflowError: Python int too large to convert to C long\n");
+                }
             }
-            else if (tooLarge)
+            catch (PythonException reporting)
             {
-                // PyLong_AsLong returns -1 and leaves OverflowError raised (:743).
-                Console.Error.WriteLine("OverflowError: Python int too large to convert to C long");
+                // The message could not be produced or written. Report it and keep the status.
+                PyUnraisable.Report(reporting, error);
+                status = 1;
+            }
+            catch (System.Exception reporting)
+            {
+                Console.Error.WriteLine(reporting.Message);
+                status = 1;
             }
             return status;
+        }
+
+        /// <summary>
+        /// PyFile_WriteObject / PySys_WriteStderr (:754-:761): the stream named sys.stderr right now.
+        /// "\n" travels on the same channel, which is what makes sys.stderr = sys.stdout observable.
+        /// </summary>
+        private static void WriteOnStderr(string text)
+        {
+            PyObject stream = null;
+            if (PyImportSystem.TryGetModule("sys", out var sys))
+                sys.ModuleDict.TryGetValue("stderr", out stream);
+            if (stream == null || ReferenceEquals(stream, PyNone.Instance))
+            {
+                Console.Error.Write(text);
+                return;
+            }
+            var newline = text.EndsWith("\n");
+            var body = newline ? text.Substring(0, text.Length - 1) : text;
+            if (body.Length != 0)
+                stream.GetAttribute("write").Call(new PyObject[] { new PyString(body) }, null);
+            if (newline)
+                stream.GetAttribute("write").Call(new PyObject[] { new PyString("\n") }, null);
         }
     }
 }

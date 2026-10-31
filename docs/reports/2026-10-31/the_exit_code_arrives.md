@@ -2,7 +2,7 @@
 
 ## Before, measured
 
-`.artifacts/tmp/l22_exit_rc.py` runs each shape as its own process on both interpreters and
+`docs/plans/lifetime_foundation/probes/gap_l22_exit_rc.py` runs each shape as its own process on both interpreters and
 compares rc, stdout, and stderr. Before the fix SharpPy answered rc `1` to all of them:
 
 | program | CPython rc | SharpPy rc (before) |
@@ -71,7 +71,7 @@ which is why `runtime/PyInterpreter.cs:236` re-throws it silently.
 
 ## The L2 question, answered
 
-`.artifacts/tmp/l22_exit_atexit.py` pins what L2 deferred. rc matches in all five cases:
+`docs/plans/lifetime_foundation/probes/gap_l22_exit_atexit.py` pins what L2 deferred. rc matches in all five cases:
 
 | program | rc (both) | stderr |
 |---|---:|---|

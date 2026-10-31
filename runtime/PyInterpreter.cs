@@ -233,10 +233,11 @@ namespace SharpPy
                 
                 return result;
             }
-            catch (PythonException pe) when (pe.PyException is PySystemExit)
+            catch (PythonException pe) when (PySystemExit.Matches(pe.PyException))
             {
-                // CPython 3.12: SystemExit is a BaseException - don't print traceback for clean exit
-                // Reference: Python/pythonrun.c:1758-1759
+                // The test is PyErr_GivenExceptionMatches(exc, PyExc_SystemExit)
+                // (Python/pythonrun.c:717), so a subclass of SystemExit is silent too: a CLR-type test
+                // printed a traceback and turned the status into 1 for `class Sub(SystemExit)`.
                 throw;
             }
             catch (Exception e)

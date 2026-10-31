@@ -626,9 +626,16 @@ public partial class PyFunction : PyObject, IDescriptor
     public class PyMethod : PyObject
     {
         public PyObject Instance { get; }
-        public PyFunction Function { get; }
 
-        public PyMethod(PyObject instance, PyFunction function)
+        /// <summary>
+        /// im_func. CPython stores any callable here - method_new only checks PyCallable_Check
+        /// (Objects/classobject.c:219) - so this is PyObject, not PyFunction. Lib/weakref.py:73
+        /// rebuilds a method through type(m)(func, obj), and the probe compares methods whose
+        /// "function" is an ordinary object with __call__.
+        /// </summary>
+        public PyObject Function { get; }
+
+        public PyMethod(PyObject instance, PyObject function)
         {
             Instance = instance;
             Function = function;
@@ -664,14 +671,16 @@ public partial class PyFunction : PyObject, IDescriptor
         public override int ToHash()
         {
             var self = PyObjectId.Of(Instance);
-            return (int)(self ^ (self >> 32)) ^ Function.ToHash();
+            // PyObject_Hash(im_func) is the Python-level hash: a callable object with __hash__ has to
+            // contribute what __hash__ returns, not its CLR identity (probes/l23_method_type.py).
+            return (int)(self ^ (self >> 32)) ^ (int)Function.GetPythonHash();
         }
 
         // CPython 3.12 호환: kwargs 지원 버전
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
             // CPython 3.12 context manager 호환성: __exit__ method 특별 처리
-            if (Function.Name == "__exit__" && args.Length == 2)
+            if ((Function as PyFunction)?.Name == "__exit__" && args.Length == 2)
             {
                 // CALL 2로 2개 인수를 받았지만, __exit__는 4개 매개변수 필요
                 // CPython에서는 스택에 3개 None이 있고 CALL 2는 특별 처리됨
@@ -701,7 +710,8 @@ public partial class PyFunction : PyObject, IDescriptor
                 "__self__" => Instance,
                 "__func__" => Function,
                 "__class__" => GetPyType(),
-                "__name__" => new PyString(Function.Name),
+                // method_getattro falls through to im_func, so __name__ comes from the callable.
+                "__name__" => Function.GetAttribute("__name__"),
                 "__call__" => this, // 메서드 자체가 __call__
                 "__code__" => Function.GetAttribute("__code__"), // CPython 3.12: Delegate to underlying function
                 "__doc__" => Function.GetAttribute(name),
@@ -711,10 +721,30 @@ public partial class PyFunction : PyObject, IDescriptor
             };
         }
 
-        // CPython method_repr: <bound method QUALNAME of repr(self)>
+        /// <summary>
+        /// method_repr (Objects/classobject.c:273): the name comes from __qualname__, then __name__,
+        /// and stays "?" when the callable offers neither (:278-:289).
+        /// </summary>
+        private string ReprName
+        {
+            get
+            {
+                // For a function those names are its own fields, which is how PyFunction already
+                // exposes them (core/PyFunction.cs:601).
+                if (Function is PyFunction function) return function.ReprName;
+                foreach (var slot in new[] { "__qualname__", "__name__" })
+                {
+                    PyObject value;
+                    try { value = Function.GetAttribute(slot); } catch (PythonException) { continue; }
+                    if (value is PyString text) return text.Value;
+                }
+                return "?";
+            }
+        }
+
         public override PyString ToRepr()
-            => new PyString($"<bound method {Function.ReprName} of {Instance.ToRepr().Value}>");
-        public override string ToString() => $"<bound method {Function.ReprName} of {Instance.ToRepr().Value}>";
+            => new PyString($"<bound method {ReprName} of {Instance.ToRepr().Value}>");
+        public override string ToString() => ToRepr().Value;
     }
 
     /// <summary>
@@ -758,7 +788,7 @@ public partial class PyFunction : PyObject, IDescriptor
         public override int ToHash()
         {
             var self = PyObjectId.Of(Instance);
-            return (int)(self ^ (self >> 32)) ^ BuiltinFunction.ToHash();
+            return (int)(self ^ (self >> 32)) ^ (int)BuiltinFunction.GetPythonHash();
         }
 
         // CPython 3.12 호환: kwargs 지원 버전

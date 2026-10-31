@@ -4736,8 +4736,31 @@ namespace SharpPy
             // When called as exit() or quit(), raise SystemExit
             // CPython 3.12: SystemExit is a BaseException, not Exception
             // This allows REPL to catch it separately from normal exceptions.
-            // Lib/_sitebuiltins.py:38 def __call__(self, code=None): raise SystemExit(code) -
-            // measured: exit().args is (None,), not (); exit(2).args is (2,).
+            // Lib/_sitebuiltins.py:38 def __call__(self, code=None): raise SystemExit(code).
+            // measured: exit().args is (None,), not (); exit(2).args is (2,). The parameter is
+            // positional-or-keyword, so exit(code=2) exits with 2, and the refusals are the standard
+            // ones a Python function gives, naming Quitter.__call__() (self counts as an argument):
+            //   exit(1, 2)      -> takes from 1 to 2 positional arguments but 3 were given
+            //   exit(1, code=2) -> got multiple values for argument 'code'
+            //   exit(x=1)       -> got an unexpected keyword argument 'x'
+            // Measured on the pinned interpreter in probes/gap_l22_quit_msgs.py.
+            if (kwargs != null && kwargs.Length() != 0)
+            {
+                foreach (var key in kwargs.Keys().Items)
+                {
+                    var name = key is PyString text ? text.Value : key.ToStr().Value;
+                    if (name != "code")
+                        throw PyTypeError.Create(
+                            $"Quitter.__call__() got an unexpected keyword argument '{name}'");
+                }
+                if (args.Length != 0)
+                    throw PyTypeError.Create("Quitter.__call__() got multiple values for argument 'code'");
+                var given = kwargs.GetItem(new PyString("code")) ?? PyNone.Instance;
+                throw new PythonException(new PySystemExit(new PyObject[] { given }));
+            }
+            if (args.Length > 1)
+                throw PyTypeError.Create(
+                    $"Quitter.__call__() takes from 1 to 2 positional arguments but {args.Length + 1} were given");
             var carried = args.Length == 0 ? new PyObject[] { PyNone.Instance } : args;
             throw new PythonException(new PySystemExit(carried));
         }

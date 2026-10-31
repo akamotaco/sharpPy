@@ -216,8 +216,10 @@ namespace SharpPy
             {
                 PyFunction pf when !string.IsNullOrEmpty(pf.CodeObject?.DisplayQualName) => pf.CodeObject!.DisplayQualName,
                 PyFunction pf when !string.IsNullOrEmpty(pf.Name) => pf.Name,
-                PyMethod pm when !string.IsNullOrEmpty(pm.Function?.CodeObject?.DisplayQualName) => pm.Function.CodeObject!.DisplayQualName,
-                PyMethod pm when !string.IsNullOrEmpty(pm.Function?.Name) => pm.Function.Name,
+                // im_func is any callable (Objects/classobject.c:219), so the name only exists when
+                // the bound function really is a function.
+                PyMethod { Function: PyFunction pf } when !string.IsNullOrEmpty(pf.CodeObject?.DisplayQualName) => pf.CodeObject!.DisplayQualName,
+                PyMethod { Function: PyFunction fn } when !string.IsNullOrEmpty(fn.Name) => fn.Name,
                 PyBuiltinFunction bf when !string.IsNullOrEmpty(bf.Name) => bf.Name,
                 _ => f.GetTypeName()
             };
@@ -235,7 +237,7 @@ namespace SharpPy
             IDictionary<string, PyObject> globals = f switch
             {
                 PyFunction pf => pf.GlobalsDict,
-                PyMethod pm => pm.Function?.GlobalsDict,
+                PyMethod pm => (pm.Function as PyFunction)?.GlobalsDict,
                 _ => null
             };
             if (globals != null && globals.TryGetValue("__name__", out var mod) && mod != null)

@@ -33,6 +33,31 @@ namespace SharpPy
 
         public override bool IsCallable() => true;
 
+        /// <summary>
+        /// meth_richcompare (Objects/methodobject.c:292). A builtin classmethod is a PyCFunction with
+        /// the class as m_self, so two lookups of dict.fromkeys are equal when the class is the same
+        /// object and the wrapped implementation is the same object (:306-:308). Only == and !=
+        /// compare (:298-:303). Measured: dict.fromkeys == dict.fromkeys is True.
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyCMethod bound))
+                return PyNotImplemented.Instance;
+            bool equal = ReferenceEquals(_boundClass, bound._boundClass) &&
+                ReferenceEquals(_callable, bound._callable);
+            return op == CompareOp.EQ ? PyBool.FromBool(equal) : PyBool.FromBool(!equal);
+        }
+
+        /// <summary>
+        /// meth_hash (Objects/methodobject.c:316-:331): the function part xored with m_self's hash.
+        /// The class hashes by identity because that is what equality reads.
+        /// </summary>
+        public override int ToHash()
+        {
+            var self = PyObjectId.Of(_boundClass);
+            return (int)(self ^ (self >> 32)) ^ (int)_callable.GetPythonHash();
+        }
+
         public override string GetTypeName() => "builtin_function_or_method";
         // CPython: builtin classmethods (dict.fromkeys) are seen as PyCFunction.
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;

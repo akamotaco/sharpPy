@@ -697,23 +697,53 @@ namespace SharpPy
     /// </summary>
     public class PySystemExit : PyBaseException
     {
-        internal PySystemExit(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
+        /// <summary>
+        /// PySystemExitObject.code (Objects/exceptions.c:674 {"code", T_OBJECT, offsetof(...)}).
+        /// A stored member, not a view of args: e.args = (9,) leaves the code alone and e.code = 5
+        /// leaves args alone (measured, probes/l23_exit_fields.py).
+        /// </summary>
+        private PyObject _code;
 
-        public PySystemExit(int code = 0) : base(new PyObject[] { new PyInt(code) }) { }
+        internal PySystemExit(PyObject[] args, PyDict kwargs = null) : base(args, kwargs)
+        {
+            _code = CodeForArgs(args);
+        }
+
+        public PySystemExit(int code = 0) : base(new PyObject[] { new PyInt(code) })
+        {
+            _code = new PyInt(code);
+        }
 
         /// <summary>
         /// SystemExit_init (Objects/exceptions.c:633): no arguments leaves None (:640), one argument
         /// is the code (:643), and more than one argument makes the argument tuple the code (:646).
         /// The last rule is visible through sys.exit((1, 2)), which constructs with two arguments.
         /// </summary>
-        public PyObject Code
+        internal static PyObject CodeForArgs(PyObject[] args)
         {
-            get
-            {
-                if (Args.Length == 0) return PyNone.Instance;
-                if (Args.Length == 1) return Args[0];
-                return new PyTuple(Args);
-            }
+            if (args.Length == 0) return PyNone.Instance;
+            if (args.Length == 1) return args[0];
+            return new PyTuple(args);
+        }
+
+        public PyObject Code => _code ?? PyNone.Instance;
+
+        /// <summary>member_set with NULL (what `del e.code` does) leaves the field NULL, and
+        /// PyMember_GetOne reads a NULL T_OBJECT as None (Objects/structmember.c).</summary>
+        internal void SetCode(PyObject value) => _code = value is PyNone ? null : value;
+
+        internal void ClearCode() => _code = null;
+
+        /// <summary>
+        /// PyErr_GivenExceptionMatches(exc, PyExc_SystemExit), which is the test
+        /// _Py_HandleSystemExit makes (Python/pythonrun.c:717) and the reason a subclass of
+        /// SystemExit exits instead of printing a traceback. Type-based, not CLR-type based.
+        /// </summary>
+        internal static bool Matches(PyObject error)
+        {
+            if (error == null) return false;
+            var type = error.GetPyType();
+            return type != null && type.IsSubclassOf(PyType.SystemExitType);
         }
 
         public override PyType GetPyType() => PyType.SystemExitType;
@@ -721,9 +751,20 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
-            // Objects/exceptions.c: SystemExit.code is a getset over the stored argument.
             if (name == "code") return Code;
             return base.GetAttribute(name);
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "code") { SetCode(value); return; }
+            base.SetAttribute(name, value);
+        }
+
+        public override void DelAttribute(string name)
+        {
+            if (name == "code") { ClearCode(); return; }
+            base.DelAttribute(name);
         }
 
         /// <summary>
@@ -737,10 +778,17 @@ namespace SharpPy
         /// "OverflowError: Python int too large to convert to C long".
         /// </summary>
         internal int HandleStatus(out PyObject toWrite, out bool tooLarge)
+            => StatusOfCode(Code, out toWrite, out tooLarge);
+
+        /// <summary>
+        /// The same decision for any object's code value, because a subclass instance carries its code
+        /// in a different place (probes/l23_exit_fields.py raises Sub(4)).
+        /// </summary>
+        internal static int StatusOfCode(PyObject code, out PyObject toWrite, out bool tooLarge)
         {
             toWrite = null;
             tooLarge = false;
-            var code = Code;
+            if (code == null) code = PyNone.Instance;
             if (code is PyNone) return 0;
             // PyLong_Check accepts bool and int subclasses. In this CLR both are siblings of PyInt
             // rather than subclasses, so the family has to be spelled out here.
@@ -769,7 +817,14 @@ namespace SharpPy
 
     public class PyKeyboardInterrupt : PyBaseException
     {
-        public PyKeyboardInterrupt() : base("keyboard interrupt") { }
+        /// <summary>
+        /// KeyboardInterrupt has no constructor of its own - it uses BaseException_init
+        /// (Objects/exceptions.c:42) - so KeyboardInterrupt().args is () and not a fixed phrase.
+        /// The invented "keyboard interrupt" message is what made L2.2's new builtin name observable.
+        /// </summary>
+        public PyKeyboardInterrupt(PyObject[] args = null, PyDict kwargs = null)
+            : base(args ?? new PyObject[0], kwargs) { }
+
         public override PyType GetPyType() => PyType.KeyboardInterruptType;
         public override string GetTypeName() => "KeyboardInterrupt";
 

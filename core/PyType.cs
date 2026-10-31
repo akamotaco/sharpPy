@@ -938,6 +938,22 @@ namespace SharpPy
                 return new PyClassmethod(func);
             }
 
+            // CPython 3.12: Objects/classobject.c:216 method_new_impl. Lib/weakref.py:73 (WeakMethod)
+            // rebuilds a method through type(method)(func, obj), so this type has to be callable.
+            if (this == MethodType)
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("method() takes no keyword arguments");
+                // _PyArg_CheckPositional wording for method.__new__(function, instance, /).
+                if (args.Length != 2)
+                    throw PyTypeError.Create($"method expected 2 arguments, got {args.Length}");
+                if (!args[0].IsCallable())
+                    throw PyTypeError.Create("first argument must be callable");
+                if (args[1] is PyNone)
+                    throw PyTypeError.Create("instance must not be None");
+                return new PyMethod(args[1], args[0]);
+            }
+
             if (this == PropertyType)
             {
                 // property([fget[, fset[, fdel[, doc]]]])
@@ -1097,7 +1113,9 @@ namespace SharpPy
                     // (Objects/exceptions.c SystemExit_init), which is what decides the status later.
                     return new PySystemExit(args, kwargs);
                 case "KeyboardInterrupt":
-                    return new PyKeyboardInterrupt();
+                    // No constructor of its own: BaseException_init keeps the arguments, so
+                    // KeyboardInterrupt().args is () and KeyboardInterrupt('x', 1).args is ('x', 1).
+                    return new PyKeyboardInterrupt(args, kwargs);
                 case "GeneratorExit":
                     return new PyGeneratorExit(args, kwargs);
                 case "StopIteration":
@@ -1391,6 +1409,8 @@ namespace SharpPy
                         InitializeMappingProxyTypeDescriptors();
                     else if (Name == "BaseException")
                         InitializeBaseExceptionTypeDescriptors();
+                    else if (Name == "SystemExit")
+                        InitializeSystemExitTypeDescriptors();
                     else if (Name == "ImportError" || Name == "ModuleNotFoundError")
                         InitializeImportNameDescriptor();
                     else if (Name == "slice")
@@ -4000,6 +4020,19 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// BaseException_args_repr (Objects/exceptions.c:120): nothing for no arguments, the bare repr
+        /// for one argument, and a parenthesised list for more.
+        /// </summary>
+        internal static string ArgsReprForException(PyObject[] args)
+        {
+            if (args == null || args.Length == 0) return "()";
+            if (args.Length == 1) return $"({args[0].ToRepr().Value})";
+            var parts = new string[args.Length];
+            for (int i = 0; i < args.Length; i++) parts[i] = args[i].ToRepr().Value;
+            return "(" + string.Join(", ", parts) + ")";
+        }
+
+        /// <summary>
         /// BaseException 타입의 descriptor 테이블 초기화
         /// CPython reference: Objects/exceptions.c:79-105 (BaseException_str)
         /// </summary>
@@ -4013,23 +4046,7 @@ namespace SharpPy
                     throw PyTypeError.Create($"descriptor '__init__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
                 if (kwargs != null && kwargs.Length() != 0)
                     throw PyTypeError.Create($"{self.GetTypeName()}() takes no keyword arguments");
-                // CPython writes the single args slot: rebind the native wrapper's
-                // args, or the user instance dict for Python-defined subclasses.
-                if (self is PyException excWrapper)
-                {
-                    if (excWrapper.OriginalInstance != null
-                        && excWrapper.OriginalInstance.InstanceDict.ContainsKey("args"))
-                    {
-                        excWrapper.OriginalInstance.InstanceDict["args"] =
-                            args.Length == 0 ? PyTuple.Empty : new PyTuple(args);
-                    }
-                    else
-                    {
-                        excWrapper.SetArgsInternal(args);
-                    }
-                    return PyNone.Instance;
-                }
-                self.SetAttribute("args", args.Length == 0 ? PyTuple.Empty : new PyTuple(args));
+                StoreExceptionArgs(self, args);
                 return PyNone.Instance;
             });
 
@@ -4077,6 +4094,17 @@ namespace SharpPy
 
             // CPython 3.12: Objects/exceptions.c:785-795 (BaseException_args member descriptor)
             // BaseException.args - data descriptor (writable, with both getter and setter)
+            // CPython 3.12: Objects/exceptions.c:131 BaseException_repr. The name of the type and the
+            // arguments, never "<module.Name object at 0x...>"; a Python subclass inherits it, which
+            // is what repr(SubK(1)) shows in probes/l23_exit_fields.py.
+            TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", BaseExceptionType, (self, args, kwargs) =>
+            {
+                var items = self is PyBaseException native
+                    ? native.Args
+                    : self.GetAttribute("args") is PyTuple stored ? stored.Items : new PyObject[0];
+                return new PyString(self.GetTypeName() + ArgsReprForException(items));
+            });
+
             // CPython reference: Objects/exceptions.c:786 - PyMemberDef args_descriptor
             TypeDict["args"] = new PyGetSetDescriptor(
                 name: "args",
@@ -4114,6 +4142,74 @@ namespace SharpPy
                     }
                 }
             );
+        }
+
+        /// <summary>
+        /// BaseException_init (Objects/exceptions.c:42) writes one slot: the native wrapper's args,
+        /// or the instance dict for a Python-defined subclass. SystemExit_init calls it (:637) and
+        /// then sets the code, so both __init__ descriptors share this one implementation.
+        /// </summary>
+        internal static void StoreExceptionArgs(PyObject self, PyObject[] args)
+        {
+            if (self is PyException excWrapper)
+            {
+                if (excWrapper.OriginalInstance != null
+                    && excWrapper.OriginalInstance.InstanceDict.ContainsKey("args"))
+                {
+                    excWrapper.OriginalInstance.InstanceDict["args"] =
+                        args.Length == 0 ? PyTuple.Empty : new PyTuple(args);
+                }
+                else
+                {
+                    excWrapper.SetArgsInternal(args);
+                }
+                return;
+            }
+            self.SetAttribute("args", args.Length == 0 ? PyTuple.Empty : new PyTuple(args));
+        }
+
+        /// <summary>
+        /// SystemExit's own surface, kept next to the type the way Objects/exceptions.c keeps
+        /// SystemExit_init (:633) and SystemExit_members (:673) beside PyExc_SystemExit. A subclass
+        /// inherits both, which is why class Sub(SystemExit) gets a working .code and a status.
+        /// </summary>
+        private void InitializeSystemExitTypeDescriptors()
+        {
+            TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
+            {
+                if (!self.GetPyType().IsSubclassOf(SystemExitType))
+                    throw PyTypeError.Create(
+                        $"descriptor '__init__' requires a 'SystemExit' object but received a '{self.GetTypeName()}'");
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"{self.GetTypeName()}() takes no keyword arguments");
+                StoreExceptionArgs(self, args);
+                self.SetAttribute("code", PySystemExit.CodeForArgs(args));
+                return PyNone.Instance;
+            });
+
+            // {"code", T_OBJECT, offsetof(PySystemExitObject, code), 0, "exception code"} (:674).
+            TypeDict["code"] = new PyMemberDescriptor(
+                "code", this,
+                getter: self => self is PySystemExit native ? native.Code
+                    : self is PyClassInstance inst && inst.InstanceDict.TryGetValue("code", out var stored)
+                        ? stored : (PyObject)PyNone.Instance,
+                setter: (self, value) =>
+                {
+                    if (self is PySystemExit native)
+                    {
+                        native.SetCode(value);
+                        return;
+                    }
+                    if (self is PyClassInstance inst)
+                    {
+                        // member_set with NULL for a T_OBJECT; the getter reads NULL back as None.
+                        if (value is PyNone) inst.InstanceDict.Remove("code");
+                        else inst.InstanceDict["code"] = value;
+                        return;
+                    }
+                    throw PyAttributeError.Create(
+                        $"attribute 'code' of 'SystemExit' objects is not writable");
+                });
         }
 
         #endregion

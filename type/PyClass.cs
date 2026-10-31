@@ -2493,6 +2493,17 @@ namespace SharpPy
                     {
                         break;
                     }
+                    // A builtin level of the MRO carries __repr__ the same way a Python class does.
+                    // BaseException_repr (Objects/exceptions.c:131) lives here, so a Python subclass of
+                    // an exception gets Name(args) instead of the CLR "<Name object at 0x...>".
+                    if (mroType.TypeDict != null
+                        && mroType.TypeDict.TryGetValue("__repr__", out var levelRepr)
+                        && levelRepr is PyWrapperDescriptor reprSlot)
+                    {
+                        hasRepr = true;
+                        reprResult = reprSlot._implementation(this, new PyObject[0], null);
+                        break;
+                    }
                 }
             }
 

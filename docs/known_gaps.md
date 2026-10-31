@@ -1854,37 +1854,49 @@ Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 �
 ## P0-55 ~ P0-56 기존 표면 결함 (측정 2026-10-31, 미해결, 담당 로컬 AI L5)
 
 `d95c129`부터 있던 결함이다. 재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py`.
+- **P0-55** `x.__class__ = T`가 조용히 무시된다. `type(x)`, 메서드, `__del__`이 그대로다.
+- **P0-56** `is` 불일치: `200 + 56 is 256`, `"" is "a"[1:]`, `"a" is "abc"[0]`, `b"" is b"a"[1:]`,
+  `tuple(t) is t`, `str(s) is s`, `() is tuple()`, `f.__name__ is f.__name__`. `id`와 `is`는 서로 일관되므로
+  P0-47의 회귀는 아니다. P0-47 검증 잔여의 빈 튜플 세 경로와 같은 계열이다.
 
-## P0-53 `sys.exit`의 종료 코드가 항상 1이었다 (해결 2026-11-01, L2.2)
+
+## P0-53 `sys.exit`의 종료 코드가 항상 1이었다 (해결 2026-10-31, L2.2)
 
 재현: `C:/ProgramData/miniforge3/envs/sharppy-test-py312/python.exe tests/bughunt/p91_sys_exit.py`
 (라스트 줄 `sys.exit(4)`의 rc가 harness에 비교된다). 종료 행렬 전체는
-`.artifacts/tmp/l22_exit_rc.py`, atexit과의 상호작용은 `.artifacts/tmp/l22_exit_atexit.py`.
+`probes/gap_l22_exit_rc.py`, atexit과의 상호작용은 `probes/gap_l22_exit_atexit.py`.
 
 고친 것:
 - 인자가 그대로 `SystemExit`에 실린다 (`Objects/exceptions.c:633`). `code`는 인자 하나가 그 자체,
   인자가 여러 개면 그 튜플 자체, 없으면 `None` (`:640`/`:643`/`:646`).
 - `sys.exit`는 `PyErr_SetObject` 정규화를 탄다 (`Python/sysmodule.c:951`, `Python/errors.c:43`/`:46`).
   그래서 `sys.exit(None).args == ()`인데 `SystemExit(None).args == (None,)`이고,
-  `sys.exit((1, 2))`는 인자 목록이 튜풀로 퍼져 `args == (1, 2)`, `code == (1, 2)`.
+  `sys.exit((1, 2))`는 인자 목록이 튜플로 퍼져 `args == (1, 2)`, `code == (1, 2)`.
 - 코드는 `_Py_HandleSystemExit` (Python/pythonrun.c:708) 대로다. `None` → 0, 정수 → C int로 좁힌 값
   (Windows C long은 32비트라 `2**40`은 오버플로 → rc 4294967295와
   `OverflowError: Python int too large to convert to C long`), 그 외 객체 → stderr에 쓰고 줄바꿈 후 1.
 - `SystemExit`/`KeyboardInterrupt`가 builtins에 생긴다. `except Exception`은 여전히 잡지 않는다
   (`BaseException` 상속). 덕분에 `ExceptionGroup('m', [KeyboardInterrupt()])` 경로도 열렸다.
 - L2에서 미룬 확인: atexit 콜백은 그대로 돌고, 콜백 안의 `sys.exit(5)`는 종료 코드를 바꾸지 않는다
-  (상태는 teardown 전에 결정되고, 콜백의 예외는 `Exception ignored in atexit callback`로 보고).
-- **P0-55** `x.__class__ = T`가 조용히 무시된다. `type(x)`, 메서드, `__del__`이 그대로다.
-- **P0-56** `is` 불일치: `200 + 56 is 256`, `"" is "a"[1:]`, `"a" is "abc"[0]`, `b"" is b"a"[1:]`,
-  `tuple(t) is t`, `str(s) is s`, `() is tuple()`, `f.__name__ is f.__name__`. `id`와 `is`는 서로 일관되므로
-  P0-47의 회귀는 아니다. P0-47 검증 잔여의 빈 튜플 세 경로와 같은 계열이다.
+  (콜백의 예외는 `Exception ignored in atexit callback`로 보고된다). L2.2가 근거로 든 다섯 프로그램은
+  worktree `48379c9`로 재측정해도 rc가 같았다 — 콜백이 예외를 던지는 경우만 봐서 **순서를 구별하지
+  못했다** (`probes/gap_l22_two_statements.py`, `probes/gap_l22_exit_atexit.py`). L2.3에서
+  `ReportExitState`를 `PyFinalizer.Shutdown()` 앞으로 옮겨 상태가 콜백에 뒤늦게 흔들리지 않게 했다.
+- L2.2까지 실제로 남아 있던 것은 출력 두 가지였다. ① 메시지를 CLR `Console.Error`에 직접 써서
+  `sys.stderr`를 교체해도 반영되지 않았고, ② `_Py_HandleSystemExit`가 메시지 뒤에 쓰는 줄바꿈
+  (`Python/pythonrun.c:761`)이 빠져 있었다. 재현 (`probes/gap_l23_stream.py`):
+  `sys.stderr`를 감싼 객체로 교체하고 `sys.exit("boom")` → CPython `captured: 'boom'` /
+  `captured: '
+'`, L2.2 빌드는 stdout이 비고 진짜 stderr에 `boom`, L2.3 빌드는 CPython과 같다.
+- L2.2에서 미뤄졌던 `e.code`/`del e.code`와 메시지 스트림은 L2.3에서 끝냈다
+  (`probes/l23_exit_fields.py`, `probes/l23_exit_message.py`).
 
-## P0-54 바인드 메서드 동등성이 CLR 참조였다 (해결 2026-11-01, L2.2)
+## P0-54 바인드 메서드 동등성이 CLR 참조였다 (해결 2026-10-31, L2.2)
 
 재현: `C:/ProgramData/miniforge3/envs/sharppy-test-py312/python.exe tests/bughunt/p90_bound_method.py`.
 `o.f == o.f`가 False, `hash(o.f) == hash(o.f)`가 False, `{o.f: 1}[o.f]`가 KeyError였다.
 빌트인 쪽도 같았다 — `l.append == l.append` False, `{l.append: 1}[l.append]` KeyError
-(`.artifacts/tmp/l22_builtin_m2.py`).
+(`probes/gap_l22_builtin_method.py`).
 
 `PyMethod`은 `Instance`와 `Function`만 가지고 rich compare/hash 오버라이드가 없어서 두 개의
 속성 조회가 서로 다른 CLR 객체라는 이유만으로 불일치했다. CPython은 `method_richcompare`
@@ -1895,11 +1907,11 @@ Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 �
 
 받은 인스턴스의 `__eq__`가 비교에 개입하지 않는다는 것이 핵심이다. `w.f == w.f`는 True지만
 `o.f == Weird().f`는 False다. `atexit.unregister(o.m)`도 L2.1의 `PyObject.Compare`를 쓰기 때문에
-이 규칙이 있어야 동작한다 — 콜백이 찍는 출력으로 확인했다 (`.artifacts/tmp/l22_unreg.py`).
+이 규칙이 있어야 동작한다 — 콜백이 찍는 출력으로 확인했다 (`probes/gap_l22_unregister.py`).
 
-## P0-66 `math.sqrt`의 타입 이름이 `object`다 (측정 2026-11-01, 미해결)
+## P0-66 `math.sqrt`의 타입 이름이 `object`다 (측정 2026-10-31, 미해결)
 
-재현: `.artifacts/tmp/l22_builtin_m2.py` — `type(math.sqrt).__name__`이 CPython은
+재현: `probes/gap_l22_builtin_method.py` — `type(math.sqrt).__name__`이 CPython은
 `builtin_function_or_method`, SharpPy는 `object`다. 비교 자체는 P0-54에서 맞춰졌고, 타입 이름과
 `type()`이 돌려주는 객체만 틀리다. `l.append`, `str.join`, `dict.keys`는 이미 맞는 이름을 돌려주므로
 math 모듈 함수 등록 경로만의 문제다. `dir()`과 `repr`은 맞으므로 P0-28 계열 표면보다 좁다.
@@ -1943,7 +1955,7 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
 `core/PyType.cs`·`core/PyScope.cs`·`runtime/PyVM.cs` 세 곳에 나뉘어 있다는 것은 P0-46 계열의
 중복으로 남긴다 — 이번에는 실제 경로(CreateInstance)에만 넣었다.
 
-## P0-59 ~ P0-64 L2 점검에서 등록한 표면 결함 (측정 2026-10-31, 미해결)
+## P0-59 ~ P0-64 L2 점검에서 등록한 표면 결함 (측정 2026-10-31, P0-59만 해결, 나머지는 미해결)
 
 전부 L1, L2 이전부터 있던 결함이다. 점검에서 발견했고 이번 커밋에서는 고치지 않는다.
 재현: `probes/gap_l2b_measure.py`를 양쪽 인터프리터로 실행 (`<python>`과 `<dotnet>`),
@@ -1956,12 +1968,14 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
 (cd docs/plans/lifetime_foundation/probes/gap_l2b_modx && <dotnet> ../../../../../bin/Release/net8.0/sharppy.dll -m x one)
 ```
 
-- **P0-59 예외 서브클래스의 `repr`.** `class Sub(ValueError): pass`에서
+- **P0-59 예외 서브클래스의 `repr` — L2.3에서 해결.** `class Sub(ValueError): pass`에서
   CPython은 `repr(Sub())` → `'Sub()'`, `repr(Sub('x'))` → `"Sub('x')"`. SharpPy는
-  `'<__main__.Sub object at 0x73673b>'` — 기본 객체 repr로 떨어진다. CPython은
+  `'<__main__.Sub object at 0x73673b>'` — 기본 객체 repr로 떨어졌다. CPython은
   `BaseException_repr` (`Objects/exceptions.c:131`, `tp_repr`로 설치된 자리는 `:458`)이
-  타입 이름을 쓰고 인자를 나열하며, 서브클래스도 같은 repr를 쓴다. 내장 예외 자체
-  (`ValueError('y')`)는 이미 일치한다.
+  타입 이름을 쓰고 인자를 나열하며, 서브클래스도 같은 repr를 쓴다. L2.3에서 `BaseException`의
+  `__repr__`를 `TypeDict`에 등록하고 `PyClassInstance.ToRepr()`가 MRO의 내장 층에서 그
+  슬롯을 타도록 고쳤다 (`core/PyType.cs`, `type/PyClass.cs`). 고정:
+  `tests/bughunt/p100_exit_fields.py`.
 - **P0-60 내장 예외 인스턴스에 속성 대입이 안 된다.** `e = ValueError('boom'); e.note = 1` →
   CPython은 대입되고 `getattr(e, 'note')`가 `1`. SharpPy는
   `AttributeError: 'ValueError' object has no attribute 'note'`. CPython `BaseException`은
@@ -2001,3 +2015,56 @@ L2.2 기록 정정에서 새로 잰 것이다. 재현:
 대입 자체. 그래서 P0-60(내장 예외 인스턴스에 속성 대입 불가)과 별개로 둔다 — `__cause__`는
 getset 디스크립터로 존재해서 대입이 실제로 성공하기 때문이다. P0-60을 고치면 이 셋은
 `__dict__`가 아니라 setter 쪽 문제라는 사실이 드러나지 않은 채 지나갈 수 있다.
+
+## P0-67 slot wrapper의 비교가 아직 CLR 참조다 (측정 2026-10-31, 미해결, L2.3에서 등록)
+
+`l.append`은 고쳤지만 `register`로 만드는 래퍼는 그대로다.
+
+재현: `probes/gap_l23_slot_wrapper.py`를 양쪽 인터프리터로 실행.
+
+| 관측 | CPython | SharpPy |
+|---|---|---|
+| `type(l.__len__).__name__` | `method-wrapper` | `builtin_function_or_method` |
+| `type(n.__add__).__name__` | `method-wrapper` | `method-wrapper` |
+| `h.__str__ == h.__str__` (`class H(int)`) | `True` | `False` |
+| `n.__add__ == n.__add__` | `True` | `False` |
+
+`method-wrapper`는 `_PyMethodWrapper_Type` (`Objects/descrobject.c:1418`, 이름은 `:1420`)이고
+`tp_richcompare`는 `wrapper_richcompare` (`:1297`)다. 규칙은 `:1313` 한 줄이다 —
+`wa->descr == wb->descr && wa->self == wb->self`. 포인터 두 개로만 비교하고 `hash`도
+포인터를 섞는다 (`wrapper_hash`, `:1320`). SharpPy는 `PyCMethod` 계열에만 규칙을 넣고
+`PyWrapperDescriptor`(`core/PyDescriptor.cs:7`)와 `PyMemberDescriptor`에는 넣지 않았다.
+`register`로 만드는 slot wrapper와 member가 이 자리에 걸린다.
+
+## P0-68 잡히지 않은 `KeyboardInterrupt`의 처리 경로 (측정 2026-10-31, 미해결, L2.3에서 등록)
+
+재현: `raise KeyboardInterrupt("stop")`을 최상위에서 실행.
+
+| 관측 | CPython | SharpPy |
+|---|---|---|
+| 프로세스 rc | `130` (Ctrl-C로 들어오면 `3221225786`) | `1` |
+| traceback 위치 | stderr | stdout |
+| stdout | `body`만 | `body` 뒤에 traceback |
+
+`BaseException_init`이 인자를 보존하도록 고치면서 (`core/PyType.cs`) 시스템_exit 처리가
+`PyKeyboardInterrupt` CLR 타입 비교였다는 것이 드러났다 (`runtime/PyInterpreter.cs:141`).
+타입 기준으로 바꾼 것은 L2.3에서 함께 했다 (`PySystemExit.Matches`). 남은 것은 rc와 출력 스트림
+배치로, traceback이 stdout으로 나가는 기존 결함(P0-30 시절부터 기록)과 같은 자리다.
+
+## P0-69 `s.upper == 'ab'.upper`가 False다 — 원인은 P0-56 (측정 2026-10-31, 미해결, L2.3에서 등록)
+
+`probes/gap_l23_slot_wrapper.py`의 뒤쪽 네 줄이 원인을 분리한다.
+
+| 관측 | CPython | SharpPy |
+|---|---|---|
+| `s.upper == "ab".upper` (`s = "ab"`) | `True` | `False` |
+| `s is "ab"` | `True` | `False` |
+| `("a" + "b") is s` | `True` | `False` |
+| `id(s) == id("ab")` | `True` | `False` |
+
+`method_repr`/`method_richcompare`는 `__self__`를 포인터로 비교한다 (`Objects/classobject.c:261`).
+CPython은 컴파일 상수 `"ab"`를 한 객체로 쓰므로 수신자가 같고 메서드도 같아진다. SharpPy는
+문자열 리터럴을 로드할 때마다 새 `PyString`을 만든다. 즉 메서드 비교의 결함이 아니라
+**P0-56과 같은 원인**이며, 문자열 상수 공유를 고치면 이 관측도 따라 온다. 메서드 비교 쪽에
+내용 비교를 넣으면(`ToHash`/`RichCompare`에서 `PyString`을 값으로 비교) CPython과 다른 규칙을
+만들게 되므로 넣지 않는다.

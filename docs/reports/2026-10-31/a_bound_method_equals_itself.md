@@ -2,7 +2,7 @@
 
 ## Before, measured
 
-`.artifacts/tmp/l22_method_eq.py` runs one program on both interpreters and diffs every line.
+`docs/plans/lifetime_foundation/probes/gap_l22_method_eq.py` runs one program on both interpreters and diffs every line.
 Before the change SharpPy lost six observations, all of them from the same missing slot:
 
 | observation | CPython | SharpPy (before) |
@@ -45,7 +45,7 @@ same function object, so it is identity from the start.
 
 ## The same rule was missing on the builtin side, too
 
-While pinning the fix, `.artifacts/tmp/l22_builtin_m2.py` measured the sibling type - a builtin
+While pinning the fix, `docs/plans/lifetime_foundation/probes/gap_l22_builtin_method.py` measured the sibling type - a builtin
 method bound to a receiver - and SharpPy lost it in exactly the same way:
 
 | observation | CPython | SharpPy (before) |
@@ -95,7 +95,7 @@ atexit.register(o.m)
 atexit.unregister(o.m)   # before: the callback still ran and printed 'ran'
 ```
 
-Both interpreters now print only `done` (`.artifacts/tmp/l22_unreg.py`). `tests/bughunt/p90_bound_method.py`
+Both interpreters now print only `done` (`docs/plans/lifetime_foundation/probes/gap_l22_unregister.py`). `tests/bughunt/p90_bound_method.py`
 pins the same property through `atexit._clear()` + `_ncallbacks()`.
 
 ## Performance
