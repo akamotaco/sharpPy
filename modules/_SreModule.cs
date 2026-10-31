@@ -601,7 +601,7 @@ namespace SharpPy.Modules
             {
                 var canonical = ToCanonicalPattern(pattern, out names, out count);
                 if (canonical != null)
-                    return new Regex(canonical, flags);
+                    return new Regex(StripCharsetFlags(canonical), flags);
             }
             names = null;
             count = 0;
@@ -613,9 +613,20 @@ namespace SharpPy.Modules
         internal static Group GroupAt(Match m, int pyNumber, Dictionary<string, int> names) =>
             names == null ? m.Groups[pyNumber] : m.Groups["__p" + pyNumber];
 
+        private static string StripCharsetFlags(string p) =>
+            Regex.Replace(p, @"\(\?([aiLmsux]+)(?=[:)\-])", m =>
+            {
+                var kept = m.Groups[1].Value.Replace("a", "").Replace("u", "").Replace("L", "");
+                return kept.Length == 0 ? "(?n-n" : "(?" + kept;
+            });
+
         internal static string ToDotNetPattern(string p)
         {
-            if (p == null || p.IndexOf("(?P", StringComparison.Ordinal) < 0)
+            if (p == null) return p;
+            // (?a:...), (?u:...), (?L:...) and (?a) select ASCII, Unicode or locale classes. .NET has no
+            // such letters. Unicode is its default, so they are dropped from the flag group.
+            p = StripCharsetFlags(p);
+            if (p.IndexOf("(?P", StringComparison.Ordinal) < 0)
                 return p;
             // (?P=name) named backreference -> \k<name>.
             // C# trap: the replacement of Regex.Replace is NOT a regex, only "$" is special, so

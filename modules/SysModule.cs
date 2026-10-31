@@ -93,6 +93,8 @@ namespace SharpPy.Modules
             // CPython 3.12: sys.displayhook - REPL expression output hook
             // Reference: Python/sysmodule.c:460-520 (sys_displayhook)
             module.ModuleDict["displayhook"] = new PySysFunction("displayhook");
+            module.ModuleDict["excepthook"] = new PySysFunction("excepthook");
+            module.ModuleDict["__excepthook__"] = module.ModuleDict["excepthook"];
             module.ModuleDict["__displayhook__"] = new PySysFunction("displayhook"); // Original hook
 
             var unraisableHook = new PyBuiltinFunction("unraisablehook", PyUnraisable.DefaultHook);
@@ -266,6 +268,7 @@ namespace SharpPy.Modules
                 "_getframe" => CallGetFrame(args),
                 "exception" => CallException(args),
                 "displayhook" => CallDisplayHook(args),
+                "excepthook" => CallExceptHook(args),
                 _ => throw PyAttributeError.Create($"sys module has no function '{Name}'")
             };
         }
@@ -383,6 +386,15 @@ namespace SharpPy.Modules
         private static int RecursionLimitValue = 1000;
         internal static int RecursionLimit => RecursionLimitValue;
         private static readonly Dictionary<string, PyString> InternTable = new();
+
+        // sys.excepthook(type, value, traceback) prints the report on sys.stderr.
+        private PyObject CallExceptHook(PyObject[] args)
+        {
+            if (args.Length != 3)
+                throw PyTypeError.Create($"excepthook expected 3 arguments, got {args.Length}");
+            Console.Error.WriteLine($"{args[0].GetAttribute("__name__").ToStr().Value}: {args[1].ToStr().Value}");
+            return PyNone.Instance;
+        }
 
         private PyObject CallGetRecursionLimit(PyObject[] args)
         {

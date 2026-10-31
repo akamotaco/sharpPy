@@ -4118,7 +4118,10 @@ namespace SharpPy
                 else
                 {
                     // Otherwise, look for symbol table in children with function name format
-                    funcSymbolTable = _currentSymbolTable.Children.FirstOrDefault(child =>
+                    // CPython walks the tables in source order (compiler_enter_scope takes the next
+                    // entry), so two defs of one name under if and else each get their own table. A body
+                    // compiled twice, such as a finally block, takes the first again.
+                    funcSymbolTable = _currentSymbolTable.TakeChild(child =>
                         child.Name == $"<function:{func.Name}>" || child.Name == func.Name);
                 }
 

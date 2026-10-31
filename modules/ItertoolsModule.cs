@@ -13,26 +13,46 @@ namespace SharpPy
         private ItertoolsModule() : base("itertools")
         {
             // 주요 itertools 함수들 등록
-            AddFunction("count", CountFunction);
+            AddKeywordFunction("count", CountFunction, "start", "step");
             AddFunction("cycle", CycleFunction);
             AddFunction("repeat", RepeatFunction);
             AddFunction("chain", ChainFunction);
-            AddFunction("combinations", CombinationsFunction);
-            AddFunction("permutations", PermutationsFunction);
-            AddFunction("product", ProductFunction);
-            AddFunction("accumulate", AccumulateFunction);
+            AddKeywordFunction("combinations", CombinationsFunction, "iterable", "r");
+            AddKeywordFunction("permutations", PermutationsFunction, "iterable", "r");
+            ModuleDict["product"] = new PyBuiltinFunction("product", ProductFunction);
+            AddKeywordFunction("accumulate", AccumulateFunction, "iterable", "func", "initial");
             AddFunction("compress", CompressFunction);
             AddFunction("dropwhile", DropWhileFunction);
             AddFunction("takewhile", TakeWhileFunction);
             AddFunction("filterfalse", FilterFalseFunction);
             AddFunction("islice", ISliceFunction);
-            AddFunction("groupby", GroupByFunction);
-            AddFunction("zip_longest", ZipLongestFunction);
+            AddKeywordFunction("groupby", GroupByFunction, "iterable", "key");
+            ModuleDict["zip_longest"] = new PyBuiltinFunction("zip_longest", ZipLongestFunction);
             AddFunction("starmap", StarmapFunction);
             AddFunction("batched", BatchedFunction);
             AddFunction("combinations_with_replacement", CombinationsWithReplacementFunction);
             AddFunction("pairwise", PairwiseFunction);
             AddFunction("tee", TeeFunction);
+        }
+
+        /// <summary>The positional-or-keyword parameters of a C implementation (PyArg_ParseTupleAndKeywords):
+        /// each keyword takes its place in the argument list, and a gap reads as None.</summary>
+        private void AddKeywordFunction(string name, Func<PyObject[], PyObject> implementation, params string[] parameters)
+        {
+            ModuleDict[name] = new PyBuiltinFunction(name, (Func<PyObject[], PyDict, PyObject>)((args, kwargs) =>
+            {
+                if (kwargs == null || kwargs.Length() == 0) return implementation(args);
+                var merged = new List<PyObject>(args);
+                foreach (var item in kwargs.InternalDict)
+                {
+                    int slot = Array.IndexOf(parameters, ((PyString)item.Key).Value);
+                    if (slot < 0)
+                        throw PyTypeError.Create($"{name}() got an unexpected keyword argument '{((PyString)item.Key).Value}'");
+                    while (merged.Count <= slot) merged.Add(PyNone.Instance);
+                    merged[slot] = item.Value;
+                }
+                return implementation(merged.ToArray());
+            }));
         }
 
         /// <summary>
@@ -205,12 +225,14 @@ namespace SharpPy
         /// <summary>
         /// itertools.product(*iterables, repeat=1) - 곱집합
         /// </summary>
-        private PyObject ProductFunction(PyObject[] args)
+        private PyObject ProductFunction(PyObject[] args, PyDict kwargs)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("product expected at least 1 argument");
-
             int repeat = 1;
+            if (KwValue(kwargs, "repeat") is PyObject repeatValue)
+            {
+                repeat = repeatValue.ToInt();
+                if (repeat < 0) throw PyValueError.Create("repeat argument cannot be negative");
+            }
             // Performance: Eliminated LINQ
             var iterables = new List<PyObject>();
             for (int i = 0; i < args.Length; i++)
@@ -218,7 +240,6 @@ namespace SharpPy
                 iterables.Add(args[i]);
             }
 
-            // repeat 키워드 인수는 단순화하여 생략
             var iterablesArray = new PyObject[iterables.Count];
             for (int i = 0; i < iterables.Count; i++)
             {
@@ -238,9 +259,9 @@ namespace SharpPy
             PyObject func = null;
             PyObject initial = null;
 
-            if (args.Length >= 2)
+            if (args.Length >= 2 && !(args[1] is PyNone))
                 func = args[1];
-            if (args.Length == 3)
+            if (args.Length == 3 && !(args[2] is PyNone))
                 initial = args[2];
 
             return new AccumulateIterator(args[0], func, initial);
@@ -310,7 +331,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"groupby expected 1 or 2 arguments ({args.Length} given)");
 
             PyObject key = null;
-            if (args.Length == 2)
+            if (args.Length == 2 && !(args[1] is PyNone))
                 key = args[1];
 
             return new GroupByIterator(args[0], key);
@@ -319,13 +340,9 @@ namespace SharpPy
         /// <summary>
         /// itertools.zip_longest(*iterables, fillvalue=None) - 가장 긴 이터러블에 맞춰 zip
         /// </summary>
-        private PyObject ZipLongestFunction(PyObject[] args)
+        private PyObject ZipLongestFunction(PyObject[] args, PyDict kwargs)
         {
-            if (args.Length == 0)
-                throw PyTypeError.Create("zip_longest expected at least 1 argument");
-
-            // fillvalue는 단순화하여 None으로 고정
-            return new ZipLongestIterator(args, PyNone.Instance);
+            return new ZipLongestIterator(args, KwValue(kwargs, "fillvalue") ?? PyNone.Instance);
         }
     }
 
@@ -1377,10 +1394,79 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// groupby_next and _grouper_next (Modules/itertoolsmodule.c). The outer iterator and the current
+    /// group share one source, so moving the outer iterator on ends the group it handed out.
+    /// </summary>
     public class GroupByIterator : PyIterator
     {
-        public GroupByIterator(PyObject iterable, PyObject key) { }
-        public override PyObject Next() => throw PyStopIteration.Create();
+        private readonly PyObject _source;
+        private readonly PyObject _key;
+        private PyObject _current, _currentKey, _targetKey;
+        private object _activeGroup;
+
+        public GroupByIterator(PyObject iterable, PyObject key)
+        {
+            _source = iterable.GetIterator();
+            _key = key;
+        }
+
+        private bool Advance()
+        {
+            try { _current = _source.Next(); }
+            catch (PythonException error) when (error.PyException is PyStopIteration)
+            {
+                _current = null;
+                return false;
+            }
+            _currentKey = _key == null ? _current : _key.Call(new[] { _current }, null);
+            return true;
+        }
+
+        private static bool SameKey(PyObject a, PyObject b) =>
+            ReferenceEquals(a, b) || PyObject.Compare(a, b, PyObject.CompareOp.EQ).IsTrue();
+
+        public override PyObject Next()
+        {
+            _activeGroup = null;
+            while (true)
+            {
+                if (_currentKey == null)
+                {
+                    if (!Advance()) throw PyStopIteration.Create();
+                }
+                else if (_targetKey == null) break;
+                else if (!SameKey(_targetKey, _currentKey)) break;
+                else if (!Advance()) throw PyStopIteration.Create();
+                if (_targetKey == null) break;
+            }
+            _targetKey = _currentKey;
+            var group = new Grouper(this, _targetKey);
+            _activeGroup = group;
+            return new PyTuple(new PyObject[] { _currentKey, group });
+        }
+
+        private sealed class Grouper : PyIterator
+        {
+            private readonly GroupByIterator _parent;
+            private readonly PyObject _groupKey;
+
+            internal Grouper(GroupByIterator parent, PyObject groupKey)
+            {
+                _parent = parent;
+                _groupKey = groupKey;
+            }
+
+            public override PyObject Next()
+            {
+                if (!ReferenceEquals(_parent._activeGroup, this) || _parent._current == null)
+                    throw PyStopIteration.Create();
+                if (!SameKey(_groupKey, _parent._currentKey)) throw PyStopIteration.Create();
+                var value = _parent._current;
+                if (!_parent.Advance()) _parent._currentKey = null;
+                return value;
+            }
+        }
     }
 
     /// <summary>

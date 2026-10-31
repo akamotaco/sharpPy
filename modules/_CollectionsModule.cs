@@ -205,6 +205,7 @@ namespace SharpPy.Modules
         }
 
         public override string GetTypeName() => "deque";
+        public override bool IsTrue() => _items.Count > 0;
 
         // CPython: deque_append
         public void Append(PyObject item)
@@ -249,7 +250,7 @@ namespace SharpPy.Modules
         }
 
         // CPython: deque_len
-        public int Length => _items.Count;
+        public override int Length() => _items.Count;
 
         // CPython: deque_rotate
         public void Rotate(int n = 1)
@@ -338,7 +339,7 @@ namespace SharpPy.Modules
                     return new PyBuiltinFunction("__len__", (args, kwargs) => {
                         if (args.Length != 0)
                             throw PyTypeError.Create($"__len__() takes no arguments ({args.Length} given)");
-                        return new PyInt(Length);
+                        return new PyInt(Length());
                     });
 
                 default:

@@ -23,3 +23,14 @@ beats wrong behaviour. Locks work, so modules that only guard with them can run.
 
 Gates: bughunt 126/126, evaluate 225/3/2, similarity 0, Godot 82/0. Programs: 29 of 37 match. Still failing: `asyncio.gather`,
 `Counter` repr, `dataclass(order=True)`, `add_note`, `itertools.product(repeat=)`, `groupby`, `lru_cache.cache_info`.
+
+## Later in the same night
+
+`itertools.groupby` was an empty stub and now works; keyword arguments reach `product`, `zip_longest`, `accumulate`, `count`.
+Two defs of one name under if and else each get their own symbol table (`TakeChild`). `hash(...)` no longer overflows the stack.
+`dict`, `set`, `bytes`, `range` expose slot methods through `PySlotWrappers`; `__repr__` and `__str__` stay out because
+`AsString` looks them up and would recurse. Regex `(?a:` flags are stripped. `sys.excepthook` exists.
+
+Parked, not committed: `.artifacts/wip-l6/` holds grafts of `Counter`, `UserDict`, `lru_cache`, plus copies of `string`,
+`reprlib`, `pprint`, `queue`, `threading`, `fnmatch`. With them bughunt fell to 113/126: `import threading` raises a SyntaxError
+with no location, which still has to be traced.

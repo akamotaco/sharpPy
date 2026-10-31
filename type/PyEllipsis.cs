@@ -28,7 +28,7 @@ namespace SharpPy
 
         #region Hash and Equality
 
-        public override int ToHash() => GetHashCode(); // CPython: uses address, we use object hash
+        public override int ToHash() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this); // CPython: uses address, we use object hash
 
         protected override PyObject PyEquals(PyObject other)
         {

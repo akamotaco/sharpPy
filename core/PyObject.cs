@@ -902,7 +902,7 @@ namespace SharpPy
                 return CallGetAttr(name);
             }
 
-            throw AttributeNotFound(name);
+            return PySlotWrappers.TryBind(this, name) ?? throw AttributeNotFound(name);
         }
 
         // CPython distinguishes attribute errors on a class object

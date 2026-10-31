@@ -160,6 +160,23 @@ namespace SharpPy
         public IEnumerable<SymbolTable> GetChildren() => _children;
         public IEnumerable<SymbolTable> Children => _children; // Add property for compiler compatibility
 
+        private bool _taken;
+
+        /// <summary>The next child in source order that matches.</summary>
+        public SymbolTable? TakeChild(Func<SymbolTable, bool> matches)
+        {
+            SymbolTable? first = null;
+            foreach (var child in _children)
+            {
+                if (!matches(child)) continue;
+                first ??= child;
+                if (child._taken) continue;
+                child._taken = true;
+                return child;
+            }
+            return first;
+        }
+
         public void AddChild(SymbolTable child)
         {
             _children.Add(child);
