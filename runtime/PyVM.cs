@@ -1295,16 +1295,34 @@ namespace SharpPy
         private PyFrame _inlineCall;
 
         /// <summary>
-        /// _Py_EnterRecursivePy for the Python limit (Python/ceval.c), plus the check C gets from
-        /// _Py_EnterRecursiveCall: a call that still needs the CLR stack (__repr__, a generator, a
-        /// builtin calling back) reports RecursionError while there is stack left to report it. The host
-        /// owns the stack size, and on the Godot main thread SharpPy cannot change it.
+        /// How many ExecuteFrame calls may be on the host stack, the counterpart of C's recursion limit
+        /// (Py_C_RECURSION_LIMIT). The host owns the stack: the Godot main thread is 1 MB on Windows and
+        /// SharpPy cannot change it. TryEnsureSufficientExecutionStack alone is too late, because
+        /// throwing the RecursionError needs stack as well: measured on that thread, a throw near the
+        /// end overflowed it and ended the process. A host that runs on a larger stack may raise this.
         /// </summary>
-        private void EnterRecursiveFrame()
+        public static int HostRecursionLimit { get; set; } = 64;
+        private int _hostFrames;
+
+        private void CheckRecursionLimit()
         {
-            if (_frameStack.Count >= Modules.PySysFunction.RecursionLimit
-                || !System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            if (_frameStack.Count >= Modules.PySysFunction.RecursionLimit)
                 throw new PythonException(new PyRecursionError("maximum recursion depth exceeded"));
+        }
+
+        /// <summary>
+        /// _Py_EnterRecursivePy for the Python limit (Python/ceval.c), plus the check C gets from
+        /// _Py_EnterRecursiveCall: a call that still needs the host stack (__repr__, a generator, a
+        /// builtin calling back) reports RecursionError while there is stack left to report it.
+        /// </summary>
+        private void EnterHostFrame()
+        {
+            CheckRecursionLimit();
+            if (_hostFrames >= HostRecursionLimit
+                || !System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+                throw new PythonException(new PyRecursionError(
+                    "maximum recursion depth exceeded while calling a Python object"));
+            _hostFrames++;
         }
 
         /// <summary>
@@ -1314,19 +1332,39 @@ namespace SharpPy
         /// </summary>
         private bool TryInlineCall(PyFunction function, PyObject[] args)
         {
+            if (!CanInline(function)) return false;
             var code = function.CodeObject;
-            if (code == null || function.GlobalsDict == null || function.GetType() != typeof(PyFunction)
-                || code.IsGenerator() || code.IsCoroutine() || code.IsAsyncGenerator())
-                return false;
-            EnterRecursiveFrame();
+            CheckRecursionLimit();
             _inlineCall = new PyFrame(code, args, new PyScopeChain(function.GlobalsDict, "<function>"),
                 function.Closure, CurrentFrame, function.GetDefaults(), function.GetKeywordDefaults());
             return true;
         }
 
+        private static bool CanInline(PyFunction function)
+        {
+            var code = function.CodeObject;
+            return code != null && function.GlobalsDict != null && function.GetType() == typeof(PyFunction)
+                && !code.IsGenerator() && !code.IsCoroutine() && !code.IsAsyncGenerator();
+        }
+
+        /// <summary>The same call with KW_NAMES: the trailing values of args belong to those names.</summary>
+        private bool TryInlineKeywordCall(PyFunction function, PyObject[] args, PyTuple kwNames)
+        {
+            if (!CanInline(function)) return false;
+            CheckRecursionLimit();
+            int positional = args.Length - kwNames.Items.Length;
+            var kwargs = new PyDict();
+            for (int i = 0; i < kwNames.Items.Length; i++)
+                kwargs.SetItem(kwNames.Items[i], args[positional + i]);
+            _inlineCall = PyFrame.CreateWithKwargs(function.CodeObject, args[..positional], kwargs,
+                new PyScopeChain(function.GlobalsDict, "<function>"), function.Closure,
+                function.GetDefaults(), function.GetKeywordDefaults());
+            return true;
+        }
+
         public PyObject ExecuteFrame(PyFrame frame)
         {
-            EnterRecursiveFrame();
+            EnterHostFrame();
             var entryFrame = frame;
             var outerDepth = _frameStack.Count;
             _frameStack.Push(frame);
@@ -1572,6 +1610,7 @@ namespace SharpPy
             finally
             {
                 _inlineCall = null;
+                _hostFrames--;
                 while (_frameStack.Count > outerDepth) _frameStack.Pop();
             }
         }
@@ -1806,6 +1845,8 @@ namespace SharpPy
                 if (kwNames != null && kwNames.Items.Length > 0)
                 {
                     // 키워드 인수가 있는 경우 - CallWithKeywords 사용
+                    if (actualCallable is PyFunction keywordTarget
+                        && TryInlineKeywordCall(keywordTarget, finalArgs, kwNames)) return;
                     newCallResult = CallWithKeywords(actualCallable, finalArgs, kwNames, frame.ScopeChain);
                 }
                 else
@@ -1817,7 +1858,19 @@ namespace SharpPy
                     }
                     else if (actualCallable is PyMethod method)
                     {
-                        newCallResult = method.Call(finalArgs, null);
+                        // PyMethod.Call special-cases __exit__, so that name keeps its route.
+                        if (method.Function is PyFunction boundFunction && boundFunction.Name != "__exit__")
+                        {
+                            var withSelf = new PyObject[finalArgs.Length + 1];
+                            withSelf[0] = method.Instance;
+                            Array.Copy(finalArgs, 0, withSelf, 1, finalArgs.Length);
+                            if (TryInlineCall(boundFunction, withSelf)) return;
+                            newCallResult = ExecuteFunctionCall(boundFunction, withSelf, frame.ScopeChain);
+                        }
+                        else
+                        {
+                            newCallResult = method.Call(finalArgs, null);
+                        }
                     }
                     else if (actualCallable is PyFunction func)
                     {

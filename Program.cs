@@ -15,6 +15,7 @@ namespace SharpPy
 
         public static void Main(string[] args)
         {
+            PyVM.HostRecursionLimit = int.MaxValue;
             var interpreter = new System.Threading.Thread(() => Run(args), InterpreterStackBytes);
             interpreter.Start();
             interpreter.Join();

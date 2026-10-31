@@ -25,3 +25,12 @@ frames 0.340. SharpPy is still about 20 times slower than CPython on these (fib 
 
 Gates: bughunt 124/124 with p125, evaluate 225/3/2, similarity 0, Godot 82/0. `l27_recursion.py` matches, including
 the deepest frame number.
+
+## Measured on the Godot main thread
+
+`p125_recursion.py` ran through the `--fixture` route. A plain `TryEnsureSufficientExecutionStack` guard was not enough:
+throwing near the end of the 1 MB stack overflowed it and ended Godot with `0xC00000FD`. So `PyVM.HostRecursionLimit`
+(64) counts `ExecuteFrame` calls on the host stack, the CLI sets it to `int.MaxValue` on its 256 MB thread, and bound
+methods and keyword calls also switch frames. In Godot a recursion that needs the host stack (`__repr__`, generators)
+raises `RecursionError` at 64 instead of 1000. The harness copy of `Lib` was stale and is now synced from `Lib`.
+`weakref.finalize` at exit does not run in Godot, because the host never reaches `PyFinalizer.Shutdown()`.
