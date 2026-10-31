@@ -2171,9 +2171,9 @@ P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만
 
 같은 재현. `type("X", (int, Exception), {})`가 생성된다. CPython은 `multiple bases have instance lay-out conflict`다.
 
-## P0-75 `p.__dict__ = {...}` 대입이 속성에 반영되지 않는다 (측정 2026-11-01, 미해결)
+## P0-75 `p.__dict__ = {...}` 대입이 속성에 반영되지 않는다 (측정 2026-11-01, L2.5에서 해결)
 
-같은 재현. 대입 뒤 `p.a`가 `AttributeError`다.
+`PyClassInstance`는 해결됐다 (`tests/bughunt/p122_instance_dict.py`). 내장 서브클래스(`IDictBackedInstance`)의 `__dict__`는 아직 복사본이다.
 
 ## P0-76 `mappingproxy`를 순회할 수 없다 (측정 2026-11-01, 미해결)
 

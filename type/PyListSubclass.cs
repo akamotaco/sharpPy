@@ -20,7 +20,7 @@ namespace SharpPy
     /// Python-level class dict - handled the way <see cref="PyTupleSubclass"/> and
     /// <see cref="PyBytesSubclass"/> already handle it, through <see cref="SubclassInstanceSupport"/>.
     /// </summary>
-    public class PyListSubclass : PyList, IInstanceDictAccessor
+    public class PyListSubclass : PyList, IDictBackedInstance
     {
         /// <summary>ob_type: the user class, not list.</summary>
         public PyClass InstanceType { get; }

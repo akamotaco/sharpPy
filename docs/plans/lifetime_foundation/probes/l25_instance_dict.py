@@ -50,3 +50,27 @@ e.a = 1
 print(e.__dict__)
 e.__dict__["b"] = 2
 print(e.b, e.args)
+
+
+p = P()
+p.a = 1
+print(p.__dict__)
+d2 = {"b": 2}
+p.__dict__ = d2
+print(p.b, hasattr(p, "a"), p.__dict__ is d2)
+d2["c"] = 3
+p.e = 4
+print(p.c, d2)
+try:
+    p.__dict__ = 5
+except TypeError as x:
+    print(x)
+p.__dict__[1] = "int key"
+print(p.__dict__, vars(p))
+print(p.e)
+q = P()
+q.x = 1
+q.y = 2
+del q.x
+q.z = 3
+print(list(q.__dict__))

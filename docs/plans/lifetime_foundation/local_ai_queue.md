@@ -363,7 +363,7 @@ rc 1이어야 하는데 이제 rc 0이고, `code`를 property로 덮은 서브�
 - `e.args = (e,)`의 `repr`이 스택 오버플로로 프로세스를 끝낸다 (CPython은 `RecursionError`). P0-52에 잇는다.
 - `type(exit).__name__`이 `object`다 (CPython `Quitter`). P0-66과 같은 계열인지 적는다.
 
-## L2.5 — 지금 할 일 (L2.4 점검 결과, C1 전)
+## L2.5 — 완료 (C1 전)
 
 L2.4는 끝났다 (`c47c502`, `6ab5dca`). 점검 기준 게이트: bughunt 114/114, evaluate 225/3/2, similarity exit 0, Godot 82/0.
 게이트와 인수 프로브를 통과했지만 L2.4가 회귀 넷을 만들었고, 점검 중 기록되지 않은 큰 결함 둘이 나왔다.

@@ -358,8 +358,7 @@ namespace SharpPy.Modules
                 case PyClassInstance instance:
                     // Measured order for an instance holding one attribute: dict values first, then
                     // the class (referents instance -> ['int', 'type']).
-                    if (instance.InstanceDict != null)
-                        foreach (var value in instance.InstanceDict.Values) into.Add(value);
+                    foreach (var entry in instance.InstanceAttributes) into.Add(entry.Value);
                     if (instance.InstanceType != null) into.Add(instance.InstanceType);
                     break;
                 default:

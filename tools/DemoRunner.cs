@@ -105,12 +105,12 @@ namespace SharpPy.Tools
             var nameGetter = new PyFunction("get_name", args => 
             {
                 var self = (PyClassInstance)args[0];
-                return self.InstanceDict.GetValueOrDefault("_name", new PyString("Unknown"));
+                return self.TryGetInstanceAttribute("_name", out var stored) ? stored : new PyString("Unknown");
             });
             var nameSetter = new PyFunction("set_name", args =>
             {
                 var self = (PyClassInstance)args[0];
-                self.InstanceDict["_name"] = args[1];
+                self.SetInstanceAttribute("_name", args[1]);
                 Console.WriteLine($"  Name set to: {args[1]}");
                 return PyNone.Instance;
             });

@@ -3,21 +3,27 @@ using System.Collections.Generic;
 namespace SharpPy
 {
     /// <summary>
-    /// Interface for objects that have an instance dictionary (__dict__)
-    /// CPython 3.12: Objects/typeobject.c:4200-4250 (PyObject_GenericGetDict)
-    ///
-    /// Implemented by:
-    /// - PyClassInstance: user-defined class instances
-    /// - PyIntSubclass: int subclass instances (e.g., IntEnum)
-    /// - PyStrSubclass: str subclass instances (e.g., StrEnum)
-    /// - PyTupleSubclass: tuple subclass instances (e.g., NamedTuple)
+    /// Attribute-store seam for objects with an instance __dict__.
+    /// CPython 3.12: Objects/object.c PyObject_GenericGetAttr / _PyObject_GenericSetAttrWithDict
     /// </summary>
     public interface IInstanceDictAccessor
     {
-        /// <summary>
-        /// The instance's attribute dictionary
-        /// CPython 3.12: Include/cpython/object.h:88 (PyObject_GenericGetDict returns this)
-        /// </summary>
+        bool TryGetInstanceAttribute(string name, out PyObject value);
+        IEnumerable<KeyValuePair<string, PyObject>> InstanceAttributes { get; }
+    }
+
+    /// <summary>
+    /// Dict-backed instances that store attributes in a plain Dictionary.
+    /// Provides default implementations of IInstanceDictAccessor over InstanceDict.
+    /// </summary>
+    public interface IDictBackedInstance : IInstanceDictAccessor
+    {
         Dictionary<string, PyObject> InstanceDict { get; }
+
+        bool IInstanceDictAccessor.TryGetInstanceAttribute(string name, out PyObject value)
+            => InstanceDict.TryGetValue(name, out value);
+
+        IEnumerable<KeyValuePair<string, PyObject>> IInstanceDictAccessor.InstanceAttributes
+            => InstanceDict;
     }
 }

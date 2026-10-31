@@ -515,7 +515,7 @@ namespace SharpPy
                     return PyClass;
                 case "__dict__":
                     // CPython 3.12: Objects/object.c:4200-4250 (PyObject_GenericGetDict)
-                    if (this is IInstanceDictAccessor dictAccessor)
+                    if (this is IDictBackedInstance dictAccessor)
                         return new PyDict(dictAccessor.InstanceDict);
                     // CPython 3.12: Non-instance objects should delegate to type's __dict__ descriptor
                     // For objects like None, functions, etc., __dict__ access should go through the type
@@ -875,7 +875,7 @@ namespace SharpPy
 
             // 3. instance dictionary 확인
             // CPython 3.12: Objects/object.c:1255-1259 - check instance __dict__
-            if (this is IInstanceDictAccessor dictAccessor && dictAccessor.InstanceDict.TryGetValue(name, out PyObject value))
+            if (this is IInstanceDictAccessor dictAccessor && dictAccessor.TryGetInstanceAttribute(name, out PyObject value))
             {
                 return value;
             }
@@ -962,7 +962,7 @@ namespace SharpPy
             // 2. instance dictionary에 저장
             if (this is PyClassInstance instance)
             {
-                instance.InstanceDict[name] = value;
+                instance.SetInstanceAttribute(name, value);
             }
             else if (this is PyClass customType)
             {
@@ -1064,9 +1064,8 @@ namespace SharpPy
 
             if (this is PyClassInstance instance)
             {
-                if (instance.InstanceDict.ContainsKey(name))
+                if (instance.RemoveInstanceAttribute(name))
                 {
-                    instance.InstanceDict.Remove(name);
                     #if DEBUG_LOG
                     Console.WriteLine($"   ✅ deleted from instance dict");
                     #endif

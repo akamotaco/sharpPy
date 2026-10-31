@@ -1579,12 +1579,16 @@ namespace SharpPy
         {
             var itemList = new PyList(items);
             PyObject state = PyNone.Instance;
-            if (self is IInstanceDictAccessor accessor && accessor.InstanceDict.Count > 0)
+            if (self is IInstanceDictAccessor accessor)
             {
                 var saved = new PyDict();
-                foreach (var entry in accessor.InstanceDict)
+                bool any = false;
+                foreach (var entry in accessor.InstanceAttributes)
+                {
                     saved.SetItem(new PyString(entry.Key), entry.Value);
-                state = saved;
+                    any = true;
+                }
+                if (any) state = saved;
             }
             return new PyTuple(new PyObject[]
             {

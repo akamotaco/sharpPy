@@ -25,7 +25,7 @@ namespace SharpPy;
 ///   "I/O operation on closed file." with a trailing period while stringio.c reports it
 ///   without one (both measured). Keeping the two strings separate here is parity, not noise.
 /// </summary>
-public class PyIOBaseInstance : PyObject, IInstanceDictAccessor
+public class PyIOBaseInstance : PyObject, IDictBackedInstance
 {
     private readonly PyType type;
     private Dictionary<string, PyObject> dict = new();

@@ -3041,7 +3041,7 @@ namespace SharpPy
                                 bool isInstanceAttribute = false;
                                 if (obj is PyClassInstance classInstance)
                                 {
-                                    isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
+                                    isInstanceAttribute = classInstance.HasInstanceAttribute(attrName);
                                 }
 
                                 if (isTypeOrClass || isModuleOrSuper || isStaticMethod || isInstanceAttribute)
