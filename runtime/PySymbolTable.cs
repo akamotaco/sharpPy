@@ -847,8 +847,6 @@ namespace SharpPy
                 AnalyzeStatement(stmt);
             }
 
-            // After analyzing body, resolve free variables
-            ResolveFreeVariables(_currentTable);
 
             // CPython 3.12: Pop from scope stack (symtable.c:353)
             _scopeStack.Pop();
@@ -2014,8 +2012,6 @@ namespace SharpPy
 #endif
             AnalyzeExpression(lambda.Body);
 
-            // After analyzing body, resolve free variables
-            ResolveFreeVariables(_currentTable);
 
             // CPython 3.12: Pop from scope stack (symtable.c:353)
             _scopeStack.Pop();
@@ -2082,8 +2078,6 @@ namespace SharpPy
                 AnalyzeStatement(stmt);
             }
 
-            // After analyzing body, resolve free variables
-            ResolveFreeVariables(_currentTable);
 
             // CPython 3.12: Pop from scope stack (symtable.c:353)
             _scopeStack.Pop();
@@ -2159,7 +2153,6 @@ namespace SharpPy
             AnalyzeExpression(element);
 
             // CPython 3.12: Resolve free variables before exiting scope
-            ResolveFreeVariables(_currentTable);
 
             // CPython 3.12: Pop from scope stack (symtable.c:353)
             _scopeStack.Pop();
@@ -2230,7 +2223,6 @@ namespace SharpPy
 
             // CPython 3.12: Resolve free variables after analyzing class body
             // This ensures nested lambdas and comprehensions have correct scope
-            ResolveFreeVariables(_currentTable);
 
             _currentTable = savedTable;
         }
