@@ -32,8 +32,15 @@ namespace SharpPy
         internal GuardState State;
         /// <summary>Creation order, which is the order shutdown must follow for the leftovers.</summary>
         internal long Sequence;
-        /// <summary>Index into PyFinalizer.Live, or -1 when the guard is not listed.</summary>
-        internal int Slot = -1;
+        /// <summary>
+        /// This guard's row in PyFinalizer.Live, or null when it is not listed. The number lives on the
+        /// row, not on the guard: a swap-remove moves a row, and the guard that used to own it may
+        /// already be unreachable, so its weak reference cannot be resolved to be retargeted. Measured
+        /// on the Q2 code: with 1000 droppers the shutdown sweep lost two survivors, three runs out of
+        /// three, because a stale number deleted a different guard's row (docs/plans/lifetime_foundation
+        /// /local_ai_queue.md L1.1).
+        /// </summary>
+        internal PyFinalizer.LiveEntry Entry;
 
         internal PyGuard(PyObject owner) { Owner = owner; }
 
@@ -77,7 +84,18 @@ namespace SharpPy
 
         // Weak on purpose: the guards that are still waiting for their object to die. Short
         // references are enough here because the tracked object is the guard, not the Python object.
-        private static readonly List<WeakReference<PyGuard>> Live = new();
+        /// <summary>
+        /// The guards that still owe a __del__, in creation order for the shutdown sweep. Each row holds
+        /// its own index so that removal stays O(1) without asking a possibly-dead guard to renumber
+        /// itself; see PyGuard.Entry.
+        /// </summary>
+        internal sealed class LiveEntry
+        {
+            internal int Index;
+            internal WeakReference<PyGuard> Ref;
+        }
+
+        private static readonly List<LiveEntry> Live = new();
 
         private static long _sequence;
         private static bool drainRunning;   // no recursive pending calls (Python/ceval_gil.c:898)
@@ -241,7 +259,16 @@ namespace SharpPy
             var saved = PyVM.SnapshotExceptionStates();
             try
             {
-                hook.Call(new PyObject[] { target }, null);
+                // slot_tp_finalize does not call the value of the class dict. It looks the name up with
+                // lookup_maybe_method (Objects/typeobject.c:9071, :2188), so the descriptor protocol runs
+                // and then the result is called with no arguments (measured on the reference interpreter:
+                // a plain def, a staticmethod, a classmethod, a custom __get__ and a bare callable object
+                // all receive zero arguments). Calling the dict value directly passed self and skipped
+                // binding, which broke every form except the plain def.
+                // BindSpecialMethod (core/PyObject.cs:744) is the existing binder, so no second binding
+                // path is added here. A hook that is not callable - __del__ = None - raises from here and
+                // is reported below, which is also what CPython does.
+                target.BindSpecialMethod(hook).Call(Array.Empty<PyObject>(), null);
             }
             catch (PythonException ex)
             {
@@ -376,11 +403,14 @@ namespace SharpPy
             List<PyGuard> alive = null;
             lock (Live)
             {
+                // Dead rows are not pruned here. Removing a row from the middle would shift every row
+                // after it and leave their stored indexes pointing somewhere else, which is the bug this
+                // change removes. The guard's own Step drops its row, and this snapshot is only taken
+                // once, at shutdown.
                 for (int i = Live.Count - 1; i >= 0; i--)
                 {
-                    var guard = Target(Live[i]);
+                    var guard = Target(Live[i].Ref);
                     if (guard != null) (alive ??= new List<PyGuard>()).Add(guard);
-                    else Live.RemoveAt(i);
                 }
             }
             return alive == null ? Array.Empty<PyGuard>() : alive.ToArray();
@@ -401,8 +431,12 @@ namespace SharpPy
         {
             lock (Live)
             {
-                guard.Slot = Live.Count;
-                Live.Add(new WeakReference<PyGuard>(guard));
+                guard.Entry = new LiveEntry
+                {
+                    Index = Live.Count,
+                    Ref = new WeakReference<PyGuard>(guard),
+                };
+                Live.Add(guard.Entry);
             }
         }
 
@@ -412,17 +446,23 @@ namespace SharpPy
             if (guard == null) return;
             lock (Live)
             {
-                int slot = guard.Slot;
-                if (slot < 0 || slot >= Live.Count) { guard.Slot = -1; return; }
+                var entry = guard.Entry;
+                if (entry == null) return;
+                int slot = entry.Index;
                 int last = Live.Count - 1;
+                if (slot < 0 || slot > last || !ReferenceEquals(Live[slot], entry))
+                {
+                    // Not our row any more; nothing to take out twice.
+                    guard.Entry = null;
+                    return;
+                }
                 if (slot != last)
                 {
                     Live[slot] = Live[last];
-                    var moved = Target(Live[slot]);
-                    if (moved != null) moved.Slot = slot;
+                    Live[slot].Index = slot;
                 }
                 Live.RemoveAt(last);
-                guard.Slot = -1;
+                guard.Entry = null;
             }
         }
 

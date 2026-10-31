@@ -131,7 +131,13 @@ namespace SharpPy
             foreach (var t in MRO)
             {
                 if (!(t is PyClass owner)) continue;
-                if (!owner.ClassDict.TryGetValue("__del__", out var own) || own is PyNone) continue;
+                // The first class in the MRO that has the name wins, whatever the value is. Skipping a
+                // None went on to find the parent and call it, where CPython stops at the None and
+                // reports TypeError: 'NoneType' object is not callable on stderr
+                // (Objects/typeobject.c:9071 slot_tp_finalize looks the name up once, on the type).
+                // Measured: docs/plans/lifetime_foundation/probes/l1_del_hook.py - the subclass with
+                // __del__ = None leaves the log empty.
+                if (!owner.ClassDict.TryGetValue("__del__", out var own)) continue;
                 hook = own;
                 break;
             }

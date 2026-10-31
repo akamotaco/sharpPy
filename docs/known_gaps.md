@@ -1821,16 +1821,20 @@ SharpPy는 set/frozenset의 표면을 자기 파일에 하나도 등록하지 �
 겸여로 다른 표면 결함 하나를 더 확인했다: 내장 함수에 `__self__`가 없어서
 `print.__self__`가 `AttributeError`를 낸다(CPython은 `builtins` 모듈을 돌려준다).
 
-## P0-50 Guard의 `__del__` 경계 결함 세 건 (측정 2026-10-31, 미해결, 담당 로컬 AI L1)
+## P0-50 Guard의 `__del__` 경계 결함 세 건 (측정 2026-10-31, 해결, 담당 로컬 AI L1)
 
 Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 코드의 결함이다.
 재현: `plans/lifetime_foundation/probes/l1_live_slots.py`, `l1_del_hook.py`.
+사본: `tests/bughunt/p92_live_slots.py`, `tests/bughunt/p93_del_hook.py`.
+보고서: `docs/reports/2026-10-31/three_edges_of_the_guard.md`.
 
-| 위치 | 현상 | 측정 |
+| 위치 | 현상 | 결과 |
 |---|---|---|
-| `core/PyFinalizer.cs` `RemoveFromLive` | 죽은 가드를 옮길 때 `Slot`이 낡아 다른 가드의 항목을 지운다. 종료 시 `__del__` 유실 | CPython 2050, SharpPy 2048 (3/3). 슬롯을 공유 항목으로 옮기면 2050 (3/3) |
-| `core/PyFinalizer.cs` `RunFinalizer` | 디스크립터 바인딩 없이 호출 | `staticmethod`, `classmethod`, `__get__` 객체 미실행, 호출 가능 객체는 인자 1개 초과 |
-| `type/PyClass.cs` `FindFinalizerHook` | `__del__ = None`을 건너뛰고 부모를 호출 | CPython `[]`, SharpPy `['P']` |
+| `core/PyFinalizer.cs` `RemoveFromLive` | 죽은 가드를 옮길 때 `Slot`이 낡아 다른 가드의 항목을 지운다. 종료 시 `__del__` 유실 | 번호를 가드에서 행(`LiveEntry`)으로 옮겼다. 두 측 모두 2053줄로 일치 |
+| `core/PyFinalizer.cs` `RunFinalizer` | 디스크립터 바인딩 없이 호출 | `BindSpecialMethod`를 거친다. 인자는 0개(CPython 실측과 같음) |
+| `type/PyClass.cs` `FindFinalizerHook` | `__del__ = None`을 건너뛰고 부모를 호출 | None도 훅이다. `TypeError: 'NoneType' object is not callable`이 stderr로 가고 부모는 불리지 않는다 |
+
+남은 경계는 P0-51(메타클래스 `__del__`, 코루틴 finalize)로 별도 관리된다.
 
 ## P0-51 메타클래스 `__del__`, 코루틴 finalize (측정 2026-10-31, 미해결)
 
