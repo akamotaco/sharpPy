@@ -161,7 +161,7 @@ similarity exit 0, Godot 82/0이다. **완료 (`aff002c`).** 아래는 기록으
 - `import pickle` 실패
 - `sharppy -m x`가 모듈을 실행하지 않고 REPL로 들어감 (`Program.cs:74`의 분기가 주석 처리됨)
 
-## L2.2 — 지금 할 일 (C1 전)
+## L2.2 — 완료 (C1 전)
 
 L2.1 점검 기준 게이트: bughunt 96/96, evaluate 225/3/2, similarity exit 0, Godot 82/0.
 **아래 세 커밋이 끝나면 멈춘다.** C1이 같은 작업 트리를 쓰므로 함께 진행하지 않는다. L3은 C1 커밋 뒤에 열린다.
@@ -186,6 +186,61 @@ L2.1 점검 기준 게이트: bughunt 96/96, evaluate 225/3/2, similarity exit 0
 
 **P0-55, P0-56은 C1 뒤로 둔다.** P0-55는 생성 시점에 등록되는 가드(`PyFinalizer.RegisterIfDeclared`)와 얽히고,
 P0-56은 할당 경로를 바꿔서 C1의 H3 비용 측정 기준을 흔든다.
+
+## L2.3 — 지금 할 일 (L2.2 점검 결과, C1 전)
+
+L2.2는 끝났다 (`1fcb91d`, `7f09ef8`, `5c33807`). 점검 기준 게이트: bughunt 98/98, similarity exit 0. 합격 프로브를
+통과한 뒤에도 아래 결함이 남았다. **아래를 커밋 하나로 하고 멈춘다.** 경계는 L2.2와 같다
+(`core/PyFinalizer.cs`, `modules/AtexitModule.cs` 금지).
+
+**합격.** `--filter l23_` 5/5 일치, `--filter l2` 일치 유지, 게이트 통과. 사본:
+
+| 프로브 | 사본 |
+|---|---|
+| `l23_exit_fields.py` | `p100_exit_fields.py` |
+| `l23_exit_message.py` | `p101_exit_message.py` |
+| `l23_exit_bad_str.py` | `p102_exit_bad_str.py` |
+| `l23_exit_keyword.py` | `p103_exit_keyword.py` |
+| `l23_method_type.py` | `p104_method_type.py` |
+
+**코드.**
+
+1. **종료 상태를 `Shutdown()` 전에 정한다** (`core/FileExecutor.cs`의 두 곳). 지금은 `Shutdown()` 뒤에
+   `ExitStatusOf`를 불러서, 주석과 달리 atexit이 `args`를 바꾸면 종료 코드가 바뀐다. CPython은
+   `_Py_HandleSystemExit`가 메시지를 쓴 뒤 `Py_Exit`로 정리한다.
+2. **메시지는 그 시점의 `sys.stderr`로 쓴다.** `Console.Error`가 아니다. `__str__`이 던져도 프로세스가 죽으면
+   안 된다. 지금은 CLR 예외로 rc 3762504530이 된다. 상태는 1, `Shutdown()`은 그대로 돌아야 한다.
+3. **`SystemExit.code`는 저장 필드다.** `args`에서 계산하지 않는다 (`SystemExit_init`,
+   `Objects/exceptions.c:633`). 대입과 `del`이 되고, `del` 뒤에는 None으로 읽힌다.
+4. **`SystemExit` 서브클래스도 `SystemExit`이다.** 지금 `class E(SystemExit)`의 `raise E(4)`는 traceback과 rc 1이다.
+   `pythonError.PyException is PySystemExit` 판정과 인스턴스 생성 경로를 함께 본다.
+   `Lib`의 사용자 코드가 쓰는 경로이므로 `ExitStatusOf`만의 분기로 때우지 말고, `.code`도 서브클래스에서 동작해야 한다.
+5. **`KeyboardInterrupt` 생성자가 인자를 버린다.** `new PyKeyboardInterrupt()`가 고정 문구를 넣는다
+   (`core/PyType.cs`, `core/PyException.cs:772`). L2.2가 이름을 공개하면서 드러났다. `KeyboardInterrupt()`의 args는 `()`이다.
+6. **`exit()`의 인자.** `exit(code=2)`와 `exit(1, 2)`가 `Quitter.__call__(self, code=None)`처럼 동작하게 한다
+   (`Lib/_sitebuiltins.py:38`).
+7. **`method` 타입을 호출 가능하게 한다.** `type(o.m)(func, obj)`가 지금 `NotImplementedError`다. L3의
+   `WeakMethod`가 이 호출을 쓴다 (`Lib/weakref.py:73`). 메시지는 프로브를 따른다.
+8. **`dict.fromkeys == dict.fromkeys`**. 내장 클래스 메서드의 비교와 해시가 P0-54에서 빠졌다. 원인은 추측하지
+   말고 그 객체의 실제 타입부터 확인한다.
+
+**기록 정정.**
+
+- `docs/reports/2026-10-31/the_exit_code_arrives.md`, `docs/known_gaps.md` P0-53: "상태는 teardown 전에 결정된다"는
+  L2.2 시점에는 거짓이었다. 그 측정은 콜백이 예외를 내는 경우만 봐서 순서를 구별하지 못했다. L2.3에서 고쳤다고
+  적는다.
+- `.artifacts/tmp/l22_*.py`로 인용한 재현 파일을 `probes/gap_l22_*.py`로 옮기고 인용을 고친다. gitignore 대상을 재현
+  파일로 인용하지 않는다. L2.2 1번과 같은 지적이다.
+- `docs/known_gaps.md`의 P0-53, P0-54 해결 날짜 `2026-11-01`을 `2026-10-31`로 고친다. 커밋 날짜와 맞춘다.
+- `docs/plans/todo.md` L2.2 행의 깨진 글자("낌", "임")와 `docs/known_gaps.md`의 "튜풀"을 고친다. 커밋 전에 새로 쓴 문장을 다시 읽는다.
+
+**`docs/known_gaps.md`에 등록.** 고치지 않는다.
+
+- 슬롯 래퍼 비교: `h.__str__ == h.__str__`, `n.__add__ == n.__add__`가 False, `type(l.__len__)`이 `method-wrapper`가 아님.
+- 잡히지 않은 `KeyboardInterrupt`: CPython rc 3221225786, 출력은 stderr. SharpPy rc 1, stdout.
+- `s.upper == 'ab'.upper`: 같은 내용의 문자열이 같은 객체인지부터 재고, P0-56과 같은 원인인지 적는다. 측정 전에는 가설이다.
+
+**번호.** `p90`, `p91`은 L2.2가 썼다. `todo.md`에서 예약된 번호였으므로, 앞으로는 쓰기 전에 `docs/plans`에서 번호를 검색한다.
 
 ## L3 — `weakref.py`, 타입 플래그 (C1 뒤)
 

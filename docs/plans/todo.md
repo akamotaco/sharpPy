@@ -82,10 +82,11 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 | 완료 | L2 | ReferenceError, atexit (2026-10-31, 문서: reports/2026-10-31/atexit_before_the_guards.md) | 로컬 AI | p95 |
 | 완료 | L2.1 | L2 점검 결과: `unregister` 비교, 재진입, 인자 검사, 기록 정정 (2026-10-31, 문서: reports/2026-10-31/atexit_edges_and_corrections.md) | 로컬 AI | p89 |
 | 완료 | L2.2 | 네 건 다 낌: 기록 정정 (P0-59~64 재현 파일 임), P0-53 `sys.exit` 코드 (p91, reports/2026-10-31/the_exit_code_arrives.md), P0-54 bound method `==` 와 빌트인 ꯔ (p90, reports/2026-10-31/a_bound_method_equals_itself.md) | 로컬 AI | 96 → 98 probes |
+| L2.3 | | L2.2 점검 결과: 종료 상태 순서, `code` 필드, 서브클래스, `KeyboardInterrupt`, `method` 생성자 (C1 전) | 로컬 AI | p100~p104 |
 | C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
 | L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |
-| Q5 | | `proxy` (별도 커밋) | Claude | p90 |
+| Q5 | | `proxy` (별도 커밋) | Claude | p105 |
 | L5 | P0-55, 56 | `__class__` 대입, `is` | 로컬 AI | 착수 시 |
 | | **P0-52** | 재귀 깊이 100 크래시 | Claude | C1 뒤 판단 |
 
@@ -104,7 +105,7 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 - `len` → `TypeError: cannot create 'builtin_function_or_method' instances`
 - `None` → `TypeError: NoneType takes no arguments`
 
-probe: `p91_non_type_base_statement.py`.
+probe: `p106_non_type_base_statement.py` (`p91`은 P0-53이 썼다).
 
 ## 4. P0-46 — 등록 위치를 CPython의 타입별 스펙으로
 
