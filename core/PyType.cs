@@ -1093,7 +1093,9 @@ namespace SharpPy
                 case "IndentationError":
                     return new PyIndentationError(message);
                 case "SystemExit":
-                    return new PySystemExit(0);
+                    // The argument survives: SystemExit(3).args is (3,) and .code is 3
+                    // (Objects/exceptions.c SystemExit_init), which is what decides the status later.
+                    return new PySystemExit(args, kwargs);
                 case "KeyboardInterrupt":
                     return new PyKeyboardInterrupt();
                 case "GeneratorExit":

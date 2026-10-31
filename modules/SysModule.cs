@@ -256,7 +256,7 @@ namespace SharpPy.Modules
             {
                 "getdefaultencoding" => CallGetDefaultEncoding(args),
                 "getfilesystemencoding" => CallGetFilesystemEncoding(args),
-                "exit" => CallExit(args),
+                "exit" => CallExit(args, kwargs),
                 "getsizeof" => CallGetSizeOf(args),
                 "getrefcount" => CallGetRefCount(args),
                 "exc_info" => CallExcInfo(args),
@@ -286,15 +286,30 @@ namespace SharpPy.Modules
             return new PyString("utf-8");
         }
 
-        private PyObject CallExit(PyObject[] args)
+        /// <summary>
+        /// sys.exit(code=None, /). The object is handed to SystemExit untouched - the reference
+        /// interpreter keeps 'bye', 1.5 and [1, 2] and writes them to stderr at exit
+        /// (Python/pythonrun.c:746-762) instead of quietly turning them into 0.
+        /// Measured refusals: "exit expected at most 1 argument, got 2" and
+        /// "sys.exit() takes no keyword arguments" (positional-only).
+        /// </summary>
+        private PyObject CallExit(PyObject[] args, PyDict kwargs)
         {
-            int exitCode = 0;
-            if (args.Length > 0 && args[0] is PyInt code)
-            {
-                exitCode = (int)code.Value;
-            }
-
-            throw PySystemExit.Create(exitCode);
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create("sys.exit() takes no keyword arguments");
+            if (args.Length > 1)
+                throw PyTypeError.Create($"exit expected at most 1 argument, got {args.Length}");
+            // sys.exit is sys_exit_impl (Python/sysmodule.c:947), which ends in
+            // PyErr_SetObject(PyExc_SystemExit, status) (:951). That normalizes through
+            // _PyErr_CreateException (Python/errors.c:39): None or missing builds the exception with
+            // no arguments (:43), a tuple IS the argument list (:46), anything else is one argument
+            // (:50). Measured: sys.exit(None).args == () while SystemExit(None).args == (None,), and
+            // sys.exit((1, 2)).args == (1, 2) with code (1, 2).
+            if (args.Length == 0 || args[0] is PyNone)
+                throw new PythonException(new PySystemExit(new PyObject[0]));
+            if (args.Length == 1 && args[0] is PyTuple splat)
+                throw new PythonException(new PySystemExit(splat.Items));
+            throw new PythonException(new PySystemExit(args));
         }
 
         private PyObject CallGetSizeOf(PyObject[] args)

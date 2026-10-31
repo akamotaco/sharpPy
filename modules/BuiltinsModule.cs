@@ -71,6 +71,12 @@ namespace SharpPy.Modules
             // Exception types (most important for enum module)
             module.ModuleDict["BaseException"] = PyType.BaseExceptionType;
             module.ModuleDict["GeneratorExit"] = PyType.GeneratorExitType;
+            // Python/pylifecycle.c and Objects/exceptions.c make these two BaseException members
+            // visible in builtins; they were the reason `except SystemExit` and
+            // `BaseExceptionGroup` rules could not be written in Python (known_gaps item 4).
+            // MRO measured: SystemExit -> BaseException -> object, same for KeyboardInterrupt.
+            module.ModuleDict["SystemExit"] = PyType.SystemExitType;
+            module.ModuleDict["KeyboardInterrupt"] = PyType.KeyboardInterruptType;
             module.ModuleDict["Exception"] = PyType.ExceptionType;
             module.ModuleDict["StopIteration"] = PyType.StopIterationType;
             module.ModuleDict["StopAsyncIteration"] = PyType.StopAsyncIterationType;

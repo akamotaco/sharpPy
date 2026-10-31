@@ -1335,12 +1335,12 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 3. **`__notes__`/`add_note` 미구현.** 저장소가 없어서 CPython의
    `is_same_exception_metadata`가 비교하는 네 필드 중 notes가 관찰 불가능하고,
    `exceptiongroup_subset`의 `__notes__` 복사도 따라갈 것이 없다.
-4. **`KeyboardInterrupt` · `SystemExit` · `EncodingWarning`이 builtins에 없다** (`NameError`).
-   그래서 `BaseExceptionGroup`의 "BaseException 전용 멤버" 규칙을 Python에서 만들 수 없고,
-   `ExceptionGroup('m',[KeyboardInterrupt()])` → `TypeError: Cannot nest BaseExceptions in an
-   ExceptionGroup` 경로도 고정할 수 없다.별그 관찰: `dir(builtins)`는 이 이름들을 CPython과 같은
-   62개 목록으로 보고하지만 `hasattr(builtins, name)`과 이름 조회는 실패한다 — dir과 속성 조회가
-   서로 다른 표를 본다.
+4. **`EncodingWarning`이 builtins에 없다** (`NameError`). `KeyboardInterrupt`와 `SystemExit`은
+   P0-53에서 들어왔다. 그 덕에 두 이름을 전제로 막혔던 규칙도 열렸다 —
+   `ExceptionGroup('m', [KeyboardInterrupt()])`는 양쪽 다
+   `TypeError: Cannot nest BaseExceptions in an ExceptionGroup`을 답한다.
+   `dir(builtins)`와 `hasattr(builtins, name)`은 이제 같은 표를 본다: 둘 다
+   `EncodingWarning`만 뺀 채로 보인다 (CPython은 셋 다 보인다).
 5. **`class Custom(ExceptionGroup)` 의 타입 보존.** SharpPy는 `Custom('c', [...])`에서
    `ExceptionGroup` 인스턴스를 돌려준다. ceval은 `exc.split(...)`을 속성 호출로 부르므로, 사용자
    재정의가 호출되지 않는다. builtin 서브클래스 동일성(P0-27계열)과 같은 뿌리.
@@ -1851,12 +1851,30 @@ Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 �
 쓰고 깊이 제한 검사가 그보다 늦다. 해결이 호스트 스택에 달려 있어 Godot 메인 스레드까지 함께 판단해야 한다.
 재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py depth 100`.
 
-## P0-53 ~ P0-56 기존 표면 결함 (측정 2026-10-31, 미해결, 담당 로컬 AI L5)
+## P0-54 ~ P0-56 기존 표면 결함 (측정 2026-10-31, 미해결, 담당 로컬 AI L5)
 
 `d95c129`부터 있던 결함이다. 재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py`.
 
-- **P0-53** `sys.exit(n)`의 종료 코드가 항상 1이다. `sys.exit(0)`도 1이다.
-- **P0-54** `o.m == o.m`이 False다.
+## P0-53 `sys.exit`의 종료 코드가 항상 1이었다 (해결 2026-11-01, L2.2)
+
+재현: `C:/ProgramData/miniforge3/envs/sharppy-test-py312/python.exe tests/bughunt/p91_sys_exit.py`
+(라스트 줄 `sys.exit(4)`의 rc가 harness에 비교된다). 종료 행렬 전체는
+`.artifacts/tmp/l22_exit_rc.py`, atexit과의 상호작용은 `.artifacts/tmp/l22_exit_atexit.py`.
+
+고친 것:
+- 인자가 그대로 `SystemExit`에 실린다 (`Objects/exceptions.c:633`). `code`는 인자 하나가 그 자체,
+  인자가 여러 개면 그 튜플 자체, 없으면 `None` (`:640`/`:643`/`:646`).
+- `sys.exit`는 `PyErr_SetObject` 정규화를 탄다 (`Python/sysmodule.c:951`, `Python/errors.c:43`/`:46`).
+  그래서 `sys.exit(None).args == ()`인데 `SystemExit(None).args == (None,)`이고,
+  `sys.exit((1, 2))`는 인자 목록이 튜풀로 퍼져 `args == (1, 2)`, `code == (1, 2)`.
+- 코드는 `_Py_HandleSystemExit` (Python/pythonrun.c:708) 대로다. `None` → 0, 정수 → C int로 좁힌 값
+  (Windows C long은 32비트라 `2**40`은 오버플로 → rc 4294967295와
+  `OverflowError: Python int too large to convert to C long`), 그 외 객체 → stderr에 쓰고 줄바꿈 후 1.
+- `SystemExit`/`KeyboardInterrupt`가 builtins에 생긴다. `except Exception`은 여전히 잡지 않는다
+  (`BaseException` 상속). 덕분에 `ExceptionGroup('m', [KeyboardInterrupt()])` 경로도 열렸다.
+- L2에서 미룬 확인: atexit 콜백은 그대로 돌고, 콜백 안의 `sys.exit(5)`는 종료 코드를 바꾸지 않는다
+  (상태는 teardown 전에 결정되고, 콜백의 예외는 `Exception ignored in atexit callback`로 보고).
+- **P0-54** `o.m == o.m`이 False다. (L2.2에서 진행 — `Objects/classobject.c` `method_richcompare`)
 - **P0-55** `x.__class__ = T`가 조용히 무시된다. `type(x)`, 메서드, `__del__`이 그대로다.
 - **P0-56** `is` 불일치: `200 + 56 is 256`, `"" is "a"[1:]`, `"a" is "abc"[0]`, `b"" is b"a"[1:]`,
   `tuple(t) is t`, `str(s) is s`, `() is tuple()`, `f.__name__ is f.__name__`. `id`와 `is`는 서로 일관되므로

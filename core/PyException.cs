@@ -687,17 +687,78 @@ namespace SharpPy
     }
 
     // 시스템 예외들
+    /// <summary>
+    /// Python SystemExit. The argument is carried, never decoded here: CPython keeps whatever
+    /// sys.exit() was handed (Objects/exceptions.c SystemExit_init) and turns it into a process
+    /// status only where the exception reaches the top of the interpreter
+    /// (Python/pythonrun.c:708 _Py_HandleSystemExit, reached from _PyErr_PrintEx at :786).
+    /// Measured on the reference interpreter: SystemExit(3).args == (3,), .code == 3,
+    /// str(SystemExit()) == '', repr(SystemExit('m')) == "SystemExit('m')".
+    /// </summary>
     public class PySystemExit : PyBaseException
     {
-        public int ExitCode { get; }
+        internal PySystemExit(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
 
-        public PySystemExit(int code = 0) : base($"exit code {code}")
+        public PySystemExit(int code = 0) : base(new PyObject[] { new PyInt(code) }) { }
+
+        /// <summary>
+        /// SystemExit_init (Objects/exceptions.c:633): no arguments leaves None (:640), one argument
+        /// is the code (:643), and more than one argument makes the argument tuple the code (:646).
+        /// The last rule is visible through sys.exit((1, 2)), which constructs with two arguments.
+        /// </summary>
+        public PyObject Code
         {
-            ExitCode = code;
+            get
+            {
+                if (Args.Length == 0) return PyNone.Instance;
+                if (Args.Length == 1) return Args[0];
+                return new PyTuple(Args);
+            }
         }
 
         public override PyType GetPyType() => PyType.SystemExitType;
         public override string GetTypeName() => "SystemExit";
+
+        public override PyObject GetAttribute(string name)
+        {
+            // Objects/exceptions.c: SystemExit.code is a getset over the stored argument.
+            if (name == "code") return Code;
+            return base.GetAttribute(name);
+        }
+
+        /// <summary>
+        /// The one place that decides a process status from a SystemExit argument, copied from
+        /// _Py_HandleSystemExit (Python/pythonrun.c:708):
+        ///   no argument or None      -> 0                        (:735)
+        ///   PyLong_Check             -> (int)PyLong_AsLong       (:743), truncated to C int
+        ///   anything else            -> written, then status 1   (:746-762)
+        /// tooLarge is the C long conversion failing: PyLong_AsLong returns -1 with OverflowError
+        /// set, and the measured stderr on the reference interpreter is exactly
+        /// "OverflowError: Python int too large to convert to C long".
+        /// </summary>
+        internal int HandleStatus(out PyObject toWrite, out bool tooLarge)
+        {
+            toWrite = null;
+            tooLarge = false;
+            var code = Code;
+            if (code is PyNone) return 0;
+            // PyLong_Check accepts bool and int subclasses. In this CLR both are siblings of PyInt
+            // rather than subclasses, so the family has to be spelled out here.
+            System.Numerics.BigInteger value;
+            if (code is PyInt exact) value = exact.Value;
+            else if (code is PyBool flag) value = flag.Value ? 1 : 0;
+            else if (code is PyIntSubclass subclass) value = subclass.GetIntValue().Value;
+            else { toWrite = code; return 1; }
+            // C long is 32 bits on Windows, so sys.exit(2**40) overflows even though a CLR long
+            // would hold it (measured: rc 4294967295 and
+            // "OverflowError: Python int too large to convert to C long" on stderr).
+            if (value < int.MinValue || value > int.MaxValue)
+            {
+                tooLarge = true;
+                return -1;
+            }
+            return (int)value;
+        }
 
         public new static System.Exception Create(int code = 0)
         {

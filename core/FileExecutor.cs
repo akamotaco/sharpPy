@@ -106,7 +106,7 @@ namespace SharpPy.Core
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
                 PyFinalizer.Shutdown();
-                Environment.Exit(1);
+                Environment.Exit(ExitStatusOf(ex));
             }
         }
 
@@ -143,8 +143,36 @@ namespace SharpPy.Core
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
                 PyFinalizer.Shutdown();
-                Environment.Exit(1);
+                Environment.Exit(ExitStatusOf(ex));
             }
+        }
+
+        /// <summary>
+        /// The status the process ends with. SystemExit is not an error: CPython converts it where
+        /// the exception reaches the top of the interpreter (_Py_HandleSystemExit,
+        /// Python/pythonrun.c:708, reached from _PyErr_PrintEx at :786) and prints no traceback for
+        /// it - which is why runtime/PyInterpreter.cs:236 re-throws it without printing.
+        /// None means 0, an integer means that value truncated to C int, anything else is written to
+        /// stderr with a trailing newline and means 1 (:735-:762). Status is decided before
+        /// PyFinalizer.Shutdown() runs, so a sys.exit() raised inside an atexit callback cannot
+        /// change it: that callback's exception is reported and dropped.
+        /// </summary>
+        private static int ExitStatusOf(Exception ex)
+        {
+            if (!(ex is PythonException pythonError) || !(pythonError.PyException is PySystemExit exit))
+                return 1;
+            int status = exit.HandleStatus(out var toWrite, out var tooLarge);
+            if (toWrite != null)
+            {
+                Console.Error.Write(toWrite.ToStr().Value);
+                Console.Error.WriteLine();
+            }
+            else if (tooLarge)
+            {
+                // PyLong_AsLong returns -1 and leaves OverflowError raised (:743).
+                Console.Error.WriteLine("OverflowError: Python int too large to convert to C long");
+            }
+            return status;
         }
     }
 }

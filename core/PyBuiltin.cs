@@ -4735,8 +4735,11 @@ namespace SharpPy
         {
             // When called as exit() or quit(), raise SystemExit
             // CPython 3.12: SystemExit is a BaseException, not Exception
-            // This allows REPL to catch it separately from normal exceptions
-            throw PySystemExit.Create(0);
+            // This allows REPL to catch it separately from normal exceptions.
+            // Lib/_sitebuiltins.py:38 def __call__(self, code=None): raise SystemExit(code) -
+            // measured: exit().args is (None,), not (); exit(2).args is (2,).
+            var carried = args.Length == 0 ? new PyObject[] { PyNone.Instance } : args;
+            throw new PythonException(new PySystemExit(carried));
         }
 
         public override string ToString() => _message;
