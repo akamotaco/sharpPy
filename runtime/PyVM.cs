@@ -194,6 +194,12 @@ namespace SharpPy
 
         // SharpPy gives lambdas unique internal names (lambda_N); CPython error text
         // uses "<lambda>" (nested-qualname fidelity is a separate pending item).
+        /// <summary>The name argument errors use. CPython reports func_qualname, which an assignment to
+        /// __qualname__ moves away from the code object; dataclasses does that for every method it builds.</summary>
+        [ThreadStatic] internal static string CallingQualName;
+
+        private static string CallName(PyCodeObject code) => CallingQualName ?? BindErrorName(code.DisplayQualName);
+
         internal static string BindErrorName(string codeName)
         {
             if (string.IsNullOrEmpty(codeName))
@@ -336,7 +342,7 @@ namespace SharpPy
                     // CPython: a parameter bound positionally may not also be a keyword
                     // (ceval.c duplicate positional check; co_name prefix, measured).
                     if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
-                        throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() got multiple values for argument '{paramName}'");
+                        throw PyTypeError.Create($"{CallName(code)}() got multiple values for argument '{paramName}'");
                     // Bind positional argument
                     LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
                     RecordParameterInScope(paramName, positionalArgs[posArgIndex]);
@@ -421,8 +427,8 @@ namespace SharpPy
                 int slots = regularArgCount;
                 int required = slots - Math.Min(defaultCountForError, slots);
                 if (required < slots)
-                    throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() takes from {required} to {slots} positional arguments but {given} {(given == 1 ? "was" : "were")} given");
-                throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() takes {slots} positional argument{(slots == 1 ? "" : "s")} but {given} {(given == 1 ? "was" : "were")} given");
+                    throw PyTypeError.Create($"{CallName(code)}() takes from {required} to {slots} positional arguments but {given} {(given == 1 ? "was" : "were")} given");
+                throw PyTypeError.Create($"{CallName(code)}() takes {slots} positional argument{(slots == 1 ? "" : "s")} but {given} {(given == 1 ? "was" : "were")} given");
             }
             if (missingPositional.Count > 0)
             {
@@ -442,7 +448,7 @@ namespace SharpPy
                             }
                         }
                         if (!matchesParam)
-                            throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() got an unexpected keyword argument '{kwName}'");
+                            throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{kwName}'");
                     }
                 }
                 var quotedNames = new List<string>();
@@ -453,7 +459,7 @@ namespace SharpPy
                     namesText = quotedNames[0];
                 else
                     namesText = string.Join(", ", quotedNames.GetRange(0, quotedNames.Count - 1)) + " and " + quotedNames[quotedNames.Count - 1];
-                throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() missing {missingPositional.Count} required positional argument{(missingPositional.Count == 1 ? "" : "s")}: {namesText}");
+                throw PyTypeError.Create($"{CallName(code)}() missing {missingPositional.Count} required positional argument{(missingPositional.Count == 1 ? "" : "s")}: {namesText}");
             }
 
             // Phase 1.5: Bind keyword-only arguments (CPython 3.12)
@@ -510,7 +516,7 @@ namespace SharpPy
                     else
                     {
                         // Missing required keyword-only argument
-                        throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() missing 1 required keyword-only argument: '{paramName}'");
+                        throw PyTypeError.Create($"{CallName(code)}() missing 1 required keyword-only argument: '{paramName}'");
                     }
                 }
             }
@@ -573,7 +579,7 @@ namespace SharpPy
                     unexpectedKey = key;
                     break;
                 }
-                throw PyTypeError.Create($"{BindErrorName(code.DisplayQualName)}() got an unexpected keyword argument '{unexpectedKey}'");
+                throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{unexpectedKey}'");
             }
         }
 
@@ -1335,8 +1341,10 @@ namespace SharpPy
             if (!CanInline(function)) return false;
             var code = function.CodeObject;
             CheckRecursionLimit();
+            PyFrame.CallingQualName = function.AssignedQualName;
             _inlineCall = new PyFrame(code, args, new PyScopeChain(function.GlobalsDict, "<function>"),
                 function.Closure, CurrentFrame, function.GetDefaults(), function.GetKeywordDefaults());
+            PyFrame.CallingQualName = null;
             return true;
         }
 
@@ -1356,15 +1364,18 @@ namespace SharpPy
             var kwargs = new PyDict();
             for (int i = 0; i < kwNames.Items.Length; i++)
                 kwargs.SetItem(kwNames.Items[i], args[positional + i]);
+            PyFrame.CallingQualName = function.AssignedQualName;
             _inlineCall = PyFrame.CreateWithKwargs(function.CodeObject, args[..positional], kwargs,
                 new PyScopeChain(function.GlobalsDict, "<function>"), function.Closure,
                 function.GetDefaults(), function.GetKeywordDefaults(), CurrentFrame);
+            PyFrame.CallingQualName = null;
             return true;
         }
 
         public PyObject ExecuteFrame(PyFrame frame)
         {
             EnterHostFrame();
+            PyFrame.CallingQualName = null;
             var entryFrame = frame;
             var outerDepth = _frameStack.Count;
             _frameStack.Push(frame);

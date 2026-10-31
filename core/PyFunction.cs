@@ -15,6 +15,7 @@ public partial class PyFunction : PyObject, IDescriptor
     private string _qualName;
     public string QualName => _qualName ?? PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
     internal void SetQualName(string value) => _qualName = value;
+    internal string AssignedQualName => _qualName;
     // func_annotations (Objects/funcobject.c): reading creates the dict, so it is never an AttributeError.
     private PyObject _annotations;
     public Func<PyObject[], PyObject> Implementation { get; }
@@ -374,6 +375,7 @@ public partial class PyFunction : PyObject, IDescriptor
             // CPython 3.12: Create frame with kwargs if present
             // CPython reference: Python/ceval.c:1621-1658 (_PyEvalFramePushAndInit_Ex)
             PyFrame frame;
+            PyFrame.CallingQualName = _qualName;
 
             if (kwargs != null && kwargs.InternalDict.Count > 0)
             {

@@ -1026,15 +1026,7 @@ namespace SharpPy
         /// </summary>
         private Symbol? FindInEnclosingScope(SymbolTable currentTable, string name)
         {
-            // Check for built-in variables first - they should never be cell variables
-            if (IsBuiltinName(name))
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"      ↳ {name} is a builtin - should be GLOBAL, not FREE/CELL");
-#endif
-                return null; // Built-ins should be accessed as GLOBAL
-            }
-
+            // Scopes decide, not the builtin table: `def f(repr): def g(): return repr` reads the parameter.
             var parent = currentTable.GetParent();
             while (parent != null)
             {

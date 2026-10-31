@@ -6,47 +6,70 @@ namespace SharpPy
     /// add_operators (Objects/typeobject.c): CPython gives each type a __len__, __contains__ and so on
     /// for every slot it fills. SharpPy's builtin containers answer through CLR virtuals and most have no
     /// entry in their type table, so `d.__len__` failed, and functools.lru_cache reads exactly that. This
-    /// table is the one place that exposes a slot as a bound method, and only for the types that have
-    /// the slot, measured with hasattr on the reference interpreter.
+    /// table is the one place that exposes a slot: bound on an instance, unbound on a type, and only for
+    /// the types that have the slot, measured with hasattr on the reference interpreter.
+    /// __repr__ and __str__ stay out: AsString and ToRepr look those names up, so a wrapper that calls
+    /// them would call itself.
     /// </summary>
     internal static class PySlotWrappers
     {
-        internal static PyObject TryBind(PyObject self, string name)
+        private static bool HasSlot(PyType type, string name)
         {
-            if (self is PyType || self is PyClassInstance) return null;
+            bool Is(PyType wanted) => type.IsSubclassOf(wanted);
             return name switch
             {
-                "__len__" when self is PyDict or PySet or PyFrozenSet or PyBytes or PyRange
-                    => Bound(name, 0, _ => new PyInt(self.Length())),
-                "__contains__" when self is PyDict or PySet or PyFrozenSet or PyBytes or PyRange
-                    => Bound(name, 1, a => self.Contains(a[0])),
-                "__iter__" when self is PyDict or PySet or PyFrozenSet or PyString or PyRange
-                    => Bound(name, 0, _ => self.GetIterator()),
-                "__mul__" when self is PyString
-                    => Bound(name, 1, a => self.Multiply(a[0])),
-                "__getitem__" when self is PyBytes or PyRange
-                    => Bound(name, 1, a => self.GetItem(a[0])),
-                "__eq__" => Compare(self, name, PyObject.CompareOp.EQ),
-                "__ne__" => Compare(self, name, PyObject.CompareOp.NE),
-                "__lt__" => Compare(self, name, PyObject.CompareOp.LT),
-                "__le__" => Compare(self, name, PyObject.CompareOp.LE),
-                "__gt__" => Compare(self, name, PyObject.CompareOp.GT),
-                "__ge__" => Compare(self, name, PyObject.CompareOp.GE),
-                "__hash__" when self is PyFrozenSet or PyString or PyBytes or PyTuple or PyRange
-                    => Bound(name, 0, _ => new PyInt(self.ToHash())),
-                _ => null,
+                "__len__" or "__contains__" => Is(PyType.DictType) || Is(PyType.SetType) || Is(PyType.FrozenSetType)
+                    || Is(PyType.BytesType) || Is(PyType.RangeType),
+                "__iter__" => Is(PyType.DictType) || Is(PyType.SetType) || Is(PyType.FrozenSetType)
+                    || Is(PyType.StrType) || Is(PyType.RangeType),
+                "__mul__" => Is(PyType.StrType),
+                "__getitem__" => Is(PyType.BytesType) || Is(PyType.RangeType),
+                "__eq__" or "__ne__" or "__lt__" or "__le__" or "__gt__" or "__ge__" or "__hash__" => true,
+                _ => false,
             };
         }
 
-        private static PyObject Compare(PyObject self, string name, PyObject.CompareOp op)
-            => Bound(name, 1, a => self.RichCompare(a[0], op));
+        private static PyObject Run(PyObject self, string name, PyObject[] args) => name switch
+        {
+            "__len__" => new PyInt(self.Length()),
+            "__contains__" => self.Contains(args[0]),
+            "__iter__" => self.GetIterator(),
+            "__mul__" => self.Multiply(args[0]),
+            "__getitem__" => self.GetItem(args[0]),
+            "__eq__" => self.RichCompare(args[0], PyObject.CompareOp.EQ),
+            "__ne__" => self.RichCompare(args[0], PyObject.CompareOp.NE),
+            "__lt__" => self.RichCompare(args[0], PyObject.CompareOp.LT),
+            "__le__" => self.RichCompare(args[0], PyObject.CompareOp.LE),
+            "__gt__" => self.RichCompare(args[0], PyObject.CompareOp.GT),
+            "__ge__" => self.RichCompare(args[0], PyObject.CompareOp.GE),
+            _ => new PyInt(self.ToHash()),
+        };
 
-        private static PyObject Bound(string name, int arity, Func<PyObject[], PyObject> slot)
-            => new PyBuiltinFunction(name, args =>
+        private static int Arity(string name) =>
+            name is "__len__" or "__iter__" or "__hash__" ? 0 : 1;
+
+        internal static PyObject TryBind(PyObject self, string name)
+        {
+            if (self is PyClassInstance) return null;
+            int arity = Arity(name);
+            if (self is PyType type)
+            {
+                if (!HasSlot(type, name)) return null;
+                return new PyBuiltinFunction(name, args =>
+                {
+                    if (args.Length != arity + 1)
+                        throw PyTypeError.Create($"expected {arity + 1} arguments, got {args.Length}");
+                    return Run(args[0], name, args[1..]);
+                });
+            }
+            if (!HasSlot(self.GetPyType(), name)) return null;
+            // __hash__ on an instance is measured narrower than on a type: a list says None through its table.
+            return new PyBuiltinFunction(name, args =>
             {
                 if (args.Length != arity)
                     throw PyTypeError.Create($"expected {arity} argument{(arity == 1 ? "" : "s")}, got {args.Length}");
-                return slot(args);
+                return Run(self, name, args);
             });
+        }
     }
 }
