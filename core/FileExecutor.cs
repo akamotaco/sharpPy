@@ -74,8 +74,10 @@ namespace SharpPy.Core
                 // program's own output and without changing the exit status. The order it follows is
                 // visible in Python/pylifecycle.c: finalize_modules (:1573), delete_special (:1590),
                 // _PyGC_CollectNoFail (:1609), finalize_modules_clear_weaklist (:1630), then a
-                // second _PyGC_CollectNoFail (:1649). Shutdown is also the only point where
-                // SharpPy's answer and CPython's coincide - see docs/lifetime_and_gc_policy.md.
+                // second _PyGC_CollectNoFail (:1649). Shutdown is the backstop, not the mechanism:
+                // objects dropped mid-run are delivered at the VM's safe points and by
+                // gc.collect() (core/PyFinalizer.cs); what is left alive at the end is finalized
+                // here, in module-namespace order - see docs/lifetime_and_gc_policy.md.
                 PyFinalizer.RunAtShutdown();
             }
             catch (FileNotFoundException)

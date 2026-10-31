@@ -1954,7 +1954,11 @@ namespace SharpPy
                         throw PyTypeError.Create("object.__new__(X): X is not a type object");
                     }
 
-                    return new PyClassInstance(cls);
+                    // object.__new__ does not pass through PyClass.CreateInstance, so it files its own
+                    // result: object.__new__(C) still owes C's __del__ (probe H).
+                    var created = new PyClassInstance(cls);
+                    PyFinalizer.RegisterIfDeclared(created);
+                    return created;
                 }),
                 "__str__" => new PyBuiltinFunction("__str__", args => {
                     // object.__str__() delegates to __repr__

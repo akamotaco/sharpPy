@@ -1706,8 +1706,12 @@ namespace SharpPy
                         // For now, we allow extra args (will be passed to __init__)
                     }
 
-                    // Create instance of the class
-                    return new PyClassInstance(cls);
+                    // Create instance of the class. This is the live object.__new__ (PyMethodDescriptor
+                    // pulls cls out of self), so it files its own result: object.__new__(C) and
+                    // C.__new__(C) both owe C's __del__ (probe H).
+                    var created = new PyClassInstance(cls);
+                    PyFinalizer.RegisterIfDeclared(created);
+                    return created;
                 },
                 minArgs: 0,  // 'cls' is extracted as 'self' by PyMethodDescriptor
                 maxArgs: int.MaxValue

@@ -1707,6 +1707,45 @@ P0-43은 `type('C', (b,), {})` 경로만 고쳤다. `class C(b): pass`는 다른
 도구 한계도 명시: `__eq__`/`__iter__`는 CLR virtual(`RichCompare`, `GetIterator`)이라 TypeDict
 등록으로 세지져 "missing"으로 표시되고, `set.test_c_api`는 CPython 자체 테스트 훅이다.
 
+## P0-48 __del__ 전달이 유실된다 (측정 2026-10-31, 해결)
+
+`Pending`이 약참조라 CLR이 먼저 수거하면 호출 자체가 사라졌다. 실측: 버린 `__del__` 객체
+300,000개 중 전달 0(전부 종료 때 몰림), `q2_retention` 30개 시나리오 전부 0, 종료 순서 불일치,
+`gc.collect()`는 파일이 열려 있을 때만 강제 GC가 돌았다.
+
+지금은 객체가 스스로 놓임을 알린다. `PyGuard`가 대상을 강참조하고
+`ConditionalWeakTable<PyObject, PyGuard>`에 실리며, 대상이 죽으면 가드의 finalizer가 큐에
+enqueue + `PyPending.Flag`만 켠다(finalizer 스레드에서 Python을 부르지 않는다). 인터프리터가
+RESUME(`argument < 2`, Python/bytecodes.c:145-146)와 JUMP_BACKWARD 안전점에서
+`PyFinalizer.Drain()`을 돌린다. 재진입은 no-op(Python/ceval_gil.c:898).
+`__del__` 앞뒤로 진행 중이던 예외를 저장·복원한다(slot_tp_finalize와 같은 일,
+Objects/typeobject.c:9076/:9090). 단 한 번은 `Armed -> Finalized -> Cleared` 상태 머신으로
+지켰고, 상태를 먼저 바꾸므로 `__del__` 안에서 안전점에 닿아도 중복 호출이 없다.
+`gc.collect()`는 start 콜백 -> 실제 수집 -> 파일 해제 -> stop 콜백 순(Modules/gcmodule.c:1425/:1427)이고
+`gc.disable()`은 Drain을 막지 않는다. 종료는 `__main__` dict 삽입 순, 나머지는 생성 순이다.
+
+삭제한 것: `Pending`, `Finalized`(강참조 집합 - 최종화된 객체를 영영 못 죽게 했다), `Entry`,
+`PyClass._finalizerChecked` bool. `Finalized` 목록이 O(n)이던 P0-37 잔여 5도 함께 사라졌다
+(`Live` swap-remove O(1), 순서는 `Sequence`). 등록은 생성된 객체의 실제 타입으로 판단하고
+`object.__new__` 두 경로를 추가했다(프로브 H, P).
+
+클래스 캐시는 전역 `PyClass.FinalizerEpoch`로 버전한다. `InvalidateTypeCache`는 서브클래스로
+전파되지 않고, 재조회를 `LookupInMRO`로 하면 메서드 캐시가 늦은 할당 이전의 "없음" 답을 그대로
+주므로 클래스 dict를 직접 순회한다(프로브 G의 세 번째 사례).
+
+게이트: q2 프로브 3개 일치(`p84`/`p85`/`p86`), bughunt 91/91, evaluate 225/3/2, similarity exit 0,
+Godot 재연 82/0, Godot 스레드 실측 단일(id 2). perf A/B(기준 ad4281c): 일반 인스턴스 1.00,
+역방향 점프 0.98, `__del__` 인스턴스 1.35(비용은 이쪽으로만 낸다), `gc.collect()`는 회당 0.88 ms
+(CPython 0.15 ms; 기준값 0.5 ms는 아무것도 하지 않은 값).
+상세: [가드, 안전점, 앵커](reports/2026-10-31/guards_safety_points_and_the_anchor.md).
+
+잔여: (1) `q2_gap_late_del` - 객체를 먼저 만들고 `__del__`을 나중에 붙이면 그 객체는 finalize되지
+않는다(CPython은 update_one_slot이 tp_finalize를 다시 채운다). (2) `del x` 직후 시점 차이는 B방으로
+그대로 남는다. (3) `gc.collect()` 반환값은 여전히 0이다. (4) stderr의 `Exception ignored in:
+<function X at 0x…>` 주소 형식이 다르다(하네스는 stderr를 비교하지 않는다). (5) 재부활 객체의
+`Finalized -> Cleared` 단계는 다음 수거에서 오므로, Q4의 weakref callback은 그 단계에
+의존하지 않고 `Dead` 플래그로 판정해야 한다.
+
 ## P0-47 id()가 해시를 돌려준다 (측정 2026-10-31, 해결)
 
 `id()`는 `GetHashCode()`였고 SharpPy 해시는 값 기준이라 다른 객체가 같은 id를 신고했다.

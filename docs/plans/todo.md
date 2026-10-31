@@ -171,3 +171,4 @@ CPython은 타입마다 자기 스펙을 같은 .c 파일에 둔다(`set_methods
 
 
 > 실시 진행 상태: 수명 지시서 Q1(P0-47 `id()` + 그것이 드러난 정체 결함 2개)은 2026-10-31 완료, probe는 `tests/bughunt/p83_id_identity.py`. 다은 항목은 Q2(P0-48 Guard 안점). 그 결과는 [id는 주소가 아니라 정체](../reports/2026-10-31/id_is_identity_not_a_hash.md).
+> 실시 진행 상태: Q2(P0-48 Guard + 안점 + gc.collect 앵커)까지 2026-10-31 완료. probe는 p84_del_delivery, p85_retention, p86_shutdown_order. 다은 항목은 Q3(P0-49 제너레이터 finalize). 그 결과는 [가드, 안점, 앵커](../reports/2026-10-31/guards_safety_points_and_the_anchor.md).

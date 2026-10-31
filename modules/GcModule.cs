@@ -30,8 +30,10 @@ namespace SharpPy.Modules
     ///                     an empty list. A program that enumerates live objects sees fewer objects.
     ///   get_referrers() - needs the reverse of that list, so it returns an empty list too.
     ///   get_count()     - the three counters stay 0; nothing counts allocations per generation.
-    ///   collect()       - returns 0. It cannot find unreachable cycles, so it never reports having
-    ///                     collected anything, and it does not run __del__ on garbage.
+    ///   collect()       - returns 0. It cannot count what a cycle pass removed, because the CLR
+    ///                     is the one that removed it. What it does do is run the __del__ hooks of
+    ///                     everything that became unreachable: that is the anchor this design
+    ///                     offers in place of a death instant (PyFinalizer.CollectAndDrain).
     /// The trade is deliberate: SharpPy gains cycle collection for free from the CLR, which CPython
     /// has to implement by hand, and pays for it with these four introspection answers.
     /// </summary>
@@ -147,23 +149,19 @@ namespace SharpPy.Modules
                     if (generation < 0 || generation >= Generations)
                         throw PyValueError.Create("invalid generation");
                 }
-                // What this pass really does in SharpPy: it gives the release bus its deterministic
-                // reconciliation point, so that
-                //     f = open(p, 'w'); f.write('x'); del f; gc.collect(); os.remove(p)
-                // behaves like CPython, whose collect closes files (Modules/_io/iobase.c:298).
-                // ReleaseUnreferenced forces a CLR collection only when something is still open and
-                // the cheap pass freed nothing, so a program that never opens a file pays nothing.
-                //
-                // PLANNED, and load-bearing for weakref semantics: this is also where the same forced
-                // collection would make `del x; gc.collect(); assert ref() is None` hold (policy doc
-                // section 5.1). It needs verification first: the VM's operand stack and scope caches
-                // must not be holding x, or the anchor silently never fires. Decided with weakref.
-                PyResourceBus.ReleaseUnreferenced(forceCollection: true);
-                //
-                // CPython calls gc.callbacks with (phase, info) around the pass, where info is a
-                // dict with the keys collected / generation / uncollectable on both calls (measured,
-                // not assumed). SharpPy's pass collects nothing, but the hook is real and ordered.
+                // CPython's order, and the reason for it: Modules/gcmodule.c:1425 invokes the
+                // "start" callbacks, the collection runs, :1427 invokes "stop" with the counts. A
+                // callback therefore never observes a pass that already finished, and the finalizers
+                // of the objects that pass freed happen between the two.
                 InvokeCallbacks("start", generation);
+                // The deterministic anchor. This is a real collection: everything the CLR found
+                // unreachable gets its __del__ before gc.collect() returns, and rounds repeat while
+                // a finalizer keeps dropping more objects.
+                PyFinalizer.CollectAndDrain();
+                // Files are reconciled in the same breath: CPython's collect closes them
+                // (Modules/_io/iobase.c:298), and the bus no longer forces a collection of its own
+                // because this pass already made one.
+                PyResourceBus.ReleaseUnreferenced(forceCollection: false);
                 InvokeCallbacks("stop", generation);
                 return new PyInt(0);
             });

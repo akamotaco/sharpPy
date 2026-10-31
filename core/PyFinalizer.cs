@@ -1,130 +1,218 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace SharpPy
 {
+    internal enum GuardState { Armed, Finalized, Cleared }
+
     /// <summary>
-    /// The __del__ hook, and the one place its timing is decided.
-    /// POLICY: docs/lifetime_and_gc_policy.md (Korean) - lifetime belongs to the CLR collector,
-    /// release is explicit, and only the *moment of unreachability* is an accepted divergence.
+    /// The signal that an object was let go, and the reason its owner can still be handed to
+    /// __del__.
     ///
-    /// CPython's mechanism, in reading order:
-    ///   Objects/typeobject.c:9499  TPSLOT(__del__, tp_finalize, slot_tp_finalize, ...) maps the
-    ///                              Python-level method onto a C slot at type-creation time.
-    ///   Objects/typeobject.c:9071  slot_tp_finalize looks the method up on the type, which is why
-    ///                              a subclass override wins and super().__del__() reaches the base.
-    ///   Objects/object.c:357       PyObject_CallFinalizer runs it, with the comment at :362
-    ///                              "tp_finalize should only be called once", a _PyGC_FINALIZED flag
-    ///                              test, and _PyGC_SET_FINALIZED afterwards.
-    ///   Objects/object.c:374       PyObject_CallFinalizerFromDealloc handles resurrection; :398
-    ///                              "tp_finalize resurrected it!".
-    ///   Objects/typeobject.c:1901  subtype_dealloc: "Maybe call finalizer; exit early if resurrected".
-    /// The point of the chain: in CPython the *time* of the call is a function of the reference
-    /// count, and that is the only part SharpPy cannot reproduce.
+    /// In C the object notices its own death and calls the finalizer inline
+    /// (Objects/object.c:357 PyObject_CallFinalizer, reached from subtype_dealloc at
+    /// Objects/typeobject.c:1901). On the CLR only the collector notices, and it notices on the
+    /// finalizer thread. So the notice is split in two: the guard's finalizer queues the guard,
+    /// and the interpreter thread runs the Python half at its next safe point (PyFinalizer.Drain).
     ///
-    /// SharpPy has no reference counter, and adding one (a write barrier at every Python-visible
-    /// reference slot) is rejected in the policy document. It does two things instead:
+    /// The guard holds its owner STRONGLY. That is what makes `self` usable inside __del__: the
+    /// guard is kept alive by ConditionalWeakTable's dependency on the key, so while the object is
+    /// reachable the guard is too, and when the object becomes unreachable the pair dies together -
+    /// the guard's own finalizer then runs, and by dequeuing it the interpreter brings both back.
+    /// Verified with the isolated spike in docs/plans/lifetime_foundation/spike/ (300,000 handoffs,
+    /// none lost; __del__ sees its own long weak reference alive, and a child's short one dead).
+    /// </summary>
+    internal sealed class PyGuard
+    {
+        /// <summary>Strong. This is how self survives until __del__ runs.</summary>
+        internal PyObject Owner;
+        internal GuardState State;
+        /// <summary>Creation order, which is the order shutdown must follow for the leftovers.</summary>
+        internal long Sequence;
+        /// <summary>Index into PyFinalizer.Live, or -1 when the guard is not listed.</summary>
+        internal int Slot = -1;
+
+        internal PyGuard(PyObject owner) { Owner = owner; }
+
+        ~PyGuard() { PyFinalizer.FromFinalizerThread(this); }
+    }
+
+    /// <summary>
+    /// __del__ dispatch. The mechanism it copies, in reading order:
     ///
-    /// 1. It resolves __del__ through the type, exactly as slot_tp_finalize does, so a subclass
-    ///    override wins and super().__del__() reaches the base implementation. This half matches
-    ///    CPython behaviourally and is pinned by tests/bughunt/p76_gc_and_finalizers.py.
-    /// 2. It runs the pending finalizers at interpreter shutdown. That is the one moment the two
-    ///    answers coincide: CPython's own shutdown collects twice and clears weakref lists
-    ///    (Python/pylifecycle.c:1573 finalize_modules, :1609 and :1649 _PyGC_CollectNoFail,
-    ///    :1630 finalize_modules_clear_weaklist), so every remaining object with a __del__ loses
-    ///    its last reference and must be finalized before the process ends.
+    ///   Objects/typeobject.c:9499  TPSLOT(__del__, tp_finalize, slot_tp_finalize, ...) binds the
+    ///                              Python method to a C slot once, at type creation.
+    ///   Objects/typeobject.c:9069  slot_tp_finalize looks the method up on the type - so a subclass
+    ///                              override wins and super().__del__() reaches the base - and it
+    ///                              saves the in-flight exception at :9076 (PyErr_GetRaisedException)
+    ///                              and restores it at :9090 (PyErr_SetRaisedException).
+    ///   Objects/object.c:357       PyObject_CallFinalizer runs the slot once; the comment at :362
+    ///                              "tp_finalize should only be called once" and the _PyGC_FINALIZED
+    ///                              flag are the "once" rule. :374/:398 handle resurrection.
+    ///   Python/ceval_gil.c:898     pending calls are run by one caller at a time and never
+    ///                              recursively, which is why Drain re-enters as a no-op.
     ///
-    /// Measured against CPython 3.12.15: the order at shutdown is creation order, and an exception
-    /// raised inside __del__ is reported on stderr as "Exception ignored in: &lt;function ...&gt;"
-    /// plus "Traceback (most recent call last):" and the error line, without changing the exit
-    /// status. Both are reproduced here.
+    /// What is the same here: dispatch through the type, the once rule, the exception save/restore,
+    /// the "Exception ignored in:" report, and now the delivery itself - an object dropped mid-run
+    /// gets its __del__ at the next safe point, or at the latest during gc.collect(), which is the
+    /// deterministic anchor this design offers instead of a death instant.
     ///
-    /// DELIBERATE DIVERGENCE (docs/known_gaps.md, P0-37 remainder 1): an object that becomes
-    /// unreachable mid-run keeps its __del__ deferred to shutdown. Making that immediate would
-    /// require either reference counting (rejected) or a CLR finalizer, which is forbidden:
-    /// a finalizer runs on its own thread where a Python exception terminates the process, the
-    /// module globals and stdout may already be gone, Godot's native context may be destroyed, and
-    /// pending finalizers may be skipped at exit. See policy section 4.
-    ///
-    /// NOT IMPLEMENTED, on purpose: resurrection. CPython re-runs __del__ if the finalizer revives
-    /// the object, because it can see the reference count go back up (Objects/object.c:398).
-    /// Here a finalized object stays finalized (policy: P0-37 remainder 6).
+    /// What stays different (docs/lifetime_and_gc_policy.md, docs/known_gaps.md P0-37): *when*.
+    /// CPython finalizes when the count hits zero; SharpPy finalizes after the CLR collector decides
+    /// the object is unreachable. A program that prints around `del x` without gc.collect() sees the
+    /// difference, and no part of this design pretends otherwise.
     /// </summary>
     internal static class PyFinalizer
     {
-        // Registration order is the order finalizers run, matching measured CPython shutdown order.
-        private static readonly List<Entry> Pending = new List<Entry>();
+        // The table is the only place a guard is filed. ConditionalWeakTable keeps the value alive
+        // exactly as long as the key, which is the mechanism the guard's strong Owner depends on.
+        private static readonly ConditionalWeakTable<PyObject, PyGuard> Guards = new();
 
-        // "Only once" per Objects/object.c:362. CPython implements it with a flag in the GC header
-        // (_PyGC_FINALIZED / _PyGC_SET_FINALIZED): reference identity, never a hash lookup. The same
-        // meaning needs a comparer here, because PyObject.GetHashCode returns the Python hash
-        // (core/PyObject.cs:130) - hashing by it would let a user-defined __hash__ choose the bucket
-        // and the cost of registering an instance, and any user code reachable from it would run from
-        // inside the construction path. With the reference comparer Contains is a pointer comparison.
-        private static readonly HashSet<PyObject> Finalized =
-            new HashSet<PyObject>(ReferenceEqualityComparer.Instance);
-        private static bool running;
+        // Enqueue is the only thing the finalizer thread does. ConcurrentQueue because the producer
+        // is not the interpreter thread; no lock is taken while Python runs.
+        private static readonly ConcurrentQueue<PyGuard> Queue = new();
 
-        private struct Entry
+        // Weak on purpose: the guards that are still waiting for their object to die. Short
+        // references are enough here because the tracked object is the guard, not the Python object.
+        private static readonly List<WeakReference<PyGuard>> Live = new();
+
+        private static long _sequence;
+        private static bool drainRunning;   // no recursive pending calls (Python/ceval_gil.c:898)
+        private static bool running;        // shutdown runs once
+        private static bool shutdownDone;   // after this, nothing is queued any more
+
+        /// <summary>
+        /// Finalizer thread. Enqueue and set the flag - nothing else may happen here. Calling
+        /// Python, or anything that can reach Python such as ToRepr, runs on a thread where an
+        /// exception terminates the process.
+        /// </summary>
+        internal static void FromFinalizerThread(PyGuard guard)
         {
-            internal PyClass Class;
-            internal WeakReference<PyObject> Target;
+            if (shutdownDone) return;
+            Queue.Enqueue(guard);
+            PyPending.Flag = true;
         }
 
         /// <summary>
-        /// Called for every instance produced by PyClass.CreateInstance. Only classes whose MRO
-        /// declares __del__ are recorded, so ordinary objects pay nothing beyond a dictionary-free
-        /// MRO lookup that CreateInstance already made for other reasons.
+        /// The guard for an object, created on first use. Idempotent, so more than one creation
+        /// path may call it.
         /// </summary>
-        // One instance of a plain class must not pay for an MRO walk, so the class remembers the
-        // answer and the lookup runs once per class (PyClass._declaresFinalizer).
-        internal static void RegisterIfDeclared(PyClass cls, PyObject instance)
+        internal static PyGuard Attach(PyObject obj)
         {
-            if (cls == null || instance == null) return;
-            if (!cls.DeclaresFinalizer()) return;
-            if (Finalized.Contains(instance)) return;
-            Pending.Add(new Entry { Class = cls, Target = new WeakReference<PyObject>(instance) });
+            if (obj == null) return null;
+            if (Guards.TryGetValue(obj, out var existing)) return existing;
+            var guard = new PyGuard(obj);
+            guard.Sequence = Interlocked.Increment(ref _sequence);
+            Guards.Add(obj, guard);
+            AddToLive(guard);
+            return guard;
         }
+
+        /// <summary>
+        /// Stop watching an object that finished cleanly (a generator that ran out, Q3). The guard
+        /// is dropped from the list and its owner released, so neither a finalizer nor a weakref
+        /// callback can be owed any more.
+        /// </summary>
+        internal static void Detach(PyGuard guard)
+        {
+            if (guard == null) return;
+            RemoveFromLive(guard);
+            guard.State = GuardState.Cleared;
+            guard.Owner = null;
+            GC.SuppressFinalize(guard);
+        }
+
+        /// <summary>
+        /// Called for every object a creation path produced. Only objects whose own type declares
+        /// __del__ are filed, so an ordinary instance pays one type test and one cached field read.
+        /// The decision is made on the object's REAL type: a __new__ that returns something else
+        /// must not get the called class' finalizer (probes P and H).
+        /// </summary>
+        internal static void RegisterIfDeclared(PyObject created)
+        {
+            if (created == null || shutdownDone) return;
+            if (!DeclaresFinalizerOn(created)) return;
+            Attach(created);
+        }
+
+        private static bool DeclaresFinalizerOn(PyObject obj)
+            => obj.GetPyType() is PyClass cls && cls.DeclaresFinalizer();
 
         /// <summary>gc.is_finalized - CPython answers False for anything never finalized.</summary>
-        internal static bool IsFinalized(PyObject obj) => obj != null && Finalized.Contains(obj);
+        internal static bool IsFinalized(PyObject obj)
+        {
+            if (obj == null) return false;
+            return Guards.TryGetValue(obj, out var guard) && guard.State != GuardState.Armed;
+        }
 
         /// <summary>
-        /// Interpreter shutdown: run every pending __del__ that still has a live target.
+        /// Safe point: run what the collector reported. CPython runs pending calls from one caller
+        /// at a time and does not recurse (Python/ceval_gil.c:898-903), so a finalizer that reaches
+        /// another safe point drains nothing and returns 0.
+        /// The flag goes false BEFORE the queue is emptied: a __del__ that creates and drops another
+        /// finalizable object sets it again, and the next safe point takes that one.
         /// </summary>
-        internal static void RunAtShutdown()
+        internal static int Drain()
         {
-            if (running) return;
-            running = true;
+            if (drainRunning) return 0;
+            drainRunning = true;
+            int handled = 0;
             try
             {
-                var sweep = Pending.ToArray();
-                Pending.Clear();
-                foreach (var entry in sweep)
+                PyPending.Flag = false;
+                while (Queue.TryDequeue(out var guard))
                 {
-                    if (!entry.Target.TryGetTarget(out var target)) continue;
-                    Invoke(entry.Class, target);
+                    Step(guard);
+                    handled++;
                 }
-                // Finalizers first, external resources second: a __del__ may still write to a file it
-                // kept open. CPython's own shutdown likewise flushes the standard streams only at the
-                // end (Python/pylifecycle.c:1673 flush_std_files, reached from :1896/:1925/:2952).
-                PyResourceBus.ReleaseAllAtShutdown();
             }
             finally
             {
-                running = false;
+                drainRunning = false;
             }
+            return handled;
         }
 
         /// <summary>
-        /// One object, at most once. CPython re-runs __del__ only if the object resurrects itself,
-        /// which needs a reference count to notice; here a finalized object stays finalized.
+        /// One guard, one step. State changes first, because __del__ can reach a safe point and come
+        /// back through here; checking after calling would run a finalizer twice.
+        ///
+        /// Armed    -> run __del__, then re-arm the guard so the object's second death is noticed.
+        /// Finalized -> release the owner. This is the phase that also fires weakref callbacks in Q4.
         /// </summary>
-        private static void Invoke(PyClass cls, PyObject target)
+        internal static void Step(PyGuard guard)
         {
-            if (!Finalized.Add(target)) return;
-            PyObject hook = LookupHook(cls);
+            if (guard == null) return;
+            switch (guard.State)
+            {
+                case GuardState.Armed:
+                    guard.State = GuardState.Finalized;
+                    RemoveFromLive(guard);
+                    RunFinalizer(guard);
+                    GC.ReRegisterForFinalize(guard);
+                    break;
+                case GuardState.Finalized:
+                    guard.State = GuardState.Cleared;
+                    guard.Owner = null;
+                    break;
+            }
+        }
+
+        private static void RunFinalizer(PyGuard guard)
+        {
+            var target = guard.Owner;
+            if (target == null) return;
+            var hook = LookupHook(target);
             if (hook == null) return;
+
+            // slot_tp_finalize saves the exception in flight (Objects/typeobject.c:9076) and puts it
+            // back at :9090, so a finalizer that raises - or that raises and catches - leaves the
+            // handler that was running untouched. In SharpPy the in-flight exception lives on the
+            // frames, so the frames that hold one are restored by hand.
+            var saved = PyVM.SnapshotExceptionStates();
             try
             {
                 hook.Call(new PyObject[] { target }, null);
@@ -137,18 +225,179 @@ namespace SharpPy
             {
                 ReportIgnored(hook, null, ex.Message);
             }
+            finally
+            {
+                PyVM.RestoreExceptionStates(saved);
+            }
         }
 
         /// <summary>
-        /// The MRO lookup, so a subclass __del__ wins over a base one. An inherited hook has to be
-        /// found here rather than by consulting only this class' dict: CPython stores tp_finalize
-        /// on the subtype, and a subclass of a class with __del__ is finalized too.
+        /// The hook is looked up on the object's own type through the MRO, which is what
+        /// slot_tp_finalize does: a subclass override wins, an inherited hook is found, and a
+        /// __new__ that returned a foreign object gets that object's hook (none), not the called
+        /// class'.
         /// </summary>
-        private static PyObject LookupHook(PyClass cls)
+        private static PyObject LookupHook(PyObject target)
         {
-            var hook = cls == null ? null : cls.LookupInMRO("__del__");
-            if (hook == null || hook is PyNone) return null;
-            return hook;
+            if (!(target.GetPyType() is PyClass cls)) return null;
+            return cls.LookupFinalizerHook();
+        }
+
+        /// <summary>
+        /// gc.collect()'s anchor. A real collection is what turns "unreachable" into a queued guard,
+        /// so one pass may not be enough: a finalizer can drop more objects, and those need another
+        /// round. Bounded, like CPython's collect which also works in bounded rounds.
+        /// </summary>
+        internal static void CollectAndDrain()
+        {
+            for (int round = 0; round < 10; round++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                if (Drain() == 0) break;
+            }
+        }
+
+        /// <summary>
+        /// Interpreter shutdown. CPython tears modules down and collects twice
+        /// (Python/pylifecycle.c:1573 finalize_modules, :1609 and :1649 _PyGC_CollectNoFail,
+        /// :1630 finalize_modules_clear_weaklist), so everything still alive loses its last
+        /// reference before the process ends. Order is measured, not assumed
+        /// (docs/plans/lifetime_foundation/probes/q2_shutdown_order.py): module globals in
+        /// insertion order first, then the rest in creation order.
+        /// </summary>
+        internal static void RunAtShutdown()
+        {
+            if (running) return;
+            running = true;
+            try
+            {
+                // 1. Whatever the collector already reported.
+                Drain();
+
+                for (int round = 0; round < 5; round++)
+                {
+                    int before = handled;
+                    // 2. __main__'s namespace, in insertion order. An embedded host has no
+                    //    __main__ and simply skips this step.
+                    if (PyImportSystem.TryGetModule("__main__", out var main))
+                        StepNamespaces(main);
+                    // 3. Everything still being watched, in creation order.
+                    StepRemaining();
+                    // 4. A __del__ may have created more finalizable objects.
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    Drain();
+                    if (handled == before) break;
+                }
+
+                // Finalizers first, external resources second: a __del__ may still write to a file it
+                // kept open. CPython likewise flushes the standard files last
+                // (Python/pylifecycle.c:1673 flush_std_files).
+                PyResourceBus.ReleaseAllAtShutdown();
+                shutdownDone = true;
+            }
+            finally
+            {
+                running = false;
+            }
+        }
+
+        private static int handled;
+
+        private static void StepNamespaces(PyModule main)
+        {
+            List<PyObject> values = null;
+            try
+            {
+                // ModuleDict is append-only for the names a script binds, so the enumerator walks
+                // them in the order the module assigned them - which is the order CPython's teardown
+                // was measured to follow (probes q2_shutdown_order).
+                foreach (var entry in main.ModuleDict)
+                    (values ??= new List<PyObject>()).Add(entry.Value);
+            }
+            catch
+            {
+                // A module dict that cannot be enumerated is not a reason to stop finalizing.
+            }
+            if (values == null) return;
+            foreach (var value in values)
+            {
+                if (value == null) continue;
+                if (!Guards.TryGetValue(value, out var guard)) continue;
+                if (guard.State != GuardState.Armed) continue;
+                Step(guard);
+                handled++;
+            }
+        }
+
+        private static void StepRemaining()
+        {
+            PyGuard[] snapshot = SnapshotLive();
+            Array.Sort(snapshot, (a, b) => a.Sequence.CompareTo(b.Sequence));
+            foreach (var guard in snapshot)
+            {
+                if (guard.State == GuardState.Armed)
+                {
+                    Step(guard);
+                    handled++;
+                }
+            }
+        }
+
+        private static PyGuard[] SnapshotLive()
+        {
+            List<PyGuard> alive = null;
+            lock (Live)
+            {
+                for (int i = Live.Count - 1; i >= 0; i--)
+                {
+                    var guard = Target(Live[i]);
+                    if (guard != null) (alive ??= new List<PyGuard>()).Add(guard);
+                    else Live.RemoveAt(i);
+                }
+            }
+            return alive == null ? Array.Empty<PyGuard>() : alive.ToArray();
+        }
+
+        // Resolving a weak reference leaves the target in the caller's local slot until the method
+        // ends, which can keep something alive that the same collection was meant to free. The
+        // tier-0 JIT does not narrow those slots; the spike reproduced it. Keeping the read in a
+        // non-inlined helper keeps the lifetime of the hidden slot inside this method.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static PyGuard Target(WeakReference<PyGuard> reference)
+        {
+            if (reference == null) return null;
+            return reference.TryGetTarget(out var guard) ? guard : null;
+        }
+
+        private static void AddToLive(PyGuard guard)
+        {
+            lock (Live)
+            {
+                guard.Slot = Live.Count;
+                Live.Add(new WeakReference<PyGuard>(guard));
+            }
+        }
+
+        // O(1) removal. Sequence still orders shutdown, so the list does not have to stay sorted.
+        private static void RemoveFromLive(PyGuard guard)
+        {
+            if (guard == null) return;
+            lock (Live)
+            {
+                int slot = guard.Slot;
+                if (slot < 0 || slot >= Live.Count) { guard.Slot = -1; return; }
+                int last = Live.Count - 1;
+                if (slot != last)
+                {
+                    Live[slot] = Live[last];
+                    var moved = Target(Live[slot]);
+                    if (moved != null) moved.Slot = slot;
+                }
+                Live.RemoveAt(last);
+                guard.Slot = -1;
+            }
         }
 
         /// <summary>

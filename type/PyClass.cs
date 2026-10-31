@@ -97,18 +97,48 @@ namespace SharpPy
         // through the slotdef table, and subtype_dealloc (Objects/typeobject.c:1901) then tests
         // tp_finalize per object without searching. This field is the SharpPy equivalent of that
         // slot. See docs/lifetime_and_gc_policy.md section 3 for what does and does not follow.
-        private bool _finalizerChecked;
+        // A global epoch rather than a bool. InvalidateTypeCache (core/PyType.cs) does not spread to
+        // subclasses, so a per-class version tag could not be trusted: assigning
+        // LateParent.__del__ after a subclass already asked the question has to invalidate that
+        // subclass' cached answer too (probes G). The cost is one increment in the two paths that
+        // write or delete a class attribute.
+        internal static ulong FinalizerEpoch = 1;
+        private ulong _finalizerCheckedAt;
         private bool _declaresFinalizer;
+        private PyObject _finalizerHook;
 
-        internal bool DeclaresFinalizer()
+        internal bool DeclaresFinalizer() => LookupFinalizerHook() != null;
+
+        /// <summary>
+        /// The declared __del__ for this type, or null. Answered once per epoch, then cached, so an
+        /// ordinary instance costs one field comparison (this is SharpPy's stand-in for the
+        /// tp_finalize slot C fills at type creation, Objects/typeobject.c:9499).
+        ///
+        /// The re-check walks the class dictionaries instead of LookupInMRO: the global method cache
+        /// still holds the negative answer recorded before a late `P.__del__ = ...`, and
+        /// InvalidateTypeCache does not spread to subclasses, so a subclass would keep answering
+        /// "no finalizer" from a stale cache entry (probe G, parent assigned after subclass used).
+        /// </summary>
+        internal PyObject LookupFinalizerHook()
         {
-            if (!_finalizerChecked)
+            if (_finalizerCheckedAt != FinalizerEpoch) return FindFinalizerHook();
+            return _declaresFinalizer ? _finalizerHook : null;
+        }
+
+        private PyObject FindFinalizerHook()
+        {
+            PyObject hook = null;
+            foreach (var t in MRO)
             {
-                var hook = LookupInMRO("__del__");
-                _declaresFinalizer = hook != null && !(hook is PyNone);
-                _finalizerChecked = true;
+                if (!(t is PyClass owner)) continue;
+                if (!owner.ClassDict.TryGetValue("__del__", out var own) || own is PyNone) continue;
+                hook = own;
+                break;
             }
-            return _declaresFinalizer;
+            _finalizerHook = hook;
+            _declaresFinalizer = hook != null;
+            _finalizerCheckedAt = FinalizerEpoch;
+            return hook;
         }
 
         // CPython 3.12: __slots__ semantics - an instance has a __dict__ only when
@@ -253,9 +283,10 @@ namespace SharpPy
         public new PyObject CreateInstance(PyObject[] args, PyDict kwargs)
         {
             var created = CreateInstanceCore(args, kwargs);
-            // A class whose MRO declares __del__ has to be noticed at creation time, because the
-            // only moment SharpPy can tell that an object is being let go is interpreter shutdown.
-            PyFinalizer.RegisterIfDeclared(this, created);
+            // Filed on the object that came out of __new__, not on the class that was called: a
+            // __new__ can return a foreign object, and that object has no hook of the called class
+            // to run (probe P).
+            PyFinalizer.RegisterIfDeclared(created);
             return created;
         }
 
@@ -780,6 +811,10 @@ namespace SharpPy
             // TODO: Fix super() for metaclass contexts to enable this feature.
 
             ClassDict[name] = value;
+            // __del__ may be assigned to a class after instances of it already exist. C decides
+            // tp_finalize at type creation (Objects/typeobject.c:9499); SharpPy's cached answer is
+            // versioned by the global epoch so subclasses pick it up as well.
+            if (name == "__del__") FinalizerEpoch++;
 
             // CPython 3.12: Invalidate method cache when class dict changes
             // Reference: Objects/typeobject.c:420-522 (type_modified)
@@ -798,6 +833,7 @@ namespace SharpPy
             if (ClassDict.ContainsKey(name))
             {
                 ClassDict.Remove(name);
+                if (name == "__del__") FinalizerEpoch++;
 
                 // CPython 3.12: Invalidate method cache when class dict changes
                 InvalidateTypeCache();

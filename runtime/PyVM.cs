@@ -928,6 +928,32 @@ namespace SharpPy
             return null;
         }
 
+        /// <summary>
+        /// slot_tp_finalize saves the in-flight exception before running __del__ and puts it back
+        /// afterwards (Objects/typeobject.c:9076 PyErr_GetRaisedException, :9090
+        /// PyErr_SetRaisedException), so a finalizer that raises cannot disturb the handler that is
+        /// running. SharpPy keeps the in-flight exception on the frames (PyFrame.CurrentException),
+        /// so the frames that hold one are snapshotted and restored around the call.
+        /// </summary>
+        internal static List<(PyFrame Frame, PyBaseException Saved)> SnapshotExceptionStates()
+        {
+            List<(PyFrame, PyBaseException)> saved = null;
+            var stack = Instance._frameStack;
+            foreach (var frame in stack)
+            {
+                if (frame.CurrentException == null) continue;
+                (saved ??= new List<(PyFrame, PyBaseException)>()).Add((frame, frame.CurrentException));
+            }
+            return saved;
+        }
+
+        internal static void RestoreExceptionStates(List<(PyFrame Frame, PyBaseException Saved)> saved)
+        {
+            if (saved == null) return;
+            foreach (var entry in saved)
+                entry.Frame.CurrentException = entry.Saved;
+        }
+
         private PyVM()
         {
             _frameStack = new Stack<PyFrame>();
@@ -2910,8 +2936,11 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RESUME:
-                    // Python 3.12: 모든 코드 시작점에 있는 명령어
-                    // 실제로는 아무것도 하지 않음 (단순 마커)
+                    // Python 3.12: every code object starts here. It is also CPython's safe point:
+                    // Python/bytecodes.c:145-146 tests the eval breaker here, and only for
+                    // oparg < 2 (a frame resumed for a generator send is not interrupted).
+                    // SharpPy uses the same point for the lifetime queue (PyFinalizer.Drain).
+                    if (argument < 2 && PyPending.Flag) PyFinalizer.Drain();
                     break;
 
                 // Duplicate CALL case removed (was CALL_FUNCTION_KW)
@@ -3719,6 +3748,9 @@ namespace SharpPy
                     return null;
 
                 case ByteCodeOp.JUMP_BACKWARD:
+                    // The back edge of a loop is the other safe point. JUMP_BACKWARD_NO_INTERRUPT
+                    // deliberately has no such test, in CPython and here.
+                    if (PyPending.Flag) PyFinalizer.Drain();
                     // CPython 3.12 호환: QuickenedCodeObject 방식으로 JUMP_BACKWARD 계산
                     int currentInstrPos = frame.InstructionPointer;
                     int targetInstrPos;
