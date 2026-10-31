@@ -407,7 +407,8 @@ return new PyInt(0);
 2. `docs/known_gaps.md`에서 해결된 항목을 정리하고 잔여를 명시한다.
 3. `docs/plans/todo.md`의 해당 항목을 갱신한다.
 4. `docs/reports/<날짜>/`에 짧은 보고서를 쓴다. 포함 내용: 실행 코드 추가·삭제량, 전후 측정값, 삭제한
-   경로, 남은 격차. 기존 보고서 형식은 `docs/reports/2026-10-30/gc_module_and_finalizers.md`를 본다.
+   경로, 남은 격차, **단일 경로 표**(`AGENTS.md`의 단일 경로 점검: CPython의 결정·저장 위치, SharpPy의 경로 전부,
+   남은 중복과 제거 조건). 기존 보고서 형식은 `docs/reports/2026-10-30/gc_module_and_finalizers.md`를 본다.
 5. 커밋 하나. 메시지는 `fix(P0-47): ...` 형식이다. 커밋 메시지에 측정값을 적는다.
 
 ## 7. 멈춰야 할 때

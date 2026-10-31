@@ -10,7 +10,7 @@
 ## 0. 규칙
 
 고정값, 게이트, 셸 규칙은 [`README.md`](README.md) §1을 따른다. 시작 시점 게이트 값은
-bughunt 92/92, evaluate 225/3/2, similarity exit 0, Godot 82/0이다. 아래 네 가지가 추가된다.
+bughunt 92/92, evaluate 225/3/2, similarity exit 0, Godot 82/0이다. 아래 다섯 가지가 추가된다.
 
 1. **합격 프로브를 직접 쓰거나 고치지 않는다.** 이미 CPython에서 실행해 출력을 확인했다. 프로브가
    틀렸다고 판단되면 고치지 말고 멈춰서 보고한다.
@@ -22,6 +22,10 @@ bughunt 92/92, evaluate 225/3/2, similarity exit 0, Godot 82/0이다. 아래 네
    우회 코드를 쌓지 않는다.
 4. **경계 파일.** `PyGuard`의 상태 전이, `Step`, `Drain`, `RunAtShutdown`의 순서는 C1이 바꾼다.
    L1에 지정된 줄 외에는 건드리지 않는다.
+5. **항상 단일 경로를 점검한다** (사용자 확정, `AGENTS.md`의 단일 경로 점검). 코드를 고치기 전에 CPython의 결정 지점과
+   저장 위치, SharpPy에서 같은 동작이 지나는 경로 전부를 표로 비교한다. 프로브를 통과시키는 분기나 특수 처리를
+   더하지 않는다. 경로가 여럿이면 하나로 교체하고 나머지를 지운다. 지금 그렇게 못 하면 남은 경로, 호출자, 제거 조건을
+   적고 멈춰서 보고한다. 이 표가 없는 보고서는 미완료로 본다. 프로브와 게이트를 통과해도 마찬가지다.
 
 소스 수정은 편집 도구로 하고, 큰 작업은 중간에 WIP 커밋이나 패치 파일로 남긴다. Q4 때 `core/PyFinalizer.cs`가
 도구 실수로 0바이트가 되어 그 파일의 Q4 변경을 전부 잃었다. 정확한 원인은 기록되지 않았다.
@@ -248,8 +252,23 @@ L2.3은 끝났다 (`d37e363`). 점검 기준 게이트: bughunt 103/103, evaluat
 게이트와 인수 프로브를 통과한 뒤에도 아래 결함이 남았다. 일부는 L2.3이 만들었다. 예를 들어 `code` 조회가 실패하면
 rc 1이어야 하는데 이제 rc 0이고, `code`를 property로 덮은 서브클래스는 생성에서 실패한다.
 
-**커밋은 둘이다.** 1~8번을 하나로, 9번을 하나로 한다. 끝나면 멈춘다. 경계는 L2.2와 같다
+**커밋은 둘이다.** 1~8번과 10번을 하나로, 9번을 하나로 한다. 끝나면 멈춘다. 경계는 L2.2와 같다
 (`core/PyFinalizer.cs`, `modules/AtexitModule.cs` 금지). 고쳐야만 될 것처럼 보이면 멈추고 보고한다.
+
+**단일 경로 표부터 쓴다.** 아래 코드 항목은 증상 목록이고, 작업 단위는 이 표의 경로다. 코드를 고치기 전에 SharpPy 열을
+측정해 채우고 보고서에 넣는다. 아래 CPython 열의 앵커도 소스에서 다시 확인한다.
+
+| 동작 | CPython의 단일 지점 | SharpPy에서 확인할 경로 | 항목 |
+|---|---|---|---|
+| 예외 객체 | `do_raise` (`Python/ceval.c`)는 만든 객체를 그대로 올린다 | `runtime/PyVM.cs`의 `new PyException(...)` 감싸기 전부, `OriginalInstance`, `e is z`가 참인지 | 5, 7 |
+| 생성 | `BaseException_new`, `BaseException_init` | `core/PyType.cs`의 이름별 `case`, 서브클래스 생성 경로, `__new__` 직접 호출 | 3, 4 |
+| 저장 | 객체의 `args`, `code` 슬롯 | C# 필드, `InstanceDict`, `SetAttribute` 경유 | 2 |
+| 읽기 | 멤버 디스크립터와 `BaseException_repr` | `.args` getter, `repr`, `str`, `PySystemExit.GetAttribute` | 2, 5 |
+| 종료 | `_Py_HandleSystemExit` | 파일, `-c`, REPL의 각 경로 | 1, 6, 8 |
+| 함수 이름 | `func_get_qualname`, `method_repr` | `PyFunction`, `PyMethod.GetAttribute`의 이름 `switch` | 9 |
+
+`e is z`가 거짓이면 raise가 객체를 바꾸는 것이다. 그 경우 2, 5, 7번을 감싼 객체 쪽 분기로 맞추지 않는다. 감싸기를 없앨 수
+있는지 먼저 본다. 범위를 넘으면 표와 호출자 수를 적고 멈춰서 보고한다. 표현 통합은 그 보고를 근거로 별도 항목으로 잡는다.
 
 **합격.** `--filter l24_`의 `l24_*.py` 11개 일치, `l23_*.py` 5개 유지, 게이트 통과. `--filter`는 부분 문자열이라 `gap_l23_*`, `gap_l24_*`도 잡히지만 합격 기준 밖이다. 프로브는 이미 CPython 3.12.15에서 확인했고
 지금 SharpPy에서는 11개 모두 다르다. 고치면 안 된다. 틀렸다고 생각되면 멈추고 보고한다. 사본:
