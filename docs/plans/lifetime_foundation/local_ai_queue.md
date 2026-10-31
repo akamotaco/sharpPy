@@ -246,7 +246,7 @@ L2.2는 끝났다 (`1fcb91d`, `7f09ef8`, `5c33807`). 점검 기준 게이트: bu
 
 **번호.** `p90`, `p91`은 L2.2가 썼다. `todo.md`에서 예약된 번호였으므로, 앞으로는 쓰기 전에 `docs/plans`에서 번호를 검색한다.
 
-## L2.4 — 지금 할 일 (L2.3 점검 결과, C1 전)
+## L2.4 — 완료 (C1 전)
 
 L2.3은 끝났다 (`d37e363`). 점검 기준 게이트: bughunt 103/103, evaluate 225/3/2, similarity exit 0, Godot 82/0.
 게이트와 인수 프로브를 통과한 뒤에도 아래 결함이 남았다. 일부는 L2.3이 만들었다. 예를 들어 `code` 조회가 실패하면
@@ -362,6 +362,83 @@ rc 1이어야 하는데 이제 rc 0이고, `code`를 property로 덮은 서브�
   겹치는 것은 P0-60에 잇는다.
 - `e.args = (e,)`의 `repr`이 스택 오버플로로 프로세스를 끝낸다 (CPython은 `RecursionError`). P0-52에 잇는다.
 - `type(exit).__name__`이 `object`다 (CPython `Quitter`). P0-66과 같은 계열인지 적는다.
+
+## L2.5 — 지금 할 일 (L2.4 점검 결과, C1 전)
+
+L2.4는 끝났다 (`c47c502`, `6ab5dca`). 점검 기준 게이트: bughunt 114/114, evaluate 225/3/2, similarity exit 0, Godot 82/0.
+게이트와 인수 프로브를 통과했지만 L2.4가 회귀 넷을 만들었고, 점검 중 기록되지 않은 큰 결함 둘이 나왔다.
+`class A: x: int = 1`이 `NameError`로 실패하고, `o.__dict__`는 처음 읽은 뒤 새 속성을 보여주지 않는다.
+둘 다 일반 스크립트가 바로 부딪히는 결함이다.
+
+**커밋은 셋이다.** 1~3번과 기록 정정을 하나로, 4번을 하나로, 5번을 하나로 한다. 끝나면 멈춘다. 경계는 L2.4와 같다.
+
+**단일 경로 표부터 쓴다.** SharpPy 열을 측정해 채우고 CPython 앵커를 소스에서 다시 확인한 뒤 보고서에 넣는다.
+
+| 동작 | CPython의 단일 지점 | SharpPy에서 확인할 경로 | 항목 |
+|---|---|---|---|
+| 클래스 속성 대입과 삭제 | `type_setattro`가 메타타입의 데이터 디스크립터를 먼저 본다 | `type/PyClass.cs:837`의 `ClassDict[name] = value`, 메타클래스 getset, `PyQualnameDescriptor` 분기 | 1 |
+| 인스턴스 속성 삭제 | `PyObject_GenericSetAttr`의 NULL 대입, 대입과 같은 MRO 조회 | `type/PyClass.cs:2350` `DelAttribute`, L2.4가 `SetAttributeDefault`에 넣은 내장 MRO 조회 | 2 |
+| `args` 대입과 읽기 | `BaseException_set_args`(`Objects/exceptions.c:261`)는 `PySequence_Tuple` 결과 하나를 저장한다 | `core/PyType.cs`의 setter 안 언래핑, `PyExceptionSlots`, `PyBaseException.Args`, `new PyTuple(stored)` | 3 |
+| 주석 저장 | `compiler_annassign`은 모듈과 클래스에서만 저장한다. 저장 위치는 `STORE_NAME`의 이름공간이다 | `runtime/PyVM.cs:2605` `SETUP_ANNOTATIONS`, `runtime/compile.cs:5654`, `:5660`, `frame.Code.Name` 비교 | 4 |
+| 인스턴스 `__dict__` | 속성 쓰기가 가는 dict 하나 | `InstanceDict`, `PyInstanceAttrDict`의 `_dict` 복사본과 `SyncFromUnderlying`, `PyFunctionAttrDict` | 5 |
+
+**합격.** `--filter l25_` 5개 일치, `l23_*.py` 5개와 `l24_*.py` 11개 유지, 게이트 통과. 프로브는 CPython 3.12.15에서 확인했고
+지금 SharpPy에서는 5개 모두 다르다. 고치면 안 된다. 틀렸다고 생각되면 멈추고 보고한다.
+
+| 프로브 | 사본 | 코드 |
+|---|---|---|
+| `l25_type_setattr.py` | `p118_type_setattr.py` | 1 |
+| `l25_member_delete.py` | `p119_member_delete.py` | 2 |
+| `l25_args_set.py` | `p120_args_set.py` | 3 |
+| `l25_annotations.py` | `p121_annotations.py` | 4 |
+| `l25_instance_dict.py` | `p122_instance_dict.py` | 5 |
+
+**코드.**
+
+1. **클래스 대입이 메타타입의 디스크립터를 지나게 한다.** L2.4 회귀: `Q.__qualname__ = "R"`이 사라지고 `5`도 거부되지 않으며,
+   `functools.update_wrapper`를 클래스에 쓰면 `__qualname__`이 옮겨가지 않는다. `PyClass.SetAttribute`가 `ClassDict`에 바로 쓰므로
+   `type_set_qualname` 대응 코드에 도달하지 못한다. 이름 분기를 더하지 말고 `PyFunction`처럼 메타타입에서 setter 있는 데이터
+   디스크립터를 찾아 넘긴다. `__del__`의 `FinalizerEpoch`과 캐시 무효화는 그대로 지나게 둔다. 삭제도 같은 조회를 쓴다.
+   이 경로가 서면 `PyClass` 생성자의 `PyQualnameDescriptor` 타입 분기가 아직 필요한지 다시 본다.
+2. **`DelAttribute`가 대입과 같은 MRO 조회를 쓴다.** L2.4 회귀: `SystemExit` 서브클래스의 `del e.code`가 `AttributeError`다.
+   대입과 삭제가 조회 코드를 공유하게 하고 복사하지 않는다. `code`는 지우면 None으로 읽히고 다시 지워도 오류가 없다.
+3. **`args` 저장을 하나로 한다.** L2.4 회귀: 서브클래스의 `e.args = [1, 2]`가 조용히 `()`가 되고, `e.args is e.args`가 False가 됐다.
+   - 대입은 내장과 서브클래스 모두 `PySequence_Tuple` 의미다. 기존 `tuple()` 변환 경로를 쓴다.
+   - 삭제는 `args may not be deleted` `TypeError`다.
+   - 읽기는 저장된 튜플 객체를 그대로 준다.
+   - setter 안의 `OriginalInstance` 언래핑을 지워 `PyExceptionSlots`로 합친다.
+   - "A T_OBJECT member stores whatever it is given" 주석은 틀렸으니 지운다.
+4. **주석 문장.** `class A: x: int`, `class A: x: int = 1`, 함수 안의 `x: int`가 `NameError`다. 함수에서는 저장도 평가도 하지 않는다
+   (`z: undefined_name`이 통과해야 한다). 클래스의 `SETUP_ANNOTATIONS`가 `LOAD_NAME`과 다른 이름공간에 쓰는 것이 가설이다. 추적해서
+   확정한다. `frame.Code.Name == "<module>"` 비교는 없앤다. 끝나면 `dataclass`와 `typing.NamedTuple`의 결과를 보고서에 적는다.
+   합격 기준 밖이다. 다른 결함이 나오면 고치지 말고 등록한다.
+5. **`__dict__`를 저장소 하나로 만든다.** `_dict` 복사본과 동기화를 지운다. 동기화 호출을 더 넣는 수정은 하지 않는다.
+   `InstanceDict`는 뜨거운 경로이므로 `self.x = 1`, 인스턴스 생성, `PyClassInstance` 크기를 전후로 잰다. 같은 바이너리 대조와
+   번갈아 실행을 쓴다. 단일 실행 편차가 1.7배까지 난다. 비용 없이 못 하면 표와 측정을 적고 멈춘다.
+
+**기록 정정.**
+
+- `docs/reports/2026-11-01/the_slots_an_exception_owns.md`: 표의 "`raise SystemExit(3) from None` exits 1"은 3이다.
+  성능 표의 머리글 줄이 빠졌다. "the only route"는 3번을 끝낸 뒤의 사실로 고친다.
+- 앵커를 소스에서 다시 찾아 고친다. `Objects/exceptions.c:23`, `:1051`(`key_str`이 아니다), `Python/errors.c:207`(빈 줄이다),
+  `Objects/funcobject.c:533`(빈 줄이다), `Objects/typeobject.c:250`(`type_qualname`이 아니다).
+  `type/PyClass.cs` 주석의 `Objects/type.c`는 없는 파일이고 `Objects/typeobject.c`가 맞다. 코드 주석과 보고서를 함께 고친다.
+- `Program.cs`, `core/SharpPyRepl.cs`의 주석이 커밋되지 않는 `.artifacts/tmp/l24_repl.py`를 가리킨다. 재현은 저장소 안으로 옮기거나
+  보고서의 측정표를 가리키게 한다.
+- `docs/known_gaps.md` P0-70은 신원 문제로만 적혀 있다. 아래를 잇고, 뿌리가 CLR 계보 둘이라고 적는다. 더 고치지 않는다.
+  - `raise X from E("y")`(사용자 예외 인스턴스)와 `raise X from TypeError`(클래스)가 `TypeError`다.
+  - 올리기 전 사용자 예외에 `__traceback__`, `add_note`, `__reduce__`가 없다.
+  - `sys.exc_info()[1] is z`, `__exit__`의 값, `gen.throw(z)`가 다른 객체를 준다.
+  - 사용자 서브클래스에서 `OSError.errno`, `StopIteration.value`, `ImportError`/`AttributeError`/`NameError` 키워드, `SyntaxError`, `UnicodeError`, `ExceptionGroup` 필드가 없다.
+
+**`docs/known_gaps.md`에 등록.** 고치지 않는다. 번호는 `P0-72`부터 쓰고, 재현은 `probes/gap_l25_*.py`로 저장소에 둔다.
+
+- 내장 함수의 `__qualname__`: `print`, `[].append`, `str.join`이 `AttributeError`다.
+- `tp_new_wrapper` 검사: `object.__new__(E)`, `ValueError.__new__(KeyError, 1)`, `BaseException.__new__(int)`의 메시지.
+- 레이아웃 충돌: `type("X", (int, Exception), {})`가 생성된다 (CPython `multiple bases have instance lay-out conflict`).
+- `p.__dict__ = {...}` 대입 뒤 `p.a`가 `AttributeError`다.
+
+표현 통합(P0-70)은 이 항목이 아니다. C1 뒤 Claude가 설계한다. 그 전까지 예외 슬롯을 더 늘리지 않는다.
 
 ## L3 — `weakref.py`, 타입 플래그 (C1 뒤)
 
