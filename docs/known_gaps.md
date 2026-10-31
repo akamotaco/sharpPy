@@ -2125,3 +2125,26 @@ runtime/PyVM.cs:5256  new PyException(customInstance.ToString(), ...)
 
 CPython 앵커: `Python/ceval.c` `do_raise`는 만든 객체를 그대로 올리고, `Python/errors.c:207
 _PyErr_SetObject`는 받은 객체에 `__context__`/`__cause__`를 설정만 한다. 새 객체를 만들지 않는다.
+
+## P0-71 함수의 `__doc__`/`__name__`에 setter가 없다 (측정 2026-11-01, 미해결, L2.4 item 9에서 정밀화)
+
+L2.4 아홉째 항목을 하면서 같은 표에서 잰 것이다. `__qualname__`은 이번 커밋에서 setter를 얻었지만
+`__doc__`과 `__name__`은 아직 없다. 재현: `docs/plans/lifetime_foundation/probes/gap_l24_function_names.py`를 두 인터프리터로 실행 (합겨 기준 밖 — 두 인터프리터가 다른 답을 낸다).
+
+| 동작 | CPython 3.12.15 | SharpPy (item 9 앞) | SharpPy (item 9 뒤) |
+|---|---|---|---|
+| `f.__name__ = "g"` 뒤 `f.__name__` | `g` | `g` | `g` |
+| 같은 뒤 `repr(f)` | `<function f at 0x…>` (`func_repr`은 qualname을 읽는다) | `<function f at …>` | `<function f at …>` |
+| `del f.__doc__` | 성공, `f.__doc__`는 `None` | `AttributeError: attribute '__doc__' of 'function' objects is not writable` | 같음 |
+| `del f.__name__` | `TypeError: __name__ must be set to a string object` | `AttributeError: … is not writable` | 같음 |
+
+앞의 두 줄은 L2.4 item 9가 고쳐도 그대로다 — repr이 qualname을 읽는 한 `__name__` 대입은 repr을
+움직이지 않는다. 뒤의 두 줄이 남는 결함이다. CPython은 `function`의 `__doc__`/`__name__`을
+getter/setter 쌍으로 가지고 있다 (`Objects/funcobject.c`의 `function_getseters`, `__name__`은
+`function_set_name`이 문자열이 아니면 `TypeError: __name__ must be set to a string object`을 낸다).
+SharpPy는 `core/PyFunction.cs`의 `InitializeFunctionDescriptors()`에서 getter만 등록했다.
+
+지우지 않고 남기는 이유: generic setattr은 setter가 있는 디스크립터만 새 경로로 태우고, setter가
+없는 것들은 이전과 같이 dict에 저장했다. 그래서 이번 변경은 위 표의 "변화 없음"을 지킨다. setter를
+추가하면 세 번째·네 번째 줄이 CPython으로 바뀌고, `__qualname__`에 넣은 `deleter` 배관이 이미 있으므로
+추가 작업은 크다.

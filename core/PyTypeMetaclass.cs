@@ -1700,12 +1700,10 @@ namespace SharpPy
 
             if (instance is PyClass pyClass)
             {
-                // CPython: Return ht_qualname if available, else tp_name
-                if (pyClass.ClassDict.TryGetValue("__qualname__", out var qualname))
-                    return qualname;
-
-                // Default to __name__
-                return new PyString(pyClass.Name);
+                // type_qualname (Objects/typeobject.c:250) reads ht_qualname. The class body's entry
+                // is no longer in the dict - type_new_set_ht_name took it out - so the field is the
+                // only route here as well.
+                return pyClass.QualNameString;
             }
 
             // CPython 3.12: For builtin types (PyType), return tp_name
@@ -1727,7 +1725,7 @@ namespace SharpPy
                     throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__qualname__, not '{value.GetTypeName()}'");
 
                 // CPython: Py_SETREF(et->ht_qualname, Py_NewRef(value))
-                pyClass.ClassDict["__qualname__"] = value;
+                pyClass.SetQualName(((PyString)value).Value);
             }
             else
             {

@@ -1631,8 +1631,12 @@ namespace SharpPy
         /// </summary>
         internal PyString NameString => _nameString ??= new PyString(Name);
 
-        /// <summary>ht_qualname, held separately because CPython holds it separately.</summary>
+        /// <summary>ht_qualname, held separately because CPython holds it separately. type_new_set_ht_name
+        /// fills it from the class body and removes that entry from the dict (Objects/typeobject.c:3416),
+        /// type_set_qualname (:1044) replaces it on assignment.</summary>
         internal PyString QualNameString => _qualNameString ??= new PyString(Name);
+        internal string QualNameText => QualNameString.Value;
+        internal void SetQualName(string value) => _qualNameString = new PyString(value);
 
         internal static int CountItems(IEnumerable<PyObject> items)
         {
@@ -3761,8 +3765,8 @@ namespace SharpPy
             if (this is PyClass cls)
             {
                 module = cls.ClassDict.GetValueOrDefault("__module__") is PyString mod ? mod.Value : null;
-                if (cls.ClassDict.GetValueOrDefault("__qualname__") is PyString qual)
-                    qualname = qual.Value;
+                // type_repr reads ht_qualname, not a dict entry.
+                qualname = cls.QualNameText;
             }
             return new PyString(module != null && module != "builtins"
                 ? $"<class '{module}.{qualname}'>" : $"<class '{Name}'>");

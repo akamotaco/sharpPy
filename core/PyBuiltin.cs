@@ -3225,11 +3225,9 @@ namespace SharpPy
         {
             if (cls is PyClass pc)
             {
-                if (pc.ClassDict != null && pc.ClassDict.TryGetValue("__qualname__", out var qn) && qn is PyString qs && qs.Value.Length > 0)
-                {
-                    return qs.Value;
-                }
-                return pc.Name;
+                // _PyObject_FunctionStr reports the owner by __qualname__, which is ht_qualname and
+                // no longer a dict entry (Objects/typeobject.c:3416).
+                return pc.QualNameText;
             }
             if (cls is PyType pt)
             {

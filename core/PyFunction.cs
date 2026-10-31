@@ -10,6 +10,11 @@ namespace SharpPy
 public partial class PyFunction : PyObject, IDescriptor
 {
     public string Name { get; }
+    // func_qualname (Objects/funcobject.c:705). It starts as co_qualname and moves independently of
+    // __name__ once something assigns it, which is what functools.wraps relies on.
+    private string _qualName;
+    public string QualName => _qualName ?? PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
+    internal void SetQualName(string value) => _qualName = value;
     public Func<PyObject[], PyObject> Implementation { get; }
     public Dictionary<string, PyObject> Attributes { get; }
     public PyModule DefiningModule { get; }
@@ -90,6 +95,31 @@ public partial class PyFunction : PyObject, IDescriptor
                 if (self is PyFunction func)
                     return new PyString(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        );
+
+        // __qualname__ getset (Objects/funcobject.c:705, getter :529, setter :533). "Not legal to
+        // del f.__qualname__ or to set it to anything other than a string object" (:536-:541) - one
+        // message for both, which is what a probe sees three times.
+        funcType.TypeDict["__qualname__"] = new PyGetSetDescriptor(
+            "__qualname__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return new PyString(func.QualName);
+                throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            },
+            setter: (self, value) => {
+                if (!(self is PyFunction func))
+                    throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                if (!(value is PyString text))
+                    throw PyTypeError.Create("__qualname__ must be set to a string object");
+                func.SetQualName(text.Value);
+            },
+            deleter: self => {
+                if (!(self is PyFunction))
+                    throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                throw PyTypeError.Create("__qualname__ must be set to a string object");
             }
         );
 
@@ -580,6 +610,16 @@ public partial class PyFunction : PyObject, IDescriptor
     
     public override void SetAttribute(string name, PyObject value)
     {
+        // PyObject_GenericSetAttr consults the MRO before the object's dict, so a descriptor with a
+        // setting slot takes the assignment. Only those are routed here: the read-only descriptors
+        // SharpPy registers today (name, doc, module) keep the dictionary behaviour they already had,
+        // where CPython gives them a setter - that difference is recorded in the L2.4 report.
+        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor writable
+            && writable.HasSetter)
+        {
+            writable.Set(this, value);
+            return;
+        }
         if (name == "__kwdefaults__")
         {
             if (value == PyNone.Instance) { Attributes.Remove(name); return; }
@@ -591,14 +631,21 @@ public partial class PyFunction : PyObject, IDescriptor
     public override void DelAttribute(string name)
     {
         if (name == "__kwdefaults__") { Attributes.Remove(name); return; }
+        // descr_delete on a getset is the same slot as descr_set with NULL (Objects/descrobject.c),
+        // so deletion goes through the descriptor and its refusal, not through the dict.
+        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor getset)
+        {
+            getset.Delete(this);
+            return;
+        }
         base.DelAttribute(name);
     }
 
     // CPython repr(func)/method uses __qualname__, not the bare code name: repr is
     // "<function C.m at 0x..>" (funcobject.c func_repr), bound method is
-    // "<bound method C.m of ...>". SharpPy stores the nesting-aware name on the code
-    // object (co_qualname), so pull DisplayQualName and normalize internal lambda ids.
-    public string ReprName => PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
+    // "<bound method C.m of ...>". QualName starts from co_qualname and is what an assignment
+    // changes, so repr follows the name the object actually carries.
+    public string ReprName => QualName;
     // CPython: repr(func) == "<function QUALNAME at 0xADDR>" (funcobject.c).
     public override PyString ToRepr()
         => new PyString($"<function {ReprName} at 0x{GetHashCode():x}>");

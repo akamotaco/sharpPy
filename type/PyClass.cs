@@ -255,6 +255,24 @@ namespace SharpPy
             {
                 ClassDict = new Dictionary<string, PyObject>();
             }
+            // type_new_set_ht_name (Objects/typeobject.c:3416): the qualname the class body wrote is
+            // taken out of the dict and kept on the type, so '__qualname__' in C.__dict__ is False and
+            // an instance never sees the name. The metaclass installs the getset descriptor of the
+            // same name into type's own dict, and that one is not a body entry, so it stays.
+            if (ClassDict.TryGetValue("__qualname__", out var qualEntry))
+            {
+                if (qualEntry is PyString qualText)
+                {
+                    SetQualName(qualText.Value);
+                    ClassDict.Remove("__qualname__");
+                }
+                else if (!(qualEntry is PyQualnameDescriptor))
+                {
+                    throw PyTypeError.Create(
+                        $"type __qualname__ must be a str, not {qualEntry.GetTypeName()}");
+                }
+            }
+
             // Defining equality without an explicit hash disables inherited hashing.
             // CPython type_ready_set_hash / inherit_slots; do this at creation,
             // not during lookup (later assignment of __eq__ has different semantics).

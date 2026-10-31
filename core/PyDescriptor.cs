@@ -241,6 +241,7 @@ namespace SharpPy
         public PyType OwnerType { get; }
         private readonly Func<PyObject, PyObject> _getter;
         private readonly Action<PyObject, PyObject> _setter;
+        private readonly Action<PyObject> _deleter;
         private readonly string _doc;
 
         public PyGetSetDescriptor(
@@ -248,14 +249,23 @@ namespace SharpPy
             PyType ownerType,
             Func<PyObject, PyObject> getter,
             Action<PyObject, PyObject> setter = null,
-            string doc = null)
+            string doc = null,
+            Action<PyObject> deleter = null)
         {
             Name = name;
             OwnerType = ownerType;
             _getter = getter ?? throw new ArgumentNullException(nameof(getter));
             _setter = setter;
+            _deleter = deleter;
             _doc = doc;
         }
+
+        /// <summary>
+        /// Whether this getset has a setting slot. CPython's generic setattr routes an assignment to
+        /// a data descriptor; SharpPy registers some getsets without their setter, so the write path
+        /// needs to tell the two apart rather than fail a name that used to land in the dict.
+        /// </summary>
+        internal bool HasSetter => _setter != null;
 
         public override PyType GetPyType() => PyType.PropertyType;
         public override string GetTypeName() => "getset_descriptor";
@@ -289,6 +299,13 @@ namespace SharpPy
         // resolves - reports "has no attribute" instead.
         public void Delete(PyObject instance)
         {
+            // A getset with a setter is deleted through it (descr_set with NULL); without one the
+            // getset_set refusal is what the interpreter reports (Objects/descrobject.c:255-:264).
+            if (_deleter != null)
+            {
+                _deleter(instance);
+                return;
+            }
             throw PyAttributeError.Create(
                 $"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
         }
