@@ -16,7 +16,7 @@ namespace SharpPy
             AddKeywordFunction("count", CountFunction, "start", "step");
             AddFunction("cycle", CycleFunction);
             AddFunction("repeat", RepeatFunction);
-            AddFunction("chain", ChainFunction);
+            ModuleDict["chain"] = new ChainType(ChainFunction);
             AddKeywordFunction("combinations", CombinationsFunction, "iterable", "r");
             AddKeywordFunction("permutations", PermutationsFunction, "iterable", "r");
             ModuleDict["product"] = new PyBuiltinFunction("product", ProductFunction);
@@ -343,6 +343,40 @@ namespace SharpPy
         private PyObject ZipLongestFunction(PyObject[] args, PyDict kwargs)
         {
             return new ZipLongestIterator(args, KwValue(kwargs, "fillvalue") ?? PyNone.Instance);
+        }
+    }
+
+    /// <summary>chain is a class in C, and chain.from_iterable is its classmethod: the outer iterable is
+    /// consumed lazily, one inner iterable at a time.</summary>
+    internal sealed class ChainType : PyBuiltinFunction
+    {
+        internal ChainType(Func<PyObject[], PyObject> implementation) : base("chain", implementation) { }
+
+        public override PyObject GetAttribute(string name) => name == "from_iterable"
+            ? new PyBuiltinFunction("from_iterable", args =>
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"chain.from_iterable() takes exactly one argument ({args.Length} given)");
+                return new ChainFromIterable(args[0].GetIterator());
+            })
+            : base.GetAttribute(name);
+    }
+
+    internal sealed class ChainFromIterable : PyIterator
+    {
+        private readonly PyObject _outer;
+        private PyObject _inner;
+
+        internal ChainFromIterable(PyObject outer) { _outer = outer; }
+
+        public override PyObject Next()
+        {
+            while (true)
+            {
+                if (_inner == null) _inner = _outer.Next().GetIterator();
+                try { return _inner.Next(); }
+                catch (PythonException error) when (error.PyException is PyStopIteration) { _inner = null; }
+            }
         }
     }
 

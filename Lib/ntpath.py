@@ -234,3 +234,8 @@ def lexists(path):
     """
     # Without lstat, same as exists
     return exists(path)
+
+
+def normcase(s):
+    """Normalize case of pathname. Makes all characters lowercase and all slashes into backslashes."""
+    return s.replace(altsep, sep).lower()

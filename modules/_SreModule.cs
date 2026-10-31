@@ -85,10 +85,12 @@ namespace SharpPy.Modules
 
             var pattern = args[0].ToStr();
             var flags = args.Length > 1 ? GetFlags(args[1]) : RegexOptions.None;
+            int pyFlags = args.Length > 1 && args[1] is PyInt given ? (int)given.Value : 0;
 
             try
             {
-                return new PySrePattern(pattern.Value, flags);
+                var engineText = (pyFlags & 64) != 0 ? StripVerbose(pattern.Value) : pattern.Value;
+                return new PySrePattern(engineText, flags) { Source = pattern.Value, PythonFlags = pyFlags };
             }
             catch (ArgumentException ex)
             {
@@ -235,6 +237,47 @@ namespace SharpPy.Modules
         /// - Singleline = 16 (equivalent to DOTALL)
         /// - IgnorePatternWhitespace = 32 - DO NOT USE! Incompatible with Python's VERBOSE
         /// </summary>
+        /// <summary>
+        /// VERBOSE as _parser.py reads it: whitespace and # comments go, except inside a class or after a
+        /// backslash. .NET's own option differs inside character classes, so the text is rewritten here.
+        /// </summary>
+        internal static string StripVerbose(string p)
+        {
+            var result = new System.Text.StringBuilder(p.Length);
+            bool inClass = false;
+            for (int i = 0; i < p.Length; i++)
+            {
+                char c = p[i];
+                if (c == '\\' && i + 1 < p.Length)
+                {
+                    result.Append(c).Append(p[++i]);
+                    continue;
+                }
+                if (inClass)
+                {
+                    if (c == ']') inClass = false;
+                    result.Append(c);
+                    continue;
+                }
+                if (c == '[')
+                {
+                    inClass = true;
+                    result.Append(c);
+                    if (i + 1 < p.Length && p[i + 1] == '^') result.Append(p[++i]);
+                    if (i + 1 < p.Length && p[i + 1] == ']') result.Append(p[++i]);
+                    continue;
+                }
+                if (char.IsWhiteSpace(c)) continue;
+                if (c == '#')
+                {
+                    while (i + 1 < p.Length && p[i + 1] != '\n') i++;
+                    continue;
+                }
+                result.Append(c);
+            }
+            return result.ToString();
+        }
+
         private static RegexOptions GetFlags(PyObject flagsObj)
         {
             if (flagsObj is not PyInt flagsInt)
@@ -657,6 +700,10 @@ namespace SharpPy.Modules
         private readonly Dictionary<string, int> _names;
         private readonly int _count;
 
+        /// <summary>The text and flags Python sees; _pattern is what the engine got.</summary>
+        internal string Source;
+        internal int PythonFlags;
+
         public PySrePattern(string pattern, RegexOptions flags)
         {
             _pattern = pattern;
@@ -676,9 +723,9 @@ namespace SharpPy.Modules
             switch (name)
             {
                 case "pattern":
-                    return new PyString(_pattern);
+                    return new PyString(Source ?? _pattern);
                 case "flags":
-                    return new PyInt((int)_flags);
+                    return new PyInt(PythonFlags);
                 case "match":
                     return new PyBuiltinFunction("match", Match);
                 case "fullmatch":

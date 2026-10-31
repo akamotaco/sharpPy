@@ -31,6 +31,16 @@ Two defs of one name under if and else each get their own symbol table (`TakeChi
 `dict`, `set`, `bytes`, `range` expose slot methods through `PySlotWrappers`; `__repr__` and `__str__` stay out because
 `AsString` looks them up and would recurse. Regex `(?a:` flags are stripped. `sys.excepthook` exists.
 
-Parked, not committed: `.artifacts/wip-l6/` holds grafts of `Counter`, `UserDict`, `lru_cache`, plus copies of `string`,
-`reprlib`, `pprint`, `queue`, `threading`, `fnmatch`. With them bughunt fell to 113/126: `import threading` raises a SyntaxError
-with no location, which still has to be traced.
+The parked grafts are in now. The failure blamed on them was a heredoc that turned `'\\\\'` into `'\\'` in `Lib/ntpath.py`.
+
+## Text routes and libraries
+
+| 결함 | 고친 곳 |
+|---|---|
+| `f"{{x}}"` printed `{{x}}` | `AddToken` gives `{{` and `}}` back as one brace |
+| A multi-line string in a CRLF file held `\\r` | newlines normalized on entry, as `translate_newlines` |
+| `re.VERBOSE` ignored, `.flags` was a .NET value | `StripVerbose`, Python flags kept on the pattern |
+
+Added from CPython: `string`, `reprlib`, `pprint`, `queue`, `threading`, `logging`, `fnmatch`, `posixpath`, `genericpath`, `textwrap`.
+Grafted into the existing shims: `Counter`, `ChainMap`, `UserDict`, `UserList`, `UserString`, `lru_cache`, `cache`.
+Programs matching: 33 of 37.

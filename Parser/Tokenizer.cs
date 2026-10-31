@@ -298,7 +298,10 @@ namespace SharpPy.Generated
 
         public Tokenizer(string source, bool generateExtraTokens = false)
         {
-            _source = source ?? throw new ArgumentNullException(nameof(source));
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            // translate_newlines (Parser/tokenizer.c): the tokenizer only ever sees \n, so a multi-line
+            // string in a file saved on Windows holds \n and not \r\n.
+            _source = source.Replace("\r\n", "\n").Replace('\r', '\n');
             _position = 0;
             _indentStack.Push(0); // Initialize with base indentation level
             _generateExtraTokens = generateExtraTokens;
@@ -503,6 +506,9 @@ namespace SharpPy.Generated
 
         private void AddToken(PyToken.Type type, string value, int startLine, int startColumn)
         {
+            // tok_get_fstring_mode gives {{ and }} back as one brace.
+            if (type == PyToken.Type.FSTRING_MIDDLE)
+                value = value.Replace("{{", "{").Replace("}}", "}");
             // CPython 3.12: Skip COMMENT and NL tokens unless generateExtraTokens is enabled
             if (!_generateExtraTokens && (type == PyToken.Type.COMMENT || type == PyToken.Type.NL))
             {
@@ -1199,7 +1205,8 @@ namespace SharpPy.Generated
                 if (c == '\\')
                 {
                     Advance(); // Move past backslash
-                    if (_position < _source.Length)
+                    // A brace after a backslash is still a brace: rf"\{{" and f"\{x}".
+                    if (_position < _source.Length && CurrentChar != '{' && CurrentChar != '}')
                     {
                         // Consume the escaped character
                         // CPython handles { and } specially, but for quotes and other chars,
