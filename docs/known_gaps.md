@@ -1388,8 +1388,10 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 
 1. **조기 도달 객체의 `__del__` 타이밍** — CPython은 마지막 참조가 사라진 즉시 부른다.
    측정(`.artifacts/tmp/del1.py`): 함수 지역 객체를 버린 직후 CPython은 `del ran`을 출력하고
-   SharpPy는 출력하지 않는다(종료 시점에야 실행). 종료 전 순서가 관측되는 프로그램은 결과가
-   달라질 수 있다. 재논의 트리거: 실제 라이브러리 코드가 이 타이밍에 의존할 때.
+   SharpPy는 출력하지 않는다. 종료 전 순서가 관측되는 프로그램은 결과가 달라질 수 있다.
+   재논의 트리거: 실제 라이브러리 코드가 이 타이밍에 의존할 때.
+   **2026-10-31 정정:** "종료 시점에야 실행"은 틀렸다. 그전에 CLR이 수거하면 **호출이 유실**된다.
+   유실은 B방이 아니라 결함이며 P0-48로 분리했다. 이 항목에는 시점 격차만 남는다.
 2. **`gc.get_objects()` / `gc.get_referrers()` 내용** — CPython은 추적 객체 목록을 순회해
    `get_objects()`가 수천 개를 반환하고 `get_referrers`는 역참조를 찾는다. SharpPy는 객체를
    추적하지 않으므로 빈 목록(`.artifacts/tmp/gc2.py` 18행 실측).
@@ -1398,20 +1400,22 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 4. **`gc.collect()`가 순환 미수거를 보고하지 않음** — 도달 불가능 주기를 찾을 수 없으므로 0을
    반환하고 사이클을 실제로 해제하지 않는다(CLR이 대신 수거한다). `gc.callbacks`는 실제로
    호출된다(p76 고정).
-5. **finalizer 등록 목록이 종료까지 줄지 않음** — `__del__`을 선언한 클래스의 인스턴스를
+5. **finalizer 등록 목록이 종료까지 줄지 않음** (P0-48에서 해결 예정) — `__del__`을 선언한 클래스의 인스턴스를
    많이 만드는 프로그램은 `WeakReference` 항목이 쌓인다. 실측 100,000 생성 +2.6%
    (`.artifacts/tmp/w_watch.py`, 기준 `fb625c4`와 교대 3라운드). 일반 클래스 생성은 1.00x
    (`PyClass.DeclaresFinalizer()` 필드 한 번 읽기).
-6. **재부활(resurrection) 미구현** — CPython은 `__del__` 안에서 자기 자신을 살려 두 번째
-   호출을 허용한다. SharpPy는 한 번 확정하면 다시 부르지 않는다.
+6. ~~**재부활(resurrection) 미구현** — CPython은 `__del__` 안에서 자기 자신을 살려 두 번째
+   호출을 허용한다.~~ **2026-10-31 정정:** 틀린 서술이다. heap class는 재부활해도 `__del__`이
+   1회만 불린다(`Objects/object.c:364`, `q2_del_delivery.py` C, `__slots__ = ()`도 동일).
+   SharpPy의 "다시 부르지 않음"은 맞는 동작이다. 부활한 객체의 약참조 유지는 P0-48/weakref에 속한다.
 7. **`sys.getrefcount`가 실제 값을 말하지 않음** — 측정: CPython은 지역+인자 참조로 `>= 2`,
    SharpPy는 상수 `1`. 카운팅 메커니즘이 없어 정직한 값이 존재하지 않으므로, 값이 관측되는
    이 함수는 이 항목에 남긴다(에러는 발생하지 않는다).
-8. **`weakref` 미구현** — `ModuleNotFoundError`. CPython은 내장 `_weakref` + `Lib/weakref.py` +
+8. **`weakref` 미구현** (순서는 P0-47, P0-48 다음. 작업 지시서 Q4) — `ModuleNotFoundError`. CPython은 내장 `_weakref` + `Lib/weakref.py` +
    `Lib/_weakrefset.py` 구조이며, SharpPy는 `itertools`/`_collections_abc`를 이미 가지고 있어
    같은 구조로 갈 수 있다. 네이티브 `_weakref`(ref/proxy/getweakrefcount/getweakrefs/
-   `_remove_dead_weakref`)가 남아 있는 작업. 사망 통지는 CLR 수거 시점이 아니라 참조 접근
-   시점에 결정되므로 콜백 타이밍이 추가 격차가 된다.
+   `_remove_dead_weakref`)가 남아 있는 작업. 콜백 타이밍은 "다음 GC + 안전점"이며 추가 격차가
+   된다. 접근 시점 판정은 callback을 실행하지 못하므로 2026-10-31에 Guard 방식으로 교체했다.
 9. ~~**`PyFinalizer`의 "1회만" 판정이 참조 동일성이 아님**~~ → **교정함** (`ReferenceEqualityComparer`).
    다만 이것이 관찰 가능한 버그였는지는 측정으로 기각되었다. 기준 커밋 `83b23b1` worktree 빌드와
    수정 후 빌드에 같은 프로브를 돌려 출력이 완전히 같았다: (a) `__hash__`가 예외를 던지는 클래스,
@@ -1424,6 +1428,32 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 10. ~~**C방(자원 상태) 실패**~~ → **P0-38로 해결** (아래 별도 절). 잔여는 타이밍 항목만 남는다.
 
 이 항목들의 판단 근거·기각된 선택지·CPython 앵커 표는 **`docs/lifetime_and_gc_policy.md`** 에 있다.
+
+## P0-47 ~ P0-49 수명 기반 결함 (2026-10-31 측정, 미해결)
+
+구현 지시서: [`plans/lifetime_foundation/README.md`](plans/lifetime_foundation/README.md).
+합격 프로브와 기준 출력은 그 폴더의 `probes/`에 있다.
+
+- **P0-47 `id()`가 식별자가 아니다.** `core/PyBuiltin.cs:1032`가 `GetHashCode()`를 그대로 반환한다.
+  값이 같은 str/int/float는 `is`가 False인데 `id`가 같다. 살아 있는 list 300,000개의 고유 id는
+  299,312개다. `copy.deepcopy`의 memo 형태로 667건 충돌하므로 `copy.py`를 넣으면 조용히 틀린
+  객체를 반환한다. `weakref`보다 먼저 고친다.
+- **P0-48 `__del__` 유실, `gc.collect()` 앵커 없음.** 버린 객체 300,000개 중 7,887개만 호출됐다.
+  `PyFinalizer.Pending`이 약참조이므로 CLR이 먼저 수거하면 호출이 사라진다
+  (`core/PyFinalizer.cs:105`). `object.__new__(C)` 경로는 등록 자체가 없고, 클래스 생성 후 대입한
+  `__del__`은 per-class 캐시가 이전 답을 유지한다. 종료 순서도 CPython의 모듈 dict 순서와 다르다.
+- **P0-49 제너레이터 finalize 없음.** 멈춘 제너레이터를 버리면 `finally`와 `with __exit__`가
+  실행되지 않는다. 종료 시에도 실행되지 않는다. `_PyGen_Finalize`(`Objects/genobject.c:70`) 대응이
+  없고, `PyGenerator.Dispose`는 이 경로에서 호출되지 않는다. `async` 제너레이터와 코루틴은 별도 항목으로
+  측정이 필요하다.
+
+**Q2 이후에도 남는 기록된 격차:**
+
+- `__del__`을 인스턴스 생성 **뒤에** 클래스에 대입하면 그 기존 인스턴스는 최종화되지 않는다
+  (`q2_gap_late_del.py`). 모든 객체에 Guard를 붙이지 않고는 알 수 없다.
+- 순환 참조에서 CPython은 callback을 먼저, `__del__`을 나중에 실행한다(`Modules/gcmodule.c:1284`,
+  `:1290`). SharpPy는 순환과 refcount 경로를 구분하지 못해 refcount 순서로 통일한다.
+- 종료 시 모듈 dict 값이 아니라 컨테이너 안에 있는 객체는 생성 순서로 처리한다.
 
 ## P0-38 resource release bus (2026-10-30 닫힘)
 

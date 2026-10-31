@@ -1,0 +1,85 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+
+class Obj { public object Child; public Guard G; }
+// Attached to an ordinary object; the target's CLR type does not change.
+class Guard {
+    public static readonly ConcurrentQueue<Guard> Q = new();
+    public Obj Owner; public int Stage;  // 0: __del__ pending, 1: __del__ done, watching for true death
+    public List<WeakRefObj> Refs = new();
+    public Guard(Obj o) { Owner = o; }
+    ~Guard() { Q.Enqueue(this); }         // no Python here; only hands it to the interpreter thread
+}
+class WeakRefObj { public WeakReference<Obj> Long; public Action Cb; public bool Dead; }
+static class P {
+    static readonly ConditionalWeakTable<Obj, Guard> Table = new();
+    static List<object> rooted = new();
+    static int dels, callbacks;
+    static void Full() { GC.Collect(); GC.WaitForPendingFinalizers(); }
+    // interpreter-thread drain: stage 0 = run __del__, stage 1 = clear weakrefs and fire callbacks
+    static void Drain() {
+        while (Guard.Q.TryDequeue(out var g)) {
+            if (g.Stage == 0) { dels++; g.Stage = 1; var o = g.Owner; AfterDel?.Invoke(o); GC.ReRegisterForFinalize(g); }
+            else { foreach (var r in g.Refs) { r.Dead = true; r.Cb?.Invoke(); } g.Owner = null; }
+        }
+    }
+    static Action<Obj> AfterDel;
+    [MethodImpl(MethodImplOptions.NoInlining)] static bool Alive(WeakReference<Obj> w) => w.TryGetTarget(out _);
+    [MethodImpl(MethodImplOptions.NoInlining)] static (WeakRefObj, WeakReference<Obj>, WeakReference<Obj>) Mk(bool viaTable) {
+        var o = new Obj { Child = new Obj() };
+        var g = new Guard(o);
+        if (viaTable) Table.Add(o, g); else o.G = g;
+        var r = new WeakRefObj { Long = new((Obj)o, true), Cb = () => callbacks++ }; g.Refs.Add(r);
+        return (r, new((Obj)o.Child, false), new((Obj)o.Child, true));
+    }
+    static void Run(string name, bool viaTable, bool resurrect) {
+        dels = callbacks = 0; rooted.Clear();
+        AfterDel = o => { if (resurrect) rooted.Add(o); };
+        var (r, cs, cl) = Mk(viaTable);
+        Full();
+        bool childShort = Alive(cs), childLong = Alive(cl);
+        bool selfDuringDel = Alive(r.Long);
+        Drain();
+        Console.WriteLine($"{name}: at __del__ self-visible={selfDuringDel} child short={childShort} long={childLong}; after drain dels={dels} cb={callbacks} dead={r.Dead}");
+        Full(); Drain();
+        Console.WriteLine($"   next GC:  dels={dels} cb={callbacks} refAlive={Alive(r.Long)} rooted={rooted.Count}");
+        rooted.Clear(); Full(); Drain(); Full(); Drain();
+        Console.WriteLine($"   dropped:  dels={dels} cb={callbacks} refAlive={Alive(r.Long)}");
+    }
+    static void Main() {
+        Run("field guard, plain   ", false, false);
+        Run("field guard, resurrect", false, true);
+        Run("CWT guard,   plain   ", true, false);
+        Run("CWT guard,   resurrect", true, true);
+        // ordering stress with a guard that holds its owner, and no loss
+        dels = 0; AfterDel = null; const int N = 300000;
+        for (int i = 0; i < N; i++) { var o = new Obj(); o.G = new Guard(o); }
+        for (int i = 0; i < 6; i++) { Full(); Drain(); }
+        Console.WriteLine($"stress: __del__ delivered {dels}/{N}, drained-left={Guard.Q.Count}");
+        P2.Run();
+    }
+}
+// Added last: facts the work order depends on.
+static class P2 {
+    public static readonly ConditionalWeakTable<Obj, Guard> T = new();
+    public static List<Obj> Rooted = new();
+    [MethodImpl(MethodImplOptions.NoInlining)] static WeakReference<Obj> Make(bool armed) {
+        var o = new Obj(); var g = new Guard(o) { Stage = armed ? 0 : 1 }; T.Add(o, g); return new(o, true); }
+    [MethodImpl(MethodImplOptions.NoInlining)] static bool Alive(WeakReference<Obj> w) => w.TryGetTarget(out _);
+    static void Full() { GC.Collect(); GC.WaitForPendingFinalizers(); }
+    [MethodImpl(MethodImplOptions.NoInlining)] static int DrainOnce() { int n = 0;
+        while (Guard.Q.TryDequeue(out var g)) { n++; if (g.Stage == 0) { g.Stage = 1; Rooted.Add(g.Owner); GC.ReRegisterForFinalize(g); } else g.Stage = 2; } return n; }
+    [MethodImpl(MethodImplOptions.NoInlining)] static string LookupAfterResurrect() {
+        var o = Rooted[0]; bool found = T.TryGetValue(o, out var g); return $"CWT entry after resurrection: found={found} stage={(found ? g.Stage : -1)}"; }
+    public static void Run() {
+        Guard.Q.Clear();
+        var w = Make(true); Full(); DrainOnce();
+        Console.WriteLine(LookupAfterResurrect());
+        Rooted.Clear(); Full(); int n = DrainOnce(); Full();
+        Console.WriteLine($"then dropped: guard fired={n} alive={Alive(w)}");
+        var w2 = Make(false); Full(); int m = DrainOnce();
+        Console.WriteLine($"weakref-only guard (no __del__): fired={m} rootedAdded={Rooted.Count}"); Full();
+        Console.WriteLine($"  next GC alive={Alive(w2)}");
+    }
+}

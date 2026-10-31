@@ -5,7 +5,7 @@
 이 목록의 모든 항목은 **측정된 증상 + C 앵커 + 끝내는 조건**을 갖는다. 앵커가 없는
 항목은 착수 전에 앵커부터 찾는다.
 
-스냅샷 시각: `52766a0` (2026-10-31). 상세 이력은 [`known_gaps.md`](../known_gaps.md),
+스냅샷 시각: `52766a0` (2026-10-31), 수명 항목은 `da5891f` 이후 개정. 상세 이력은 [`known_gaps.md`](../known_gaps.md),
 판단 근거는 [`lifetime_and_gc_policy.md`](../lifetime_and_gc_policy.md).
 
 ## 작업 규칙 (매 항목 공통)
@@ -19,12 +19,14 @@
   - 타입/속성/VM/컴파일/IO/코덱/수명/시동 변경 시 Godot 4.7.2 mono 재연
   - `... tools/cpython_similarity.py --root .` (exit code 0 유지)
   - 명령행 형태 변경 시 `... tools/argv_matrix.py`
-- 새 probe 번호: **p83부터** (현재 마지막 `p82_reduce_and_sizeof.py`).
+- 새 probe 번호: **p83부터** (현재 마지막 `p82_reduce_and_sizeof.py`). p83~p90은 아래 수명 항목이
+  쓰므로 다른 작업은 **p91부터** 쓴다.
 
 ## 완료 정의 (방 세 개)
 
 - **A방 — 결정적 결과**: 출력·타입·메시지 계열이 CPython과 같아야 하고 probe로 고정한다.
 - **B방 — 도달 시점**: CLR 수명 때문에 원리적으로 다르다.-close 남발 금지, 격차로 남긴다.
+  `gc.collect()` 이후의 관측은 A방이고, **호출 유실은 B방이 아니라 결함이다** (2026-10-31 개정).
 - **C방 — 자원 상태**: 메커니즘은 달라도 **결과는 같게** 만든다 (P0-38이 그 선례).
 
 ---
@@ -63,21 +65,27 @@ CPython은 객체 하나다(`list_new`가 레이아웃을 subclass로 할당 + `
    `is PyClassInstance`로 "사용자 인스턴스"를 판정하던 지점
    (`core/PyBuiltin.cs:3776`, `core/PyType.cs:2882` 등)을 항목마다 개별 확인.
 
-## 2. weakref C1 (번호 없는 최대 공백 — 실측: `import weakref` → `ModuleNotFoundError`, `import atexit` → `ModuleNotFoundError`)
+## 2. 수명 기반 (최대 공백 — 1번과 독립, **먼저 진행 가능**)
 
-- 구성: native `_weakref` + `builtins.ReferenceError` + `Lib/_weakrefset.py` +
-  `Lib/weakref.py`(CPython 카피본으로 가능한 범위) + native `atexit`.
-- 타입(feature) 질문은 `PyTypeFlags.ManagedWeakRef`로 답하고, 허용 타입 목록을
-  따로 손으로 유지하지 않는다.
-- 살아있음/죽음은 **관찰 시점**에 `WeakReference<PyObject>.TryGetTarget`로 결정하고,
-  `gc.collect()`를 결정적 sweep 앵커로 쓴다 (P0-37/P0-38과 같은 지점).
-- 금지: Python 코드(`__del__`, weakref callback)를 CLR finalizer에 태우지 않는다.
-  CPython 3.13 세대 API(`ref.clear()`, `ref.alive`)는 3.12.15에 없으므로 추가하지 않는다.
-- `proxy`는 별도 커밋 (40여 슬롯 forwarding — format/f-string/dict key/isinstance/operator
-  dispatch를 조용히 바꾼다).
-- probe: `p83_weakref.py` — 참조/해제 관찰, callback, `WeakSet`/`WeakValueDictionary` 기본,
-  `ref()` 실패하는 타입거부 메시지.
-- B방으로 남길 것: callback 지연 시점, `get_weakref`/`get_callback`의 정밀 세목.
+**작업 지시서: [`lifetime_foundation/README.md`](lifetime_foundation/README.md).** 이유, 수정 위치, 뼈대
+코드, 합격 프로브, 함정, 중단 조건이 모두 그 문서에 있다. 설계는 2026-10-31 사용자 승인.
+
+실측 (기준 `da5891f`): `__del__` 300,000건 중 7,887건만 호출, 제너레이터 `finally` 미실행,
+`id()` 충돌, `import weakref`·`atexit`·`copy`·`tempfile` → `ModuleNotFoundError`.
+
+| 순서 | 항목 | 내용 | probe |
+|---|---|---|---|
+| Q1 | **P0-47** | `id()`를 식별자로 | p83 |
+| Q2 | **P0-48** | Guard + 안전점 + `gc.collect()` 앵커, `__del__` 유실 수정, 종료 순서 | p84, p85, p86 |
+| Q3 | **P0-49** | 제너레이터 finalize | p87 |
+| Q4 | weakref C1 | `_weakref`, `ReferenceError`, `weakref.py`, `_weakrefset.py`, `atexit` | p88 |
+| Q5 | | `proxy` (별도 커밋) | p89 |
+| Q6 | | `copy`, `tempfile`, `shutil` | p90~ |
+
+순서를 바꾸지 않는다. `copy.deepcopy`는 `id()`에 의존하고, weakref callback은 안전점 없이는 돌 곳이 없다.
+
+금지: Python 코드(`__del__`, weakref callback)를 CLR finalizer에서 **실행**하지 않는다. finalizer는
+큐에 넣기만 한다. `ref.clear()`, `ref.alive`는 3.12.15에 없으므로 추가하지 않는다.
 
 ## 3. P0-44 — `class C(b)`에서 b가 타입이 아니다 (측정 4종, 미구현)
 
@@ -89,7 +97,7 @@ CPython은 객체 하나다(`list_new`가 레이아웃을 subclass로 할당 + `
 - `len` → `TypeError: cannot create 'builtin_function_or_method' instances`
 - `None` → `TypeError: NoneType takes no arguments`
 
-probe: `p84_non_type_base_statement.py`.
+probe: `p91_non_type_base_statement.py`.
 
 ## 4. P0-46 — 등록 위치를 CPython의 타입별 스펙으로
 
@@ -154,7 +162,9 @@ CPython은 타입마다 자기 스펙을 같은 .c 파일에 둔다(`set_methods
 
 ## 닫지 못하면 남길 것 (B방 — close 금지)
 
-- `__del__`/약참조 callback의 도달 시점, resurrection 세목.
+- `gc.collect()` 이전의 `__del__`/약참조 callback 도달 시점 (호출 자체의 유실은 결함이다, P0-48).
+- 순환 참조에서의 callback/`__del__` 순서 (CPython은 callback이 먼저, SharpPy는 refcount 경로 순서).
+- 인스턴스 생성 **뒤에** 클래스에 대입한 `__del__`.
 - `gc.get_objects()` / `gc.get_referrers()` 반환값, `sys.getrefcount` 수.
 - `__sizeof__`의 수값: 빈 set/frozenset 200, 빈 dict 48, 두 항목 208은 실측으로 맞췄지만
   표가 커진 뒤 항은 추정치다 (CLR 저장소라 C 할당자 수와 일치시킬 수 없다).
