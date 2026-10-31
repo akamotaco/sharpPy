@@ -381,6 +381,7 @@ namespace SharpPy.Modules
 
         // CPython 3.12: Python/sysmodule.c sys.getrecursionlimit / sys.setrecursionlimit.
         private static int RecursionLimitValue = 1000;
+        internal static int RecursionLimit => RecursionLimitValue;
         private static readonly Dictionary<string, PyString> InternTable = new();
 
         private PyObject CallGetRecursionLimit(PyObject[] args)

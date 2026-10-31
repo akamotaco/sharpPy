@@ -9,7 +9,18 @@ namespace SharpPy
 {
     public class Program
     {
+        // Calls that still need the host stack (a __repr__, a generator, a builtin calling back) must reach
+        // the default recursion limit. The default thread stack does not hold 1000 of them.
+        private const int InterpreterStackBytes = 256 * 1024 * 1024;
+
         public static void Main(string[] args)
+        {
+            var interpreter = new System.Threading.Thread(() => Run(args), InterpreterStackBytes);
+            interpreter.Start();
+            interpreter.Join();
+        }
+
+        private static void Run(string[] args)
         {
             // Windows 콘솔 UTF-8 인코딩 설정 (이모지 및 특수 문자 표시)
             Console.OutputEncoding = System.Text.Encoding.UTF8;

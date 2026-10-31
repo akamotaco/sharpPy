@@ -1288,8 +1288,47 @@ namespace SharpPy
             return PyNameError.Create($"name '{name}' is not defined", name);
         }
 
+        /// <summary>
+        /// A Python call made from CALL, waiting for the dispatch loop to switch to it. Set by
+        /// ExecuteCall, taken by ExecuteFrame right after the instruction returns.
+        /// </summary>
+        private PyFrame _inlineCall;
+
+        /// <summary>
+        /// _Py_EnterRecursivePy for the Python limit (Python/ceval.c), plus the check C gets from
+        /// _Py_EnterRecursiveCall: a call that still needs the CLR stack (__repr__, a generator, a
+        /// builtin calling back) reports RecursionError while there is stack left to report it. The host
+        /// owns the stack size, and on the Godot main thread SharpPy cannot change it.
+        /// </summary>
+        private void EnterRecursiveFrame()
+        {
+            if (_frameStack.Count >= Modules.PySysFunction.RecursionLimit
+                || !System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+                throw new PythonException(new PyRecursionError("maximum recursion depth exceeded"));
+        }
+
+        /// <summary>
+        /// DISPATCH_INLINED (Python/bytecodes.c CALL): a Python function called from Python takes a frame
+        /// and no host stack, so recursion is bounded by the limit and not by the thread's stack.
+        /// Generators and coroutines build objects instead of running, so they stay on the ordinary path.
+        /// </summary>
+        private bool TryInlineCall(PyFunction function, PyObject[] args)
+        {
+            var code = function.CodeObject;
+            if (code == null || function.GlobalsDict == null || function.GetType() != typeof(PyFunction)
+                || code.IsGenerator() || code.IsCoroutine() || code.IsAsyncGenerator())
+                return false;
+            EnterRecursiveFrame();
+            _inlineCall = new PyFrame(code, args, new PyScopeChain(function.GlobalsDict, "<function>"),
+                function.Closure, CurrentFrame, function.GetDefaults(), function.GetKeywordDefaults());
+            return true;
+        }
+
         public PyObject ExecuteFrame(PyFrame frame)
         {
+            EnterRecursiveFrame();
+            var entryFrame = frame;
+            var outerDepth = _frameStack.Count;
             _frameStack.Push(frame);
 
 #if DEBUG_LOG
@@ -1317,8 +1356,14 @@ namespace SharpPy
 
             try
             {
-                while (frame.InstructionPointer < frame.Code.Instructions.Count)
+                while (true)
                 {
+                if (frame.InstructionPointer >= frame.Code.Instructions.Count)
+                {
+                    if (ReferenceEquals(frame, entryFrame)) break;
+                    frame = ReturnToCaller(PyNone.Instance);
+                    continue;
+                }
 #if DEBUG
                     // 🛡️ 안전장치 검사 (DEBUG 모드 전용)
                     instructionCount++;
@@ -1441,13 +1486,25 @@ namespace SharpPy
 
                         var result = ExecuteInstruction(frame, instruction.OpCode, instruction.Argument);
 
+                        // The caller's instruction pointer stays on the CALL, so a handler lookup and a
+                        // traceback line see what they saw when the call ran on the host stack.
+                        if (_inlineCall != null)
+                        {
+                            frame = _inlineCall;
+                            _inlineCall = null;
+                            _frameStack.Push(frame);
+                            continue;
+                        }
+
                         // RETURN_VALUE인 경우 함수 종료
                         if (result != null)
                         {
 #if DEBUG_LOG
                             Console.WriteLine($"✅ VM 완료: {result}");
 #endif
-                            return result;
+                            if (ReferenceEquals(frame, entryFrame)) return result;
+                            frame = ReturnToCaller(result);
+                            continue;
                         }
 
                         frame.InstructionPointer++;
@@ -1475,129 +1532,20 @@ namespace SharpPy
                         PyTraceBack_Here(frame, pyEx);
 
                         // Handle Python exceptions with proper exception handler routing
-                        var (handlerOffset, exceptionEntry) = frame.GetExceptionHandlerFromTableWithEntry();
-                        if (handlerOffset.HasValue && exceptionEntry != null)
-                        {
-                            // CPython exception_unwind: retain the stack at SETUP_*,
-                            // discarding unfinished expression operands before the handler.
-                            while (frame.ValueStack.Count > exceptionEntry.Depth)
-                                frame.ValueStack.Pop();
-
-                            // CPython 3.12 _PyErr_SetObject: implicit __context__ is the
-                            // topmost *being-handled* exception captured at RAISE time, i.e.
-                            // BEFORE the unwind drops the handler scope we are escaping.
-                            if (pyEx.PyException is PyBaseException newExcBase &&
-                                frame.CurrentException is PyBaseException ctxBase &&
-                                !ReferenceEquals(newExcBase, ctxBase) &&
-                                newExcBase.__context__ == null &&
-                                !newExcBase.__suppress_context__)
-                            {
-                                newExcBase.__context__ = ctxBase;
-                            }
-
-                            // Drop every handler scope entered at depth >= the target, then
-                            // CurrentException reflects the surviving enclosing handler (the
-                            // state CPython's PUSH_EXC_INFO sees as prev, post-unwind).
-                            if (frame.HasHandledScopes)
-                            {
-                                for (int si = frame.HandledScopes.Count - 1; si >= 0;)
-                                {
-                                    if (frame.HandledScopes[si].Depth >= exceptionEntry.Depth)
-                                        frame.HandledScopes.RemoveAt(si);
-                                    si--;
-                                }
-                            }
-                            frame.CurrentException = frame.HasHandledScopes
-                                ? frame.HandledScopes[frame.HandledScopes.Count - 1].Exc
-                                : null;
-                            if (pyEx.PyException is PyBaseException scopeExc)
-                                frame.HandledScopes.Add((exceptionEntry.Depth, scopeExc));
-
-                            // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
-                            // CPython ceval.c:972-978
-                            if (exceptionEntry.Lasti)
-                            {
-                                // Push current instruction pointer as lasti (PyLong)
-                                var lastiValue = new PyInt(frame.InstructionPointer);
-                                frame.ValueStack.Push(lastiValue);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 Exception handled: pushed lasti={frame.InstructionPointer} to stack");
-                                #endif
-                            }
-
-                            // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
-                            // CPython ceval.c:985-986
-                            // PUSH_EXC_INFO will add prev_exc, transforming stack to: [..., lasti (if lasti=true), prev_exc, exc]
-                            frame.ValueStack.Push(pyEx.PyException);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Exception handled: pushed exception instance to stack (depth={exceptionEntry.Depth}, lasti={exceptionEntry.Lasti})");
-                            #endif
-
-                            frame.LastException = pyEx.PyException;
-                            // PUSH_EXC_INFO saves the previous handled exception before replacing it.
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Exception handled: jumping to handler at offset {handlerOffset.Value}");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Stack after exception push: {frame.ValueStack.Count} items");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Total instructions: {frame.Code.Instructions.Count}");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Handler offset {handlerOffset.Value} → instruction index: {handlerOffset.Value}");
-                            #endif
-
-                            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices, not byte offsets
-                            var instructionIndex = handlerOffset.Value;
-                            if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
-                            {
-                                frame.InstructionPointer = instructionIndex;
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 Jumping to instruction {instructionIndex}: {frame.Code.Instructions[instructionIndex].OpCode}");
-                                #endif
-                            }
-                            else
-                            {
-                                // Invalid handler index - provide detailed diagnostic information
-                                #if DEBUG_LOG
-                                Console.WriteLine($"❌ Invalid handler instruction index: {instructionIndex}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   Max valid index: {frame.Code.Instructions.Count - 1}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   Exception Table entries: {frame.Code.ExceptionTable.Count}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   Current IP: {frame.InstructionPointer}");
-                                #endif
-
-                                // Try to find a valid handler or fall back gracefully
-                                if (frame.Code.Instructions.Count > 0)
-                                {
-                                    // Jump to the last instruction as a safer fallback
-                                    int safeIndex = frame.Code.Instructions.Count - 1;
-                                    frame.InstructionPointer = safeIndex;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 Fallback: Jumping to safe instruction {safeIndex}");
-                                    #endif
-                                }
-                                else
-                                {
-                                    // No instructions available - re-throw the original exception
-                                    #if DEBUG_LOG
-                                    Console.WriteLine("❌ No valid instructions to jump to - re-throwing exception");
-                                    #endif
-                                    throw;
-                                }
-                            }
-                        }
-                        else
+                        if (!TryEnterExceptionHandler(frame, pyEx))
                         {
                             // No handler - re-throw with location information
-                            throw;
+                            if (ReferenceEquals(frame, entryFrame)) throw;
+                            // exit_unwind: an inlined call has no host frame to throw through, so the
+                            // error moves to the caller, whose next step raises it at its CALL.
+                            _frameStack.Pop();
+                            frame = _frameStack.Peek();
+                            frame.PendingException = pyEx;
                         }
+
+                        // This method now outlives the calls it runs, so a handled exception left in the
+                        // catch variable would stay alive, with everything it holds, until it returns.
+                        pyEx = null;
                     }
                     catch (LoopBreakException)
                     {
@@ -1623,8 +1571,149 @@ namespace SharpPy
             }
             finally
             {
-                _frameStack.Pop();
+                _inlineCall = null;
+                while (_frameStack.Count > outerDepth) _frameStack.Pop();
             }
+        }
+
+        /// <summary>
+        /// exception_unwind: enters this frame's handler, or says there is none. A method of its own
+        /// because ExecuteFrame outlives the calls it runs, and a local there that names the exception
+        /// would keep it, with everything it holds, alive until ExecuteFrame returns.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static bool TryEnterExceptionHandler(PyFrame frame, PythonException pyEx)
+        {
+            // Handle Python exceptions with proper exception handler routing
+            var (handlerOffset, exceptionEntry) = frame.GetExceptionHandlerFromTableWithEntry();
+            if (!handlerOffset.HasValue || exceptionEntry == null) return false;
+
+            // CPython exception_unwind: retain the stack at SETUP_*,
+            // discarding unfinished expression operands before the handler.
+            while (frame.ValueStack.Count > exceptionEntry.Depth)
+                frame.ValueStack.Pop();
+
+            // CPython 3.12 _PyErr_SetObject: implicit __context__ is the
+            // topmost *being-handled* exception captured at RAISE time, i.e.
+            // BEFORE the unwind drops the handler scope we are escaping.
+            if (pyEx.PyException is PyBaseException newExcBase &&
+                frame.CurrentException is PyBaseException ctxBase &&
+                !ReferenceEquals(newExcBase, ctxBase) &&
+                newExcBase.__context__ == null &&
+                !newExcBase.__suppress_context__)
+            {
+                newExcBase.__context__ = ctxBase;
+            }
+
+            // Drop every handler scope entered at depth >= the target, then
+            // CurrentException reflects the surviving enclosing handler (the
+            // state CPython's PUSH_EXC_INFO sees as prev, post-unwind).
+            if (frame.HasHandledScopes)
+            {
+                for (int si = frame.HandledScopes.Count - 1; si >= 0;)
+                {
+                    if (frame.HandledScopes[si].Depth >= exceptionEntry.Depth)
+                        frame.HandledScopes.RemoveAt(si);
+                    si--;
+                }
+            }
+            frame.CurrentException = frame.HasHandledScopes
+                ? frame.HandledScopes[frame.HandledScopes.Count - 1].Exc
+                : null;
+            if (pyEx.PyException is PyBaseException scopeExc)
+                frame.HandledScopes.Add((exceptionEntry.Depth, scopeExc));
+
+            // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
+            // CPython ceval.c:972-978
+            if (exceptionEntry.Lasti)
+            {
+                // Push current instruction pointer as lasti (PyLong)
+                var lastiValue = new PyInt(frame.InstructionPointer);
+                frame.ValueStack.Push(lastiValue);
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Exception handled: pushed lasti={frame.InstructionPointer} to stack");
+                #endif
+            }
+
+            // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
+            // CPython ceval.c:985-986
+            // PUSH_EXC_INFO will add prev_exc, transforming stack to: [..., lasti (if lasti=true), prev_exc, exc]
+            frame.ValueStack.Push(pyEx.PyException);
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Exception handled: pushed exception instance to stack (depth={exceptionEntry.Depth}, lasti={exceptionEntry.Lasti})");
+            #endif
+
+            frame.LastException = pyEx.PyException;
+            // PUSH_EXC_INFO saves the previous handled exception before replacing it.
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Exception handled: jumping to handler at offset {handlerOffset.Value}");
+            #endif
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Stack after exception push: {frame.ValueStack.Count} items");
+            #endif
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Total instructions: {frame.Code.Instructions.Count}");
+            #endif
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Handler offset {handlerOffset.Value} → instruction index: {handlerOffset.Value}");
+            #endif
+
+            // CPython 3.12 compatibility: SharpPy Exception Table stores instruction indices, not byte offsets
+            var instructionIndex = handlerOffset.Value;
+            if (instructionIndex >= 0 && instructionIndex < frame.Code.Instructions.Count)
+            {
+                frame.InstructionPointer = instructionIndex;
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Jumping to instruction {instructionIndex}: {frame.Code.Instructions[instructionIndex].OpCode}");
+                #endif
+            }
+            else
+            {
+                // Invalid handler index - provide detailed diagnostic information
+                #if DEBUG_LOG
+                Console.WriteLine($"❌ Invalid handler instruction index: {instructionIndex}");
+                #endif
+                #if DEBUG_LOG
+                Console.WriteLine($"   Max valid index: {frame.Code.Instructions.Count - 1}");
+                #endif
+                #if DEBUG_LOG
+                Console.WriteLine($"   Exception Table entries: {frame.Code.ExceptionTable.Count}");
+                #endif
+                #if DEBUG_LOG
+                Console.WriteLine($"   Current IP: {frame.InstructionPointer}");
+                #endif
+
+                // Try to find a valid handler or fall back gracefully
+                if (frame.Code.Instructions.Count > 0)
+                {
+                    // Jump to the last instruction as a safer fallback
+                    int safeIndex = frame.Code.Instructions.Count - 1;
+                    frame.InstructionPointer = safeIndex;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 Fallback: Jumping to safe instruction {safeIndex}");
+                    #endif
+                }
+                else
+                {
+                    // No instructions available - re-throw the original exception
+                    #if DEBUG_LOG
+                    Console.WriteLine("❌ No valid instructions to jump to - re-throwing exception");
+                    #endif
+                    throw pyEx;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>The inlined frame finished: its caller resumes after the CALL with the result.</summary>
+        private PyFrame ReturnToCaller(PyObject result)
+        {
+            _frameStack.Pop();
+            var caller = _frameStack.Peek();
+            caller.ValueStack.Push(result);
+            caller.InstructionPointer++;
+            return caller;
         }
 
         // Keep mapping protocol exception handling outside the opcode dispatcher.
@@ -1732,6 +1821,7 @@ namespace SharpPy
                     }
                     else if (actualCallable is PyFunction func)
                     {
+                        if (TryInlineCall(func, finalArgs)) return;
                         newCallResult = ExecuteFunctionCall(func, finalArgs, frame.ScopeChain);
                     }
                     else

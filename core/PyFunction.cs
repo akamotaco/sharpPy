@@ -397,7 +397,7 @@ public partial class PyFunction : PyObject, IDescriptor
     /// <summary>
     /// CPython 3.12: Get defaults tuple from func.__defaults__ attribute
     /// </summary>
-    private PyTuple GetDefaults()
+    internal PyTuple GetDefaults()
     {
         if (Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
         {
