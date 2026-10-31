@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+// What can a PyGuard use to hold its weakrefs weakly, given that the guard dies in the same pass as
+// its owner? Restore as Program.cs outside the repository (see ../q4_weakref_state.md).
+//
+//   kept    the ref is rooted elsewhere: it must still be reachable when the guard is delivered.
+//   dropped the ref died while the target lived: it must read as gone, so no callback runs.
+//   owned   the ref is reachable only through the target (o.r = ref(o, cb)). CPython still calls
+//           back, because the ref outlives the clearing in subtype_dealloc.
+class Ref { public string Name; public Ref(string n) { Name = n; } }
+class Obj { public Ref Field; }
+
+class Guard
+{
+    public Obj Owner;
+    public int Stage;
+    public List<WeakReference<Ref>> Managed = new();
+    public List<GCHandle> Short = new();
+    public List<GCHandle> Long = new();
+    public Guard(Obj o) { Owner = o; }
+    ~Guard() { P.Queue.Enqueue(this); }
+    public void Add(Ref r)
+    {
+        Managed.Add(new WeakReference<Ref>(r));
+        Short.Add(GCHandle.Alloc(r, GCHandleType.Weak));
+        Long.Add(GCHandle.Alloc(r, GCHandleType.WeakTrackResurrection));
+    }
+}
+
+static class P
+{
+    public static ConcurrentQueue<Guard> Queue = new();
+    static ConditionalWeakTable<Obj, Guard> T = new();
+    static Ref kept;
+    static WeakReference<Obj> longTarget;
+    static Guard keepAlive;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static void Setup()
+    {
+        var o = new Obj();
+        var g = new Guard(o);
+        T.Add(o, g);
+        longTarget = new WeakReference<Obj>(o, trackResurrection: true);
+        kept = new Ref("kept");
+        g.Add(kept);
+        var dropped = new Ref("dropped");
+        g.Add(dropped);
+        var owned = new Ref("owned");
+        o.Field = owned;
+        g.Add(owned);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static bool Take(out Guard g) => Queue.TryDequeue(out g);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static string Show(Guard g, int i)
+    {
+        var managed = g.Managed[i].TryGetTarget(out _);
+        return $"WeakReference<T>={managed} Weak={g.Short[i].Target != null} WeakTrackResurrection={g.Long[i].Target != null}";
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static void Round(int pass)
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        if (!Take(out var g))
+        {
+            Console.WriteLine($"pass {pass}: nothing delivered");
+            return;
+        }
+        g.Stage++;
+        Console.WriteLine($"pass {pass}: delivered, stage {g.Stage}, long target {longTarget.TryGetTarget(out _)}");
+        Console.WriteLine("  kept    " + Show(g, 0));
+        Console.WriteLine("  dropped " + Show(g, 1));
+        Console.WriteLine("  owned   " + Show(g, 2));
+        if (g.Stage == 1) GC.ReRegisterForFinalize(g);
+        else
+        {
+            foreach (var h in g.Short) h.Free();
+            foreach (var h in g.Long) h.Free();
+            g.Owner = null;
+        }
+    }
+
+    static void Main()
+    {
+        Setup();
+        for (int pass = 1; pass <= 3; pass++) Round(pass);
+        GC.Collect();
+        Console.WriteLine("long target at the end: " + longTarget.TryGetTarget(out _));
+    }
+}

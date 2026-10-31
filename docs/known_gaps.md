@@ -1400,7 +1400,7 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 4. **`gc.collect()`가 순환 미수거를 보고하지 않음** — 도달 불가능 주기를 찾을 수 없으므로 0을
    반환하고 사이클을 실제로 해제하지 않는다(CLR이 대신 수거한다). `gc.callbacks`는 실제로
    호출된다(p76 고정).
-5. **finalizer 등록 목록이 종료까지 줄지 않음** (P0-48에서 해결 예정) — `__del__`을 선언한 클래스의 인스턴스를
+5. ~~**finalizer 등록 목록이 종료까지 줄지 않음**~~ (P0-48에서 해결, `Live` swap-remove) — `__del__`을 선언한 클래스의 인스턴스를
    많이 만드는 프로그램은 `WeakReference` 항목이 쌓인다. 실측 100,000 생성 +2.6%
    (`.artifacts/tmp/w_watch.py`, 기준 `fb625c4`와 교대 3라운드). 일반 클래스 생성은 1.00x
    (`PyClass.DeclaresFinalizer()` 필드 한 번 읽기).
@@ -1411,7 +1411,7 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 7. **`sys.getrefcount`가 실제 값을 말하지 않음** — 측정: CPython은 지역+인자 참조로 `>= 2`,
    SharpPy는 상수 `1`. 카운팅 메커니즘이 없어 정직한 값이 존재하지 않으므로, 값이 관측되는
    이 함수는 이 항목에 남긴다(에러는 발생하지 않는다).
-8. **`weakref` 미구현** (순서는 P0-47, P0-48 다음. 작업 지시서 Q4) — `ModuleNotFoundError`. CPython은 내장 `_weakref` + `Lib/weakref.py` +
+8. **`weakref` 미구현** (P0-47~P0-49 완료. 남은 작업은 `plans/lifetime_foundation/q4_weakref_state.md`) — `ModuleNotFoundError`. CPython은 내장 `_weakref` + `Lib/weakref.py` +
    `Lib/_weakrefset.py` 구조이며, SharpPy는 `itertools`/`_collections_abc`를 이미 가지고 있어
    같은 구조로 갈 수 있다. 네이티브 `_weakref`(ref/proxy/getweakrefcount/getweakrefs/
    `_remove_dead_weakref`)가 남아 있는 작업. 콜백 타이밍은 "다음 GC + 안전점"이며 추가 격차가
@@ -1429,7 +1429,7 @@ p74가 통과하는 범위 밖. 각각 CPython 3.12.15에서 직접 측정해 �
 
 이 항목들의 판단 근거·기각된 선택지·CPython 앵커 표는 **`docs/lifetime_and_gc_policy.md`** 에 있다.
 
-## P0-47 ~ P0-49 수명 기반 결함 (2026-10-31 측정, 미해결)
+## P0-47 ~ P0-49 수명 기반 결함 (2026-10-31 측정 시점의 기록, 해결됨: 아래 각 절)
 
 구현 지시서: [`plans/lifetime_foundation/README.md`](plans/lifetime_foundation/README.md).
 합격 프로브와 기준 출력은 그 폴더의 `probes/`에 있다.
@@ -1821,3 +1821,43 @@ SharpPy는 set/frozenset의 표면을 자기 파일에 하나도 등록하지 �
 겸여로 다른 표면 결함 하나를 더 확인했다: 내장 함수에 `__self__`가 없어서
 `print.__self__`가 `AttributeError`를 낸다(CPython은 `builtins` 모듈을 돌려준다).
 
+## P0-50 Guard의 `__del__` 경계 결함 세 건 (측정 2026-10-31, 미해결, 담당 로컬 AI L1)
+
+Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 코드의 결함이다.
+재현: `plans/lifetime_foundation/probes/l1_live_slots.py`, `l1_del_hook.py`.
+
+| 위치 | 현상 | 측정 |
+|---|---|---|
+| `core/PyFinalizer.cs` `RemoveFromLive` | 죽은 가드를 옮길 때 `Slot`이 낡아 다른 가드의 항목을 지운다. 종료 시 `__del__` 유실 | CPython 2050, SharpPy 2048 (3/3). 슬롯을 공유 항목으로 옮기면 2050 (3/3) |
+| `core/PyFinalizer.cs` `RunFinalizer` | 디스크립터 바인딩 없이 호출 | `staticmethod`, `classmethod`, `__get__` 객체 미실행, 호출 가능 객체는 인자 1개 초과 |
+| `type/PyClass.cs` `FindFinalizerHook` | `__del__ = None`을 건너뛰고 부모를 호출 | CPython `[]`, SharpPy `['P']` |
+
+## P0-51 메타클래스 `__del__`, 코루틴 finalize (측정 2026-10-31, 미해결)
+
+재현: `plans/lifetime_foundation/probes/gap_lifetime_recorded.py`.
+클래스 객체는 등록 경로를 지나지 않아 메타클래스의 `__del__`이 실행되지 않는다 (CPython `['Meta']`, SharpPy `[]`).
+멈춘 코루틴의 `finally`가 실행되지 않고, 시작한 코루틴에도 `was never awaited` 경고가 나온다
+(CPython `['co finally']`, SharpPy `[]`). 지시서 Q3가 측정을 요구했지만 빠졌던 항목이다. async 제너레이터는
+시작 전 사례만 일치를 확인했고 멈춘 경우는 측정하지 않았다.
+
+## P0-52 재귀 깊이 100에서 프로세스가 죽는다 (측정 2026-10-31, 미해결, 담당 Claude)
+
+`down(100)`이 `RecursionError` 없이 스택 오버플로로 끝난다 (exit 127). 깊이 90은 통과한다. CPython은 깊이 900이
+통과하고 무한 재귀는 `RecursionError`다. `d95c129`와 `85bd172`가 같다. Python 호출 하나가 CLR 스택을 크게
+쓰고 깊이 제한 검사가 그보다 늦다. 해결이 호스트 스택에 달려 있어 Godot 메인 스레드까지 함께 판단해야 한다.
+재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py depth 100`.
+
+## P0-53 ~ P0-56 기존 표면 결함 (측정 2026-10-31, 미해결, 담당 로컬 AI L5)
+
+`d95c129`부터 있던 결함이다. 재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py`.
+
+- **P0-53** `sys.exit(n)`의 종료 코드가 항상 1이다. `sys.exit(0)`도 1이다.
+- **P0-54** `o.m == o.m`이 False다.
+- **P0-55** `x.__class__ = T`가 조용히 무시된다. `type(x)`, 메서드, `__del__`이 그대로다.
+- **P0-56** `is` 불일치: `200 + 56 is 256`, `"" is "a"[1:]`, `"a" is "abc"[0]`, `b"" is b"a"[1:]`,
+  `tuple(t) is t`, `str(s) is s`, `() is tuple()`, `f.__name__ is f.__name__`. `id`와 `is`는 서로 일관되므로
+  P0-47의 회귀는 아니다. P0-47 검증 잔여의 빈 튜플 세 경로와 같은 계열이다.
+
+## P0-57 weakref 자리표시자 (예약)
+
+C1, L3이 끝난 시점에 Q5 전까지 `proxy`가 `NotImplementedError`인 상태를 여기에 기록한다.

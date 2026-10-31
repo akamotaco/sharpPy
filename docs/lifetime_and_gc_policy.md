@@ -126,7 +126,7 @@ SharpPy는 종료 sweep에서 같은 결과를 만들어야 한다. 실측상 �
 |`PyObject_CallFinalizer` 의 "once" 플래그|현재: `PyFinalizer.Finalized` (강참조 집합). 개정 설계: `PyGuard` 상태| 강참조 집합은 최종화된 객체를 죽지 못하게 하므로 개정 설계에서 삭제 |
 |`deallocate` 시점 호출|현재: `PyFinalizer.RunAtShutdown()`뿐이며 그전에 수거되면 **유실**. 개정 설계: `~PyGuard`가 큐에 넣고 안전점 `Drain()`이 호출| 시점 격차는 B방, 유실은 결함 |
 |`slot_tp_finalize` 의 타입 조회|같은 방식 (`cls.LookupInMRO("__del__")` 후 self 인자 호출)| A 방: semantics 는 동일 |
-|`ClearWeakRefs` + `tp_weaklistoffset` |(미구현) 개정 설계: `ConditionalWeakTable<PyObject, PyGuard>`, ref 쪽은 `Dead` 플래그 + `WeakReference<PyObject>(target, trackResurrection: true)` | CWT 는 **참조 동일성** 비교라 `ToHash()` 오버라이드와 충돌하지 않음. 인스턴스에 weaklist 필드를 두는 방식은 전 객체 +8B 라 기각. **short 약참조 금지**: `__del__`이 볼 수 있는 자식까지 죽어 보인다 (실측) |
+|`ClearWeakRefs` + `tp_weaklistoffset` |(미구현) 개정 설계: `ConditionalWeakTable<PyObject, PyGuard>`, ref 쪽은 `Dead` 플래그 + `WeakReference<PyObject>(target, trackResurrection: true)`, 가드의 ref 목록은 `GCHandle` `WeakTrackResurrection` (측정: 가드 안 `WeakReference<T>`는 가드와 함께 무효화되고 `Weak`는 대상이 소유한 ref의 callback을 잃는다. `plans/lifetime_foundation/q4_weakref_state.md` §2) | CWT 는 **참조 동일성** 비교라 `ToHash()` 오버라이드와 충돌하지 않음. 인스턴스에 weaklist 필드를 두는 방식은 전 객체 +8B 라 기각. **short 약참조 금지**: `__del__`이 볼 수 있는 자식까지 죽어 보인다 (실측) |
 |`Python/ceval_gil.c` pending call + `eval_breaker`|(미구현) 개정 설계: RESUME·JUMP_BACKWARD의 정적 플래그 + `PyFinalizer.Drain()`| finalizer 스레드는 enqueue만 하고 Python은 인터프리터 스레드에서만 돈다 |
 |`id()` = 주소|현재: `GetHashCode()`라 **값이 같은 객체끼리 같고 충돌한다**. 개정 설계: 첫 호출 시 단조 증가 번호 (CWT)| 압축 GC에서는 주소를 쓸 수 없다 |
 |`iobase_finalize`(`Modules/_io/iobase.c:298`) 의 close-on-death|`core/PyResourceBus.cs` | C 방. stream 만 캡처한 release action + 4 개 발화점 + 삭제/이름변경 1 회 재시도. **결과는 동일, 시점은 관측점** (P0-38). Python `close()` dispatch 와 `ResourceWarning` 은 잔여 |

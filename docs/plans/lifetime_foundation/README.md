@@ -3,6 +3,25 @@
 작성: 2026-10-31, 기준 커밋 `da5891f`, 브랜치 `work/bug-hunt`.
 설계는 사용자가 승인했다. 이 문서만 읽고 실행할 수 있게 썼다. 이전 대화는 필요 없다.
 
+**개정 2026-10-31 (점검 뒤, 기준 `85bd172`).** Q1~Q3은 완료됐다. 남은 작업은 담당별 문서로 나눴다.
+**다음에 할 일은 이 문서가 아니라 아래 표의 문서에서 찾는다.** 이 문서는 §1 고정값, §2~§4 배경, §6~§7 절차의
+기준으로 남는다.
+
+| 담당 | 문서 | 맡는 일 | 기준 |
+|---|---|---|---|
+| 로컬 AI | [`local_ai_queue.md`](local_ai_queue.md) | L1 `__del__` 결함, L2 `atexit`, L3 `weakref.py`와 타입 플래그, L4 `copy` 계열, L5 표면 결함 | 틀리면 CPython 비교에서 바로 드러나는 작업 |
+| Claude | [`q4_weakref_state.md`](q4_weakref_state.md) | C1 weakref 수명 핵심, Q5 `proxy`, P0-52 재귀 스택, 각 단계 뒤의 경계 점검 | 프로브가 우연히 통과할 수 있거나 설계 판단이 필요한 작업 |
+
+순서: L1 → L2 → C1 → L3 → L4, Q5 → L5. P0-52는 C1 뒤에 판단한다.
+
+**공통 규칙.**
+
+1. **합격 프로브는 구현자가 아닌 쪽이 쓴다.** 끝나면 다른 쪽이 경계 사례를 따로 점검한다. Q1~Q3의 결함은 전부
+   합격 프로브를 통과한 코드에서 나왔다.
+2. **"확정 사실"은 재현 파일이 있을 때만 쓴다.** 없으면 "가설"이다. 원인을 못 찾은 현상을 사실로 적지 않는다.
+3. **지시서도 가설이다.** 스파이크가 시험한 구조와 시험하지 않은 구조를 구분해 적는다. 측정이 지시서와
+   어긋나면 측정을 믿고 멈춘다.
+
 ## 0. 사용법
 
 1. §1~§4를 먼저 읽는다. **왜** 이렇게 하는지 모르면 Q2에서 잘못된 쉬운 해결을 고르게 된다.
@@ -91,7 +110,9 @@ stderr는 비교되지 않는다. `Exception ignored in:` 같은 stderr 조건�
 - **재부활:** `__del__`이 객체를 어딘가에 저장하면 객체가 살아 있으므로 2단계가 오지 않는다. 다시
   버려지면 재등록해 둔 Guard가 2단계로 진입한다. `__del__`은 다시 불리지 않는다. CPython과 같다.
 
-**스파이크로 확인된 사실** (`spike/Program.cs.txt`, 복원 방법은 §8):
+**스파이크로 확인된 사실** (`spike/Program.cs.txt`, 복원 방법은 §8). 이 표는 대상을 가리키는 약참조만
+시험했다. 가드가 ref를 들고 있는 구조는 시험하지 않았고, 그 부분은 [`q4_weakref_state.md`](q4_weakref_state.md) §2가
+측정으로 대체한다.
 
 | 사실 | 결과 |
 |---|---|
@@ -110,6 +131,7 @@ stderr는 비교되지 않는다. `Exception ignored in:` 같은 stderr 조건�
 | `PyObject`에 refcount나 필드 추가 | 정책 §7. 모든 객체의 비용이 된다 |
 | 모든 객체에 Guard 부착 | 위와 같다. 측정되지 않은 일반 경로 비용을 만든다 |
 | `WeakReference<T>(obj)` 기본 생성자로 대상 추적 | short다. 자식이 `__del__`에서 죽어 보인다. `trackResurrection: true`를 쓴다 |
+| 가드 안에 `WeakReference<T>` 저장 | 그 객체의 finalizer가 가드와 같은 패스에 핸들을 해제한다 (측정). `GCHandle`을 쓴다 |
 | `gc.collect()` 앵커 없이 `del` 직후 시점을 맞추려는 코드 | B방이다. 시점을 흉내 내지 않는다 |
 | `Close`, `Next` 같은 곳에 `GC.Collect()` 추가 | 시점 문제를 비용으로 덮는 것이다. 강제 GC는 `gc.collect()`와 기존 release bus 경로뿐이다 |
 | `ref.clear()`, `ref.alive` 추가 | 3.13 API다. 3.12에 없다 |
@@ -117,7 +139,7 @@ stderr는 비교되지 않는다. `Exception ignored in:` 같은 stderr 조건�
 
 ## 5. 작업 큐
 
-### Q1 — `id()`를 식별자로 (P0-47)
+### Q1 — `id()`를 식별자로 (P0-47) — 완료 `98c9889`
 
 **이유.** `id()`는 살아 있는 객체끼리 고유하고 `is`와 일치해야 한다. CPython은 주소를 쓰지만
 (`Python/bltinmodule.c:1234`) CLR은 객체를 옮기므로 주소를 쓸 수 없다. `GetHashCode()`는 고유하지 않다.
@@ -170,7 +192,7 @@ stderr는 비교되지 않는다. `Exception ignored in:` 같은 stderr 조건�
 그 프로브에서 `is`도 CPython과 다른지 측정한다. 다르다면 기존 결함이 드러난 것이므로 known_gaps에
 기록하고 Q1의 범위 밖으로 둔다. `PyObjectId`를 고쳐 덮지 않는다.
 
-### Q2 — Guard, 안전점, `gc.collect()` 앵커 (P0-48)
+### Q2 — Guard, 안전점, `gc.collect()` 앵커 (P0-48) — 완료 `b619ee7`, 결함은 L1
 
 **이유.** §2의 유실을 없애고 `gc.collect()`를 결정적 앵커로 만든다. 이것이 없으면 weakref callback이
 돌 곳이 없다. 이 작업은 **시점을 맞추는 작업이 아니라 유실을 없애는 작업**이다.
@@ -325,7 +347,7 @@ return new PyInt(0);
 - **`Live`의 약참조:** `PyGuard`에 대한 short 약참조로 충분하다. 대상이 아니라 Guard를 추적한다.
   Guard가 큐에 들어가면 약참조는 죽고, 그 Guard는 1단계의 `Drain()`이 처리한다.
 
-### Q3 — 제너레이터 finalize (P0-49)
+### Q3 — 제너레이터 finalize (P0-49) — 완료 `661d58c`, 필터 미적용 (3.74배, known_gaps P0-49)
 
 **이유.** `_PyGen_Finalize`(`Objects/genobject.c:70`)는 멈춘 제너레이터가 죽을 때 `close()`한다. 이것이
 없으면 `with`나 `try/finally`를 쓰는 제너레이터의 정리 코드가 실행되지 않는다. Q2의 Guard를 그대로 쓴다.
@@ -353,65 +375,19 @@ return new PyInt(0);
 
 **범위 밖.** async 제너레이터(`asyncgen_hooks`)와 코루틴. 측정만 해서 known_gaps에 기록한다.
 
-### Q4 — `_weakref`, `weakref.py`, `atexit`
+### Q4 — weakref: 담당별로 분리됨 (2026-10-31 개정)
 
-**이유.** 표준 라이브러리 29개 파일의 전제다. Q1~Q3이 끝나면 단순한 모듈 작업이다.
-TODO 이전 안의 "관찰 시점 판정"은 callback을 실행하지 못하므로 쓰지 않는다.
+**이 절의 이전 지시는 폐기됐다.** 4항 `List<WeakReference<PyWeakRef>>`는 동작할 수 없는 지시였다. 스파이크가
+그 구조를 시험하지 않았는데 검증된 설계처럼 적었다. `git show d95c129:docs/plans/lifetime_foundation/README.md`에
+이전 판이 있다.
 
-**변경.**
+| 조각 | 담당 | 문서 | 합격 |
+|---|---|---|---|
+| `ReferenceError`, `atexit` | 로컬 AI (L2) | [`local_ai_queue.md`](local_ai_queue.md) | `l2_atexit_reference_error` |
+| `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude (C1) | [`q4_weakref_state.md`](q4_weakref_state.md) | `c1_weakref_core` |
+| `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI (L3) | [`local_ai_queue.md`](local_ai_queue.md) | `q4_weakref` |
 
-1. `builtins.ReferenceError` 추가. MRO는 `ReferenceError, Exception, BaseException, object`.
-   `modules/BuiltinsModule.cs:78` 부근의 예외 등록 방식을 따른다.
-2. `modules/_WeakrefModule.cs` 새로 작성. `core/PyModule.cs:410` 부근에 `["_weakref"]` 등록.
-   참조 인터프리터에서 측정한 공개 이름은 정확히 이것이다:
-   `CallableProxyType, ProxyType, ReferenceType, _remove_dead_weakref, getweakrefcount, getweakrefs, proxy, ref`.
-   `proxy`와 두 Proxy 타입은 Q5까지 호출 시 `NotImplementedError`를 내는 자리표시자로 두고
-   보고서에 명시한다. `_weakref.ref is ReferenceType`이고 `__name__`은 `ReferenceType`,
-   `__module__`은 `weakref`다.
-3. `PyWeakRef : PyObject`:
-
-   ```csharp
-   internal sealed class PyWeakRef : PyObject
-   {
-       private readonly WeakReference<PyObject> _target;   // new(target, trackResurrection: true)
-       internal PyObject Callback;
-       internal bool Dead;                                  // truth; the weak reference is only a means
-       private long? _hash;
-       // __call__: if (Dead) return None; TryGetTarget 실패면 None
-   }
-   ```
-
-4. `PyGuard`에 `List<WeakReference<PyWeakRef>> WeakRefs` 추가. **ref를 약하게** 잡는다. ref가 먼저 죽으면
-   callback이 불리면 안 된다 (프로브 `ref died first`).
-5. 약참조 생성 시 `Attach`한다. `__del__`이 없는 객체의 Guard는 `State = Finalized`로 시작하고
-   `Live`에 넣지 않는다.
-6. `Step`의 `Finalized` 단계: 살아 있는 ref 전부 `Dead = true`로 만든 **다음**, **가장 최근 것부터**
-   callback을 호출한다 (실측: third, second, first). callback 예외는 `ReportIgnored`로 보고한다.
-7. 재사용: callback 없는 `weakref.ref(a)`는 같은 ref 객체를 반환한다 (실측 `r1 is r2`).
-8. 해시: 살아 있을 때 대상 해시를 계산해 저장한다. 죽은 뒤 저장값이 없으면
-   `TypeError: weak object has gone away` (`Objects/weakrefobject.c:152`).
-9. 거부 문구는 `cannot create weak reference to '%s' object`. 판정은 타입 기능으로 한다. 실측 표:
-
-   | 거부 | 허용 |
-   |---|---|
-   | int, str, float, tuple, list, dict, NoneType, bytes, `__slots__`에 `__weakref__`가 없는 클래스 | set, frozenset, function, builtin_function_or_method, type, 일반 인스턴스, `list` 서브클래스, `__slots__`에 `__weakref__`가 있는 클래스 |
-
-   `PyTypeFlags.ManagedWeakRef`는 지금 `type`에만 있다(`core/PyType.cs:180`). 참조 인터프리터로
-   `builtins`의 모든 타입과 `types` 모듈의 타입을 측정해 표를 완성한 뒤 각 타입 정의에 플래그를 넣는다.
-   별도의 허용 목록을 만들지 않는다.
-10. 네이티브 `atexit` (`register`, `unregister`, `_run_exitfuncs`, `_clear`, `_ncallbacks`).
-    `core/StdlibModuleNames.cs`에 이름이 있는지 확인한다. 종료 시 등록의 역순으로 실행한다.
-    `FileExecutor`의 종료 경로에서 `PyFinalizer.RunAtShutdown()` **앞**에서 실행한다.
-    CPython의 호출 위치를 `Python/pylifecycle.c`에서 확인해 주석에 앵커를 적는다.
-11. CPython `Lib/weakref.py`, `Lib/_weakrefset.py`를 복사한다. 수정하면 안 된다. 수정이 필요해
-    보이면 대개 native 쪽이 틀린 것이다.
-
-**합격.** `q4_weakref` 일치, 게이트 통과. `tests/bughunt/p88_weakref.py`로 복사한다.
-종료 시 callback 동작은 참조 인터프리터로 측정한 뒤 일치시키거나 known_gaps에 기록한다.
-
-**의도적으로 맞추지 않는 것.** 순환 참조에서의 callback/`__del__` 순서. 프로브에도 없다.
-
-### Q5 — `proxy` (별도 커밋)
+### Q5 — `proxy` (별도 커밋) — 담당 Claude
 
 **이유.** `proxy`는 40여 개 슬롯을 전달하므로 format, f-string, dict key, isinstance, 연산자 디스패치를
 조용히 바꿀 수 있다. 그래서 분리한다.
@@ -419,11 +395,11 @@ TODO 이전 안의 "관찰 시점 판정"은 callback을 실행하지 못하므�
 `ReferenceError: weakly-referenced object no longer exists` (`:396`).
 착수 전에 참조 인터프리터로 슬롯별 프로브를 먼저 만들고, `p89_weakref_proxy.py`로 고정한다.
 
-### Q6 — `copy`, `tempfile`, `shutil`
+### Q6 — `copy`, `tempfile`, `shutil` — 담당 로컬 AI (L4)
 
 **이유.** 이 작업 전체가 열어 주는 결과다. `docs/library_surface_policy.md`의 절차를 따른다.
 `Lib/`에 없으므로 복사가 기본이고, 각 파일이 끌고 오는 import를 측정한 뒤 진행한다.
-합격: `copy.deepcopy`가 300,000개 객체에서 틀린 항목 0, 해당 정책 문서의 사례 일치. 번호는 `p90`부터 쓴다.
+합격: `copy.deepcopy`가 300,000개 객체에서 틀린 항목 0, 해당 정책 문서의 사례 일치. 번호는 `p96`부터 쓴다.
 
 ## 6. Q마다 끝낼 때
 
@@ -457,8 +433,14 @@ TODO 이전 안의 "관찰 시점 판정"은 callback을 실행하지 못하므�
 | `probes/q2_shutdown_order.py` | Q2 합격: 종료 순서 |
 | `probes/q2_gap_late_del.py` | **합격 기준 아님.** 기록된 격차 |
 | `probes/q3_gen_finalize.py` | Q3 합격 |
-| `probes/q4_weakref.py` | Q4 합격 |
-| `spike/Program.cs.txt`, `spike/spike.csproj.txt` | 격리 C# 스파이크 |
+| `probes/q4_weakref.py` | L3 합격: `weakref.py`까지 포함한 전체 |
+| `probes/l1_live_slots.py`, `probes/l1_del_hook.py` | L1 합격 |
+| `probes/l2_atexit_reference_error.py` | L2 합격 |
+| `probes/c1_weakref_core.py` | C1 합격: `_weakref`만 사용 |
+| `probes/gap_lifetime_recorded.py`, `probes/gap_outside_lifetime.py` | **합격 기준 아님.** 점검에서 찾은 기록된 격차 |
+| `spike/Program.cs.txt`, `spike/spike.csproj.txt` | 격리 C# 스파이크: Guard 인도 |
+| `spike/guard_weak_list.cs.txt` | 격리 C# 스파이크: 가드가 ref를 드는 방법. 복원 방법은 위와 같다 |
+| `spike/stage2_real_vm.py`, `spike/instrument_stage2.py` | 실제 VM의 2단계 측정. `q4_weakref_state.md` §1 |
 
 프로브는 전부 참조 인터프리터에서 실행해 출력을 확인했다. 시작 시점에 SharpPy는 q1, q2_del_delivery,
 q2_retention, q2_shutdown_order, q3, q4에서 CPython과 다르며 이것이 예상 상태다.

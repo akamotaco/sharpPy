@@ -67,20 +67,25 @@ CPython은 객체 하나다(`list_new`가 레이아웃을 subclass로 할당 + `
 
 ## 2. 수명 기반 (최대 공백 — 1번과 독립, **먼저 진행 가능**)
 
-**작업 지시서: [`lifetime_foundation/README.md`](lifetime_foundation/README.md).** 이유, 수정 위치, 뼈대
-코드, 합격 프로브, 함정, 중단 조건이 모두 그 문서에 있다. 설계는 2026-10-31 사용자 승인.
+**기준 문서: [`lifetime_foundation/README.md`](lifetime_foundation/README.md).** 이유, 고정값, 중단 조건이 있다.
+설계는 2026-10-31 사용자 승인. Q1~Q3 완료. 남은 작업은 담당별로 나눴다:
+로컬 AI는 [`local_ai_queue.md`](lifetime_foundation/local_ai_queue.md),
+Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 
 실측 (기준 `da5891f`): `__del__` 300,000건 중 7,887건만 호출, 제너레이터 `finally` 미실행,
 `id()` 충돌, `import weakref`·`atexit`·`copy`·`tempfile` → `ModuleNotFoundError`.
 
-| 순서 | 항목 | 내용 | probe |
-|---|---|---|---|
-| Q1 | **P0-47** | `id()`를 식별자로 | p83 |
-| Q2 | **P0-48** | Guard + 안전점 + `gc.collect()` 앵커, `__del__` 유실 수정, 종료 순서 | p84, p85, p86 |
-| Q3 | **P0-49** | 제너레이터 finalize | p87 |
-| Q4 | weakref C1 | `_weakref`, `ReferenceError`, `weakref.py`, `_weakrefset.py`, `atexit` | p88 |
-| Q5 | | `proxy` (별도 커밋) | p89 |
-| Q6 | | `copy`, `tempfile`, `shutil` | p90~ |
+| 순서 | 항목 | 내용 | 담당 | probe |
+|---|---|---|---|---|
+| 완료 | P0-47~49 | `id()`, Guard와 안전점, 제너레이터 finalize | | p83~p87 |
+| L1 | **P0-50** | `Live` 슬롯, `__del__` 바인딩, `__del__ = None` | 로컬 AI | p92, p93 |
+| L2 | | `ReferenceError`, `atexit` | 로컬 AI | p95 |
+| C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
+| L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
+| L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |
+| Q5 | | `proxy` (별도 커밋) | Claude | p89 |
+| L5 | P0-53~56 | `sys.exit` 코드, bound method `==`, `__class__` 대입, `is` | 로컬 AI | 착수 시 |
+| | **P0-52** | 재귀 깊이 100 크래시 | Claude | C1 뒤 판단 |
 
 순서를 바꾸지 않는다. `copy.deepcopy`는 `id()`에 의존하고, weakref callback은 안전점 없이는 돌 곳이 없다.
 
@@ -170,5 +175,4 @@ CPython은 타입마다 자기 스펙을 같은 .c 파일에 둔다(`set_methods
   표가 커진 뒤 항은 추정치다 (CLR 저장소라 C 할당자 수와 일치시킬 수 없다).
 
 
-> 실시 진행 상태: 수명 지시서 Q1(P0-47 `id()` + 그것이 드러난 정체 결함 2개)은 2026-10-31 완료, probe는 `tests/bughunt/p83_id_identity.py`. 다은 항목은 Q2(P0-48 Guard 안점). 그 결과는 [id는 주소가 아니라 정체](../reports/2026-10-31/id_is_identity_not_a_hash.md).
-> 실시 진행 상태: Q2(P0-48 Guard + 안점 + gc.collect 앵커)까지 2026-10-31 완료. probe는 p84_del_delivery, p85_retention, p86_shutdown_order. 다은 항목은 Q3(P0-49 제너레이터 finalize). 그 결과는 [가드, 안점, 앵커](../reports/2026-10-31/guards_safety_points_and_the_anchor.md).
+> 진행 상태 (2026-10-31): 수명 작업 Q1~Q3 완료, 다음은 L1. 결과는 [id는 주소가 아니라 정체](../reports/2026-10-31/id_is_identity_not_a_hash.md), [가드, 안전점, 앵커](../reports/2026-10-31/guards_safety_points_and_the_anchor.md), [멈춘 제너레이터는 죽을 때 close 된다](../reports/2026-10-31/suspended_generators_are_closed.md).
