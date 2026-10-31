@@ -1738,3 +1738,21 @@ SharpPy는 set/frozenset의 표면을 자기 파일에 하나도 등록하지 �
 테이블(53항목)에 둔다(도구 M3의 own-file 열: set 0, frozenset 0, list 22, str 56).
 파일 단위로 옮기면 스펙 비교가 라인 단위로 가능해진다.
 
+## P0-47 검증 잔여 — 크기 0인 튜플을 만드는 세 경로 (측정 2026-10-31, 미해결)
+
+`tuple_get_empty`는 크기 0인 모든 경로를 단일 객체로 되돌려야 한다
+(`Objects/tupleobject.c:68-73 PyTuple_New` → `:62`). `()` 리터럴, VM `BUILD_TUPLE`,
+`PyTuple.Empty`, `TupleCache` 경로는 닫혔지만 아래는 여전히 새 객체를 만든다(측정):
+
+| 관측 | CPython | SharpPy |
+| --- | --- | --- |
+| `tuple(set()) is ()` | True | **False** |
+| `tuple(x for x in ()) is ()` | True | **False** |
+| `(*(),) is ()` | True | **False** |
+
+각각 set→tuple, iterator→tuple, unpack 전용 opcode(BUILD_TUPLE과 다른 경로)다.
+`is`로만 관찰되나 `copy`/`tempfile`이 열리면 복사 memo와 얽히는 종류의 문제다.
+
+겸여로 다른 표면 결함 하나를 더 확인했다: 내장 함수에 `__self__`가 없어서
+`print.__self__`가 `AttributeError`를 낸다(CPython은 `builtins` 모듈을 돌려준다).
+
