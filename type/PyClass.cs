@@ -183,6 +183,30 @@ namespace SharpPy
             return false;
         }
 
+        internal override bool SupportsWeakReference()
+        {
+            foreach (var t in MRO)
+            {
+                if (ReferenceEquals(t, PyType.ObjectType))
+                    continue;
+                if (t is PyClass pc)
+                {
+                    if (!pc.ClassDict.TryGetValue("__slots__", out var slots))
+                        return true;
+                    foreach (var slotName in EnumerateSlotNames(slots))
+                    {
+                        if (slotName == "__weakref__")
+                            return true;
+                    }
+                    continue;
+                }
+                // Builtin level other than object: defer to that type's rule.
+                if (t.SupportsWeakReference())
+                    return true;
+            }
+            return false;
+        }
+
         public bool IsSlottedAttributeName(string name)
         {
             foreach (var t in MRO)

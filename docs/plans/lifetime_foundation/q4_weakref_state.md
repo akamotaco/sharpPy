@@ -1,7 +1,7 @@
 # Q4 핵심 (C1): weakref 수명 설계
 
 **담당: Claude.** 표면 작업은 [`local_ai_queue.md`](local_ai_queue.md)의 L2, L3이다.
-상태: **미구현.** 트리는 Q3 완료 상태이고 Q4 코드는 커밋되지 않았다.
+상태: **구현 완료.** `docs/reports/2026-11-01/the_weak_reference_core.md`가 이 문서와 달라진 점을 적는다. 특히 `PyWeakRef`의 `WeakReference` 설계는 틀렸다.
 
 이 문서는 2026-10-31 점검으로 다시 썼다. 이전 판은 `git show 85bd172:docs/plans/lifetime_foundation/q4_weakref_state.md`에
 있으며, 그 판의 "확정된 CLR 사실"과 "동작했던 설계"는 **따르면 안 된다** (아래 판정표).

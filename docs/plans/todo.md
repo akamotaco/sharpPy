@@ -86,7 +86,7 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 | 완료 | L2.4 | 두 커밋으로 끝냄 (2026-11-01, 커밋 1 + 2): `code`/`args` 슬롯, `__new__`의 `args`, `repr`이 같은 슬롯을 읽음, `sys.stderr` 쓰기 호출 분리, `raise ... from`과 `with_traceback`, REPL 종료 상태, 죽은 `HandleStatus` 삭제 (p107~p116, reports/2026-11-01/the_slots_an_exception_owns.md). 커밋 2는 아홉째 항목: 함수에는 `func_qualname`, 클래스의 `ht_qualname`은 딕셔너리에서 디드필드로, `method_repr`의 이름 순서 (p117, reports/2026-11-01/a_function_carries_its_qualname.md) | 로컬 AI | 103 → 114 probes |
 | 신규 | **P0-70** | `raise`가 만든 객체가 `except`에서 다른 객체 (`e is z` False). 래퍼를 없애려면 heap 예외 인스턴스의 CLR 타입을 `PyBaseException`으로 합쳐야 한다 — 호출자 수 10/16/144/124 (2026-11-01 재) | | gap_l24_raise_identity |
 | 완료 | L2.5 | L2.4 회귀 넷, 주석 문장, `__dict__` 저장소 하나로 (2026-11-01, 세 커밋, 코드 생성 qwen, 설계와 판정 Claude) | qwen | p118~p122 |
-| C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
+| 완료 | C1 | `PyGuard` 확장, `PyWeakCell`, `PyWeakRef`, `_weakref` (2026-11-01) | Claude, qwen | p94 |
 | E1 | P0-70 | 예외 표현 통합: 사용자 예외의 CLR 계보 둘을 하나로 (C1 뒤 설계) | Claude | 설계 시 |
 | L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |

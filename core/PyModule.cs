@@ -411,6 +411,7 @@ public class PyModule : PyObject
             // Modules/atexitmodule.c is a C module, so it is implemented natively rather than copied
             // from Lib (there is no Lib/atexit.py). Lib/weakref.py registers its reaper through it.
             ["atexit"] = () => SharpPy.Modules.AtexitModule.CreateAtexitModule(),
+            ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
 
             // OS 인터페이스 C 모듈 (cross-platform)
             ["nt"] = () => SharpPy.Modules.NtModule.CreateNtModule(),  // os.py가 사용 (Windows/Linux/Mac)

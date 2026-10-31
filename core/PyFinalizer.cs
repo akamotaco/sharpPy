@@ -2,11 +2,44 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace SharpPy
 {
-    internal enum GuardState { Armed, Finalized, Cleared }
+    internal enum GuardState { Armed, Watched, Finalized, Cleared }
+
+    /// <summary>
+    /// What every weak reference to one object shares: the two views of the target, and the verdict.
+    /// GCHandles and not WeakReference objects, because a WeakReference has a finalizer that frees its
+    /// handle. A ref reachable only through a parent being finalized goes through the same collection
+    /// as the parent, so its WeakReference was emptied before the parent's __del__ could read it.
+    /// This class has no finalizer and does not hold the target; the guard frees the handles.
+    ///
+    /// Long follows the object through finalization, so a __del__ can still reach it.
+    /// Short goes null at the collection that found the object unreachable. It is how a read notices
+    /// that the object it is about to hand out is condemned (q4_weakref_state.md H1).
+    /// </summary>
+    internal sealed class PyWeakCell
+    {
+        internal GCHandle Long;
+        internal GCHandle Short;
+        /// <summary>The truth; the handles are only a means of noticing. Set before any callback runs.</summary>
+        internal bool Dead;
+
+        internal PyWeakCell(PyObject target)
+        {
+            Long = GCHandle.Alloc(target, GCHandleType.WeakTrackResurrection);
+            Short = GCHandle.Alloc(target, GCHandleType.Weak);
+        }
+
+        internal void Release()
+        {
+            Dead = true;
+            Long.Free();
+            Short.Free();
+        }
+    }
 
     /// <summary>
     /// The signal that an object was let go, and the reason its owner can still be handed to
@@ -41,6 +74,16 @@ namespace SharpPy
         /// /local_ai_queue.md L1.1).
         /// </summary>
         internal PyFinalizer.LiveEntry Entry;
+        /// <summary>
+        /// The object's weakreflist, oldest first. Handles and not WeakReference objects: a
+        /// WeakReference inside a guard is invalidated with the guard, while a WeakTrackResurrection
+        /// handle still answers for a ref reachable only through the target, and goes null for a ref
+        /// that died first (q4_weakref_state.md section 2, spike/guard_weak_list.cs.txt).
+        /// </summary>
+        internal List<GCHandle> WeakRefs;
+        internal PyWeakCell Cell;
+        /// <summary>tp_finalize ran, or was settled by a clean finish; gc.is_finalized reports it.</summary>
+        internal bool FinalizerRan;
 
         internal PyGuard(PyObject owner) { Owner = owner; }
 
@@ -121,7 +164,16 @@ namespace SharpPy
         internal static PyGuard Attach(PyObject obj)
         {
             if (obj == null) return null;
-            if (Guards.TryGetValue(obj, out var existing)) return existing;
+            if (Guards.TryGetValue(obj, out var existing))
+            {
+                // A weak reference got here first; the finalizer is owed all the same.
+                if (existing.State == GuardState.Watched)
+                {
+                    existing.State = GuardState.Armed;
+                    AddToLive(existing);
+                }
+                return existing;
+            }
             var guard = new PyGuard(obj);
             guard.Sequence = Interlocked.Increment(ref _sequence);
             Guards.Add(obj, guard);
@@ -138,9 +190,141 @@ namespace SharpPy
         {
             if (guard == null) return;
             RemoveFromLive(guard);
+            guard.FinalizerRan = true;
+            // Nothing is owed to close() any more, but a weak reference still is.
+            if (guard.WeakRefs != null)
+            {
+                guard.State = GuardState.Finalized;
+                return;
+            }
             guard.State = GuardState.Cleared;
             guard.Owner = null;
             GC.SuppressFinalize(guard);
+        }
+
+        /// <summary>
+        /// The guard a weak reference lives on. An object with no finalizer owes nothing, so its guard
+        /// stays out of Live, but it starts Watched and needs two reports, like a guard with a
+        /// __del__. The finalizer thread queues a parent and its child one at a time, so a safe point
+        /// can take the child alone and clear its references before the parent's __del__ reads them.
+        /// At the second report that cannot happen: a parent still in the queue holds the child.
+        /// A Cleared guard can only belong to a generator that ran out; it gets a fresh one, because
+        /// the old one was taken off the finalizer queue and would never report this reference.
+        /// </summary>
+        private static PyGuard WeakGuard(PyObject obj)
+        {
+            if (Guards.TryGetValue(obj, out var existing))
+            {
+                if (existing.State != GuardState.Cleared) return existing;
+                Guards.Remove(obj);
+            }
+            var guard = new PyGuard(obj) { State = GuardState.Watched };
+            guard.Sequence = Interlocked.Increment(ref _sequence);
+            Guards.Add(obj, guard);
+            return guard;
+        }
+
+        /// <summary>The cell a new reference to this object shares.</summary>
+        internal static PyWeakCell WeakCell(PyObject target)
+        {
+            var guard = WeakGuard(target);
+            lock (guard) return guard.Cell ??= new PyWeakCell(target);
+        }
+
+        /// <summary>Links a new reference into the target's list (Objects/weakrefobject.c insert_head).</summary>
+        internal static void TrackWeakReference(PyObject target, PyWeakRef reference)
+        {
+            var guard = WeakGuard(target);
+            lock (guard)
+            {
+                var handles = guard.WeakRefs ??= new List<GCHandle>();
+                // A long-lived target that keeps getting short-lived references must not grow forever.
+                if (handles.Count >= 16 && (handles.Count & (handles.Count - 1)) == 0)
+                    FreeDeadHandles(handles);
+                handles.Add(GCHandle.Alloc(reference, GCHandleType.WeakTrackResurrection));
+            }
+        }
+
+        private static void FreeDeadHandles(List<GCHandle> handles)
+        {
+            for (int i = handles.Count - 1; i >= 0; i--)
+            {
+                if (handles[i].Target != null) continue;
+                handles[i].Free();
+                handles.RemoveAt(i);
+            }
+        }
+
+        /// <summary>The live references to an object, oldest first.</summary>
+        internal static List<PyWeakRef> WeakReferencesOf(PyObject obj)
+        {
+            var alive = new List<PyWeakRef>();
+            if (obj == null || !Guards.TryGetValue(obj, out var guard)) return alive;
+            lock (guard)
+            {
+                if (guard.WeakRefs == null) return alive;
+                foreach (var handle in guard.WeakRefs)
+                    if (handle.Target is PyWeakRef reference) alive.Add(reference);
+            }
+            return alive;
+        }
+
+        /// <summary>
+        /// PyObject_ClearWeakRefs (Objects/weakrefobject.c:938): every reference goes dead first, so a
+        /// callback that looks at any of them sees None, then callbacks run newest first. A reference
+        /// whose handle went null died before its target and is owed nothing.
+        /// </summary>
+        private static void ClearWeakRefs(PyGuard guard)
+        {
+            List<GCHandle> handles;
+            lock (guard)
+            {
+                handles = guard.WeakRefs;
+                guard.WeakRefs = null;
+                guard.Cell?.Release();
+                guard.Cell = null;
+            }
+            if (handles == null) return;
+            var references = new List<PyWeakRef>(handles.Count);
+            foreach (var handle in handles)
+            {
+                if (handle.Target is PyWeakRef reference) references.Add(reference);
+                handle.Free();
+            }
+            for (int i = references.Count - 1; i >= 0; i--)
+            {
+                var callback = references[i].Callback;
+                if (callback == null) continue;
+                var saved = PyVM.SnapshotExceptionStates();
+                try
+                {
+                    callback.Call(new PyObject[] { references[i] }, null);
+                }
+                catch (PythonException ex)
+                {
+                    PyUnraisable.Report(ex, callback);
+                }
+                catch (Exception ex)
+                {
+                    ReportIgnored(Describe(callback), null, ex.Message);
+                }
+                finally
+                {
+                    PyVM.RestoreExceptionStates(saved);
+                }
+            }
+        }
+
+        /// <summary>
+        /// A reference saw its target condemned by a collection whose report may not have arrived.
+        /// Waiting for the finalizer thread makes that collection's guards visible to Drain, so the
+        /// answer the reference gives next agrees with what happens to the object. During a __del__
+        /// Drain is a no-op, which keeps a parent's view of its child.
+        /// </summary>
+        internal static void SettleCondemned()
+        {
+            GC.WaitForPendingFinalizers();
+            Drain();
         }
 
         /// <summary>
@@ -163,7 +347,7 @@ namespace SharpPy
         internal static bool IsFinalized(PyObject obj)
         {
             if (obj == null) return false;
-            return Guards.TryGetValue(obj, out var guard) && guard.State != GuardState.Armed;
+            return Guards.TryGetValue(obj, out var guard) && guard.FinalizerRan;
         }
 
         /// <summary>
@@ -181,11 +365,7 @@ namespace SharpPy
             try
             {
                 PyPending.Flag = false;
-                while (Queue.TryDequeue(out var guard))
-                {
-                    Step(guard);
-                    handled++;
-                }
+                handled = DrainQueue();
             }
             finally
             {
@@ -195,11 +375,54 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Finalizers run before any reference is cleared. A collection reports a parent and its child
+        /// together in no useful order, and in C the child outlives the parent's __del__, so a
+        /// __del__ may read a child's reference or even keep the child by resurrecting itself. Only
+        /// the next collection can tell, so guards at the Finalized step wait for it whenever a
+        /// __del__ ran in this batch: re-registered, they report again only if still unreachable.
+        /// A separate method because a guard left in a local slot lives one collection longer
+        /// (q4_weakref_state.md section 1).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static int DrainQueue()
+        {
+            int handled = 0;
+            bool finalizerRan = false;
+            List<PyGuard> releases = null;
+            while (Queue.TryDequeue(out var guard))
+            {
+                handled++;
+                if (guard.State == GuardState.Armed)
+                {
+                    finalizerRan = true;
+                    Step(guard);
+                }
+                else if (guard.State == GuardState.Watched)
+                {
+                    Step(guard);
+                }
+                else
+                {
+                    (releases ??= new List<PyGuard>()).Add(guard);
+                }
+            }
+            if (releases == null) return handled;
+            foreach (var guard in releases)
+            {
+                if (finalizerRan) GC.ReRegisterForFinalize(guard);
+                else Step(guard);
+            }
+            return handled;
+        }
+
+        /// <summary>
         /// One guard, one step. State changes first, because __del__ can reach a safe point and come
         /// back through here; checking after calling would run a finalizer twice.
         ///
         /// Armed    -> run __del__, then re-arm the guard so the object's second death is noticed.
-        /// Finalized -> release the owner. This is the phase that also fires weakref callbacks in Q4.
+        /// Finalized -> clear the weak references and release the owner.
+        /// A generator goes the other way round: gen_dealloc clears weak references before it
+        /// finalizes (Objects/genobject.c:126), so its callback runs before its finally.
         /// </summary>
         internal static void Step(PyGuard guard)
         {
@@ -208,12 +431,19 @@ namespace SharpPy
             {
                 case GuardState.Armed:
                     guard.State = GuardState.Finalized;
+                    guard.FinalizerRan = true;
                     RemoveFromLive(guard);
+                    if (guard.Owner is PyGenerator) ClearWeakRefs(guard);
                     RunFinalizer(guard);
+                    GC.ReRegisterForFinalize(guard);
+                    break;
+                case GuardState.Watched:
+                    guard.State = GuardState.Finalized;
                     GC.ReRegisterForFinalize(guard);
                     break;
                 case GuardState.Finalized:
                     guard.State = GuardState.Cleared;
+                    ClearWeakRefs(guard);
                     guard.Owner = null;
                     break;
             }

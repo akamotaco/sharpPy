@@ -348,6 +348,7 @@ namespace SharpPy
         public static readonly PyType IteratorType = new PyType("iterator", new[] { ObjectType });
         public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
         public static readonly PyType MapType = new PyType("map", new[] { ObjectType });
+        public static readonly PyType WeakRefType = new PyType("ReferenceType", new[] { ObjectType });
         public static readonly PyType ZipType = new PyType("zip", new[] { ObjectType });
         public static readonly PyType FilterType = new PyType("filter", new[] { ObjectType });
         public static readonly PyType CallableIteratorType = new PyType("callable_iterator", new[] { ObjectType });
@@ -780,6 +781,18 @@ namespace SharpPy
         /// </summary>
         public bool AllowsModuleAssignment;
 
+        /// <summary>
+        /// Whether instances of this type can be the target of a weak reference.
+        /// CPython: tp_weaklistoffset != 0 (Objects/typeobject.c:2960).
+        /// </summary>
+        internal virtual bool SupportsWeakReference()
+        {
+            return this == FunctionType || this == MethodType || this == GeneratorType
+                || this == CoroutineType || this == SetType || this == FrozenSetType
+                || this == ModuleType || this == WeakRefType
+                || IsSubclassOf(TypeType);
+        }
+
         public bool IsSubclassOf(PyType other)
         {
 #if DEBUG
@@ -832,8 +845,20 @@ namespace SharpPy
         public override bool IsCallable() => true;
 
         // type 호출 - 인스턴스 생성 또는 타입 조회
+        /// <summary>type_call reaches tp_new. A type that registers its own __new__ in TypeDict sets
+        /// this instead of adding another name to the CreateInstance switch.</summary>
+        internal bool ConstructedByNewSlot;
+
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
+            if (ConstructedByNewSlot)
+            {
+                var slotArgs = new PyObject[args.Length + 1];
+                slotArgs[0] = this;
+                Array.Copy(args, 0, slotArgs, 1, args.Length);
+                return TypeDict["__new__"].Call(slotArgs, kwargs);
+            }
+
             // type(obj) - 객체의 타입 반환
             if (this == TypeType && args.Length == 1)
             {
