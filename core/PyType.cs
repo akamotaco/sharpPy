@@ -1582,6 +1582,19 @@ namespace SharpPy
                 $"'{self.GetTypeName()}' object");
         }
 
+        private PyString _nameString;
+        private PyString _qualNameString;
+
+        /// <summary>
+        /// ht_name (Objects/typeobject.c:994): the name string a heap type was created with, kept so
+        /// that repeated type.__name__ reads return the same object. Static builtin types do not use
+        /// this - CPython allocates for those on every read (:998).
+        /// </summary>
+        internal PyString NameString => _nameString ??= new PyString(Name);
+
+        /// <summary>ht_qualname, held separately because CPython holds it separately.</summary>
+        internal PyString QualNameString => _qualNameString ??= new PyString(Name);
+
         internal static int CountItems(IEnumerable<PyObject> items)
         {
             int n = 0;
@@ -1964,7 +1977,12 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString(type.Name);
+                    // Objects/typeobject.c:988 type_name: a heap type returns the one name object it
+                    // was created with (Py_NewRef(et->ht_name)), so reading __name__ twice gives the
+                    // same object; a static spec has no stored str and CPython builds one per read.
+                    // The branch is kept because it is observable: C.__name__ is C.__name__ is True,
+                    // and that has to come from a cache, not from interning every string.
+                    return type.HasFeature(PyTypeFlags.HeapType) ? type.NameString : new PyString(type.Name);
                 }
             );
 
@@ -1976,7 +1994,11 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString(type.Name);  // For built-in types, qualname == name
+                    // type_qualname reads ht_qualname for a heap type; SharpPy keeps qualname equal to
+                    // name today, but still as one stored object per type rather than a fresh str.
+                    return type.HasFeature(PyTypeFlags.HeapType)
+                        ? type.QualNameString
+                        : new PyString(type.Name);  // For built-in types, qualname == name
                 }
             );
 
@@ -3978,7 +4000,7 @@ namespace SharpPy
                         && excWrapper.OriginalInstance.InstanceDict.ContainsKey("args"))
                     {
                         excWrapper.OriginalInstance.InstanceDict["args"] =
-                            args.Length == 0 ? TupleCache.Empty : new PyTuple(args);
+                            args.Length == 0 ? PyTuple.Empty : new PyTuple(args);
                     }
                     else
                     {
@@ -3986,7 +4008,7 @@ namespace SharpPy
                     }
                     return PyNone.Instance;
                 }
-                self.SetAttribute("args", args.Length == 0 ? TupleCache.Empty : new PyTuple(args));
+                self.SetAttribute("args", args.Length == 0 ? PyTuple.Empty : new PyTuple(args));
                 return PyNone.Instance;
             });
 

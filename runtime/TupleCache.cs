@@ -13,9 +13,6 @@ namespace SharpPy
     /// </summary>
     public static class TupleCache
     {
-        // 빈 튜플 (가장 자주 사용됨)
-        public static readonly PyTuple Empty = new PyTuple(new PyObject[0]);
-
         // 단일 원소 튜플 캐시 (자주 사용되는 값들)
         // None, True, False 같은 singleton 값들을 담는 튜플
         private static readonly PyTuple[] _singleElementCache = new PyTuple[16];
@@ -48,9 +45,9 @@ namespace SharpPy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static PyTuple GetOrCreate(PyObject[] items)
         {
-            // 빈 튜플
+            // One empty tuple, owned by the type itself (type/PyTuple.cs, Objects/tupleobject.c:62).
             if (items == null || items.Length == 0)
-                return Empty;
+                return PyTuple.Empty;
 
             // 단일 원소 튜플 - 캐시 검색
             if (items.Length == 1)

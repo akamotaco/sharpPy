@@ -360,7 +360,7 @@ namespace SharpPy
             if (other is PyInt count)
             {
                 if (count.Value <= 0)
-                    return TupleCache.Empty;
+                    return PyTuple.Empty;
 
                 // Performance: Eliminated LINQ (Enumerable.Range + .SelectMany + .ToArray) - manual repetition + Cache
                 var result = new PyObject[Items.Length * (int)count.Value];
@@ -537,7 +537,13 @@ namespace SharpPy
 
         #region Static Factory Methods
 
-        public static PyTuple Empty => new PyTuple();
+        /// <summary>
+        /// There is exactly one empty tuple: PyTuple_New returns tuple_get_empty for size 0
+        /// (Objects/tupleobject.c:68-73, :62), which is why <c>() is ()</c> is true in Python. This
+        /// was a property that built a fresh object on every access, and runtime/TupleCache.cs held a
+        /// second competing empty tuple, so identity checks below the corrected id() came apart.
+        /// </summary>
+        public static readonly PyTuple Empty = new PyTuple();
 
         #endregion
 

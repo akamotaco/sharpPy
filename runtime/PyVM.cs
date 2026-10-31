@@ -3826,7 +3826,9 @@ namespace SharpPy
                     {
                         tupleItems[i] = frame.ValueStack.Pop();
                     }
-                    var pyTuple = new PyTuple(tupleItems);
+                    // One empty tuple, as PyTuple_New hands back tuple_get_empty for size 0
+                    // (Objects/tupleobject.c:68-73).
+                    var pyTuple = tupleItems.Length == 0 ? PyTuple.Empty : new PyTuple(tupleItems);
                     frame.ValueStack.Push(pyTuple);
                     break;
 

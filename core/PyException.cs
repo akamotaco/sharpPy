@@ -83,7 +83,7 @@ namespace SharpPy
                     if (_args is not PyTuple argsTuple)
                     {
                         var items = Args;
-                        argsTuple = items.Length == 0 ? TupleCache.Empty : new PyTuple(items);
+                        argsTuple = items.Length == 0 ? PyTuple.Empty : new PyTuple(items);
                         _args = argsTuple;
                     }
                     return argsTuple;
@@ -133,7 +133,7 @@ namespace SharpPy
                     else if (value.GetType() == typeof(PyList))
                     {
                         var items = ((PyList)value).Items;
-                        replacement = items.Length == 0 ? TupleCache.Empty : new PyTuple(items);
+                        replacement = items.Length == 0 ? PyTuple.Empty : new PyTuple(items);
                     }
                     else
                     {
@@ -151,7 +151,7 @@ namespace SharpPy
                             if (item == null) break;
                             items.Add(item);
                         }
-                        replacement = items.Count == 0 ? TupleCache.Empty : new PyTuple(items.ToArray());
+                        replacement = items.Count == 0 ? PyTuple.Empty : new PyTuple(items.ToArray());
                     }
                     // Commit only after conversion; callbacks may observe or
                     // replace the previous args while the iterable is consumed.

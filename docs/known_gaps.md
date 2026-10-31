@@ -1707,6 +1707,30 @@ P0-43은 `type('C', (b,), {})` 경로만 고쳤다. `class C(b): pass`는 다른
 도구 한계도 명시: `__eq__`/`__iter__`는 CLR virtual(`RichCompare`, `GetIterator`)이라 TypeDict
 등록으로 세지져 "missing"으로 표시되고, `set.test_c_api`는 CPython 자체 테스트 훅이다.
 
+## P0-47 id()가 해시를 돌려준다 (측정 2026-10-31, 해결)
+
+`id()`는 `GetHashCode()`였고 SharpPy 해시는 값 기준이라 다른 객체가 같은 id를 신고했다.
+실측: 값은 같고 `is`는 False인 str/int/float에서 `id`가 True, 살아 있는 list 300,000개의
+고유 id가 299,312, `copy.deepcopy` memo 충돌 667. 지금은 `core/PyObjectId.cs`가
+`ConditionalWeakTable`에 첫 호출 때 번호를 부여하고 재사용하지 않는다
+(CPython은 주소, `Python/bltinmodule.c:1234`). repr의 `0x…` 표기와 `object.__hash__`는
+그대로 둔다 — CPython도 repr 주소와 id가 다르다.
+
+id를 고치자 정체 결함 둘이 드러났다(`is`가 원래 달랐다. `PyObjectId`로 덮지 않고 원인을 고쳤다):
+- `() is ()`가 False였다. `PyTuple.Empty`가 접근마다 new인 property였고
+  `runtime/TupleCache.cs`에 경쟁 빈 튜플이 하나 더 있었으며 VM `BUILD_TUPLE`은 0개일 때도
+  할당했다. `Objects/tupleobject.c:68-73 PyTuple_New` → `:62 tuple_get_empty`가 단일 객체다.
+  `TupleCache.Empty`를 삭제하고 8개 호출점을 `PyTuple.Empty`로 합쳤다.
+- `C.__name__ is C.__name__`가 False였다. `Objects/typeobject.c:988 type_name`은 heap에서
+  `:994 Py_NewRef(et->ht_name)`로 같은 객체를 주지만 static은 `:998`에서 매번 만든다 —
+  그래서 `int.__name__ is int.__name__`은 CPython에서도 False이며 SharpPy도 그 갈래를 유지한다.
+
+잔여: `type.__name__ is type.__name__` — CPython False, SharpPy True. 내장 타입 이름이
+`core/PyType.cs`의 `StringCache.GetOrCreate`로 인터닝되기 때문이다. `is`로만 관찰된다.
+게이트: bughunt 88/88 (`tests/bughunt/p83_id_identity.py`), evaluate 225/3/2, Godot 82/0,
+similarity exit 0. perf A/B(기준 d95c129) 2·3라운드 중앙 0.99~1.03, 첫 라운드만 워밍업으로 낮음.
+상세: [id는 주소가 아니라 정체](reports/2026-10-31/id_is_identity_not_a_hash.md).
+
 ## P0-46 등록 위치가 CPython의 타입별 스펙과 어긋난다 (측정 2026-10-30, 미해결)
 
 CPython은 타입마다 자기 스펙을 같은 .c 파일에 둔다(`set_methods`는 `Objects/setobject.c`).

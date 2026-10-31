@@ -1029,7 +1029,9 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"id expected exactly 1 arguments ({args.Length} given)");
 
-            return new PyInt(args[0].GetHashCode());
+            // Not GetHashCode: a value-based hash makes two distinct objects share an id, which is
+            // the identity observable (core/PyObjectId.cs).
+            return new PyInt(PyObjectId.Of(args[0]));
         }
 
         private static PyObject CallHash(PyObject[] args, PyDict kwargs = null)

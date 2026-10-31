@@ -1295,14 +1295,19 @@ namespace SharpPy
                 if (pyClass.ClassDict.TryGetValue("__name__", out var name))
                     return name;
 
-                // Fallback to Name property
-                return new PyString(pyClass.Name);
+                // type_name's heap branch returns ht_name, the one str object the type was created
+                // with (Objects/typeobject.c:994 Py_NewRef), so reading __name__ twice yields the
+                // same object. Measured CPython: C.__name__ is C.__name__ -> True.
+                return pyClass.NameString;
             }
 
             if (instance is PyType pyType)
             {
-                // PyType stores name in Name property
-                return new PyString(pyType.Name);
+                // A static spec has no ht_name; CPython builds a str per read (:998), which is why
+                // int.__name__ is int.__name__ is False there too.
+                return pyType.HasFeature(PyTypeFlags.HeapType)
+                    ? pyType.NameString
+                    : new PyString(pyType.Name);
             }
 
             return PyNone.Instance;

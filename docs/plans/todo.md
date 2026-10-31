@@ -168,3 +168,6 @@ CPython은 타입마다 자기 스펙을 같은 .c 파일에 둔다(`set_methods
 - `gc.get_objects()` / `gc.get_referrers()` 반환값, `sys.getrefcount` 수.
 - `__sizeof__`의 수값: 빈 set/frozenset 200, 빈 dict 48, 두 항목 208은 실측으로 맞췄지만
   표가 커진 뒤 항은 추정치다 (CLR 저장소라 C 할당자 수와 일치시킬 수 없다).
+
+
+> 실시 진행 상태: 수명 지시서 Q1(P0-47 `id()` + 그것이 드러난 정체 결함 2개)은 2026-10-31 완료, probe는 `tests/bughunt/p83_id_identity.py`. 다은 항목은 Q2(P0-48 Guard 안점). 그 결과는 [id는 주소가 아니라 정체](../reports/2026-10-31/id_is_identity_not_a_hash.md).

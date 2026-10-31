@@ -52,7 +52,7 @@ public partial class PyFunction : PyObject, IDescriptor
         }
         else
         {
-            Attributes["__type_params__"] = TupleCache.Empty;
+            Attributes["__type_params__"] = PyTuple.Empty;
         }
 
         // Closure 정보를 속성으로 노출
