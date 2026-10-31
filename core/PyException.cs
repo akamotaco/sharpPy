@@ -53,20 +53,24 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BaseExceptionType;
         public override string GetTypeName() => "BaseException";
 
+        // BaseException_str (Objects/exceptions.c:79) and BaseException_repr (:131) both read the
+        // args slot, so they read it through PyExceptionSlots.ArgsOf like the member descriptor
+        // does. Before this, repr used the CLR field while a Python subclass instance kept its value
+        // elsewhere - which is how a raised object could answer .args with ('z',) and repr with K().
         public override PyString AsString()
         {
-            if (Args.Length == 0)
+            var args = PyExceptionSlots.ArgsOf(this);
+            if (args.Length == 0)
                 return PyString.Empty;
-            if (Args.Length == 1)
-                return Args[0].ToStr();
-            return new PyString($"({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
+            if (args.Length == 1)
+                return args[0].ToStr();
+            return new PyString($"({string.Join(", ", args.Select(a => a.ToRepr().Value))})");
         }
 
         public override PyString ToRepr()
         {
-            if (Args.Length == 1)
-                return new PyString($"{GetTypeName()}({Args[0].ToRepr().Value})");
-            return new PyString($"{GetTypeName()}({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
+            var args = PyExceptionSlots.ArgsOf(this);
+            return new PyString($"{GetTypeName()}{PyType.ArgsReprForException(args)}");
         }
 
         public override string ToString()
@@ -103,7 +107,10 @@ namespace SharpPy
                         {
                             throw PyTypeError.Create($"BaseException.with_traceback() takes exactly one argument ({a.Length} given)");
                         }
-                        var excSelf = (PyException)self;
+                        // These three are direct derivatives of PyBaseException, not of PyException,
+                        // and __traceback__ is declared on PyBaseException - the cast used to raise
+                        // InvalidCastException for SystemExit/KeyboardInterrupt/GeneratorExit.
+                        var excSelf = (PyBaseException)self;
                         if (a[0] is PyTraceback tb)
                         {
                             excSelf.__traceback__ = tb;
@@ -268,13 +275,12 @@ namespace SharpPy
             switch (name)
             {
                 case "args":
-                    // A user-level base __init__ (or args assignment) writes the
-                    // instance dict; that value wins over the wrapper's original
-                    // constructor args, mirroring CPython's single args slot.
-                    if (OriginalInstance != null
-                        && OriginalInstance.InstanceDict.TryGetValue("args", out var argsOverride))
+                    // One slot, on the instance the wrapper carries. There is no second store on the
+                    // wrapper that could disagree with it.
+                    if (OriginalInstance != null)
                     {
-                        return argsOverride;
+                        var stored = PyExceptionSlots.ArgsOf(this);
+                        return stored.Length == 0 ? PyTuple.Empty : new PyTuple(stored);
                     }
                     return base.GetAttribute(name);
                 case "__cause__":
@@ -768,21 +774,14 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// The one place that decides a process status from a SystemExit argument, copied from
+        /// The one place that decides a process status from a SystemExit code value, copied from
         /// _Py_HandleSystemExit (Python/pythonrun.c:708):
-        ///   no argument or None      -> 0                        (:735)
-        ///   PyLong_Check             -> (int)PyLong_AsLong       (:743), truncated to C int
-        ///   anything else            -> written, then status 1   (:746-762)
-        /// tooLarge is the C long conversion failing: PyLong_AsLong returns -1 with OverflowError
-        /// set, and the measured stderr on the reference interpreter is exactly
-        /// "OverflowError: Python int too large to convert to C long".
-        /// </summary>
-        internal int HandleStatus(out PyObject toWrite, out bool tooLarge)
-            => StatusOfCode(Code, out toWrite, out tooLarge);
-
-        /// <summary>
-        /// The same decision for any object's code value, because a subclass instance carries its code
-        /// in a different place (probes/l23_exit_fields.py raises Sub(4)).
+        ///   None                     -> 0                        (:735)
+        ///   PyLong_Check             -> (int)PyLong_AsLong       (:743)
+        ///   anything else            -> written, then status 1   (:746-:762)
+        /// tooLarge is the C long conversion failing: PyLong_AsLong returns -1 and leaves
+        /// OverflowError raised, and that pending error - not a written string - is what reaches the
+        /// report (probes/l24_write_huge.py).
         /// </summary>
         internal static int StatusOfCode(PyObject code, out PyObject toWrite, out bool tooLarge)
         {

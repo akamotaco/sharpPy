@@ -2266,6 +2266,24 @@ namespace SharpPy
                     // descriptor가 아니거나 non-data descriptor라면 계속 진행
                     break;
                 }
+                // _PyType_Lookup (Objects/type.c) searches the MRO once and every level is a type,
+                // so a builtin level's member or getset descriptor is found by the write path too -
+                // exactly like the read path above does. Without this branch `h.code = 4` on a
+                // SystemExit subclass that defines __setattr__ landed in the instance dict, where
+                // the code member never looks (probes/l24_exit_code_slot.py).
+                else if (mroType is PyType builtinLevel && !(mroType is PyClass))
+                {
+                    var levelAttr = SharpPy.PyClass.GetTypeAttribute(builtinLevel, name);
+                    if (levelAttr != null)
+                    {
+                        if (IsDataDescriptor(levelAttr))
+                        {
+                            CallDescriptorSet(levelAttr, this, value);
+                            return;
+                        }
+                        break;
+                    }
+                }
             }
 
             // 3. 인스턴스 __dict__에 저장

@@ -60,6 +60,14 @@ of the MRO instead of falling through to the CLR default
 `probes/gap_l2b_measure.py` line a). Lines b)-e) of that probe still differ (P0-60, P0-61, P0-62,
 P0-63).
 
+**L2.4 correction.** "closes P0-59" was said too early. The `repr` half needed the `args` half:
+at L2.3 `args` was still written by `__init__`, so an exception built through `__new__`, or one
+raised and caught, reported `X()` while `.args` said `('z',)`. `l23_exit_fields.py` only pins the
+case where `__init__` had already run, which is why the gate stayed green over the defect. L2.4
+moved `args` into the object slot filled at allocation (`BaseException_new`,
+`Objects/exceptions.c:56`) and made `BaseException_repr` read that same slot; the copy that pins it
+is `tests/bughunt/p109_exception_new.py`.
+
 ## Newly registered (not fixed)
 
 - **P0-67** slot wrapper compare: `h.__str__ == h.__str__` and `n.__add__ == n.__add__` are False;
@@ -67,8 +75,10 @@ P0-63).
   `probes/gap_l23_slot_wrapper.py`. `wrapper_richcompare` (`Objects/descrobject.c:1297`) compares
   `descr` and `self` pointers (`:1313`); SharpPy has the rule on `PyCMethod` but not on
   `PyWrapperDescriptor` / `PyMemberDescriptor`.
-- **P0-68** uncaught `KeyboardInterrupt`: rc 130 (3221225786 when it arrives as a real Ctrl-C) and
-  the traceback on stderr, vs SharpPy rc 1 on stdout. The suppression test itself is now type based.
+- **P0-68** uncaught `KeyboardInterrupt`: rc 3221225786 (`0xC000013A`) and the traceback on stderr,
+  vs SharpPy rc 1 on stdout. The suppression test itself is now type based. The rc used to be written
+  here as `130`, which is what Git Bash prints for that status; `raise KeyboardInterrupt` and a real
+  Ctrl-C are the same status, so the split description is dropped.
 - **P0-69** `s.upper == 'ab'.upper` is False. Measured with the cause separated in the same probe:
   `s is "ab"` is True on CPython and False on SharpPy, so this is **the P0-56 string-constant
   cause**, not a method-comparison defect. No content comparison was added to method equality.

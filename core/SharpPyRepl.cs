@@ -26,8 +26,14 @@ namespace SharpPy.Core
             _interruptEvent = new ManualResetEventSlim(false);
         }
 
-        public void Start()
+        /// <summary>
+        /// Runs the prompt loop and returns the process status. CPython keeps the status a SystemExit
+        /// decided at this level (Modules/main.c runs pymain_run_stdin and then handles the exit), so
+        /// a REPL session cannot report 0 for `raise SystemExit(4)`.
+        /// </summary>
+        public int Start()
         {
+            int status = 0;
             PrintWelcomeMessage();
             _isRunning = true;
 
@@ -69,10 +75,14 @@ namespace SharpPy.Core
                 }
                 // CPython 3.12: Catch SystemExit from exit()/quit() calls
                 // Reference: Lib/_sitebuiltins.py:38-42
-                // CPython: SystemExit is a BaseException, handled separately from Exception
-                catch (PythonException pe) when (pe.PyException is PySystemExit)
+                // PyErr_GivenExceptionMatches, not a CLR class test: class E(SystemExit) is a
+                // SystemExit too. With the CLR test an escaping subclass fell into the generic
+                // handler below, printed an error, and the loop carried on running the next line.
+                catch (PythonException pe) when (PySystemExit.Matches(pe.PyException))
                 {
-                    // exit() or quit() was called - terminate REPL cleanly without traceback
+                    // The message and the status are produced by the same path a file run uses:
+                    // _Py_HandleSystemExit (Python/pythonrun.c:708) before any teardown.
+                    status = FileExecutor.ReportExitState(pe);
                     break;
                 }
                 catch (Exception ex)
@@ -86,6 +96,10 @@ namespace SharpPy.Core
             Console.CancelKeyPress -= OnCancelKeyPress;
 
             Console.WriteLine("👋 SharpPy를 사용해주셔서 감사합니다!");
+            // The interpreter is still intact here, which is what lets the atexit callbacks
+            // and the finalizer drain run in the order PyFinalizer.Shutdown() sequences.
+            PyFinalizer.Shutdown();
+            return status;
         }
 
         /// <summary>
@@ -333,10 +347,12 @@ namespace SharpPy.Core
                 // CPython 3.12: In single mode, non-None expression results are auto-printed
                 // This is handled by the interactive flag in the compiler
             }
-            catch (PythonException pe) when (pe.PyException is PySystemExit)
+            catch (PythonException pe) when (PySystemExit.Matches(pe.PyException))
             {
-                // CPython 3.12: SystemExit is a BaseException - re-throw to main loop
-                // Reference: Lib/_sitebuiltins.py:38-42
+                // PyErr_GivenExceptionMatches again, not `is PySystemExit`: with the CLR test a
+                // Python subclass of SystemExit fell into the handler below, printed an execution
+                // error, and the loop ran the next line instead of exiting
+                // (.artifacts/tmp/l24_repl.py row 2).
                 throw;
             }
             catch (Exception ex)

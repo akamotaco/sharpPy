@@ -152,76 +152,108 @@ namespace SharpPy.Core
         }
 
         /// <summary>
-        /// The message and the status, produced where the exception reaches the top of the
-        /// interpreter. _PyErr_PrintEx calls handle_system_exit first (:786) and that function both
-        /// writes the message and fixes the status; only then does Py_Exit (:777) finalize. So the
-        /// status cannot depend on anything an atexit callback does afterwards, and the message goes
-        /// to the sys.stderr of this moment (:747-:761), not to the CLR console: reassigning
-        /// sys.stderr moves it (probes/l23_exit_message.py).
-        /// Nothing here may escape as a CLR exception - a code whose __str__ raises still has to reach
-        /// shutdown with status 1, which is what PyErr_Clear (:753) buys in CPython.
+        /// _Py_HandleSystemExit (Python/pythonrun.c:708) as one path: dig the code out (:732), decide
+        /// the status, write what has to be written to the sys.stderr of this moment, and leave one
+        /// failure pending for one report. It runs before PyFinalizer.Shutdown() because
+        /// handle_system_exit (:786) reports and fixes the status and only then Py_Exit (:777)
+        /// finalises - so an atexit callback cannot move a status that is already fixed.
+        ///
+        /// Nothing may escape as a CLR exception. PyErr_Clear (:753) is what lets a code whose
+        /// __str__ raises still reach shutdown with status 1.
         /// </summary>
-        private static int ReportExitState(Exception ex)
+        internal static int ReportExitState(Exception ex)
         {
             if (!(ex is PythonException pythonError) || !PySystemExit.Matches(pythonError.PyException))
                 return 1;
-            var error = pythonError.PyException;
+            var exc = pythonError.PyException;
 
-            // :732 PyObject_GetAttr(exc, "code"); a failed lookup falls through to the writer.
-            PyObject code;
-            try { code = error.GetAttribute("code"); }
-            catch (System.Exception) { code = null; }
-
-            int status = PySystemExit.StatusOfCode(code, out var toWrite, out var tooLarge);
+            // :732 PyObject_GetAttr(exc, "code"). A failed lookup is not an error to report - the
+            // source comment says to let the else clause print it, and :753 clears it on the way. The
+            // exception object itself is the payload then, so the status is 1, not 0
+            // (probes/l24_exit_lookup.py).
+            PyObject payload;
             try
             {
-                if (toWrite != null)
-                {
-                    // PyFile_WriteObject then PySys_WriteStderr("\n") - two writes on the same
-                    // stream (:755, :761).
-                    WriteOnStderr(toWrite.ToStr().Value);
-                    WriteOnStderr("\n");
-                }
-                else if (tooLarge)
-                {
-                    // PyLong_AsLong returns -1 and leaves OverflowError raised (:743).
-                    WriteOnStderr("OverflowError: Python int too large to convert to C long\n");
-                }
+                payload = exc.GetAttribute("code");
+                if (ReferenceEquals(payload, PyNone.Instance)) return 0;   // goto done (:735-:737)
             }
-            catch (PythonException reporting)
+            catch (PythonException) { payload = exc; }
+
+            PythonException pending = null;
+            int status = PySystemExit.StatusOfCode(payload, out var toWrite, out var tooLarge);
+            if (tooLarge)
             {
-                // The message could not be produced or written. Report it and keep the status.
-                PyUnraisable.Report(reporting, error);
-                status = 1;
+                // PyLong_AsLong returns -1 and leaves OverflowError raised (:743). The status stays
+                // -1 and the error travels; it is not a string written here
+                // (probes/l24_write_huge.py shows the four writes of the report instead).
+                pending = new PythonException(
+                    new PyOverflowError("Python int too large to convert to C long"));
             }
-            catch (System.Exception reporting)
+
+            if (toWrite != null)
             {
-                Console.Error.WriteLine(reporting.Message);
-                status = 1;
+                string text;
+                try { text = toWrite.ToStr().Value; }
+                catch (PythonException failure) { pending = failure; text = null; }
+                if (text != null && !WriteOnStderr(text, out var writeFailure)) pending = writeFailure;
+                // PySys_WriteStderr("\n") (:761). It is attempted whatever happened to the message,
+                // and the pending error is set aside and restored around it.
+                SysWriteStderr("\n", ref pending);
+            }
+
+            // wait_for_thread_shutdown (Python/pylifecycle.c:3039) finds the error still pending at
+            // :1830 and calls PyErr_WriteUnraisable(NULL) - object None, err_msg None - before
+            // _PyAtExit_Call runs the atexit callbacks at :1845. One error, one report
+            // (probes/l24_write_bad_str.py, l24_write_raises.py).
+            if (pending != null)
+            {
+                try { PyUnraisable.Report(pending, PyNone.Instance); }
+                catch (PythonException) { }
+                catch (System.Exception) { }
             }
             return status;
         }
 
         /// <summary>
-        /// PyFile_WriteObject / PySys_WriteStderr (:754-:761): the stream named sys.stderr right now.
-        /// "\n" travels on the same channel, which is what makes sys.stderr = sys.stdout observable.
+        /// PyFile_WriteObject (:755): the stream named sys.stderr right now, one call, the text as it
+        /// stands - an empty message is still a write (probes/l24_write_empty.py). Returns false when
+        /// the write failed and carries the failure out, because CPython leaves it pending.
         /// </summary>
-        private static void WriteOnStderr(string text)
+        private static bool WriteOnStderr(string text, out PythonException failure)
         {
+            failure = null;
             PyObject stream = null;
             if (PyImportSystem.TryGetModule("sys", out var sys))
                 sys.ModuleDict.TryGetValue("stderr", out stream);
             if (stream == null || ReferenceEquals(stream, PyNone.Instance))
             {
+                // :757-:759 PyObject_Print to the C stderr FILE.
                 Console.Error.Write(text);
-                return;
+                return true;
             }
-            var newline = text.EndsWith("\n");
-            var body = newline ? text.Substring(0, text.Length - 1) : text;
-            if (body.Length != 0)
-                stream.GetAttribute("write").Call(new PyObject[] { new PyString(body) }, null);
-            if (newline)
-                stream.GetAttribute("write").Call(new PyObject[] { new PyString("\n") }, null);
+            try
+            {
+                stream.GetAttribute("write").Call(new PyObject[] { new PyString(text) }, null);
+                return true;
+            }
+            catch (PythonException error)
+            {
+                failure = error;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// PySys_WriteStderr (:761 through sys_format, Python/sysmodule.c:4001-:4021): the pending
+        /// error is set aside and restored, and if the write to sys.stderr fails the text goes to the
+        /// C stderr FILE instead of failing again.
+        /// </summary>
+        private static void SysWriteStderr(string text, ref PythonException pending)
+        {
+            var saved = pending;
+            pending = null;
+            if (!WriteOnStderr(text, out _)) Console.Error.Write(text);
+            pending = saved;
         }
     }
 }

@@ -1968,18 +1968,25 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
 (cd docs/plans/lifetime_foundation/probes/gap_l2b_modx && <dotnet> ../../../../../bin/Release/net8.0/sharppy.dll -m x one)
 ```
 
-- **P0-59 예외 서브클래스의 `repr` — L2.3에서 해결.** `class Sub(ValueError): pass`에서
+- **P0-59 예외 서브클래스의 `repr` — L2.4에서 해결 (L2.3 기록 정정).** `class Sub(ValueError): pass`에서
   CPython은 `repr(Sub())` → `'Sub()'`, `repr(Sub('x'))` → `"Sub('x')"`. SharpPy는
   `'<__main__.Sub object at 0x73673b>'` — 기본 객체 repr로 떨어졌다. CPython은
   `BaseException_repr` (`Objects/exceptions.c:131`, `tp_repr`로 설치된 자리는 `:458`)이
   타입 이름을 쓰고 인자를 나열하며, 서브클래스도 같은 repr를 쓴다. L2.3에서 `BaseException`의
   `__repr__`를 `TypeDict`에 등록하고 `PyClassInstance.ToRepr()`가 MRO의 내장 층에서 그
-  슬롯을 타도록 고쳤다 (`core/PyType.cs`, `type/PyClass.cs`). 고정:
-  `tests/bughunt/p100_exit_fields.py`.
+  슬롯을 타도록 고쳤다 (`core/PyType.cs`, `type/PyClass.cs`). 다만 L2.3 시점에는 그것만으로는
+  부족했다. `raise K('z')`로 잡은 객체에서 `args`는 `('z',)`인데 `repr`은 `K()`였고,
+  `X(1)`을 `__new__`으로 만들면 `args`가 `()`였다 (`BaseException_new`가 인자를 저장하는 자리를
+  SharpPy가 `__init__`에서만 하고 있었다). L2.4에서 `args`를 `__new__` 시점의 객체 슬롯으로 옮기고
+  `BaseException.__repr__`가 같은 슬롯을 읽게 했다. 고정:
+  `tests/bughunt/p100_exit_fields.py`, `tests/bughunt/p109_exception_new.py`.
 - **P0-60 내장 예외 인스턴스에 속성 대입이 안 된다.** `e = ValueError('boom'); e.note = 1` →
   CPython은 대입되고 `getattr(e, 'note')`가 `1`. SharpPy는
   `AttributeError: 'ValueError' object has no attribute 'note'`. CPython `BaseException`은
   `tp_dictoffset`을 가진다 (`Objects/exceptions.c:484`). `__notes__`(3.11+) 계열이 이 위에 올라 있다.
+  L2.4에서 같은 뿌리를 하나 더 잼: `SystemExit(1).__dict__`가 CPython은 `{}`, SharpPy는
+  `AttributeError: 'SystemExit' object has no attribute '__dict__'`다. CLR 클래스 예외는
+  `PyClassInstance`가 아니라 `__dict__` 자체가 없다.
   점검에서 `raise ... from`과 `__cause__`는 속성 대입이 실패하는 지금도 CPython과 같게
   동작하는 것을 확인했다 — 이 결함의 범위가 아니다.
 - **P0-61 내장 예외에 `__doc__`이 없다.** `ValueError.__doc__` CPython
@@ -2042,7 +2049,7 @@ getset 디스크립터로 존재해서 대입이 실제로 성공하기 때문�
 
 | 관측 | CPython | SharpPy |
 |---|---|---|
-| 프로세스 rc | `130` (Ctrl-C로 들어오면 `3221225786`) | `1` |
+| 프로세스 rc | `3221225786` | `1` |
 | traceback 위치 | stderr | stdout |
 | stdout | `body`만 | `body` 뒤에 traceback |
 
@@ -2050,6 +2057,10 @@ getset 디스크립터로 존재해서 대입이 실제로 성공하기 때문�
 `PyKeyboardInterrupt` CLR 타입 비교였다는 것이 드러났다 (`runtime/PyInterpreter.cs:141`).
 타입 기준으로 바꾼 것은 L2.3에서 함께 했다 (`PySystemExit.Matches`). 남은 것은 rc와 출력 스트림
 배치로, traceback이 stdout으로 나가는 기존 결함(P0-30 시절부터 기록)과 같은 자리다.
+
+기록 정정: 이 표의 CPython rc를 한때 `130`으로 적었다. 그 값은 Git Bash가 프로세스 상태를
+표시하면서 만든 숫자이고, 실제 프로세스 상태는 `3221225786` (`0xC000013A`, STATUS_CONTROL_C_EXIT)
+이다. `raise KeyboardInterrupt`와 실제 Ctrl-C를 나눠 적었던 설명도 취소한다 — 같은 상태다.
 
 ## P0-69 `s.upper == 'ab'.upper`가 False다 — 원인은 P0-56 (측정 2026-10-31, 미해결, L2.3에서 등록)
 
@@ -2068,3 +2079,49 @@ CPython은 컴파일 상수 `"ab"`를 한 객체로 쓰므로 수신자가 같�
 **P0-56과 같은 원인**이며, 문자열 상수 공유를 고치면 이 관측도 따라 온다. 메서드 비교 쪽에
 내용 비교를 넣으면(`ToHash`/`RichCompare`에서 `PyString`을 값으로 비교) CPython과 다른 규칙을
 만들게 되므로 넣지 않는다.
+
+## P0-70 `raise`가 만든 객체가 `except`에서 다른 객체가 된다 (측정 2026-11-01, 미해결, L2.4에서 등록)
+
+재현: `docs/plans/lifetime_foundation/probes/gap_l24_raise_identity.py` (합격 기준 밖 — 두 인터프리터가 다른 답을 낸다).
+
+| 관측 | CPython | SharpPy |
+|---|---|---|
+| `raise z` 뒤 `except Z as e: e is z` | `True` | `False` |
+| `except Exception as e: e is z` | `True` | `False` |
+| `except BaseException as e: e is z` | `True` | `False` |
+| `type(e).__name__`, `repr(e)`, `e.args` | `Z`, `Z('boom')`, `('boom',)` | 같음 (위장 성공) |
+| `w.extra = 5` 뒤 `except Z as e: e.extra` | `5` | `5` (넘어감) |
+| 같은 `w`를 다시 올려 다른 이름으로 잡았을 때 `e is w` | `True` | `False` |
+
+`runtime/PyVM.cs`의 `RAISE_VARARGS`는 사용자 예외 인스턴스를 CLR 래퍼로 감싼다.
+
+```
+runtime/PyVM.cs:5061  new PyException(customInstance.ToString(), classInst.InstanceType, classInst)
+runtime/PyVM.cs:5065  new PyException(customInstance.ToString())
+runtime/PyVM.cs:5163  new PyException(raisedUserInst.ToString(), ...)
+runtime/PyVM.cs:5249  new PyException(customInstance.ToString(), ...)
+runtime/PyVM.cs:5256  new PyException(customInstance.ToString(), ...)
+```
+
+래퍼는 `OriginalInstance`를 기억하고 `repr`/`args`/`__class__`를 그쪽으로 넘기기 때문에 대부분의
+관측은 CPython과 같아 보인다. 같아 보이지 않는 지점이 신원이다. `except ... as e`가 래퍼를 그대로
+바인딩하므로 `e is z`가 거짓이 되고, `e.__traceback__`에 대입한 것과 다음 `raise`가 보는 객체가
+어긋날 수 있다.
+
+호출자 수 (2026-11-01 `grep -ra`, `core type runtime modules Program.cs`):
+
+| 패턴 | 개수 |
+|---|---|
+| `new PyException(` | 10 (_raise_ 경로 5) |
+| `OriginalInstance` | 16 |
+| `catch (PythonException` | 144 |
+| `PythonException.PyException` 읽기 | 124 |
+
+`PythonException.PyException`의 타입은 `PyBaseException`이다 (`core/PyException.cs:995`). 사용자를
+그대로 올리려면 heap 예외 클래스의 인스턴스가 CLR에서도 `PyBaseException`이어야 한다 —
+`PyClassInstance`와 `PyBaseException`이 두 CLR 계보로 나뉘어 있는 한 감싸기를 없애는 것은
+표현 통합 작업이다. L2.4가 표에서 약속한 대로, 이 항목은 감싸기를 유지한 채 관측되는 결함
+(`raise ... from`, `with_traceback`, `code`/`args` 슬롯, `repr`)만 고치고 신원은 별도 항목으로 남긴다.
+
+CPython 앵커: `Python/ceval.c` `do_raise`는 만든 객체를 그대로 올리고, `Python/errors.c:207
+_PyErr_SetObject`는 받은 객체에 `__context__`/`__cause__`를 설정만 한다. 새 객체를 만들지 않는다.

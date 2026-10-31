@@ -4998,10 +4998,16 @@ namespace SharpPy
                         var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
 
                         // Handle exc - could be a type or an instance
-                        PyException excInstance;
-                        if (exc is PyException pyExc2)
+                        // _PyErr_SetObject (Python/errors.c:207) uses the object it was handed. The
+                        // test used to be PyException, which is a CLR class for the builtin family,
+                        // so SystemExit, KeyboardInterrupt, GeneratorExit and BaseException - direct
+                        // derivatives of PyBaseException - fell through to the wrapper below and came
+                        // back as "Exception: 3" with rc 1 instead of a status of 3
+                        // (probes/l24_raise_from.py).
+                        PyBaseException excInstance;
+                        if (exc is PyBaseException pyExc2)
                         {
-                            // Already a PyException instance
+                            // Already an exception object; raise that object.
                             excInstance = pyExc2;
                         }
                         else if (exc is PyType pyType)
@@ -5076,8 +5082,9 @@ namespace SharpPy
                             excInstance.__context__ = handledException;
                         }
 
-                        // Set __cause__ attribute (explicit chaining)
-                        if (cause is PyException causeExc)
+                        // Set __cause__ attribute (explicit chaining). Any BaseException is a legal
+                        // cause, not only the builtin family (Python/errors.c:207-:235).
+                        if (cause is PyBaseException causeExc)
                         {
                             excInstance.__cause__ = causeExc;
                             excInstance.__suppress_context__ = true;
