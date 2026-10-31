@@ -81,7 +81,7 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 | 완료 | **P0-50** | `Live` 슬롯, `__del__` 바인딩, `__del__ = None` (L1, 2026-10-31) | 로컬 AI | p92, p93 |
 | 완료 | L2 | ReferenceError, atexit (2026-10-31, 문서: reports/2026-10-31/atexit_before_the_guards.md) | 로컬 AI | p95 |
 | 완료 | L2.1 | L2 점검 결과: `unregister` 비교, 재진입, 인자 검사, 기록 정정 (2026-10-31, 문서: reports/2026-10-31/atexit_edges_and_corrections.md) | 로컬 AI | p89 |
-| 진행 중 | L2.2 | 기록 정정 **완료** (P0-59~64 재현 파일 임), `sys.exit` 코드 **완료** (P0-53, p91, 문서: reports/2026-10-31/the_exit_code_arrives.md), bound method `==` (P0-54) 남음 | 로컬 AI | p91 완료, p90 예정 |
+| 완료 | L2.2 | 네 건 다 낌: 기록 정정 (P0-59~64 재현 파일 임), P0-53 `sys.exit` 코드 (p91, reports/2026-10-31/the_exit_code_arrives.md), P0-54 bound method `==` 와 빌트인 ꯔ (p90, reports/2026-10-31/a_bound_method_equals_itself.md) | 로컬 AI | 96 → 98 probes |
 | C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
 | L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |

@@ -637,6 +637,36 @@ public partial class PyFunction : PyObject, IDescriptor
         public override PyType GetPyType() => PyType.MethodType; // CPython 3.12: bound method type
         public override string GetTypeName() => "method";
 
+        /// <summary>
+        /// method_richcompare (Objects/classobject.c:245). Only two bound methods compare, and only
+        /// for == and != (:251-:256); the function is compared with == (:259) and the receiver by
+        /// identity (:261). An instance's own __eq__ therefore cannot make two bindings equal, and
+        /// o.f == Weird().f stays False.
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyMethod bound))
+                return PyNotImplemented.Instance;
+            // PyObject_RichCompareBool: the very same object is equal without calling anything, and
+            // an exception from __eq__ propagates instead of becoming False.
+            bool equal = ReferenceEquals(Function, bound.Function) ||
+                PyObject.Compare(Function, bound.Function, CompareOp.EQ).IsTrue();
+            if (equal) equal = ReferenceEquals(Instance, bound.Instance);
+            return op == CompareOp.EQ ? PyBool.FromBool(equal) : PyBool.FromBool(!equal);
+        }
+
+        /// <summary>
+        /// method_hash (Objects/classobject.c:299): the receiver hashed as an address (:303) mixed
+        /// with the function's own hash (:304-:307). PyObjectId is this interpreter's stable identity
+        /// number, so two bindings of the same function to the same receiver hash equal - which is
+        /// what makes {o.f: 1}[o.f] work - while different receivers hash apart.
+        /// </summary>
+        public override int ToHash()
+        {
+            var self = PyObjectId.Of(Instance);
+            return (int)(self ^ (self >> 32)) ^ Function.ToHash();
+        }
+
         // CPython 3.12 호환: kwargs 지원 버전
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
@@ -704,6 +734,32 @@ public partial class PyFunction : PyObject, IDescriptor
 
         public override PyType GetPyType() => PyType.FunctionType;
         public override string GetTypeName() => "builtin_function_or_method";
+
+        /// <summary>
+        /// meth_richcompare (Objects/methodobject.c:292). Two builtin methods are equal when the
+        /// receivers are the same object (:306) and they wrap the same C function (:308); nothing
+        /// else compares (:298-:303). Measured: l.append == l.append is True, while
+        /// l.append == l.extend and l.append == print are False.
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyBuiltinBoundMethod bound))
+                return PyNotImplemented.Instance;
+            bool equal = ReferenceEquals(Instance, bound.Instance) &&
+                ReferenceEquals(BuiltinFunction, bound.BuiltinFunction);
+            return op == CompareOp.EQ ? PyBool.FromBool(equal) : PyBool.FromBool(!equal);
+        }
+
+        /// <summary>
+        /// meth_hash (Objects/methodobject.c:316): the function part xored with the receiver's hash.
+        /// The receiver enters by identity because that is what equality reads, so a method can be
+        /// used as a dict key across lookups: {l.append: 1}[l.append] is 1.
+        /// </summary>
+        public override int ToHash()
+        {
+            var self = PyObjectId.Of(Instance);
+            return (int)(self ^ (self >> 32)) ^ BuiltinFunction.ToHash();
+        }
 
         // CPython 3.12 호환: kwargs 지원 버전
         public override PyObject Call(PyObject[] args, PyDict kwargs)

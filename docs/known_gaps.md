@@ -1851,7 +1851,7 @@ Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 �
 쓰고 깊이 제한 검사가 그보다 늦다. 해결이 호스트 스택에 달려 있어 Godot 메인 스레드까지 함께 판단해야 한다.
 재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py depth 100`.
 
-## P0-54 ~ P0-56 기존 표면 결함 (측정 2026-10-31, 미해결, 담당 로컬 AI L5)
+## P0-55 ~ P0-56 기존 표면 결함 (측정 2026-10-31, 미해결, 담당 로컬 AI L5)
 
 `d95c129`부터 있던 결함이다. 재현: `plans/lifetime_foundation/probes/gap_outside_lifetime.py`.
 
@@ -1874,11 +1874,35 @@ Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 �
   (`BaseException` 상속). 덕분에 `ExceptionGroup('m', [KeyboardInterrupt()])` 경로도 열렸다.
 - L2에서 미룬 확인: atexit 콜백은 그대로 돌고, 콜백 안의 `sys.exit(5)`는 종료 코드를 바꾸지 않는다
   (상태는 teardown 전에 결정되고, 콜백의 예외는 `Exception ignored in atexit callback`로 보고).
-- **P0-54** `o.m == o.m`이 False다. (L2.2에서 진행 — `Objects/classobject.c` `method_richcompare`)
 - **P0-55** `x.__class__ = T`가 조용히 무시된다. `type(x)`, 메서드, `__del__`이 그대로다.
 - **P0-56** `is` 불일치: `200 + 56 is 256`, `"" is "a"[1:]`, `"a" is "abc"[0]`, `b"" is b"a"[1:]`,
   `tuple(t) is t`, `str(s) is s`, `() is tuple()`, `f.__name__ is f.__name__`. `id`와 `is`는 서로 일관되므로
   P0-47의 회귀는 아니다. P0-47 검증 잔여의 빈 튜플 세 경로와 같은 계열이다.
+
+## P0-54 바인드 메서드 동등성이 CLR 참조였다 (해결 2026-11-01, L2.2)
+
+재현: `C:/ProgramData/miniforge3/envs/sharppy-test-py312/python.exe tests/bughunt/p90_bound_method.py`.
+`o.f == o.f`가 False, `hash(o.f) == hash(o.f)`가 False, `{o.f: 1}[o.f]`가 KeyError였다.
+빌트인 쪽도 같았다 — `l.append == l.append` False, `{l.append: 1}[l.append]` KeyError
+(`.artifacts/tmp/l22_builtin_m2.py`).
+
+`PyMethod`은 `Instance`와 `Function`만 가지고 rich compare/hash 오버라이드가 없어서 두 개의
+속성 조회가 서로 다른 CLR 객체라는 이유만으로 불일치했다. CPython은 `method_richcompare`
+(`Objects/classobject.c:245`)에서 `__func__`를 `==`로 (`:259`), `__self__`를 포인터 동등으로
+(`:261`) 비교하고, `method_hash` (`:299`)는 자기 주소 해시와 함수 해시를 섞는다 (`:303`-`:307`).
+빌트인 메서드는 `meth_richcompare` (`Objects/methodobject.c:292`)가 같은 규칙을 가진다 — `m_self`
+동등 (`:306`) 뒤에 `ml_meth` 포인터 비교 (`:308`).
+
+받은 인스턴스의 `__eq__`가 비교에 개입하지 않는다는 것이 핵심이다. `w.f == w.f`는 True지만
+`o.f == Weird().f`는 False다. `atexit.unregister(o.m)`도 L2.1의 `PyObject.Compare`를 쓰기 때문에
+이 규칙이 있어야 동작한다 — 콜백이 찍는 출력으로 확인했다 (`.artifacts/tmp/l22_unreg.py`).
+
+## P0-66 `math.sqrt`의 타입 이름이 `object`다 (측정 2026-11-01, 미해결)
+
+재현: `.artifacts/tmp/l22_builtin_m2.py` — `type(math.sqrt).__name__`이 CPython은
+`builtin_function_or_method`, SharpPy는 `object`다. 비교 자체는 P0-54에서 맞춰졌고, 타입 이름과
+`type()`이 돌려주는 객체만 틀리다. `l.append`, `str.join`, `dict.keys`는 이미 맞는 이름을 돌려주므로
+math 모듈 함수 등록 경로만의 문제다. `dir()`과 `repr`은 맞으므로 P0-28 계열 표면보다 좁다.
 
 ## P0-57 weakref 자리표시자 (예약)
 

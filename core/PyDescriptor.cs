@@ -171,6 +171,27 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
 
+        /// <summary>
+        /// The same CPython object as PyBuiltinBoundMethod above, so the same slot: two bound
+        /// builtins are equal when the receiver is the same object and they wrap the same function
+        /// (Objects/methodobject.c:306-:308), and only == / != compare (:298-:303).
+        /// </summary>
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if ((op != CompareOp.EQ && op != CompareOp.NE) || !(other is PyBoundMethodDescriptor bound))
+                return PyNotImplemented.Instance;
+            bool equal = ReferenceEquals(Instance, bound.Instance) &&
+                ReferenceEquals(MethodDescriptor, bound.MethodDescriptor);
+            return op == CompareOp.EQ ? PyBool.FromBool(equal) : PyBool.FromBool(!equal);
+        }
+
+        /// <summary>meth_hash (Objects/methodobject.c:316): function part xored with the receiver.</summary>
+        public override int ToHash()
+        {
+            var self = PyObjectId.Of(Instance);
+            return (int)(self ^ (self >> 32)) ^ MethodDescriptor.ToHash();
+        }
+
         public override bool IsCallable() => true;
 
         public override PyObject Call(PyObject[] args, PyDict kwargs)
