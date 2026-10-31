@@ -413,6 +413,7 @@ public class PyModule : PyObject
             ["atexit"] = () => SharpPy.Modules.AtexitModule.CreateAtexitModule(),
             ["_string"] = () => SharpPy.Modules._StringModule.CreateStringModule(),
             ["_thread"] = () => SharpPy.Modules._ThreadModule.CreateThreadModule(),
+            ["_contextvars"] = () => SharpPy.Modules._ContextvarsModule.CreateContextvarsModule(),
             ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
 
             // OS 인터페이스 C 모듈 (cross-platform)
@@ -438,7 +439,6 @@ public class PyModule : PyObject
             // - asyncio → Lib/asyncio/ Python 모듈로 전환
             ["_sre"] = () => SharpPy.Modules._SreModule.CreateSreModule(),  // re.py가 사용
             // urllib는 Lib/urllib/ 디렉토리의 Python 모듈로 전환됨 (CPython 3.12 호환)
-            ["asyncio"] = () => CreateAsyncioModule()
 
             // 주석: 다음 모듈들은 순수 Python 모듈로 Lib/ 디렉토리에서 로드됨:
             // functools, contextlib, typing, abc, collections, json, traceback, pathlib

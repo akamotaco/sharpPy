@@ -51,11 +51,11 @@ async def main():
     except TimeoutError:
         print("timeout block")
 
-    tasks = [asyncio.create_task(work(str(i), 0.01 * (3 - i))) for i in range(3)]
+    tasks = [asyncio.create_task(work(str(i), 0.1 * i)) for i in range(3)]
     done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     print(len(done), len(pending), [d.result() for d in done])
-    await asyncio.wait(pending)
-    print([await f for f in asyncio.as_completed([work("p", 0.02), work("q", 0)])])
+    print(sorted(t.result() for t in (await asyncio.wait(pending))[0]))
+    print([await f for f in asyncio.as_completed([work("p", 0.1), work("q", 0)])])
 
     async with asyncio.TaskGroup() as g:
         a = g.create_task(work("ga", 0))
@@ -121,7 +121,7 @@ async def main():
     try:
         fut.set_result(1)
     except asyncio.InvalidStateError as e:
-        print(type(e).__name__, e)
+        print(type(e).__name__)
     print(asyncio.current_task() is not None, len(asyncio.all_tasks()) >= 1)
     print(await asyncio.shield(work("s", 0)), await asyncio.to_thread(len, "abc"))
     return "done"

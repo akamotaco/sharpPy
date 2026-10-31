@@ -2465,8 +2465,7 @@ namespace SharpPy.Generated
             var iter = ConvertAnyExpression(comp.Iter);
             var ifs = ConvertExprList(comp.Ifs);
 
-            // Note: isAsync is tracked in comp.IsAsync but not used in Comprehension constructor
-            return new Comprehension(target, iter, ifs);
+            return new Comprehension(target, iter, ifs, comp.IsAsync != 0);
         }
 
         // OBSOLETE METHODS REMOVED - These used .Value property which no longer exists

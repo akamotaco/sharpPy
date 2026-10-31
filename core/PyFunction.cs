@@ -181,6 +181,14 @@ public partial class PyFunction : PyObject, IDescriptor
                 if (self is PyFunction func)
                     return (PyObject)(func.CodeObject ?? (object)PyNone.Instance);
                 throw PyTypeError.Create("descriptor '__code__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            },
+            setter: (self, value) => {
+                // func_set_code: a code of the same closure size, and nothing else.
+                if (self is not PyFunction func || value is not PyCodeObject code)
+                    throw PyTypeError.Create("__code__ must be set to a code object");
+                if ((func.CodeObject?.FreeVars.Count ?? 0) != code.FreeVars.Count)
+                    throw PyValueError.Create("__code__ has the wrong number of free vars");
+                func.CodeObject = code;
             }
         );
 

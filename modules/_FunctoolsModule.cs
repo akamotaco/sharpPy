@@ -15,7 +15,7 @@ namespace SharpPy.Modules
 
             // 기본적인 스텁 구현만 제공
             module.ModuleDict["reduce"] = new PyBuiltinFunction("reduce", PyReduce);
-            module.ModuleDict["partial"] = new PyPartialType();
+            // partial is the class in functools.py: a type, as isinstance and asyncio need it to be.
             module.ModuleDict["cmp_to_key"] = new PyBuiltinFunction("cmp_to_key", PyCmpToKey);
 
             return module;
@@ -79,102 +79,6 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"cmp_to_key expected exactly 1 argument, got {args.Length}");
 
             return new PyCmpToKeyWrapper(args[0]);
-        }
-    }
-
-    /// <summary>
-    /// CPython 3.12: partial type - functools.partial implementation
-    /// Modules/_functoolsmodule.c: partialobject
-    /// </summary>
-    public class PyPartialType : PyObject
-    {
-        public PyPartialType() { }
-
-        public override string GetTypeName() => "partial";
-
-        public override PyObject Call(PyObject[] args, PyDict? kwargs)
-        {
-            // CPython: partial_new - requires at least one argument (the function)
-            if (args.Length == 0)
-                throw PyTypeError.Create("type 'partial' takes at least one argument");
-
-            var func = args[0];
-            var partialArgs = new PyObject[args.Length - 1];
-            Array.Copy(args, 1, partialArgs, 0, args.Length - 1);
-
-            return new PyPartial(func, partialArgs, kwargs);
-        }
-    }
-
-    /// <summary>
-    /// CPython 3.12: partial object instance
-    /// Stores a function and pre-filled arguments
-    /// </summary>
-    public class PyPartial : PyObject
-    {
-        private readonly PyObject _func;
-        private readonly PyObject[] _args;
-        private readonly PyDict? _kwargs;
-
-        public PyPartial(PyObject func, PyObject[] args, PyDict? kwargs)
-        {
-            _func = func;
-            _args = args ?? new PyObject[0];
-            _kwargs = kwargs;
-        }
-
-        public override string GetTypeName() => "partial";
-
-        public override PyObject Call(PyObject[] args, PyDict? kwargs)
-        {
-            // CPython 3.12: partial_call - merge stored args with call-time args
-            // Combine pre-filled args with new args
-            var combinedArgs = new PyObject[_args.Length + args.Length];
-            Array.Copy(_args, 0, combinedArgs, 0, _args.Length);
-            Array.Copy(args, 0, combinedArgs, _args.Length, args.Length);
-
-            // Merge kwargs (call-time kwargs override stored kwargs)
-            PyDict? combinedKwargs = null;
-            if (_kwargs != null || kwargs != null)
-            {
-                combinedKwargs = new PyDict();
-
-                // Add stored kwargs first
-                if (_kwargs != null)
-                {
-                    foreach (var kv in _kwargs.InternalDict)
-                        combinedKwargs.SetItem(kv.Key, kv.Value);
-                }
-
-                // Call-time kwargs override stored kwargs
-                if (kwargs != null)
-                {
-                    foreach (var kv in kwargs.InternalDict)
-                        combinedKwargs.SetItem(kv.Key, kv.Value);
-                }
-            }
-
-            return _func.Call(combinedArgs, combinedKwargs);
-        }
-
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "func":
-                    return _func;
-                case "args":
-                    return new PyTuple(_args);
-                case "keywords":
-                    return _kwargs ?? new PyDict();
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
-
-        public override PyString ToRepr()
-        {
-            return new PyString($"functools.partial({_func.ToRepr().Value})");
         }
     }
 

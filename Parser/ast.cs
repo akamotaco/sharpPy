@@ -4083,11 +4083,14 @@ namespace SharpPy
         public Expression Iter { get; }
         public List<Expression> Ifs { get; }
         
-        public Comprehension(Expression target, Expression iter, List<Expression>? ifs = null)
+        public bool IsAsync { get; }
+
+        public Comprehension(Expression target, Expression iter, List<Expression>? ifs = null, bool isAsync = false)
         {
             Target = target;
             Iter = iter;
             Ifs = ifs ?? new List<Expression>();
+            IsAsync = isAsync;
         }
         
         public override T Accept<T>(IASTVisitor<T> visitor)

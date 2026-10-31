@@ -573,7 +573,7 @@ namespace SharpPy
         // Helper: get_clock_info 구현
         private PyObject GetClockInfo(string name)
         {
-            // CPython의 clock_info namedtuple과 유사한 딕셔너리 반환
+            // time_get_clock_info (Modules/timemodule.c): a SimpleNamespace of these four fields.
             var info = new PyDict();
 
             switch (name)
@@ -611,7 +611,7 @@ namespace SharpPy
                     throw PyValueError.Create($"unknown clock: {name}");
             }
 
-            return info;
+            return new SharpPy.Modules.PySimpleNamespace(info);
         }
     }
 }

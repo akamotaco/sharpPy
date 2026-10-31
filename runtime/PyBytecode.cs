@@ -589,10 +589,38 @@ namespace SharpPy
             => throw PyAttributeError.Create("readonly attribute");
 
         // CPython 3.12 호환: co_* 속성들 지원
+        // code.replace (Objects/clinic/codeobject.c.h). The instructions here are objects rather than a bytes
+        // value, so only the header fields can be swapped; types.coroutine is the caller that needs it.
+        private PyObject Replace(PyObject[] args, PyDict kwargs)
+        {
+            if (args.Length != 0) throw PyTypeError.Create("replace() takes no positional arguments");
+            int flags = Flags;
+            string name = Name;
+            string? qualName = QualName;
+            if (kwargs != null)
+            {
+                foreach (var key in kwargs.Keys().Items)
+                {
+                    var value = kwargs.GetItem(key);
+                    switch (((PyString)key).Value)
+                    {
+                        case "co_flags": flags = value.ToInt(); break;
+                        case "co_name": name = ((PyString)value).Value; break;
+                        case "co_qualname": qualName = ((PyString)value).Value; break;
+                        default: throw PyValueError.Create($"code.replace() does not support {((PyString)key).Value}");
+                    }
+                }
+            }
+            return new PyCodeObject(name, Instructions, Constants, Names, VarNames, ArgCount, PosonlyArgCount,
+                KwonlyArgCount, FreeVars, CellVars, DefaultValues, KwDefaults, flags, FileName, SourceLines,
+                IsOptimized, LineNumberTable, ExceptionTable) { QualName = qualName };
+        }
+
         public override PyObject GetAttribute(string name)
         {
             return name switch
             {
+                "replace" => new PyBuiltinFunction("replace", Replace),
                 "co_flags" => new PyInt(Flags),
                 // SharpPy keeps unique internal lambda names (<lambda_N>) for the
                 // call-error mapping; CPython's co_name is the bare "<lambda>".

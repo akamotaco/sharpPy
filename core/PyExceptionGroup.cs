@@ -242,13 +242,13 @@ namespace SharpPy
             bool nestedBaseExceptions = false;
             for (int i = 0; i < items.Length; i++)
             {
-                if (!(items[i] is PyBaseException))
+                if (!(PyExceptionSlots.ToTransport(items[i]) is PyBaseException))
                     throw PyValueError.Create(
                         $"Item {i} of second argument (exceptions) is not an exception");
                 // Exception, not BaseException-only. KeyboardInterrupt/SystemExit are the
                 // BaseException-only family; this interpreter does not define those names yet,
                 // which docs/known_gaps.md tracks separately.
-                if (!(items[i] is PyException)) nestedBaseExceptions = true;
+                if (!(PyExceptionSlots.ToTransport(items[i]) is PyException)) nestedBaseExceptions = true;
             }
 
             // args is stored as given, so repr() and .args show the sequence object the caller

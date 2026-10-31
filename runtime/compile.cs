@@ -535,6 +535,7 @@ namespace SharpPy
         
         // Phase 2: 클로저 지원
         private List<string> _cellVars = new List<string>();
+        private List<string>? _inlinedComprehensionVars;
         private List<string> _freeVars = new List<string>();
         private List<ExceptionTableEntry> _exceptionTable = new List<ExceptionTableEntry>(); // CPython 3.12 Exception Table
         
@@ -757,9 +758,9 @@ namespace SharpPy
                     CompilerCallExitWithNones(loc);
                     if (info.Type == FBlockType.ASYNC_WITH)
                     {
+                        // compiler_unwind_fblock: ADD_YIELD_FROM, the same await the normal exit does.
                         EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
-                        EmitLoadConst(PyNone.Instance);
-                        EmitInstruction(ByteCodeOp.SEND);
+                        CompileYieldFrom(isAwait: true);
                     }
                     EmitInstruction(ByteCodeOp.POP_TOP);
                     loc = SourceLocation.NoLocation;
@@ -2609,6 +2610,12 @@ namespace SharpPy
                     }
                     break;
                     
+                case GeneratorExpressionBody body:
+                    CompileExpression(new NameExpression(".0"));
+                    CompileSyncComprehensionGenerator(body.Expression.Generators, 0, 0, body.Expression.Element, null,
+                        ComprehensionType.GenExp, null, iterOnStack: true);
+                    break;
+
                 case YieldStatement yield:
                     if (yield.Value != null)
                         CompileExpression(yield.Value);
@@ -5742,19 +5749,22 @@ namespace SharpPy
             #endif
             
             // 1. 자유 변수 분석 (동일한 방식으로 분석)
-            var analyzer = new FreeVariableAnalyzer();
-            #if DEBUG_LOG
-            Console.WriteLine($"  DEBUG: Current _varNames: [{string.Join(", ", _varNames)}]");
-            #endif
-            var (freeVars, cellVars) = analyzer.AnalyzeAsyncFunction(asyncFunc, _varNames);
-            
-            #if DEBUG_LOG
-            Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
-            #endif
-            
+            // The same scope analysis a def gets. The syntactic walk this replaced did not see through await
+            // or comprehensions, so a coroutine lost the free variables they named.
+            var scope = _symbolTableBuilder?.LookupSymbolTable(asyncFunc);
+            List<string> freeVars, cellVars;
+            if (scope != null)
+            {
+                freeVars = new List<string>(scope.FindFreeVariables());
+                cellVars = new List<string>(scope.FindCellVariables());
+                foreach (var nested in CollectNestedFreeVariables(scope))
+                    if (!freeVars.Contains(nested) && !cellVars.Contains(nested)) freeVars.Add(nested);
+            }
+            else
+            {
+                (freeVars, cellVars) = new FreeVariableAnalyzer().AnalyzeAsyncFunction(asyncFunc, _varNames);
+            }
+
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments)
             var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
 
@@ -5781,37 +5791,10 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
             }
 
-            // 8. 클로저가 있으면 셀 변수들을 스택에 로드
-            // Performance: Eliminated LINQ
-            if (freeVars.Count > 0)
-            {
-                foreach (var freeVar in freeVars)
-                {
-                    if (_varNames.Contains(freeVar))
-                    {
-                        // Local variable in enclosing scope
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, _varNames.IndexOf(freeVar));
-                    }
-                    else
-                    {
-                        // Could be in enclosing function's free vars
-                        EmitLoadName(freeVar);
-                    }
-                }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
-            }
-
-            // 9. 코드 객체를 상수로 로드 (마지막에 - 스택 맨 위가 됨)
-            EmitLoadConst(codeObject);
-
-            // 10. MAKE_FUNCTION 명령어 생성 (CPython 3.12와 동일한 플래그)
-            // Performance: Eliminated LINQ
+            // The same closure and MAKE_FUNCTION a def gets; the code flags tell a coroutine apart.
             if (annotations.Count > 0) makeFlags |= 0x04; // HAS_ANNOTATIONS (CPython 3.12)
-            if (freeVars.Count > 0) makeFlags |= 0x08;  // CO_HAS_CLOSURE
-            // async 함수도 일반 MAKE_FUNCTION 사용, 코드 객체의 CO_COROUTINE 플래그로 구분
-            
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFlags);
-            
+            CompilerMakeClosure(codeObject, freeVars, makeFlags);
+
             // 9. 함수를 변수에 저장
             EmitStoreName(asyncFunc.BindName);
             
@@ -11066,7 +11049,7 @@ namespace SharpPy
                     CompileExpression(firstGenerator.Iter);
                 }
 
-                EmitInstruction(ByteCodeOp.GET_ITER);
+                EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
             }
             // 첫 번째 generator가 단일 요소인 경우: GET_ITER 생성 안함
 
@@ -11238,7 +11221,7 @@ namespace SharpPy
             Expression elt,
             Expression? val,
             ComprehensionType type,
-            List<string> comprehensionVars,
+            List<string>? comprehensionVars,
             bool iterOnStack)
         {
             #if DEBUG_LOG
@@ -11268,7 +11251,7 @@ namespace SharpPy
                     Console.WriteLine($"  📦 Compiling iterator expression for generator[{genIndex}]");
                     #endif
                     CompileGeneratorIterable(gen.Iter);
-                    EmitInstruction(ByteCodeOp.GET_ITER);
+                    EmitInstruction(gen.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
                 }
             }
 
@@ -11281,14 +11264,26 @@ namespace SharpPy
                 // CPython: USE_LABEL(c, start)
                 _instructionSequence.UseLabel(startLabel);
 
-                // CPython: ADDOP_JUMP(c, loc, FOR_ITER, anchor)
-                _instructionSequence.AddOpWithLabel(
-                    ByteCodeOp.FOR_ITER,
-                    anchorLabel,
-                    _currentLineNumber,
-                    _currentColumnOffset,
-                    _currentFileName
-                );
+                if (gen.IsAsync)
+                {
+                    // compiler_async_comprehension_generator differs in the loop's head and its end only.
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, anchorLabel,
+                        _currentLineNumber, _currentColumnOffset, _currentFileName);
+                    EmitInstruction(ByteCodeOp.GET_ANEXT);
+                    CompileYieldFrom(isAwait: true);
+                    EmitInstruction(ByteCodeOp.POP_BLOCK);
+                }
+                else
+                {
+                    // CPython: ADDOP_JUMP(c, loc, FOR_ITER, anchor)
+                    _instructionSequence.AddOpWithLabel(
+                        ByteCodeOp.FOR_ITER,
+                        anchorLabel,
+                        _currentLineNumber,
+                        _currentColumnOffset,
+                        _currentFileName
+                    );
+                }
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  🔁 FOR_ITER with label, depth now {depth}");
@@ -11360,9 +11355,7 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.MAP_ADD, depth + 1);
                         break;
                     case ComprehensionType.GenExp:
-                        CompileExpression(elt);
-                        EmitInstruction(ByteCodeOp.YIELD_VALUE);
-                        EmitInstruction(ByteCodeOp.POP_TOP);
+                        CompileStatement(new YieldStatement(elt));
                         break;
                 }
             }
@@ -11387,7 +11380,7 @@ namespace SharpPy
 
                 // CPython: USE_LABEL(c, anchor); ADDOP(c, NO_LOCATION, END_FOR)
                 _instructionSequence.UseLabel(anchorLabel);
-                EmitInstruction(ByteCodeOp.END_FOR, 0);
+                EmitInstruction(gen.IsAsync ? ByteCodeOp.END_ASYNC_FOR : ByteCodeOp.END_FOR, 0);
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  🔚 END_FOR at anchor label");
@@ -11620,7 +11613,7 @@ namespace SharpPy
                     CompileExpression(firstGenerator.Iter);
                 }
 
-                EmitInstruction(ByteCodeOp.GET_ITER);
+                EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
             }
 
             // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)
@@ -11914,7 +11907,7 @@ namespace SharpPy
 
             // 먼저 첫 번째 generator의 iterable 로드
             CompileExpression(firstGenerator.Iter);
-            EmitInstruction(ByteCodeOp.GET_ITER);
+            EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
 
             // CPython 3.12: LOAD_FAST_AND_CLEAR (allVars 사용)
             foreach (var varName in allVars)  // allVars = loop vars + walrus vars
@@ -12006,6 +11999,15 @@ namespace SharpPy
         /// PEP 709 - Generator expression 바이트코드 인라인 최적화
         /// (expr for var in iterable if condition) → 제너레이터 함수 생성
         /// </summary>
+        /// <summary>The body of a generator expression's code object.</summary>
+        private sealed class GeneratorExpressionBody : Statement
+        {
+            public override string NodeType => "GeneratorExpressionBody";
+            internal GeneratorExpression Expression { get; }
+            internal GeneratorExpressionBody(GeneratorExpression expression) { Expression = expression; }
+            public override PyObject Evaluate(PyScope scope) => throw new NotSupportedException();
+        }
+
         private void CompileGeneratorExpression(GeneratorExpression genExp)
         {
             #if DEBUG_LOG
@@ -12076,64 +12078,14 @@ namespace SharpPy
 
             // 다중 for 루프 지원: 모든 generators 처리
             var outerGenerator = genExp.Generators[0];
-            var outerTargetName = outerGenerator.Target is NameExpression nameExpr ? nameExpr.Name : "x";
-
-            // CPython 3.12 패턴: .0 iterator를 받아서 직접 FOR 루프 실행
-            var iteratorExpr = new NameExpression(".0"); // .0 매개변수 (이미 iterator)
-
-            // 중첩된 for 루프 생성 (안쪽부터)
-            Statement innerMostStatement = new YieldStatement(genExp.Element);
-
-            // 모든 조건문을 수집 (CPython 3.12: 조건문은 전체 expression에 적용)
-            var allConditions = new List<Expression>();
-            foreach (var generator in genExp.Generators)
-            {
-                allConditions.AddRange(generator.Ifs);
-            }
-
-            // 조건문이 있으면 yield를 if문으로 감싸기
-            if (allConditions.Count > 0)
-            {
-                // 모든 조건을 AND로 연결
-                Expression combinedCondition = allConditions[0];
-                for (int j = 1; j < allConditions.Count; j++)
-                {
-                    combinedCondition = new BoolOpExpression(
-                        And.Instance,
-                        new List<Expression> { combinedCondition, allConditions[j] }
-                    );
-                }
-
-                innerMostStatement = new IfStatement(
-                    combinedCondition,
-                    new List<Statement> { innerMostStatement },
-                    null
-                );
-            }
-
-            // 역순으로 for 루프를 중첩 구성 (가장 안쪽부터)
-            for (int i = genExp.Generators.Count - 1; i >= 0; i--)
-            {
-                var generator = genExp.Generators[i];
-
-                // for문의 바디는 현재까지 구성된 innerMostStatement
-                var forBody = new List<Statement> { innerMostStatement };
-
-                // 첫 번째 generator는 .0을 사용, 나머지는 각자의 iterable 사용
-                Expression iterableExpr = (i == 0) ? iteratorExpr : generator.Iter;
-
-                // CPython 3.12: Target expression을 그대로 사용 (tuple unpacking 지원)
-                innerMostStatement = new ForStatement(generator.Target, iterableExpr, forBody);
-            }
-
-            // CPython 3.12: 최종 generator statement
-            var genStatements = new List<Statement> { innerMostStatement };
+            // compiler_comprehension: the same generator loops as the other comprehensions, over the .0 argument.
+            var genStatements = new List<Statement> { new GeneratorExpressionBody(genExp) };
 
             // CPython 3.12: 제너레이터 표현식은 iterator를 .0 매개변수로 받음
             var parameters = new List<string> { ".0" };  // 매개변수는 .0 하나
             var defaults = new List<PyObject>();  // 기본값 없음
             var kwDefaults = new List<PyObject>();  // keyword-only defaults 없음
-            var flags = PyCodeObject.CO_GENERATOR;  // CO_GENERATOR 플래그 설정
+            var flags = genSymbolTable.IsCoroutine ? PyCodeObject.CO_ASYNC_GENERATOR : PyCodeObject.CO_GENERATOR;
 
             // Get free variables and cell variables from the genexpr symbol table
             var genFreeVars = genSymbolTable.FindFreeVariables();
@@ -12185,7 +12137,7 @@ namespace SharpPy
 
             // CPython 3.12: 중첩된 generator expression의 경우 이미 CALL이 되어 generator 반환됨
             // 그 generator를 GET_ITER로 iterator화 해야 함
-            EmitInstruction(ByteCodeOp.GET_ITER);  // iterator 생성 (generator도 iterable이므로 GET_ITER 필요)
+            EmitInstruction(outerGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);  // iterator 생성 (generator도 iterable이므로 GET_ITER 필요)
             EmitInstruction(ByteCodeOp.CALL, 0);  // 제너레이터 함수 호출 (iterator는 특별 처리)
             
             #if DEBUG_LOG
@@ -12354,6 +12306,10 @@ namespace SharpPy
         {
             switch (target)
             {
+                case NameExpression name when _inlinedComprehensionVars != null:
+                    EmitStoreComprehensionVar(name.Name, _inlinedComprehensionVars);
+                    break;
+
                 case NameExpression name:
                     EmitStoreName(name.Name);
                     break;
@@ -12767,65 +12723,16 @@ namespace SharpPy
         #region Nested Tuple Unpacking Helper Methods
 
         /// <summary>
-        /// Recursively compile comprehension target with support for nested tuple unpacking
+        /// compiler_sync_comprehension_generator: VISIT(c, expr, gen->target), an ordinary assignment target. The
+        /// names of an inlined comprehension live in its enclosing frame, so they store by comprehensionVars; a
+        /// generator expression is a scope of its own and passes null.
         /// </summary>
-        private void CompileComprehensionTarget(Expression target, List<string> comprehensionVars)
+        private void CompileComprehensionTarget(Expression target, List<string>? comprehensionVars)
         {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 CompileComprehensionTarget called with: {target.GetType().Name}");
-            #endif
-
-            if (target is NameExpression nameExpr)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"    → Name: {nameExpr.Name}");
-                #endif
-                EmitStoreComprehensionVar(nameExpr.Name, comprehensionVars);
-            }
-            else if (target is TupleExpression tupleExpr)
-            {
-                // Check for wrapper tuple - single element tuple containing another tuple
-                if (tupleExpr.Elements.Count == 1 && tupleExpr.Elements[0] is TupleExpression innerTuple)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"    → Detected wrapper tuple, unwrapping inner tuple with {innerTuple.Elements.Count} elements");
-                    #endif
-                    // Skip the wrapper and process the inner tuple directly
-                    CompileComprehensionTarget(innerTuple, comprehensionVars);
-                    return;
-                }
-
-                #if DEBUG_LOG
-                Console.WriteLine($"    → Tuple with {tupleExpr.Elements.Count} elements:");
-                for (int i = 0; i < tupleExpr.Elements.Count; i++)
-                {
-                    var elem = tupleExpr.Elements[i];
-                    Console.WriteLine($"      [{i}]: {elem.GetType().Name} - {elem}");
-                    if (elem is TupleExpression innerTupleDebug)
-                    {
-                        Console.WriteLine($"          Inner tuple has {innerTupleDebug.Elements.Count} elements");
-                    }
-                    else if (elem is NameExpression innerName)
-                    {
-                        Console.WriteLine($"          Inner name: {innerName.Name}");
-                    }
-                }
-                Console.WriteLine($"    → Emitting UNPACK_SEQUENCE {tupleExpr.Elements.Count}");
-                #endif
-
-                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tupleExpr.Elements.Count);
-
-                // Process each element - may be names or nested tuples
-                foreach (var element in tupleExpr.Elements)
-                {
-                    // Recursively call this method for each element
-                    CompileComprehensionTarget(element, comprehensionVars);
-                }
-            }
-            else
-            {
-                throw PyRuntimeError.Create($"Unsupported comprehension target type: {target.GetType().Name}");
-            }
+            var saved = _inlinedComprehensionVars;
+            _inlinedComprehensionVars = comprehensionVars;
+            CompileAssignmentTarget(target);
+            _inlinedComprehensionVars = saved;
         }
 
         /// <summary>
@@ -12846,6 +12753,21 @@ namespace SharpPy
                 {
                     CollectComprehensionVars(element, comprehensionVars);
                 }
+            }
+            else if (target is ListExpression listExpr)
+            {
+                foreach (var element in listExpr.Elements)
+                {
+                    CollectComprehensionVars(element, comprehensionVars);
+                }
+            }
+            else if (target is StarredExpression starred)
+            {
+                CollectComprehensionVars(starred.Value, comprehensionVars);
+            }
+            else if (target is StarExpression star)
+            {
+                CollectComprehensionVars(star.Value, comprehensionVars);
             }
         }
 

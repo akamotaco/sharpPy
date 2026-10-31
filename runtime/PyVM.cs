@@ -5023,19 +5023,18 @@ namespace SharpPy
                     frame.ValueStack.Push(val);
 
                     // CPython bytecodes.c:2545-2546: Call __exit__(exc_type, val, tb)
-                    bool suppressException = false;
+                    PyObject exitOutcome = PyBool.False;
                     if (exit_func?.IsCallable() == true)
                     {
                         try
                         {
-                            var exitResult = exit_func.Call(new PyObject[] {
+                            // The result goes on the stack as it is. In async with it is the awaitable
+                            // __aexit__ returned, and only the jump after it asks for truth.
+                            exitOutcome = exit_func.Call(new PyObject[] {
                                 exc_type,
                                 val,
                                 exc_tb
                             }, null);
-
-                            // Convert result to boolean
-                            suppressException = exitResult.AsBool() == PyBool.True;
 
                             #if DEBUG_LOG
                             Console.WriteLine($"✅ WITH_EXCEPT_START: __exit__ returned {exitResult} (suppress={suppressException})");
@@ -5060,7 +5059,7 @@ namespace SharpPy
 
                     // CPython bytecodes.c: Restore stack and push result
                     // Stack after: [..., exit_func, lasti, unused, val, res]
-                    frame.ValueStack.Push(PyBool.FromBool(suppressException));
+                    frame.ValueStack.Push(exitOutcome);
 
                     // DEBUG: 스택 상태 확인
                     #if DEBUG_LOG
@@ -7233,6 +7232,7 @@ namespace SharpPy
         private PyObject StopIterationError(PyObject exc)
         {
             // CPython: assert(PyExceptionInstance_Check(exc))
+            exc = PyExceptionSlots.ToTransport(exc);
             if (exc is not PyBaseException exception)
             {
                 throw new InvalidOperationException("INTRINSIC_STOPITERATION_ERROR requires an exception instance");

@@ -745,6 +745,24 @@ namespace SharpPy
                     }
                     break;
 
+                // async for and async with bind and nest exactly as their plain forms do.
+                case AsyncForStatement asyncFor:
+                    AnalyzeExpression(asyncFor.Iter);
+                    _currentTable?.DefineSymbol(asyncFor.Target, SymbolFlags.Assigned);
+                    foreach (var stmt in asyncFor.Body) AnalyzeStatement(stmt);
+                    if (asyncFor.ElseClause != null)
+                        foreach (var stmt in asyncFor.ElseClause) AnalyzeStatement(stmt);
+                    break;
+
+                case AsyncWithStatement asyncWith:
+                    foreach (var item in asyncWith.Items)
+                    {
+                        AnalyzeExpression(item.ContextExpr);
+                        if (item.OptionalVars != null) DefineTargetSymbols(item.OptionalVars, SymbolFlags.Assigned);
+                    }
+                    foreach (var stmt in asyncWith.Body) AnalyzeStatement(stmt);
+                    break;
+
                 case WithStatement withStmt:
 #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: WithStatement in scope '{_currentTable?.GetName()}'");
@@ -1907,6 +1925,11 @@ namespace SharpPy
                     AnalyzeSetComprehension(setComp);
                     break;
 
+                case AwaitExpression awaitExpr:
+                    AnalyzeExpression(awaitExpr.Value);
+                    if (_currentTable != null) _currentTable.IsCoroutine = true;
+                    break;
+
                 case YieldExpression yieldExpr:
                     // CPython 3.12: symtable.c:2108-2114 - Set ste_generator flag
                     if (_currentTable != null)
@@ -2131,6 +2154,9 @@ namespace SharpPy
             {
                 _currentTable.IsGenerator = true;
             }
+
+            // symtable_handle_comprehension, symtable_visit_comprehension: any async clause makes a coroutine.
+            if (generators.Exists(g => g.IsAsync)) _currentTable.IsCoroutine = true;
 
             // CPython 3.12: Outermost iter is received as an implicit argument (line 2579-2582)
             _currentTable.DefineSymbol(".0", SymbolFlags.Parameter | SymbolFlags.Assigned);
@@ -2391,6 +2417,14 @@ namespace SharpPy
                     {
                         AnalyzeComprehensionTarget(element);
                     }
+                    break;
+
+                case StarredExpression starred:
+                    AnalyzeComprehensionTarget(starred.Value);
+                    break;
+
+                case StarExpression star:
+                    AnalyzeComprehensionTarget(star.Value);
                     break;
 
                 default:
