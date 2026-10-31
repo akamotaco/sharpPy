@@ -83,6 +83,7 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 | 완료 | L2.1 | L2 점검 결과: `unregister` 비교, 재진입, 인자 검사, 기록 정정 (2026-10-31, 문서: reports/2026-10-31/atexit_edges_and_corrections.md) | 로컬 AI | p89 |
 | 완료 | L2.2 | 네 건 다 끝냄: 기록 정정 (P0-59~64 재현 파일을 저장소로 옮김), P0-53 `sys.exit` 코드 (p91, reports/2026-10-31/the_exit_code_arrives.md), P0-54 bound method `==` 와 빌트인 메서드 비교 (p90, reports/2026-10-31/a_bound_method_equals_itself.md) | 로컬 AI | 96 → 98 probes |
 | 완료 | L2.3 | L2.2 점검 결과 다섯 개: 종료 상태를 teardown 전에 확정, `code`를 저장 필드로, 예외 서브클래스 repr/생성자 (`KeyboardInterrupt` 포함), `method` 생성자와 `__func__`/`__self__`/`__name__`/repr/compare/hash, 그리고 메시지 스트림을 현재 `sys.stderr`로 (p100~p104, reports/2026-10-31/the_exit_state_is_fixed_first.md) | 로컬 AI | 98 → 103 probes |
+| L2.4 | | L2.3 점검 결과: `code`/`args` 슬롯, `__new__`의 `args`, `sys.stderr` 쓰기 호출, `raise ... from`과 `with_traceback`, REPL 종료, `__qualname__` (C1 전) | 로컬 AI | p107~p117 |
 | C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
 | L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |

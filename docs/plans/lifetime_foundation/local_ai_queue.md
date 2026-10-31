@@ -187,7 +187,7 @@ L2.1 점검 기준 게이트: bughunt 96/96, evaluate 225/3/2, similarity exit 0
 **P0-55, P0-56은 C1 뒤로 둔다.** P0-55는 생성 시점에 등록되는 가드(`PyFinalizer.RegisterIfDeclared`)와 얽히고,
 P0-56은 할당 경로를 바꿔서 C1의 H3 비용 측정 기준을 흔든다.
 
-## L2.3 — 지금 할 일 (L2.2 점검 결과, C1 전)
+## L2.3 — 완료 (C1 전)
 
 L2.2는 끝났다 (`1fcb91d`, `7f09ef8`, `5c33807`). 점검 기준 게이트: bughunt 98/98, similarity exit 0. 합격 프로브를
 통과한 뒤에도 아래 결함이 남았다. **아래를 커밋 하나로 하고 멈춘다.** 경계는 L2.2와 같다
@@ -241,6 +241,108 @@ L2.2는 끝났다 (`1fcb91d`, `7f09ef8`, `5c33807`). 점검 기준 게이트: bu
 - `s.upper == 'ab'.upper`: 같은 내용의 문자열이 같은 객체인지부터 재고, P0-56과 같은 원인인지 적는다. 측정 전에는 가설이다.
 
 **번호.** `p90`, `p91`은 L2.2가 썼다. `todo.md`에서 예약된 번호였으므로, 앞으로는 쓰기 전에 `docs/plans`에서 번호를 검색한다.
+
+## L2.4 — 지금 할 일 (L2.3 점검 결과, C1 전)
+
+L2.3은 끝났다 (`d37e363`). 점검 기준 게이트: bughunt 103/103, evaluate 225/3/2, similarity exit 0, Godot 82/0.
+게이트와 인수 프로브를 통과한 뒤에도 아래 결함이 남았다. 일부는 L2.3이 만들었다. 예를 들어 `code` 조회가 실패하면
+rc 1이어야 하는데 이제 rc 0이고, `code`를 property로 덮은 서브클래스는 생성에서 실패한다.
+
+**커밋은 둘이다.** 1~8번을 하나로, 9번을 하나로 한다. 끝나면 멈춘다. 경계는 L2.2와 같다
+(`core/PyFinalizer.cs`, `modules/AtexitModule.cs` 금지). 고쳐야만 될 것처럼 보이면 멈추고 보고한다.
+
+**합격.** `--filter l24_`의 `l24_*.py` 11개 일치, `l23_*.py` 5개 유지, 게이트 통과. `--filter`는 부분 문자열이라 `gap_l23_*`, `gap_l24_*`도 잡히지만 합격 기준 밖이다. 프로브는 이미 CPython 3.12.15에서 확인했고
+지금 SharpPy에서는 11개 모두 다르다. 고치면 안 된다. 틀렸다고 생각되면 멈추고 보고한다. 사본:
+
+| 프로브 | 사본 | rc | 코드 |
+|---|---|---|---|
+| `l24_exit_lookup.py` | `p107_exit_lookup.py` | 1 | 1 |
+| `l24_exit_code_slot.py` | `p108_exit_code_slot.py` | 5 | 2, 3 |
+| `l24_exception_new.py` | `p109_exception_new.py` | 0 | 4, 5 |
+| `l24_write_empty.py` | `p110_write_empty.py` | 1 | 6 |
+| `l24_write_newline.py` | `p111_write_newline.py` | 1 | 6 |
+| `l24_write_bad_str.py` | `p112_write_bad_str.py` | 1 | 6 |
+| `l24_write_huge.py` | `p113_write_huge.py` | 4294967295 | 6 |
+| `l24_write_raises.py` | `p114_write_raises.py` | 1 | 6 |
+| `l24_raise_from.py` | `p115_raise_from.py` | 3 | 7 |
+| `l24_raise_from_msg.py` | `p116_raise_from_msg.py` | 1 | 7 |
+| `l24_qualname.py` | `p117_qualname.py` | 0 | 9 |
+
+`p105`, `p106`은 예약 번호이므로 쓰지 않는다.
+
+**코드.**
+
+1. **`code` 조회 실패** (`core/FileExecutor.cs`의 `ReportExitState`). 지금은 `code = null`이 `StatusOfCode`에서 None이 되어
+   rc 0이다. 주석의 "writer로 넘어간다"와 다르다. CPython은 예외 객체 자체를 쓰고 1을 낸다
+   (`Python/pythonrun.c:732`~`:744`).
+2. **`code`와 `args`를 슬롯으로 저장한다.** 지금은 `self.SetAttribute("code", ...)`와 `InstanceDict`를 쓴다. 그래서 사용자
+   `__setattr__`이 불리고, 읽기 전용 property가 생성을 막고, `__dict__`에 두 이름이 보이고, 클래스 속성 `code = 5`가 무시된다.
+   `InstanceDict`의 예약 키로 풀지 않는다. `e.__dict__['code'] = 9`가 `.code`를 바꾸면 안 된다.
+   **모든 `PyClassInstance`에 필드를 더하지 않는다.** C1의 H3 비용 측정 기준이 움직인다. 예외 인스턴스에만 비용이
+   들게 할 방법이 없으면 멈추고 보고한다.
+3. **`SystemExit.__init__(e)`는 `code`를 건드리지 않는다.** 인자가 없으면 `args`만 바뀐다
+   (`SystemExit_init`, `Objects/exceptions.c:640`). `PySystemExit.CodeForArgs`의 주석도 이 규칙으로 고친다. 그 함수의
+   None은 필드의 초기값일 뿐이다.
+4. **`args`는 `__new__`에서 저장한다** (`BaseException_new`, `Objects/exceptions.c:56`). 지금은 `super().__init__`을 부르지
+   않는 `__init__`이면 `args`가 `()`다. 키워드 인자는 `args`에 들어가지 않고 거부되지도 않는다. `SystemExit.__new__`,
+   `BaseException.__new__(ValueError, 1, 2)`처럼 직접 부르는 경로도 된다. 예외 생성은 뜨거운 경로일 수 있으니 성능을 함께 잰다.
+5. **`repr`은 `.args`와 같은 값을 읽는다.** `raise K()`로 잡은 예외가 `args`는 `('z',)`인데 `repr`은 `K()`다.
+   `native.Args`만 보는 것이 의심되지만, 잡힌 객체의 실제 타입부터 확인한다. `BaseException.__repr__(1)`은 `__init__`과 같은
+   `descriptor ... requires` `TypeError`를 낸다.
+6. **`sys.stderr` 쓰기를 CPython 호출과 같게 한다.**
+   - `WriteOnStderr`의 줄바꿈 분리를 지운다. 메시지 한 번, `"\n"` 한 번이다. 빈 문자열도 쓴다.
+   - 쓰기가 실패해도 `"\n"`은 시도한다. 그 시도까지 실패하면 CPython은 실제 stderr로 떨어진다
+     (`PySys_WriteStderr`).
+   - 실패한 오류는 `Shutdown()` 전에 `PyErr_WriteUnraisable(NULL)`로 보고된다 (`Python/pylifecycle.c:3045`, 호출 순서 `:1830`,
+     atexit은 `:1845`). `hook`의 `object`는 None이고 기본 출력에 `Exception ignored in` 머리글이 없다. 오류는 한 건만
+     보고한다.
+   - 큰 정수도 같은 경로다. 고정 문자열을 쓰지 말고 `OverflowError`를 만들어 보고한다. rc는 -1 그대로다.
+   - `PyUnraisable.Report`는 `core/PyUnraisable.cs`의 `target`에 None을 넘겼을 때의 기본 출력부터 확인한다.
+7. **`raise ... from`과 `with_traceback`.** `SystemExit`, `KeyboardInterrupt`, `GeneratorExit`, `BaseException`이 대상이다.
+   - `raise SystemExit(3) from None`이 rc 1, `Exception: 3`이다. `from`이 없으면 맞다. `runtime/PyVM.cs:5059`, `:5249`가
+     `new PyException(customInstance.ToString())`로 감싸는 것이 가설이다. `from` 경로를 추적해서 확정한다.
+   - `core/PyException.cs:106`의 `(PyException)self`는 `InvalidCastException`을 낸다. `PySystemExit`,
+     `PyKeyboardInterrupt`, `PyGeneratorExit`은 `PyBaseException`의 직계 파생이다. 이미 확인했다.
+   - `PyBaseException`에 없는 필드가 문제라면 위치를 옮기되 범위가 커지면 멈추고 보고한다.
+8. **REPL 종료.** `core/SharpPyRepl.cs:73`, `:336`을 `PySystemExit.Matches`로 바꾼다. 또 REPL은 지금 상태를 버린다.
+   파일 실행과 같은 경로로 메시지와 상태를 처리한다. 하네스가 표준 입력을 받지 못하므로 아래 세 줄을 양쪽에서 재서
+   보고서에 표로 적는다. CPython은 `python -i`로 잰다. 측정값: CPython rc 4, 4, 1, SharpPy rc 0, 0, 0 (점검 때 `exit(4)`도 CPython 4, SharpPy 0).
+   마지막 사례는 파이프 입력에서 메시지가 나와야 하고, 세 경우 모두 `still here`가 나오면 안 된다.
+
+   ```
+   printf 'raise SystemExit(4)\nprint("still here")\n'
+   printf 'class E(SystemExit): pass\n\nraise E(4)\nprint("still here")\n'
+   printf 'import sys; sys.exit("m")\nprint("still here")\n'
+   ```
+9. **함수의 `__qualname__`** (커밋 따로). 함수, 람다, 메서드 모두 지금 `AttributeError`다. `functools.wraps`가 예외를 삼켜서
+   눈에 띄지 않았다. 대입, 비문자열 거부, `del` 거부는 `Objects/funcobject.c`를 따른다. 값은 `DisplayQualName`에서 시작하되
+   대입 뒤에는 `__name__`과 따로 움직인다. 이어서 `PyMethod`를 고친다.
+   `repr(Method(h.m, 5))`는 `<bound method H.m of 5>`, `__name__`이 없는 호출 가능 객체는 `<bound method ? of 1>`이다.
+   지금 `Method(C(), 1).__qualname__`이 `C`를 준다. `hasattr(C(), '__qualname__')` 쪽은 False이므로 `PyMethod.GetAttribute`의
+   기본 분기부터 본다. 원인은 아직 확정하지 않았다.
+10. **죽은 코드.** `PySystemExit.HandleStatus`는 호출처가 없다. 지운다.
+
+**기록 정정.**
+
+- `docs/known_gaps.md` P0-59를 "해결"에서 "L2.4에서 해결"로 고친다. L2.3 시점에는 `repr(X(1))`이 `X()`였다.
+- `docs/known_gaps.md` P0-68과 `docs/reports/2026-10-31/the_exit_state_is_fixed_first.md`의 rc `130`을 `3221225786`으로
+  고친다. `130`은 Git Bash가 보여준 값이다. `raise KeyboardInterrupt`와 Ctrl-C를 나눈 설명도 지운다.
+  `subprocess`로 재면 `raise`도 `3221225786`이다. rc는 앞으로 `subprocess` 값으로 적는다.
+- 같은 보고서의 P0-59 절과 "`?` 유지" 설명, "`PySystemExit.Matches`를 쓰는 곳"에 L2.4 정정을 덧붙인다. 이미 쓴 측정 표는
+  지우지 않는다.
+
+**`docs/known_gaps.md`에 등록.** 고치지 않는다. 번호는 `P0-70`부터 쓰고, 재현은 `probes/gap_l24_*.py`로 저장소에 둔다.
+
+- 종료 시 `flush_std_files` 실패의 rc 120: `sys.stderr = object()`로 CPython 120, SharpPy 1
+  (`Python/pylifecycle.c:1896`, `core/PyFinalizer.cs` 경계).
+- `PyMethod.Call`의 `__exit__` 임시 처리: `A().__exit__(1, 2)`가 `(1, 2)`가 아니라 `(1, 2, None)`.
+- `repr` 디스패치: `object.__repr__(E(1))`이 기본 표현이 아니라 `E(1)`, `@property def __repr__`가 무시됨.
+- `method` 타입: 상속이 허용됨 (`type 'method' is not an acceptable base type`이어야 함), `M.__new__(M, f, 1)`이 `TypeError`.
+- 예외 표면: `add_note`, `__reduce__` 없음, 내장 예외의 `__dict__` 없음, 잡힌 서브클래스 인스턴스에 `z.w = 1` 실패, `c.y = 2`가
+  `ValueError` 서브클래스의 `__dict__`에 안 보임, 클래스 속성 `args`가 무시됨, 예외 그룹 서브클래스의 `str`. P0-60과
+  겹치는 것은 P0-60에 잇는다.
+- `e.args = (e,)`의 `repr`이 스택 오버플로로 프로세스를 끝낸다 (CPython은 `RecursionError`). P0-52에 잇는다.
+- `type(exit).__name__`이 `object`다 (CPython `Quitter`). P0-66과 같은 계열인지 적는다.
 
 ## L3 — `weakref.py`, 타입 플래그 (C1 뒤)
 
