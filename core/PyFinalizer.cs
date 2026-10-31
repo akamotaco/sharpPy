@@ -205,6 +205,32 @@ namespace SharpPy
         {
             var target = guard.Owner;
             if (target == null) return;
+
+            // A suspended generator has a different debt: _PyGen_Finalize (Objects/genobject.c:70)
+            // closes it, which is what runs the try/finally it is sitting in. The report names the
+            // generator, as CPython does ("Exception ignored in: <generator object stubborn at 0x..>").
+            if (target is PyGenerator generator)
+            {
+                var savedGenerator = PyVM.SnapshotExceptionStates();
+                try
+                {
+                    generator.Close();
+                }
+                catch (PythonException ex)
+                {
+                    ReportIgnored(Describe(generator), ex);
+                }
+                catch (Exception ex)
+                {
+                    ReportIgnored(Describe(generator), null, ex.Message);
+                }
+                finally
+                {
+                    PyVM.RestoreExceptionStates(savedGenerator);
+                }
+                return;
+            }
+
             var hook = LookupHook(target);
             if (hook == null) return;
 
@@ -219,11 +245,11 @@ namespace SharpPy
             }
             catch (PythonException ex)
             {
-                ReportIgnored(hook, ex);
+                ReportIgnored(Describe(hook), ex);
             }
             catch (Exception ex)
             {
-                ReportIgnored(hook, null, ex.Message);
+                ReportIgnored(Describe(hook), null, ex.Message);
             }
             finally
             {
@@ -406,13 +432,16 @@ namespace SharpPy
         ///   Traceback (most recent call last):
         ///   ValueError: boom in del
         /// </summary>
-        private static void ReportIgnored(PyObject hook, PythonException pythonError, string message = null)
+        private static string Describe(PyObject context)
+        {
+            try { return context == null ? "__del__" : context.ToRepr().Value; }
+            catch { return "__del__"; }
+        }
+
+        private static void ReportIgnored(string context, PythonException pythonError, string message = null)
         {
             try
             {
-                string context;
-                try { context = hook == null ? "__del__" : hook.ToRepr().Value; }
-                catch { context = "__del__"; }
                 Console.Error.WriteLine("Exception ignored in: " + context);
                 Console.Error.WriteLine("Traceback (most recent call last):");
                 if (pythonError != null)

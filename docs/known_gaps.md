@@ -1746,6 +1746,32 @@ Godot 재연 82/0, Godot 스레드 실측 단일(id 2). perf A/B(기준 ad4281c)
 `Finalized -> Cleared` 단계는 다음 수거에서 오므로, Q4의 weakref callback은 그 단계에
 의존하지 않고 `Dead` 플래그로 판정해야 한다.
 
+## P0-49 멈춘 제너레이터가 정리 코드를 실행하지 않는다 (측정 2026-10-31, 해결)
+
+멈춘 제너레이터를 버리면 `finally`가 실행되지 않았다(종료 시점에도). CPython은
+`_PyGen_Finalize`(Objects/genobject.c:70)가 죽음을 `close()`로 번역한다. 지금은 Q2의 가드를
+그대로 쓴다: `PyGenerator.Next()`의 `finally` 한 곳에서 끝남은 `Detach`, 정지는
+`Attach`(첫 정지만 — 한 번에 도는 제너레이터는 비용 0)로 나누고, `PyFinalizer.RunFinalizer`는
+대상이 `PyGenerator`이면 `__del__` 대신 `Close()`를 부르며 보고 문맥도 제너레이터다
+(CPython처럼 `Exception ignored in: <generator object stubborn ...>`). CLR 쪽에서 Close를
+부르던 `PyGenerator.Dispose(bool)` override는 호출자 확인 후 삭제 — finalizer/Dispose 경로에서
+Python을 부르는 건 정책 금지이고 관찰 지점은 가드 하나다.
+
+게이트: q3 프로브 일치(`tests/bughunt/p87_gen_finalize.py`), stderr에 stubborn/raising 2건,
+bughunt 92/92, evaluate 225/3/2, similarity exit 0, Godot 재연 82/0.
+성능(worktree A/B, 기준 b619ee7, 교호 4라운드): genexpr 1.01, 중첩 genexpr 0.99,
+try/finally 반복 0.99, 일반 반복 1.00 — 반복 소모는 비용 없음.
+단 **만들고 한 번 받고 버림 100,000**은 3.74배(정지한 채 버려지는 생성당 가드 할당).
+
+잔여: (1) 지시서가 성능 전용으로 미룬 **가드 필터**가 아직 없다. CPython은 yield 다음 RESUME의
+handler depth로 판단하고 depth 1은 암시적 StopIteration handler뿐이라 무시한다
+(Objects/genobject.c:393-406). SharpPy의 RESUME `argument`는 resume mode(0/1/2)이고 depth가
+아니라 대응물은 `PyCodeObject.ExceptionTable` 지연 계산 bool이다(runtime/PyBytecode.cs:480의
+`ExceptionTableEntry.Depth`). 단 SharpPy가 CPython처럼 모든 코드에 암시적 최외곽 항목을 넣는지를
+먼저 실측해야 "표가 빈가"가 쓸 수 있는 검사인지 결정된다. (2) async 제너레이터/코루틴은 범위 밖
+(Objects/genobject.c:81-90은 asyncgen을 별도 분기한다) — 별도 측정 필요. (3) stderr 주소 형식은
+P0-48 잔여와 같다. 상세: [멈춘 제너레이터는 죽을 때 close 된다](reports/2026-10-31/suspended_generators_are_closed.md).
+
 ## P0-47 id()가 해시를 돌려준다 (측정 2026-10-31, 해결)
 
 `id()`는 `GetHashCode()`였고 SharpPy 해시는 값 기준이라 다른 객체가 같은 id를 신고했다.

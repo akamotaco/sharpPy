@@ -83,6 +83,8 @@ namespace SharpPy
         private readonly PyVM _vm;
         private bool _started = false;
         private bool _finished = false;
+        // Set when the generator first suspends, cleared when it finishes. See Next()'s finally.
+        private PyGuard _guard;
         private PyObject _sentValue = PyNone.Instance;
         private Exception? _thrownException = null;
 
@@ -266,7 +268,36 @@ namespace SharpPy
             }
             finally
             {
-                _frame.State = _finished ? PyFrame.FrameState.Completed : PyFrame.FrameState.Suspended;
+                // One place decides both halves, because every exit path passes here.
+                if (_finished)
+                {
+                    // close() on a finished generator does nothing, so nothing is owed any more:
+                    // the guard goes away and the collector may forget the generator.
+                    PyFinalizer.Detach(_guard);
+                    _guard = null;
+                    _frame.State = PyFrame.FrameState.Completed;
+                }
+                else
+                {
+                    // Suspended. CPython's counterpart is the generator type's tp_finalize,
+                    // _PyGen_Finalize (Objects/genobject.c:70), which closes a generator that dies
+                    // here: the try/finally it is sitting in still has to run. Watching starts at
+                    // the FIRST suspension, so a generator that runs to completion inside one call
+                    // never pays for a guard.
+                    //
+                    // PERF-ONLY FILTER, not yet implemented (see docs/known_gaps.md P0-49): close()
+                    // on a generator with no handler around any yield cannot run anything, so such a
+                    // generator does not need watching. CPython answers the same question per yield
+                    // from the handler depth recorded in the RESUME that follows the yield
+                    // (Objects/genobject.c:393-406, and depth 1 is only the implicit StopIteration
+                    // handler). SharpPy's RESUME argument is the resume mode, not a handler depth, so
+                    // the equivalent here would be a lazily computed flag over
+                    // PyCodeObject.ExceptionTable - which requires checking first whether SharpPy
+                    // emits an implicit outermost entry the way CPython does, since that decides
+                    // whether "table is empty" is a usable test at all.
+                    _guard ??= PyFinalizer.Attach(this);
+                    _frame.State = PyFrame.FrameState.Suspended;
+                }
             }
         }
 
@@ -443,24 +474,9 @@ namespace SharpPy
 
         // Note: GetAttribute is inherited from PyIterator, which uses GenericGetAttribute
 
-        #region Resource Management
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && !_finished)
-            {
-                try
-                {
-                    Close();
-                }
-                catch
-                {
-                    // 종료 중 예외 무시
-                }
-            }
-            base.Dispose(disposing);
-        }
-
-        #endregion
+        // The Dispose(bool) override that used to sit here closed the generator from the CLR side.
+        // It is gone: the guard above is the one path that notices a generator dying, and a finalizer
+        // must not run Python (docs/lifetime_and_gc_policy.md). A dead path stays deleted rather than
+        // kept as a second opinion (AGENTS.md).
     }
 }
