@@ -411,7 +411,7 @@ namespace SharpPy.Generated
                 {
                     HandleName();
                 }
-                else if (char.IsDigit(CurrentChar))
+                else if (StartsNumber())
                 {
                     HandleNumber();
                 }
@@ -710,6 +710,10 @@ namespace SharpPy.Generated
             AddToken(tokenType, name, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
+
+        // Modules/tokenizer: a '.' followed by a digit starts a fraction, as in .5
+        private bool StartsNumber() => char.IsDigit(CurrentChar)
+            || (CurrentChar == '.' && _position + 1 < _source.Length && char.IsDigit(_source[_position + 1]));
 
         private void HandleNumber()
         {
@@ -1445,7 +1449,7 @@ namespace SharpPy.Generated
                 {
                     HandleName();
                 }
-                else if (char.IsDigit(c))
+                else if (StartsNumber())
                 {
                     HandleNumber();
                 }

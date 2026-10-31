@@ -1305,9 +1305,8 @@ namespace SharpPy
 
         public void Set(PyObject instance, PyObject value)
         {
-            // CPython: type_set_bases is complex - modifies MRO, checks compatibility, etc.
-            // For now, make it read-only to match most common use case
-            throw PyAttributeError.Create("attribute '__bases__' of 'type' objects is not writable");
+            // type's own table holds the setter (core/PyType.cs).
+            ((PyGetSetDescriptor)PyType.TypeType.TypeDict["__bases__"]).Set(instance, value);
         }
 
         public void Delete(PyObject instance)

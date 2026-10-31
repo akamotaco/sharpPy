@@ -3184,7 +3184,7 @@ namespace SharpPy
                                         // Check _varNames first for comprehension context
                                         if (_isInComprehension)
                                         {
-                                            var localIndex = _varNames.IndexOf(funcName.Name);
+                                            var localIndex = _cellVars.Contains(funcName.Name) ? -1 : _varNames.IndexOf(funcName.Name);
                                             if (localIndex >= 0)
                                             {
                                                 isHandled = true;
@@ -4753,7 +4753,9 @@ namespace SharpPy
                             // Check if this "free" variable is actually in _varNames (from outer comprehension)
                             if (_isInComprehension)
                             {
-                                var localIndex = _varNames.IndexOf(name);
+                                // A parameter that a closure captured is in both lists, and only the
+                                // cell sees a reassignment, so the cell is asked first.
+                                var localIndex = _cellVars.Contains(name) ? -1 : _varNames.IndexOf(name);
                                 if (localIndex >= 0)
                                 {
                                     #if DEBUG_COMPILER_LOG

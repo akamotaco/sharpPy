@@ -2084,8 +2084,45 @@ namespace SharpPy
             return false;
         }
 
+        /// <summary>
+        /// update_bases (Python/bltinmodule.c): a base that is not a type may replace itself through
+        /// __mro_entries__. This is what makes class C(Generic[T]) and class N(NamedTuple) work. The
+        /// originals are kept for __orig_bases__.
+        /// </summary>
+        private static PyObject[] UpdateBases(PyObject[] args, out PyTuple original)
+        {
+            original = null;
+            List<PyObject> updated = null;
+            var given = new PyTuple(args[2..]);
+            for (int i = 2; i < args.Length; i++)
+            {
+                var entry = args[i];
+                PyObject method = null;
+                if (!(entry is PyType))
+                {
+                    try { method = entry.GetAttribute("__mro_entries__"); }
+                    catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                }
+                if (method == null)
+                {
+                    updated?.Add(entry);
+                    continue;
+                }
+                if (!(method.Call(new PyObject[] { given }, null) is PyTuple replacement))
+                    throw PyTypeError.Create("__mro_entries__ must return a tuple");
+                if (updated == null)
+                {
+                    updated = new List<PyObject>(args[..i]);
+                    original = given;
+                }
+                updated.AddRange(replacement.Items);
+            }
+            return updated == null ? args : updated.ToArray();
+        }
+
         private static PyObject CallBuildClass(PyObject[] args, PyDict kwargs = null)
         {
+            args = UpdateBases(args, out var originalBases);
             #if DEBUG_LOG
             Console.WriteLine($"🚀 === __build_class__ called with {args.Length} args ===");
             #endif
@@ -2463,6 +2500,8 @@ namespace SharpPy
 
                         var vm = PyVM.Instance;
                         classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject, classBodyFunc.Closure, classNamespace);
+                        // __build_class__ records the bases as written once they were replaced.
+                        if (originalBases != null) classNamespace["__orig_bases__"] = originalBases;
 
                         #if DEBUG_LOG
                         Console.WriteLine($"📦 classNamespace after ExecuteClassBody: {classNamespace.Count} items");

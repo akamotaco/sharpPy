@@ -2813,6 +2813,17 @@ namespace SharpPy
         public Dictionary<string, PyObject> InstanceDict { get; }
         public PyObject[] ConstructorArgs { get; set; }
 
+        // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
+        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
+
+        public override PyString AsString()
+        {
+            var declared = this.CallUserSpecialOrNull("__str__", Array.Empty<PyObject>());
+            if (declared == null) return ToRepr();
+            return declared as PyString ?? throw PyTypeError.Create(
+                $"__str__ returned non-string (type {declared.GetTypeName()})");
+        }
+
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {
             InstanceType = instanceType;

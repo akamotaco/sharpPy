@@ -555,7 +555,16 @@ namespace SharpPy
         #region Core Properties
 
         public string Name { get; private set; }
-        public PyType[] BaseTypes { get; }
+        public PyType[] BaseTypes { get; private set; }
+
+        /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO. typing.NamedTuple
+        /// assigns __bases__ on the class it builds. Subclasses are not re-linearized here.</summary>
+        internal void SetBases(PyType[] bases)
+        {
+            BaseTypes = bases;
+            MRO = CalculateC3MRO();
+            _cachedBasesTuple = null;
+        }
         public List<PyType> MRO { get; private set; }
         public string Module { get; }
 
@@ -2155,6 +2164,20 @@ namespace SharpPy
                         type._cachedBasesTuple = new PyTuple(basesArray);
                     }
                     return type._cachedBasesTuple;
+                },
+                setter: (self, value) => {
+                    if (self is not PyClass heap)
+                        throw PyTypeError.Create($"cannot set '__bases__' attribute of immutable type '{((PyType)self).Name}'");
+                    if (value is not PyTuple basesTuple)
+                        throw PyTypeError.Create($"can only assign tuple to {heap.Name}.__bases__, not {value.GetTypeName()}");
+                    if (basesTuple.Items.Length == 0)
+                        throw PyTypeError.Create($"can only assign non-empty tuple to {heap.Name}.__bases__, not ()");
+                    var newBases = new PyType[basesTuple.Items.Length];
+                    for (int i = 0; i < newBases.Length; i++)
+                        newBases[i] = basesTuple.Items[i] as PyType ?? throw PyTypeError.Create(
+                            $"{heap.Name}.__bases__ must be tuple of classes, not '{basesTuple.Items[i].GetTypeName()}'");
+                    heap.SetBases(newBases);
+                    heap.InvalidateTypeCache();
                 }
             );
 
@@ -2353,8 +2376,9 @@ namespace SharpPy
                     // Performance: Eliminated LINQ - direct array use
                     var newClass = new PyClass(name.Value, baseTypes.ToArray(), stringDict);
 
-                    // If metacls is not type, we might need to set a custom metaclass
-                    // For now, PyClass always uses type as metaclass (standard behavior)
+                    // ob_type of the new class. Two routes build a class here and in
+                    // PyTypeMetaclass.CreateNewClass; merging them must keep __init_subclass__ single.
+                    if (metacls is PyClass metaclass) newClass.Metaclass = metaclass;
                     return newClass;
                 }
             );

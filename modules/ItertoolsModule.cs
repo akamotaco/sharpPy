@@ -29,6 +29,10 @@ namespace SharpPy
             AddFunction("groupby", GroupByFunction);
             AddFunction("zip_longest", ZipLongestFunction);
             AddFunction("starmap", StarmapFunction);
+            AddFunction("batched", BatchedFunction);
+            AddFunction("combinations_with_replacement", CombinationsWithReplacementFunction);
+            AddFunction("pairwise", PairwiseFunction);
+            AddFunction("tee", TeeFunction);
         }
 
         /// <summary>
@@ -41,6 +45,79 @@ namespace SharpPy
                 throw PyTypeError.Create($"starmap expected 2 arguments ({args.Length} given)");
 
             return new StarmapIterator(args[0], args[1]);
+        }
+
+        /// <summary>
+        /// itertools.batched(iterable, n) - CPython 3.12: Modules/itertoolsmodule.c batched_new
+        /// </summary>
+        private PyObject BatchedFunction(PyObject[] args)
+        {
+            if (args.Length < 2 || args.Length > 3)
+                throw PyTypeError.Create($"batched expected 2 arguments ({args.Length} given)");
+
+            int n;
+            if (args[1] is PyInt nInt)
+                n = (int)nInt.Value;
+            else
+                throw PyTypeError.Create($"'batched' object cannot be interpreted as an integer");
+
+            if (n < 1)
+                throw PyValueError.Create("n must be at least one");
+
+            return new BatchedIterator(args[0], n);
+        }
+
+        /// <summary>
+        /// itertools.combinations_with_replacement(iterable, r)
+        /// CPython 3.12: Modules/itertoolsmodule.c combinations_with_replacement_new
+        /// </summary>
+        private PyObject CombinationsWithReplacementFunction(PyObject[] args)
+        {
+            if (args.Length != 2)
+                throw PyTypeError.Create($"combinations_with_replacement expected 2 arguments ({args.Length} given)");
+
+            int r;
+            if (args[1] is PyInt rInt)
+                r = (int)rInt.Value;
+            else
+                throw PyTypeError.Create($"'combinations_with_replacement' object cannot be interpreted as an integer");
+
+            return new CombinationsWithReplacementIterator(args[0], r);
+        }
+
+        /// <summary>
+        /// itertools.pairwise(iterable) - CPython 3.10+
+        /// </summary>
+        private PyObject PairwiseFunction(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"pairwise expected 1 argument ({args.Length} given)");
+
+            return new PairwiseIterator(args[0]);
+        }
+
+        /// <summary>
+        /// itertools.tee(iterable, n=2) - CPython 3.12: Modules/itertoolsmodule.c tee_new
+        /// </summary>
+        private PyObject TeeFunction(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 2)
+                throw PyTypeError.Create($"tee expected 1 or 2 arguments ({args.Length} given)");
+
+            int n = 2;
+            if (args.Length >= 2)
+            {
+                if (args[1] is PyInt nInt)
+                    n = (int)nInt.Value;
+                else
+                    throw PyTypeError.Create($"'tee' object cannot be interpreted as an integer");
+            }
+
+            var shared = new TeeShared(args[0]);
+            var results = new PyObject[n];
+            for (int i = 0; i < n; i++)
+                results[i] = new TeeIterator(shared);
+            return new PyTuple(results);
         }
 
         /// <summary>
@@ -253,6 +330,204 @@ namespace SharpPy
     }
 
     #region Iterator Implementations
+
+    /// <summary>
+    /// batched(iterable, n) iterator
+    /// </summary>
+    public class BatchedIterator : PyIterator
+    {
+        private readonly PyObject _iterator;
+        private readonly int _n;
+
+        public BatchedIterator(PyObject iterable, int n)
+        {
+            _iterator = iterable.GetIterator();
+            _n = n;
+        }
+
+        public override PyObject Next()
+        {
+            var items = new List<PyObject>();
+            for (int i = 0; i < _n; i++)
+            {
+                PyObject item;
+                try { item = _iterator.Next(); }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
+                items.Add(item);
+            }
+            if (items.Count == 0)
+                throw PyStopIteration.Create();
+            return new PyTuple(items.ToArray());
+        }
+    }
+
+    /// <summary>
+    /// combinations_with_replacement(iterable, r) iterator
+    /// CPython 3.12: Modules/itertoolsmodule.c
+    /// </summary>
+    public class CombinationsWithReplacementIterator : PyIterator
+    {
+        private readonly List<PyObject> _pool;
+        private readonly int _r;
+        private int[] _indices;
+        private bool _started = false;
+
+        public CombinationsWithReplacementIterator(PyObject iterable, int r)
+        {
+            _pool = new List<PyObject>();
+            var iterator = iterable.GetIterator();
+            try
+            {
+                while (true)
+                    _pool.Add(iterator.Next());
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
+
+            _r = r;
+            if (r < 0 || _pool.Count == 0)
+            {
+                _indices = null;
+            }
+            else
+            {
+                _indices = new int[r];
+                // All start at 0
+            }
+        }
+
+        public override PyObject Next()
+        {
+            if (_indices == null)
+                throw PyStopIteration.Create();
+
+            if (!_started)
+            {
+                _started = true;
+                var result = new PyObject[_r];
+                for (int i = 0; i < _r; i++)
+                    result[i] = _pool[_indices[i]];
+                return new PyTuple(result);
+            }
+
+            // Find rightmost index that can be incremented
+            int i2 = _r - 1;
+            while (i2 >= 0 && _indices[i2] == _pool.Count - 1)
+                i2--;
+
+            if (i2 < 0)
+                throw PyStopIteration.Create();
+
+            int val = _indices[i2] + 1;
+            for (int j = i2; j < _r; j++)
+                _indices[j] = val;
+
+            var resultArray = new PyObject[_r];
+            for (int idx = 0; idx < _r; idx++)
+                resultArray[idx] = _pool[_indices[idx]];
+            return new PyTuple(resultArray);
+        }
+    }
+
+    /// <summary>
+    /// pairwise(iterable) iterator
+    /// </summary>
+    public class PairwiseIterator : PyIterator
+    {
+        private readonly PyObject _iterator;
+        private PyObject _prev;
+        private bool _started = false;
+
+        public PairwiseIterator(PyObject iterable)
+        {
+            _iterator = iterable.GetIterator();
+        }
+
+        public override PyObject Next()
+        {
+            if (!_started)
+            {
+                _started = true;
+                try { _prev = _iterator.Next(); }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    throw PyStopIteration.Create();
+                }
+            }
+
+            PyObject current;
+            try { current = _iterator.Next(); }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                throw PyStopIteration.Create();
+            }
+
+            var result = new PyTuple(new PyObject[] { _prev, current });
+            _prev = current;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// tee shared state - one source iterator with per-branch buffers
+    /// CPython 3.12: Modules/itertoolsmodule.c teeobject
+    /// </summary>
+    public class TeeShared
+    {
+        private readonly PyObject _iterator;
+        private readonly List<PyObject> _buffer = new List<PyObject>();
+        private bool _exhausted = false;
+
+        public TeeShared(PyObject iterable)
+        {
+            _iterator = iterable.GetIterator();
+        }
+
+        /// <summary>
+        /// Get item at index, pulling from source if needed.
+        /// Returns null if index is past the end.
+        /// </summary>
+        public PyObject GetItem(int index)
+        {
+            while (_buffer.Count <= index && !_exhausted)
+            {
+                try
+                {
+                    _buffer.Add(_iterator.Next());
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    _exhausted = true;
+                    break;
+                }
+            }
+            if (index < _buffer.Count)
+                return _buffer[index];
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// tee branch iterator
+    /// </summary>
+    public class TeeIterator : PyIterator
+    {
+        private readonly TeeShared _shared;
+        private int _index = 0;
+
+        public TeeIterator(TeeShared shared)
+        {
+            _shared = shared;
+        }
+
+        public override PyObject Next()
+        {
+            PyObject item = _shared.GetItem(_index);
+            if (item == null)
+                throw PyStopIteration.Create();
+            _index++;
+            return item;
+        }
+    }
 
     /// <summary>
     /// count 이터레이터 구현

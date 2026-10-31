@@ -2188,3 +2188,13 @@ P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만
 
 `Lib/dataclasses.py`는 158줄 대체 구현이다. CPython 원본은 `inspect`, `copy`가 없어 복사할 수 없다.
 `class P(NamedTuple): x: int`는 생성은 되지만 `P(1)`이 `TypeError: P() takes no arguments`다.
+
+## P0-79 컴프리헨션 변수가 바깥 셀과 이름이 같으면 섞인다 (측정 2026-11-01, 미해결)
+
+`def f(x): x = [1, 2]; h = lambda: x; s = [(lambda: x)() for x in h()]` 뒤 `x`가 CPython은 `[1, 2]`, SharpPy는 `2`다. `[x for x in x]`는
+`UnboundLocalError`다. PEP 709 인라인에서 같은 이름의 셀을 분리하지 않는다. 드문 형태라 등록만 한다.
+
+## P0-80 클래스를 만드는 경로가 둘이다 (측정 2026-11-01, 미해결)
+
+`core/PyType.cs`의 `type.__new__`와 `PyTypeMetaclass.CreateNewClass`. 합치면 `__build_class__`와 `__init_subclass__`가 이중 호출된다. 합칠 때 그 호출을 한
+곳으로 옮겨야 한다.
