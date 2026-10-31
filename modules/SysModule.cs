@@ -370,7 +370,7 @@ namespace SharpPy.Modules
             // CPython 3.12: Python/sysmodule.c:907-913
             // exc_info() returns (type, value, traceback)
             var excType = exception.GetPyType();  // Exception type (class)
-            PyObject excValue = exception;         // Exception instance (PyBaseException is PyObject)
+            PyObject excValue = PyExceptionSlots.Visible(exception);
 
             // Get traceback from exception's __traceback__ attribute
             PyObject excTraceback = PyNone.Instance;
@@ -514,7 +514,7 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Python/sysmodule.c:883 - return Py_NewRef(err_info->exc_value)
             // PyBaseException is a PyObject, so we can return it directly
-            return exception;
+            return PyExceptionSlots.Visible(exception);
         }
 
         /// <summary>

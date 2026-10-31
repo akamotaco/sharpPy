@@ -44,3 +44,13 @@ The parked grafts are in now. The failure blamed on them was a heredoc that turn
 Added from CPython: `string`, `reprlib`, `pprint`, `queue`, `threading`, `logging`, `fnmatch`, `posixpath`, `genericpath`, `textwrap`.
 Grafted into the existing shims: `Counter`, `ChainMap`, `UserDict`, `UserList`, `UserString`, `lru_cache`, `cache`.
 Programs matching: 33 of 37.
+
+## One exception object (P0-70, E1)
+
+C# has no multiple inheritance, so `PyClassInstance` and `PyBaseException` stay two classes. What changed is what Python can see.
+Each `PyExceptionInstance` has one cached `PyException` transport that a raise carries, and every way out to Python gives the
+instance back (`PyExceptionSlots.Visible`). `e is z`, `e.mark = 1`, `add_note`, `__traceback__` before a raise, `sys.exc_info`,
+`__exit__`, `gen.throw`, `raise X from E()` and `raise X from TypeError` all match. Builtin exceptions have a `__dict__`.
+`__traceback__`, `__cause__`, `__context__`, `__suppress_context__`, `with_traceback`, `add_note`, `__reduce__` and
+`__setstate__` have one table. Still open: subclass fields of `OSError`, `StopIteration`, `ImportError`, `SyntaxError`.
+Gates: bughunt 132/132, evaluate 225/3/2, similarity 0, Godot 82/0. Programs matching: 36 of 37.

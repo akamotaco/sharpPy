@@ -4200,6 +4200,59 @@ namespace SharpPy
                 minArgs: 0,
                 maxArgs: int.MaxValue);
 
+            // BaseException_getset: one table for builtin exceptions and Python subclasses, reading the one
+            // transport object. The value that comes out is always the object Python made.
+            foreach (var slot in new[] { "__traceback__", "__cause__", "__context__", "__suppress_context__" })
+            {
+                TypeDict[slot] = new PyGetSetDescriptor(slot, this,
+                    getter: self => PyExceptionSlots.ToTransport(self).GetAttribute(slot),
+                    setter: (self, value) => PyExceptionSlots.ToTransport(self).SetAttribute(slot, value));
+            }
+
+            // BaseException_add_note: __notes__ is an ordinary attribute of the exception.
+            TypeDict["add_note"] = new PyMethodDescriptor("add_note", this, (self, args, kwargs) =>
+            {
+                if (!(args[0] is PyString))
+                    throw PyTypeError.Create($"note must be a str, not '{args[0].GetTypeName()}'");
+                PyObject notes = null;
+                try { notes = self.GetAttribute("__notes__"); }
+                catch (PythonException error) when (error.PyException is PyAttributeError) { }
+                if (notes == null)
+                {
+                    notes = new PyList();
+                    self.SetAttribute("__notes__", notes);
+                }
+                if (!(notes is PyList list))
+                    throw PyTypeError.Create("Cannot add note: __notes__ is not a list");
+                list.Append(args[0]);
+                return PyNone.Instance;
+            }, 1, 1);
+
+            TypeDict["with_traceback"] = new PyMethodDescriptor("with_traceback", this, (self, args, kwargs) =>
+            {
+                PyExceptionSlots.ToTransport(self).SetAttribute("__traceback__", args[0]);
+                return self;
+            }, 1, 1);
+
+            // BaseException_reduce and BaseException_setstate, which copy and pickle use.
+            TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", this, (self, args, kwargs) =>
+            {
+                var state = self.GetAttribute("__dict__");
+                var parts = state is PyDict dict && dict.Length() > 0
+                    ? new PyObject[] { self.GetPyType(), PyExceptionSlots.ArgsTuple(self), state }
+                    : new PyObject[] { self.GetPyType(), PyExceptionSlots.ArgsTuple(self) };
+                return new PyTuple(parts);
+            }, 0, 0);
+            TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", this, (self, args, kwargs) =>
+            {
+                if (args[0] is PyNone) return PyNone.Instance;
+                if (!(args[0] is PyDict state))
+                    throw PyTypeError.Create("state is not a dictionary");
+                foreach (var item in state.InternalDict)
+                    self.SetAttribute(item.Key.ToStr().Value, item.Value);
+                return PyNone.Instance;
+            }, 1, 1);
+
             // CPython 3.12: Objects/exceptions.c:42-71 (BaseException_init)
             // BaseException.__init__(self, *args) - stores args in self.args
             TypeDict["__init__"] = new PyWrapperDescriptor("__init__", BaseExceptionType, (self, args, kwargs) =>

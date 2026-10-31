@@ -108,43 +108,25 @@ namespace SharpPy
                     }
                     return argsTuple;
                 case "__cause__":
-                    return (PyObject?)__cause__ ?? PyNone.Instance;
+                    return PyExceptionSlots.Visible(__cause__) ?? PyNone.Instance;
                 case "__context__":
-                    return (PyObject?)__context__ ?? PyNone.Instance;
+                    return PyExceptionSlots.Visible(__context__) ?? PyNone.Instance;
                 case "__suppress_context__":
                     return __suppress_context__ ? PyBool.True : PyBool.False;
                 case "__traceback__":
                     return (PyObject?)__traceback__ ?? PyNone.Instance;
-                case "with_traceback":
-                    // CPython 3.12: Objects/exceptions.c BaseException.with_traceback
-                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("with_traceback", (self, a) =>
-                    {
-                        if (a.Length != 1)
-                        {
-                            throw PyTypeError.Create($"BaseException.with_traceback() takes exactly one argument ({a.Length} given)");
-                        }
-                        // These three are direct derivatives of PyBaseException, not of PyException,
-                        // and __traceback__ is declared on PyBaseException - the cast used to raise
-                        // InvalidCastException for SystemExit/KeyboardInterrupt/GeneratorExit.
-                        var excSelf = (PyBaseException)self;
-                        if (a[0] is PyTraceback tb)
-                        {
-                            excSelf.__traceback__ = tb;
-                        }
-                        else if (a[0] is PyNone)
-                        {
-                            excSelf.__traceback__ = null;
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create("__traceback__ must be a traceback or None");
-                        }
-                        return self;
-                    }, 1));
+                case "__dict__":
+                    return Attributes;
                 default:
+                    if (_attributes != null && _attributes.TryGetStoredValue(new PyString(name), out var stored))
+                        return stored;
                     return base.GetAttribute(name);
             }
         }
+
+        // The dict every exception object has (PyException_HEAD): `e.note = 1`, __notes__.
+        private PyDict _attributes;
+        internal PyDict Attributes => _attributes ??= new PyDict();
 
         public override void SetAttribute(string name, PyObject value)
         {
@@ -183,7 +165,7 @@ namespace SharpPy
                 case "__cause__":
                     if (value is PyNone)
                         __cause__ = null;
-                    else if (value is PyBaseException exc)
+                    else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc)
                         __cause__ = exc;
                     else
                         throw PyTypeError.Create($"exception cause must be None or derive from BaseException");
@@ -191,7 +173,7 @@ namespace SharpPy
                 case "__context__":
                     if (value is PyNone)
                         __context__ = null;
-                    else if (value is PyBaseException exc)
+                    else if (PyExceptionSlots.ToTransport(value) is PyBaseException exc)
                         __context__ = exc;
                     else
                         throw PyTypeError.Create($"exception context must be None or derive from BaseException");
@@ -205,10 +187,13 @@ namespace SharpPy
                     else if (value is PyTraceback tb)
                         __traceback__ = tb;
                     else
-                        throw PyTypeError.Create($"__traceback__ must be a traceback object or None");
+                        throw PyTypeError.Create("__traceback__ must be a traceback or None");
                     break;
                 default:
-                    base.SetAttribute(name, value);
+                    if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor descriptor && descriptor.IsDataDescriptor())
+                        base.SetAttribute(name, value);
+                    else
+                        Attributes.SetItem(new PyString(name), value);
                     break;
             }
         }
@@ -216,6 +201,12 @@ namespace SharpPy
         public override void DelAttribute(string name)
         {
             if (name == "args") throw PyTypeError.Create("args may not be deleted");
+            var key = new PyString(name);
+            if (_attributes != null && _attributes.ContainsKey(key))
+            {
+                _attributes.DelItem(key);
+                return;
+            }
             base.DelAttribute(name);
         }
 

@@ -25,6 +25,15 @@ public class PyExceptionInstance : PyClassInstance
     internal PyObject CodeSlot;
 
     public PyExceptionInstance(PyClass instanceType) : base(instanceType) { }
+
+    private PyException _transport;
+
+    /// <summary>
+    /// What carries this exception through the CLR. There is one per instance, so raising an object
+    /// twice raises one thing, and __traceback__, __cause__ and __context__ have one home. Python never
+    /// sees it: PyExceptionSlots.Visible turns it back into this instance at every way out.
+    /// </summary>
+    internal PyException Transport => _transport ??= new PyException(ToString(), InstanceType, this);
 }
 
 /// <summary>
@@ -43,6 +52,18 @@ internal static class PyExceptionSlots
     /// The instance a Python-visible exception name resolves to. The wrapper the raise path builds
     /// for a PyClassInstance is a transport object; CPython has only the instance.
     /// </summary>
+    internal static PyObject Visible(PyObject exception) => exception == null ? null : Owner(exception);
+
+    /// <summary>The object a raise carries: itself for a builtin exception, otherwise the instance's one
+    /// transport. Anything that is no exception comes back unchanged for the caller to refuse.</summary>
+    internal static PyObject ToTransport(PyObject value)
+    {
+        if (value is PyExceptionInstance instance) return instance.Transport;
+        if (value is PyClassInstance other && other.InstanceType.IsSubclassOf(PyType.BaseExceptionType))
+            return new PyException(other.ToString(), other.InstanceType, other);
+        return value;
+    }
+
     private static PyObject Owner(PyObject self)
         => self is PyException wrapper && wrapper.OriginalInstance != null
             ? wrapper.OriginalInstance

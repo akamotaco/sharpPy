@@ -35,7 +35,7 @@ namespace SharpPy
             PyBaseException normalized = exception as PyBaseException;
             if (normalized == null && exception is PyClassInstance instance &&
                 instance.InstanceType.IsSubclassOf(PyType.BaseExceptionType))
-                normalized = new PyException(instance.ToString(), instance.InstanceType, instance);
+                normalized = (PyBaseException)PyExceptionSlots.ToTransport(instance);
             if (normalized == null)
                 return new PythonException(new PyTypeError($"calling {original.ToStr().Value} should have returned an instance of BaseException, not {exception.GetTypeName()}"));
             if (traceback is PyTraceback tb) normalized.__traceback__ = tb;
