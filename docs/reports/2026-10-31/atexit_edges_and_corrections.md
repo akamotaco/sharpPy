@@ -83,8 +83,8 @@ CPython이 `__qualname__`에서 가져오는 부분이다 — SharpPy 내장 함
 
 ## 새로 등록한 결함 (고치지 않음)
 
-`docs/known_gaps.md`의 **P0-59 ~ P0-64**. 재현은 `.artifacts/tmp/l2b_gap_measure.py`를 양쪽
-인터프리터로 돌린 것과 `.artifacts/tmp/modx`에서의 `-m` 비교. 요약:
+`docs/known_gaps.md`의 **P0-59 ~ P0-64**. 재현은 `docs/plans/lifetime_foundation/probes/gap_l2b_measure.py (L2.2에서 probes/로 올렸다)`를 양쪽
+인터프리터로 돌린 것과 `docs/plans/lifetime_foundation/probes/gap_l2b_modx`에서의 `-m` 비교. 요약:
 
 | 항목 | CPython | SharpPy |
 |---|---|---|

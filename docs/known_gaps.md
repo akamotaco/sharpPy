@@ -1904,13 +1904,14 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
 ## P0-59 ~ P0-64 L2 점검에서 등록한 표면 결함 (측정 2026-10-31, 미해결)
 
 전부 L1, L2 이전부터 있던 결함이다. 점검에서 발견했고 이번 커밋에서는 고치지 않는다.
-재현: `.artifacts/tmp/l2b_gap_measure.py`를 양쪽 인터프리터로 실행 (`<python>`과 `<dotnet>`),
+재현: `probes/gap_l2b_measure.py`를 양쪽 인터프리터로 실행 (`<python>`과 `<dotnet>`),
 `-m`만 아래 명령. 출력은 `ascii()`로 고정했다.
 
 ```
-<python> .artifacts/tmp/l2b_gap_measure.py
-<dotnet> bin/Release/net8.0/sharppy.dll .artifacts/tmp/l2b_gap_measure.py
-(cd .artifacts/tmp/modx && <python> -m x one) ; (cd .artifacts/tmp/modx && <dotnet> ../../../bin/Release/net8.0/sharppy.dll -m x one)
+<python> docs/plans/lifetime_foundation/probes/gap_l2b_measure.py
+<dotnet> bin/Release/net8.0/sharppy.dll docs/plans/lifetime_foundation/probes/gap_l2b_measure.py
+(cd docs/plans/lifetime_foundation/probes/gap_l2b_modx && <python> -m x one)
+(cd docs/plans/lifetime_foundation/probes/gap_l2b_modx && <dotnet> ../../../../../bin/Release/net8.0/sharppy.dll -m x one)
 ```
 
 - **P0-59 예외 서브클래스의 `repr`.** `class Sub(ValueError): pass`에서
@@ -1922,8 +1923,9 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
 - **P0-60 내장 예외 인스턴스에 속성 대입이 안 된다.** `e = ValueError('boom'); e.note = 1` →
   CPython은 대입되고 `getattr(e, 'note')`가 `1`. SharpPy는
   `AttributeError: 'ValueError' object has no attribute 'note'`. CPython `BaseException`은
-  `tp_dictoffset`을 가진다 (`Objects/exceptions.c:484`). `raise ... from`와 `__notes__`(3.11+)
-  계열이 이 위에 올라 있다.
+  `tp_dictoffset`을 가진다 (`Objects/exceptions.c:484`). `__notes__`(3.11+) 계열이 이 위에 올라 있다.
+  점검에서 `raise ... from`과 `__cause__`는 속성 대입이 실패하는 지금도 CPython과 같게
+  동작하는 것을 확인했다 — 이 결함의 범위가 아니다.
 - **P0-61 내장 예외에 `__doc__`이 없다.** `ValueError.__doc__` CPython
   `'Inappropriate argument value (of correct type).'`, `OSError.__doc__`
   `'Base class for I/O related errors.'`. SharpPy는 둘 다 `None`.
@@ -1933,8 +1935,27 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
   쓰면 메서드가 아니라 평범한 객체로 남는다.
 - **P0-63 `import pickle` 실패.** `pickle.dumps([1, 2])` CPython `b'\x80\x04...'`,
   SharpPy `ModuleNotFoundError: No module named 'pickle'`. `copy`·`tempfile`·`shutil`과
-  같은 계열이라 L4에서 함께 다룬다.
+  같은 계열이지만 L4 범위가 아니며, 아직 미배정 항목이다.
 - **P0-64 `sharppy -m x`가 모듈을 실행하지 않는다.** `python -m x one`은 CPython에서
-  `module ran ['C:\\...\\modx\\x.py', 'one']`, rc 0. SharpPy는 REPL 배너를 띄우고 rc 0으로
+  `module ran ['C:\\...\\gap_l2b_modx\\x.py', 'one']`, rc 0. SharpPy는 REPL 배너를 띄우고 rc 0으로
   끝난다 — `-m`이 조용히 무시된다. `Program.cs:74-78`의 `-m` 분기가 통째로 주석 처리돼 있다.
   P0-41(명령줄 형태)과 같은 담당으로 둔다.
+
+## P0-65 `__cause__` 대입이 `__suppress_context__`를 바꾸지 않는다 (측정 2026-10-31, 미해결)
+
+L2.2 기록 정정에서 새로 잰 것이다. 재현:
+`docs/plans/lifetime_foundation/probes/gap_exception_cause.py`를 양쪽 인터프리터로 실행
+(합격 기준 밖 — 두 인터프리터가 다른 답을 낸다).
+
+| 동작 | CPython | SharpPy |
+|---|---|---|
+| `e.__cause__ = exc` 뒤 `e.__suppress_context__` | `True` — `PyException_SetCause`가 `suppress_context = 1`을 세운다 (`Objects/exceptions.c:399`, 대입은 `:402`) | `False` |
+| `e.__cause__ = None` 뒤 | `True`, `__cause__` is `None` | `False` |
+| `del e.__cause__` | `TypeError: __cause__ may not be deleted` (`BaseException_set_cause` `:344`, 메시지 `:347`) | `AttributeError: 'ValueError' object has no attribute '__cause__'` |
+| `del e.__context__` | `TypeError: __context__ may not be deleted` | `AttributeError` |
+
+이미 CPython과 같은 것: `raise X from Y` 경로(cause·context·`__suppress_context__` 모두),
+`e.__cause__ = 5` 거부 (`exception cause must be None or derive from BaseException`), `__context__`
+대입 자체. 그래서 P0-60(내장 예외 인스턴스에 속성 대입 불가)과 별개로 둔다 — `__cause__`는
+getset 디스크립터로 존재해서 대입이 실제로 성공하기 때문이다. P0-60을 고치면 이 셋은
+`__dict__`가 아니라 setter 쪽 문제라는 사실이 드러나지 않은 채 지나갈 수 있다.
