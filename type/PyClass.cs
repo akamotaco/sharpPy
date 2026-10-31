@@ -431,10 +431,12 @@ namespace SharpPy
                 return instance;
             }
 
-            // Store constructor arguments for toString() behavior
+            // Only a str or frozenset subclass builds its value from the arguments, later. CPython
+            // keeps no arguments on an instance, and a plain class holding them would keep every
+            // object passed to a constructor alive for the instance's whole life.
             if (instance is PyClassInstance classInstance)
             {
-                classInstance.ConstructorArgs = args;
+                if (classInstance.BuildsValueFromArguments) classInstance.ConstructorArgs = args;
             }
             else if (instance is PyTupleSubclass tupleSubclass)
             {
@@ -1463,7 +1465,7 @@ namespace SharpPy
         {
             InstanceType = instanceType;
             _attrs = new Dictionary<string, PyObject>();
-            ConstructorArgs = new PyObject[0]; // Default empty args
+            ConstructorArgs = Array.Empty<PyObject>();
 
             // __getattr__ 메서드가 있는지 확인
             if (instanceType.ClassDict.ContainsKey("__getattr__"))
@@ -1512,6 +1514,8 @@ namespace SharpPy
         /// The value a frozenset subclass instance carries, built the way CPython's frozenset_new
         /// builds it: at most one positional iterable, taken from the construction arguments.
         /// </summary>
+        internal bool BuildsValueFromArguments => IsFrozenSetSubclass() || IsStrSubclass();
+
         public PyFrozenSet GetFrozenStorage()
         {
             if (_frozenStorage != null)

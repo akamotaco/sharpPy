@@ -294,7 +294,7 @@ namespace SharpPy
             for (int i = references.Count - 1; i >= 0; i--)
             {
                 var callback = references[i].Callback;
-                if (callback == null) continue;
+                if (callback == null || IsCondemned(references[i])) continue;
                 var saved = PyVM.SnapshotExceptionStates();
                 try
                 {
@@ -314,6 +314,15 @@ namespace SharpPy
                 }
             }
         }
+
+        /// <summary>
+        /// A reference that has weak references of its own has a guard, and the guard brings it through
+        /// finalization, so the handle above still finds it. Unreachable together with its target,
+        /// it counts as having died first: in C it would be gone from the list.
+        /// </summary>
+        private static bool IsCondemned(PyWeakRef reference)
+            => Guards.TryGetValue(reference, out var guard) && guard.Cell != null
+               && guard.Cell.Short.Target == null;
 
         /// <summary>
         /// A reference saw its target condemned by a collection whose report may not have arrived.

@@ -18,7 +18,7 @@ namespace SharpPy.Generated
 
         private static string Mangle(string name)
         {
-            if (_privateClass == null) return name;
+            if (_privateClass == null || string.IsNullOrEmpty(name)) return name;
             if (name.Length < 2 || name[0] != '_' || name[1] != '_') return name;
             // ends with __ → no mangling
             if (name.EndsWith("__")) return name;

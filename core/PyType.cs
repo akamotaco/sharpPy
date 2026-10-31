@@ -185,6 +185,16 @@ namespace SharpPy
         /// vectorcall bits) are left out. Unlisted builtins take the DEFAULT|BASETYPE shape most
         /// static specs use, so adding a builtin does not silently make it un-subclassable.
         /// </summary>
+        /// <summary>tp_weaklistoffset != 0, measured with __weakrefoffset__ on the reference interpreter
+        /// over builtins and types (.artifacts/tmp/weak_table.py). Exception types have none.</summary>
+        private static PyTypeFlags WeakListFlag(string name) => name switch
+        {
+            "async_generator" or "builtin_function_or_method" or "code" or "coroutine" or "frozenset"
+                or "function" or "generator" or "memoryview" or "method" or "module" or "set" or "type"
+                or "GenericAlias" or "ReferenceType" => PyTypeFlags.ManagedWeakRef,
+            _ => PyTypeFlags.None,
+        };
+
         private static PyTypeFlags BuiltInSpecFlags(string name) => name switch
         {
             // Objects/boolobject.c:190 - tp_flags is Py_TPFLAGS_DEFAULT alone: bool is not
@@ -236,7 +246,7 @@ namespace SharpPy
                 return PyTypeFlags.HeapType |
                        (baseType != null ? baseType._flags & InheritableFlags : PyTypeFlags.None);
             }
-            return BuiltInSpecFlags(Name) |
+            return BuiltInSpecFlags(Name) | WeakListFlag(Name) |
                    (baseType != null ? baseType._flags & InheritSpecialFlags : PyTypeFlags.None);
         }
 
@@ -787,10 +797,7 @@ namespace SharpPy
         /// </summary>
         internal virtual bool SupportsWeakReference()
         {
-            return this == FunctionType || this == MethodType || this == GeneratorType
-                || this == CoroutineType || this == SetType || this == FrozenSetType
-                || this == ModuleType || this == WeakRefType
-                || IsSubclassOf(TypeType);
+            return HasFeature(PyTypeFlags.ManagedWeakRef);
         }
 
         public bool IsSubclassOf(PyType other)

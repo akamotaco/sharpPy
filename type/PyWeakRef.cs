@@ -62,14 +62,18 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.WeakRefType;
         public override string GetTypeName() => "weakref.ReferenceType";
 
-        public override PyString ToRepr()
+        public override PyString ToRepr() => SlotRepr();
+
+        internal PyString SlotRepr()
         {
             var target = Referent;
             if (target == null) return new PyString($"<weakref at 0x{PyObjectId.Of(this):x}; dead>");
             return new PyString($"<weakref at 0x{PyObjectId.Of(this):x}; to '{target.GetTypeName()}' at 0x{PyObjectId.Of(target):x}>");
         }
 
-        public override PyObject RichCompare(PyObject other, CompareOp op)
+        public override PyObject RichCompare(PyObject other, CompareOp op) => SlotCompare(other, op);
+
+        internal PyObject SlotCompare(PyObject other, CompareOp op)
         {
             if (!(other is PyWeakRef reference)) return PyNotImplemented.Instance;
             var mine = Referent;
@@ -103,7 +107,9 @@ namespace SharpPy
         /// was taken once. Without it there is nothing left to report and CPython raises
         /// "weak object has gone away" (Objects/weakrefobject.c:152).
         /// </summary>
-        public override int ToHash()
+        public override int ToHash() => SlotHash();
+
+        internal int SlotHash()
         {
             if (_hash.HasValue) return (int)_hash.Value;
             var target = Referent;
@@ -124,7 +130,9 @@ namespace SharpPy
         /// ref() - the object, or None. tp_call of PyWeakReference_Type
         /// (Objects/weakrefobject.c weakref_call).
         /// </summary>
-        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        public override PyObject Call(PyObject[] args, PyDict kwargs) => SlotCall(args);
+
+        internal PyObject SlotCall(PyObject[] args)
         {
             if (args != null && args.Length != 0)
                 throw PyTypeError.Create("__call__() takes no arguments");
@@ -158,5 +166,25 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value) =>
             SubclassInstanceSupport.SetAttribute(this, InstanceType, InstanceDict, name, value);
+
+        // update_one_slot: a class that declares the method replaces the slot, otherwise the ref's own
+        // slot stays. The type's method table calls the Slot* methods, so super().__call__() ends there.
+        public override PyObject Call(PyObject[] args, PyDict kwargs) =>
+            this.CallUserSpecialOrNull("__call__", args) ?? SlotCall(args);
+
+        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, SlotRepr);
+
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            var name = op == CompareOp.EQ ? "__eq__" : op == CompareOp.NE ? "__ne__" : null;
+            var declared = name == null ? null : this.CallUserSpecialOrNull(name, new[] { other });
+            return declared ?? SlotCompare(other, op);
+        }
+
+        public override int ToHash()
+        {
+            var declared = this.CallUserSpecialOrNull("__hash__", System.Array.Empty<PyObject>());
+            return declared != null ? declared.ToInt() : SlotHash();
+        }
     }
 }

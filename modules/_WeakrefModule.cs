@@ -114,15 +114,15 @@ namespace SharpPy.Modules
                 (self, args, kwargs) => PyNone.Instance, 0, int.MaxValue);
 
             type.TypeDict["__call__"] = new PyMethodDescriptor("__call__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).Call(args, kwargs), 0, 0);
+                (self, args, kwargs) => ((PyWeakRef)self).SlotCall(args), 0, 0);
             type.TypeDict["__repr__"] = new PyMethodDescriptor("__repr__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).ToRepr(), 0, 0);
+                (self, args, kwargs) => ((PyWeakRef)self).SlotRepr(), 0, 0);
             type.TypeDict["__hash__"] = new PyMethodDescriptor("__hash__", type,
-                (self, args, kwargs) => new PyInt(((PyWeakRef)self).ToHash()), 0, 0);
+                (self, args, kwargs) => new PyInt(((PyWeakRef)self).SlotHash()), 0, 0);
             type.TypeDict["__eq__"] = new PyMethodDescriptor("__eq__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).RichCompare(args[0], PyObject.CompareOp.EQ), 1, 1);
+                (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], PyObject.CompareOp.EQ), 1, 1);
             type.TypeDict["__ne__"] = new PyMethodDescriptor("__ne__", type,
-                (self, args, kwargs) => ((PyWeakRef)self).RichCompare(args[0], PyObject.CompareOp.NE), 1, 1);
+                (self, args, kwargs) => ((PyWeakRef)self).SlotCompare(args[0], PyObject.CompareOp.NE), 1, 1);
 
             // Objects/weakrefobject.c:663 weakref_getsets: the only attribute of a reference.
             type.TypeDict["__callback__"] = new PyGetSetDescriptor("__callback__", type,

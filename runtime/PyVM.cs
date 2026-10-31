@@ -1948,20 +1948,25 @@ namespace SharpPy
                 // CPython 3.12: async def로 정의된 함수인지 확인
                 if (pyCode.IsAsyncGenerator())
                 {
+                    // A function keeps its code, cells, defaults and globals and nothing of the frame
+                    // that made it (func_new, Objects/funcobject.c). A lambda that names `frame` would
+                    // keep every local of the enclosing call alive for the life of the function.
+                    var asyncGenGlobals = frame.ScopeChain.GlobalScope?.Variables;
+
                     // Async generator: 호출 시 PyAsyncGenerator 객체 반환
                     var asyncGenImpl = new Func<PyObject[], PyObject>(args =>
                     {
+                        var asyncGenChain = new PyScopeChain(asyncGenGlobals, "<async generator>");
                         var asyncGenFrame = closure != null && closure.Length > 0
-                            ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
-                            : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
+                            ? new PyFrame(pyCode, args, asyncGenChain, closure, CurrentFrame)
+                            : new PyFrame(pyCode, args, asyncGenChain, null, CurrentFrame);
 
                         // Async generator 생성
                         return new SharpPy.Core.PyAsyncGenerator(asyncGenFrame, this, pyCode.Name);
                     });
 
                     var asyncGenFunction = new PyFunction(pyCode.Name, asyncGenImpl, null, null, closure, pyCode);
-                    asyncGenFunction.ParentScope = frame.ScopeChain;
-                    asyncGenFunction.GlobalsDict = frame.ScopeChain.GlobalScope?.Variables;
+                    asyncGenFunction.GlobalsDict = asyncGenGlobals;
 
                     // Set CPython 3.12 compatible function attributes
                     if (defaults != null)
@@ -1992,8 +1997,8 @@ namespace SharpPy
                     {
                         var functionScopeChain = new PyScopeChain(globalsDict, "<async function>");
                         var asyncFrame = closure != null && closure.Length > 0
-                            ? new PyFrame(pyCode, args, functionScopeChain, closure, frame)
-                            : new PyFrame(pyCode, args, functionScopeChain, null, frame);
+                            ? new PyFrame(pyCode, args, functionScopeChain, closure, CurrentFrame)
+                            : new PyFrame(pyCode, args, functionScopeChain, null, CurrentFrame);
 
                         // Native coroutine 생성
                         return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
@@ -2114,25 +2119,21 @@ namespace SharpPy
                     #endif
 
                     var functionFrame = closure != null && closure.Length > 0
-                        ? new PyFrame(pyCode, args, functionScopeChain, closure, frame, capturedDefaults)
-                        : new PyFrame(pyCode, args, functionScopeChain, null, frame, capturedDefaults);
+                        ? new PyFrame(pyCode, args, functionScopeChain, closure, CurrentFrame, capturedDefaults)
+                        : new PyFrame(pyCode, args, functionScopeChain, null, CurrentFrame, capturedDefaults);
                     return ExecuteFrame(functionFrame);
                 };
 
                 if (closure != null && closure.Length > 0)
                 {
                     // Create function with closure
-                    functionObject = PyFunction.CreateClosureFunction(pyCode.Name, pyCode, closure, frame.ScopeChain);
-                    // Override implementation to use our parameter binding
                     functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
-                    functionObject.ParentScope = frame.ScopeChain;
                     functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
                 }
                 else
                 {
                     // Create regular function without closure
                     functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
-                    functionObject.ParentScope = frame.ScopeChain;
                     functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
                 }
 

@@ -121,3 +121,25 @@ class H:
         pass
 
     print(__private.__name__, __private.__qualname__)
+
+
+class I:
+    def plain_import(self):
+        import os
+        import os.path
+        import os.path as p
+        from os import sep
+        from os import sep as s2
+        return os.sep == sep == s2, p.sep == sep
+
+    def except_plain(self):
+        try:
+            raise ValueError(1)
+        except ValueError:
+            return "caught"
+
+    import sys as __sys
+    import sys
+
+
+print(I().plain_import(), I().except_plain(), I._I__sys is I.sys)

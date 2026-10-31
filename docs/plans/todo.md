@@ -88,7 +88,7 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 | 완료 | L2.5 | L2.4 회귀 넷, 주석 문장, `__dict__` 저장소 하나로 (2026-11-01, 세 커밋, 코드 생성 qwen, 설계와 판정 Claude) | qwen | p118~p122 |
 | 완료 | C1 | `PyGuard` 확장, `PyWeakCell`, `PyWeakRef`, `_weakref` (2026-11-01) | Claude, qwen | p94 |
 | E1 | P0-70 | 예외 표현 통합: 사용자 예외의 CLR 계보 둘을 하나로 (C1 뒤 설계) | Claude | 설계 시 |
-| L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
+| 완료 | L3 | `weakref.py`, `_weakrefset.py`, 타입 플래그, 생성자 인자와 프레임 보관 제거 (2026-11-01) | Claude, qwen | p88, p124 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |
 | Q5 | | `proxy` (별도 커밋) | Claude | p105 |
 | L5 | P0-55, 56 | `__class__` 대입, `is` | 로컬 AI | 착수 시 |
