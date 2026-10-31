@@ -47,7 +47,8 @@ not callable`이 나오는지 `.artifacts/bughunt/`에서 직접 확인한다.
 
 **원인.** swap-remove가 옮긴 항목의 대상이 이미 죽었으면 `Target()`이 null이라 그 가드의 `Slot`을 고치지
 못한다. 뒤에 그 가드가 처리될 때 낡은 번호로 다른 가드의 항목을 지운다. 지워진 가드는 종료 시 `__del__`을
-못 받는다. 측정: CPython 2050줄, SharpPy 2048줄 (3/3).
+못 받는다. 측정: CPython 2050줄, SharpPy 2048줄 (3/3). 이 줄 수는 점검에서 다시 재지 못했다. 현재 프로브의
+CPython 출력은 2053줄이다.
 
 **수정.** 번호를 가드가 아니라 항목에 둔다. 그러면 옮길 때 약참조를 풀 필요가 없다. 이 변경만으로 3/3
 모두 2050줄이 되는 것을 scratch worktree에서 확인했다 (게이트는 돌리지 않았다).
@@ -121,6 +122,45 @@ guard.Entry = null;
    한 곳에 `Shutdown` 함수를 만들어 호출을 합치는 편이 빠뜨릴 일이 없다. CPython은
    `Py_FinalizeEx`에서 모듈 정리 전에 `_PyAtExit_Call`을 부른다 (`Python/pylifecycle.c:1845`).
 
+## L2.1 — L2 점검 결과 수정
+
+L1, L2는 완료됐다 (`c425681`, `fa6f57a`). 점검 기준 게이트는 bughunt 95/95, evaluate 225/3/2,
+similarity exit 0, Godot 82/0이다. 아래를 **커밋 하나**로 한다. 이 항목이 **지금 할 일**이고, 끝나면 멈춘다.
+다음 L3은 C1 커밋이 있어야 열린다.
+
+**합격.** `--filter l2b_` 일치, `--filter l2_` 일치 유지, 게이트 통과. 사본: `p89_atexit_edges.py`.
+
+**코드.** `modules/AtexitModule.cs`만 고친다.
+
+1. `Equals`를 지우고 `unregister`가 `PyObject.Compare(left, right, PyObject.CompareOp.EQ)`의 결과를 참/거짓으로
+   판정하게 한다. 비교 전에 `ReferenceEquals`를 먼저 본다. `PyObject_RichCompareBool`과 같다. VM의 `==`가
+   쓰는 경로이고 반사 비교를 이미 처리한다. `__eq__`의 예외는 잡지 않고 그대로 올린다.
+2. `RunCallbacks`의 `Callbacks[i] = null;`을 지운다. C 소스는 호출 전에 슬롯을 비우지 않는다
+   (`atexit_callfuncs`, `Modules/atexitmodule.c:121`). `i >= Callbacks.Count` 검사는 남긴다. 중첩 실행이나
+   `_clear()`가 목록을 비울 수 있다.
+3. 인자 검사. `_ncallbacks`, `_clear`, `_run_exitfuncs`는 인자를 거부하고, `unregister`는 키워드를 거부한다.
+   메시지는 `atexit.` 접두사까지 프로브와 같게 한다. 내장 함수의 공통 인자 검사 경로가 있으면 그것을 쓴다.
+
+**기록 정정.** 코드 동작과 무관하다.
+
+| 위치 | 정정 |
+|---|---|
+| `core/PyFinalizer.cs:314` | 첫 `<summary>`를 `RunAtShutdown` 앞으로 옮긴다 |
+| `modules/AtexitModule.cs:154` | 실제로 출력하지 않는 `Traceback` 줄을 주석에서 지운다 |
+| `modules/AtexitModule.cs` 주석 | `:138` → `:139`, `:289` → `:288`. `:130~131`의 슬롯 주석은 코드 2번과 함께 지운다 |
+| `docs/reports/2026-10-31/three_edges_of_the_guard.md` | `:9069` → `:9071`, 게이트 `92/92` → `94/94` |
+| `docs/reports/2026-10-31/atexit_before_the_guards.md` | `:138` → `:139`, `:289` → `:288`, 게이트 `94/94` → `95/95`, 종료 경로의 "파일 오류" → 파일과 `-c` 각각의 정상/예외 |
+
+**`docs/known_gaps.md`에 등록.** 전부 L1, L2 이전부터 있던 결함이다. 재현을 CPython과 비교해 적고, 이 커밋에서
+고치지 않는다.
+
+- `class Sub(ValueError)`의 `repr`이 `Sub(...)`가 아니라 `<__main__.Sub object ...>`
+- 내장 예외 인스턴스에 속성 대입 불가 (`e.note = 1`이 `AttributeError`)
+- 내장 예외의 `__doc__` 없음
+- `functools.partialmethod`에 `__get__` 없음
+- `import pickle` 실패
+- `sharppy -m x`가 모듈을 실행하지 않고 REPL로 들어감 (`Program.cs:74`의 분기가 주석 처리됨)
+
 ## L3 — `weakref.py`, 타입 플래그 (C1 뒤)
 
 **C1이 커밋되기 전에 시작하지 않는다.** `_weakref`의 `ref`가 있어야 관측할 수 있다.
@@ -149,7 +189,7 @@ L1~L4 뒤에 **항목당 커밋 하나**로 한다. 각 항목은 착수 전에 
 | 항목 | 현상 | 주의 |
 |---|---|---|
 | P0-53 | `sys.exit(n)`의 종료 코드가 항상 1 (`sys.exit(0)` 포함) | 추측하지 말고 `SystemExit`이 `core/FileExecutor.cs`까지 오는 경로부터 추적한다. 처리 없는 `None`, 문자열 인자도 CPython과 비교한다. 끝나면 L2의 `sys.exit` 경로를 확인한다 |
-| P0-54 | `o.m == o.m`이 False | `Objects/classobject.c`의 `method_richcompare`: `__self__`는 `is`, `__func__`는 `==`. 해시도 일관되게 |
+| P0-54 | `o.m == o.m`이 False | `Objects/classobject.c`의 `method_richcompare`: `__self__`는 `is`, `__func__`는 `==`. 해시도 일관되게. 끝나면 `atexit.unregister(o.m)`이 지워지는지 확인한다 |
 | P0-55 | `x.__class__ = T`가 조용히 무시됨 | `type(x)`, 메서드, `__del__`이 모두 바뀌어야 한다. 레이아웃이 다른 경우의 `TypeError`도 맞춘다 (`Objects/typeobject.c` `object_set_class`) |
 | P0-56 | `is` 불일치: 작은 정수, 빈/한 글자 str, 빈 bytes, `tuple(t) is t`, `str(s) is s` | 경로별로 나누고 성능을 함께 잰다. 작은 정수 캐시는 할당 경로 전체를 건드리므로 1.02배 기준을 지킨다 |
 
