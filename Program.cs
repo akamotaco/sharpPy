@@ -100,8 +100,8 @@ namespace SharpPy
                     // sys.argv == ['']. Script reading from stdin is not implemented (known_gaps).
                     PyArgv.SetEmptyArg();
                     // 기본 모드: REPL 실행. The loop returns the status a SystemExit decided - CPython
-                    // does not lose it: piped stdin of `raise SystemExit(4)` exits 4 (.artifacts/tmp/
-                    // l24_repl.py measures all three lines against CPython -i).
+                    // does not lose it: piped stdin of `raise SystemExit(4)` exits 4 (measured in
+                    // docs/reports/2026-11-01/the_slots_an_exception_owns.md).
                     Environment.Exit(new SharpPyRepl().Start());
                 }
             }

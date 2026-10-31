@@ -352,7 +352,7 @@ namespace SharpPy.Core
                 // PyErr_GivenExceptionMatches again, not `is PySystemExit`: with the CLR test a
                 // Python subclass of SystemExit fell into the handler below, printed an execution
                 // error, and the loop ran the next line instead of exiting
-                // (.artifacts/tmp/l24_repl.py row 2).
+                // (docs/reports/2026-11-01/the_slots_an_exception_owns.md, REPL table).
                 throw;
             }
             catch (Exception ex)

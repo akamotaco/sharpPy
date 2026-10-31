@@ -543,7 +543,7 @@ namespace SharpPy
 
         #region Core Properties
 
-        public string Name { get; }
+        public string Name { get; private set; }
         public PyType[] BaseTypes { get; }
         public List<PyType> MRO { get; private set; }
         public string Module { get; }
@@ -1631,6 +1631,15 @@ namespace SharpPy
         /// </summary>
         internal PyString NameString => _nameString ??= new PyString(Name);
 
+        /// <summary>type_set_name replaces tp_name and ht_name, not a dict entry. ht_qualname is a
+        /// separate field and stays what it was, so it is fixed before the name moves.</summary>
+        internal void SetName(PyString value)
+        {
+            _ = QualNameString;
+            Name = value.Value;
+            _nameString = value;
+        }
+
         /// <summary>ht_qualname, held separately because CPython holds it separately. type_new_set_ht_name
         /// fills it from the class body and removes that entry from the dict (Objects/typeobject.c:3416),
         /// type_set_qualname (:1044) replaces it on assignment.</summary>
@@ -2030,10 +2039,31 @@ namespace SharpPy
                     // The branch is kept because it is observable: C.__name__ is C.__name__ is True,
                     // and that has to come from a cache, not from interning every string.
                     return type.HasFeature(PyTypeFlags.HeapType) ? type.NameString : new PyString(type.Name);
+                },
+                setter: (self, value) => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    if (type is PyClass pyClass)
+                    {
+                        if (value is not PyString)
+                            throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__name__, not '{value.GetTypeName()}'");
+                        pyClass.SetName((PyString)value);
+                        pyClass.InvalidateTypeCache();
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"cannot set '__name__' attribute of immutable type '{type.Name}'");
+                    }
+                },
+                deleter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var name = type is PyClass pyClass ? pyClass.Name : type.Name;
+                    throw PyTypeError.Create($"cannot delete '__name__' attribute of immutable type '{name}'");
                 }
             );
 
-            // type.__qualname__ - CPython type_qualname (Objects/typeobject.c:250-275)
+            // type.__qualname__ - CPython type_qualname (Objects/typeobject.c:1002)
             // For now, same as __name__ for built-in types
             TypeDict["__qualname__"] = new PyGetSetDescriptor(
                 "__qualname__",
@@ -2046,6 +2076,26 @@ namespace SharpPy
                     return type.HasFeature(PyTypeFlags.HeapType)
                         ? type.QualNameString
                         : new PyString(type.Name);  // For built-in types, qualname == name
+                },
+                setter: (self, value) => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    if (type is PyClass pyClass)
+                    {
+                        if (value is not PyString)
+                            throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__qualname__, not '{value.GetTypeName()}'");
+                        pyClass.SetQualName(((PyString)value).Value);
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"cannot set '__qualname__' attribute of immutable type '{type.Name}'");
+                    }
+                },
+                deleter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__qualname__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var name = type is PyClass pyClass ? pyClass.Name : type.Name;
+                    throw PyTypeError.Create($"cannot delete '__qualname__' attribute of immutable type '{name}'");
                 }
             );
 
@@ -2165,13 +2215,8 @@ namespace SharpPy
                     // For heap types (PyClass), check ClassDict
                     if (type is PyClass customType)
                     {
-                        // A user/heap class stores its module string directly in the
-                        // class dict. The `type` object itself is modelled as a
-                        // PyTypeMetaclass (: PyClass) whose ClassDict["__module__"] is
-                        // the *metaclass* __module__ provider descriptor (used for OTHER
-                        // classes), not a module string. Descriptor entries must be
-                        // skipped so `type.__module__` resolves via the native logic
-                        // below instead of leaking the descriptor object.
+                        // A user/heap class stores its module string directly in the class dict.
+                        // `type` is a PyTypeMetaclass whose ClassDict holds this very descriptor.
                         if (customType.ClassDict.TryGetValue("__module__", out var mod) && mod is not IDescriptor)
                         {
                             return mod;
@@ -2198,17 +2243,20 @@ namespace SharpPy
                 setter: (self, value) => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    // CPython 3.12: Objects/typeobject.c:1094-1105 (type_set_module)
-                    // Only allow setting for heap types (user-defined classes)
-                    if (type is PyClass customType)
+                    if (type is PyClass pyClass)
                     {
-                        customType.ClassDict["__module__"] = value;
+                        pyClass.ClassDict["__module__"] = value;
+                        pyClass.InvalidateTypeCache();
                     }
                     else
                     {
                         throw PyTypeError.Create($"cannot set '__module__' attribute of immutable type '{type.Name}'");
                     }
+                },
+                deleter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__module__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    throw PyTypeError.Create($"cannot delete '__module__' attribute of immutable type '{type.Name}'");
                 }
             );
 
@@ -4043,7 +4091,7 @@ namespace SharpPy
         /// CPython reference: Objects/exceptions.c:79-105 (BaseException_str)
         /// </summary>
         /// <summary>
-        /// KeyError.__str__ is key_str (Objects/exceptions.c:1051, installed as tp_str): one argument
+        /// KeyError.__str__ is KeyError_str (Objects/exceptions.c:2603, installed as tp_str): one argument
         /// is shown with repr(), which is why KeyError('a') prints "'a'". SharpPy had that rule on the
         /// CLR class only, so a Python subclass of KeyError printed the bare value - tp_str is
         /// inherited, and inheriting it means the rule has to sit in this type's table.
@@ -4145,26 +4193,14 @@ namespace SharpPy
             TypeDict["args"] = new PyGetSetDescriptor(
                 name: "args",
                 ownerType: this,
-                getter: (PyObject self) =>
-                {
-                    var stored = PyExceptionSlots.ArgsOf(self);
-                    return stored.Length == 0 ? PyTuple.Empty : new PyTuple(stored);
-                },
+                getter: (PyObject self) => PyExceptionSlots.ArgsTuple(self),
                 setter: (PyObject self, PyObject value) =>
                 {
-                    // A T_OBJECT member stores whatever it is given; only the tuple the constructor
-                    // built is normalised on the way in.
-                    var owner = self is PyException wrapper && wrapper.OriginalInstance != null
-                        ? wrapper.OriginalInstance
-                        : self;
-                    if (owner is PyExceptionInstance slot)
-                    {
-                        slot.ArgsSlot = value;
-                        return;
-                    }
-                    if (!(value is PyTuple valueTuple))
-                        throw PyTypeError.Create($"args must be set to a tuple, not '{value.GetTypeName()}'");
-                    PyExceptionSlots.StoreArgs(self, valueTuple.Items);
+                    PyExceptionSlots.AssignArgs(self, value);
+                },
+                deleter: (PyObject self) =>
+                {
+                    throw PyTypeError.Create("args may not be deleted");
                 }
             );
         }

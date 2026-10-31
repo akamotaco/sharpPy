@@ -22,6 +22,22 @@ namespace SharpPy
         // from descriptors outside the class family.
         internal void SetArgsInternal(PyObject[] args) => Args = args;
 
+        /// <summary>Wraps the stored array into a PyTuple once and caches it back in _args.</summary>
+        internal PyTuple ArgsTuple
+        {
+            get
+            {
+                if (_args is not PyTuple t)
+                {
+                    t = new PyTuple((PyObject[])_args);
+                    _args = t;
+                }
+                return t;
+            }
+        }
+
+        internal void SetArgsTuple(PyTuple tuple) => _args = tuple;
+
         // CPython 3.12: Exception chaining attributes
         public PyBaseException? __cause__ { get; set; }
         public PyBaseException? __context__ { get; set; }
@@ -279,8 +295,7 @@ namespace SharpPy
                     // wrapper that could disagree with it.
                     if (OriginalInstance != null)
                     {
-                        var stored = PyExceptionSlots.ArgsOf(this);
-                        return stored.Length == 0 ? PyTuple.Empty : new PyTuple(stored);
+                        return PyExceptionSlots.ArgsTuple(this);
                     }
                     return base.GetAttribute(name);
                 case "__cause__":

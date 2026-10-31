@@ -266,7 +266,7 @@ namespace SharpPy
                     SetQualName(qualText.Value);
                     ClassDict.Remove("__qualname__");
                 }
-                else if (!(qualEntry is PyQualnameDescriptor))
+                else
                 {
                     throw PyTypeError.Create(
                         $"type __qualname__ must be a str, not {qualEntry.GetTypeName()}");
@@ -834,6 +834,15 @@ namespace SharpPy
             // This is a known limitation - metaclass __setattr__ won't be called.
             // TODO: Fix super() for metaclass contexts to enable this feature.
 
+            // CPython type_setattro -> _PyObject_GenericSetAttrWithDict: a data descriptor on the
+            // metatype wins over the class dict (Objects/typeobject.c type_setattro).
+            var metaDesc = MetatypeAttribute(name);
+            if (metaDesc != null && PyClassInstance.IsDataDescriptor(metaDesc))
+            {
+                PyClassInstance.CallDescriptorSet(metaDesc, this, value);
+                return;
+            }
+
             ClassDict[name] = value;
             // __del__ may be assigned to a class after instances of it already exist. C decides
             // tp_finalize at type creation (Objects/typeobject.c:9499); SharpPy's cached answer is
@@ -845,6 +854,13 @@ namespace SharpPy
             InvalidateTypeCache();
         }
 
+        // _PyType_Lookup on the metatype: a user metaclass has an MRO, a builtin one only its table.
+        private PyObject MetatypeAttribute(string name)
+        {
+            var metatype = GetPyType();
+            return (metatype as PyClass)?.LookupInMRO(name) ?? GetTypeAttribute(metatype, name);
+        }
+
         // CPython 3.12: Override DelAttribute for type objects
         protected override void PyDelAttribute(string name)
         {
@@ -853,6 +869,14 @@ namespace SharpPy
             // lookup below answered "type object 'C' has no attribute '__class__'".
             if (name == "__class__")
                 throw PyTypeError.Create("can't delete __class__ attribute");
+
+            // CPython type_setattro delete: metatype data descriptor first (Objects/typeobject.c).
+            var metaDesc = MetatypeAttribute(name);
+            if (metaDesc != null && PyClassInstance.IsDataDescriptor(metaDesc))
+            {
+                PyClassInstance.CallDescriptorDelete(metaDesc, this);
+                return;
+            }
 
             if (ClassDict.ContainsKey(name))
             {
@@ -2265,43 +2289,11 @@ namespace SharpPy
             // 3. 아니라면 instance.__dict__[name] = value
 
             // 1. 클래스 MRO에서 descriptor 찾기
-            foreach (var mroType in InstanceType.MRO)
+            var desc = FindDataDescriptorInMro(name);
+            if (desc != null)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    // 2. data descriptor 확인 및 __set__ 호출
-                    if (IsDataDescriptor(classValue))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → found data descriptor in {mroType.Name}, calling __set__()");
-                        #endif
-                        CallDescriptorSet(classValue, this, value);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ descriptor __set__() completed");
-                        #endif
-                        return;
-                    }
-                    // descriptor가 아니거나 non-data descriptor라면 계속 진행
-                    break;
-                }
-                // _PyType_Lookup (Objects/type.c) searches the MRO once and every level is a type,
-                // so a builtin level's member or getset descriptor is found by the write path too -
-                // exactly like the read path above does. Without this branch `h.code = 4` on a
-                // SystemExit subclass that defines __setattr__ landed in the instance dict, where
-                // the code member never looks (probes/l24_exit_code_slot.py).
-                else if (mroType is PyType builtinLevel && !(mroType is PyClass))
-                {
-                    var levelAttr = SharpPy.PyClass.GetTypeAttribute(builtinLevel, name);
-                    if (levelAttr != null)
-                    {
-                        if (IsDataDescriptor(levelAttr))
-                        {
-                            CallDescriptorSet(levelAttr, this, value);
-                            return;
-                        }
-                        break;
-                    }
-                }
+                CallDescriptorSet(desc, this, value);
+                return;
             }
 
             // 3. 인스턴스 __dict__에 저장
@@ -2390,21 +2382,11 @@ namespace SharpPy
             // 3. 아니라면 instance.__dict__에서 삭제
 
             // 1. 클래스 MRO에서 descriptor 찾기
-            foreach (var mroType in InstanceType.MRO)
+            var desc = FindDataDescriptorInMro(name);
+            if (desc != null)
             {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    // 2. data descriptor 확인 및 __delete__ 호출
-                    if (IsDataDescriptor(classValue))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → found data descriptor in {mroType.Name}, calling __delete__()");
-                        #endif
-                        CallDescriptorDelete(classValue, this);
-                        return;
-                    }
-                    break;
-                }
+                CallDescriptorDelete(desc, this);
+                return;
             }
 
             // 3. 인스턴스 __dict__에서 삭제
@@ -2420,9 +2402,29 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// _PyType_Lookup (Objects/typeobject.c) searches the MRO once; first hit decides.
+        /// Returns the data descriptor or null (non-data descriptor also returns null, stopping search).
+        /// </summary>
+        private PyObject FindDataDescriptorInMro(string name)
+        {
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                    return IsDataDescriptor(classValue) ? classValue : null;
+                else if (mroType is PyType builtinLevel && !(mroType is PyClass))
+                {
+                    var levelAttr = SharpPy.PyClass.GetTypeAttribute(builtinLevel, name);
+                    if (levelAttr != null)
+                        return IsDataDescriptor(levelAttr) ? levelAttr : null;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
         /// CPython 3.12: Call descriptor's __delete__ method
         /// </summary>
-        private static void CallDescriptorDelete(PyObject descriptor, PyObject instance)
+        internal static void CallDescriptorDelete(PyObject descriptor, PyObject instance)
         {
             // CPython 3.12: object.c calls tp_descr_set(self, obj, NULL). Built-in
             // descriptors (property, ...) implement deletion through the descriptor
@@ -2575,7 +2577,7 @@ namespace SharpPy
                 moduleObj is PyString moduleStr &&
                 moduleStr.Value.Length > 0 && moduleStr.Value != "builtins" && moduleStr.Value != "None")
                 modulePrefix = moduleStr.Value + ".";
-            return new PyString($"<{modulePrefix}{GetTypeName()} object at 0x{GetHashCode():x}>");
+            return new PyString($"<{modulePrefix}{InstanceType.QualNameText} object at 0x{GetHashCode():x}>");
         }
 
         // CPython PyObject_Str: __str__가 **없는 경우에만** __repr__로 폴백한다.

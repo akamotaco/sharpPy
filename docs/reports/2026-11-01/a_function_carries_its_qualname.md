@@ -20,10 +20,10 @@ The last two rows are the same defect seen from the other side: SharpPy left the
 ## The two fields CPython keeps
 
 ```
-func_qualname   Objects/funcobject.c:705  getset, getter :529, setter :533
+func_qualname   Objects/funcobject.c:705  getset, getter :529, setter :535
                                          :536-:541 - deleting and a non-string share one message
 ht_qualname     Objects/typeobject.c:3416 type_new_set_ht_name takes the body entry out of the dict
-                Objects/typeobject.c:250  type_qualname reads the field
+                Objects/typeobject.c:1002 type_qualname reads the field
                 Objects/typeobject.c:1044 type_set_qualname replaces it, "can only assign string to
                                             %s.__qualname__, not '%s'"
 ```

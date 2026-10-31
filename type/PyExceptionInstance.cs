@@ -4,7 +4,7 @@ namespace SharpPy;
 
 /// <summary>
 /// A Python-defined subclass of an exception type. CPython gives every exception object two slots in
-/// its layout - <c>args</c> (Objects/exceptions.c:23, written by BaseException_new at :56) and, for
+/// its layout - <c>args</c> (Include/cpython/pyerrors.h:9, written by BaseException_new at :56) and, for
 /// SystemExit, <c>code</c> (Objects/exceptions.c:674, written by SystemExit_init at :633). They are
 /// reached through member descriptors, never through the instance dict, so a user
 /// <c>__setattr__</c> is not called to build them, a read-only property in a subclass cannot block
@@ -18,7 +18,7 @@ public class PyExceptionInstance : PyClassInstance
 {
     /// <summary>BaseException.args. Kept as the tuple object Python observes, the way CPython keeps a
     /// tuple in the slot rather than recomputing it per read.</summary>
-    internal PyObject ArgsSlot = PyTuple.Empty;
+    internal PyTuple ArgsSlot = PyTuple.Empty;
 
     /// <summary>SystemExit.code. A null field is an unset member; PyMember_GetOne reads a NULL
     /// T_OBJECT back as None (Objects/structmember.c), which is what `del e.code` leaves behind.</summary>
@@ -52,10 +52,40 @@ internal static class PyExceptionSlots
     {
         var owner = Owner(self);
         if (owner is PyExceptionInstance slot)
-            return slot.ArgsSlot is PyTuple tuple ? tuple.Items : Array.Empty<PyObject>();
+            return slot.ArgsSlot.Items;
         if (owner is PyBaseException native)
             return native.Args;
         return Array.Empty<PyObject>();
+    }
+
+    /// <summary>The stored tuple object itself, so identity is preserved across reads.</summary>
+    internal static PyTuple ArgsTuple(PyObject self)
+    {
+        var owner = Owner(self);
+        if (owner is PyExceptionInstance slot)
+            return slot.ArgsSlot;
+        if (owner is PyBaseException native)
+            return native.ArgsTuple;
+        return PyTuple.Empty;
+    }
+
+    /// <summary>BaseException_set_args (Objects/exceptions.c:261): PySequence_Tuple(val), store.</summary>
+    internal static void AssignArgs(PyObject self, PyObject value)
+    {
+        var owner = Owner(self);
+        var tuple = value is PyTuple ? (PyTuple)value
+            : (PyTuple)PyType.TupleType.Call(new PyObject[] { value }, null);
+        if (owner is PyExceptionInstance slot)
+        {
+            slot.ArgsSlot = tuple;
+            return;
+        }
+        if (owner is PyBaseException native)
+        {
+            native.SetArgsTuple(tuple);
+            return;
+        }
+        throw PyTypeError.Create($"cannot store exception arguments on '{self.GetTypeName()}'");
     }
 
     internal static void StoreArgs(PyObject self, PyObject[] args)

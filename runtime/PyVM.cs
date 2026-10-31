@@ -4998,7 +4998,7 @@ namespace SharpPy
                         var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
 
                         // Handle exc - could be a type or an instance
-                        // _PyErr_SetObject (Python/errors.c:207) uses the object it was handed. The
+                        // _PyErr_SetObject (Python/errors.c:161) uses the object it was handed. The
                         // test used to be PyException, which is a CLR class for the builtin family,
                         // so SystemExit, KeyboardInterrupt, GeneratorExit and BaseException - direct
                         // derivatives of PyBaseException - fell through to the wrapper below and came
@@ -5076,14 +5076,14 @@ namespace SharpPy
                         }
 
                         // CPython 3.12: Implicit exception chaining - set __context__ before __cause__
-                        // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
+                        // Corresponds to _PyErr_SetObject in Python/errors.c:161
                         if (handledException != null && handledException != excInstance)
                         {
                             excInstance.__context__ = handledException;
                         }
 
                         // Set __cause__ attribute (explicit chaining). Any BaseException is a legal
-                        // cause, not only the builtin family (Python/errors.c:207-:235).
+                        // cause, not only the builtin family (Python/errors.c:161).
                         if (cause is PyBaseException causeExc)
                         {
                             excInstance.__cause__ = causeExc;
@@ -5118,7 +5118,7 @@ namespace SharpPy
                         if (raisedException is PyBaseException pyEx)
                         {
                             // CPython 3.12: Implicit exception chaining
-                            // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
+                            // Corresponds to _PyErr_SetObject in Python/errors.c:161
                             if (handledException != null && handledException != pyEx)
                             {
                                 pyEx.__context__ = handledException;

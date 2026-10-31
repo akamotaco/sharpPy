@@ -2123,7 +2123,7 @@ runtime/PyVM.cs:5256  new PyException(customInstance.ToString(), ...)
 표현 통합 작업이다. L2.4가 표에서 약속한 대로, 이 항목은 감싸기를 유지한 채 관측되는 결함
 (`raise ... from`, `with_traceback`, `code`/`args` 슬롯, `repr`)만 고치고 신원은 별도 항목으로 남긴다.
 
-CPython 앵커: `Python/ceval.c` `do_raise`는 만든 객체를 그대로 올리고, `Python/errors.c:207
+CPython 앵커: `Python/ceval.c` `do_raise`는 만든 객체를 그대로 올리고, `Python/errors.c:161
 _PyErr_SetObject`는 받은 객체에 `__context__`/`__cause__`를 설정만 한다. 새 객체를 만들지 않는다.
 
 ## P0-71 함수의 `__doc__`/`__name__`에 setter가 없다 (측정 2026-11-01, 미해결, L2.4 item 9에서 정밀화)
@@ -2148,3 +2148,29 @@ SharpPy는 `core/PyFunction.cs`의 `InitializeFunctionDescriptors()`에서 gette
 없는 것들은 이전과 같이 dict에 저장했다. 그래서 이번 변경은 위 표의 "변화 없음"을 지킨다. setter를
 추가하면 세 번째·네 번째 줄이 CPython으로 바뀌고, `__qualname__`에 넣은 `deleter` 배관이 이미 있으므로
 추가 작업은 크다.
+
+P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만 같은 뿌리에서 나오는 증상이 더 있다. 뿌리는 사용자 예외의 CLR 계보가
+`PyClassInstance`와 `PyBaseException` 둘로 나뉜 것이다. E1이 설계한다.
+
+- `raise X from E("y")`(사용자 예외 인스턴스)와 `raise X from TypeError`(클래스)가 `TypeError`다.
+- 올리기 전 사용자 예외에 `__traceback__`, `add_note`, `__reduce__`가 없다.
+- `sys.exc_info()[1] is z`, `__exit__`이 받는 값, `gen.throw(z)`가 다른 객체를 준다. 같은 객체를 세 번 올리면 `id`가 셋이다.
+- 사용자 서브클래스에서 `OSError.errno`, `StopIteration.value`, `ImportError`/`AttributeError`/`NameError` 키워드, `SyntaxError`,
+  `UnicodeError`, `ExceptionGroup` 필드가 없다.
+
+## P0-72 내장 함수의 `__qualname__`이 없다 (측정 2026-11-01, 미해결)
+
+재현: `docs/plans/lifetime_foundation/probes/gap_l25_surface.py`. `print`, `[].append`, `str.join`이 `AttributeError`다.
+
+## P0-73 `tp_new_wrapper` 검사가 없다 (측정 2026-11-01, 미해결)
+
+같은 재현. `object.__new__(E)`, `ValueError.__new__(KeyError, 1)`이 객체를 만들고, `BaseException.__new__(int)`의 메시지가 다르다.
+앵커: `Objects/typeobject.c:8290`, `:8299`, `:8317`.
+
+## P0-74 레이아웃 충돌을 검사하지 않는다 (측정 2026-11-01, 미해결)
+
+같은 재현. `type("X", (int, Exception), {})`가 생성된다. CPython은 `multiple bases have instance lay-out conflict`다.
+
+## P0-75 `p.__dict__ = {...}` 대입이 속성에 반영되지 않는다 (측정 2026-11-01, 미해결)
+
+같은 재현. 대입 뒤 `p.a`가 `AttributeError`다.

@@ -11,7 +11,7 @@ with the probe files; "after" is this commit.
 
 | 동작 | CPython의 단일 지점 | SharpPy before | SharpPy after | 항목 |
 |---|---|---|---|---|
-| 예외 객체 | `do_raise` raises the object it was given | `PyVM.cs:5061` `new PyException(customInstance.ToString(), classInst.InstanceType, classInst)` and four siblings; `e is z` **False** | same wrapper, but every observable the probes reach now reads through it to the original: `raise SystemExit(3) from None` exits 1, `with_traceback` returns the same object. Identity itself is **still False** and is registered as P0-70 | 5, 7 |
+| 예외 객체 | `do_raise` raises the object it was given | `PyVM.cs:5061` `new PyException(customInstance.ToString(), classInst.InstanceType, classInst)` and four siblings; `e is z` **False** | same wrapper, but every observable the probes reach now reads through it to the original: `raise SystemExit(3) from None` exits 3, `with_traceback` returns the same object. Identity itself is **still False** and is registered as P0-70 | 5, 7 |
 | 생성 | `BaseException_new` stores args, `BaseException_init` may re-do it | args written only on the `__init__` route: `X(1).__new__(X, 1)` gave `args == ()`; `class K(Exception): def __init__: pass` gave `args == ()` | `BaseException.__new__` descriptor stores at allocation (`type/PyExceptionInstance.cs`, `core/PyType.cs`); a user `__init__` that never calls `super().__init__` still shows `('z',)` | 3, 4 |
 | 저장 | the object's `args`, `code` slots | `self.SetAttribute("code", ...)`, `InstanceDict`: user `__setattr__` fired during construction, a read-only `code` property blocked construction, both names were visible in `__dict__` | `PyExceptionInstance` carries `ArgsSlot`/`CodeSlot`; `PyExceptionSlots.ArgsOf/StoreArgs/CodeOf/StoreCode` is the only route, and it unwraps to the original instance. `Hook(3)` no longer prints during construction; `Prop(SystemExit)` with `code = property(...)` constructs | 2 |
 | 읽기 | member descriptors and `BaseException_repr` | `.args` and `repr` could disagree: a caught `K('z')` had `args == ('z',)` and `repr == 'K()'`; `BaseException.__repr__(1)` returned a string instead of the descriptor `TypeError` | both read `PyExceptionSlots`; `BaseException.__repr__`/`__str__` refuse a foreign receiver with `descriptor '__repr__' requires a 'BaseException' object but received a 'int'` | 2, 5 |
@@ -43,13 +43,13 @@ PythonException.PyException reads  124 sites
 | 5 | `repr` read a different `args` than `.args` | `BaseException_repr` (`Objects/exceptions.c:131`), args part `:120` | both go through the slot; the descriptor receiver check matches `__init__`'s |
 | 6 | the exit message and its failures | `Python/pythonrun.c:755` `PyFile_WriteObject`, `:761 PySys_WriteStderr("\n")`, `Python/sysmodule.c:4001` `sys_format`, `Python/pylifecycle.c:1830` → `:3045 PyErr_WriteUnraisable(NULL)` before `_PyAtExit_Call` at `:1845` | message write and `"\n"` write are separate and both attempted, an empty message is still written, a failing `sys.stderr` write falls back to the C stderr only for the newline, and the failure travels as one pending error reported with `PyUnraisable.Report(pending, PyNone.Instance)` before `Shutdown()` - no `Exception ignored in` header, one report |
 | 6b | the huge-code path wrote a fixed string | `PyLong_AsLong` leaves `OverflowError` raised and returns -1 | an `OverflowError` object is created and reported through the same unraisable path; rc stays -1 (`p113`, platform status 4294967295) |
-| 7 | `raise SystemExit(3) from None` printed a traceback and exited 1 with `Exception: 3`; `with_traceback` threw `InvalidCastException` | `Python/errors.c:207 _PyErr_SetObject`, `PyObject-WithTraceback` on `PyBaseException` | the raise test is `exc is PyBaseException` (was `PyException`, a CLR family class), so `SystemExit`, `KeyboardInterrupt`, `GeneratorExit` and `BaseException` are raised as themselves; the cause test is likewise `PyBaseException`; `with_traceback` casts to `PyBaseException` |
+| 7 | `raise SystemExit(3) from None` printed a traceback and exited 1 with `Exception: 3`; `with_traceback` threw `InvalidCastException` | `Python/errors.c:161 _PyErr_SetObject`, `BaseException_with_traceback` | the raise test is `exc is PyBaseException` (was `PyException`, a CLR family class), so `SystemExit`, `KeyboardInterrupt`, `GeneratorExit` and `BaseException` are raised as themselves; the cause test is likewise `PyBaseException`; `with_traceback` casts to `PyBaseException` |
 | 8 | the REPL discarded the status | `Modules/main.c` runs stdin then handles the exit | `SharpPyRepl.Start()` returns an int, the escape routes through `ReportExitState`, `Program.cs` calls `Environment.Exit`, and `PyFinalizer.Shutdown()` runs at the end of the session; both `is PySystemExit` tests became `PySystemExit.Matches` |
 | 10 | dead code | - | `PySystemExit.HandleStatus` had no caller; removed |
 
 Two extra corrections came out of the same route:
 
-- **`KeyError.__str__` is inheritable now.** `key_str` (`Objects/exceptions.c:1051`) is `tp_str`, so a
+- **`KeyError.__str__` is inheritable now.** `KeyError_str` (`Objects/exceptions.c:2603`) is `tp_str`, so a
   Python subclass of `KeyError` must print `'a'` for `KeyError('a')`. SharpPy had that behaviour on
   the CLR class only. Registering it from `BaseException`'s initialiser crashed the `PyType` static
   constructor (`KeyErrorType` did not exist yet) - it belongs in `InitializeKeyErrorTypeDescriptors`,
@@ -95,7 +95,7 @@ profiler suite showed nothing outside noise (`+3.5%` worst on `closure_calls`), 
 worktree build of `4ccb38f` on `.artifacts/perf/exc_suite.py` (5 alternating rounds, best-of) is
 flat:
 
-(`.artifacts/tmp/l24_perf_ab.py`):
+| case | `4ccb38f` | this commit | ratio |
 |---|---|---|---|
 | no_raise | 0.0256 | 0.0258 | 0.992 |
 | raise_builtin | 0.1203 | 0.1195 | 1.007 |

@@ -247,13 +247,10 @@ namespace SharpPy
             // These descriptors provide attribute access for type objects
             // Equivalent to CPython's getsetdef array in Objects/typeobject.c:1578-1591
             classDict["__dict__"] = new PyDictDescriptor();
-            classDict["__name__"] = new PyNameDescriptor();
-            classDict["__module__"] = new PyModuleDescriptor();
             classDict["__bases__"] = new PyBasesDescriptor();
             classDict["__mro__"] = new PyMroDescriptor();
             classDict["__base__"] = new PyBaseDescriptor();
             classDict["__doc__"] = new PyDocDescriptor();
-            classDict["__qualname__"] = new PyQualnameDescriptor();
 
             // CPython 3.12: Objects/typeobject.c:4482
             // {"__class_getitem__", Py_GenericAlias, METH_O|METH_CLASS, PyDoc_STR("See PEP 585")},
@@ -1254,166 +1251,6 @@ namespace SharpPy
     }
 
     /// <summary>
-    /// CPython 3.12: getset_descriptor for __name__ attribute
-    /// Equivalent to CPython's type_name getter/type_set_name setter
-    /// getsetdef: {"__name__", (getter)type_name, (setter)type_set_name, NULL}
-    /// </summary>
-    public class PyNameDescriptor : PyObject, IDescriptor
-    {
-        public override string ToString() => "<attribute '__name__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "getset_descriptor";
-
-        public PyObject Get(PyObject instance, PyType owner)
-        {
-            // CPython 3.12: When accessing type.__name__ (instance=NULL, owner=type),
-            // return type's name, not the descriptor itself
-            if (instance == null || instance == PyNone.Instance)
-            {
-                // If owner is provided, return its name
-                if (owner != null)
-                {
-                    if (owner is PyClass ownerClass)
-                    {
-                        // CPython 3.12: Return the owner's tp_name directly, don't look in ClassDict
-                        // (otherwise we'd return the descriptor itself!)
-                        return new PyString(ownerClass.Name);
-                    }
-
-                    // Owner is a PyType (including PyTypeMetaclass)
-                    return new PyString(owner.Name);
-                }
-
-                // Fallback: return descriptor itself for unbound access
-                return this;
-            }
-
-            // CPython 3.12: Handle both PyClass and PyType
-            if (instance is PyClass pyClass)
-            {
-                // CPython: Check ClassDict first, then fallback to tp_name
-                if (pyClass.ClassDict.TryGetValue("__name__", out var name))
-                    return name;
-
-                // type_name's heap branch returns ht_name, the one str object the type was created
-                // with (Objects/typeobject.c:994 Py_NewRef), so reading __name__ twice yields the
-                // same object. Measured CPython: C.__name__ is C.__name__ -> True.
-                return pyClass.NameString;
-            }
-
-            if (instance is PyType pyType)
-            {
-                // A static spec has no ht_name; CPython builds a str per read (:998), which is why
-                // int.__name__ is int.__name__ is False there too.
-                return pyType.HasFeature(PyTypeFlags.HeapType)
-                    ? pyType.NameString
-                    : new PyString(pyType.Name);
-            }
-
-            return PyNone.Instance;
-        }
-
-        public void Set(PyObject instance, PyObject value)
-        {
-            if (instance is PyClass pyClass)
-            {
-                if (!(value is PyString nameStr))
-                    throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__name__, not '{value.GetTypeName()}'");
-
-                // CPython: Update tp_name (in SharpPy, store in ClassDict)
-                // This is similar to CPython's heap type behavior
-                pyClass.ClassDict["__name__"] = value;
-            }
-            else
-            {
-                throw PyAttributeError.Create("attribute '__name__' of 'type' objects is not writable");
-            }
-        }
-
-        public void Delete(PyObject instance)
-        {
-            throw PyAttributeError.Create("can't delete attribute '__name__'");
-        }
-
-        public bool IsDataDescriptor() => true;
-    }
-
-    /// <summary>
-    /// CPython 3.12: getset_descriptor for __module__ attribute
-    /// Equivalent to CPython's type_module getter/type_set_module setter
-    /// getsetdef: {"__module__", (getter)type_module, (setter)type_set_module, NULL}
-    /// </summary>
-    public class PyModuleDescriptor : PyObject, IDescriptor
-    {
-        public override string ToString() => "<attribute '__module__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "getset_descriptor";
-
-        public PyObject Get(PyObject instance, PyType owner)
-        {
-            if (instance == null || instance == PyNone.Instance)
-                return this;
-
-            // CPython 3.12: Objects/typeobject.c:1063-1091 (type_module)
-            // Check PyClass first (heap type - user-defined classes)
-            if (instance is PyClass pyClass)
-            {
-                // CPython: For heap types, look up __module__ in ClassDict (tp_dict)
-                if (pyClass.ClassDict.TryGetValue("__module__", out var module))
-                    return module;
-
-                // Default to "builtins" if not found
-                return new PyString("builtins");
-            }
-
-            // CPython 3.12: Objects/typeobject.c:1078-1088
-            // For built-in types (non-heap types), check tp_name for '.'
-            // If found, return module name (part before '.'); otherwise return "builtins"
-            if (instance is PyType pyType)
-            {
-                // SharpPy native types store their module in the Module field rather
-                // than encoding it in tp_name (CPython uses tp_name "module.Name").
-                if (!string.IsNullOrEmpty(pyType.Module))
-                    return new PyString(pyType.Module);
-
-                // CPython: const char *s = strrchr(type->tp_name, '.');
-                var dotIndex = pyType.Name.LastIndexOf('.');
-                if (dotIndex >= 0)
-                {
-                    // Return module name (part before '.')
-                    return new PyString(pyType.Name.Substring(0, dotIndex));
-                }
-
-                // Default: "builtins" for built-in types
-                // CPython: mod = Py_NewRef(&_Py_ID(builtins));
-                return new PyString("builtins");
-            }
-
-            return PyNone.Instance;
-        }
-
-        public void Set(PyObject instance, PyObject value)
-        {
-            if (instance is PyClass pyClass)
-            {
-                // CPython: PyDict_SetItem(dict, &_Py_ID(__module__), value)
-                pyClass.ClassDict["__module__"] = value;
-            }
-            else
-            {
-                throw PyAttributeError.Create("attribute '__module__' of 'type' objects is not writable");
-            }
-        }
-
-        public void Delete(PyObject instance)
-        {
-            throw PyAttributeError.Create("can't delete attribute '__module__'");
-        }
-
-        public bool IsDataDescriptor() => true;
-    }
-
-    /// <summary>
     /// CPython 3.12: getset_descriptor for __bases__ attribute
     /// Equivalent to CPython's type_get_bases getter/type_set_bases setter
     /// getsetdef: {"__bases__", (getter)type_get_bases, (setter)type_set_bases, NULL}
@@ -1667,6 +1504,7 @@ namespace SharpPy
             {
                 // CPython: PyDict_SetItem(dict, &_Py_ID(__doc__), value)
                 pyClass.ClassDict["__doc__"] = value;
+                pyClass.InvalidateTypeCache();
             }
             else
             {
@@ -1677,65 +1515,6 @@ namespace SharpPy
         public void Delete(PyObject instance)
         {
             throw PyAttributeError.Create("can't delete attribute '__doc__'");
-        }
-
-        public bool IsDataDescriptor() => true;
-    }
-
-    /// <summary>
-    /// CPython 3.12: getset_descriptor for __qualname__ attribute
-    /// Equivalent to CPython's type_qualname getter/type_set_qualname setter
-    /// getsetdef: {"__qualname__", (getter)type_qualname, (setter)type_set_qualname, NULL}
-    /// </summary>
-    public class PyQualnameDescriptor : PyObject, IDescriptor
-    {
-        public override string ToString() => "<attribute '__qualname__' of 'type' objects>";
-        public override PyType GetPyType() => PyType.ObjectType;
-        public override string GetTypeName() => "getset_descriptor";
-
-        public PyObject Get(PyObject instance, PyType owner)
-        {
-            if (instance == null || instance == PyNone.Instance)
-                return this;
-
-            if (instance is PyClass pyClass)
-            {
-                // type_qualname (Objects/typeobject.c:250) reads ht_qualname. The class body's entry
-                // is no longer in the dict - type_new_set_ht_name took it out - so the field is the
-                // only route here as well.
-                return pyClass.QualNameString;
-            }
-
-            // CPython 3.12: For builtin types (PyType), return tp_name
-            // Objects/typeobject.c:250-275 (type_qualname getter)
-            if (instance is PyType pyType)
-            {
-                // For builtin types, qualname == name
-                return new PyString(pyType.Name);
-            }
-
-            return PyNone.Instance;
-        }
-
-        public void Set(PyObject instance, PyObject value)
-        {
-            if (instance is PyClass pyClass)
-            {
-                if (!(value is PyString))
-                    throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__qualname__, not '{value.GetTypeName()}'");
-
-                // CPython: Py_SETREF(et->ht_qualname, Py_NewRef(value))
-                pyClass.SetQualName(((PyString)value).Value);
-            }
-            else
-            {
-                throw PyAttributeError.Create("attribute '__qualname__' of 'type' objects is not writable");
-            }
-        }
-
-        public void Delete(PyObject instance)
-        {
-            throw PyAttributeError.Create("can't delete attribute '__qualname__'");
         }
 
         public bool IsDataDescriptor() => true;

@@ -98,7 +98,7 @@ public partial class PyFunction : PyObject, IDescriptor
             }
         );
 
-        // __qualname__ getset (Objects/funcobject.c:705, getter :529, setter :533). "Not legal to
+        // __qualname__ getset (Objects/funcobject.c:705, getter :529, setter :535). "Not legal to
         // del f.__qualname__ or to set it to anything other than a string object" (:536-:541) - one
         // message for both, which is what a probe sees three times.
         funcType.TypeDict["__qualname__"] = new PyGetSetDescriptor(
