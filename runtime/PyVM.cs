@@ -2603,40 +2603,20 @@ namespace SharpPy
                 // Duplicate LOAD_GLOBAL case removed (was LOAD_GLOBAL_BUILTIN)
 
                 case ByteCodeOp.SETUP_ANNOTATIONS:
-                    // CPython 3.12: Initialize __annotations__ dictionary if not exists
-                    // IMPORTANT: Use CurrentScope for class bodies, GlobalScope for module level
-                    var annotationsName = "__annotations__";
-
-                    // Determine which scope to use:
-                    // - Module level: GlobalScope (frame name is usually '<module>')
-                    // - Class body: CurrentScope (frame name like '<class_body_ClassName>')
-                    // - Function: Should not have SETUP_ANNOTATIONS
-                    bool isModuleLevel = frame.Code.Name == "<module>";
-                    var targetScope = isModuleLevel ? frame.ScopeChain.GlobalScope : frame.ScopeChain.CurrentScope;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 SETUP_ANNOTATIONS: frame={frame.Code.Name}, isModuleLevel={isModuleLevel}, targetScope={targetScope.Name}");
-                    #endif
-
-                    // Check if __annotations__ already exists in target scope
-                    var existingAnnotations = targetScope.GetVariable(annotationsName);
-                    if (existingAnnotations == null)
+                    // CPython 3.12 Python/ceval.c SETUP_ANNOTATIONS:
+                    // Create __annotations__ in the namespace where STORE_NAME writes.
+                    var annotationsKey = new PyString("__annotations__");
+                    if (frame.ClassLocalsDict != null)
                     {
-                        // __annotations__ doesn't exist, create it
-                        targetScope.SetVariable(annotationsName, new PyDict());
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  → Created new __annotations__ dict in {targetScope.Name}");
-                        #endif
+                        if (LookupNamespaceMapping(frame.ClassLocalsDict, annotationsKey) == null)
+                            frame.ClassLocalsDict.SetItem(annotationsKey, new PyDict());
                     }
-                    else if (existingAnnotations is not PyDict)
+                    else
                     {
-                        // Replace with empty dict if it's not a dict
-                        targetScope.SetVariable(annotationsName, new PyDict());
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  → Replaced non-dict __annotations__ in {targetScope.Name}");
-                        #endif
+                        var targetScope = frame.ScopeChain.CurrentScope;
+                        if (targetScope.GetVariable(annotationsKey.Value) == null)
+                            targetScope.SetVariable(annotationsKey.Value, new PyDict());
                     }
-                    // If it exists and is already a dict, do nothing
                     break;
 
                 case ByteCodeOp.BINARY_OP:

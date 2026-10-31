@@ -2311,14 +2311,19 @@ namespace SharpPy
 
         private void AnalyzeAnnAssignment(AnnAssignStatement annAssign)
         {
-            // For annotated assignments like "x: int = 5" or "y: list[str]"
-            // CPython 3.12: Variable is defined even if no value is assigned
-            _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
+            // CPython 3.12 Python/symtable.c: only define symbol for simple name targets
+            if (annAssign.VariableName != null)
+            {
+                _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
+            }
+            else
+            {
+                // Attribute/subscript target: analyze as expression use so self/closures resolve
+                AnalyzeExpression(annAssign.Target);
+            }
 
-            // Analyze the annotation expression (e.g., int, list[str])
             AnalyzeExpression(annAssign.Annotation);
 
-            // Analyze the value expression if present
             if (annAssign.Value != null)
             {
                 AnalyzeExpression(annAssign.Value);
@@ -2477,7 +2482,8 @@ namespace SharpPy
                     break;
 
                 case AnnAssignStatement annAssign:
-                    _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
+                    if (annAssign.VariableName != null)
+                        _currentTable?.DefineSymbol(annAssign.VariableName, SymbolFlags.Assigned);
                     break;
 
                 case ForStatement forStmt:

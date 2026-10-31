@@ -754,42 +754,48 @@ namespace SharpPy
     public class AnnAssignStatement : Statement
     {
         public override string NodeType => "AnnAssign";
-        public string VariableName { get; }
+        public Expression Target { get; }
+        public string? VariableName { get; }
+        public bool Simple { get; }
         public Expression Annotation { get; }
         public Expression? Value { get; }
 
-        public AnnAssignStatement(string variableName, Expression annotation, Expression? value = null)
+        public AnnAssignStatement(Expression target, Expression annotation, Expression? value, bool simple)
         {
-            VariableName = variableName;
+            Target = target;
+            VariableName = target is NameExpression n ? n.Name : null;
+            Simple = simple;
             Annotation = annotation;
             Value = value;
         }
 
         public override PyObject Evaluate(PyScope scope)
         {
-            // Store the annotation in __annotations__ if at module/class level
-            if (scope.Type == ScopeType.Module || scope.Type == ScopeType.Class || scope.Type == ScopeType.Global)
+            if (VariableName != null)
             {
-                var annotationsDict = scope.GetVariable("__annotations__") as PyDict ??
-                    new PyDict();
-                annotationsDict.SetItem(new PyString(VariableName), Annotation.Evaluate(scope));
-                scope.SetVariable("__annotations__", annotationsDict);
+                if (scope.Type == ScopeType.Module || scope.Type == ScopeType.Class || scope.Type == ScopeType.Global)
+                {
+                    var annotationsDict = scope.GetVariable("__annotations__") as PyDict ?? new PyDict();
+                    annotationsDict.SetItem(new PyString(VariableName), Annotation.Evaluate(scope));
+                    scope.SetVariable("__annotations__", annotationsDict);
+                }
             }
-            
-            // Assign value if present
+
             if (Value != null)
             {
                 var value = Value.Evaluate(scope);
-                scope.SetVariable(VariableName, value);
+                if (VariableName != null)
+                    scope.SetVariable(VariableName, value);
                 return value;
             }
-            
+
             return PyNone.Instance;
         }
 
         public override string ToString()
         {
-            return Value != null ? $"{VariableName}: {Annotation} = {Value}" : $"{VariableName}: {Annotation}";
+            var targetStr = VariableName ?? Target.ToString();
+            return Value != null ? $"{targetStr}: {Annotation} = {Value}" : $"{targetStr}: {Annotation}";
         }
     }
 

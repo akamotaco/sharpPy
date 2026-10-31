@@ -2174,3 +2174,17 @@ P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만
 ## P0-75 `p.__dict__ = {...}` 대입이 속성에 반영되지 않는다 (측정 2026-11-01, 미해결)
 
 같은 재현. 대입 뒤 `p.a`가 `AttributeError`다.
+
+## P0-76 `mappingproxy`를 순회할 수 없다 (측정 2026-11-01, 미해결)
+
+`for k in C.__dict__`와 `list(C.__dict__)`가 `TypeError: 'mappingproxy' object is not iterable`이다.
+
+## P0-77 비공개 이름 맹글링이 없다 (측정 2026-11-01, 미해결)
+
+클래스 안의 `self.__x`가 `_C__x`가 아니라 `__x`로 저장된다. `c._C__x`가 `AttributeError`이고, 상속 계층에서 같은 비공개 이름이 충돌한다.
+앵커: `Python/compile.c` `_Py_Mangle`, `Python/symtable.c`.
+
+## P0-78 `dataclasses`와 `typing.NamedTuple`이 CPython 구현이 아니다 (측정 2026-11-01, 미해결)
+
+`Lib/dataclasses.py`는 158줄 대체 구현이다. CPython 원본은 `inspect`, `copy`가 없어 복사할 수 없다.
+`class P(NamedTuple): x: int`는 생성은 되지만 `P(1)`이 `TypeError: P() takes no arguments`다.

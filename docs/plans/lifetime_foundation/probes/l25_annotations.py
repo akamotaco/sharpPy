@@ -62,3 +62,43 @@ print(H.a, H.b, H.__annotations__)
 
 w: int = 1
 print(__annotations__)
+
+
+class T:
+    def __init__(self):
+        self.a: int = 1
+        self.b: int
+        self.d = {}
+        self.d["k"]: int = 2
+        print(self.d)
+
+
+t = T()
+print(t.a, hasattr(t, "b"), t.d)
+
+
+class N:
+    if True:
+        p: int = 1
+    for _ in (1,):
+        q: str
+
+
+print(N.__annotations__)
+
+
+def h():
+    class L:
+        r: int = 1
+
+    return L.__annotations__
+
+
+print(h())
+
+try:
+    if True:
+        late: int = 1
+    print(__annotations__)
+except NameError as x:
+    print(x)

@@ -28,27 +28,20 @@ def _create_init_method(fields):
     """Create __init__ method for dataclass."""
     def __init__(self, *args, **kwargs):
         # Debug: Print what we're doing
-        print(f"[DEBUG] dataclass __init__ called with args={args}, kwargs={kwargs}")
-        print(f"[DEBUG] self type: {type(self)}, fields: {[f.name for f in fields]}")
 
         # Handle positional arguments
         for i, field_obj in enumerate(fields):
             if i < len(args):
-                print(f"[DEBUG] Setting {field_obj.name} = {args[i]} (from args)")
                 setattr(self, field_obj.name, args[i])
             elif field_obj.name in kwargs:
-                print(f"[DEBUG] Setting {field_obj.name} = {kwargs[field_obj.name]} (from kwargs)")
                 setattr(self, field_obj.name, kwargs[field_obj.name])
             elif field_obj.default is not MISSING:
-                print(f"[DEBUG] Setting {field_obj.name} = {field_obj.default} (default)")
                 setattr(self, field_obj.name, field_obj.default)
             elif field_obj.default_factory is not MISSING:
-                print(f"[DEBUG] Setting {field_obj.name} = factory() (default_factory)")
                 setattr(self, field_obj.name, field_obj.default_factory())
             else:
                 raise TypeError(f"__init__() missing required argument: '{field_obj.name}'")
 
-        print(f"[DEBUG] __init__ completed, self.__dict__ = {getattr(self, '__dict__', 'NO DICT')}")
     return __init__
 
 def _create_repr_method(cls_name, fields):

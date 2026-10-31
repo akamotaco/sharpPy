@@ -286,32 +286,11 @@ namespace SharpPy.Generated
                     {
                         try
                         {
-                            // Convert target (should be a name)
-                            string? targetName = null;
-                            if (annAssign.Target is GeneratedName nameExpr)
-                            {
-                                targetName = nameExpr.Id;
-                            }
-
-                            if (targetName == null)
-                            {
-#if DEBUG_AST_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Failed to extract target name");
-#endif
-                                return null;
-                            }
-
-                            // Convert annotation
+                            Expression targetExpr = ConvertAnyExpression(annAssign.Target);
                             Expression annotationExpr = ConvertAnyExpression(annAssign.Annotation);
-
-                            // Convert value (optional)
                             Expression? valueExpr = annAssign.Value != null ? ConvertAnyExpression(annAssign.Value) : null;
 
-#if DEBUG_AST_LOG
-                            Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}'");
-#endif
-
-                            var result = new AnnAssignStatement(targetName, annotationExpr, valueExpr);
+                            var result = new AnnAssignStatement(targetExpr, annotationExpr, valueExpr, annAssign.Simple != 0);
                             CopySourceLocation(stmt, result);
                             return result;
                         }

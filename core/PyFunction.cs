@@ -15,6 +15,8 @@ public partial class PyFunction : PyObject, IDescriptor
     private string _qualName;
     public string QualName => _qualName ?? PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
     internal void SetQualName(string value) => _qualName = value;
+    // func_annotations (Objects/funcobject.c): reading creates the dict, so it is never an AttributeError.
+    private PyObject _annotations;
     public Func<PyObject[], PyObject> Implementation { get; }
     public Dictionary<string, PyObject> Attributes { get; }
     public PyModule DefiningModule { get; }
@@ -121,6 +123,20 @@ public partial class PyFunction : PyObject, IDescriptor
                     throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 throw PyTypeError.Create("__qualname__ must be set to a string object");
             }
+        );
+
+        // __annotations__ getset (func_get_annotations, func_set_annotations): None and deletion clear it.
+        funcType.TypeDict["__annotations__"] = new PyGetSetDescriptor(
+            "__annotations__",
+            funcType,
+            getter: self => ((PyFunction)self)._annotations ??= new PyDict(),
+            setter: (self, value) => {
+                if (value is PyNone) { ((PyFunction)self)._annotations = null; return; }
+                if (!(value is PyDict))
+                    throw PyTypeError.Create("__annotations__ must be set to a dict object");
+                ((PyFunction)self)._annotations = value;
+            },
+            deleter: self => ((PyFunction)self)._annotations = null
         );
 
         // __module__ getset descriptor

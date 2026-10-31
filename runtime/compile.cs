@@ -1234,17 +1234,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             // CPython 3.12: SETUP_ANNOTATIONS once if module has any annotations
-            // Performance: Eliminated LINQ
-            bool hasAnnotations = false;
-            foreach (var stmt in optimizedStatements)
-            {
-                if (stmt is AnnAssignStatement)
-                {
-                    hasAnnotations = true;
-                    break;
-                }
-            }
-            if (hasAnnotations)
+            if (FindAnnotation(optimizedStatements))
             {
                 EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
             }
@@ -5639,31 +5629,102 @@ namespace SharpPy
             }
         }
         
+        private bool InModuleOrClassScope => !_isInFunction || _isInClassBody;
+
+        // CPython 3.12 Python/compile.c find_ann: recursive search for AnnAssign in block statements
+        private static bool FindAnnotation(IEnumerable<Statement> stmts)
+        {
+            foreach (var stmt in stmts)
+            {
+                switch (stmt)
+                {
+                    case AnnAssignStatement:
+                        return true;
+                    case ForStatement f:
+                        if (FindAnnotation(f.Body) || (f.ElseClause != null && FindAnnotation(f.ElseClause)))
+                            return true;
+                        break;
+                    case WhileStatement w:
+                        if (FindAnnotation(w.Body) || (w.ElseClause != null && FindAnnotation(w.ElseClause)))
+                            return true;
+                        break;
+                    case IfStatement i:
+                        if (FindAnnotation(i.Body) || (i.OrElse != null && FindAnnotation(i.OrElse)))
+                            return true;
+                        break;
+                    case WithStatement wi:
+                        if (FindAnnotation(wi.Body))
+                            return true;
+                        break;
+                    case TryStatement t:
+                        foreach (var h in t.Handlers)
+                            if (FindAnnotation(h.Body)) return true;
+                        if (FindAnnotation(t.Body) ||
+                            (t.FinalBody != null && FindAnnotation(t.FinalBody)) ||
+                            (t.OrElse != null && FindAnnotation(t.OrElse)))
+                            return true;
+                        break;
+                    case MatchStatement m:
+                        foreach (var c in m.Cases)
+                            if (FindAnnotation(c.Body)) return true;
+                        break;
+                }
+            }
+            return false;
+        }
+
         private void CompileAnnAssign(AnnAssignStatement annAssign)
         {
-            // CPython 3.12 compatible annotated assignment: var: type = value
+            // CPython 3.12 Python/compile.c compiler_annassign
+            var target = annAssign.Target;
 
-            // 1. Handle the value assignment if present
+            // Perform the actual assignment first
             if (annAssign.Value != null)
             {
                 CompileExpression(annAssign.Value);
-                EmitStoreName(annAssign.VariableName);
+                CompileAssignmentTarget(target);
             }
 
-            // 2. Store type annotation in __annotations__ dict (CPython 3.12 pattern)
-            // Note: SETUP_ANNOTATIONS should be called once at module start, not here
+            switch (target)
+            {
+                case NameExpression name:
+                    // Simple name in module or class scope: store annotation
+                    if (annAssign.Simple && InModuleOrClassScope)
+                    {
+                        CompileExpression(annAssign.Annotation);
+                        EmitLoadName("__annotations__");
+                        EmitLoadConst(new PyString(name.Name));
+                        EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                    }
+                    break;
 
-            // Compile the annotation expression (e.g., list[int] becomes LOAD_NAME list, LOAD_NAME int, BINARY_SUBSCR)
-            CompileExpression(annAssign.Annotation);
+                case AttributeExpression attr:
+                    // No value: evaluate the object for side effects
+                    if (annAssign.Value == null)
+                    {
+                        CompileExpression(attr.Value);
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
+                    break;
 
-            // Load __annotations__ dict
-            EmitLoadName("__annotations__");
+                case SubscriptExpression subscript:
+                    // No value: evaluate object and slice for side effects
+                    if (annAssign.Value == null)
+                    {
+                        CompileExpression(subscript.Value);
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                        CompileExpression(subscript.Slice);
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
+                    break;
+            }
 
-            // Load variable name as string key
-            EmitLoadConst(new PyString(annAssign.VariableName));
-
-            // Store annotation: __annotations__[var_name] = annotation
-            EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+            // Annotation is evaluated last for non-simple targets in module/class scope
+            if (!annAssign.Simple && InModuleOrClassScope)
+            {
+                CompileExpression(annAssign.Annotation);
+                EmitInstruction(ByteCodeOp.POP_TOP);
+            }
         }
         
         /// <summary>
@@ -6667,22 +6728,8 @@ namespace SharpPy
                 EmitStoreName("__qualname__");  // Store as __qualname__ in class dict
 
                 // CPython 3.12: Check if class body has annotations
-                // If any statement is an AnnAssignStatement, emit SETUP_ANNOTATIONS
-                // Performance: Eliminated LINQ
-                bool hasAnnotations = false;
-                foreach (var stmt in body)
+                if (FindAnnotation(body))
                 {
-                    if (stmt is AnnAssignStatement)
-                    {
-                        hasAnnotations = true;
-                        break;
-                    }
-                }
-                if (hasAnnotations)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Class {actualClassName} has annotations, emitting SETUP_ANNOTATIONS");
-                    #endif
                     EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
                 }
 
