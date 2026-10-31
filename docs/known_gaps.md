@@ -1900,3 +1900,41 @@ reaper를 등록하므로 L3보다 먼저 들어가야 했다.
 'BufferError' not implemented`를 던졌다 (`Exception`, `ValueError`는 정상). 예외 생성 표가
 `core/PyType.cs`·`core/PyScope.cs`·`runtime/PyVM.cs` 세 곳에 나뉘어 있다는 것은 P0-46 계열의
 중복으로 남긴다 — 이번에는 실제 경로(CreateInstance)에만 넣었다.
+
+## P0-59 ~ P0-64 L2 점검에서 등록한 표면 결함 (측정 2026-10-31, 미해결)
+
+전부 L1, L2 이전부터 있던 결함이다. 점검에서 발견했고 이번 커밋에서는 고치지 않는다.
+재현: `.artifacts/tmp/l2b_gap_measure.py`를 양쪽 인터프리터로 실행 (`<python>`과 `<dotnet>`),
+`-m`만 아래 명령. 출력은 `ascii()`로 고정했다.
+
+```
+<python> .artifacts/tmp/l2b_gap_measure.py
+<dotnet> bin/Release/net8.0/sharppy.dll .artifacts/tmp/l2b_gap_measure.py
+(cd .artifacts/tmp/modx && <python> -m x one) ; (cd .artifacts/tmp/modx && <dotnet> ../../../bin/Release/net8.0/sharppy.dll -m x one)
+```
+
+- **P0-59 예외 서브클래스의 `repr`.** `class Sub(ValueError): pass`에서
+  CPython은 `repr(Sub())` → `'Sub()'`, `repr(Sub('x'))` → `"Sub('x')"`. SharpPy는
+  `'<__main__.Sub object at 0x73673b>'` — 기본 객체 repr로 떨어진다. CPython은
+  `BaseException_repr` (`Objects/exceptions.c:131`, `tp_repr`로 설치된 자리는 `:458`)이
+  타입 이름을 쓰고 인자를 나열하며, 서브클래스도 같은 repr를 쓴다. 내장 예외 자체
+  (`ValueError('y')`)는 이미 일치한다.
+- **P0-60 내장 예외 인스턴스에 속성 대입이 안 된다.** `e = ValueError('boom'); e.note = 1` →
+  CPython은 대입되고 `getattr(e, 'note')`가 `1`. SharpPy는
+  `AttributeError: 'ValueError' object has no attribute 'note'`. CPython `BaseException`은
+  `tp_dictoffset`을 가진다 (`Objects/exceptions.c:484`). `raise ... from`와 `__notes__`(3.11+)
+  계열이 이 위에 올라 있다.
+- **P0-61 내장 예외에 `__doc__`이 없다.** `ValueError.__doc__` CPython
+  `'Inappropriate argument value (of correct type).'`, `OSError.__doc__`
+  `'Base class for I/O related errors.'`. SharpPy는 둘 다 `None`.
+- **P0-62 `functools.partialmethod`에 `__get__`가 없다.**
+  `hasattr(partialmethod(len, [1]), '__get__')` CPython `True` (그리고 
+  `partialmethod.__dict__['__get__']` 존재), SharpPy `False`. 클래스 본문에서 데코레이터로
+  쓰면 메서드가 아니라 평범한 객체로 남는다.
+- **P0-63 `import pickle` 실패.** `pickle.dumps([1, 2])` CPython `b'\x80\x04...'`,
+  SharpPy `ModuleNotFoundError: No module named 'pickle'`. `copy`·`tempfile`·`shutil`과
+  같은 계열이라 L4에서 함께 다룬다.
+- **P0-64 `sharppy -m x`가 모듈을 실행하지 않는다.** `python -m x one`은 CPython에서
+  `module ran ['C:\\...\\modx\\x.py', 'one']`, rc 0. SharpPy는 REPL 배너를 띄우고 rc 0으로
+  끝난다 — `-m`이 조용히 무시된다. `Program.cs:74-78`의 `-m` 분기가 통째로 주석 처리돼 있다.
+  P0-41(명령줄 형태)과 같은 담당으로 둔다.

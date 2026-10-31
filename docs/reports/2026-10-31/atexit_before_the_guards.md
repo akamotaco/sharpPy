@@ -16,11 +16,11 @@
 | `Modules/atexitmodule.c:177` `atexit_register` | `register(func, /, *args, **kwargs) -> func` | `register(show, "first") is show` → True |
 | `:181` | 인자 0개 | `TypeError: register() takes at least 1 argument (0 given)` |
 | `:188` | 호출 불가능 | `TypeError: the first argument must be callable` |
-| `:270` `atexit_unregister`, `:280` `PyObject_RichCompareBool`, `:289` `Py_RETURN_NONE` | `==`로 비교, **모든** 일치 삭제, 항상 None | `unregister(removed)` → `None`, 모른 체 |
+| `:270` `atexit_unregister`, `:280` `PyObject_RichCompareBool`, `:288` `Py_RETURN_NONE` | `==`로 비교, **모든** 일치 삭제, 항상 None | `unregister(removed)` → `None`, 모른 체 |
 | `:53` `atexit_delete_cb` | 슬롯을 NULL로만 만든다 | `_ncallbacks()`는 고수위 → 삭제 후에도 `5` |
 | `:255` `atexit_ncallbacks` | `state->ncallbacks` | 위 값이 줄지 않는 이유 |
 | `:121` `atexit_callfuncs` | `for i = ncallbacks-1 .. 0` | 최신역순, 범위 진입 시 고정 → 종료 중 등록은 그 라운드 미실행 |
-| `:138` `_PyErr_WriteUnraisableMsg("in atexit callback", func)` | 실패 보고 후 계속 | stderr `Exception ignored in atexit callback: <function raising at 0x…>` |
+| `:139` `_PyErr_WriteUnraisableMsg("in atexit callback", func)` | 실패 보고 후 계속 | stderr `Exception ignored in atexit callback: <function raising at 0x…>` |
 | `Python/pylifecycle.c:1845` `_PyAtExit_Call` | `finalize_modules`(:1573, 호출은 :1919) **앞** | `__del__ after atexit`가 마지막 줄 |
 
 등록표는 C의 배열을 흉내냈다: 빈 슬롯을 지우지 않고 건너뛰는 dense list, 길이는 고수위.
@@ -28,7 +28,7 @@
 
 ## 유일한 종료 진입점
 
-`core/FileExecutor.cs`에는 종료 지점이 네 개였다(정상, 파일 오류, `-c`, 예외). 하나씩 호출을
+`core/FileExecutor.cs`에는 종료 지점이 네 개였다 — 파일을 실행하는 경로와 `-c` 경로, 각각 정상 종료와 잡히지 않은 예외 종료. 하나씩 호출을
 붙이다 둘 중 하나를 빠뜨릴 위험이 있어 `PyFinalizer.Shutdown()`으로 합쳤다:
 
 ```csharp
@@ -88,7 +88,7 @@ atexit이 먼저인 이유는 `pylifecycle.c:1845`가 `finalize_modules`보다 �
 | `probes --filter l2_` | 1/1 일치 |
 | `tests/bughunt/p95_atexit_reference_error.py` | 일치 |
 | stderr 수동 확인 | `Exception ignored in atexit callback` 1회 |
-| `tools/run_bughunt.py` | 94/94 (p95 포함 재실행: 본 커밋 메시지) |
+| `tools/run_bughunt.py` | 95/95 (p95 포함) |
 | `tools/evaluate.py --timeout 90` | `225 / 3 / 2` |
 | `tools/cpython_similarity.py` | exit 0 |
 | Godot 4.7.2 mono 재연 | **82 matched, 0 other**, `REPLAY_THREADS 2 main=2` |

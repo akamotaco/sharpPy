@@ -50,12 +50,16 @@ namespace SharpPy.Modules
 
             // unregister(func) -> None. Compares with == and removes every match; a func that was never
             // registered is not an error (atexit_unregister, Modules/atexitmodule.c:270, with
-            // PyObject_RichCompareBool at :280 and Py_RETURN_NONE at :289). Measured: the call answers
+            // PyObject_RichCompareBool at :280 and Py_RETURN_NONE at :288). Measured: the call answers
             // None and _ncallbacks() does not move.
             module.ModuleDict["unregister"] = new PyBuiltinFunction("unregister", (args, kwargs) =>
             {
+                // METH_O. Keywords are refused before the argument is counted, and CPython's parser
+                // names the function by its qualified name (measured: probes/l2b_atexit_edges.py).
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("atexit.unregister() takes no keyword arguments");
                 if (args.Length != 1)
-                    throw PyTypeError.Create($"unregister() takes exactly one argument ({args.Length} given)");
+                    throw PyTypeError.Create($"atexit.unregister() takes exactly one argument ({args.Length} given)");
                 var func = args[0];
                 lock (Callbacks)
                 {
@@ -63,7 +67,7 @@ namespace SharpPy.Modules
                     {
                         var entry = Callbacks[i];
                         if (entry == null) continue;
-                        if (Equals(entry.Func, func)) Callbacks[i] = null;
+                        if (RichCompareBool(entry.Func, func)) Callbacks[i] = null;
                     }
                 }
                 return PyNone.Instance;
@@ -71,6 +75,7 @@ namespace SharpPy.Modules
 
             module.ModuleDict["_clear"] = new PyBuiltinFunction("_clear", (args, kwargs) =>
             {
+                NoArguments("atexit._clear", args, kwargs);
                 // atexit_cleanup, Modules/atexitmodule.c:67 - drop without calling.
                 lock (Callbacks) Callbacks.Clear();
                 return PyNone.Instance;
@@ -78,11 +83,13 @@ namespace SharpPy.Modules
 
             module.ModuleDict["_ncallbacks"] = new PyBuiltinFunction("_ncallbacks", (args, kwargs) =>
             {
+                NoArguments("atexit._ncallbacks", args, kwargs);
                 lock (Callbacks) return new PyInt(Callbacks.Count); // :255
             });
 
             module.ModuleDict["_run_exitfuncs"] = new PyBuiltinFunction("_run_exitfuncs", (args, kwargs) =>
             {
+                NoArguments("atexit._run_exitfuncs", args, kwargs);
                 RunCallbacks();
                 return PyNone.Instance;
             });
@@ -91,18 +98,30 @@ namespace SharpPy.Modules
         }
 
         /// <summary>
-        /// == on the registered function, which is what PyObject_RichCompareBool does: a comparison that
-        /// returns NotImplemented falls back to identity, and a comparison that raises is reported
-        /// instead of silently deciding.
+        /// PyObject_RichCompareBool, the comparison atexit_unregister actually uses: identity first, then
+        /// the VM's own == so both operands are resolved (a NotImplemented on the left reaches the right
+        /// operand's __eq__), then the truth value of whatever came back - measured with __eq__ that
+        /// returns 1, that returns [], and that raises. An __eq__ that raises is not swallowed here:
+        /// unregister propagates it, and the callback stays registered.
         /// </summary>
-        private static bool Equals(PyObject left, PyObject right)
+        private static bool RichCompareBool(PyObject left, PyObject right)
         {
             if (ReferenceEquals(left, right)) return true;
-            var result = left.RichCompare(right, PyObject.CompareOp.EQ);
-            if (ReferenceEquals(result, PyNotImplemented.Instance)) return false;
-            if (result is PyBool flag) return flag.Value;
-            throw PyTypeError.Create(
-                $"__eq__ returned non-bool (type {result.GetTypeName()})");
+            var result = PyObject.Compare(left, right, PyObject.CompareOp.EQ);
+            return result != null && result.IsTrue();
+        }
+
+        /// <summary>
+        /// METH_NOARGS, with the module-qualified name CPython puts in the message (measured:
+        /// "atexit._clear() takes no arguments (1 given)"). Keywords are refused first, the way the
+        /// parser does it before anything is counted.
+        /// </summary>
+        private static void NoArguments(string qualified, PyObject[] args, PyDict kwargs)
+        {
+            if (kwargs != null && kwargs.Length() != 0)
+                throw PyTypeError.Create($"{qualified}() takes no keyword arguments");
+            if (args.Length != 0)
+                throw PyTypeError.Create($"{qualified}() takes no arguments ({args.Length} given)");
         }
 
         /// <summary>
@@ -114,7 +133,7 @@ namespace SharpPy.Modules
         /// Modules/atexitmodule.c:121: for i = state->ncallbacks - 1 down to 0), so a callback that
         /// registers another one during the run is not called in that run - measured, the "registered
         /// during exit" line never appears. A callback that raises is reported and the rest still run
-        /// (_PyErr_WriteUnraisableMsg("in atexit callback", func) at :138).
+        /// (_PyErr_WriteUnraisableMsg("in atexit callback", func) at :139).
         /// </summary>
         internal static void RunCallbacks()
         {
@@ -125,11 +144,13 @@ namespace SharpPy.Modules
                 Callback entry;
                 lock (Callbacks)
                 {
+                    // The slot is read, not emptied: atexit_callfuncs (:129) leaves callbacks[i] alone
+                    // until atexit_cleanup runs after the loop, so a callback that calls
+                    // _run_exitfuncs() again reaches itself a second time (measured: "again 0" then
+                    // "again 1"), and only the inner round's cleanup empties the list. The bounds check
+                    // stays because that inner round can shrink the list under this loop.
                     if (i >= Callbacks.Count) continue;
                     entry = Callbacks[i];
-                    // The slot is released before the call: the callback may unregister itself
-                    // (Modules/atexitmodule.c:134 holds a reference to func for exactly that reason).
-                    Callbacks[i] = null;
                 }
                 if (entry == null) continue;
                 try
@@ -151,7 +172,6 @@ namespace SharpPy.Modules
         /// <summary>
         /// The measured shape on stderr; stdout and the exit status are untouched:
         ///   Exception ignored in atexit callback: &lt;function raising at 0x...&gt;
-        ///   Traceback (most recent call last):
         ///   ValueError: from atexit
         /// </summary>
         private static void ReportIgnored(PyObject func, PythonException pythonError, string message = null)

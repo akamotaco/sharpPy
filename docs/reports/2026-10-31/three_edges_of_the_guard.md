@@ -34,7 +34,7 @@ dropper 2000개 + survivor 조합에서 SharpPy 출력 **2053줄**, 참조 인�
 ## 2. `__del__`을 클래스 dict 값 그대로 불렀다
 
 `hook.Call(new PyObject[] { target }, null)`은 바인딩을 건너뛴다. CPython은 `slot_tp_finalize`
-(`Objects/typeobject.c:9069`)에서 `lookup_maybe_method`(`:2188`)를 쓰고 결과를
+(`Objects/typeobject.c:9071` `slot_tp_finalize`)에서 `lookup_maybe_method`(`:2188`)를 쓰고 결과를
 `call_unbound_noarg`(`:2240`)로 부른다. 그 소스의 실제 규칙은 이렇게 읽힌다:
 
 | dict 값 | `lookup_maybe_method` | 호출 |
@@ -44,7 +44,7 @@ dropper 2000개 + survivor 조합에서 SharpPy 출력 **2053줄**, 참조 인�
 | `classmethod` | unbound=0, `tp_descr_get` → 바운드 메서드 | 인자 0개 |
 | `__get__`이 있는 객체 | unbound=0, `tp_descr_get`의 결과 | 인자 0개 |
 | 디스크립터가 아닌 호출 가능 객체 | unbound=0, `tp_descr_get` 없음 → 그대로 | 인자 0개 |
-| `None` | unbound=0 | 호출 → `TypeError` → `PyErr_WriteUnraisable(del)` (`:9082`) |
+| `None` | unbound=0 | 호출 → `TypeError` → `PyErr_WriteUnraisable(del)` (`:9084`) |
 
 참조 인터프리터 실측(`probes/l1_del_hook.py` stdout)도 같다: `callable object: [('hook args', 0)]`,
 `staticmethod: ['static']`, `classmethod: [('classmethod', 'WithClassMethod')]`,
@@ -89,7 +89,7 @@ target.BindSpecialMethod(hook).Call(Array.Empty<PyObject>(), null);
 | 빌드 | 오류 0, 경고 0 |
 | `probes --filter l1_` | **2/2 일치** |
 | `probes/l1_live_slots.py` stdout | SharpPy 2053줄 = CPython 2053줄, `diff` 빈 결과 |
-| `tools/run_bughunt.py` | 92/92 일치 (사본 p92/p93 포함 전 기준) |
+| `tools/run_bughunt.py` | 94/94 일치 (사본 p92/p93 포함) — L2.1에서 재확인 |
 | `tools/evaluate.py --timeout 90` | `225 / 3 / 2` |
 | `tools/cpython_similarity.py --root .` | exit 0 |
 | Godot 4.7.2 mono 재연 | **82 matched, 0 other**, `REPLAY_THREADS 2 main=2` (단일 스레드 전제 유지) |

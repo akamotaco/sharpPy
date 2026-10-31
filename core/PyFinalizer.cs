@@ -312,14 +312,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Interpreter shutdown. CPython tears modules down and collects twice
-        /// (Python/pylifecycle.c:1573 finalize_modules, :1609 and :1649 _PyGC_CollectNoFail,
-        /// :1630 finalize_modules_clear_weaklist), so everything still alive loses its last
-        /// reference before the process ends. Order is measured, not assumed
-        /// (docs/plans/lifetime_foundation/probes/q2_shutdown_order.py): module globals in
-        /// insertion order first, then the rest in creation order.
-        /// </summary>
-        /// <summary>
         /// The one teardown entry point, so a new exit path cannot forget a step. atexit runs first:
         /// CPython reaches _PyAtExit_Call (Python/pylifecycle.c:1845) before it finalizes modules, so a
         /// callback still has a working interpreter, and an object's __del__ arrives afterwards - the
@@ -332,6 +324,14 @@ namespace SharpPy
             RunAtShutdown();
         }
 
+        /// <summary>
+        /// Interpreter shutdown. CPython tears modules down and collects twice
+        /// (Python/pylifecycle.c:1573 finalize_modules, :1609 and :1649 _PyGC_CollectNoFail,
+        /// :1630 finalize_modules_clear_weaklist), so everything still alive loses its last
+        /// reference before the process ends. Order is measured, not assumed
+        /// (docs/plans/lifetime_foundation/probes/q2_shutdown_order.py): module globals in
+        /// insertion order first, then the rest in creation order.
+        /// </summary>
         internal static void RunAtShutdown()
         {
             if (running) return;
