@@ -89,7 +89,7 @@ namespace SharpPy
         /// CPython reference: Python/ceval.c:1621-1658
         /// </summary>
         public static PyFrame CreateWithKwargs(PyCodeObject code, PyObject[] args, PyDict kwargs,
-            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null, PyDict kwdefaults = null)
+            PyScopeChain parentScope = null, PyCell[] closure = null, PyTuple defaults = null, PyDict kwdefaults = null, PyFrame parentFrame = null)
         {
             // CPython 3.12: Line 1628 - _PyStack_UnpackDict converts kwargs dict to (args + kwnames) format
             var names = new PyObject[kwargs.InternalDict.Count];
@@ -103,7 +103,7 @@ namespace SharpPy
             }
             // kwnames is call metadata, not a Python frame. In particular, creating
             // a holder frame must not push an artificial local scope into parentScope.
-            return new PyFrame(code, finalArgs, parentScope, closure, null, defaults, kwdefaults, new PyTuple(names));
+            return new PyFrame(code, finalArgs, parentScope, closure, parentFrame, defaults, kwdefaults, new PyTuple(names));
         }
 
         public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null, PyTuple keywordNames = null)
@@ -1358,7 +1358,7 @@ namespace SharpPy
                 kwargs.SetItem(kwNames.Items[i], args[positional + i]);
             _inlineCall = PyFrame.CreateWithKwargs(function.CodeObject, args[..positional], kwargs,
                 new PyScopeChain(function.GlobalsDict, "<function>"), function.Closure,
-                function.GetDefaults(), function.GetKeywordDefaults());
+                function.GetDefaults(), function.GetKeywordDefaults(), CurrentFrame);
             return true;
         }
 
