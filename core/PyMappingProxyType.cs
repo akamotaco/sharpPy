@@ -42,6 +42,9 @@ namespace SharpPy
 
         #region Dictionary-like operations (read-only)
 
+        // mappingproxy_getiter (Objects/descrobject.c) iterates the mapping.
+        public override PyObject GetIterator() => new PyDict(_mapping).GetIterator();
+
         public override PyObject GetItem(PyObject key)
         {
             if (key is PyString keyStr)

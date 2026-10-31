@@ -13,6 +13,24 @@ namespace SharpPy.Generated
     /// </summary>
     public static partial class PyParserRuntime
     {
+        // CPython 3.12: Python/compile.c _Py_Mangle — one decision point for private name mangling.
+        [ThreadStatic] private static string? _privateClass;
+
+        private static string Mangle(string name)
+        {
+            if (_privateClass == null) return name;
+            if (name.Length < 2 || name[0] != '_' || name[1] != '_') return name;
+            // ends with __ → no mangling
+            if (name.EndsWith("__")) return name;
+            // class name contains '.' → no mangling
+            if (_privateClass.Contains('.')) return name;
+            // strip leading underscores from class name
+            int i = 0;
+            while (i < _privateClass.Length && _privateClass[i] == '_') i++;
+            if (i == _privateClass.Length) return name;
+            return "_" + _privateClass.Substring(i) + name;
+        }
+
         /// <summary>
         /// Main parsing entry point - uses auto-generated CPython 3.12 compatible tokenizer and parser
         /// </summary>
@@ -668,7 +686,7 @@ namespace SharpPy.Generated
                             string? variableName = null;
                             try
                             {
-                                variableName = exceptData.Name != null ? exceptData.Name.ToString() : null;
+                                variableName = exceptData.Name != null ? Mangle(exceptData.Name.ToString()) : null;
                             }
                             catch { }
 
@@ -746,7 +764,7 @@ namespace SharpPy.Generated
                                     exceptionTypeExpr = ConvertAnyExpression(handler.Type);
                                 }
 
-                                string? variableName = handler.Name != null ? handler.Name.ToString() : null;
+                                string? variableName = handler.Name != null ? Mangle(handler.Name.ToString()) : null;
 
                                 // Create except* handler (marked as exception group handler)
                                 var exHandler = new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts, isStar: true);  // Mark as except* handler for PEP 654
@@ -1167,6 +1185,7 @@ namespace SharpPy.Generated
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
 #endif
                             var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
+                            functionDef.BindName = Mangle(name);
                             CopySourceLocation(funcDef, functionDef);
                             return functionDef;
                         }
@@ -1202,7 +1221,7 @@ namespace SharpPy.Generated
                             }
 
                             // Convert arguments (same as FunctionDef)
-                            FunctionArguments functionArgs = ConvertArguments(asyncFuncDef.Args);
+                            FunctionArguments functionArgs = ConvertFunctionArguments(asyncFuncDef.Args);
 
                             // PEP 695: Convert type parameters if present (returns List<TypeParam>, convert to List<string>)
                             var typeParamObjs = ConvertTypeParams(asyncFuncDef.TypeParams);
@@ -1233,6 +1252,7 @@ namespace SharpPy.Generated
                             }
 
                             var result = new AsyncFunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
+                            result.BindName = Mangle(name);
                             CopySourceLocation(asyncFuncDef, result);
                             return result;
                         }
@@ -1279,20 +1299,29 @@ namespace SharpPy.Generated
                         var classBodyStmts = new List<Statement>();
                         if (classDef.Body != null)
                         {
-                            foreach (var bodyStmt in classDef.Body.AsEnumerable())
+                            var savedPrivateClass = _privateClass;
+                            _privateClass = className;
+                            try
                             {
-                                try
+                                foreach (var bodyStmt in classDef.Body.AsEnumerable())
                                 {
-                                    var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
-                                    if (convertedStmt != null)
-                                        classBodyStmts.Add(convertedStmt);
-                                }
-                                catch (Exception ex)
-                                {
+                                    try
+                                    {
+                                        var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
+                                        if (convertedStmt != null)
+                                            classBodyStmts.Add(convertedStmt);
+                                    }
+                                    catch (Exception ex)
+                                    {
 #if DEBUG_AST_LOG
-                                    Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
+                                        Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
 #endif
+                                    }
                                 }
+                            }
+                            finally
+                            {
+                                _privateClass = savedPrivateClass;
                             }
                         }
 
@@ -1354,6 +1383,7 @@ namespace SharpPy.Generated
 #endif
                         var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr, decoratorExpressions);
                         result.ClassKeywords = classKeywordPairs;
+                        result.BindName = Mangle(className);
                         CopySourceLocation(classDef, result);
                         return result;
                     }
@@ -1369,7 +1399,7 @@ namespace SharpPy.Generated
                             {
                                 if (item is GeneratedIdentifier id)
                                 {
-                                    names.Add(id.Value);
+                                    names.Add(Mangle(id.Value));
                                 }
                             }
                             var result = new GlobalStatement(names);
@@ -1390,7 +1420,7 @@ namespace SharpPy.Generated
                             {
                                 if (item is GeneratedIdentifier id)
                                 {
-                                    names.Add(id.Value);
+                                    names.Add(Mangle(id.Value));
                                 }
                             }
                             var result = new NonlocalStatement(names);
@@ -1448,6 +1478,7 @@ namespace SharpPy.Generated
                                         if (alias.Asname != null)
                                         {
                                             string asnameStr = alias.Asname;
+                                            asnameStr = Mangle(asnameStr);
                                             if (!string.IsNullOrEmpty(asnameStr))
                                             {
                                                 moduleName = $"{nameStr} as {asnameStr}";
@@ -1533,7 +1564,7 @@ namespace SharpPy.Generated
                                 Console.WriteLine($"[DEBUG] alias.Asname type: {alias.Asname?.GetType()?.Name}, value: {alias.Asname}");
 #endif
                                 var name = alias.Name?.ToString();
-                                var asName = alias.Asname?.ToString();
+                                var asName = alias.Asname != null ? Mangle(alias.Asname.ToString()) : null;
 #if DEBUG
                                 Console.WriteLine($"[DEBUG] Converted: name={name}, asName={asName}");
 #endif
@@ -1839,7 +1870,7 @@ namespace SharpPy.Generated
         {
             // Extract value and attribute name from { type = "attribute", value = <obj>, attr = <name> }
             var value = attrExpr.value;
-            var attr = attrExpr.attr.ToString();
+            var attr = Mangle(attrExpr.attr.ToString());
 
             #if DEBUG
             Console.WriteLine($"[DEBUG] ConvertAttributeAccess: attr='{attr}', value type={value.GetType().Name}");
@@ -2098,7 +2129,7 @@ namespace SharpPy.Generated
                     ConvertGeneratedPyConstantToPyObject(constant.Value)
                 ),
 
-                GeneratedName name => new NameExpression(name.Id, ConvertContext(name.Ctx)),
+                GeneratedName name => new NameExpression(Mangle(name.Id), ConvertContext(name.Ctx)),
 
                 // Binary and comparison operations
                 GeneratedBinOp binOp => new BinOpExpression(
@@ -2118,7 +2149,7 @@ namespace SharpPy.Generated
 
                 GeneratedAttribute attr => new AttributeExpression(
                     ConvertAnyExpression(attr.Value),
-                    attr.Attr,
+                    Mangle(attr.Attr),
                     ConvertContext(attr.Ctx)
                 ),
 
@@ -2438,111 +2469,6 @@ namespace SharpPy.Generated
             return new Comprehension(target, iter, ifs);
         }
 
-        /// <summary>
-        /// Convert GeneratedArguments to FunctionArguments
-        /// </summary>
-        private static FunctionArguments ConvertArguments(GeneratedArguments argsObj)
-        {
-            if (argsObj == null)
-            {
-                throw new ArgumentNullException(nameof(argsObj));
-            }
-
-            // Performance: Eliminated LINQ - manual list conversions
-            var posOnlyArgs = new List<Arg>();
-            if (argsObj.Posonlyargs != null)
-            {
-                for (int i = 0; i < argsObj.Posonlyargs.Count; i++)
-                {
-                    if (argsObj.Posonlyargs[i] is GeneratedArg a)
-                    {
-                        posOnlyArgs.Add(ConvertArg(a));
-                    }
-                }
-            }
-
-            var args = new List<Arg>();
-            if (argsObj.Args != null)
-            {
-                for (int i = 0; i < argsObj.Args.Count; i++)
-                {
-                    if (argsObj.Args[i] is GeneratedArg a)
-                    {
-                        args.Add(ConvertArg(a));
-                    }
-                }
-            }
-
-            var kwOnlyArgs = new List<Arg>();
-            if (argsObj.Kwonlyargs != null)
-            {
-                for (int i = 0; i < argsObj.Kwonlyargs.Count; i++)
-                {
-                    if (argsObj.Kwonlyargs[i] is GeneratedArg a)
-                    {
-                        kwOnlyArgs.Add(ConvertArg(a));
-                    }
-                }
-            }
-
-            var defaults = new List<Expression?>();
-            if (argsObj.Defaults != null)
-            {
-                for (int i = 0; i < argsObj.Defaults.Count; i++)
-                {
-                    if (argsObj.Defaults[i] is GeneratedExpr d)
-                    {
-                        defaults.Add(ConvertAnyExpression(d));
-                    }
-                }
-            }
-
-            var kwDefaults = new List<Expression?>();
-            if (argsObj.KwDefaults != null)
-            {
-                for (int i = 0; i < argsObj.KwDefaults.Count; i++)
-                {
-                    if (argsObj.KwDefaults[i] != null && argsObj.KwDefaults[i] is GeneratedExpr d)
-                    {
-                        kwDefaults.Add(ConvertAnyExpression(d));
-                    }
-                    else
-                    {
-                        kwDefaults.Add(null);
-                    }
-                }
-            }
-
-            return new FunctionArguments
-            {
-                PosOnlyArgs = posOnlyArgs,
-                Args = args,
-                VarArg = argsObj.Vararg != null ? ConvertArg(argsObj.Vararg) : null,
-                KwOnlyArgs = kwOnlyArgs,
-                KwArg = argsObj.Kwarg != null ? ConvertArg(argsObj.Kwarg) : null,
-                Defaults = defaults,
-                KwDefaults = kwDefaults
-            };
-        }
-
-        /// <summary>
-        /// Convert GeneratedArg to Arg
-        /// </summary>
-        private static Arg ConvertArg(GeneratedArg argObj)
-        {
-            if (argObj == null)
-            {
-                throw new ArgumentNullException(nameof(argObj));
-            }
-
-            if (string.IsNullOrEmpty(argObj.Arg))
-            {
-                throw new InvalidOperationException("Arg name cannot be null or empty");
-            }
-
-            return new Arg(argObj.Arg, argObj.Annotation != null ? ConvertAnyExpression(argObj.Annotation) : null);
-        }
-
         // OBSOLETE METHODS REMOVED - These used .Value property which no longer exists
         // List, Tuple, Dict, Set conversions now handled directly in ConvertAnyExpression
         // via concrete typed expressions (GeneratedList, GeneratedTuple, etc.)
@@ -2812,7 +2738,7 @@ namespace SharpPy.Generated
                     Expression target;
                     if (generator.target is string targetName)
                     {
-                        target = new NameExpression(targetName, Store.Instance);
+                        target = new NameExpression(Mangle(targetName), Store.Instance);
                     }
                     else
                     {
@@ -2857,8 +2783,9 @@ namespace SharpPy.Generated
         private static Expression ConvertCapturePattern(dynamic expr)
         {
             // Capture pattern (e.g., case x:)
+            // CPython 3.12: Python/compile.c _Py_Mangle applies to match capture names
             var name = expr.name as string ?? "";
-            return new NameExpression(name);
+            return new NameExpression(Mangle(name));
         }
 
         private static Expression ConvertWildcardPattern(dynamic expr)

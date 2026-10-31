@@ -1151,6 +1151,7 @@ namespace SharpPy
     {
         public override string NodeType => "FunctionDef";
         public string Name { get; }
+        public string BindName { get; set; }  // the name bound in the scope, mangled; Name stays __name__
 
         // CPython 3.12: Use FunctionArguments instead of List<string>
         public FunctionArguments Arguments { get; }
@@ -1168,6 +1169,7 @@ namespace SharpPy
         public FunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body, List<TypeParam>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
         {
             Name = name;
+            BindName = name;
             Arguments = arguments;
             Body = body;
             TypeParams = typeParams ?? new List<TypeParam>();
@@ -1580,6 +1582,7 @@ namespace SharpPy
     {
         public override string NodeType => "AsyncFunctionDef";
         public string Name { get; }
+        public string BindName { get; set; }  // the name bound in the scope, mangled; Name stays __name__
 
         // CPython 3.12: Use FunctionArguments instead of List<string>
         public FunctionArguments Arguments { get; }
@@ -1598,6 +1601,7 @@ namespace SharpPy
             List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnAnnotation = null)
         {
             Name = name;
+            BindName = name;
             Arguments = arguments;
             Body = body;
             TypeParams = typeParams ?? new List<string>();
@@ -1670,9 +1674,13 @@ namespace SharpPy
         // forwarded to __build_class__ and on to __init_subclass__ (PEP 487).
         public List<KeyValuePair<string, Expression>> ClassKeywords { get; set; } = new();
 
+        // CPython 3.12: Python/compile.c _Py_Mangle — the name used for STORE_NAME / DefineSymbol.
+        public string BindName { get; set; }
+
         public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<TypeParam>? typeParams = null, Expression? metaclass = null, List<DecoratorExpression>? decorators = null)
         {
             Name = name;
+            BindName = name;
             Bases = bases;
             Body = body;
             TypeParams = typeParams ?? new List<TypeParam>();

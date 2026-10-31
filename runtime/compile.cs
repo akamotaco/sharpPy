@@ -4458,7 +4458,7 @@ namespace SharpPy
             CompilerApplyDecorators(func.Decorators);
 
             // Step 6: Store the final function (decorated or original)
-            EmitStoreName(func.Name);
+            EmitStoreName(func.BindName);
 
             // CPython 3.12: Restore previous symbol table context
             if (funcSymbolTable != null)
@@ -5808,7 +5808,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFlags);
             
             // 9. 함수를 변수에 저장
-            EmitStoreName(asyncFunc.Name);
+            EmitStoreName(asyncFunc.BindName);
             
             #if DEBUG_LOG
             Console.WriteLine($"✅ Async function {asyncFunc.Name} compiled successfully");
@@ -5850,7 +5850,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.CALL, 0);
             
             // The result is the class with type parameters bound
-            EmitStoreName(cls.Name);
+            EmitStoreName(cls.BindName);
         }
         
         /// <summary>
@@ -5869,7 +5869,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.CALL, 0);
             
             // Store the resulting function
-            EmitStoreName(func.Name);
+            EmitStoreName(func.BindName);
         }
         
         /// <summary>
@@ -6200,7 +6200,7 @@ namespace SharpPy
             }
 
             // Store the created class (or decorated class)
-            EmitStoreName(cls.Name);
+            EmitStoreName(cls.BindName);
         }
 
         /// <summary>

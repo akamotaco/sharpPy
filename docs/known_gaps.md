@@ -2175,13 +2175,13 @@ P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만
 
 `PyClassInstance`는 해결됐다 (`tests/bughunt/p122_instance_dict.py`). 내장 서브클래스(`IDictBackedInstance`)의 `__dict__`는 아직 복사본이다.
 
-## P0-76 `mappingproxy`를 순회할 수 없다 (측정 2026-11-01, 미해결)
+## P0-76 `mappingproxy`를 순회할 수 없다 (측정 2026-11-01, 해결)
 
-`for k in C.__dict__`와 `list(C.__dict__)`가 `TypeError: 'mappingproxy' object is not iterable`이다.
+`PyMappingProxy.GetIterator`를 더했다. 남은 차이: 클래스 dict에 `__type_params__`가 보인다 (CPython은 일반 클래스에 없다).
 
-## P0-77 비공개 이름 맹글링이 없다 (측정 2026-11-01, 미해결)
+## P0-77 비공개 이름 맹글링이 없다 (측정 2026-11-01, 해결, `tests/bughunt/p123_mangle.py`)
 
-클래스 안의 `self.__x`가 `_C__x`가 아니라 `__x`로 저장된다. `c._C__x`가 `AttributeError`이고, 상속 계층에서 같은 비공개 이름이 충돌한다.
+이전 동작: 클래스 안의 `self.__x`가 `_C__x`가 아니라 `__x`로 저장된다. `c._C__x`가 `AttributeError`이고, 상속 계층에서 같은 비공개 이름이 충돌한다.
 앵커: `Python/compile.c` `_Py_Mangle`, `Python/symtable.c`.
 
 ## P0-78 `dataclasses`와 `typing.NamedTuple`이 CPython 구현이 아니다 (측정 2026-11-01, 미해결)

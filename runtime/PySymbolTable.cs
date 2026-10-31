@@ -809,7 +809,7 @@ namespace SharpPy
             }
 
             // Define function name in current scope
-            _currentTable?.DefineSymbol(func.Name, SymbolFlags.Assigned);
+            _currentTable?.DefineSymbol(func.BindName, SymbolFlags.Assigned);
 
             // Create new scope for function body
             var functionTable = new SymbolTable($"<function:{func.Name}>", SymbolTableType.Function);
@@ -2050,7 +2050,7 @@ namespace SharpPy
             }
 
             // Similar to regular function
-            _currentTable?.DefineSymbol(func.Name, SymbolFlags.Assigned);
+            _currentTable?.DefineSymbol(func.BindName, SymbolFlags.Assigned);
 
             var functionTable = new SymbolTable($"<async function:{func.Name}>", SymbolTableType.Function);
             // CPython 3.12: Mark async functions as coroutines
@@ -2210,7 +2210,7 @@ namespace SharpPy
         private void AnalyzeClass(ClassDefStatement cls)
         {
             // Define class name in current scope
-            _currentTable?.DefineSymbol(cls.Name, SymbolFlags.Assigned);
+            _currentTable?.DefineSymbol(cls.BindName, SymbolFlags.Assigned);
 
             // Create new scope for class body
             var classTable = new SymbolTable(cls.Name, SymbolTableType.Class);

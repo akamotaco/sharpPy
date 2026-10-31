@@ -43,7 +43,7 @@ namespace SharpPy.Generated
                     {
                         annotation = ConvertAnyExpression(argPtr.Annotation);
                     }
-                    functionArgs.PosOnlyArgs.Add(new Arg(argPtr.Arg.Value, annotation));
+                    functionArgs.PosOnlyArgs.Add(new Arg(Mangle(argPtr.Arg.Value), annotation));
 #if DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] Added posonly arg: {argPtr.Arg.Value}, annotation: {annotation}");
 #endif
@@ -64,7 +64,7 @@ namespace SharpPy.Generated
                     {
                         annotation = ConvertAnyExpression(argPtr.Annotation);
                     }
-                    functionArgs.Args.Add(new Arg(argPtr.Arg.Value, annotation));
+                    functionArgs.Args.Add(new Arg(Mangle(argPtr.Arg.Value), annotation));
 #if DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] Added regular arg: {argPtr.Arg.Value}, annotation: {annotation}");
 #endif
@@ -80,7 +80,7 @@ namespace SharpPy.Generated
                 {
                     annotation = ConvertAnyExpression(argumentsData.Vararg.Annotation);
                 }
-                functionArgs.VarArg = new Arg(argumentsData.Vararg.Arg.Value, annotation);
+                functionArgs.VarArg = new Arg(Mangle(argumentsData.Vararg.Arg.Value), annotation);
 #if DEBUG_AST_LOG
                 Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.Vararg.Arg.Value}, annotation: {annotation}");
 #endif
@@ -100,7 +100,7 @@ namespace SharpPy.Generated
                     {
                         annotation = ConvertAnyExpression(argPtr.Annotation);
                     }
-                    functionArgs.KwOnlyArgs.Add(new Arg(argPtr.Arg.Value, annotation));
+                    functionArgs.KwOnlyArgs.Add(new Arg(Mangle(argPtr.Arg.Value), annotation));
 #if DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] Added kwonly arg: {argPtr.Arg.Value}, annotation: {annotation}");
 #endif
@@ -116,7 +116,7 @@ namespace SharpPy.Generated
                 {
                     annotation = ConvertAnyExpression(argumentsData.Kwarg.Annotation);
                 }
-                functionArgs.KwArg = new Arg(argumentsData.Kwarg.Arg.Value, annotation);
+                functionArgs.KwArg = new Arg(Mangle(argumentsData.Kwarg.Arg.Value), annotation);
 #if DEBUG_AST_LOG
                 Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.Kwarg.Arg.Value}, annotation: {annotation}");
 #endif
