@@ -97,6 +97,9 @@ namespace SharpPy.Modules
             module.ModuleDict["RecursionError"] = PyType.RecursionErrorType;
             module.ModuleDict["UnboundLocalError"] = PyType.UnboundLocalErrorType;
             module.ModuleDict["BufferError"] = PyType.BufferErrorType;
+            // Objects/exceptions.c: ReferenceError is raised by a dead weak reference and by nothing
+            // else, but it is a builtins name today, so it is registered with the rest of them.
+            module.ModuleDict["ReferenceError"] = PyType.ReferenceErrorType;
             module.ModuleDict["OSError"] = PyType.OSErrorType;
             module.ModuleDict["ConnectionError"] = PyType.ConnectionErrorType;
             module.ModuleDict["BrokenPipeError"] = PyType.BrokenPipeErrorType;

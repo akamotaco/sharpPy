@@ -979,11 +979,34 @@ namespace SharpPy
     #region Buffer Exception
 
     /// <summary>
+    /// Python ReferenceError - Objects/exceptions.c PyExc_ReferenceError. Raised when a weak reference
+    /// is used where the referent is expected and it is gone. Registered in builtins with
+    /// Exception, BaseException, object beneath it (measured on the reference interpreter).
+    /// </summary>
+    public class PyReferenceError : PyException
+    {
+        internal PyReferenceError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
+        public PyReferenceError(string message = "") : base(message) { }
+
+        public override string GetTypeName() => "ReferenceError";
+        public override PyType GetPyType() => PyType.ReferenceErrorType;
+
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyReferenceError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    /// <summary>
     /// Python BufferError - buffer protocol violation
     /// CPython 3.12: Raised when buffer operations fail
     /// </summary>
     public class PyBufferError : PyException
     {
+        internal PyBufferError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyBufferError(string message = "") : base(message) { }
 
         public override string GetTypeName() => "BufferError";

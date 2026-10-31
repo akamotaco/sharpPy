@@ -78,7 +78,7 @@ namespace SharpPy.Core
                 // objects dropped mid-run are delivered at the VM's safe points and by
                 // gc.collect() (core/PyFinalizer.cs); what is left alive at the end is finalized
                 // here, in module-namespace order - see docs/lifetime_and_gc_policy.md.
-                PyFinalizer.RunAtShutdown();
+                PyFinalizer.Shutdown();
             }
             catch (FileNotFoundException)
             {
@@ -105,7 +105,7 @@ namespace SharpPy.Core
                 // exits 1, but the CLR detail goes to stderr instead of stdout.
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
-                PyFinalizer.RunAtShutdown();
+                PyFinalizer.Shutdown();
                 Environment.Exit(1);
             }
         }
@@ -130,7 +130,7 @@ namespace SharpPy.Core
             {
                 var interpreter = new IntegratedPythonInterpreter();
                 interpreter.Execute(codeString, "<string>", false, false, false);
-                PyFinalizer.RunAtShutdown();
+                PyFinalizer.Shutdown();
             }
             catch (Exception ex)
             {
@@ -142,7 +142,7 @@ namespace SharpPy.Core
                 // exits 1, but the CLR detail goes to stderr instead of stdout.
                 if (!(ex is PythonException))
                     Console.Error.WriteLine(ex.ToString());
-                PyFinalizer.RunAtShutdown();
+                PyFinalizer.Shutdown();
                 Environment.Exit(1);
             }
         }

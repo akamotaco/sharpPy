@@ -79,7 +79,7 @@ Claude는 [`q4_weakref_state.md`](lifetime_foundation/q4_weakref_state.md).
 |---|---|---|---|---|
 | 완료 | P0-47~49 | `id()`, Guard와 안전점, 제너레이터 finalize | | p83~p87 |
 | 완료 | **P0-50** | `Live` 슬롯, `__del__` 바인딩, `__del__ = None` (L1, 2026-10-31) | 로컬 AI | p92, p93 |
-| L2 | | `ReferenceError`, `atexit` | 로컬 AI | p95 |
+| 완료 | L2 | ReferenceError, atexit (2026-10-31, 문서: reports/2026-10-31/atexit_before_the_guards.md) | 로컬 AI | p95 |
 | C1 | | `PyGuard` 확장, `PyWeakRef`, `_weakref` | Claude | p94 |
 | L3 | | `weakref.py`, `_weakrefset.py`, 타입 플래그 | 로컬 AI | p88 |
 | L4 | | `copy`, `tempfile`, `shutil` | 로컬 AI | p96~ |

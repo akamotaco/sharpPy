@@ -1865,3 +1865,38 @@ Q1~Q3 점검(기준 `85bd172`)에서 찾았다. 합격 프로브를 통과한 �
 ## P0-57 weakref 자리표시자 (예약)
 
 C1, L3이 끝난 시점에 Q5 전까지 `proxy`가 `NotImplementedError`인 상태를 여기에 기록한다.
+
+## P0-58 `os._exit`가 없다 (측정 2026-10-31, 미해결)
+
+재현: `import os; print('body'); os._exit(0)`.
+CPython은 출력 `body` 뒤 rc=0이고 **atexit callback을 돌리지 않는다** (`os._exit`는 인터프리터
+종료 절차 전체를 건너뛴다, `Modules/posixmodule.c` / `Python/pylifecycle.c`).
+SharpPy는 `os._exit`가 아예 없어서 `AttributeError` traceback이 나가고 rc=1이다.
+`atexit`이 들어온 지금(L2) 관측 가능한 차이가 됐다 — callback을 태우지 않고 죽는 것이 정상이라는
+사실을 고정해 둘 곳이 필요하다. 담당: L5 근처(`sys.exit` 종료 코드)와 함께.
+
+## L2에서 메운 것: `atexit`, `ReferenceError` (측정 2026-10-31, 해결)
+
+`import atexit`이 `ModuleNotFoundError`였다. CPython의 `atexit`은 `Modules/atexitmodule.c` (C 모듈,
+`Lib/atexit.py`는 존재하지 않는다)이므로 네이티브로 구현했고, `Lib/weakref.py:36`이 이 모듈로
+reaper를 등록하므로 L3보다 먼저 들어가야 했다.
+
+고정한 관측 (전부 `probes/l2_atexit_reference_error.py`, = `tests/bughunt/p95_atexit_reference_error.py`):
+
+- `register`는 첫 인자를 **돌려준다** (데코레이터용). 인자 0개 → `register() takes at least 1 argument (0 given)`,
+  호출 불가능 → `the first argument must be callable`.
+- `unregister`는 `==`로 비교해 **모든 일치**를 지우고 항상 `None`을 준다. 등록되지 않은 함수도 조용하다.
+  `_ncallbacks()`는 슬롯 고점(高水位)이며 지워도 줄지 않는다 — 실측 `unregister` 후에도 5.
+- 실행은 최신역순, 범위는 진입 시 고정. 종료 중 등록된 callback은 그 라운드에서 **돌지 않는다**.
+- 실패한 callback은 보고되고 나머지는 돈다. stderr: `Exception ignored in atexit callback: <function raising at 0x…>`.
+- 종료 순서: atexit **뒤에** `__del__`. `PyFinalizer.Shutdown()`이 유일한 종료 진입점이고
+  `core/FileExecutor.cs`의 네 종료 경로가 모두 그를 지난다.
+- exit 경로 실측: 정상 종료·미포착 예외·`sys.exit` 모두 callback이 돈다 (CPython과 같은 순서).
+  `os._exit`만 callback을 태우지 않아야 한다 → P0-58.
+
+`ReferenceError`는 builtins에 등록했고 MRO은 측정값대로 `ReferenceError → Exception → BaseException → object`.
+이 과정에서 같은 계열의 기존 결함 하나를 함께 메웠다: `BufferError`는 builtins에 이름만 있고
+`PyType.CreateInstance` 표에 없어서 `BufferError('x')`가 `NotImplementedError: Built-in function
+'BufferError' not implemented`를 던졌다 (`Exception`, `ValueError`는 정상). 예외 생성 표가
+`core/PyType.cs`·`core/PyScope.cs`·`runtime/PyVM.cs` 세 곳에 나뉘어 있다는 것은 P0-46 계열의
+중복으로 남긴다 — 이번에는 실제 경로(CreateInstance)에만 넣었다.

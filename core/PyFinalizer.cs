@@ -319,6 +319,19 @@ namespace SharpPy
         /// (docs/plans/lifetime_foundation/probes/q2_shutdown_order.py): module globals in
         /// insertion order first, then the rest in creation order.
         /// </summary>
+        /// <summary>
+        /// The one teardown entry point, so a new exit path cannot forget a step. atexit runs first:
+        /// CPython reaches _PyAtExit_Call (Python/pylifecycle.c:1845) before it finalizes modules, so a
+        /// callback still has a working interpreter, and an object's __del__ arrives afterwards - the
+        /// last line of probes/l2_atexit_reference_error.py is "__del__ after atexit".
+        /// </summary>
+        internal static void Shutdown()
+        {
+            try { Modules.AtexitModule.RunCallbacks(); }
+            catch { /* a teardown step that fails must not stop the next one */ }
+            RunAtShutdown();
+        }
+
         internal static void RunAtShutdown()
         {
             if (running) return;

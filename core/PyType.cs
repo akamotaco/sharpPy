@@ -446,6 +446,14 @@ namespace SharpPy
         public static readonly PyType UnicodeErrorType = new PyType("UnicodeError", new[] { ValueErrorType });
         public static readonly PyType UnicodeDecodeErrorType = new PyType("UnicodeDecodeError", new[] { UnicodeErrorType });
         public static readonly PyType UnicodeEncodeErrorType = new PyType("UnicodeEncodeError", new[] { UnicodeErrorType });
+        /// <summary>
+        /// Objects/exceptions.c PyExc_ReferenceError. The only thing that raises it is a weak reference
+        /// being asked for an object that is gone (Objects/weakrefobject.c), so it belongs to the
+        /// lifetime work. MRO measured: ReferenceError, Exception, BaseException, object.
+        /// </summary>
+        public static readonly PyType ReferenceErrorType =
+            new PyType("ReferenceError", new[] { ExceptionType });
+
         public static readonly PyType BufferErrorType = new PyType("BufferError", new[] { ExceptionType });
 
         // Exception Groups (PEP 654)
@@ -1053,6 +1061,13 @@ namespace SharpPy
                     return new PyUnicodeDecodeError(args, kwargs);
                 case "ZeroDivisionError":
                     return new PyZeroDivisionError(args, kwargs);
+                // Objects/exceptions.c ReferenceError/BufferError are builtins names, so calling them
+                // has to build the exception like every other one. BufferError was registered in
+                // builtins but missing here, so BufferError('x') raised NotImplementedError instead.
+                case "ReferenceError":
+                    return new PyReferenceError(args, kwargs);
+                case "BufferError":
+                    return new PyBufferError(args, kwargs);
                 case "OverflowError":
                     return new PyOverflowError(args, kwargs);
                 case "LookupError":
