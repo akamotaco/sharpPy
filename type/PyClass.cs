@@ -89,7 +89,6 @@ namespace SharpPy
         // Cached tuple objects for __mro__ and __bases__ identity consistency
         // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
         internal PyTuple _cachedMroTuple;
-        internal PyTuple _cachedBasesTuple;
 
         // Whether this class' MRO declares __del__, remembered so that creating an instance of an
         // ordinary class costs one field read instead of an MRO walk. CPython answers the same
@@ -649,8 +648,28 @@ namespace SharpPy
 
         public override PyObject Next() => InvokeNextMethod();
 
-        // 클래스 attribute 접근
+        // tp_getattro of a class: a metaclass may replace it, or catch what is missing.
         public override PyObject GetAttribute(string name)
+        {
+            if (Metaclass == null || ReferenceEquals(Metaclass, PyTypeMetaclass.Instance))
+                return TypeGetAttribute(name);
+            var getAttribute = Metaclass.LookupInMRO("__getattribute__");
+            var missing = Metaclass.LookupInMRO("__getattr__");
+            bool replaced = !ReferenceEquals(getAttribute, PyTypeMetaclass.Instance.LookupInMRO("__getattribute__"));
+            try
+            {
+                return replaced
+                    ? BindSpecialMethod(getAttribute).Call(new PyObject[] { new PyString(name) }, null)
+                    : TypeGetAttribute(name);
+            }
+            catch (PythonException error) when (missing != null && error.PyException is PyAttributeError)
+            {
+                return BindSpecialMethod(missing).Call(new PyObject[] { new PyString(name) }, null);
+            }
+        }
+
+        // _Py_type_getattro_impl
+        internal PyObject TypeGetAttribute(string name)
         {
             // _Py_type_getattro_impl: metatype data descriptors precede the
             // class namespace, including descriptors inherited by the metatype.
@@ -766,66 +785,12 @@ namespace SharpPy
                         }
                     }
 
-                    // CPython 3.12: Check metaclass (type of this class) for attributes
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ❌ '{name}' not found in MRO, checking metaclass");
-                    #endif
-                    if (Metaclass != null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → checking metaclass '{Metaclass.Name}' for '{name}'");
-                        #endif
+                    // The metatype again, for what is not a data descriptor.
+                    if (metaAttribute != null)
+                        return PyClassInstance.IsDescriptor(metaAttribute)
+                            ? PyClassInstance.CallDescriptorGet(metaAttribute, this, Metaclass)
+                            : metaAttribute;
 
-                        // Check metaclass's ClassDict and MRO
-                        if (Metaclass.ClassDict.TryGetValue(name, out PyObject metaclassValue))
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   ✅ found '{name}' in metaclass: {metaclassValue?.GetType().Name}");
-                            #endif
-
-                            // Descriptor 처리 - metaclass descriptor는 class 객체에 바인딩
-                            if (metaclassValue is IDescriptor metaDesc)
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   🔧 calling metaclass descriptor.Get({Name}, {Metaclass.Name})");
-                                #endif
-                                var result = metaDesc.Get(this, Metaclass);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → metaclass descriptor returned: {result?.GetType().Name}");
-                                #endif
-                                return result;
-                            }
-
-                            return metaclassValue;
-                        }
-
-                        // Check metaclass MRO (e.g., type's __iter__)
-                        for (int i = 1; i < Metaclass.MRO.Count; i++)
-                        {
-                            var metaBase = Metaclass.MRO[i];
-                            if (metaBase is PyClass metaPyClass && metaPyClass.ClassDict.TryGetValue(name, out PyObject metaBaseValue))
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   ✅ found '{name}' in metaclass MRO ({metaBase.Name}): {metaBaseValue?.GetType().Name}");
-                                #endif
-
-                                // Descriptor 처리
-                                if (metaBaseValue is IDescriptor metaBaseDesc)
-                                {
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   🔧 calling metaclass MRO descriptor.Get({Name}, {Metaclass.Name})");
-                                    #endif
-                                    return metaBaseDesc.Get(this, Metaclass);
-                                }
-
-                                return metaBaseValue;
-                            }
-                        }
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ❌ '{name}' not found in metaclass, calling PyObject.GetAttribute");
-                    #endif
                     var baseResult = base.GetAttribute(name);
                     #if DEBUG_LOG
                     Console.WriteLine($"   → base.GetAttribute returned: {baseResult?.GetType().Name}");
@@ -2862,6 +2827,19 @@ namespace SharpPy
         public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
 
         public override PyString AsString() => SubclassInstanceSupport.Str(this, ToRepr);
+
+        public override int Length() => SubclassInstanceSupport.Length(this, base.Length);
+
+        public override PyBool Contains(PyObject item) =>
+            SubclassInstanceSupport.Contains(this, item, () => base.Contains(item));
+
+        public override PyObject GetIterator() =>
+            SubclassInstanceSupport.Iterate(this, base.GetIterator);
+
+        public override PyObject GetItem(PyObject index) =>
+            CallUserSpecialOrNull("__getitem__", new[] { index }) ?? base.GetItem(index);
+
+        public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {

@@ -2748,11 +2748,11 @@ namespace SharpPy
 
                     // Convert args iterable to list
                     var argsList = new List<PyObject>();
-                    if (argsIterable is PyTuple argsTuple)
+                    if (argsIterable is PyTuple { IsExact: true } argsTuple)
                     {
                         argsList.AddRange(argsTuple.Items);
                     }
-                    else if (argsIterable is PyList argsListObj)
+                    else if (argsIterable is PyList { IsExact: true } argsListObj)
                     {
                         for (int i = 0; i < argsListObj.Length(); i++)
                         {
@@ -2898,20 +2898,19 @@ namespace SharpPy
                         mergeCallee = null;
 
                     // Merge sourceDict into targetDict
-                    if (sourceDict is PyDict sourcePyDict)
-                    {
-                        foreach (var kvp in sourcePyDict.InternalDict)
-                        {
-                            if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool())
-                                throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument '{kvp.Key.ToStr().Value}'");
-                            targetPyDict.SetItem(kvp.Key, kvp.Value);
-                        }
-                    }
-                    else
+                    if (sourceDict is not PyDict && sourceDict.LookupSpecialMethodUncached("keys") == null)
                     {
                         // CPython 3.12 measured wording for f(**non_mapping).
                         string mapPrefix = mergeCallee != null ? PyFrame.GetFuncErrPrefix(mergeCallee) + "() " : "";
                         throw PyTypeError.Create($"{mapPrefix}argument after ** must be a mapping, not {sourceDict.GetTypeName()}");
+                    }
+                    var mergedEntries = new PyDict();
+                    PyDict.UpdateCommon(mergedEntries, sourceDict);
+                    foreach (var kvp in mergedEntries.InternalDict)
+                    {
+                        if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool())
+                            throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument {kvp.Key.ToRepr().Value}");
+                        targetPyDict.SetItem(kvp.Key, kvp.Value);
                     }
 
                     // Push the merged dictionary back onto the stack
@@ -4019,29 +4018,9 @@ namespace SharpPy
                     // 주로 {**d} 딕셔너리 리터럴 언패킹에 사용됨
                     // Stack: [..., target_dict, source_dict] → [..., target_dict] (target_dict 수정됨)
                     var dictUpdateSource = frame.ValueStack.Pop();
-                    if (!(dictUpdateSource is PyDict dictUpdateSourceDict))
-                    {
-                        // dict.update takes any mapping: a mapping pattern's subject need not be a dict.
-                        if (dictUpdateSource.LookupSpecialMethodUncached("keys") != null)
-                        {
-                            frame.ValueStack.PeekAt(argument - 1).GetAttribute("update")
-                                .Call(new[] { dictUpdateSource }, null);
-                            break;
-                        }
-                        throw PyTypeError.Create($"'dict' object expected for ** unpacking, got '{dictUpdateSource?.GetTypeName() ?? "null"}'");
-                    }
-                    // stack[-(arg)]에 있는 dict를 가져옴 (arg=1이면 현재 TOS)
-                    var dictUpdateArg = argument;
-                    var dictUpdateTarget = frame.ValueStack.PeekAt(dictUpdateArg - 1) as PyDict;
-                    if (dictUpdateTarget == null)
-                    {
-                        throw new InvalidOperationException($"DICT_UPDATE: target at position {dictUpdateArg} is not a dict");
-                    }
-                    // dictUpdateSourceDict의 모든 항목을 dictUpdateTarget에 추가
-                    foreach (var kvp in dictUpdateSourceDict.GetInternalDict())
-                    {
-                        dictUpdateTarget.SetItem(kvp.Key, kvp.Value);
-                    }
+                    if (dictUpdateSource is not PyDict && dictUpdateSource.LookupSpecialMethodUncached("keys") == null)
+                        throw PyTypeError.Create($"'{dictUpdateSource.GetTypeName()}' object is not a mapping");
+                    PyDict.UpdateCommon((PyDict)frame.ValueStack.PeekAt(argument - 1), dictUpdateSource);
                     break;
 
                 // CPython-style Iterator Opcodes
@@ -5269,11 +5248,11 @@ namespace SharpPy
                     var sequence = frame.ValueStack.Pop();
 
                     // Unpack the sequence into individual elements
-                    if (sequence is PyTuple tuple)
+                    if (sequence is PyTuple { IsExact: true } tuple)
                     {
                         if (tuple.Items.Length != unpackCount)
                         {
-                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {tuple.Items.Length})");
+                            throw UnpackCountError(unpackCount, tuple.Items.Length);
                         }
 
                         // CPython pushes elements in reverse order (last element pushed first)
@@ -5283,11 +5262,11 @@ namespace SharpPy
                             frame.ValueStack.Push(tuple.Items[i]);
                         }
                     }
-                    else if (sequence is PyList listDup)
+                    else if (sequence is PyList { IsExact: true } listDup)
                     {
                         if (listDup.Items.Length != unpackCount)
                         {
-                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {listDup.Items.Length})");
+                            throw UnpackCountError(unpackCount, listDup.Items.Length);
                         }
 
                         // CPython pushes elements in reverse order
@@ -5300,7 +5279,7 @@ namespace SharpPy
                     {
                         if (str.Length() != unpackCount)
                         {
-                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {str.Length()})");
+                            throw UnpackCountError(unpackCount, str.Length());
                         }
 
                         // CPython pushes characters in reverse order, and "character" means whatever
@@ -5343,7 +5322,7 @@ namespace SharpPy
 
                         if (items.Count != unpackCount)
                         {
-                            throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {items.Count})");
+                            throw UnpackCountError(unpackCount, items.Count);
                         }
 
                         // Push items in reverse order (CPython convention)
@@ -5365,11 +5344,11 @@ namespace SharpPy
 
                     // CPython 3.12: Python/ceval.c:1960-1970 - Convert iterable to list first
                     PyObject[] itemsToUnpack;
-                    if (unpackExSequence is PyList unpackExList)
+                    if (unpackExSequence is PyList { IsExact: true } unpackExList)
                     {
                         itemsToUnpack = unpackExList.Items;
                     }
-                    else if (unpackExSequence is PyTuple unpackExTuple)
+                    else if (unpackExSequence is PyTuple { IsExact: true } unpackExTuple)
                     {
                         itemsToUnpack = unpackExTuple.Items;
                     }
@@ -6248,6 +6227,31 @@ namespace SharpPy
             return false;
         }
 
+        // unpack_iterable (Python/ceval.c)
+        private static Exception UnpackCountError(int expected, int got) => PyValueError.Create(got < expected
+            ? $"not enough values to unpack (expected {expected}, got {got})"
+            : $"too many values to unpack (expected {expected})");
+
+        private static string BinarySlotName(BinaryOpType operation) => operation switch
+        {
+            BinaryOpType.ADD => "__add__",
+            BinaryOpType.MULTIPLY => "__mul__",
+            BinaryOpType.SUBTRACT => "__sub__",
+            BinaryOpType.TRUE_DIVIDE => "__truediv__",
+            BinaryOpType.FLOOR_DIVIDE => "__floordiv__",
+            BinaryOpType.MODULO => "__mod__",
+            BinaryOpType.POWER => "__pow__",
+            BinaryOpType.LSHIFT => "__lshift__",
+            BinaryOpType.RSHIFT => "__rshift__",
+            BinaryOpType.AND => "__and__",
+            BinaryOpType.OR => "__or__",
+            BinaryOpType.XOR => "__xor__",
+            BinaryOpType.MATRIX_MULTIPLY => "__matmul__",
+            BinaryOpType.INPLACE_ADD => "__iadd__",
+            BinaryOpType.INPLACE_MULTIPLY => "__imul__",
+            _ => "__" + operation.ToString().Replace("INPLACE_", "i").ToLowerInvariant() + "__",
+        };
+
         private PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
         {
                 // CPython 3.12: BINARY_OP is for bitwise operations only
@@ -6257,6 +6261,17 @@ namespace SharpPy
                 // Use PyObject's built-in binary operation methods (CPython compatible)
                 try
                 {
+                    // slot_nb_add and friends: a list or tuple subclass with a method of its own.
+                    if (left is PyListSubclass or PyTupleSubclass)
+                    {
+                        var declared = left.LookupUserSpecial(BinarySlotName(binaryOp));
+                        if (declared != null)
+                        {
+                            var answer = left.BindSpecialMethod(declared).Call(new[] { right }, null);
+                            if (answer != PyNotImplemented.Instance) return answer;
+                        }
+                    }
+
                     // CPython 3.12: Try left.__op__(right) first
                     // CPython: Objects/abstract.c:947-1054 (binary_op1)
                     PyObject result = binaryOp switch
@@ -6298,14 +6313,14 @@ namespace SharpPy
                     // CPython 3.12: If left.__op__ returns NotImplemented, try right.__rop__(left)
                     // CPython: Objects/abstract.c:964-984 (binary_op1)
                     // PyNumber_Multiply: when the numbers decline, sq_repeat of either side with the other as index.
+                    if (result == PyNotImplemented.Instance)
+                    {
+                        result = TryReverseBinaryOp(right, left, binaryOp);
+                    }
                     if (result == PyNotImplemented.Instance && binaryOp == BinaryOpType.MULTIPLY)
                     {
                         result = SequenceRepeat(left, right);
                         if (result == PyNotImplemented.Instance) result = SequenceRepeat(right, left);
-                    }
-                    if (result == PyNotImplemented.Instance)
-                    {
-                        result = TryReverseBinaryOp(right, left, binaryOp);
                     }
 
                     // If still NotImplemented, raise TypeError
@@ -6423,7 +6438,7 @@ namespace SharpPy
         /// </summary>
         private static PyObject SequenceRepeat(PyObject sequence, PyObject count)
         {
-            if (sequence.GetPyType() is PyClass || sequence is PyInt or PyBool or PyFloat or PyComplex)
+            if ((sequence.GetPyType() is PyClass && sequence is not (PyList or PyTuple or PyString or PyBytes)) || sequence is PyInt or PyBool or PyFloat or PyComplex)
                 return PyNotImplemented.Instance;
             PyInt index = count switch
             {

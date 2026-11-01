@@ -1225,10 +1225,6 @@ namespace SharpPy
         /// </summary>
         public virtual PyList AsList()
         {
-            // CPython list() 생성자 동작 모방
-            if (this is PyList list)
-                return new PyList(list.Items.ToList()); // 복사본 생성
-            
             // 이터러블 객체인 경우 변환
             var items = new List<PyObject>();
             // CPython: errors raised while consuming an iterator propagate; only
@@ -1307,10 +1303,6 @@ namespace SharpPy
         /// </summary>
         public virtual PyTuple AsTuple()
         {
-            // CPython tuple() 생성자 동작 모방
-            if (this is PyTuple tuple)
-                return tuple; // 튜플은 immutable이므로 동일 객체 반환
-            
             // 이터러블 객체인 경우 변환
             var items = new List<PyObject>();
             // CPython: errors raised while consuming an iterator propagate.

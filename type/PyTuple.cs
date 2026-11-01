@@ -7,6 +7,12 @@ namespace SharpPy
     /// </summary>
     public class PyTuple : PyObject
     {
+        // PyTuple_CheckExact
+        internal bool IsExact => GetType() == typeof(PyTuple);
+
+        // What the slots of tuple read: the items, not the methods of a subclass.
+        internal PyTuple Stored => IsExact ? this : new PyTuple(Items);
+
         /// <summary>
         /// A subclass of tuple/bytes resolves the slot through its own type: a declared dunder wins
         /// and the inherited base slot only runs when the class declares none (measured: a tuple
@@ -62,7 +68,7 @@ namespace SharpPy
                     if (self is not PyTuple it)
                         throw PyTypeError.Create($"descriptor '__iter__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 0) throw PyTypeError.Create($"expected 0 arguments, got {args.Length}");
-                    return it.GetIterator();
+                    return it.Stored.GetIterator();
                 }, minArgs: 0, maxArgs: 0);
 
             tupleType.TypeDict["__contains__"] = new PyWrapperDescriptor(
@@ -71,7 +77,7 @@ namespace SharpPy
                     if (self is not PyTuple ct)
                         throw PyTypeError.Create($"descriptor '__contains__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
                     if (args.Length != 1) throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return ct.Contains(args[0]);
+                    return ct.Stored.Contains(args[0]);
                 }, minArgs: 1, maxArgs: 1);
 
             tupleType.TypeDict["__getnewargs__"] = new PyMethodDescriptor(
@@ -149,7 +155,7 @@ namespace SharpPy
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor '__getitem__' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
-                    return tuple.GetItem(args[0]);
+                    return tuple.Stored.GetItem(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
             );
@@ -509,7 +515,7 @@ namespace SharpPy
         /// <summary>
         /// Iterator protocol 구현 - Python __iter__ 메서드
         /// </summary>
-        public override PyIterator GetIterator()
+        public override PyObject GetIterator()
         {
             var declared = LookupDeclaredIterator();
             if (declared != null)
@@ -585,6 +591,7 @@ namespace SharpPy
         /// </summary>
         public override PyTuple AsTuple()
         {
+            if (!IsExact) return base.AsTuple();
             // CPython tuple() 생성자 동작: 새로운 복사본 생성
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var copy = new PyObject[Items.Length];
@@ -597,6 +604,7 @@ namespace SharpPy
         /// </summary>
         public override PyList AsList()
         {
+            if (!IsExact) return base.AsList();
             // CPython list(tuple) 동작: 튜플 요소들을 리스트로 변환
             // A declared __iter__ takes over first: CPython's list() goes through tp_iter, so
             // copying Items directly answered (1, 2) where CPython answered ['t'].

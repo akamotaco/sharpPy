@@ -887,7 +887,8 @@ namespace SharpPy
                 return;
             }
 
-            if (IsDictLike(source))
+            // dict_merge reads the storage unless the subclass has its own __iter__.
+            if (IsDictLike(source) && source.LookupUserSpecial("__iter__") == null)
             {
                 var storage = source is PyDict sd ? sd : ((PyClassInstance)source).GetDictStorage()!;
                 foreach (var entry in storage.GetInternalDict())
@@ -1078,14 +1079,14 @@ namespace SharpPy
             var dict = new PyDict();
             var defaultValue = value ?? PyNone.Instance;
             
-            if (keys is PyList list)
+            if (keys is PyList { IsExact: true } list)
             {
                 foreach (var key in list.Items)
                 {
                     dict.SetItem(key, defaultValue);
                 }
             }
-            else if (keys is PyTuple tuple)
+            else if (keys is PyTuple { IsExact: true } tuple)
             {
                 foreach (var key in tuple.Items)
                 {

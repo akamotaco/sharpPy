@@ -383,7 +383,7 @@ namespace SharpPy
         /// </summary>
         private void PrintPythonStyleTraceback(Exception e)
         {
-            Console.WriteLine("Traceback (most recent call last):");
+            Console.Error.WriteLine("Traceback (most recent call last):");
 
             // CPython 3.12: Use traceback chain from exception if available
             if (e is PythonException pyEx && pyEx.PyException.__traceback__ != null)
@@ -424,7 +424,7 @@ namespace SharpPy
             var functionName = frame.Code.Name ?? "<module>";
             var lineNumber = tb.LineNo;
 
-            Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
+            Console.Error.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
 
             // Show source line with ^^^ markers using column info from traceback
             var colOffset = tb.ColNo >= 0 ? tb.ColNo : frame.CurrentColumnOffset;
@@ -448,7 +448,7 @@ namespace SharpPy
             if (!string.IsNullOrEmpty(sourceLine))
             {
                 var trimmedLine = sourceLine.Trim();
-                Console.WriteLine($"    {trimmedLine}");
+                Console.Error.WriteLine($"    {trimmedLine}");
 
                 // Add ^^^ markers if column information is available
                 if (columnOffset >= 0)
@@ -469,12 +469,12 @@ namespace SharpPy
                     markerLength = Math.Min(markerLength, trimmedLine.Length - adjustedStartColumn);
 
                     var markers = new string(' ', adjustedStartColumn) + new string('^', Math.Max(1, markerLength));
-                    Console.WriteLine($"    {markers}");
+                    Console.Error.WriteLine($"    {markers}");
                 }
             }
             else
             {
-                Console.WriteLine($"    # Source line not available (line {lineNumber})");
+                Console.Error.WriteLine($"    # Source line not available (line {lineNumber})");
             }
         }
 
@@ -491,14 +491,14 @@ namespace SharpPy
                 var functionName = currentFrame.Code.Name ?? "<module>";
                 var lineNumber = currentFrame.CurrentLineNumber;
 
-                Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
+                Console.Error.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
                 ShowSourceLineWithMarkers(fileName, lineNumber, currentFrame.CurrentColumnOffset);
             }
             else if (e is PySyntaxErrorException syntaxEx && syntaxEx.LineNumber > 0)
             {
                 // SyntaxError special handling
                 var fileName = syntaxEx.FileName ?? _currentFileName ?? "<stdin>";
-                Console.WriteLine($"  File \"{fileName}\", line {syntaxEx.LineNumber}");
+                Console.Error.WriteLine($"  File \"{fileName}\", line {syntaxEx.LineNumber}");
 
                 var sourceLine = syntaxEx.SourceLine;
                 if (string.IsNullOrEmpty(sourceLine) && _sourceLines != null && syntaxEx.LineNumber <= _sourceLines.Length)
@@ -508,21 +508,21 @@ namespace SharpPy
 
                 if (!string.IsNullOrEmpty(sourceLine))
                 {
-                    Console.WriteLine($"    {sourceLine}");
+                    Console.Error.WriteLine($"    {sourceLine}");
                     if (syntaxEx.ColumnOffset >= 0)
                     {
                         var markerLength = syntaxEx.EndColumnOffset > syntaxEx.ColumnOffset
                             ? syntaxEx.EndColumnOffset - syntaxEx.ColumnOffset : 3;
                         var marker = new string(' ', syntaxEx.ColumnOffset) + new string('^', markerLength);
-                        Console.WriteLine($"    {marker}");
+                        Console.Error.WriteLine($"    {marker}");
                     }
                 }
             }
             else
             {
                 // No frame info available
-                Console.WriteLine($"  File \"{_currentFileName ?? "<stdin>"}\", line ?, in <module>");
-                Console.WriteLine($"    # Line information not available");
+                Console.Error.WriteLine($"  File \"{_currentFileName ?? "<stdin>"}\", line ?, in <module>");
+                Console.Error.WriteLine($"    # Line information not available");
             }
         }
 
@@ -556,12 +556,12 @@ namespace SharpPy
             // Recursively handle chaining BEFORE printing this exception
             PrintExceptionChaining(chainedException);
 
-            Console.WriteLine();
+            Console.Error.WriteLine();
 
             // Print traceback for the chained exception
             if (chainedException.__traceback__ != null)
             {
-                Console.WriteLine("Traceback (most recent call last):");
+                Console.Error.WriteLine("Traceback (most recent call last):");
 
                 // CPython 3.12: Chain is already in outermost-first order
                 // __traceback__ points to outermost frame, next points to progressively inner frames
@@ -574,19 +574,19 @@ namespace SharpPy
             }
 
             // Print exception message
-            Console.WriteLine($"{chainedException.GetTypeName()}: {chainedException.ToStr().Value}");
-            Console.WriteLine();
+            Console.Error.WriteLine($"{chainedException.GetTypeName()}: {chainedException.ToStr().Value}");
+            Console.Error.WriteLine();
 
             // Print transition message
             if (isContext)
             {
-                Console.WriteLine("During handling of the above exception, another exception occurred:");
-                Console.WriteLine();
+                Console.Error.WriteLine("During handling of the above exception, another exception occurred:");
+                Console.Error.WriteLine();
             }
             else
             {
-                Console.WriteLine("The above exception was the direct cause of the following exception:");
-                Console.WriteLine();
+                Console.Error.WriteLine("The above exception was the direct cause of the following exception:");
+                Console.Error.WriteLine();
             }
         }
 
@@ -654,7 +654,7 @@ namespace SharpPy
                     exceptionMessage += $". Did you forget to import '{wrongName.Value}'?";
             }
 
-            Console.WriteLine($"{pythonExceptionType}: {exceptionMessage}");
+            Console.Error.WriteLine($"{pythonExceptionType}: {exceptionMessage}");
         }
         
         /// <summary>
@@ -691,12 +691,12 @@ namespace SharpPy
         // 대화형 실행 (REPL 스타일)
         public void Interactive()
         {
-            Console.WriteLine("🐍 Python 대화형 모드 (기존 시스템 통합)");
-            Console.WriteLine("종료하려면 'exit' 입력");
+            Console.Error.WriteLine("🐍 Python 대화형 모드 (기존 시스템 통합)");
+            Console.Error.WriteLine("종료하려면 'exit' 입력");
             
             while (true)
             {
-                Console.Write(">>> ");
+                Console.Error.Write(">>> ");
                 var input = Console.ReadLine();
                 
                 if (string.IsNullOrEmpty(input) || input == "exit")

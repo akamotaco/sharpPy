@@ -20,8 +20,10 @@ namespace SharpPy
 
         internal static IEnumerable<PyObject> IterableItems(PyObject value)
         {
+            // set_update_internal: any set is merged from its table, __iter__ of a subclass or not.
             if (value is PySet set) return set.Items;
             if (value is PyFrozenSet frozen) return frozen.Items;
+            if (value is PyClassInstance instance && instance.GetSetStorage() is PySet storage) return storage.Items;
             return Iterate(value);
         }
         private static IEnumerable<PyObject> Iterate(PyObject value)

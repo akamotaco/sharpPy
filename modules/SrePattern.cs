@@ -32,8 +32,6 @@ namespace SharpPy.Modules
             {
                 case PyString text:
                     return new SreText(source, CodePoints(text.Value), false);
-                case PyStrSubclass subclass:
-                    return new SreText(source, CodePoints(subclass.GetStrValue().Value), false);
                 case PyBytes bytes:
                     return new SreText(source, Widen(bytes.Value), true);
                 case PyByteArray array:

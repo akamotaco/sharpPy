@@ -355,18 +355,7 @@ namespace SharpPy
                     if (!PyInt.TryLongSelf(self, out var intObj))
                         throw PyTypeError.Create($"descriptor 'bit_count' requires a 'int' object but received a '{self.GetTypeName()}'");
 
-                    // Reference: Objects/longobject.c::long_bit_count
-                    long value = intObj.ToLong();
-                    if (value < 0)
-                        value = -value;
-
-                    int count = 0;
-                    while (value > 0)
-                    {
-                        count += (int)(value & 1);
-                        value >>= 1;
-                    }
-                    return new PyInt(count);
+                    return intObj.BitCount();
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -1651,18 +1640,12 @@ namespace SharpPy
             return new PyInt((int)Math.Floor(Math.Log((double)abs, 2)) + 1);
         }
 
-        /// <summary>
-        /// int.bit_count() - 1인 비트의 개수
-        /// </summary>
+        /// <summary>long_bit_count: of the absolute value, at any size.</summary>
         public PyInt BitCount()
         {
-            Py_int_t count = 0;
-            var n = BigInteger.Abs(Value);
-            while (n > 0)
-            {
-                count += (int)(n & 1);
-                n >>= 1;
-            }
+            int count = 0;
+            foreach (var part in System.Numerics.BigInteger.Abs(Value).ToByteArray())
+                count += System.Numerics.BitOperations.PopCount(part);
             return new PyInt(count);
         }
 

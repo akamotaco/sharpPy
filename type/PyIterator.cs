@@ -182,7 +182,7 @@ namespace SharpPy
 
         public override PyObject Next()
         {
-            if (_index >= _list.Length())
+            if (_index >= _list.RawCount())
             {
                 throw PyStopIteration.Create();
             }
@@ -236,7 +236,7 @@ namespace SharpPy
             Console.WriteLine($"🔧 PyTupleIterator.Next(): _index={_index}, _tuple.Length()={_tuple.Length()}");
             #endif
 
-            if (_index >= _tuple.Length())
+            if (_index >= _tuple.Items.Length)
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"🔚 PyTupleIterator.Next(): StopIteration (_index={_index} >= length={_tuple.Length()})");

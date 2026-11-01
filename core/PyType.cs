@@ -2538,6 +2538,9 @@ namespace SharpPy
         /// </summary>
         private void InitializeSetTypeDescriptors()
         {
+            TypeDict["__len__"] = new PyWrapperDescriptor("__len__", this, (self, args, kwargs) =>
+                new PyInt(PyNativeStorage.ForSet(self).Items.Count()));
+
             var setType = this;
 
             // CPython 3.12: set.__hash__ is None (mutable set is unhashable; frozenset keeps
@@ -3142,11 +3145,11 @@ namespace SharpPy
                     {
                         tupleItems = new PyObject[0];
                     }
-                    else if (iterable is PyTuple tup)
+                    else if (iterable is PyTuple { IsExact: true } tup)
                     {
                         tupleItems = tup.Items;
                     }
-                    else if (iterable is PyList list)
+                    else if (iterable is PyList { IsExact: true } list)
                     {
                         tupleItems = list.Items;
                     }

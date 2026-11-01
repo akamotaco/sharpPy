@@ -168,6 +168,10 @@ namespace SharpPy
                 return PyNone.Instance;
             });
 
+            // type_getattro behind tp_getattro.
+            typeClass.ClassDict["__getattribute__"] = new PyWrapperDescriptor("__getattribute__", typeClass, (self, args, kwargs) =>
+                self is PyClass cls ? cls.TypeGetAttribute(((PyString)args[0]).Value) : self.GetAttribute(((PyString)args[0]).Value));
+
             // type_call behind tp_call.
             typeClass.ClassDict["__call__"] = new PyWrapperDescriptor("__call__", typeClass, (self, args, kwargs) =>
                 self is PyClass cls ? cls.TypeCall(args, kwargs) : self.Call(args, kwargs));

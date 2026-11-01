@@ -353,12 +353,6 @@ namespace SharpPy
 
             // 출력 생성 - CPython 3.12: print는 str()을 사용, repr()이 아님
             // Performance: Eliminated LINQ - manual iteration instead of Select
-            var outputParts = new string[args.Length];
-            for (int i = 0; i < args.Length; i++)
-            {
-                outputParts[i] = args[i].ToStr().Value;
-            }
-            var output = string.Join(sep.Value, outputParts);
 
             // builtin_print: file=None means sys.stdout, whatever it is now. Only the original goes to the console.
             if (file == null || file is PyNone)
@@ -370,7 +364,13 @@ namespace SharpPy
             }
             if (file == null)
             {
-                Console.Write(output + end.Value);
+                // builtin_print writes as it goes: a __str__ that prints or raises comes after what is out.
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (i > 0) Console.Write(sep.Value);
+                    Console.Write(args[i].ToStr().Value);
+                }
+                Console.Write(end.Value);
                 if (flush.Value)
                 {
                     Console.Out.Flush();
@@ -380,9 +380,13 @@ namespace SharpPy
             {
                 // CPython print.c: print delegates to file.write(str) - errors
                 // (missing attribute, closed file) propagate to the caller.
-                var text = new PyString(output + end.Value);
                 var write = file.GetAttribute("write");
-                write.Call(new PyObject[] { text }, null);
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (i > 0) write.Call(new PyObject[] { sep }, null);
+                    write.Call(new PyObject[] { args[i].ToStr() }, null);
+                }
+                write.Call(new PyObject[] { end }, null);
                 if (flush.Value)
                 {
                     var flushMethod = file.GetAttribute("flush");
@@ -1900,15 +1904,14 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
 
-            if (args[0] is PyString str && str.Length() == 1)
+            // PyUnicode_GET_LENGTH: the text, whatever __len__ a subclass declares.
+            var text = args[0] is PyStrSubclass subclass ? subclass.GetStrValue() : args[0] as PyString;
+            if (text != null && text.Length() == 1)
             {
-                return new PyInt(str.CodePointAt(0));
+                return new PyInt(text.CodePointAt(0));
             }
-            else
-            {
-                throw PyTypeError.Create("ord() expected a character, but string of length " + 
-                    (args[0] is PyString s ? s.Length().ToString() : "?") + " found");
-            }
+            throw PyTypeError.Create("ord() expected a character, but string of length " +
+                (text != null ? text.Length().ToString() : "?") + " found");
         }
 
         private static PyObject CallChr(PyObject[] args, PyDict kwargs = null)
@@ -2865,7 +2868,7 @@ namespace SharpPy
                         throw PyValueError.Create("negative count");
                     return new PyBytearrayObject(new byte[(int)size.Value]);
                 }
-                else if (arg is PyList list)
+                else if (arg is PyList { IsExact: true } list)
                 {
                     var bytes = new List<byte>();
                     foreach (var item in list.Items)

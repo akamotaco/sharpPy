@@ -1811,7 +1811,6 @@ namespace SharpPy
             {
                 PyString otherStr => PyBool.FromBool(Value == otherStr.Value),
                 // CPython unicode_richcompare: content comparison also for str subclasses.
-                PyStrSubclass otherSub => PyBool.FromBool(Value == otherSub.GetStringValue()),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -2638,7 +2637,7 @@ namespace SharpPy
                 switch (conv)
                 {
                     case 's':
-                        body = value is PyString pstr ? pstr.Value : value.ToStr().Value;
+                        body = value.ToStr().Value;
                         if (hasPrecision && body.Length > precision)
                             body = body.Substring(0, precision);
                         break;

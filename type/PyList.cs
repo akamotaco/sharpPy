@@ -5,6 +5,9 @@ namespace SharpPy
 {
     public class PyList : PyObject
     {
+        // PyList_CheckExact: a subclass may have its own __iter__, so only the exact type is read directly.
+        internal bool IsExact => GetType() == typeof(PyList);
+
         static PyList()
         {
             InitializeListDescriptors();
@@ -415,7 +418,7 @@ namespace SharpPy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
 
-                    return GetListForItemDescriptor(self, "__contains__", true).Contains(args[0]);
+                    return PyBool.FromBool(GetListForItemDescriptor(self, "__contains__", true).RawContains(args[0]));
                 });
 
             // CPython 3.12: list sq_concat/sq_multiply/nb_inplace slot wrappers
@@ -486,7 +489,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"list.{name}() takes no keyword arguments");
                     if (args.Length != 1)
                         throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
-                    return list.RichCompare(args[0], op);
+                    return (list.IsExact ? list : new PyList(list.Items)).RichCompare(args[0], op);
                 });
             }
 
@@ -977,6 +980,7 @@ namespace SharpPy
         /// </summary>
         public override PyList AsList()
         {
+            if (!IsExact) return base.AsList();
             // CPython list() 생성자 동작: 새로운 복사본 생성
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var copy = new PyObject[_items.Count];
@@ -989,6 +993,7 @@ namespace SharpPy
         /// </summary>
         public override PyTuple AsTuple()
         {
+            if (!IsExact) return base.AsTuple();
             // CPython tuple() 생성자 동작: 리스트 요소들로 튜플 생성
             // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var items = new PyObject[_items.Count];
@@ -1101,12 +1106,12 @@ namespace SharpPy
             // Special cases:
             //   1) lists and tuples which can use PySequence_Fast ops
             //   2) extending self to self requires making a copy first
-            if (other is PyList otherList)
+            if (other is PyList { IsExact: true } otherList)
             {
                 // CPython: Objects/listobject.c:875-909 - Fast path for lists
                 _items.AddRange(otherList._items);
             }
-            else if (other is PyTuple otherTuple)
+            else if (other is PyTuple { IsExact: true } otherTuple)
             {
                 // CPython: Objects/listobject.c:870-872 - Fast path for tuples
                 // PyTuple_CheckExact(iterable) -> use PySequence_Fast

@@ -14,7 +14,7 @@ namespace SharpPy
     ///
     /// SharpPy에서는 PyString의 모든 동작을 위임하면서 추가 속성을 지원
     /// </summary>
-    public class PyStrSubclass : PyObject, IDictBackedInstance
+    public class PyStrSubclass : PyString, IDictBackedInstance
     {
         // CPython: Objects/unicodeobject.c:14744 - self = type->tp_alloc(type, 0);
         // Objects/unicodeobject.c:14751-14764 - copy unicode data from original
@@ -26,18 +26,20 @@ namespace SharpPy
         // CPython: ob_type 필드 - 서브클래스 타입
         private readonly PyClass _class;
 
-        public PyStrSubclass(PyClass cls, string value)
+        public PyStrSubclass(PyClass cls, string value) : base(value)
         {
             _class = cls;
             _strValue = new PyString(value);
             InstanceDict = new Dictionary<string, PyObject>();
+            SetCustomType(cls);
         }
 
-        public PyStrSubclass(PyClass cls, PyString strValue)
+        public PyStrSubclass(PyClass cls, PyString strValue) : base(strValue.Value)
         {
             _class = cls;
             _strValue = strValue;
             InstanceDict = new Dictionary<string, PyObject>();
+            SetCustomType(cls);
         }
 
         // CPython: 서브클래스 인스턴스의 타입은 서브클래스
@@ -79,7 +81,12 @@ namespace SharpPy
             return declared == null ? _strValue.Length() : ToLengthResult(declared);
         }
 
-        public override PyObject GetItem(PyObject index) => _strValue.GetItem(index);
+        public override PyObject GetItem(PyObject index) =>
+            CallUserSpecialOrNull("__getitem__", new[] { index }) ?? _strValue.GetItem(index);
+
+        public override PyList AsList() => new PyList(new List<PyObject>(PySet.IterableItems(this)));
+
+        public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
         public override PyBool Contains(PyObject item)
         {
