@@ -582,6 +582,7 @@ namespace SharpPy
         private SymbolTable? _currentSymbolTable = null;
         private readonly AstFold _fold = new AstFold();
         private int _positionalArgCount;
+        private int _firstLineNumber;  // u_firstlineno; a module's RESUME is on line 0
         private SymbolTableBuilder? _symbolTableBuilder = null;  // CPython 3.12: st->st_blocks lookup
 
         // CPython 3.12: Frame block stack for unified control flow tracking
@@ -1250,8 +1251,7 @@ namespace SharpPy
 #endif
             }
             
-            // Python 3.12: 모든 코드는 RESUME으로 시작 (line 0)
-            _currentLineNumber = 0;
+            _currentLineNumber = _firstLineNumber;
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             // CPython 3.12: SETUP_ANNOTATIONS once if module has any annotations
@@ -1777,6 +1777,7 @@ namespace SharpPy
                 ? PyCodeObject.CO_ASYNC_GENERATOR : PyCodeObject.CO_COROUTINE;
 
             var compiler = new PythonCompiler();
+            compiler._firstLineNumber = FirstLineOf(asyncFunc, asyncFunc.Decorators);
             compiler.InheritQualStack(this);
             compiler.SetupClosureCompilation(cellVars, freeVars);
             compiler.SetSourceLocation(_currentFileName, _sourceLines);
@@ -2000,7 +2001,7 @@ namespace SharpPy
 
             // CPython 3.12 compile.c line 1340: Add RESUME 0 at function entry
             // This is added BEFORE compiling the body
-            _currentLineNumber = 0;
+            _currentLineNumber = _firstLineNumber;
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             // Compile function body statements
@@ -2058,6 +2059,7 @@ namespace SharpPy
                 flags, _currentFileName, _sourceLines
             );
             codeObject.QualName = qualNameForCode;
+            codeObject.FirstLineNo = _firstLineNumber;
             if (_defQualStack.Count > 0)
                 _defQualStack.RemoveAt(_defQualStack.Count - 1);
 
@@ -2420,7 +2422,6 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   🔧 Phase 0.5: Inserting prefix instructions in InstructionSequence (flags=0x{codeFlags:X})...");
 #endif
-            _instructionSequence.InsertPrefixInstructions(codeFlags, _cellVars ?? new List<string>(), _freeVars ?? new List<string>());
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   InstructionSequence after prefix: {_instructionSequence.Count} instructions");
 #endif
@@ -2446,6 +2447,7 @@ namespace SharpPy
             }
             var cfgOptimizer = new CFGOptimizer(cfg, _constants, GetOrAddConstant, _varNames?.Count ?? 0, nparams, firstLineNo);
             cfgOptimizer.Optimize();
+            cfgOptimizer.InsertPrefixInstructions(codeFlags, CellsInFrameOrder(), _freeVars?.Count ?? 0, _firstLineNumber);
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
 #endif
@@ -3733,6 +3735,7 @@ namespace SharpPy
 
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
+            compiler._firstLineNumber = FirstLineOf(func, func.Decorators);
             compiler.InheritQualStack(this);
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
 
@@ -5116,7 +5119,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.LOAD_BUILD_CLASS);
 
             // Compile class body into a function
-            var classBodyName = $"<class_body_{cls.Name}>";
+            var classBodyName = cls.Name;
 
             // CPython 3.12: Get free variables for this class from symbol table
             // When a class is defined inside a function and its methods reference
@@ -5464,6 +5467,9 @@ namespace SharpPy
             }
 
             // CPython 3.12: RESUME instruction after COPY_FREE_VARS and MAKE_CELL
+            int savedFirstLine = _firstLineNumber;
+            _firstLineNumber = FirstLineOf(cls, cls.Decorators);
+            _currentLineNumber = _firstLineNumber;
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             try
@@ -5544,6 +5550,9 @@ namespace SharpPy
                 // Class body has no generator flags
                 var finalInstructions = GetFinalInstructions(0);
 
+                int classFirstLine = _firstLineNumber;
+                _firstLineNumber = savedFirstLine;
+
                 // Create code object for class body with free variables
                 // Performance: Eliminated LINQ
                 var codeObject = new PyCodeObject(
@@ -5564,6 +5573,7 @@ namespace SharpPy
                     sourceLines: _sourceLines,
                     exceptionTable: _exceptionTable
                 );
+                codeObject.FirstLineNo = classFirstLine;
                 
                 return codeObject;
             }
@@ -7534,7 +7544,7 @@ namespace SharpPy
             // Lambda creates an anonymous function object with proper parameter scope
 
             // Create a unique name for the lambda function
-            string lambdaName = $"<lambda_{_lambdaCounter++}>";
+            string lambdaName = "<lambda>";
             // CPython qualname: "<lambda>", nested "<lambda>.<locals>.<lambda>", "f.<locals>.<lambda>".
             string lambdaQualName = ComputeQualName("<lambda>");
             _defQualStack.Add(("<lambda>", false));
@@ -7766,6 +7776,7 @@ namespace SharpPy
                 fileName: _currentFileName,
                 sourceLines: _sourceLines
             );
+            functionCode.FirstLineNo = lambda.LineNo;
             functionCode.QualName = lambdaQualName;
             if (_defQualStack.Count > 0)
                 _defQualStack.RemoveAt(_defQualStack.Count - 1);
@@ -9345,6 +9356,7 @@ namespace SharpPy
 
             // 제너레이터는 별도 함수로 컴파일 필요
             var genCompiler = new PythonCompiler();
+            genCompiler._firstLineNumber = genExp.LineNo;
             genCompiler.InheritQualStack(this);
             // CPython 3.12: Pass source location information
             genCompiler.SetSourceLocation(_currentFileName, _sourceLines);
@@ -10471,6 +10483,30 @@ namespace SharpPy
             _instructionSequence.UseLabel(finished);
 
             _instructionSequence.UseLabel(exit);
+        }
+
+        // compiler_function, compiler_class: a decorated definition starts at its first decorator.
+        private static int FirstLineOf(ASTNode definition, List<DecoratorExpression>? decorators) =>
+            decorators != null && decorators.Count > 0 && decorators[0].DecoratorFunction.LineNo > 0
+                ? decorators[0].DecoratorFunction.LineNo
+                : definition.LineNo;
+
+        // insert_prefix_instructions sorts the cells: parameters at their slots, the rest after.
+        private List<int> CellsInFrameOrder()
+        {
+            var parameterCells = new SortedDictionary<int, int>();
+            var others = new List<int>();
+            for (int i = 0; i < (_cellVars?.Count ?? 0); i++)
+            {
+                int slot = _varNames?.IndexOf(_cellVars![i]) ?? -1;
+                if (slot >= 0)
+                    parameterCells[slot] = i;
+                else
+                    others.Add(i);
+            }
+            var order = new List<int>(parameterCells.Values);
+            order.AddRange(others);
+            return order;
         }
 
         private void EmitJump(ByteCodeOp op, SharpPy.Label target)

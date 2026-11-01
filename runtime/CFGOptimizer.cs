@@ -845,6 +845,22 @@ namespace SharpPy
                 RemoveRedundantJumps();
         }
 
+        /// <summary>insert_prefix_instructions: after the optimizer, so they have no neighbours' lines.</summary>
+        public void InsertPrefixInstructions(int codeFlags, List<int> cells, int freeCount, int firstLineNo)
+        {
+            var prefix = new List<ByteCodeInstruction>();
+            if (freeCount > 0)
+                prefix.Add(new ByteCodeInstruction(ByteCodeOp.COPY_FREE_VARS, freeCount, -1));
+            foreach (int cell in cells)
+                prefix.Add(new ByteCodeInstruction(ByteCodeOp.MAKE_CELL, cell, -1));
+            if ((codeFlags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) != 0)
+            {
+                prefix.Add(new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0, firstLineNo));
+                prefix.Add(new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0, -1));
+            }
+            Entry.Instructions.InsertRange(0, prefix);
+        }
+
         /// <summary>_PyCfg_ConvertPseudoOps</summary>
         public void ConvertPseudoOps()
         {

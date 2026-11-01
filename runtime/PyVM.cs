@@ -38,7 +38,6 @@ namespace SharpPy
         public PyCell[] Closure { get; set; } = Array.Empty<PyCell>();   // 부모로부터 받은 클로저 셀들
 
         // **NEW**: Storage for class body variables before scope cleanup
-        public Dictionary<string, PyObject>? ClassBodyVariables { get; set; }
 
         // CPython 3.12: Class body locals dictionary (for __prepare__ dict subclasses)
         // When executing class body, STORE_NAME writes to this dict instead of scope
@@ -3307,15 +3306,6 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 RETURN_VALUE: Cleaning up function scope '{frame.ScopeChain.CurrentScope.Name}'");
                         #endif
-
-                        // **CRITICAL FIX**: 클래스 body인 경우 scope 제거 전에 변수들을 저장
-                        if (frame.ScopeChain.CurrentScope.Name.StartsWith("<class_body_", StringComparison.Ordinal))
-                        {
-                            frame.ClassBodyVariables = new Dictionary<string, PyObject>(frame.ScopeChain.CurrentScope.Variables);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"💾 Saved {frame.ClassBodyVariables.Count} class body variables before scope cleanup");
-                            #endif
-                        }
 
                         frame.ScopeChain.PopScope();
                     }

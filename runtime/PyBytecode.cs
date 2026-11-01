@@ -315,19 +315,20 @@ namespace SharpPy
     public enum BinaryOpType : byte
     {
         // Compiler and VM share this ordering; this is not a CPython import format.
-        ADD = 0,                  // +  (덧셈) ✅ 이미 정확
-        SUBTRACT = 1,             // -  (뺄셈) - was 10
-        MULTIPLY = 2,             // *  (곱셈) - was 5
-        TRUE_DIVIDE = 3,          // /  (나눗셈) - was 11
-        FLOOR_DIVIDE = 4,         // // (바닥 나눗셈) - was 2
-        MODULO = 5,               // %  (모듈로) - was 6
-        POWER = 6,                // ** (거듭제곱) - was 8
-        LSHIFT = 7,               // << (좌시프트) - was 3
-        RSHIFT = 8,               // >> (우시프트) - was 9
-        OR = 9,                   // |  (비트 OR) - was 7
-        XOR = 10,                 // ^  (비트 XOR) - was 12
-        AND = 11,                 // &  (비트 AND) - was 1
-        MATRIX_MULTIPLY = 12,     // @  (행렬 곱셈) - was 4
+        // NB_* of Include/internal/pycore_opcode... the oparg of BINARY_OP.
+        ADD = 0,
+        AND = 1,
+        FLOOR_DIVIDE = 2,
+        LSHIFT = 3,
+        MATRIX_MULTIPLY = 4,
+        MULTIPLY = 5,
+        MODULO = 6,
+        OR = 7,
+        POWER = 8,
+        RSHIFT = 9,
+        SUBTRACT = 10,
+        TRUE_DIVIDE = 11,
+        XOR = 12,
 
         // CPython 3.12: In-place operations (NB_INPLACE_*)
         // Python/bytecodes.c: BINARY_OP opcode with arg >= 13 means in-place
@@ -653,8 +654,12 @@ namespace SharpPy
         /// <summary>
         /// Get first line number from LineNumberTable
         /// </summary>
+        public int FirstLineNo { get; set; }
+
         public int GetFirstLineNo()
         {
+            if (FirstLineNo > 0)
+                return FirstLineNo;
             if (LineNumberTable.Count > 0)
             {
                 return LineNumberTable.Values.Min();
@@ -694,6 +699,12 @@ namespace SharpPy
         
         public void Disassemble()
         {
+            if (CodeDumper.Enabled)
+            {
+                CodeDumper.Dump(this);
+                return;
+            }
+
             Console.WriteLine($"\n📄 Disassembly of {Name}:");
             for (int i = 0; i < Instructions.Count; i++)
             {
@@ -952,7 +963,7 @@ namespace SharpPy
         INTRINSIC_TYPEALIAS = 11,           // CPython 3.12: INTRINSIC_TYPEALIAS ✅ 이미 정확
 
         // INTRINSIC_2 (CALL_INTRINSIC_2)
-        INTRINSIC_PREP_RERAISE_STAR = 0,    // CPython 3.12: PREP_RERAISE_STAR for except* exception group handling
+        INTRINSIC_PREP_RERAISE_STAR = 1,    // CPython 3.12: PREP_RERAISE_STAR for except* exception group handling
         INTRINSIC_TYPEVAR_WITH_BOUND = 2,   // CPython
         INTRINSIC_TYPEVAR_WITH_CONSTRAINTS = 3, // CPython
         INTRINSIC_SET_FUNCTION_TYPE_PARAMS = 4  // Already used in compile.cs
@@ -1067,8 +1078,8 @@ namespace SharpPy
                 case ByteCodeOp.CALL_INTRINSIC_2:
                     // CPython 3.12 INTRINSIC_2 함수 이름들
                     var intrinsics2 = new[] {
-                        "PREP_RERAISE_STAR",           // 0: INTRINSIC_PREP_RERAISE_STAR (exception groups)
-                        "INTRINSIC_2_INVALID",         // 1: reserved
+                        "INTRINSIC_2_INVALID",         // 0
+                        "PREP_RERAISE_STAR",           // 1: INTRINSIC_PREP_RERAISE_STAR (exception groups)
                         "INTRINSIC_2_INVALID",         // 2: reserved
                         "INTRINSIC_2_INVALID",         // 3: reserved
                         "SET_FUNCTION_TYPE_PARAMS"     // 4: INTRINSIC_SET_FUNCTION_TYPE_PARAMS
