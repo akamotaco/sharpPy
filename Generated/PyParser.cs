@@ -12827,6 +12827,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidArguments()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -12997,6 +12998,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidKwarg()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13176,6 +13178,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidLegacyExpression()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13213,6 +13216,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidExpression()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13297,6 +13301,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidNamedExpression()
         {
+            if (!_callInvalidRules) return null;
             return (GeneratedPtr?)TryMemoized("invalid_named_expression", Parse_InvalidNamedExpression_Raw);
         }
 
@@ -13306,6 +13311,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidNamedExpression_Raw()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13389,6 +13395,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidAssignment()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13603,6 +13610,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidDelStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13638,6 +13646,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidBlock()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13673,6 +13682,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidComprehension()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13756,6 +13766,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidDictComprehension()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13794,6 +13805,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidParameters()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13941,6 +13953,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidDefault()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -13976,6 +13989,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidStarEtc()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14078,6 +14092,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidKwds()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14208,6 +14223,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidLambdaParameters()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14355,6 +14371,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidLambdaParametersHelper()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14404,6 +14421,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidLambdaStarEtc()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14484,6 +14502,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidLambdaKwds()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14564,6 +14583,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidDoubleTypeComments()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14606,6 +14626,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidWithItem()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14643,6 +14664,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidForTarget()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14679,6 +14701,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidGroup()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14737,6 +14760,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidImport()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14774,6 +14798,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidImportFromTargets()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14812,6 +14837,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidWithStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14883,6 +14909,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidWithStmtIndent()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -14949,6 +14976,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidTryStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15063,6 +15091,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidExceptStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15167,6 +15196,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidFinallyStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15204,6 +15234,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidExceptStmtIndent()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15265,6 +15296,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidExceptStarStmtIndent()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15305,6 +15337,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidMatchStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15367,6 +15400,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidCaseBlock()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15431,6 +15465,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidAsPattern()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15489,6 +15524,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidClassPattern()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15563,6 +15599,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidIfStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15624,6 +15661,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidElifStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15685,6 +15723,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidElseStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15722,6 +15761,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidWhileStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15783,6 +15823,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidForStmt()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15853,6 +15894,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidDefRaw()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15897,6 +15939,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidClassDefRaw()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -15964,6 +16007,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidDoubleStarredKvpairs()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -16045,6 +16089,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidKvpair()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -16123,6 +16168,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidStarredExpression()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -16161,6 +16207,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidReplacementField()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -16429,6 +16476,7 @@ namespace SharpPy.Generated
         /// </summary>
         private GeneratedPtr? Parse_InvalidConversionCharacter()
         {
+            if (!_callInvalidRules) return null;
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
@@ -22856,138 +22904,16 @@ namespace SharpPy.Generated
 
 
         // CPython 3.12: Entry point for file parsing
-        public GeneratedMod ParseFile()
-        {
-        var result = Parse_File();
-        if (result == null || _pendingSyntaxError != null)
-        {
-        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
-
-        // CPython 3.12: Get error location from known error token or current position
-        // _knownErrToken is set by RaiseSyntaxError, but for parse failures we use _position
-        GeneratedTokenInfo errorToken = _knownErrToken;
-
-        // If no known error token, use the token at current parse position
-        if (errorToken == null && _position < _tokens.Count)
-        {
-        errorToken = _tokens[_position];
-        }
-        // Fallback: use first token if no error token found
-        else if (errorToken == null && _tokens.Count > 0)
-        {
-        errorToken = _tokens[0];
-        }
-
-        // CPython 3.12: If we're at a valid position, the error token should be here
-        if (errorToken != null)
-        {
-        var ex = new PySyntaxErrorException(errorMsg, _filename,
-        errorToken.Line, errorToken.Column,
-        errorToken.EndColumn,
-        GetSourceLine(errorToken.Line));
-        throw ex;
-        }
-
-        throw new PySyntaxErrorException(errorMsg);
-        }
-        return result;
-        }
+        public GeneratedMod ParseFile() => (GeneratedMod)RunParser(Parse_File);
 
         // CPython 3.12: Entry point for interactive parsing
-        public GeneratedMod ParseInteractive()
-        {
-        var result = Parse_Interactive();
-        if (result == null || _pendingSyntaxError != null)
-        {
-        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
-
-        GeneratedTokenInfo errorToken = _knownErrToken;
-        if (errorToken == null && _position < _tokens.Count)
-        {
-        errorToken = _tokens[_position];
-        }
-        else if (errorToken == null && _tokens.Count > 0)
-        {
-        errorToken = _tokens[0];
-        }
-
-        if (errorToken != null)
-        {
-        var ex = new PySyntaxErrorException(errorMsg, _filename,
-        errorToken.Line, errorToken.Column,
-        errorToken.EndColumn,
-        GetSourceLine(errorToken.Line));
-        throw ex;
-        }
-
-        throw new PySyntaxErrorException(errorMsg);
-        }
-        return result;
-        }
+        public GeneratedMod ParseInteractive() => (GeneratedMod)RunParser(Parse_Interactive);
 
         // CPython 3.12: Entry point for eval parsing
-        public GeneratedMod ParseEval()
-        {
-        var result = Parse_Eval();
-        if (result == null || _pendingSyntaxError != null)
-        {
-        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
-
-        GeneratedTokenInfo errorToken = _knownErrToken;
-        if (errorToken == null && _position < _tokens.Count)
-        {
-        errorToken = _tokens[_position];
-        }
-        else if (errorToken == null && _tokens.Count > 0)
-        {
-        errorToken = _tokens[0];
-        }
-
-        if (errorToken != null)
-        {
-        var ex = new PySyntaxErrorException(errorMsg, _filename,
-        errorToken.Line, errorToken.Column,
-        errorToken.EndColumn,
-        GetSourceLine(errorToken.Line));
-        throw ex;
-        }
-
-        throw new PySyntaxErrorException(errorMsg);
-        }
-        return result;
-        }
+        public GeneratedMod ParseEval() => (GeneratedMod)RunParser(Parse_Eval);
 
         // CPython 3.12: Entry point for function type parsing
-        public GeneratedMod ParseFuncType()
-        {
-        var result = Parse_FuncType();
-        if (result == null || _pendingSyntaxError != null)
-        {
-        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
-
-        GeneratedTokenInfo errorToken = _knownErrToken;
-        if (errorToken == null && _position < _tokens.Count)
-        {
-        errorToken = _tokens[_position];
-        }
-        else if (errorToken == null && _tokens.Count > 0)
-        {
-        errorToken = _tokens[0];
-        }
-
-        if (errorToken != null)
-        {
-        var ex = new PySyntaxErrorException(errorMsg, _filename,
-        errorToken.Line, errorToken.Column,
-        errorToken.EndColumn,
-        GetSourceLine(errorToken.Line));
-        throw ex;
-        }
-
-        throw new PySyntaxErrorException(errorMsg);
-        }
-        return result;
-        }
+        public GeneratedMod ParseFuncType() => (GeneratedMod)RunParser(Parse_FuncType);
 
 
     }

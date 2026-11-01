@@ -314,6 +314,8 @@ public class ParserGenerator
         WriteLine($"private {returnType}? Parse_{methodName}()");
         WriteLine("{");
         _indentLevel++;
+        if (rule.Name.StartsWith("invalid_"))
+            WriteLine("if (!_callInvalidRules) return null;");
 
         if (isLeftRecursive && isLeader)
         {

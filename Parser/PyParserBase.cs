@@ -26,7 +26,8 @@ namespace SharpPy.Generated
         protected string[]? _sourceLines = null;  // CPython 3.12: Source lines for error reporting
         protected string? _pendingSyntaxError = null;
         protected int _pendingErrorPosition = -1;
-        protected bool _callInvalidRules = true;
+        protected bool _callInvalidRules = false;
+        protected int _fill = 0;  // CPython: fill, how far the parser has looked
         // CPython 3.12: Memo cache uses (position, rule_name) tuple keys
         protected Dictionary<(int, string), GeneratedAstNode> _memoCache = new();
 
@@ -94,7 +95,12 @@ namespace SharpPy.Generated
 
         protected GeneratedTokenInfo CurrentToken
         {
-            get => _position < _tokens.Count ? _tokens[_position] : null;
+            get
+            {
+                if (_position >= _fill)
+                    _fill = _position + 1;
+                return _position < _tokens.Count ? _tokens[_position] : null;
+            }
         }
 
         public abstract TResult Parse();
@@ -231,7 +237,7 @@ namespace SharpPy.Generated
             if (token == null || token.Type != type || token.Value != expected)
             {
                 // CPython: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(t, "expected '%s'", expected)
-                _pendingSyntaxError = $"expected '{expected}'";
+                RaiseSyntaxErrorKnownLocation(token, "expected '%s'", expected);
                 _pendingErrorPosition = _position;
                 return null;
             }
@@ -255,7 +261,7 @@ namespace SharpPy.Generated
             if (result == null)
             {
                 // CPython: RAISE_SYNTAX_ERROR("expected (%s)", expected)
-                _pendingSyntaxError = $"expected ({expected})";
+                RaiseSyntaxError("expected (%s)", expected);
                 _pendingErrorPosition = _position;
                 return null;
             }
@@ -650,109 +656,156 @@ namespace SharpPy.Generated
         }
 
         // ============================================================
-        // Invalid Rules Error Handling (CPython 3.12)
+        // Parser/pegen_errors.c
         // ============================================================
 
-        /// <summary>
-        /// CPython 3.12: RAISE_SYNTAX_ERROR - Simple error message
-        /// </summary>
-        protected GeneratedPtr RaiseSyntaxError(string message)
+        private static string Format(string format, object[] args)
         {
-            _errorIndicator = 1;
-            throw new PySyntaxErrorException($"SyntaxError: {message}");
+            int next = 0;
+            return System.Text.RegularExpressions.Regex.Replace(format, @"%(?:\.\d+)?[sUcR]",
+                match => next < args.Length ? args[next++]?.ToString() ?? "" : match.Value);
         }
 
-        /// <summary>
-        /// CPython 3.12: RAISE_SYNTAX_ERROR_KNOWN_LOCATION - Error at specific token
-        /// </summary>
+        private static (int Line, int Col, int EndLine, int EndCol) Where(GeneratedPtr node) => node switch
+        {
+            GeneratedTokenInfo token => (token.Line, token.Column, token.EndLine, token.EndColumn),
+            GeneratedAstNode ast => (ast.LineNo, ast.ColOffset, ast.EndLineNo, ast.EndColOffset),
+            _ => (1, 0, 1, 0),
+        };
+
+        private GeneratedTokenInfo FillToken => _tokens[Math.Clamp(_fill - 1, 0, _tokens.Count - 1)];
+
+        // _PyPegen_raise_error_known_location: columns are 1-based here, as in the exception.
+        private Exception ErrorAt(bool indentation, int line, int col, int endLine, int endCol, string message) =>
+            PySyntaxError.At(message, _filename, line, col, endLine, endCol,
+                _sourceLines == null ? null : new List<string>(_sourceLines), indentation);
+
+        // RAISE_SYNTAX_ERROR: at known_err_token, or the last token read
+        protected GeneratedPtr RaiseSyntaxError(string format, params object[] args)
+        {
+            var t = _knownErrToken ?? FillToken;
+            throw ErrorAt(false, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
+        }
+
+        // RAISE_SYNTAX_ERROR_KNOWN_LOCATION
         protected GeneratedPtr RaiseSyntaxErrorKnownLocation(GeneratedPtr node, string format, params object[] args)
         {
-            _errorIndicator = 1;
-            string message = string.Format(format, args);
-
-            // Try to get location from node if it's a token
-            if (node is GeneratedTokenInfo token)
-            {
-                throw new PySyntaxErrorException($"  File \"{_filename}\", line {token.Line}\n    SyntaxError: {message}");
-            }
-
-            throw new PySyntaxErrorException($"SyntaxError: {message}");
+            var at = Where(node);
+            throw ErrorAt(false, at.Line, at.Col + 1, at.EndLine, at.EndCol + 1, Format(format, args));
         }
 
-        /// <summary>
-        /// CPython 3.12: RAISE_SYNTAX_ERROR_KNOWN_RANGE - Error spanning from start to end token
-        /// </summary>
+        // RAISE_SYNTAX_ERROR_KNOWN_RANGE
         protected GeneratedPtr RaiseSyntaxErrorKnownRange(GeneratedPtr startNode, GeneratedPtr endNode, string format, params object[] args)
         {
-            _errorIndicator = 1;
-            string message = string.Format(format, args);
-
-            // Try to get location from start node
-            if (startNode is GeneratedTokenInfo startToken)
-            {
-                throw new PySyntaxErrorException($"  File \"{_filename}\", line {startToken.Line}\n    SyntaxError: {message}");
-            }
-
-            throw new PySyntaxErrorException($"SyntaxError: {message}");
+            if (args.Length == 0 && format.Contains("%s") && startNode is GeneratedTokenInfo named)
+                args = new object[] { named.Value };
+            var a = Where(startNode);
+            var b = Where(endNode);
+            throw ErrorAt(false, a.Line, a.Col + 1, b.EndLine, b.EndCol + 1, Format(format, args));
         }
 
-        /// <summary>
-        /// CPython 3.12: RAISE_SYNTAX_ERROR_STARTING_FROM - Error starting from specific token
-        /// </summary>
+        // RAISE_SYNTAX_ERROR_STARTING_FROM: up to where the tokenizer is
         protected GeneratedPtr RaiseSyntaxErrorStartingFrom(GeneratedPtr node, string format, params object[] args)
         {
-            return RaiseSyntaxErrorKnownLocation(node, format, args);
+            var a = Where(node);
+            var t = FillToken;
+            throw ErrorAt(false, a.Line, a.Col + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
         }
 
-        /// <summary>
-        /// CPython 3.12: RAISE_INDENTATION_ERROR - Indentation-specific error
-        /// </summary>
+        // RAISE_INDENTATION_ERROR
         protected GeneratedPtr RaiseIndentationError(string format, params object[] args)
         {
-            _errorIndicator = 1;
-            string message = string.Format(format, args);
-            throw new PySyntaxErrorException($"IndentationError: {message}");
+            var t = _knownErrToken ?? FillToken;
+            throw ErrorAt(true, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
         }
 
-        /// <summary>
-        /// CPython 3.12: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN - Error on the next token
-        /// </summary>
-        protected GeneratedPtr RaiseSyntaxErrorOnNextToken(string message)
-        {
-            _errorIndicator = 1;
-            var token = CurrentToken;
-            if (token != null)
-            {
-                throw new PySyntaxErrorException($"  File \"{_filename}\", line {token.Line}\n    SyntaxError: {message}");
-            }
-            throw new PySyntaxErrorException($"SyntaxError: {message}");
-        }
-
-        /// <summary>
-        /// CPython 3.12: RAISE_ERROR_KNOWN_LOCATION - Generic error at known location
-        /// </summary>
+        // RAISE_ERROR_KNOWN_LOCATION
         protected GeneratedPtr RaiseErrorKnownLocation(Type exceptionType, int lineno, int colOffset, int endLineno, int endColOffset, string format, params object[] args)
         {
-            _errorIndicator = 1;
-            string message = string.Format(format, args);
-            throw new PySyntaxErrorException($"  File \"{_filename}\", line {lineno}\n    {message}");
+            throw ErrorAt(false, lineno, colOffset + 1, endLineno, endColOffset < 0 ? endColOffset : endColOffset + 1, Format(format, args));
         }
 
-        /// <summary>
-        /// CPython 3.12: RAISE_SYNTAX_ERROR_INVALID_TARGET - Invalid assignment/del target error
-        /// Used for checking if expressions can be used as assignment targets
-        /// </summary>
+        // RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN
+        protected GeneratedPtr RaiseSyntaxErrorOnNextToken(string message)
+        {
+            var t = _tokens[Math.Min(_position, _tokens.Count - 1)];
+            throw ErrorAt(false, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, message);
+        }
+
+        // RAISE_SYNTAX_ERROR_INVALID_TARGET
         protected GeneratedPtr RaiseSyntaxErrorInvalidTarget(string targetType, GeneratedPtr node)
         {
-            _errorIndicator = 1;
-            string message = $"cannot {targetType.ToLower()}";
+            var invalid = GetInvalidTarget(node as GeneratedExpr, targetType);
+            if (invalid == null)
+                return null;
+            var a = Where(invalid);
+            string message = targetType == "use in for loop"
+                ? $"cannot assign to {PyParserRuntime.GetExprName(invalid)}"
+                : $"cannot {targetType} {PyParserRuntime.GetExprName(invalid)}";
+            throw ErrorAt(false, a.Line, a.Col + 1, a.EndLine, a.EndCol + 1, message);
+        }
 
-            if (node is GeneratedTokenInfo token)
+        // _PyPegen_get_invalid_target
+        private static GeneratedExpr GetInvalidTarget(GeneratedExpr e, string targetType)
+        {
+            if (e == null)
+                return null;
+            GeneratedExpr Visit(GeneratedSeq elts)
             {
-                throw new PySyntaxErrorException($"  File \"{_filename}\", line {token.Line}\n    SyntaxError: {message}");
+                for (int i = 0; i < (elts?.Count ?? 0); i++)
+                {
+                    var child = GetInvalidTarget((GeneratedExpr)elts[i], targetType);
+                    if (child != null)
+                        return child;
+                }
+                return null;
             }
+            switch (e)
+            {
+                case GeneratedList list:
+                    return Visit(list.Elts);
+                case GeneratedTuple tuple:
+                    return Visit(tuple.Elts);
+                case GeneratedStarred starred:
+                    return targetType == "delete" ? e : GetInvalidTarget(starred.Value, targetType);
+                case GeneratedCompare compare:
+                    if (targetType == "use in for loop" && compare.Ops[0] is GeneratedIn)
+                        return GetInvalidTarget(compare.Left, targetType);
+                    return e;
+                case GeneratedName or GeneratedSubscript or GeneratedAttribute:
+                    return null;
+                default:
+                    return e;
+            }
+        }
 
-            throw new PySyntaxErrorException($"SyntaxError: {message}");
+        // _PyPegen_run_parser
+        protected GeneratedPtr RunParser(Func<GeneratedPtr> rule)
+        {
+            _callInvalidRules = false;
+            var result = rule();
+            if (result != null)
+                return result;
+            var lastToken = FillToken;
+            foreach (var token in _tokens)
+                token.Memo = null;
+            _lrCache.Clear();
+            _memoCache.Clear();
+            _position = 0;
+            _callInvalidRules = true;
+            rule();
+            SetSyntaxError(lastToken);
+            return null;
+        }
+
+        // _Pypegen_set_syntax_error
+        private void SetSyntaxError(GeneratedTokenInfo lastToken)
+        {
+            if (lastToken.Type == PyToken.Type.INDENT)
+                RaiseIndentationError("unexpected indent");
+            if (lastToken.Type == PyToken.Type.DEDENT)
+                RaiseIndentationError("unexpected unindent");
+            RaiseSyntaxErrorKnownLocation(lastToken, "invalid syntax");
         }
 
         /// <summary>
