@@ -40,10 +40,7 @@ if os.name == 'posix':
 elif _WINDOWS:
     import nt
 
-if sys.platform == 'win32':
-    import _winapi
-else:
-    _winapi = None
+_winapi = None
 
 COPY_BUFSIZE = 1024 * 1024 if _WINDOWS else 64 * 1024
 # This should never be removed, see rationale in:

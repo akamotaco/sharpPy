@@ -17,7 +17,7 @@ public interface IDescriptor
         protected readonly PyObject? _getter;
         protected readonly PyObject? _setter;
         protected readonly PyObject? _deleter;
-        protected readonly PyObject? _doc;
+        protected PyObject? _doc;
         // CPython 3.12: propertyobject.prop_name - bound by __set_name__ at class
         // creation (Objects/descrobject.c property_set_name).
         protected string? _name;
@@ -422,6 +422,13 @@ public interface IDescriptor
                 return GetAttribute(name);
             }
             return base.LookupAttribute(name);
+        }
+
+        // {"__doc__", T_OBJECT, offsetof(propertyobject, prop_doc), 0}: a writable member.
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "__doc__") _doc = value;
+            else base.SetAttribute(name, value);
         }
 
         public override PyObject GetAttribute(string name)

@@ -187,13 +187,13 @@ namespace SharpPy.Modules
             module.ModuleDict["dir"] = new PyBuiltinFunction("dir");
             module.ModuleDict["iter"] = new PyBuiltinFunction("iter");
             module.ModuleDict["next"] = new PyBuiltinFunction("next");
-            module.ModuleDict["range"] = new PyBuiltinFunction("range");
+            module.ModuleDict["range"] = BuiltinCallableType(PyType.RangeType, "range");
             module.ModuleDict["enumerate"] = new PyBuiltinFunction("enumerate");
-            module.ModuleDict["zip"] = new PyBuiltinFunction("zip");
-            module.ModuleDict["map"] = new PyBuiltinFunction("map");
-            module.ModuleDict["filter"] = new PyBuiltinFunction("filter");
+            module.ModuleDict["zip"] = BuiltinCallableType(PyType.ZipType, "zip");
+            module.ModuleDict["map"] = BuiltinCallableType(PyType.MapType, "map");
+            module.ModuleDict["filter"] = BuiltinCallableType(PyType.FilterType, "filter");
             module.ModuleDict["sorted"] = new PyBuiltinFunction("sorted");
-            module.ModuleDict["reversed"] = new PyBuiltinFunction("reversed");
+            module.ModuleDict["reversed"] = BuiltinCallableType(PyType.ReversedType, "reversed");
             module.ModuleDict["sum"] = new PyBuiltinFunction("sum");
             module.ModuleDict["min"] = new PyBuiltinFunction("min");
             module.ModuleDict["max"] = new PyBuiltinFunction("max");
@@ -256,6 +256,17 @@ namespace SharpPy.Modules
         /// CPython 3.12: Objects/abstract.c:2666-2671 (PyObject_IsInstance)
         /// Implements isinstance(obj, classInfo) builtin function.
         /// </summary>
+        /// <summary>range, zip, map and the like are classes: isinstance and issubclass take them. Calling one still
+        /// goes to the builtin implementation.</summary>
+        private static PyType BuiltinCallableType(PyType type, string name)
+        {
+            var implementation = new PyBuiltinFunction(name);
+            type.ConstructedByNewSlot = true;
+            type.TypeDict["__new__"] = new PyMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+                implementation.Call(args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
+            return type;
+        }
+
         internal static PyObject IsInstance(PyObject[] args)
         {
             if (args.Length != 2)

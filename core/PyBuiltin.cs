@@ -743,12 +743,26 @@ namespace SharpPy
                 : PyObject.KwValue(kwargs, "start") ?? new PyInt(0);
             var result = start;
             var iterator = iterable.GetIterator();
+            double compensation = 0;
 
             try
             {
                 while (true)
                 {
                     var item = iterator.Next();
+                    // builtin_sum: exact floats accumulate with Neumaier compensation (3.12).
+                    if (result.GetType() == typeof(PyFloat) && (item.GetType() == typeof(PyFloat) || item.GetType() == typeof(PyInt)))
+                    {
+                        double total = ((PyFloat)result).Value, value = item.ToFloat(), sumNow = total + value;
+                        compensation += Math.Abs(total) >= Math.Abs(value) ? (total - sumNow) + value : (value - sumNow) + total;
+                        result = new PyFloat(sumNow);
+                        continue;
+                    }
+                    if (compensation != 0 && double.IsFinite(compensation) && result is PyFloat partial)
+                    {
+                        result = new PyFloat(partial.Value + compensation);
+                        compensation = 0;
+                    }
                     var next = result.Add(item);
                     if (ReferenceEquals(next, PyNotImplemented.Instance))
                     {
@@ -769,6 +783,8 @@ namespace SharpPy
                 // 정상 종료
             }
 
+            if (compensation != 0 && double.IsFinite(compensation) && result is PyFloat sum)
+                return new PyFloat(sum.Value + compensation);
             return result;
         }
 
