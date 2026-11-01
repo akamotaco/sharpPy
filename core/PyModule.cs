@@ -168,6 +168,13 @@ public class PyModule : PyObject
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
 
+        // module_getattro: the type, then the module's own __getattr__ (PEP 562).
+        foreach (var type in GetPyType().MRO)
+            if (type.TypeDict != null && type.TypeDict.ContainsKey(name))
+                return GenericGetAttribute(name);
+        if (ModuleDict.TryGetValue("__getattr__", out var hook))
+            return hook.Call(new PyObject[] { new PyString(name) }, null);
+
         throw PyAttributeError.Create($"module '{Name}' has no attribute '{name}'");
     }
     
@@ -727,11 +734,11 @@ public class PyModule : PyObject
 #endif
                 return module;
             }
-            catch (PySyntaxErrorException)
+            catch (PySyntaxErrorException syntax)
             {
-                // SyntaxError는 그대로 throw (line number 정보 보존)
+                // An import is Python code calling: its SyntaxError can be caught there.
                 RemoveModule(moduleName);
-                throw;
+                throw PySyntaxError.Create(syntax.Message.Replace("SyntaxError: ", ""), filePath, Math.Max(syntax.LineNumber, 0));
             }
             catch (System.Exception ex)
             {
@@ -764,6 +771,9 @@ public class PyModule : PyObject
         /// Python/import.c:2940-2948 - Calls _handle_fromlist
         /// importlib/_bootstrap.py:1020-1040 - _handle_fromlist implementation
         /// </summary>
+        private static bool IsMissing(PythonException error, string fullName) =>
+            error.PyException.GetTypeName() == "ModuleNotFoundError" && error.Message.Contains($"'{fullName}'");
+
         private static void HandleFromList(PyModule module, string[] fromlist)
         {
             if (fromlist == null || fromlist.Length == 0)
@@ -804,11 +814,10 @@ public class PyModule : PyObject
                     // but we need to ensure it's in the module dict
                     module.ModuleDict[itemName] = subModule;
                 }
-                catch (Exception)
+                catch (PythonException error) when (IsMissing(error, fullName))
                 {
-                    // If import fails, the item might be a regular attribute
-                    // CPython 3.12: Silently ignore if it's not a submodule
-                    // The IMPORT_FROM instruction will handle the error
+                    // _handle_fromlist: only the submodule itself being absent is silent.
+                    // Anything raised while it runs is the caller's error.
                 }
             }
         }

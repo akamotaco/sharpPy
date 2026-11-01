@@ -19,6 +19,22 @@ namespace SharpPy
         public virtual BigInteger Step => NativeStep;
         internal virtual BigInteger ExactLength => LengthUnsigned();
 
+        // range_contains: arithmetic for an exact int or bool, a search for anything else.
+        public override PyBool Contains(PyObject item)
+        {
+            if (item is PyBool truth) item = new PyInt(truth.Value ? 1 : 0);
+            if (item is PyInt number && item.GetType() == typeof(PyInt))
+            {
+                var value = number.Value;
+                bool inside = Step > 0 ? value >= Start && value < Stop : value <= Start && value > Stop;
+                return PyBool.FromBool(inside && (value - Start) % Step == 0);
+            }
+            foreach (var candidate in PySet.IterableItems(this))
+                if (ReferenceEquals(candidate, item) || candidate.RichCompare(item, CompareOp.EQ).IsTrue())
+                    return PyBool.True;
+            return PyBool.False;
+        }
+
         public PyRange(long stop) : this(0, stop, 1) { }
 
         public PyRange(long start, long stop) : this(start, stop, 1) { }
@@ -194,29 +210,6 @@ namespace SharpPy
                 start.HasValue ? new PyInt(start.Value) : PyNone.Instance,
                 stop.HasValue ? new PyInt(stop.Value) : PyNone.Instance,
                 step.HasValue ? new PyInt(step.Value) : PyNone.Instance));
-        }
-
-        /// <summary>
-        /// 값 포함 여부 확인 (in 연산자)
-        /// </summary>
-        public PyBool Contains(PyObject item)
-        {
-            if (!(item is PyInt intItem))
-                return PyBool.False;
-            
-            var value = intItem.Value;
-            
-            // Step 방향 확인
-            if (Step > 0)
-            {
-                if (value < Start || value >= Stop) return PyBool.False;
-                return PyBool.FromBool((value - Start) % Step == 0);
-            }
-            else
-            {
-                if (value > Start || value <= Stop) return PyBool.False;
-                return PyBool.FromBool((Start - value) % (-Step) == 0);
-            }
         }
 
         /// <summary>

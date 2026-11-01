@@ -755,6 +755,9 @@ namespace SharpPy
                 "f_trace_lines" => PyBool.True,  // Default to True
                 "f_trace_opcodes" => PyBool.False,  // Default to False
 
+                // frame_clear: nothing here holds locals past the frame.
+                "clear" => new PyBuiltinFunction("clear", args => PyNone.Instance),
+
                 _ => GenericGetAttribute(name)
             };
         }

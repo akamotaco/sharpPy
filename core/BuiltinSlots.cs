@@ -24,6 +24,15 @@ namespace SharpPy
             InstallContainers();
             InstallViews();
             InstallIterators();
+            PyType.ModuleType.ConstructedByNewSlot = true;
+            PyType.ModuleType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", PyType.ModuleType, (cls, args, kwargs) =>
+            {
+                if (args.Length < 1 || args[0] is not PyString name)
+                    throw PyTypeError.Create("module() argument 'name' must be str");
+                var module = new PyModule(name.Value);
+                module.ModuleDict["__doc__"] = args.Length > 1 ? args[1] : PyNone.Instance;
+                return module;
+            }, 0, int.MaxValue, acceptsKwargs: true);
         }
 
         private static void Slot(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)

@@ -2269,7 +2269,8 @@ namespace SharpPy
                     return builtinMethod.Get(this, InstanceType);
                 }
                 // PyBuiltinFunction: bind to instance (e.g., dict methods from GetTypeAttribute)
-                else if (classAttribute is PyBuiltinFunction builtinFunction)
+                // What a Python class holds in its dict is no method: class C: f = len; C().f is len.
+                else if (classAttribute is PyBuiltinFunction builtinFunction && foundInClass == null)
                 {
                     return new PyBuiltinBoundMethod(this, builtinFunction);
                 }

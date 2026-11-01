@@ -440,7 +440,8 @@ namespace SharpPy.Generated
             }
 
             // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
-            if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r')
+            // A last line of nothing but spaces has no statement to end.
+            if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r' && _currentLineHasRealTokens)
             {
                 AddToken(PyToken.Type.NEWLINE, "\n", _line, _column);
             }
@@ -721,6 +722,19 @@ namespace SharpPy.Generated
         private bool StartsNumber() => char.IsDigit(CurrentChar)
             || (CurrentChar == '.' && _position + 1 < _source.Length && char.IsDigit(_source[_position + 1]));
 
+        // verify_end_of_number and tok_decimal_tail: where underscores and leading zeros may stand.
+        private static readonly System.Text.RegularExpressions.Regex ValidNumber = new System.Text.RegularExpressions.Regex(
+            @"^(0[xX](_?[0-9a-fA-F])+|0[oO](_?[0-7])+|0[bB](_?[01])+|(\d(_?\d)*)?(\.(\d(_?\d)*)?)?([eE][+-]?\d(_?\d)*)?[jJ]?)$");
+        private static readonly System.Text.RegularExpressions.Regex LeadingZeros = new System.Text.RegularExpressions.Regex(@"^0[0_]*[1-9][\d_]*$");
+
+        private void ValidateNumber(string number, int line, int column)
+        {
+            if (LeadingZeros.IsMatch(number))
+                throw new PySyntaxErrorException("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers", null, line, column);
+            if (!ValidNumber.IsMatch(number))
+                throw new PySyntaxErrorException("invalid decimal literal", null, line, column);
+        }
+
         private void HandleNumber()
         {
             var start = _position;
@@ -780,6 +794,7 @@ namespace SharpPy.Generated
             }
 
             var number = _source.Substring(start, _position - start);
+            ValidateNumber(number, startLine, startColumn);
             AddToken(PyToken.Type.NUMBER, number, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
@@ -804,7 +819,10 @@ namespace SharpPy.Generated
             }
 
             // Check for scientific notation (e/E)
-            if (_position < _source.Length && char.ToLower(CurrentChar) == 'e')
+            // 1e5 is an exponent, 1else is a number and a keyword.
+            if (_position + 1 < _source.Length && char.ToLower(CurrentChar) == 'e' &&
+                (char.IsDigit(_source[_position + 1]) ||
+                 ((_source[_position + 1] == '+' || _source[_position + 1] == '-') && _position + 2 < _source.Length && char.IsDigit(_source[_position + 2]))))
             {
                 Advance(); // Skip 'e' or 'E'
                 // Check for optional sign
@@ -1441,11 +1459,7 @@ namespace SharpPy.Generated
                 }
                 else if (c == '\n' || c == '\r')
                 {
-                    // Newlines inside f-string expressions are not allowed (for single-quoted f-strings)
-                    if (_fstringQuoteSize == 1)
-                    {
-                        throw new InvalidOperationException($"f-string expression part cannot include a backslash at line {_line}, column {_column}");
-                    }
+                    // PEP 701: a replacement field may span lines in any f-string.
                     Advance();
                 }
                 else if (c == '#')

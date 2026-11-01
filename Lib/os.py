@@ -8,6 +8,21 @@ import sys
 import nt
 from _collections_abc import _check_methods
 
+# The flags of os.open, as Modules/posixmodule.c exports them on Windows.
+O_RDONLY = 0
+O_WRONLY = 1
+O_RDWR = 2
+O_APPEND = 8
+O_NOINHERIT = 128
+O_CREAT = 256
+O_TRUNC = 512
+O_EXCL = 1024
+O_TEXT = 16384
+O_BINARY = 32768
+
+# CPython imports these from nt before os.path, which reads them while it is imported.
+stat_result = type(nt.stat('.'))
+
 # os.path submodule - CPython 3.12: Lib/os.py:95
 import ntpath as path
 sys.modules['os.path'] = path

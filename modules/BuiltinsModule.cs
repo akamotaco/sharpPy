@@ -61,6 +61,7 @@ namespace SharpPy.Modules
             // Built-in constants
             module.ModuleDict["None"] = PyNone.Instance;
             module.ModuleDict["True"] = PyBool.True;
+            module.ModuleDict["__debug__"] = PyBool.True;
             module.ModuleDict["False"] = PyBool.False;
             module.ModuleDict["NotImplemented"] = PyNotImplemented.Instance;
             module.ModuleDict["Ellipsis"] = PyEllipsis.Instance;

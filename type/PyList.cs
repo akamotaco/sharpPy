@@ -636,8 +636,9 @@ namespace SharpPy
         /// <summary>list_contains, non-virtual for the same reason.</summary>
         internal bool RawContains(PyObject item)
         {
-            foreach (var listItem in _items)
+            for (int position = 0; position < _items.Count; position++)
             {
+                var listItem = _items[position];
                 if (AreEqual(listItem, item))
                     return true;
             }
@@ -850,8 +851,9 @@ namespace SharpPy
         public int Count(PyObject item)
         {
             int count = 0;
-            foreach (var listItem in _items)
+            for (int position = 0; position < _items.Count; position++)
             {
+                var listItem = _items[position];
                 if (AreEqual(listItem, item))
                     count++;
             }

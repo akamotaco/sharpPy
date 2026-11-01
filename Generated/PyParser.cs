@@ -17367,7 +17367,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return z;
+                    return z ?? new GeneratedCall();
                 }
             }
 

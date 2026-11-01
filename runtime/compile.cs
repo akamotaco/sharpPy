@@ -6781,9 +6781,15 @@ namespace SharpPy
                 // __import__ with fromlist=None returns the top-level package.
                 if (hadAs && actualModule.IndexOf('.') != -1)
                 {
-                    var lastPart = actualModule.Substring(actualModule.LastIndexOf('.') + 1);
-                    var fromPartIndex = GetOrAddConstant(new PyString(lastPart));
-                    EmitInstruction(ByteCodeOp.IMPORT_FROM, fromPartIndex);
+                    // compiler_import_as: one IMPORT_FROM per attribute after the first name.
+                    var attributes = actualModule.Split('.');
+                    for (int part = 1; part < attributes.Length - 1; part++)
+                    {
+                        EmitInstruction(ByteCodeOp.IMPORT_FROM, GetOrAddConstant(new PyString(attributes[part])));
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
+                    EmitInstruction(ByteCodeOp.IMPORT_FROM, GetOrAddConstant(new PyString(attributes[attributes.Length - 1])));
                     EmitStoreVariable(alias);
                     EmitInstruction(ByteCodeOp.POP_TOP);
                     continue;
@@ -9348,10 +9354,20 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0);
             }
         }
+        private static IEnumerable<Expression> FlatDeleteTargets(IEnumerable<Expression> targets)
+        {
+            foreach (var target in targets)
+            {
+                var nested = target is TupleExpression tuple ? tuple.Elements : (target as ListExpression)?.Elements;
+                if (nested == null) yield return target;
+                else foreach (var inner in FlatDeleteTargets(nested)) yield return inner;
+            }
+        }
+
         private void CompileDelete(DeleteStatement delete)
         {
             // CPython 3.12: del target1, target2, ...
-            foreach (var target in delete.Targets)
+            foreach (var target in FlatDeleteTargets(delete.Targets))
             {
                 if (target is NameExpression nameExpr)
                 {

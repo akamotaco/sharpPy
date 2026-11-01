@@ -475,7 +475,7 @@ class_def[GeneratedStmt]:
 # C#: Class definition body - name, bases, keywords, body, decorators, type_params
 class_def_raw[GeneratedStmt]:
     | invalid_class_def_raw
-    | 'class' a=NAME t=[type_params] b=['(' z=[arguments] ')' { z }] ':' c=block {
+    | 'class' a=NAME t=[type_params] b=['(' z=[arguments] ')' { z ?? new GeneratedCall() }] ':' c=block {
         PyAst.ClassDef(a.GetNameValue(),
                      (b != null) ? ((GeneratedCall)b).Args : null!,
                      (b != null) ? ((GeneratedCall)b).Keywords : null!,

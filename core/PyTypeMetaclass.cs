@@ -149,6 +149,27 @@ namespace SharpPy
             // 2. Calls base.InitializeDescriptors() for PyClass-specific descriptors
             var typeClass = new PyTypeMetaclass("type", baseTypes, classDict);
 
+            // type_get_annotations: a class without any gets an empty dict of its own, kept in its dict.
+            typeClass.ClassDict["__annotations__"] = new PyGetSetDescriptor("__annotations__", typeClass,
+                self =>
+                {
+                    if (self is not PyClass cls || self is PyTypeMetaclass)
+                        throw PyAttributeError.Create($"type object '{((PyType)self).Name}' has no attribute '__annotations__'");
+                    if (!cls.ClassDict.TryGetValue("__annotations__", out var annotations))
+                        cls.ClassDict["__annotations__"] = annotations = new PyDict();
+                    return annotations;
+                },
+                (self, value) =>
+                {
+                    if (self is not PyClass cls) throw PyTypeError.Create($"cannot set '__annotations__' attribute of immutable type '{((PyType)self).Name}'");
+                    cls.ClassDict["__annotations__"] = value;
+                },
+                deleter: self =>
+                {
+                    if (self is not PyClass cls || !cls.ClassDict.Remove("__annotations__"))
+                        throw PyAttributeError.Create("__annotations__");
+                });
+
             // type_get_type_params: () for a class that has none in its dict.
             typeClass.ClassDict["__type_params__"] = new PyGetSetDescriptor("__type_params__", typeClass,
                 self => self is PyClass cls && cls.ClassDict.TryGetValue("__type_params__", out var parameters) ? parameters : PyTuple.Empty,

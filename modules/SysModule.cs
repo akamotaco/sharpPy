@@ -43,6 +43,7 @@ namespace SharpPy.Modules
             // 실행 경로
             module.ModuleDict["executable"] = new PyString(GetExecutablePath());
             module.ModuleDict["prefix"] = new PyString(GetPrefixPath());
+            module.ModuleDict["platlibdir"] = new PyString("DLLs");
             module.ModuleDict["exec_prefix"] = new PyString(GetPrefixPath());
 
             // 바이트 순서
@@ -113,6 +114,9 @@ namespace SharpPy.Modules
             module.ModuleDict["set_int_max_str_digits"] = new PySysFunction("set_int_max_str_digits");
             module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
             module.ModuleDict["getrecursionlimit"] = new PySysFunction("getrecursionlimit");
+            // No trace function can be installed; settrace(None) is what code restoring it calls.
+            module.ModuleDict["gettrace"] = new PyBuiltinFunction("gettrace", args => PyNone.Instance);
+            module.ModuleDict["settrace"] = new PyBuiltinFunction("settrace", args => PyNone.Instance);
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
             module.ModuleDict["intern"] = new PySysFunction("intern");
             module.ModuleDict["flags"] = new PySysFlags();
