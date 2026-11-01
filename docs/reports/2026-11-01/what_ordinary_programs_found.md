@@ -118,3 +118,17 @@ Programs matching, valid programs only: batch 2 35 of 36, batch 3 30 of 31, batc
 about 25 of 29, batch 7 36 of 37. What is left is listed in P0-83.
 
 Gates: bughunt 155/155, evaluate 225/3/2, similarity 0, Godot 82/0.
+
+## Import-free programs
+
+After the priority moved to the language itself, batches eight to ten import nothing. They found defects that library programs had hidden:
+
+- `-7 // 2` was `-3` and `[1] and 'x'` was `[1]`. Constant folding used C division, and the optimizer treated a literal on the right of `and`/`or` as deciding the result. `x * 1` became `x` for any `x`.
+- `exec("x = 1")` left no `x`: exec worked on a copy of the globals.
+- A `__getattr__` on a base class was ignored, a metaclass `__call__` never ran, and `class C[T](Base)` lost `Base`.
+- Classes were made in four places. They are made in `TypeNew` now, and about 2,300 lines of the old routes are gone.
+- `f"{x:b}"` lost its spec, tracebacks went to stdout, `nonlocal` through a `nonlocal` scope made a new cell, and list, tuple and str subclasses were read directly where CPython only does that for the exact type.
+
+A comparison of `dir()` in CPython with `hasattr` here, type by type, gave the list for `core/BuiltinSlots.cs`.
+
+Programs matching, valid programs only: batch 8 24 of 25, batch 9 33 of 33, batch 10 30 of 33 before the last fixes. The remaining differences are hash randomization, the `__builtins__` value of exec, and traceback addresses.

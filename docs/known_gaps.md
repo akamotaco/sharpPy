@@ -2206,21 +2206,21 @@ CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 �
 - 해결: 같은 함수에서 `[x for x in a]`와 `[lambda: x for x in b]`를 함께 쓰면 앞쪽이 `UnboundLocalError`로 끝나던 문제. 이름의 범위를 그 이름을 묶는 가장 가까운 인라인 컴프리헨션이 정한다(`IsInlinedLocal`).
 - 미해결: `q = "keep"; [(lambda: q) for q, *y in [(1, 2)]]` 뒤에 바깥 `q`가 `1`로 바뀐다. CPython은 `"keep"`을 유지한다. 셀이 `LocalsPlus` 밖의 `Cells`에 있어 `LOAD_FAST_AND_CLEAR`가 셀을 저장하지 못한다. 해결 경로는 이 경우 셀 객체를 저장하고 새 셀을 만든 뒤 복원하는 것이다.
 
-## P0-82 예외 필드의 남은 경로 (측정 2026-11-01, 미해결)
+## P0-82 예외 필드의 남은 경로 (2026-11-01 해결)
 
-사용자 하위 클래스의 예외 필드는 가장 가까운 내장 예외를 `PyExceptionInstance.Layout`으로 갖는 한 경로가 되었다. 남은 것:
-
-- `ExceptionGroup`의 사용자 하위 클래스는 `message`, `exceptions`, `split`, `subgroup`, `derive`가 없다. CPython은 `BaseExceptionGroup_new`에서 구조체를 채우는데, SharpPy의 `__new__`는 일반 `PyExceptionInstance`를 만든다.
-- `(1).x`가 낸 `AttributeError`의 `name`과 `obj`가 `None`이다. CPython은 `set_attribute_error_context`가 한 곳에서 채운다.
-- `class E(OSError)`가 `__init__`을 덮어쓰고 `__new__`는 두면 CPython은 `args`를 비운다(`oserror_use_init`). SharpPy는 `__new__`의 인자를 남긴다.
-- `compile()`의 구문 오류는 `invalid syntax: ...` 형식이고 줄 번호가 없다.
+사용자 하위 클래스의 예외 필드는 가장 가까운 내장 예외를 `PyExceptionInstance.Layout`으로 갖는다. `ExceptionGroup` 하위 클래스도 같은 방식으로 `__new__`에서 구조체를 채우고, `split`과 `subgroup`은 `derive`를 인스턴스에서 찾는다. `AttributeError`의 `name`과 `obj`는 LOAD_ATTR에서 채운다. `OSError` 하위 클래스의 `oserror_use_init`도 적용했다.
 
 ## P0-83 프로그램 비교에서 남은 차이 (측정 2026-11-01, 미해결)
 
 - 참조 카운팅 시점: `for x in gen(): break` 뒤 제너레이터의 `finally`, `del` 직후 weakref와 `gc` 수치는 CLR GC 시점에 따른다. 구조적 차이다.
 - 코덱: `euc-kr`, `namereplace` 없음.
 - 라이브러리: `sha3_*`, `blake2*`, `zlib.compressobj`, `ast`, `dis`, `tokenize` 없음. `inspect`는 소스와 바이트코드가 필요한 함수를 쓸 수 없다.
-- `enumerate`, `super`, `memoryview`는 아직 타입이 아니다. `exec`는 호출자의 `__future__` 플래그를 물려받지 않는다.
+- `exec`는 호출자의 `__future__` 플래그를 물려받지 않는다.
+- `enumerate`, `zip`, `map` 등을 상속해 만든 클래스의 인스턴스는 내장 타입의 객체로 나온다. 하위 클래스 메서드가 붙지 않는다.
+- `set` 하위 클래스가 `__iter__`를 덮어써도 `repr`은 저장된 값을 보여 준다. CPython은 `__iter__`를 따른다.
+- `list()`와 `tuple()`은 CPython처럼 `__len__`을 길이 힌트로 부르지 않는다.
+- `__bases__` 대입의 `deallocator differs` 검사가 없다.
+- 표시되는 유니코드 `isdigit`은 .NET 표의 범위를 따른다.
 - PEP 695의 스코프는 한 번 호출되는 함수로 만들었다. 클래스 안의 `def m[T](self, a=X, b: Y)`는 `X`, `Y`가 클래스 이름이면 찾지 못한다. CPython은 `__classdict__`로 찾는다(`can_see_class_scope`).
 - `type X[T] = ...`는 이 경로를 쓰지 않고 지연 평가도 하지 않는다. `TypeAliasType`이 아니다.
 - `run_in_executor`는 스레드 없이 루프에서 실행한다. asyncio에 소켓, 파이프, 서브프로세스는 없다.

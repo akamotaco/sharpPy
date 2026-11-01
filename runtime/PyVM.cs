@@ -2969,7 +2969,17 @@ namespace SharpPy
                         }
 
                         // Get attribute using existing system
-                        var attr = obj.GetAttribute(attrName);
+                        PyObject attr;
+                        try
+                        {
+                            attr = obj.GetAttribute(attrName);
+                        }
+                        catch (PythonException error) when (error.PyException is PyAttributeError missing)
+                        {
+                            // set_attribute_error_context (Objects/object.c)
+                            missing.SetContextIfUnset(attrName, obj);
+                            throw;
+                        }
 
                         if (pushNullForMethod)
                         {
@@ -3123,20 +3133,7 @@ namespace SharpPy
                     {
                         // Create super proxy by calling super() with class and self
                         var superArgs = new PyObject[] { classObj, selfObj };
-                        PyObject superProxy;
-
-                        if (superFunc is PyBuiltinFunction builtinSuper)
-                        {
-                            superProxy = builtinSuper.Call(superArgs, null);
-                        }
-                        else if (superFunc is PyFunction userSuper)
-                        {
-                            superProxy = userSuper.Call(superArgs, null);
-                        }
-                        else
-                        {
-                            throw PyRuntimeError.Create($"super object must be callable, got {superFunc.GetType().Name}");
-                        }
+                        PyObject superProxy = superFunc.Call(superArgs, null);
 
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 LOAD_SUPER_ATTR: calling GetAttribute({superAttrName}) on super proxy");
@@ -7197,7 +7194,8 @@ namespace SharpPy
 
             if (entries.Length == 0) return PyNone.Instance;
 
-            if (!(original is PyBaseExceptionGroup originalGroup))
+            var originalGroup = PyBaseExceptionGroup.Of(PyExceptionSlots.Visible(original));
+            if (originalGroup == null)
             {
                 // A naked exception was caught and wrapped, so at most one except* clause ran.
                 foreach (PyObject entry in entries)
@@ -7234,6 +7232,7 @@ namespace SharpPy
                                                 out PyObject match, out PyObject rest)
         {
             if (excValue is PyExceptionInfo info) excValue = info.ExcValue;
+            excValue = PyExceptionSlots.Visible(excValue);
 
             // check_except_star_type_valid: match_type is a class or a tuple of classes that
             // inherit BaseException, otherwise "catching classes that do not inherit from
@@ -7249,7 +7248,7 @@ namespace SharpPy
 
             if (ExceptionMatchesHandler(excValue, matchType))
             {
-                if (excValue is PyBaseExceptionGroup)
+                if (PyBaseExceptionGroup.Of(excValue) != null)
                 {
                     match = excValue;
                 }
@@ -7268,16 +7267,16 @@ namespace SharpPy
                 return;
             }
 
-            if (excValue is PyBaseExceptionGroup group)
+            if (PyBaseExceptionGroup.Of(excValue) != null)
             {
-                PyObject splitter = group.GetAttribute("split");
+                PyObject splitter = excValue.GetAttribute("split");
                 PyObject pair = splitter.Call(new PyObject[] { matchType }, null);
                 if (!(pair is PyTuple pairTuple))
                     throw PyTypeError.Create(
-                        $"{group.GetTypeName()}.split must return a tuple, not {pair.GetTypeName()}");
+                        $"{excValue.GetTypeName()}.split must return a tuple, not {pair.GetTypeName()}");
                 if (pairTuple.Items.Length < 2)
                     throw PyTypeError.Create(
-                        $"{group.GetTypeName()}.split must return a 2-tuple, got tuple of size " +
+                        $"{excValue.GetTypeName()}.split must return a 2-tuple, got tuple of size " +
                         $"{pairTuple.Items.Length}");
                 match = pairTuple.Items[0];
                 rest = pairTuple.Items[1];

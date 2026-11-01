@@ -189,7 +189,7 @@ namespace SharpPy.Modules
             module.ModuleDict["iter"] = new PyBuiltinFunction("iter");
             module.ModuleDict["next"] = new PyBuiltinFunction("next");
             module.ModuleDict["range"] = BuiltinCallableType(PyType.RangeType, "range");
-            module.ModuleDict["enumerate"] = new PyBuiltinFunction("enumerate");
+            module.ModuleDict["enumerate"] = BuiltinCallableType(PyType.GetIteratorType("enumerate"), "enumerate");
             module.ModuleDict["zip"] = BuiltinCallableType(PyType.ZipType, "zip");
             module.ModuleDict["map"] = BuiltinCallableType(PyType.MapType, "map");
             module.ModuleDict["filter"] = BuiltinCallableType(PyType.FilterType, "filter");
@@ -201,7 +201,7 @@ namespace SharpPy.Modules
             module.ModuleDict["any"] = new PyBuiltinFunction("any");
             module.ModuleDict["all"] = new PyBuiltinFunction("all");
             module.ModuleDict["delattr"] = new PyBuiltinFunction("delattr");
-            module.ModuleDict["super"] = new PyBuiltinFunction("super");
+            module.ModuleDict["super"] = BuiltinCallableType(PyType.SuperType, "super");
             module.ModuleDict["round"] = new PyBuiltinFunction("round");
             module.ModuleDict["pow"] = new PyBuiltinFunction("pow");
             module.ModuleDict["divmod"] = new PyBuiltinFunction("divmod");
@@ -218,7 +218,7 @@ namespace SharpPy.Modules
             module.ModuleDict["ascii"] = new PyBuiltinFunction("ascii", Ascii);
             module.ModuleDict["vars"] = new PyBuiltinFunction("vars", Vars);
             module.ModuleDict["format"] = new PyBuiltinFunction("format", Format);
-            module.ModuleDict["memoryview"] = new PyBuiltinFunction("memoryview", MemoryView);
+            module.ModuleDict["memoryview"] = BuiltinCallableType(PyType.MemoryViewType, new PyBuiltinFunction("memoryview", MemoryView));
             module.ModuleDict["help"] = new PyBuiltinFunction("help");
             module.ModuleDict["breakpoint"] = new PyBuiltinFunction("breakpoint");
 
@@ -259,9 +259,11 @@ namespace SharpPy.Modules
         /// </summary>
         /// <summary>range, zip, map and the like are classes: isinstance and issubclass take them. Calling one still
         /// goes to the builtin implementation.</summary>
-        private static PyType BuiltinCallableType(PyType type, string name)
+        private static PyType BuiltinCallableType(PyType type, string name) =>
+            BuiltinCallableType(type, new PyBuiltinFunction(name));
+
+        private static PyType BuiltinCallableType(PyType type, PyBuiltinFunction implementation)
         {
-            var implementation = new PyBuiltinFunction(name);
             type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyMethodDescriptor("__new__", type, (cls, args, kwargs) =>
                 implementation.Call(args, kwargs), 0, int.MaxValue, acceptsKwargs: true);

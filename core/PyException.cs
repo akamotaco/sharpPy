@@ -359,6 +359,13 @@ namespace SharpPy
         private PyObject _name;
         private PyObject _obj;
 
+        internal void SetContextIfUnset(string name, PyObject target)
+        {
+            if (_name != null || _obj != null) return;
+            _name = new PyString(name);
+            _obj = target;
+        }
+
         internal PyAttributeError(PyObject[] args, PyDict kwargs) : base(args)
         {
             if (kwargs == null || kwargs.Length() == 0) return;

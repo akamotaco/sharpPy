@@ -173,6 +173,8 @@ namespace SharpPy
                 if (!generic.TypeDict.ContainsKey("__class_getitem__"))
                     generic.TypeDict["__class_getitem__"] = new PyBuiltinClassMethod("__class_getitem__", (cls, arg) => new PyGenericAlias((PyType)cls, arg));
 
+            PyBaseExceptionGroup.InstallOn(PyType.BaseExceptionGroupType);
+
             var proxy = PyType.MappingProxyType;
             Method(proxy, "copy", (self, args) => ((PyMappingProxy)self).Snapshot());
             Slot(proxy, "__iter__", (self, args) => self.GetIterator());

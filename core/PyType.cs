@@ -4225,11 +4225,17 @@ namespace SharpPy
                     var created = wanted is PyClass heap
                         ? (PyObject)new PyExceptionInstance(heap)
                         : wanted.CreateInstance(new PyObject[0], null);
-                    PyExceptionSlots.StoreArgs(created, args);
+                    if (created is PyExceptionInstance instance && heapIsGroup(instance))
+                        PyBaseExceptionGroup.FillStruct(instance, args);
+                    // oserror_use_init: a subclass with its own __init__ parses its arguments there.
+                    bool initParses = created is PyExceptionInstance { InstanceType: var type } && type.IsSubclassOf(OSErrorType)
+                        && type.DeclaresUserSpecial("__init__") && !type.DeclaresUserSpecial("__new__");
+                    PyExceptionSlots.StoreArgs(created, initParses ? new PyObject[0] : args);
                     return created;
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue);
+            static bool heapIsGroup(PyExceptionInstance instance) => instance.InstanceType.IsSubclassOf(BaseExceptionGroupType);
 
             // BaseException_getset: one table for builtin exceptions and Python subclasses, reading the one
             // transport object. The value that comes out is always the object Python made.
