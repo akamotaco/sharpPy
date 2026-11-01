@@ -52,7 +52,7 @@ public class PyStringIO : PyIOBaseInstance
     {
         if (newline == null)
             return text.Replace("\r\n", "\n").Replace("\r", "\n");
-        if (newline == "\n")
+        if (newline == "\n" || newline == "")
             return text;
         return text.Replace("\n", newline);
     }
@@ -208,6 +208,13 @@ public class PyStringIO : PyIOBaseInstance
                 {
                     var found = text.IndexOf('\n', (int)s.pos);
                     end = found < 0 ? total : found + 1;
+                }
+                else if (s.newline == "")
+                {
+                    // newline='': lines end at \n, \r or \r\n, and the ending is kept.
+                    var found = text.IndexOfAny(new[] { '\n', '\r' }, (int)s.pos);
+                    end = found < 0 ? total
+                        : text[found] == '\r' && found + 1 < total && text[found + 1] == '\n' ? found + 2 : found + 1;
                 }
                 else
                 {

@@ -1,0 +1,1003 @@
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Numerics;
+using System.Text;
+
+namespace SharpPy.Modules
+{
+    internal static class ArrayModule
+    {
+        private struct TypeCodeInfo
+        {
+            public int Size;
+            public bool IsSigned;
+            public bool IsFloat;
+            public string Name;
+        }
+
+        private static readonly Dictionary<char, TypeCodeInfo> TypeCodeTable;
+
+        static ArrayModule()
+        {
+            int longSize = OperatingSystem.IsWindows() ? 4 : 8;
+            TypeCodeTable = new Dictionary<char, TypeCodeInfo>
+            {
+                ['b'] = new TypeCodeInfo { Size = 1, IsSigned = true, IsFloat = false, Name = "signed char" },
+                ['B'] = new TypeCodeInfo { Size = 1, IsSigned = false, IsFloat = false, Name = "unsigned byte integer" },
+                ['u'] = new TypeCodeInfo { Size = 4, IsSigned = false, IsFloat = false, Name = "unsigned int" },
+                ['h'] = new TypeCodeInfo { Size = 2, IsSigned = true, IsFloat = false, Name = "signed short integer" },
+                ['H'] = new TypeCodeInfo { Size = 2, IsSigned = false, IsFloat = false, Name = "unsigned short integer" },
+                ['i'] = new TypeCodeInfo { Size = 4, IsSigned = true, IsFloat = false, Name = "signed integer" },
+                ['I'] = new TypeCodeInfo { Size = 4, IsSigned = false, IsFloat = false, Name = "unsigned integer" },
+                ['l'] = new TypeCodeInfo { Size = longSize, IsSigned = true, IsFloat = false, Name = "signed long integer" },
+                ['L'] = new TypeCodeInfo { Size = longSize, IsSigned = false, IsFloat = false, Name = "unsigned long integer" },
+                ['q'] = new TypeCodeInfo { Size = 8, IsSigned = true, IsFloat = false, Name = "signed long long integer" },
+                ['Q'] = new TypeCodeInfo { Size = 8, IsSigned = false, IsFloat = false, Name = "unsigned long long integer" },
+                ['f'] = new TypeCodeInfo { Size = 4, IsSigned = true, IsFloat = true, Name = "float" },
+                ['d'] = new TypeCodeInfo { Size = 8, IsSigned = true, IsFloat = true, Name = "double" },
+            };
+        }
+
+        private static BigInteger GetIntValue(PyObject value, char typecode)
+        {
+            if (value is PyInt pi) return pi.Value;
+            if (value is PyBool pb) return pb.Value ? BigInteger.One : BigInteger.Zero;
+            throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+        }
+
+        private static double GetFloatValue(PyObject value, char typecode)
+        {
+            if (value is PyFloat pf) return pf.Value;
+            if (value is PyInt pi) return (double)pi.Value;
+            if (value is PyBool pb) return pb.Value ? 1.0 : 0.0;
+            throw PyTypeError.Create($"must be real number, not {value.GetTypeName()}");
+        }
+
+        private static PyObject ReadItem(byte[] buffer, int index, char typecode)
+        {
+            var info = TypeCodeTable[typecode];
+            int offset = index * info.Size;
+            Span<byte> span = buffer.AsSpan(offset, info.Size);
+
+            if (info.IsFloat)
+            {
+                if (info.Size == 4)
+                    return new PyFloat(BitConverter.ToSingle(span));
+                return new PyFloat(BitConverter.ToDouble(span));
+            }
+
+            if (typecode == 'u')
+            {
+                int codePoint = BinaryPrimitives.ReadInt32LittleEndian(span);
+                return new PyString(char.ConvertFromUtf32(codePoint));
+            }
+
+            switch (info.Size)
+            {
+                case 1:
+                    if (info.IsSigned) return new PyInt((long)(sbyte)span[0]);
+                    return new PyInt((long)span[0]);
+                case 2:
+                    if (info.IsSigned) return new PyInt((long)BinaryPrimitives.ReadInt16LittleEndian(span));
+                    return new PyInt((long)BinaryPrimitives.ReadUInt16LittleEndian(span));
+                case 4:
+                    if (info.IsSigned) return new PyInt((long)BinaryPrimitives.ReadInt32LittleEndian(span));
+                    return new PyInt((long)BinaryPrimitives.ReadUInt32LittleEndian(span));
+                case 8:
+                    if (info.IsSigned) return new PyInt(BinaryPrimitives.ReadInt64LittleEndian(span));
+                    return new PyInt(new BigInteger(BinaryPrimitives.ReadUInt64LittleEndian(span)));
+                default:
+                    throw new InvalidOperationException();
+            }
+        }
+
+        private static void WriteItem(byte[] buffer, int index, PyObject value, char typecode)
+        {
+            var info = TypeCodeTable[typecode];
+            int offset = index * info.Size;
+            Span<byte> span = buffer.AsSpan(offset, info.Size);
+
+            if (info.IsFloat)
+            {
+                double d = GetFloatValue(value, typecode);
+                if (info.Size == 4)
+                    BitConverter.TryWriteBytes(span, (float)d);
+                else
+                    BitConverter.TryWriteBytes(span, d);
+                return;
+            }
+
+            if (typecode == 'u')
+            {
+                if (value is PyString ps && ps.Value.Length == 1)
+                {
+                    BinaryPrimitives.WriteInt32LittleEndian(span, char.ConvertToUtf32(ps.Value, 0));
+                    return;
+                }
+                throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer");
+            }
+
+            BigInteger bi = GetIntValue(value, typecode);
+
+            if (!info.IsSigned && bi < 0)
+                throw PyOverflowError.Create(typecode == 'B' ? "unsigned byte integer is less than minimum" : "can't convert negative int to unsigned");
+
+            BigInteger min, max;
+            switch (info.Size)
+            {
+                case 1:
+                    min = info.IsSigned ? -128 : 0;
+                    max = info.IsSigned ? 127 : 255;
+                    break;
+                case 2:
+                    min = info.IsSigned ? short.MinValue : 0;
+                    max = info.IsSigned ? short.MaxValue : ushort.MaxValue;
+                    break;
+                case 4:
+                    min = info.IsSigned ? int.MinValue : 0;
+                    max = info.IsSigned ? int.MaxValue : uint.MaxValue;
+                    break;
+                case 8:
+                    min = info.IsSigned ? long.MinValue : 0;
+                    max = info.IsSigned ? long.MaxValue : ulong.MaxValue;
+                    break;
+                default:
+                    throw new InvalidOperationException();
+            }
+
+            if (bi < min)
+                throw PyOverflowError.Create($"{info.Name} is less than minimum");
+            if (bi > max)
+                throw PyOverflowError.Create($"{info.Name} is greater than maximum");
+
+            switch (info.Size)
+            {
+                case 1:
+                    if (info.IsSigned) span[0] = (byte)(sbyte)(int)bi;
+                    else span[0] = (byte)(int)bi;
+                    break;
+                case 2:
+                    if (info.IsSigned) BinaryPrimitives.WriteInt16LittleEndian(span, (short)(int)bi);
+                    else BinaryPrimitives.WriteUInt16LittleEndian(span, (ushort)(int)bi);
+                    break;
+                case 4:
+                    if (info.IsSigned) BinaryPrimitives.WriteInt32LittleEndian(span, (int)bi);
+                    else BinaryPrimitives.WriteUInt32LittleEndian(span, (uint)bi);
+                    break;
+                case 8:
+                    if (info.IsSigned) BinaryPrimitives.WriteInt64LittleEndian(span, (long)bi);
+                    else BinaryPrimitives.WriteUInt64LittleEndian(span, (ulong)bi);
+                    break;
+            }
+        }
+
+        public sealed class PyArray : PyObject, IDictBackedInstance
+        {
+            private readonly PyType _type;
+            internal readonly char _typecode;
+            internal byte[] _buffer;
+            internal int _count;
+
+            public Dictionary<string, PyObject> InstanceDict { get; } = new Dictionary<string, PyObject>();
+
+            internal int ItemSize => TypeCodeTable[_typecode].Size;
+            internal int Count => _count;
+            internal byte[] Buffer => _buffer;
+
+            public PyArray(PyType type, char typecode)
+            {
+                _type = type;
+                _typecode = typecode;
+                _buffer = Array.Empty<byte>();
+                _count = 0;
+            }
+
+            public override PyType GetPyType() => _type;
+            public override string GetTypeName() => _type.Name;
+
+            internal void EnsureCapacity(int newCount)
+            {
+                int itemSize = ItemSize;
+                int needed = newCount * itemSize;
+                if (needed <= _buffer.Length) return;
+                int newCap = Math.Max(needed, Math.Max(_buffer.Length * 2, itemSize * 8));
+                var newBuf = new byte[newCap];
+                Array.Copy(_buffer, newBuf, _count * itemSize);
+                _buffer = newBuf;
+            }
+
+            private int NormalizeIndex(PyObject index)
+            {
+                long i;
+                if (index is PyInt pi) i = (long)pi.Value;
+                else if (index is PyBool pb) i = pb.Value ? 1 : 0;
+                else throw PyTypeError.Create($"array indices must be integers or slices, not {index.GetTypeName()}");
+
+                if (i < 0) i += _count;
+                if (i < 0 || i >= _count)
+                    throw PyIndexError.Create("array index out of range");
+                return (int)i;
+            }
+
+            public override int Length() => _count;
+
+            public override bool IsTrue() => _count > 0;
+
+            public override PyObject GetIterator() => new PyArrayIterator(this);
+
+            public override PyBool Contains(PyObject item)
+            {
+                for (int i = 0; i < _count; i++)
+                {
+                    if (ReadItem(_buffer, i, _typecode).RichCompare(item, PyObject.CompareOp.EQ).IsTrue())
+                        return PyBool.FromBool(true);
+                }
+                return PyBool.FromBool(false);
+            }
+
+            public override PyObject GetItem(PyObject index)
+            {
+                if (index is PySlice slice)
+                {
+                    var (start, stop, step) = slice.Indices(_count);
+                    int count = slice.GetIndices(_count).Length;
+                    var result = new PyArray(_type, _typecode);
+                    result.EnsureCapacity(count);
+                    int idx = start;
+                    for (int i = 0; i < count; i++)
+                    {
+                        var val = ReadItem(_buffer, idx, _typecode);
+                        WriteItem(result._buffer, i, val, _typecode);
+                        idx += step;
+                    }
+                    result._count = count;
+                    return result;
+                }
+                int i2 = NormalizeIndex(index);
+                return ReadItem(_buffer, i2, _typecode);
+            }
+
+            public override void SetItem(PyObject index, PyObject value)
+            {
+                if (index is PySlice slice)
+                {
+                    var (start, stop, step) = slice.Indices(_count);
+                    int count = slice.GetIndices(_count).Length;
+                    if (step != 1)
+                    {
+                        if (!(value is PyArray va) || va._count != count)
+                            throw PyValueError.Create("attempt to assign sequence of size " + (value is PyArray va2 ? va2._count.ToString() : "?") + " to extended slice of size " + count);
+                        int idx = start;
+                        for (int i = 0; i < count; i++)
+                        {
+                            WriteItem(_buffer, idx, ReadItem(va._buffer, i, va._typecode), _typecode);
+                            idx += step;
+                        }
+                        return;
+                    }
+                    if (!(value is PyArray arr))
+                        throw PyTypeError.Create($"can only assign array (not \"{value.GetTypeName()}\") to array slice");
+                    if (arr._typecode != _typecode)
+                        throw PyTypeError.Create($"can only assign array (not \"{value.GetTypeName()}\") to array slice");
+
+                    int newCount = _count - count + arr._count;
+                    int itemSize = ItemSize;
+                    int tailStart = start + count;
+                    int tailLen = _count - tailStart;
+                    int newTailStart = start + arr._count;
+
+                    EnsureCapacity(newCount);
+                    if (tailLen > 0)
+                        Array.Copy(_buffer, tailStart * itemSize, _buffer, newTailStart * itemSize, tailLen * itemSize);
+                    if (arr._count > 0)
+                        Array.Copy(arr._buffer, 0, _buffer, start * itemSize, arr._count * itemSize);
+                    _count = newCount;
+                    return;
+                }
+                int i2 = NormalizeIndex(index);
+                WriteItem(_buffer, i2, value, _typecode);
+            }
+
+            public override void DelItem(PyObject index)
+            {
+                if (index is PySlice slice)
+                {
+                    var (start, stop, step) = slice.Indices(_count);
+                    int count = slice.GetIndices(_count).Length;
+                    if (step == 1)
+                    {
+                        int width = ItemSize;
+                        int tailStart = start + count;
+                        int tailItems = _count - tailStart;
+                        if (tailItems > 0)
+                            Array.Copy(_buffer, tailStart * width, _buffer, start * width, tailItems * width);
+                        _count -= count;
+                    }
+                    else
+                    {
+                        var keep = new List<int>();
+                        for (int i = 0; i < _count; i++)
+                        {
+                            bool inSlice = false;
+                            int idx = start;
+                            for (int j = 0; j < count; j++)
+                            {
+                                if (idx == i) { inSlice = true; break; }
+                                idx += step;
+                            }
+                            if (!inSlice) keep.Add(i);
+                        }
+                        int itemSize2 = ItemSize;
+                        var newBuf = new byte[keep.Count * itemSize2];
+                        for (int i = 0; i < keep.Count; i++)
+                            Array.Copy(_buffer, keep[i] * itemSize2, newBuf, i * itemSize2, itemSize2);
+                        _buffer = newBuf;
+                        _count = keep.Count;
+                    }
+                    return;
+                }
+                int i2 = NormalizeIndex(index);
+                int itemSize = ItemSize;
+                int tailLen = _count - i2 - 1;
+                if (tailLen > 0)
+                    Array.Copy(_buffer, (i2 + 1) * itemSize, _buffer, i2 * itemSize, tailLen * itemSize);
+                _count--;
+            }
+
+            public override PyString ToRepr()
+            {
+                var sb = new StringBuilder();
+                sb.Append("array('");
+                sb.Append(_typecode);
+                sb.Append('\'');
+                if (_count > 0)
+                {
+                    sb.Append(", ");
+                    if (_typecode == 'u')
+                    {
+                        sb.Append('\'');
+                        for (int i = 0; i < _count; i++)
+                        {
+                            var item = ReadItem(_buffer, i, _typecode);
+                            sb.Append(((PyString)item).Value);
+                        }
+                        sb.Append('\'');
+                    }
+                    else
+                    {
+                        sb.Append('[');
+                        for (int i = 0; i < _count; i++)
+                        {
+                            if (i > 0) sb.Append(", ");
+                            sb.Append(ReadItem(_buffer, i, _typecode).ToRepr().Value);
+                        }
+                        sb.Append(']');
+                    }
+                }
+                sb.Append(')');
+                return new PyString(sb.ToString());
+            }
+
+            public override PyString AsString() => ToRepr();
+
+            public override PyObject Add(PyObject other)
+            {
+                if (!(other is PyArray arr))
+                    throw PyTypeError.Create($"can only append array (not \"{other.GetTypeName()}\") to array");
+                if (arr._typecode != _typecode)
+                    throw PyTypeError.Create("can only append two arrays with the same typecode");
+                var result = new PyArray(_type, _typecode);
+                int total = _count + arr._count;
+                result.EnsureCapacity(total);
+                int itemSize = ItemSize;
+                Array.Copy(_buffer, 0, result._buffer, 0, _count * itemSize);
+                Array.Copy(arr._buffer, 0, result._buffer, _count * itemSize, arr._count * itemSize);
+                result._count = total;
+                return result;
+            }
+
+            public override PyObject Multiply(PyObject other)
+            {
+                long n;
+                if (other is PyInt pi) n = (long)pi.Value;
+                else if (other is PyBool pb) n = pb.Value ? 1 : 0;
+                else return PyNotImplemented.Instance;
+                if (n < 0) n = 0;
+                var result = new PyArray(_type, _typecode);
+                int total = _count * (int)n;
+                result.EnsureCapacity(total);
+                int itemSize = ItemSize;
+                for (long r = 0; r < n; r++)
+                    Array.Copy(_buffer, 0, result._buffer, (int)r * _count * itemSize, _count * itemSize);
+                result._count = total;
+                return result;
+            }
+
+            public override PyObject RichCompare(PyObject other, PyObject.CompareOp op)
+            {
+                if (!(other is PyArray arr))
+                    return PyNotImplemented.Instance;
+                if (_typecode != arr._typecode)
+                {
+                    switch (op)
+                    {
+                        case PyObject.CompareOp.EQ: return PyBool.FromBool(false);
+                        case PyObject.CompareOp.NE: return PyBool.FromBool(true);
+                        default: return PyNotImplemented.Instance;
+                    }
+                }
+                int minLen = Math.Min(_count, arr._count);
+                for (int i = 0; i < minLen; i++)
+                {
+                    var a = ReadItem(_buffer, i, _typecode);
+                    var b = ReadItem(arr._buffer, i, arr._typecode);
+                    var cmp = a.RichCompare(b, PyObject.CompareOp.EQ);
+                    if (!cmp.IsTrue())
+                    {
+                        var lt = a.RichCompare(b, PyObject.CompareOp.LT);
+                        bool aLess = lt.IsTrue();
+                        switch (op)
+                        {
+                            case PyObject.CompareOp.LT: return PyBool.FromBool(aLess);
+                            case PyObject.CompareOp.LE: return PyBool.FromBool(aLess);
+                            case PyObject.CompareOp.EQ: return PyBool.FromBool(false);
+                            case PyObject.CompareOp.NE: return PyBool.FromBool(true);
+                            case PyObject.CompareOp.GT: return PyBool.FromBool(!aLess);
+                            case PyObject.CompareOp.GE: return PyBool.FromBool(!aLess);
+                        }
+                    }
+                }
+                switch (op)
+                {
+                    case PyObject.CompareOp.LT: return PyBool.FromBool(_count < arr._count);
+                    case PyObject.CompareOp.LE: return PyBool.FromBool(_count <= arr._count);
+                    case PyObject.CompareOp.EQ: return PyBool.FromBool(_count == arr._count);
+                    case PyObject.CompareOp.NE: return PyBool.FromBool(_count != arr._count);
+                    case PyObject.CompareOp.GT: return PyBool.FromBool(_count > arr._count);
+                    case PyObject.CompareOp.GE: return PyBool.FromBool(_count >= arr._count);
+                }
+                return PyNotImplemented.Instance;
+            }
+
+            internal void Append(PyObject value)
+            {
+                EnsureCapacity(_count + 1);
+                WriteItem(_buffer, _count, value, _typecode);
+                _count++;
+            }
+
+            internal void Extend(PyObject iterable)
+            {
+                if (iterable is PyArray arr)
+                {
+                    if (arr._typecode != _typecode)
+                        throw PyTypeError.Create("can only extend with array of same kind");
+                    int itemSize = ItemSize;
+                    EnsureCapacity(_count + arr._count);
+                    Array.Copy(arr._buffer, 0, _buffer, _count * itemSize, arr._count * itemSize);
+                    _count += arr._count;
+                    return;
+                }
+                var it = iterable.GetIterator();
+                while (true)
+                {
+                    PyObject item;
+                    try { item = it.Next(); }
+                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
+                    Append(item);
+                }
+            }
+
+            internal void Insert(PyObject indexObj, PyObject value)
+            {
+                long idx;
+                if (indexObj is PyInt pi) idx = (long)pi.Value;
+                else if (indexObj is PyBool pb) idx = pb.Value ? 1 : 0;
+                else throw PyTypeError.Create($"array indices must be integers or slices, not {indexObj.GetTypeName()}");
+
+                if (idx < 0) idx += _count;
+                if (idx < 0) idx = 0;
+                if (idx > _count) idx = _count;
+
+                int itemSize = ItemSize;
+                EnsureCapacity(_count + 1);
+                int tailLen = _count - (int)idx;
+                if (tailLen > 0)
+                    Array.Copy(_buffer, (int)idx * itemSize, _buffer, ((int)idx + 1) * itemSize, tailLen * itemSize);
+                WriteItem(_buffer, (int)idx, value, _typecode);
+                _count++;
+            }
+
+            internal PyObject Pop(PyObject[] args)
+            {
+                if (_count == 0)
+                    throw PyIndexError.Create("pop from empty array");
+                long idx = -1;
+                if (args.Length >= 1)
+                {
+                    if (args[0] is PyInt pi) idx = (long)pi.Value;
+                    else if (args[0] is PyBool pb) idx = pb.Value ? 1 : 0;
+                    else throw PyTypeError.Create($"array indices must be integers or slices, not {args[0].GetTypeName()}");
+                }
+                if (idx < 0) idx += _count;
+                if (idx < 0 || idx >= _count)
+                    throw PyIndexError.Create("pop index out of range");
+                int i = (int)idx;
+                var result = ReadItem(_buffer, i, _typecode);
+                int itemSize = ItemSize;
+                int tailLen = _count - i - 1;
+                if (tailLen > 0)
+                    Array.Copy(_buffer, (i + 1) * itemSize, _buffer, i * itemSize, tailLen * itemSize);
+                _count--;
+                return result;
+            }
+
+            internal void Remove(PyObject value)
+            {
+                for (int i = 0; i < _count; i++)
+                {
+                    if (ReadItem(_buffer, i, _typecode).RichCompare(value, PyObject.CompareOp.EQ).IsTrue())
+                    {
+                        int itemSize = ItemSize;
+                        int tailLen = _count - i - 1;
+                        if (tailLen > 0)
+                            Array.Copy(_buffer, (i + 1) * itemSize, _buffer, i * itemSize, tailLen * itemSize);
+                        _count--;
+                        return;
+                    }
+                }
+                throw PyValueError.Create("array.remove(x): x not in array");
+            }
+
+            internal PyObject Index(PyObject[] args)
+            {
+                PyObject x = args[0];
+                long start = 0, stop = _count;
+                if (args.Length >= 2)
+                {
+                    if (args[1] is PyInt pi) start = (long)pi.Value;
+                    else if (args[1] is PyBool pb) start = pb.Value ? 1 : 0;
+                    else throw PyTypeError.Create($"array indices must be integers or slices, not {args[1].GetTypeName()}");
+                }
+                if (args.Length >= 3)
+                {
+                    if (args[2] is PyInt pi) stop = (long)pi.Value;
+                    else if (args[2] is PyBool pb) stop = pb.Value ? 1 : 0;
+                    else throw PyTypeError.Create($"array indices must be integers or slices, not {args[2].GetTypeName()}");
+                }
+                if (start < 0) start += _count;
+                if (stop < 0) stop += _count;
+                if (start < 0) start = 0;
+                if (stop > _count) stop = _count;
+                for (long i = start; i < stop; i++)
+                {
+                    if (ReadItem(_buffer, (int)i, _typecode).RichCompare(x, PyObject.CompareOp.EQ).IsTrue())
+                        return new PyInt(i);
+                }
+                throw PyValueError.Create("array.index(x): x not in array");
+            }
+
+            internal PyObject CountOf(PyObject value)
+            {
+                long c = 0;
+                for (int i = 0; i < _count; i++)
+                {
+                    if (ReadItem(_buffer, i, _typecode).RichCompare(value, PyObject.CompareOp.EQ).IsTrue())
+                        c++;
+                }
+                return new PyInt(c);
+            }
+
+            internal void Reverse()
+            {
+                int itemSize = ItemSize;
+                for (int i = 0; i < _count / 2; i++)
+                {
+                    int j = _count - 1 - i;
+                    for (int b = 0; b < itemSize; b++)
+                    {
+                        byte tmp = _buffer[i * itemSize + b];
+                        _buffer[i * itemSize + b] = _buffer[j * itemSize + b];
+                        _buffer[j * itemSize + b] = tmp;
+                    }
+                }
+            }
+
+            internal void Byteswap()
+            {
+                int itemSize = ItemSize;
+                if (itemSize == 1) return;
+                for (int i = 0; i < _count; i++)
+                {
+                    int offset = i * itemSize;
+                    for (int b = 0; b < itemSize / 2; b++)
+                    {
+                        byte tmp = _buffer[offset + b];
+                        _buffer[offset + b] = _buffer[offset + itemSize - 1 - b];
+                        _buffer[offset + itemSize - 1 - b] = tmp;
+                    }
+                }
+            }
+
+            internal PyBytes ToBytes()
+            {
+                int byteLen = _count * ItemSize;
+                var result = new byte[byteLen];
+                Array.Copy(_buffer, result, byteLen);
+                return new PyBytes(result);
+            }
+
+            internal void FromBytes(byte[] data)
+            {
+                int itemSize = ItemSize;
+                if (data.Length % itemSize != 0)
+                    throw PyValueError.Create("bytes length not a multiple of item size");
+                int newItems = data.Length / itemSize;
+                EnsureCapacity(_count + newItems);
+                Array.Copy(data, 0, _buffer, _count * itemSize, data.Length);
+                _count += newItems;
+            }
+
+            internal PyList ToList()
+            {
+                var list = new PyList();
+                for (int i = 0; i < _count; i++)
+                    list.Append(ReadItem(_buffer, i, _typecode));
+                return list;
+            }
+
+            internal void FromList(PyObject iterable)
+            {
+                var it = iterable.GetIterator();
+                while (true)
+                {
+                    PyObject item;
+                    try { item = it.Next(); }
+                    catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
+                    Append(item);
+                }
+            }
+
+            internal PyString ToUnicode()
+            {
+                if (_typecode != 'u')
+                    throw PyTypeError.Create("tounicode() requires an array of unicode characters");
+                var sb = new StringBuilder();
+                for (int i = 0; i < _count; i++)
+                {
+                    var item = ReadItem(_buffer, i, _typecode);
+                    sb.Append(((PyString)item).Value);
+                }
+                return new PyString(sb.ToString());
+            }
+
+            internal void FromUnicode(string s)
+            {
+                if (_typecode != 'u')
+                    throw PyTypeError.Create("fromunicode() requires an array of unicode characters");
+                for (int i = 0; i < s.Length; )
+                {
+                    int cp = char.ConvertToUtf32(s, i);
+                    i += char.IsHighSurrogate(s[i]) ? 2 : 1;
+                    Append(new PyString(char.ConvertFromUtf32(cp)));
+                }
+            }
+
+            internal PyTuple BufferInfo()
+            {
+                return new PyTuple(new PyObject[] { new PyInt(0), new PyInt(_count) });
+            }
+
+            internal PyArray Copy()
+            {
+                var result = new PyArray(_type, _typecode);
+                int itemSize = ItemSize;
+                result.EnsureCapacity(_count);
+                Array.Copy(_buffer, result._buffer, _count * itemSize);
+                result._count = _count;
+                return result;
+            }
+
+            internal PyTuple ReduceEx()
+            {
+                return new PyTuple(new PyObject[]
+                {
+                    GetPyType(),
+                    new PyTuple(new PyObject[] { new PyString(_typecode.ToString()), ToList() })
+                });
+            }
+
+            internal void InitializeFrom(PyObject initializer)
+            {
+                if (initializer is PyBytes pb)
+                {
+                    FromBytes(pb.Value);
+                }
+                else if (initializer is PyByteArray pba)
+                {
+                    FromBytes(pba.ToByteArrayCopy());
+                }
+                else if (initializer is PyString ps)
+                {
+                    if (_typecode == 'u')
+                        FromUnicode(ps.Value);
+                    else
+                        throw PyTypeError.Create($"cannot use '{initializer.GetTypeName()}' as array initializer");
+                }
+                else if (initializer is PyArray arr)
+                {
+                    if (arr._typecode != _typecode)
+                        throw PyTypeError.Create("array typecode not as specified");
+                    int itemSize = ItemSize;
+                    EnsureCapacity(_count + arr._count);
+                    Array.Copy(arr._buffer, 0, _buffer, _count * itemSize, arr._count * itemSize);
+                    _count += arr._count;
+                }
+                else if (initializer is PyList || initializer is PyTuple)
+                {
+                    FromList(initializer);
+                }
+                else
+                {
+                    var it = initializer.GetIterator();
+                    while (true)
+                    {
+                        PyObject item;
+                        try { item = it.Next(); }
+                        catch (PythonException e) when (e.PyException is PyStopIteration) { break; }
+                        Append(item);
+                    }
+                }
+            }
+        }
+
+        private sealed class PyArrayIterator : PyIterator
+        {
+            private readonly PyArray _array;
+            private int _index;
+
+            public PyArrayIterator(PyArray array)
+            {
+                _array = array;
+                _index = 0;
+            }
+
+            protected override string IteratorName => "arrayiterator";
+
+            public override PyObject Next()
+            {
+                if (_index >= _array.Count)
+                    throw PyStopIteration.Create();
+                var item = ReadItem(_array.Buffer, _index, _array._typecode);
+                _index++;
+                return item;
+            }
+        }
+
+        internal static PyModule CreateArrayModule()
+        {
+            var module = new PyModule("array");
+
+            var type = new PyType("array", new[] { PyType.ObjectType }, "array")
+            {
+                ConstructedByNewSlot = true
+            };
+
+            type.TypeDict["__new__"] = new PyMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("array() takes at least 1 argument (0 given)");
+
+                PyObject typecodeArg = args[0];
+                if (!(typecodeArg is PyString ps) || ps.Value.Length != 1)
+                    throw PyTypeError.Create($"array() argument 1 must be a unicode character, not {typecodeArg.GetTypeName()}");
+
+                char tc = ps.Value[0];
+                if (!TypeCodeTable.ContainsKey(tc))
+                    throw PyValueError.Create("bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f or d)");
+
+                var arr = new PyArray((PyType)cls, tc);
+
+                if (args.Length >= 2 && args[1] is not PyNone)
+                    arr.InitializeFrom(args[1]);
+
+                return arr;
+            }, 1, 2, acceptsKwargs: true);
+
+            type.TypeDict["append"] = new PyMethodDescriptor("append", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).Append(args[0]);
+                return PyNone.Instance;
+            }, 1, 1);
+
+            type.TypeDict["extend"] = new PyMethodDescriptor("extend", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).Extend(args[0]);
+                return PyNone.Instance;
+            }, 1, 1);
+
+            type.TypeDict["insert"] = new PyMethodDescriptor("insert", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).Insert(args[0], args[1]);
+                return PyNone.Instance;
+            }, 2, 2);
+
+            type.TypeDict["pop"] = new PyMethodDescriptor("pop", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).Pop(args);
+            }, 0, 1);
+
+            type.TypeDict["remove"] = new PyMethodDescriptor("remove", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).Remove(args[0]);
+                return PyNone.Instance;
+            }, 1, 1);
+
+            type.TypeDict["index"] = new PyMethodDescriptor("index", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).Index(args);
+            }, 1, 3);
+
+            type.TypeDict["count"] = new PyMethodDescriptor("count", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).CountOf(args[0]);
+            }, 1, 1);
+
+            type.TypeDict["reverse"] = new PyMethodDescriptor("reverse", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).Reverse();
+                return PyNone.Instance;
+            }, 0, 0);
+
+            type.TypeDict["byteswap"] = new PyMethodDescriptor("byteswap", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).Byteswap();
+                return PyNone.Instance;
+            }, 0, 0);
+
+            type.TypeDict["tobytes"] = new PyMethodDescriptor("tobytes", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).ToBytes();
+            }, 0, 0);
+
+            type.TypeDict["frombytes"] = new PyMethodDescriptor("frombytes", type, (self, args, kwargs) =>
+            {
+                var arr = (PyArray)self;
+                if (args[0] is PyBytes pb)
+                    arr.FromBytes(pb.Value);
+                else if (args[0] is PyByteArray pba)
+                    arr.FromBytes(pba.ToByteArrayCopy());
+                else
+                    throw PyTypeError.Create($"a bytes-like object is required, not \"{args[0].GetTypeName()}\"");
+                return PyNone.Instance;
+            }, 1, 1);
+
+            type.TypeDict["tolist"] = new PyMethodDescriptor("tolist", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).ToList();
+            }, 0, 0);
+
+            type.TypeDict["fromlist"] = new PyMethodDescriptor("fromlist", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).FromList(args[0]);
+                return PyNone.Instance;
+            }, 1, 1);
+
+            type.TypeDict["tounicode"] = new PyMethodDescriptor("tounicode", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).ToUnicode();
+            }, 0, 0);
+
+            type.TypeDict["fromunicode"] = new PyMethodDescriptor("fromunicode", type, (self, args, kwargs) =>
+            {
+                var arr = (PyArray)self;
+                if (args[0] is PyString ps)
+                    arr.FromUnicode(ps.Value);
+                else
+                    throw PyTypeError.Create($"a unicode string is required, not \"{args[0].GetTypeName()}\"");
+                return PyNone.Instance;
+            }, 1, 1);
+
+            type.TypeDict["buffer_info"] = new PyMethodDescriptor("buffer_info", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).BufferInfo();
+            }, 0, 0);
+
+            type.TypeDict["__copy__"] = new PyMethodDescriptor("__copy__", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).Copy();
+            }, 0, 0);
+
+            type.TypeDict["__deepcopy__"] = new PyMethodDescriptor("__deepcopy__", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).Copy();
+            }, 1, 1);
+
+            type.TypeDict["__reduce_ex__"] = new PyMethodDescriptor("__reduce_ex__", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).ReduceEx();
+            }, 1, 1);
+
+            type.TypeDict["__iadd__"] = new PyMethodDescriptor("__iadd__", type, (self, args, kwargs) =>
+            {
+                var arr = (PyArray)self;
+                if (args[0] is PyArray other && other._typecode == arr._typecode)
+                {
+                    arr.Extend(other);
+                    return arr;
+                }
+                throw PyTypeError.Create($"can only append array (not \"{args[0].GetTypeName()}\") to array");
+            }, 1, 1);
+
+            type.TypeDict["__imul__"] = new PyMethodDescriptor("__imul__", type, (self, args, kwargs) =>
+            {
+                var arr = (PyArray)self;
+                long n;
+                if (args[0] is PyInt pi) n = (long)pi.Value;
+                else if (args[0] is PyBool pb) n = pb.Value ? 1 : 0;
+                else throw PyTypeError.Create($"can't multiply sequence by non-int of type '{args[0].GetTypeName()}'");
+                if (n < 0) n = 0;
+                int itemSize = arr.ItemSize;
+                int origCount = arr.Count;
+                int total = origCount * (int)n;
+                var newBuf = new byte[total * itemSize];
+                for (long r = 0; r < n; r++)
+                    Array.Copy(arr.Buffer, 0, newBuf, (int)r * origCount * itemSize, origCount * itemSize);
+                arr._buffer = newBuf.Length == 0 ? new byte[itemSize] : newBuf;
+                arr._count = total;
+                return arr;
+            }, 1, 1);
+
+            type.TypeDict["__len__"] = new PyWrapperDescriptor("__len__", type, (self, args, kwargs) =>
+            {
+                return new PyInt(((PyArray)self).Length());
+            });
+
+            type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).GetIterator();
+            });
+
+            type.TypeDict["__getitem__"] = new PyWrapperDescriptor("__getitem__", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).GetItem(args[0]);
+            });
+
+            type.TypeDict["__setitem__"] = new PyWrapperDescriptor("__setitem__", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).SetItem(args[0], args[1]);
+                return PyNone.Instance;
+            });
+
+            type.TypeDict["__delitem__"] = new PyWrapperDescriptor("__delitem__", type, (self, args, kwargs) =>
+            {
+                ((PyArray)self).DelItem(args[0]);
+                return PyNone.Instance;
+            });
+
+            type.TypeDict["__contains__"] = new PyWrapperDescriptor("__contains__", type, (self, args, kwargs) =>
+            {
+                return ((PyArray)self).Contains(args[0]);
+            });
+
+            type.TypeDict["typecode"] = new PyGetSetDescriptor("typecode", type, self =>
+            {
+                return new PyString(((PyArray)self)._typecode.ToString());
+            });
+
+            type.TypeDict["itemsize"] = new PyGetSetDescriptor("itemsize", type, self =>
+            {
+                return new PyInt(((PyArray)self).ItemSize);
+            });
+
+            type.TypeDict["__hash__"] = PyNone.Instance;
+
+            module.ModuleDict["array"] = type;
+            module.ModuleDict["ArrayType"] = type;
+            module.ModuleDict["typecodes"] = new PyString("bBuhHiIlLqQfd");
+
+            return module;
+        }
+    }
+}
