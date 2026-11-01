@@ -245,21 +245,17 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            if (Imag == 0.0)
-            {
-                char zeroSign = double.IsNegative(Imag) ? '-' : '+';
-                return new PyString($"({FormatNumber(Real)}{zeroSign}0j)");
-            }
-            else if (Real == 0.0)
-            {
-                return new PyString($"{FormatImaginary(Imag)}j");
-            }
-            else
-            {
-                var imagPart = Imag >= 0 ? $"+{FormatImaginary(Imag)}j" : $"{FormatImaginary(Imag)}j";
-                return new PyString($"({FormatNumber(Real)}{imagPart})");
-            }
+            // complex_repr: with a real part of +0 there is neither real part nor parens.
+            if (Real == 0.0 && !double.IsNegative(Real))
+                return new PyString($"{FormatNumber(Imag)}j");
+            string imag = FormatNumber(Imag);
+            if (imag[0] != '-')
+                imag = "+" + imag;
+            return new PyString($"({FormatNumber(Real)}{imag}j)");
         }
+
+        // complex_neg
+        public override PyObject Negative() => new PyComplex(-Real, -Imag);
 
         private string FormatNumber(double value)
         {

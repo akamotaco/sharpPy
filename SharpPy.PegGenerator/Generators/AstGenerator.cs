@@ -303,7 +303,7 @@ public class AstGenerator
         WriteLine("public GeneratedIdentifier(string value) { Value = value; }");
         WriteLine();
         WriteLine("public static implicit operator string(GeneratedIdentifier id) => id?.Value;");
-        WriteLine("public static implicit operator GeneratedIdentifier(string value) => new GeneratedIdentifier(value);");
+        WriteLine("public static implicit operator GeneratedIdentifier(string value) => value == null ? null : new GeneratedIdentifier(value);");
         WriteLine();
         WriteLine("public override string ToString() => Value;");
         _indentLevel--;

@@ -58,6 +58,9 @@ namespace SharpPy.Generated
             return generatedTokens;
         }
         
+        public static GeneratedMod ParseToAsdl(List<GeneratedTokenInfo> generatedTokens, string source, string filename) =>
+            new PyParser(generatedTokens, filename, source).ParseFile();
+
         public static List<Statement> ParseSource(List<GeneratedTokenInfo> generatedTokens, string source, string filename = "<string>")
         {
 

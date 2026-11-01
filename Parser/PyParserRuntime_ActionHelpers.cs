@@ -507,10 +507,24 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedExpr JoinedStr(GeneratedTokenInfo a, GeneratedExprSeq values, GeneratedTokenInfo c)
         {
-            return new GeneratedJoinedStr
+            // _PyPegen_joined_str: a debug field arrives as a JoinedStr of two, an empty piece goes.
+            var flattened = new GeneratedExprSeq();
+            if (values != null)
             {
-                Values = values ?? GeneratedExprSeq.Empty
-            };
+                foreach (GeneratedExpr item in values)
+                {
+                    if (item is GeneratedJoinedStr debug)
+                    {
+                        foreach (GeneratedExpr part in debug.Values)
+                            flattened.Add(part);
+                    }
+                    else if (!(item is GeneratedConstant { Value: GeneratedPyConstantString { Value: "" } }))
+                    {
+                        flattened.Add(item);
+                    }
+                }
+            }
+            return new GeneratedJoinedStr { Values = flattened };
         }
 
         /// <summary>

@@ -154,31 +154,16 @@ namespace SharpPy
                     return PyNone.Instance;
                 }
 
-                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
-
-                if(showAst)
+                if (showAst)
                 {
+                    // The tree the parser built, the one to compare with CPython's ast.dump.
                     Console.WriteLine("[===== ast log ====]");
-                    // CPython 3.12 compatible AST dump using existing ASTDumper
-                    var dumper = new ASTDumper();
-
-                    Console.WriteLine("Module(");
-                    Console.WriteLine("  body=[");
-                    for (int i = 0; i < statements.Count; ++i)
-                    {
-                        var formattedStmt = dumper.FormatNode(statements[i], 4);
-                        Console.Write(formattedStmt);
-                        if (i < statements.Count - 1)
-                            Console.WriteLine(",");
-                        else
-                            Console.WriteLine();
-                    }
-                    Console.WriteLine("  ],");
-                    Console.WriteLine("  type_ignores=[])");
-
+                    Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>")));
                     Console.WriteLine("[===== ast end ====]");
                     return PyNone.Instance;
                 }
+
+                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG
@@ -298,30 +283,16 @@ namespace SharpPy
                     return null;
                 }
 
-                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
-
-                if(showAst)
+                if (showAst)
                 {
+                    // The tree the parser built, the one to compare with CPython's ast.dump.
                     Console.WriteLine("[===== ast log ====]");
-                    var dumper = new ASTDumper();
-
-                    Console.WriteLine("Module(");
-                    Console.WriteLine("  body=[");
-                    for (int i = 0; i < statements.Count; ++i)
-                    {
-                        var formattedStmt = dumper.FormatNode(statements[i], 4);
-                        Console.Write(formattedStmt);
-                        if (i < statements.Count - 1)
-                            Console.WriteLine(",");
-                        else
-                            Console.WriteLine();
-                    }
-                    Console.WriteLine("  ],");
-                    Console.WriteLine("  type_ignores=[])");
-
+                    Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>")));
                     Console.WriteLine("[===== ast end ====]");
                     return null;
                 }
+
+                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG
