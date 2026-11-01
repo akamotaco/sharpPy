@@ -235,8 +235,7 @@ namespace SharpPy
                 {
                     int position = exc.Index;
                     byte bad = position >= 0 && position < data.Length ? data[position] : (byte)0;
-                    throw PyUnicodeDecodeError.Create(
-                        $"'utf-8' codec can't decode byte 0x{bad:x2} in position {position}: invalid start byte");
+                    throw PyUnicodeDecodeError.Failure("utf-8", data, position, position + 1, "invalid start byte");
                 }
             }
 
@@ -3511,20 +3510,12 @@ namespace SharpPy
                 at += nextWidth;
             }
 
-            string chDesc = cp <= 0xFF ? $"'\\x{cp:x2}'"
-                            : cp <= 0xFFFF ? $"'\\u{cp:x4}'"
-                            : $"'\\U{cp:x8}'";
-            string position = start == end
-                ? $"character {chDesc} in position {start}"
-                : $"characters in position {start}-{end}";
-            return PyUnicodeEncodeError.Create(
-                $"'{ctx.Codec}' codec can't encode {position}: ordinal not in range({ctx.Limit + 1})");
+            return PyUnicodeEncodeError.Failure(ctx.Codec, Value, start, end + 1,
+                $"ordinal not in range({ctx.Limit + 1})");
         }
 
         private PythonException SurrogateError(EncodeContext ctx, int cpIndex, char unit) =>
-            PyUnicodeEncodeError.Create(
-                $"'{ctx.Codec}' codec can't encode character '\\u{(int)unit:x4}' " +
-                $"in position {cpIndex}: surrogates not allowed");
+            PyUnicodeEncodeError.Failure(ctx.Codec, Value, cpIndex, cpIndex + 1, "surrogates not allowed");
 
         /// <summary>Unit offset of a character index: the one place encode() converts the two.</summary>
         private int UnitIndexOfCharacter(int cpIndex)

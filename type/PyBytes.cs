@@ -136,10 +136,7 @@ namespace SharpPy
         {
             if (errors == "strict")
             {
-                string where = range && end > start
-                    ? $"bytes in position {start}-{end}"
-                    : $"byte 0x{data[start]:x2} in position {start}";
-                throw PyUnicodeDecodeError.Create($"'utf-8' codec can't decode {where}: {reason}");
+                throw PyUnicodeDecodeError.Failure("utf-8", data, start, range && end > start ? end + 1 : start + 1, reason);
             }
             if (errors == "replace")
             {
@@ -184,7 +181,7 @@ namespace SharpPy
                 }
                 if (errors == "strict")
                 {
-                    throw PyUnicodeDecodeError.Create($"'ascii' codec can't decode byte 0x{b:x2} in position {i}: ordinal not in range(128)");
+                    throw PyUnicodeDecodeError.Failure("ascii", data, i, i + 1, "ordinal not in range(128)");
                 }
                 if (errors == "replace") sb.Append('\uFFFD');
                 else if (errors == "surrogateescape") sb.Append((char)(0xDC00 + b));

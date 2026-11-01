@@ -457,6 +457,7 @@ namespace SharpPy
         public static readonly PyType UnicodeErrorType = new PyType("UnicodeError", new[] { ValueErrorType });
         public static readonly PyType UnicodeDecodeErrorType = new PyType("UnicodeDecodeError", new[] { UnicodeErrorType });
         public static readonly PyType UnicodeEncodeErrorType = new PyType("UnicodeEncodeError", new[] { UnicodeErrorType });
+        public static readonly PyType UnicodeTranslateErrorType = new PyType("UnicodeTranslateError", new[] { UnicodeErrorType });
         /// <summary>
         /// Objects/exceptions.c PyExc_ReferenceError. The only thing that raises it is a weak reference
         /// being asked for an object that is gone (Objects/weakrefobject.c), so it belongs to the
@@ -1107,7 +1108,7 @@ namespace SharpPy
                 case "FloatingPointError":
                     return new PyFloatingPointError(args, kwargs);
                 case "TabError":
-                    return new PyTabError(message);
+                    return new PyTabError(args, kwargs);
                 case "MemoryError":
                     return new PyMemoryError(args, kwargs);
                 case "UnicodeError":
@@ -1116,6 +1117,8 @@ namespace SharpPy
                     return new PyUnicodeEncodeError(args, kwargs);
                 case "UnicodeDecodeError":
                     return new PyUnicodeDecodeError(args, kwargs);
+                case "UnicodeTranslateError":
+                    return new PyUnicodeTranslateError(args, kwargs);
                 case "ZeroDivisionError":
                     return new PyZeroDivisionError(args, kwargs);
                 // Objects/exceptions.c ReferenceError/BufferError are builtins names, so calling them
@@ -1142,13 +1145,13 @@ namespace SharpPy
                 case "RecursionError":
                     return new PyRecursionError(args, kwargs);
                 case "ImportError":
-                    return new PyImportError(message);
+                    return new PyImportError(args, kwargs);
                 case "ModuleNotFoundError":
-                    return new PyModuleNotFoundError(message);
+                    return new PyModuleNotFoundError(args, kwargs);
                 case "SyntaxError":
-                    return new PySyntaxError(message);
+                    return new PySyntaxError(args, kwargs);
                 case "IndentationError":
-                    return new PyIndentationError(message);
+                    return new PyIndentationError(args, kwargs);
                 case "SystemExit":
                     // The argument survives: SystemExit(3).args is (3,) and .code is 3
                     // (Objects/exceptions.c SystemExit_init), which is what decides the status later.
@@ -1454,8 +1457,8 @@ namespace SharpPy
                         InitializeSystemExitTypeDescriptors();
                     else if (Name == "KeyError")
                         InitializeKeyErrorTypeDescriptors();
-                    else if (Name == "ImportError" || Name == "ModuleNotFoundError")
-                        InitializeImportNameDescriptor();
+                    else if (PyExceptionSlots.FieldsOfType(Name) is string[] exceptionFields)
+                        PyExceptionSlots.InstallFields(this, exceptionFields);
                     else if (Name == "slice")
                         TypeDict["indices"] = new PyMethodDescriptor("indices", this, PySlice.IndicesMethod);
                     break;
@@ -4116,24 +4119,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// ImportError/ModuleNotFoundError expose .name (CPython exceptions.c
-        /// ModuleNotFoundError.name getset), visible through dir() too.
-        /// </summary>
-        private void InitializeImportNameDescriptor()
-        {
-            TypeDict["name"] = new PyGetSetDescriptor(
-                "name", this,
-                self => self is PyImportError ie && ie.ModuleName != null
-                    ? new PyString(ie.ModuleName)
-                    : (PyObject)PyNone.Instance,
-                (self, value) =>
-                {
-                    if (self is PyImportError target)
-                        target.ModuleName = value is PyString s ? s.Value : value.ToStr().Value;
-                });
-        }
-
-        /// <summary>
         /// BaseException_args_repr (Objects/exceptions.c:120): nothing for no arguments, the bare repr
         /// for one argument, and a parenthesised list for more.
         /// </summary>
@@ -4276,6 +4261,9 @@ namespace SharpPy
                 if (!self.GetPyType().IsSubclassOf(BaseExceptionType))
                     throw PyTypeError.Create(
                         $"descriptor '__str__' requires a 'BaseException' object but received a '{self.GetTypeName()}'");
+
+                if (PyExceptionSlots.LayoutOf(self) is PyBaseException layout)
+                    return layout.ToStr();
 
                 // One source. The old version read the instance dict for a Python subclass and the CLR
                 // field for a builtin one, which is how a raised object could report args through

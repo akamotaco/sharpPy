@@ -8542,6 +8542,7 @@ namespace SharpPy
                 case "MemoryError": return typeof(PyMemoryError);
                 case "UnicodeError": return typeof(PyUnicodeError);
                 case "UnicodeEncodeError": return typeof(PyUnicodeEncodeError);
+                case "UnicodeTranslateError": return typeof(PyUnicodeTranslateError);
                 case "UnicodeDecodeError": return typeof(PyUnicodeDecodeError);
                 case "RecursionError": return typeof(PyRecursionError);
                 default: return null;

@@ -24,6 +24,11 @@ public class PyExceptionInstance : PyClassInstance
     /// T_OBJECT back as None (Objects/structmember.c), which is what `del e.code` leaves behind.</summary>
     internal PyObject CodeSlot;
 
+    /// <summary>The struct a C subclass inherits: fields such as OSError.errno or ImportError.name, with
+    /// the arguments their __init__ parsed. An instance of the nearest builtin exception, which already
+    /// is that struct and that parser.</summary>
+    internal PyBaseException Layout;
+
     public PyExceptionInstance(PyClass instanceType) : base(instanceType) { }
 
     private PyException _transport;
@@ -68,6 +73,52 @@ internal static class PyExceptionSlots
         => self is PyException wrapper && wrapper.OriginalInstance != null
             ? wrapper.OriginalInstance
             : self;
+
+    /// <summary>Objects/exceptions.c: the *_members and *_getset tables of the types with fields.</summary>
+    internal static string[] FieldsOfType(string typeName) => typeName switch
+    {
+        "OSError" => new[] { "errno", "strerror", "filename", "filename2" },
+        "StopIteration" => new[] { "value" },
+        "ImportError" => new[] { "name", "path", "msg" },
+        "AttributeError" => new[] { "name", "obj" },
+        "NameError" => new[] { "name" },
+        "SyntaxError" => new[] { "msg", "filename", "lineno", "offset", "text", "end_lineno", "end_offset",
+                                 "print_file_and_line" },
+        "UnicodeDecodeError" or "UnicodeEncodeError" => new[] { "encoding", "object", "start", "end", "reason" },
+        "UnicodeTranslateError" => new[] { "object", "start", "end", "reason" },
+        _ => null,
+    };
+
+    /// <summary>The member descriptors and __init__ of such a type. A builtin object is built by its
+    /// constructor and answers for its own fields; only a Python subclass comes through here.</summary>
+    internal static void InstallFields(PyType type, string[] names)
+    {
+        foreach (var name in names)
+        {
+            type.TypeDict[name] = new PyMemberDescriptor(name, type,
+                getter: self => LayoutOf(self)?.GetAttribute(name) ?? PyNone.Instance,
+                setter: (self, value) => LayoutOf(self)?.SetAttribute(name, value));
+        }
+        type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+        {
+            if (Owner(self) is PyExceptionInstance instance)
+            {
+                instance.Layout = (PyBaseException)NearestBuiltin(instance.InstanceType).Call(args, kwargs);
+                instance.ArgsSlot = instance.Layout.ArgsTuple;
+            }
+            return PyNone.Instance;
+        });
+    }
+
+    internal static PyBaseException LayoutOf(PyObject self) => (Owner(self) as PyExceptionInstance)?.Layout;
+
+    private static PyType NearestBuiltin(PyClass type)
+    {
+        foreach (var entry in ((PyTuple)type.GetAttribute("__mro__")).Items)
+            if (entry is PyType builtin && entry is not PyClass && builtin.DerivesFromType(PyType.BaseExceptionType))
+                return builtin;
+        return PyType.BaseExceptionType;
+    }
 
     internal static PyObject[] ArgsOf(PyObject self)
     {

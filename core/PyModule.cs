@@ -414,6 +414,7 @@ public class PyModule : PyObject
             ["_string"] = () => SharpPy.Modules._StringModule.CreateStringModule(),
             ["_thread"] = () => SharpPy.Modules._ThreadModule.CreateThreadModule(),
             ["_contextvars"] = () => SharpPy.Modules._ContextvarsModule.CreateContextvarsModule(),
+            ["errno"] = () => SharpPy.Modules.ErrnoModule.CreateErrnoModule(),
             ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
 
             // OS 인터페이스 C 모듈 (cross-platform)

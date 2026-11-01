@@ -107,6 +107,8 @@ namespace SharpPy.Modules
             // else, but it is a builtins name today, so it is registered with the rest of them.
             module.ModuleDict["ReferenceError"] = PyType.ReferenceErrorType;
             module.ModuleDict["OSError"] = PyType.OSErrorType;
+            module.ModuleDict["IOError"] = PyType.OSErrorType;
+            module.ModuleDict["EnvironmentError"] = PyType.OSErrorType;
             module.ModuleDict["ConnectionError"] = PyType.ConnectionErrorType;
             module.ModuleDict["BrokenPipeError"] = PyType.BrokenPipeErrorType;
             module.ModuleDict["ConnectionAbortedError"] = PyType.ConnectionAbortedErrorType;
@@ -127,6 +129,7 @@ namespace SharpPy.Modules
             module.ModuleDict["UnicodeError"] = PyType.UnicodeErrorType;
             module.ModuleDict["UnicodeDecodeError"] = PyType.UnicodeDecodeErrorType;
             module.ModuleDict["UnicodeEncodeError"] = PyType.UnicodeEncodeErrorType;
+            module.ModuleDict["UnicodeTranslateError"] = PyType.UnicodeTranslateErrorType;
 
             // Exception Groups (PEP 654 - Python 3.11+)
             module.ModuleDict["BaseExceptionGroup"] = PyType.BaseExceptionGroupType;

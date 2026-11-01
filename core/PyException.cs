@@ -655,25 +655,47 @@ namespace SharpPy
     // Import 예외들
     public class PyImportError : PyException
     {
-        public string ModuleName { get; set; }
+        private PyObject _name, _path, _msg;
+
+        public string ModuleName => (_name as PyString)?.Value;
 
         public PyImportError(string message, string moduleName = null) : base(message)
         {
-            ModuleName = moduleName;
+            _msg = new PyString(message);
+            _name = moduleName == null ? null : new PyString(moduleName);
+        }
+
+        // ImportError_init (Objects/exceptions.c:1538): keywords name and path, msg from a single argument.
+        internal PyImportError(PyObject[] args, PyDict kwargs) : base(args)
+        {
+            if (args.Length == 1) _msg = args[0];
+            if (kwargs == null) return;
+            foreach (var pair in kwargs.InternalDict)
+            {
+                if (pair.Key is PyString { Value: "name" }) _name = pair.Value;
+                else if (pair.Key is PyString { Value: "path" }) _path = pair.Value;
+                else throw PyTypeError.Create(
+                    $"'{pair.Key.ToStr().Value}' is an invalid keyword argument for {GetTypeName()}()");
+            }
         }
 
         public override PyType GetPyType() => PyType.ImportErrorType;
         public override string GetTypeName() => "ImportError";
 
-        public override PyObject GetAttribute(string name)
+        public override PyObject GetAttribute(string name) => name switch
         {
-            switch (name)
-            {
-                case "name":
-                    return ModuleName != null ? new PyString(ModuleName) : PyNone.Instance;
-                default:
-                    return base.GetAttribute(name);
-            }
+            "name" => _name ?? PyNone.Instance,
+            "path" => _path ?? PyNone.Instance,
+            "msg" => _msg ?? PyNone.Instance,
+            _ => base.GetAttribute(name),
+        };
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "name") _name = value;
+            else if (name == "path") _path = value;
+            else if (name == "msg") _msg = value;
+            else base.SetAttribute(name, value);
         }
 
         public new static System.Exception Create(string message, string moduleName = null)
@@ -687,6 +709,8 @@ namespace SharpPy
     {
         public PyModuleNotFoundError(string message, string moduleName = null) 
             : base(message, moduleName) { }
+
+        internal PyModuleNotFoundError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
         
         public override PyType GetPyType() => PyType.ModuleNotFoundErrorType;
         public override string GetTypeName() => "ModuleNotFoundError";
@@ -843,51 +867,72 @@ namespace SharpPy
     // 구문 예외
     public class PySyntaxError : PyException
     {
-        private PyTuple _details;
+        private static readonly string[] FieldNames =
+            { "msg", "filename", "lineno", "offset", "text", "end_lineno", "end_offset", "print_file_and_line" };
+        private readonly PyObject[] _fields = new PyObject[FieldNames.Length];
 
         internal static PythonException IntegerLiteralLimit(string message, string filename, int line, string source)
         {
             var error = new PySyntaxError(message, filename, line);
-            error._details = new PyTuple(new PyString(filename), new PyInt(line), SmallIntCache.GetOrCreate(0),
+            var details = new PyTuple(new PyString(filename), new PyInt(line), SmallIntCache.GetOrCreate(0),
                 new PyString((source ?? "") + "\n"), new PyInt(line), SmallIntCache.GetOrCreate(0));
-            error.Args = new PyObject[] { new PyString(message), error._details };
+            error.ReadDetails(details);
+            error.Args = new PyObject[] { new PyString(message), details };
             return new PythonException(error);
         }
 
-        public string FileName { get; }
-        public int LineNumber { get; }
+        public string FileName => (_fields[1] as PyString)?.Value;
+        public int LineNumber => _fields[2] is PyInt line ? line.ToInt() : 0;
 
-        public PySyntaxError(string message, string fileName = "<unknown>", int lineNumber = 0) 
+        public PySyntaxError(string message, string fileName = "<unknown>", int lineNumber = 0)
             : base(message)
         {
-            FileName = fileName;
-            LineNumber = lineNumber;
+            _fields[0] = new PyString(message);
+            if (fileName != null && fileName != "<unknown>") _fields[1] = new PyString(fileName);
+            if (lineNumber > 0) _fields[2] = new PyInt(lineNumber);
         }
+
+        // SyntaxError_init (Objects/exceptions.c:2340).
+        internal PySyntaxError(PyObject[] args, PyDict kwargs) : base(args, kwargs)
+        {
+            if (args.Length >= 1) _fields[0] = args[0];
+            if (args.Length != 2) return;
+            var info = args[1] is PyTuple tuple ? tuple : (PyTuple)PyType.TupleType.Call(new[] { args[1] }, null);
+            if (info.Items.Length < 4 || info.Items.Length > 6)
+                throw PyTypeError.Create($"function takes at least 4 arguments ({info.Items.Length} given)");
+            if (info.Items.Length == 5)
+                throw PyTypeError.Create("end_offset must be provided when end_lineno is provided");
+            ReadDetails(info);
+        }
+
+        private void ReadDetails(PyTuple info) => Array.Copy(info.Items, 0, _fields, 1, info.Items.Length);
 
         public override PyType GetPyType() => PyType.SyntaxErrorType;
         public override string GetTypeName() => "SyntaxError";
 
+        // SyntaxError_str (Objects/exceptions.c:2420).
         public override PyString AsString()
         {
-            return new PyString(LineNumber > 0 ? $"{Message} ({FileName}, line {LineNumber})" : Message);
+            string text = (_fields[0] ?? PyNone.Instance).ToStr().Value;
+            string file = (_fields[1] as PyString)?.Value;
+            bool hasLine = _fields[2] is PyInt;
+            if (file != null) file = file.Substring(file.LastIndexOfAny(new[] { '/', '\\' }) + 1);
+            if (file != null && hasLine) return new PyString($"{text} ({file}, line {LineNumber})");
+            if (hasLine) return new PyString($"{text} (line {LineNumber})");
+            return new PyString(file != null ? $"{text} ({file})" : text);
         }
 
         public override PyObject GetAttribute(string name)
         {
-            switch (name)
-            {
-                case "msg": return new PyString(Message);
-                case "offset": return _details == null ? PyNone.Instance : _details.Items[2];
-                case "text": return _details == null ? PyNone.Instance : _details.Items[3];
-                case "end_lineno": return _details == null ? PyNone.Instance : _details.Items[4];
-                case "end_offset": return _details == null ? PyNone.Instance : _details.Items[5];
-                case "filename":
-                    return new PyString(FileName);
-                case "lineno":
-                    return new PyInt(LineNumber);
-                default:
-                    return base.GetAttribute(name);
-            }
+            int field = Array.IndexOf(FieldNames, name);
+            return field >= 0 ? _fields[field] ?? PyNone.Instance : base.GetAttribute(name);
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            int field = Array.IndexOf(FieldNames, name);
+            if (field >= 0) _fields[field] = value;
+            else base.SetAttribute(name, value);
         }
 
         public new static System.Exception Create(string message, string fileName = "<unknown>", int lineNumber = 0)
@@ -899,6 +944,8 @@ namespace SharpPy
 
     public class PyIndentationError : PySyntaxError
     {
+        internal PyIndentationError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyIndentationError(string message, string fileName = null, int lineNumber = 0) 
             : base(message, fileName, lineNumber) { }
         
@@ -1674,12 +1721,51 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeError : PyValueError
     {
+        // encoding, object, start, end, reason (Objects/exceptions.c PyUnicodeErrorObject).
+        private protected readonly PyObject[] Fields = new PyObject[5];
+        private static readonly string[] FieldNames = { "encoding", "object", "start", "end", "reason" };
+
         internal PyUnicodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
 
         public PyUnicodeError(string message = "") : base(message) { }
 
+        /// <summary>UnicodeDecodeError_init and UnicodeEncodeError_init: "UOnnU" or "UUnnU".</summary>
+        private protected void ReadFields(PyObject[] args, int first)
+        {
+            if (args.Length != 5 - first)
+                throw PyTypeError.Create($"function takes exactly {5 - first} arguments ({args.Length} given)");
+            Array.Copy(args, 0, Fields, first, args.Length);
+        }
+
+        private protected int Start => Fields[2].ToInt();
+        private protected int End => Fields[3].ToInt();
+        private protected string Encoding => Fields[0].ToStr().Value;
+        private protected string Reason => Fields[4].ToStr().Value;
+        private protected bool OneItem => Start < Fields[1].Length() && End == Start + 1;
+
+        /// <summary>The character at start as UnicodeEncodeError_str writes it.</summary>
+        private protected string BadCharacter()
+        {
+            string item = ((PyString)Fields[1].GetItem(new PyInt(Start))).Value;
+            int code = item.Length == 2 ? char.ConvertToUtf32(item, 0) : item[0];
+            return code <= 0xFF ? $"\\x{code:x2}" : code <= 0xFFFF ? $"\\u{code:x4}" : $"\\U{code:x8}";
+        }
+
         public override string GetTypeName() => "UnicodeError";
         public override PyType GetPyType() => PyType.UnicodeErrorType;
+
+        public override PyObject GetAttribute(string name)
+        {
+            int field = Array.IndexOf(FieldNames, name);
+            return field >= 0 && Fields[1] != null ? Fields[field] ?? PyNone.Instance : base.GetAttribute(name);
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            int field = Array.IndexOf(FieldNames, name);
+            if (field >= 0 && Fields[1] != null) Fields[field] = value;
+            else base.SetAttribute(name, value);
+        }
 
         public new static PythonException Create(string message = "")
         {
@@ -1694,18 +1780,22 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeDecodeError : PyUnicodeError
     {
-        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
-
-        public PyUnicodeDecodeError(string message = "") : base(message) { }
+        internal PyUnicodeDecodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => ReadFields(args, 0);
 
         public override string GetTypeName() => "UnicodeDecodeError";
         public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;
 
-        public new static PythonException Create(string message = "")
-        {
-            var pyException = new PyUnicodeDecodeError(message);
-            return new PythonException(pyException);
-        }
+        // UnicodeDecodeError_str (Objects/exceptions.c:3012).
+        public override PyString AsString() => new PyString(OneItem
+            ? $"'{Encoding}' codec can't decode byte 0x{((PyBytes)Fields[1]).Value[Start]:x2} in position {Start}: {Reason}"
+            : $"'{Encoding}' codec can't decode bytes in position {Start}-{End - 1}: {Reason}");
+
+        /// <summary>What a codec raises: the fields, from which the message follows.</summary>
+        internal static PythonException Failure(string encoding, byte[] data, int start, int end, string reason)
+            => new PythonException(new PyUnicodeDecodeError(new PyObject[]
+            {
+                new PyString(encoding), new PyBytes(data), new PyInt(start), new PyInt(end), new PyString(reason),
+            }, null));
     }
 
     /// <summary>
@@ -1714,22 +1804,41 @@ namespace SharpPy
     /// </summary>
     public class PyUnicodeEncodeError : PyUnicodeError
     {
-        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
-
-        public PyUnicodeEncodeError(string message = "") : base(message) { }
+        internal PyUnicodeEncodeError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => ReadFields(args, 0);
 
         public override string GetTypeName() => "UnicodeEncodeError";
         public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
 
-        public new static PythonException Create(string message = "")
-        {
-            var pyException = new PyUnicodeEncodeError(message);
-            return new PythonException(pyException);
-        }
+        // UnicodeEncodeError_str (Objects/exceptions.c:2891).
+        public override PyString AsString() => new PyString(OneItem
+            ? $"'{Encoding}' codec can't encode character '{BadCharacter()}' in position {Start}: {Reason}"
+            : $"'{Encoding}' codec can't encode characters in position {Start}-{End - 1}: {Reason}");
+
+        /// <summary>What a codec raises: the fields, from which the message follows.</summary>
+        internal static PythonException Failure(string encoding, string text, int start, int end, string reason)
+            => new PythonException(new PyUnicodeEncodeError(new PyObject[]
+            {
+                new PyString(encoding), new PyString(text), new PyInt(start), new PyInt(end), new PyString(reason),
+            }, null));
+    }
+
+    /// <summary>Python UnicodeTranslateError. CPython 3.12: Objects/exceptions.c UnicodeTranslateError_init.</summary>
+    public class PyUnicodeTranslateError : PyUnicodeError
+    {
+        internal PyUnicodeTranslateError(PyObject[] args, PyDict kwargs) : base(args, kwargs) => ReadFields(args, 1);
+
+        public override string GetTypeName() => "UnicodeTranslateError";
+        public override PyType GetPyType() => PyType.UnicodeTranslateErrorType;
+
+        public override PyString AsString() => new PyString(OneItem
+            ? $"can't translate character '{BadCharacter()}' in position {Start}: {Reason}"
+            : $"can't translate characters in position {Start}-{End - 1}: {Reason}");
     }
 
     public class PyTabError : PyIndentationError
     {
+        internal PyTabError(PyObject[] args, PyDict kwargs) : base(args, kwargs) { }
+
         public PyTabError(string message = "") : base(message) { }
         public override PyType GetPyType() => PyType.TabErrorType;
         public override string GetTypeName() => "TabError";

@@ -2207,3 +2207,12 @@ CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 �
 - `q = "keep"; [(lambda: q) for q, *y in [(1, 2)]]` 뒤에 바깥 `q`가 `1`로 바뀐다. CPython은 `"keep"`을 유지한다.
 
 이전 커밋(7f68378) 빌드에서도 앞의 사례가 재현됨을 확인했다. 해결 경로는 컴프리헨션 자신의 심볼 테이블로 범위를 정하고 `LOAD_FAST_AND_CLEAR` 뒤에 `MAKE_CELL`을 내는 것이다.
+
+## P0-82 예외 필드의 남은 경로 (측정 2026-11-01, 미해결)
+
+사용자 하위 클래스의 예외 필드는 가장 가까운 내장 예외를 `PyExceptionInstance.Layout`으로 갖는 한 경로가 되었다. 남은 것:
+
+- `ExceptionGroup`의 사용자 하위 클래스는 `message`, `exceptions`, `split`, `subgroup`, `derive`가 없다. CPython은 `BaseExceptionGroup_new`에서 구조체를 채우는데, SharpPy의 `__new__`는 일반 `PyExceptionInstance`를 만든다.
+- `(1).x`가 낸 `AttributeError`의 `name`과 `obj`가 `None`이다. CPython은 `set_attribute_error_context`가 한 곳에서 채운다.
+- `class E(OSError)`가 `__init__`을 덮어쓰고 `__new__`는 두면 CPython은 `args`를 비운다(`oserror_use_init`). SharpPy는 `__new__`의 인자를 남긴다.
+- `compile()`의 구문 오류는 `invalid syntax: ...` 형식이고 줄 번호가 없다.
