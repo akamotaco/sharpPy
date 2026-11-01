@@ -14,7 +14,8 @@
 | 검증 | 값 | 재현 |
 |---|---|---|
 | CPython 언어 테스트 | 1889 / 2890 통과 | `python tools/run_cpython_tests.py` |
-| 버그 프로브 | 166 / 166 | `python tools/run_bughunt.py` |
+| 바이트코드 일치 | 5019 / 5194 코드 객체 | `python tools/compare_bytecode.py --dotnet <dotnet> --minimum 5019` |
+| 버그 프로브 | 167 / 167 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
 
@@ -23,6 +24,33 @@
 - `test.support`는 양쪽 모두 `tools/cpython_test_shim`의 작은 스텁이다. CPython 전체 테스트 환경의 수치가 아니다.
 - `test_builtin`, `test_asyncgen`은 CPython 쪽에서도 로드 단계에서 건너뛰고, `test_extcall`은 doctest만 있어 0개로 잡힌다. 세 모듈은 분모에 없다.
 - `.artifacts/cpython_tests/*.cpython.txt`는 캐시다. 드라이버나 스텁을 바꾸면 지우고 다시 만든다. 이전 보고의 1762/2597은 오래된 캐시 때문에 분모가 빠진 값이다.
+
+바이트코드 수치의 한계: 코드 객체별 명령어 이름만 비교한다. 인자, 예외 테이블, 줄 번호표는 아직 비교하지 않는다. 대상은 `tests/bughunt`의 프로브다.
+
+## 0. 배선 점검
+
+출력 비교는 틀린 경로가 같은 값을 내면 잡지 못한다. 2026-11-01 측정에서 프로브 전부 통과 상태의 동일 코드 객체는 5175개 중 713개였다. 다음 항목은 출력이 맞아도 CPython과 구조가 다르다. 항목을 고치거나, C#과 C의 차이로 받아들인다면 이유를 여기에 적는다.
+
+| 경로 | CPython | SharpPy | 판단 |
+|---|---|---|---|
+| 이항 연산 | `binary_op1`: 오른쪽이 하위 클래스면 오른쪽 슬롯 먼저, 같은 슬롯은 한 번 | `left.Add(right)` 뒤 `__radd__`를 인스턴스 속성으로 조회, list/tuple 하위 클래스 전용 분기 | 고친다 |
+| 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `GetAttribute` override 76개 | 우선순위 대조 필요 |
+| 호출 | `tp_call`, vectorcall | `Call` override 34개 | 대조 필요 |
+| 인스턴스 생성 | `tp_new` + `tp_init` | 가상 메서드 `CreateInstance`, 일부만 `ConstructedByNewSlot` | 대조 필요 |
+| 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. 항목 1-1 | C# 예외는 유지, 변환은 고친다 |
+| `FOR_ITER`/`END_FOR` | 소진 시 이터레이터를 스택에 남기고 `END_FOR`가 둘을 꺼낸다 | `FOR_ITER`가 꺼내고 `END_FOR`는 표시만 한다 | 고친다 |
+| 프레임 | `localsplus` 안에 셀 | `Cells`가 따로 있음 (P0-81) | 고친다 |
+| 컴프리헨션 | `compiler_comprehension` 하나 | 리스트, 딕셔너리, 집합, 제너레이터가 각각 300줄 | 하나로 합친다 |
+| import | `importlib._bootstrap` | C# 로더 | 라이브러리 정책과 함께 결정 |
+| AST 트리 실행 | 없음 | `Parser/ast.cs`의 `Evaluate`, `runtime/PyExecutor.cs` | 외부 호출부가 없어 보인다. 실행 측정 후 삭제 |
+
+남은 바이트코드 차이(173개):
+
+- PEP 695: 타입 매개변수 스코프와 클래스의 `.type_params`. 항목 6과 같은 경로.
+- `LOAD_SUPER_ATTR`: `maybe_optimize_super_call`이 없고 `self`/`cls` 이름으로 판단한다.
+- `optimize_format`: `"%s" % (x,)`를 f-string으로 바꾸는 `ast_opt.c` 경로가 없다.
+- `compiler_call`의 `CALL_FUNCTION_EX` 경로 인자 구성.
+- 줄 번호 차이로 `NOP`가 남는다. `compiler_*`의 `NO_LOCATION`과 `LOC(s)` 대응이 맞지 않는 곳이다.
 
 ## 1. 예외 경로
 
@@ -98,7 +126,7 @@
 
 ## 8. 코드의 미완성 표시
 
-`TODO`, `임시`, `For now` 등이 120곳 있고 상당수는 `runtime/AdaptiveSpecializer.cs` 골격이다(비활성). 표시는 동작을 숨길 수 있으므로 CPython과 대조해 고치거나 지운다. 먼저 볼 곳:
+`TODO`, `임시`, `For now` 등이 120곳 있었고(2026-11-01 측정, 이번 대조 이전 수치) 상당수는 `runtime/AdaptiveSpecializer.cs` 골격이다(비활성). 표시는 동작을 숨길 수 있으므로 CPython과 대조해 고치거나 지운다. 먼저 볼 곳:
 
 - `core/PyFunction.cs:403`: kwargs를 무시한다는 표시.
 - `core/PyClassmethod.cs:38`: 그대로 반환하는 분기.
@@ -106,7 +134,7 @@
 - `core/PyType.cs:1888`: 여분 인자 허용.
 - `core/PyModule.cs:835`: `__spec__.parent` 미사용.
 - `runtime/compile.cs`, `Parser/ast.cs`: 컴프리헨션 대입식과 제네릭의 `임시` 표시.
-- `runtime/CFGOptimizer.cs:38`: `inline_small_exit_blocks` 없음. 동작에는 영향이 없는지 확인한다.
+- `runtime/PyVM.cs` `RERAISE`: 인자 0일 때 처리 중인 예외가 없으면 넘어가는 분기. CPython에는 없다.
 
 ## 구조적 차이 (의도적으로 남김)
 
