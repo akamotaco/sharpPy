@@ -30,6 +30,19 @@ namespace SharpPy
         }
         
         public override PyType GetPyType() => PyType.CellType;
+
+        // cell_getsetlist (Objects/cellobject.c): cell_contents.
+        public override PyObject GetAttribute(string name)
+        {
+            if (name != "cell_contents") return base.GetAttribute(name);
+            return HasValue ? _value : throw PyValueError.Create("Cell is empty");
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "cell_contents") _value = value;
+            else base.SetAttribute(name, value);
+        }
         
         public override string GetTypeName() => "cell";
         

@@ -3147,122 +3147,23 @@ namespace SharpPy
                         #endif
                         if (call.Function is NameExpression funcName)
                         {
-                            // CPython 3.12: Check scope and use appropriate load instruction
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → Checking scope for function name: '{funcName.Name}'");
-                            #endif
-
-                            // Check if it's a local variable (LOAD_FAST) or free variable (LOAD_DEREF) in function scope
-                            // CPython 3.12 PEP 709: Comprehensions are inlined but have their own scope
-                            // For inlined comprehensions, also check parent scope if not found in current scope
-                            bool isHandled = false;
-                            if (_currentSymbolTable != null && (_isInFunction || _isInComprehension))
+                            // compiler_call: VISIT(c, expr, func) with a NULL below it. EmitLoadName is the one
+                            // place that turns a name's scope into an instruction; a second copy of that choice
+                            // here read a free variable by its bare index and got a cell instead.
+                            var symbol = _currentSymbolTable != null && (_isInFunction || _isInComprehension)
+                                ? _currentSymbolTable.Lookup(funcName.Name) ??
+                                  (_isInComprehension ? _currentSymbolTable.GetParent()?.Lookup(funcName.Name) : null)
+                                : null;
+                            bool isFrameName = symbol != null && (symbol.Scope == SymbolScope.Local ||
+                                symbol.Scope == SymbolScope.Free || symbol.Scope == SymbolScope.Cell);
+                            if (_isInFunction && !isFrameName)
                             {
-                                var symbol = _currentSymbolTable.Lookup(funcName.Name);
-                                // CPython 3.12 PEP 709: If not found in comprehension scope, check parent scope
-                                if (symbol == null && _isInComprehension && _currentSymbolTable.GetParent() != null)
-                                {
-                                    symbol = _currentSymbolTable.GetParent().Lookup(funcName.Name);
-                                }
-                                if (symbol != null)
-                                {
-#if DEBUG_COMPILER_LOG
-                                    Console.WriteLine($"   → CompileCallExpression: symbol '{funcName.Name}' scope={symbol.Scope}, _varNames=[{string.Join(", ", _varNames)}]");
-#endif
-                                    if (symbol.Scope == SymbolScope.Local)
-                                    {
-                                        var localIndex = _varNames.IndexOf(funcName.Name);
-#if DEBUG_COMPILER_LOG
-                                        Console.WriteLine($"   → Looking for '{funcName.Name}' in _varNames, localIndex={localIndex}");
-#endif
-                                        if (localIndex >= 0)
-                                        {
-                                            isHandled = true;
-                                            #if DEBUG_LOG
-                                            Console.WriteLine($"   → Found as local variable, using PUSH_NULL + LOAD_FAST");
-                                            #endif
-                                            EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                            EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
-                                        }
-                                    }
-                                    else if (symbol.Scope == SymbolScope.Free)
-                                    {
-                                        // CPython 3.12 PEP 709: Inlined comprehensions share _varNames with enclosing function
-                                        // Check _varNames first for comprehension context
-                                        if (_isInComprehension)
-                                        {
-                                            var localIndex = _cellVars.Contains(funcName.Name) ? -1 : _varNames.IndexOf(funcName.Name);
-                                            if (localIndex >= 0)
-                                            {
-                                                isHandled = true;
-                                                #if DEBUG_COMPILER_LOG
-                                                Console.WriteLine($"   → PEP 709: Free var '{funcName.Name}' found in _varNames, using PUSH_NULL + LOAD_FAST");
-                                                #endif
-                                                EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                                EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
-                                            }
-                                            // PEP 709: Also check _cellVars - parent function's cell variables are accessible
-                                            if (!isHandled && _cellVars.Contains(funcName.Name))
-                                            {
-                                                var cellIndex = _cellVars.IndexOf(funcName.Name);
-                                                isHandled = true;
-                                                #if DEBUG_COMPILER_LOG
-                                                Console.WriteLine($"   → PEP 709: Free var '{funcName.Name}' found in _cellVars, using PUSH_NULL + LOAD_DEREF");
-                                                #endif
-                                                EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                                EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
-                                            }
-                                        }
-                                        // Free variable: use PUSH_NULL + LOAD_DEREF
-                                        if (!isHandled && _freeVars.Contains(funcName.Name))
-                                        {
-                                            var freeIndex = _freeVars.IndexOf(funcName.Name);
-                                            isHandled = true;
-                                            #if DEBUG_COMPILER_LOG
-                                            Console.WriteLine($"   → Found as free variable, using PUSH_NULL + LOAD_DEREF");
-                                            #endif
-                                            EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                            EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
-                                        }
-                                    }
-                                    else if (symbol.Scope == SymbolScope.Cell)
-                                    {
-                                        // Cell variable: use PUSH_NULL + LOAD_DEREF
-                                        // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
-                                        if (_cellVars.Contains(funcName.Name))
-                                        {
-                                            var cellIndex = _cellVars.IndexOf(funcName.Name);
-                                            isHandled = true;
-                                            #if DEBUG_COMPILER_LOG
-                                            Console.WriteLine($"   → Found as cell variable, using PUSH_NULL + LOAD_DEREF (cell index {cellIndex})");
-                                            #endif
-                                            EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                            EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
-                                        }
-                                    }
-                                }
+                                EmitLoadGlobal(funcName.Name, pushNull: true);
                             }
-
-                            if (!isHandled)
+                            else
                             {
-                                if (_isInFunction)
-                                {
-                                    // Function scope: use optimized LOAD_GLOBAL(pushNull=true)
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Using EmitLoadGlobal('{funcName.Name}', pushNull: true)");
-                                    #endif
-                                    EmitLoadGlobal(funcName.Name, pushNull: true);
-                                }
-                                else
-                                {
-                                    // Module scope (including inlined comprehensions): CPython 3.12 uses PUSH_NULL + LOAD_NAME
-                                    // CPython 3.12 PEP 709: Comprehensions at module level use LOAD_NAME for outer variables
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"   → Module scope, using PUSH_NULL + LOAD_NAME");
-                                    #endif
-                                    EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                    EmitLoadName(funcName.Name);
-                                }
+                                EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                EmitLoadName(funcName.Name);
                             }
                         }
                         else if (call.Function is AttributeExpression attrExpr)
@@ -4853,10 +4754,9 @@ namespace SharpPy
                 {
                     _freeVars.Add(name);
                 }
-                var freeIndex = _freeVars.IndexOf(name);
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                EmitLoadDeref(name);
                 #if DEBUG_LOG
-                Console.WriteLine($"    → LOAD_DEREF for nonlocal var: {name} (free index {freeIndex})");
+                Console.WriteLine($"    → LOAD_DEREF for nonlocal var: {name}");
                 #endif
                 return;
             }
@@ -4910,10 +4810,7 @@ namespace SharpPy
             #endif
             if (_freeVars.Contains(name))
             {
-                var freeIndex = _freeVars.IndexOf(name);
-                // CPython 3.12: Free vars come after varnames in localsplus
-                var derefIndex = _varNames.Count + freeIndex;
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, derefIndex);
+                EmitLoadDeref(name);
                 #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"    → LOAD_DEREF for free var: {name} (freeIndex {freeIndex}, derefIndex {derefIndex})");
                 #endif
