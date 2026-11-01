@@ -1766,6 +1766,23 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Analyze expressions for variable references
         /// </summary>
+        // symtable_raise_if_annotation_block and the comprehension check of symtable_visit_expr
+        private void CheckYieldScope()
+        {
+            if (_currentTable == null) return;
+            string kind = _currentTable.ComprehensionType switch
+            {
+                ComprehensionType.ListComprehension => "list comprehension",
+                ComprehensionType.SetComprehension => "set comprehension",
+                ComprehensionType.DictComprehension => "dict comprehension",
+                ComprehensionType.GeneratorExpression => "generator expression",
+                _ => null,
+            };
+            if (kind != null) throw new SyntaxErrorException($"'yield' inside {kind}");
+            if (_currentTable.Type is SymbolTableType.Module or SymbolTableType.Class)
+                throw new SyntaxErrorException("'yield' outside function");
+        }
+
         private void AnalyzeExpression(Expression expr)
         {
             switch (expr)
@@ -1962,6 +1979,7 @@ namespace SharpPy
                     break;
 
                 case YieldExpression yieldExpr:
+                    CheckYieldScope();
                     // CPython 3.12: symtable.c:2108-2114 - Set ste_generator flag
                     if (_currentTable != null)
                     {
@@ -1977,6 +1995,7 @@ namespace SharpPy
                     break;
 
                 case YieldFromExpression yieldFromExpr:
+                    CheckYieldScope();
                     // CPython 3.12: symtable.c:2115-2122 - Set ste_generator flag
                     if (_currentTable != null)
                     {
@@ -2274,6 +2293,12 @@ namespace SharpPy
 
         private void AnalyzeClass(ClassDefStatement cls)
         {
+            // symtable_visit_stmt: decorators, bases and keywords belong to the enclosing scope.
+            foreach (var decorator in cls.Decorators) AnalyzeExpression(decorator.DecoratorFunction);
+            foreach (var classBase in cls.Bases) AnalyzeExpression(classBase);
+            if (cls.ClassKeywords != null)
+                foreach (var keyword in cls.ClassKeywords) AnalyzeExpression(keyword.Value);
+
             // Define class name in current scope
             _currentTable?.DefineSymbol(cls.BindName, SymbolFlags.Assigned);
 

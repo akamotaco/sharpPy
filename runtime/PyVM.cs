@@ -1079,6 +1079,14 @@ namespace SharpPy
             return new PyScopeChain(variables, name, null);
         }
 
+        /// <summary>exec with a mapping for locals: names go to the mapping, as in a class body.</summary>
+        internal PyObject ExecuteWithNamespace(PyCodeObject code, PyScopeChain scopeChain, PyObject ns)
+        {
+            var frame = new PyFrame(code, new PyObject[0], scopeChain);
+            frame.ClassLocalsDict = ns;
+            return ExecuteFrame(frame);
+        }
+
         internal static PyScope PushLocals(PyScopeChain scopeChain, PyDict globals, PyDict locals)
         {
             if (locals == null || ReferenceEquals(locals, globals)) return null;

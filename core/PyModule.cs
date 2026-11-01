@@ -168,6 +168,14 @@ public class PyModule : PyObject
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
 
+        // module_get_annotations: a module without any gets an empty dict of its own.
+        if (name == "__annotations__")
+        {
+            var annotations = new PyDict();
+            ModuleDict[name] = annotations;
+            return annotations;
+        }
+
         // module_getattro: the type, then the module's own __getattr__ (PEP 562).
         foreach (var type in GetPyType().MRO)
             if (type.TypeDict != null && type.TypeDict.ContainsKey(name))

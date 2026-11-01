@@ -163,7 +163,7 @@ namespace SharpPy
             {
                 long count = 0;
                 foreach (var item in PySet.IterableItems(self))
-                    if (item.RichCompare(args[0], PyObject.CompareOp.EQ).IsTrue()) count++;
+                    if (PyList.AreEqual(item, args[0])) count++;
                 return new PyInt(count);
             });
             Method(PyType.RangeType, "index", (self, args) =>
@@ -171,7 +171,7 @@ namespace SharpPy
                 long index = 0;
                 foreach (var item in PySet.IterableItems(self))
                 {
-                    if (item.RichCompare(args[0], PyObject.CompareOp.EQ).IsTrue()) return new PyInt(index);
+                    if (PyList.AreEqual(item, args[0])) return new PyInt(index);
                     index++;
                 }
                 throw PyValueError.Create($"{args[0].ToRepr().Value} is not in range");

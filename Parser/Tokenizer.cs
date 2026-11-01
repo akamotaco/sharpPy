@@ -440,8 +440,12 @@ namespace SharpPy.Generated
             }
 
             // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
+            if (_parenStack.Count > 0)
+                throw new PySyntaxErrorException($"'{_parenStack.Peek()}' was never closed", null, _line, _column);
+
             // A last line of nothing but spaces has no statement to end.
-            if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r' && _currentLineHasRealTokens)
+            if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r' &&
+                _tokens.Count > 0 && _tokens[_tokens.Count - 1].Type != PyToken.Type.NEWLINE)
             {
                 AddToken(PyToken.Type.NEWLINE, "\n", _line, _column);
             }
@@ -727,6 +731,22 @@ namespace SharpPy.Generated
             @"^(0[xX](_?[0-9a-fA-F])+|0[oO](_?[0-7])+|0[bB](_?[01])+|(\d(_?\d)*)?(\.(\d(_?\d)*)?)?([eE][+-]?\d(_?\d)*)?[jJ]?)$");
         private static readonly System.Text.RegularExpressions.Regex LeadingZeros = new System.Text.RegularExpressions.Regex(@"^0[0_]*[1-9][\d_]*$");
 
+        // verify_end_of_number: a letter may only follow a number when it starts a keyword.
+        private void VerifyEndOfNumber(string number, int line, int column)
+        {
+            if (_position >= _source.Length) return;
+            char next = CurrentChar;
+            string prefix = number.Length > 1 && number[0] == '0' ? char.ToLower(number[1]).ToString() : "";
+            string kind = prefix == "x" ? "hexadecimal" : prefix == "o" ? "octal" : prefix == "b" ? "binary"
+                : char.ToLower(number[number.Length - 1]) == 'j' ? "imaginary" : "decimal";
+            if (char.IsDigit(next) && kind is "octal" or "binary")
+                throw new PySyntaxErrorException($"invalid digit '{next}' in {kind} literal", null, line, column);
+            if (!char.IsLetterOrDigit(next) && next != '_') return;
+            foreach (var keyword in new[] { "and", "else", "for", "if", "in", "is", "not", "or" })
+                if (string.CompareOrdinal(_source, _position, keyword, 0, keyword.Length) == 0) return;
+            throw new PySyntaxErrorException($"invalid {kind} literal", null, line, column);
+        }
+
         private void ValidateNumber(string number, int line, int column)
         {
             if (LeadingZeros.IsMatch(number))
@@ -795,6 +815,7 @@ namespace SharpPy.Generated
 
             var number = _source.Substring(start, _position - start);
             ValidateNumber(number, startLine, startColumn);
+            VerifyEndOfNumber(number, startLine, startColumn);
             AddToken(PyToken.Type.NUMBER, number, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }

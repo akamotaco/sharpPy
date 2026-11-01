@@ -1328,7 +1328,7 @@ namespace SharpPy
 
                     // 3. Compile to bytecode
                     // For eval(), we need to wrap the expression in a Return statement
-                    var returnStmt = new ReturnStatement(expression);
+                    var returnStmt = new ReturnStatement(expression) { IsEvalResult = true };
                     var statements = new List<Statement> { returnStmt };
 
                     var compiler = new PythonCompiler();
@@ -1336,7 +1336,7 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    throw ex is SyntaxErrorException syntax ? PySyntaxError.Create(syntax.Text, filename, Math.Max(syntax.LineNumber, 0)) : PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                    throw CompilerError(ex, filename);
                 }
             }
             else
@@ -1410,7 +1410,7 @@ namespace SharpPy
                     var expression = PyParserRuntime.ParseExpression(tokens, sourceCode, filename);
 
                     // Wrap in Return statement for eval mode
-                    var returnStmt = new ReturnStatement(expression);
+                    var returnStmt = new ReturnStatement(expression) { IsEvalResult = true };
                     var statements = new List<Statement> { returnStmt };
 
                     var compiler = new PythonCompiler();
@@ -1442,10 +1442,25 @@ namespace SharpPy
             catch (Exception ex)
             {
                 if (ex is PythonException pythonError && pythonError.PyException is PySyntaxError) throw;
-                throw ex is SyntaxErrorException syntax ? PySyntaxError.Create(syntax.Text, filename, Math.Max(syntax.LineNumber, 0)) : PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                throw CompilerError(ex, filename);
             }
 
             return codeObject;
+        }
+
+        /// <summary>What compile, exec and eval raise for source that does not compile.</summary>
+        private static Exception CompilerError(Exception error, string filename)
+        {
+            if (error is SyntaxErrorException compiler)
+                return PySyntaxError.Create(compiler.Text, filename, Math.Max(compiler.LineNumber, 1));
+            if (error is PySyntaxErrorException parser)
+            {
+                var lines = parser.Message.Split('\n');
+                var text = lines[lines.Length - 1].Trim();
+                if (text.StartsWith("SyntaxError: ")) text = text.Substring("SyntaxError: ".Length);
+                return PySyntaxError.Create(text, filename, Math.Max(parser.LineNumber, 1));
+            }
+            return PySyntaxError.Create("invalid syntax", filename, 1);
         }
 
         private static PyObject CallExec(PyObject[] args, PyDict kwargs = null)
@@ -1466,7 +1481,8 @@ namespace SharpPy
             // Validate arguments
             if (args.Length > 1 && args[1] != PyNone.Instance && !(args[1] is PyDict))
                 throw PyTypeError.Create("exec() globals must be a dict, not '" + args[1].GetTypeName() + "'");
-            if (args.Length > 2 && args[2] != PyNone.Instance && !(args[2] is PyDict))
+            PyObject localsMapping = args.Length > 2 && args[2] is not PyDict && args[2] != PyNone.Instance ? args[2] : null;
+            if (localsMapping != null && localsMapping.LookupSpecialMethodUncached("__getitem__") == null)
                 throw PyTypeError.Create("exec() locals must be a mapping");
 
             // CPython 3.12: If globals is not provided, use current frame's globals/locals
@@ -1538,7 +1554,7 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    throw ex is SyntaxErrorException syntax ? PySyntaxError.Create(syntax.Text, filename, Math.Max(syntax.LineNumber, 0)) : PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                    throw CompilerError(ex, filename);
                 }
             }
             else
@@ -1550,6 +1566,11 @@ namespace SharpPy
             // CPython pattern: PyEval_EvalCode(source, globals, locals)
             // Create a scope chain from the provided globals/locals
             var scopeChain = PyVM.ScopeOver(globals);
+            if (localsMapping != null)
+            {
+                PyVM.Instance.ExecuteWithNamespace(codeObject, scopeChain, localsMapping);
+                return PyNone.Instance;
+            }
             var localScope = PyVM.PushLocals(scopeChain, globals, locals);
             PyVM.Instance.ExecuteModule(codeObject, scopeChain);
             PyVM.StoreLocals(localScope, locals);

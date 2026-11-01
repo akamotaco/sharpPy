@@ -30,7 +30,7 @@ namespace SharpPy
                 return PyBool.FromBool(inside && (value - Start) % Step == 0);
             }
             foreach (var candidate in PySet.IterableItems(this))
-                if (ReferenceEquals(candidate, item) || candidate.RichCompare(item, CompareOp.EQ).IsTrue())
+                if (PyList.AreEqual(candidate, item))
                     return PyBool.True;
             return PyBool.False;
         }

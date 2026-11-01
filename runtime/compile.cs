@@ -2633,6 +2633,8 @@ namespace SharpPy
                     break;
                     
                 case ReturnStatement ret:
+                    if (InModuleOrClassScope && !ret.IsEvalResult)
+                        throw new SyntaxErrorException("'return' outside function", _currentFileName, ret.LineNo, ret.ColOffset);
                     // CPython 3.12: compiler_return (Python/compile.c line 3165)
                     {
                         #if DEBUG_LOG
@@ -3057,6 +3059,7 @@ namespace SharpPy
                     break;
                     
                 case CompareExpression compare:
+                    CheckCompare(compare);
                     // CPython 3.12: Compare now uses lists (ops, comparators)
                     if (compare.Ops.Count == 1)
                     {
@@ -5588,6 +5591,8 @@ namespace SharpPy
         {
             // CPython 3.12 Python/compile.c compiler_annassign
             var target = annAssign.Target;
+            if (annAssign.Simple && !InModuleOrClassScope && target is NameExpression declared && !IsCellVariable(declared.Name))
+                GetOrAddVarName(declared.Name);
 
             // Perform the actual assignment first
             if (annAssign.Value != null)
@@ -5643,6 +5648,7 @@ namespace SharpPy
         /// </summary>
         private void CompileAsyncFunction(AsyncFunctionDefStatement asyncFunc)
         {
+            CompilerDecorators(asyncFunc.Decorators);
             #if DEBUG_LOG
             Console.WriteLine($"\n🔍 Compiling async function: {asyncFunc.Name}");
             #endif
@@ -5696,6 +5702,7 @@ namespace SharpPy
             CompilerMakeClosure(codeObject, freeVars, makeFlags);
 
             // 9. 함수를 변수에 저장
+            CompilerApplyDecorators(asyncFunc.Decorators);
             EmitStoreName(asyncFunc.BindName);
             
             #if DEBUG_LOG
@@ -6728,19 +6735,64 @@ namespace SharpPy
             }
         }
 
-        private void EmitUncallableWarning(string typeName, int line)
+        /// <summary>compiler_warn: a warning through warnings, and as an error a SyntaxError.</summary>
+        private void EmitSyntaxWarning(string message, int line)
         {
-            // CPython warnings.showwarning: "{file}:{lineno}: {category}: {message}\n  {source.strip()}\n"
-            // (source echo only when the source line is available)
             var file = string.IsNullOrEmpty(_currentFileName) ? "<unknown>" : _currentFileName!;
-            var message = line > 0
-                ? $"{file}:{line}: SyntaxWarning: '{typeName}' object is not callable; perhaps you missed a comma?"
-                : $"{file}: SyntaxWarning: '{typeName}' object is not callable; perhaps you missed a comma?";
-            System.Console.Error.WriteLine(message);
-            if (_sourceLines != null && line > 0 && line <= _sourceLines.Count)
+            var category = PyImportSystem.Import("builtins").GetAttribute("SyntaxWarning");
+            try
             {
-                System.Console.Error.WriteLine("  " + _sourceLines[line - 1].Trim());
+                PyImportSystem.Import("warnings").GetAttribute("warn_explicit").Call(
+                    new PyObject[] { new PyString(message), category, new PyString(file), new PyInt(Math.Max(line, 1)) }, null);
             }
+            catch (PythonException error) when (error.PyException.GetTypeName() == "SyntaxWarning")
+            {
+                throw new SyntaxErrorException(message, file, line, 0);
+            }
+        }
+
+        private void EmitUncallableWarning(string typeName, int line) =>
+            EmitSyntaxWarning($"'{typeName}' object is not callable; perhaps you missed a comma?", line);
+
+        private static bool IsPlainIsArgument(Expression expression) =>
+            expression is not ConstantExpression constant || constant.Value is PyNone or PyBool or PyEllipsis;
+
+        // check_compare
+        private void CheckCompare(CompareExpression compare)
+        {
+            var left = compare.Left;
+            for (int i = 0; i < compare.Ops.Count; i++)
+            {
+                var right = compare.Comparators[i];
+                string op = compare.Ops[i].GetType().Name;
+                if (op is "GeneratedIs" or "GeneratedIsNot" && !(IsPlainIsArgument(left) && IsPlainIsArgument(right)))
+                {
+                    var literal = (ConstantExpression)(IsPlainIsArgument(right) ? left : right);
+                    EmitSyntaxWarning(op == "GeneratedIs"
+                        ? $"\"is\" with '{literal.Value.GetTypeName()}' literal. Did you mean \"==\"?"
+                        : $"\"is not\" with '{literal.Value.GetTypeName()}' literal. Did you mean \"!=\"?", compare.LineNo);
+                }
+                left = right;
+            }
+        }
+
+        // check_subscripter and check_index
+        private void CheckSubscript(SubscriptExpression subscript)
+        {
+            var value = subscript.Value;
+            if (value is SetExpression or SetComprehension or GeneratorExpression or LambdaExpression ||
+                value is ConstantExpression { Value: PyNone or PyEllipsis or PyInt or PyBool or PyFloat or PyComplex or PyFrozenSet })
+            {
+                TryGetInferredCallerTypeName(value, out var name);
+                EmitSyntaxWarning($"'{name}' object is not subscriptable; perhaps you missed a comma?", subscript.LineNo);
+                return;
+            }
+            if (!(value is TupleExpression or ListExpression or ListComprehension or JoinedStrExpression ||
+                  value is ConstantExpression { Value: PyString or PyBytes or PyTuple })) return;
+            if (subscript.Slice is SliceExpression || !TryGetInferredCallerTypeName(subscript.Slice, out var indexType) ||
+                indexType is "int" or "bool") return;
+            TryGetInferredCallerTypeName(value, out var valueType);
+            EmitSyntaxWarning($"{valueType} indices must be integers or slices, not {indexType}; perhaps you missed a comma?", subscript.LineNo);
         }
 
         private void CompileImport(ImportStatement import)
@@ -9291,6 +9343,8 @@ namespace SharpPy
         
         private void CompileAssert(AssertStatement assert)
         {
+            if (assert.Test is TupleExpression { Elements.Count: > 0 })
+                EmitSyntaxWarning("assertion is always true, perhaps remove parentheses?", assert.LineNo);
             // CPython 3.12: assert test [, msg]
             // Pattern: test → POP_JUMP_IF_TRUE → LOAD_ASSERTION_ERROR [→ msg → CALL 0] → RAISE_VARARGS 1
 

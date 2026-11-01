@@ -937,7 +937,7 @@ namespace SharpPy
             }
         }
 
-        private static bool AreEqual(PyObject a, PyObject b)
+        internal static bool AreEqual(PyObject a, PyObject b)
         {
             if (a == b) return true;
             if (a == null || b == null) return false;

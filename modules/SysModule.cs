@@ -116,6 +116,8 @@ namespace SharpPy.Modules
             module.ModuleDict["getrecursionlimit"] = new PySysFunction("getrecursionlimit");
             // No trace function can be installed; settrace(None) is what code restoring it calls.
             module.ModuleDict["gettrace"] = new PyBuiltinFunction("gettrace", args => PyNone.Instance);
+            module.ModuleDict["audit"] = new PyBuiltinFunction("audit", args => PyNone.Instance);
+            module.ModuleDict["addaudithook"] = new PyBuiltinFunction("addaudithook", args => PyNone.Instance);
             module.ModuleDict["settrace"] = new PyBuiltinFunction("settrace", args => PyNone.Instance);
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
             module.ModuleDict["intern"] = new PySysFunction("intern");

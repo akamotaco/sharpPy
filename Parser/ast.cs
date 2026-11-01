@@ -978,6 +978,9 @@ namespace SharpPy
         public override string NodeType => "Return";
         public Expression? Value { get; }
         
+        /// <summary>eval compiles its expression as a return at module level.</summary>
+        public bool IsEvalResult { get; set; }
+
         public ReturnStatement(Expression? value = null)
         {
             Value = value;
