@@ -1411,7 +1411,8 @@ namespace SharpPy
             
             // CPython 3.12: 모듈은 RETURN_CONST로 None 반환
             var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
+            EmitNoLocation(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            EmitNoLocation(ByteCodeOp.RETURN_VALUE);
 
             // Comprehensions don't have generator flags
             var finalInstructions = GetFinalInstructions(0, parameters.Count);
@@ -2021,7 +2022,8 @@ namespace SharpPy
                 Console.WriteLine($"  → Adding implicit None return for {name}");
 #endif
                 var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-                EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
+                EmitNoLocation(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            EmitNoLocation(ByteCodeOp.RETURN_VALUE);
             }
 
             // CPython 3.12: wrap_in_stopiteration_handler for generators/coroutines
@@ -2596,9 +2598,8 @@ namespace SharpPy
                         Console.WriteLine($"   _isInteractive={_isInteractive}, _isInFunction={_isInFunction}");
                         #endif
                         CompileExpression(expr.Expression);
-                        // CPython 3.12: After YIELD_VALUE + RESUME, sent value is on stack and needs POP_TOP
-                        // POP_TOP is needed for ALL expressions, including YieldExpression
-                        EmitInstruction(ByteCodeOp.POP_TOP);
+                        // Mark POP_TOP as artificial
+                        EmitNoLocation(ByteCodeOp.POP_TOP);
                     }
                     break;
                     
@@ -2615,47 +2616,33 @@ namespace SharpPy
                         }
                         #endif
 
+                        var folded = ret.Value == null ? null : _fold.Fold(ret.Value);
                         var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-                        bool constantReturn = ret.Value == null || ret.Value is ConstantExpression ||
-                            ret.Value is NameExpression { Name: "None" };
-                        bool preserveTos = !constantReturn;
-
-                        // Constants have no evaluation side effects and RETURN_CONST
-                        // reads them directly after cleanup. Do not carry a spare
-                        // value through finally/with/loop unwinding.
+                        bool preserveTos = folded != null && folded is not ConstantExpression;
                         if (preserveTos)
-                            CompileExpression(ret.Value);
-
-                        // Unwind ALL fblocks (findLoop = false means unwind everything)
+                        {
+                            CompileExpression(folded);
+                        }
+                        else if (folded != null)
+                        {
+                            // Emit instruction with line number for return value
+                            UpdateSourceLocation(folded);
+                            EmitInstruction(ByteCodeOp.NOP);
+                        }
+                        if (folded == null || folded.LineNo != ret.LineNo)
+                        {
+                            UpdateSourceLocation(ret);
+                            EmitInstruction(ByteCodeOp.NOP);
+                        }
                         UnwindFBlockStack(ref loc, preserveTos, findLoop: false);
-
-                        // Emit return instruction
-                        if (ret.Value != null)
-                        {
-                            // CPython 3.12: 상수 표현식이면 RETURN_CONST 직접 생성
-                            if (ret.Value is ConstantExpression literal)
-                            {
-                                var constIndex = GetOrAddConstant(literal.Value);
-                                EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
-                            }
-                            else if (ret.Value is NameExpression name && name.Name == "None")
-                            {
-                                var constIndex = GetOrAddConstant(PyNone.Instance);
-                                EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
-                            }
-                            else
-                            {
-                                EmitInstruction(ByteCodeOp.RETURN_VALUE);
-                            }
-                        }
-                        else
-                        {
-                            var constIndex = GetOrAddConstant(PyNone.Instance);
-                            EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
-                        }
+                        if (folded == null)
+                            EmitLoadConst(PyNone.Instance);
+                        else if (!preserveTos)
+                            EmitLoadConst(((ConstantExpression)folded).Value);
+                        EmitInstruction(ByteCodeOp.RETURN_VALUE);
                     }
                     break;
-                    
+
                 case GeneratorExpressionBody body:
                     CompileExpression(new NameExpression(".0"));
                     CompileSyncComprehensionGenerator(body.Expression.Generators, 0, 0, body.Expression.Element, null,
@@ -2737,13 +2724,7 @@ namespace SharpPy
                     CompileAsyncFor(asyncForStmt);
                     break;
 
-                case ForTupleStatement forTupleStmt:
-                    CompileForTuple(forTupleStmt);
-                    break;
                     
-                case ForComplexStatement forComplexStmt:
-                    CompileForComplex(forComplexStmt);
-                    break;
                     
                     
                 case TryStatement tryStmt:
@@ -6542,21 +6523,12 @@ namespace SharpPy
 
             // Function compilation already emits its explicit/implicit return.
             // Keep a fallback only when the body can still fall through.
-            if (!_instructionSequence.EndsWithTerminator())
-                EmitInstruction(ByteCodeOp.RETURN_CONST, GetOrAddConstant(PyNone.Instance));
+            EmitNoLocation(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
+            EmitNoLocation(ByteCodeOp.RETURN_VALUE);
 
-            // CPython: USE_LABEL(c, handler);
             _instructionSequence.UseLabel(handlerLabel);
-
-            // CPython: ADDOP_I(c, NO_LOCATION, CALL_INTRINSIC_1, INTRINSIC_STOPITERATION_ERROR);
-            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_STOPITERATION_ERROR);
-
-            // CPython: ADDOP_I(c, NO_LOCATION, RERAISE, 1);
-            EmitInstruction(ByteCodeOp.RERAISE, 1);
-
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"✅ [CFG] WrapInStopIterationHandler: Added SETUP_CLEANUP wrapper for generator");
-#endif
+            EmitNoLocation(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_STOPITERATION_ERROR);
+            EmitNoLocation(ByteCodeOp.RERAISE, 1);
         }
 
         /// <summary>
@@ -6617,99 +6589,43 @@ namespace SharpPy
         /// </summary>
         private void CompileFor(ForStatement forStmt)
         {
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileFor: Using InstructionSequence with Labels (CPython 3.12)");
-#endif
-            _cfgPathCount++;
-            CompileForWithLabels(forStmt);
-        }
+            var start = _instructionSequence.NewLabel();
+            var body = _instructionSequence.NewLabel();
+            var cleanup = _instructionSequence.NewLabel();
+            var end = _instructionSequence.NewLabel();
 
-        /// <summary>
-        /// NEW: Label-based for loop compilation (CPython 3.12)
-        /// Uses InstructionSequence with SharpPy.Label objects
-        /// CPython pattern: GET_ITER → FOR_ITER → body → JUMP → END_FOR
-        /// </summary>
-        private void CompileForWithLabels(ForStatement forStmt)
-        {
-#if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 for 루프 컴파일 (Label-based)");
-#endif
-
-            // CPython 3.12 pattern: 4 labels (start, body, cleanup, end)
-            var startLabel = _instructionSequence.NewLabel();    // FOR_ITER 위치
-            var bodyLabel = _instructionSequence.NewLabel();     // 루프 본문 시작
-            var cleanupLabel = _instructionSequence.NewLabel();  // END_FOR 위치
-            var endLabel = _instructionSequence.NewLabel();      // 전체 종료
-
-            // 1. Get iterator from iterable
-            CompileExpression(_fold.FoldIter(forStmt.Iter));
-
-            // CPython 3.12: Generator function의 .0 매개변수는 이미 iterator
-            bool skipGetIter = forStmt.Iter is NameExpression nameExpr && nameExpr.Name == ".0";
-            if (!skipGetIter)
-            {
-                EmitInstruction(ByteCodeOp.GET_ITER);
-            }
-
-            // 2. Mark start label and emit FOR_ITER
-            _instructionSequence.UseLabel(startLabel);
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.FOR_ITER,
-                cleanupLabel,  // Jump to cleanup (END_FOR) on StopIteration
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // 3. Mark body label
-            _instructionSequence.UseLabel(bodyLabel);
-
-            // 4. FOR_ITER pushes next value on stack, store it in loop variable
-            CompileAssignmentTarget(forStmt.Target);
-
-            // 5. Set up loop context for break/continue (CPython 3.12: PushFBlock)
-            // Break → endLabel, Continue → startLabel
             var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, endLabel, null);
+            PushFBlock(loc, FBlockType.FOR_LOOP, start, end, null);
 
-            // 6. Execute loop body
-            foreach (var stmt in forStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
+            var iter = _fold.FoldIter(forStmt.Iter);
+            CompileExpression(iter);
+            UpdateSourceLocation(iter);
+            EmitInstruction(ByteCodeOp.GET_ITER);
 
-            // 7. Jump back to FOR_ITER
-            // CPython 3.12: Uses JUMP_BACKWARD for backward jumps
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                startLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
+            _instructionSequence.UseLabel(start);
+            EmitJump(ByteCodeOp.FOR_ITER, cleanup);
 
-            // 8. Mark cleanup label and emit END_FOR
-            _instructionSequence.UseLabel(cleanupLabel);
-            EmitInstruction(ByteCodeOp.END_FOR, 0);
+            // Add NOP to ensure correct line tracing of multiline for statements.
+            UpdateSourceLocation(forStmt.Target);
+            EmitInstruction(ByteCodeOp.NOP);
 
-            // 9. Pop loop context (CPython 3.12: PopFBlock)
-            PopFBlock(FBlockType.FOR_LOOP, startLabel);
+            _instructionSequence.UseLabel(body);
+            CompileAssignmentTarget(forStmt.Target);
+            foreach (var statement in forStmt.Body)
+                CompileStatement(statement);
+            // Mark jump as artificial
+            EmitJumpNoLocation(start);
 
-            // 10. Execute else clause if present
-            if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
-            {
-                foreach (var stmt in forStmt.ElseClause)
-                {
-                    CompileStatement(stmt);
-                }
-            }
+            _instructionSequence.UseLabel(cleanup);
+            EmitNoLocation(ByteCodeOp.END_FOR);
 
-            // 11. Mark end label
-            _instructionSequence.UseLabel(endLabel);
+            PopFBlock(FBlockType.FOR_LOOP, start);
 
-#if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 for 루프 컴파일 완료 (Label-based)");
-#endif
+            if (forStmt.ElseClause != null)
+                foreach (var statement in forStmt.ElseClause)
+                    CompileStatement(statement);
+
+            _instructionSequence.UseLabel(end);
         }
 
         /// <summary>
@@ -6829,160 +6745,7 @@ namespace SharpPy
 #endif
         }
 
-        /// <summary>
-        /// Compile for loop with tuple unpacking (e.g., for key, value in items:)
-        /// </summary>
-        private void CompileForTuple(ForTupleStatement forTupleStmt)
-        {
-            // CPython 3.12: Label-based control flow (no manual offset calculation)
-
-            // 1. Get iterator from iterable
-            CompileExpression(_fold.FoldIter(forTupleStmt.Iter));  // Push iterable on stack
-            EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
-
-            // 2. Create labels for loop control flow
-            var startLabel = _instructionSequence.NewLabel();
-            var endLabel = _instructionSequence.NewLabel();
-            var breakLabel = _instructionSequence.NewLabel();
-            var continueLabel = _instructionSequence.NewLabel();
-
-            // 3. Mark loop start
-            _instructionSequence.UseLabel(startLabel);
-
-            // 4. FOR_ITER jumps to cleanup on StopIteration
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.FOR_ITER,
-                endLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // 5. FOR_ITER pushes the next value on stack, unpack it into target variables
-            EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, forTupleStmt.Targets.Count);
-
-            // 6. Store each unpacked value in the target variables
-            for (int i = 0; i < forTupleStmt.Targets.Count; i++)
-            {
-                EmitStoreName(forTupleStmt.Targets[i]);
-            }
-
-            // 7. Push loop fblock for break/continue (CPython 3.12: PushFBlock)
-            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, breakLabel, null);
-
-            // 8. Execute loop body
-            foreach (var stmt in forTupleStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            // 9. Mark continue label
-            _instructionSequence.UseLabel(continueLabel);
-
-            // 10. Jump back to loop start (CPython 3.12: uses JUMP, assembler determines direction)
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                startLabel,
-                -1,  // NO_LOCATION
-                -1,
-                _currentFileName
-            );
-
-            // 11. Cleanup label - loop exits here
-            _instructionSequence.UseLabel(endLabel);
-            EmitInstruction(ByteCodeOp.END_FOR, 0);
-
-            // 12. Pop loop fblock (CPython 3.12: PopFBlock)
-            PopFBlock(FBlockType.FOR_LOOP, startLabel);
-
-            // 13. Execute else clause if present
-            if (forTupleStmt.ElseClause != null && forTupleStmt.ElseClause.Count > 0)
-            {
-                foreach (var stmt in forTupleStmt.ElseClause)
-                {
-                    CompileStatement(stmt);
-                }
-            }
-
-            // 14. Mark break label
-            _instructionSequence.UseLabel(breakLabel);
-        }
         
-        /// <summary>
-        /// Compile for loop with complex tuple unpacking (e.g., for i, (name, value) in enumerate(tests):)
-        /// </summary>
-        private void CompileForComplex(ForComplexStatement forComplexStmt)
-        {
-            // CPython 3.12: Label-based control flow (no manual offset calculation)
-
-            // 1. Get iterator from iterable
-            CompileExpression(_fold.FoldIter(forComplexStmt.Iter));  // Push iterable on stack
-            EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
-
-            // 2. Create labels for loop control flow
-            var startLabel = _instructionSequence.NewLabel();
-            var endLabel = _instructionSequence.NewLabel();
-            var breakLabel = _instructionSequence.NewLabel();
-            var continueLabel = _instructionSequence.NewLabel();
-
-            // 3. Mark loop start
-            _instructionSequence.UseLabel(startLabel);
-
-            // 4. FOR_ITER jumps to cleanup on StopIteration
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.FOR_ITER,
-                endLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // 5. FOR_ITER pushes the next value on stack
-            // Compile complex target assignment
-            CompileComplexAssignTarget(forComplexStmt.Target);
-
-            // 6. Push loop fblock for break/continue (CPython 3.12: PushFBlock)
-            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, breakLabel, null);
-
-            // 7. Execute loop body
-            foreach (var stmt in forComplexStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            // 8. Mark continue label
-            _instructionSequence.UseLabel(continueLabel);
-
-            // 9. Jump back to loop start (CPython 3.12: uses JUMP, assembler determines direction)
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                startLabel,
-                -1,  // NO_LOCATION
-                -1,
-                _currentFileName
-            );
-
-            // 10. Cleanup label - loop exits here
-            _instructionSequence.UseLabel(endLabel);
-            EmitInstruction(ByteCodeOp.END_FOR, 0);
-
-            // 11. Pop loop fblock (CPython 3.12: PopFBlock)
-            PopFBlock(FBlockType.FOR_LOOP, startLabel);
-
-            // 12. Execute else clause if present
-            if (forComplexStmt.ElseClause != null && forComplexStmt.ElseClause.Count > 0)
-            {
-                foreach (var stmt in forComplexStmt.ElseClause)
-                {
-                    CompileStatement(stmt);
-                }
-            }
-
-            // 13. Mark break label
-            _instructionSequence.UseLabel(breakLabel);
-        }
         
         /// <summary>
         /// Compile complex assignment target for for loop unpacking
@@ -11111,6 +10874,15 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.SWAP, pushedLocals.Count + 1);
             for (int i = pushedLocals.Count - 1; i >= 0; i--)
                 EmitInstruction(ByteCodeOp.STORE_FAST_MAYBE_NULL, GetOrAddVarName(pushedLocals[i]));
+        }
+
+        // ADDOP(c, NO_LOCATION, ...): an artificial instruction, its line comes from its neighbours.
+        private void EmitNoLocation(ByteCodeOp op, int argument = 0)
+        {
+            int line = _currentLineNumber;
+            _currentLineNumber = -1;
+            EmitInstruction(op, argument);
+            _currentLineNumber = line;
         }
 
         private void EmitJump(ByteCodeOp op, SharpPy.Label target)
