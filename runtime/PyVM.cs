@@ -52,19 +52,6 @@ namespace SharpPy
         public PyBaseException? LastException { get; set; }
         public PyBaseException? CurrentException { get; set; } // Current exception for PUSH_EXC_INFO
 
-        // CPython 3.12 exception-stack scopes (_PyErr_StackItem chain). Each time an
-        // exception is dispatched into a handler we push (tryStartDepth, exc). POP_EXCEPT
-        // pops the innermost scope. When unwinding to a shallower handler we drop every
-        // scope entered at depth >= target so an abandoned handler's exception does not
-        // leak into a later raise's __context__. CurrentException is always the surviving
-        // scope's exception (what CPython's _PyErr_GetTopmostException reports AFTER the
-        // unwind), while __context__ is captured BEFORE the unwind (raise-time topmost).
-        private System.Collections.Generic.List<(int Depth, PyBaseException Exc)>? _handledScopes;
-        // Lazily allocated: the overwhelming majority of frames never enter a handler.
-        public System.Collections.Generic.List<(int Depth, PyBaseException Exc)> HandledScopes
-            => _handledScopes ??= new System.Collections.Generic.List<(int Depth, PyBaseException Exc)>();
-        // True when a scope has actually been allocated (avoids allocating on read-only checks).
-        public bool HasHandledScopes => _handledScopes is { Count: > 0 };
         public int ExceptionHandlerCallCount { get; set; } = 0; // Prevent infinite loops
 
         // CPython 3.12: Generator throw() support - injected exception to raise on next frame execution
@@ -1505,24 +1492,6 @@ namespace SharpPy
             {
                 newExcBase.__context__ = ctxBase;
             }
-
-            // Drop every handler scope entered at depth >= the target, then
-            // CurrentException reflects the surviving enclosing handler (the
-            // state CPython's PUSH_EXC_INFO sees as prev, post-unwind).
-            if (frame.HasHandledScopes)
-            {
-                for (int si = frame.HandledScopes.Count - 1; si >= 0;)
-                {
-                    if (frame.HandledScopes[si].Depth >= exceptionEntry.Depth)
-                        frame.HandledScopes.RemoveAt(si);
-                    si--;
-                }
-            }
-            frame.CurrentException = frame.HasHandledScopes
-                ? frame.HandledScopes[frame.HandledScopes.Count - 1].Exc
-                : null;
-            if (pyEx.PyException is PyBaseException scopeExc)
-                frame.HandledScopes.Add((exceptionEntry.Depth, scopeExc));
 
             // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
             // CPython ceval.c:972-978
@@ -4377,11 +4346,7 @@ namespace SharpPy
                         var prevExcValue = frame.ValueStack.Pop();
 
                         // bytecodes.c POP_EXCEPT: exc_info takes the value PUSH_EXC_INFO saved.
-                        // A handler that ended without its own pop (except*) leaves scopes to drop.
                         var restored = prevExcValue is PyNone ? null : (PyBaseException)PyExceptionSlots.ToTransport(prevExcValue);
-                        while (frame.HasHandledScopes &&
-                               !ReferenceEquals(frame.HandledScopes[frame.HandledScopes.Count - 1].Exc, restored))
-                            frame.HandledScopes.RemoveAt(frame.HandledScopes.Count - 1);
                         frame.CurrentException = restored;
 
                         #if DEBUG_LOG
@@ -4747,7 +4712,8 @@ namespace SharpPy
                     frame.ValueStack.Push(egMatch ?? PyNone.Instance);
                     // PyErr_SetHandledException(match): inside the clause, the handled exception
                     // is the matched part, not the group that arrived.
-                    if (!(egMatch is PyNone) && egMatch is PyBaseException handledPart)
+                    if (egMatch != null && egMatch is not PyNone &&
+                        PyExceptionSlots.ToTransport(egMatch) is PyBaseException handledPart)
                         frame.CurrentException = handledPart;
                     break;
 
