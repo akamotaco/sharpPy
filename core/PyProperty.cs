@@ -36,7 +36,7 @@ public interface IDescriptor
         /// <summary>
         /// CPython 호환: property 타입의 descriptor 테이블 초기화
         /// </summary>
-        private static void InitializePropertyDescriptors()
+        internal static void InitializePropertyDescriptors()
         {
             var propType = PyType.PropertyType;
 
@@ -134,6 +134,21 @@ public interface IDescriptor
                     }
                     return PyBool.False;
                 });
+
+            // property_descr_get, for super().__get__ in a subclass.
+            propType.TypeDict["__get__"] = new PyMethodDescriptor("__get__", propType, (self, args, kwargs) =>
+                ((PyProperty)self).PropertyGet(args[0] is PyNone ? null : args[0], args.Length > 1 ? args[1] as PyType : null),
+                1, 2);
+
+            // A Python subclass of property: the same object, under its class.
+            propType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", propType, (cls, args, kwargs) =>
+            {
+                var created = (PyObject)PyType.PropertyType.Call(args, kwargs);
+                created.SetCustomType((PyType)cls);
+                return created;
+            }, 0, int.MaxValue, acceptsKwargs: true);
+            propType.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", propType,
+                (self, args, kwargs) => PyNone.Instance);
 
             propType.TypeDict["fget"] = new PyGetSetDescriptor(
                 "fget",
@@ -243,6 +258,15 @@ public interface IDescriptor
         }
 
         public PyObject Get(PyObject instance, PyType owner)
+        {
+            // A subclass that declares __get__ replaces tp_descr_get.
+            var declared = _customType != null ? LookupUserSpecial("__get__") : null;
+            return declared != null
+                ? BindSpecialMethod(declared).Call(new[] { instance ?? PyNone.Instance, owner }, null)
+                : PropertyGet(instance, owner);
+        }
+
+        private PyObject PropertyGet(PyObject instance, PyType owner)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PyProperty.Get called: instance={instance?.GetType().Name}, owner={owner?.Name}");
@@ -402,6 +426,20 @@ public interface IDescriptor
 
         public override PyObject GetAttribute(string name)
         {
+            // property_init: __doc__ is the doc argument, or the getter's.
+            if (name == "__doc__")
+            {
+                if (_doc != null) return _doc;
+                try
+                {
+                    return _getter?.GetAttribute("__doc__") ?? PyNone.Instance;
+                }
+                catch (PythonException e) when (e.PyException is PyAttributeError)
+                {
+                    return PyNone.Instance;
+                }
+            }
+
             if (name == "__set_name__")
             {
                 // CPython 3.12: Objects/descrobject.c property_set_name
@@ -423,7 +461,7 @@ public interface IDescriptor
         }
 
         public override string GetTypeName() => "property";
-        public override PyType GetPyType() => PyType.PropertyType;
+        public override PyType GetPyType() => _customType ?? PyType.PropertyType;
         public override string ToString() => "<property object>";
     }
 

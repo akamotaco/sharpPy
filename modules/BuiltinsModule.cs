@@ -169,7 +169,8 @@ namespace SharpPy.Modules
 
             // Add property, classmethod, staticmethod (required by enum module)
             // CPython 3.12: These should be TYPE objects, not functions
-            module.ModuleDict["property"] = new PyBuiltinFunction("property");
+            PyProperty.InitializePropertyDescriptors();
+            module.ModuleDict["property"] = PyType.PropertyType;
             module.ModuleDict["classmethod"] = PyType.ClassMethodType; // Type object
             module.ModuleDict["staticmethod"] = PyType.StaticMethodType; // Type object
 

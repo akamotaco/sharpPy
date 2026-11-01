@@ -611,7 +611,7 @@ namespace SharpPy
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
             // wrap_descr_get and wrap_descr_set: a C descriptor's slots are reachable from Python, as inspect uses them.
-            if (this is IDescriptor descriptor)
+            if (this is IDescriptor descriptor && !(GetPyType() is PyClass))
             {
                 if (name == "__get__")
                     return new PyBuiltinFunction("__get__", args =>

@@ -6451,6 +6451,12 @@ namespace SharpPy
 
                     // CPython 3.12: If left.__op__ returns NotImplemented, try right.__rop__(left)
                     // CPython: Objects/abstract.c:964-984 (binary_op1)
+                    // PyNumber_Multiply: when the numbers decline, sq_repeat of either side with the other as index.
+                    if (result == PyNotImplemented.Instance && binaryOp == BinaryOpType.MULTIPLY)
+                    {
+                        result = SequenceRepeat(left, right);
+                        if (result == PyNotImplemented.Instance) result = SequenceRepeat(right, left);
+                    }
                     if (result == PyNotImplemented.Instance)
                     {
                         result = TryReverseBinaryOp(right, left, binaryOp);
@@ -6569,6 +6575,21 @@ namespace SharpPy
         /// Try reverse binary operation (right.__rop__(left))
         /// CPython 3.12: Objects/abstract.c:964-984 (binary_op1)
         /// </summary>
+        private static PyObject SequenceRepeat(PyObject sequence, PyObject count)
+        {
+            if (sequence.GetPyType() is PyClass || sequence is PyInt or PyBool or PyFloat or PyComplex)
+                return PyNotImplemented.Instance;
+            PyInt index = count switch
+            {
+                PyBool truth => new PyInt(truth.Value ? 1 : 0),
+                PyInt number => number,
+                PyIntSubclass subclass => subclass.GetIntValue(),
+                _ => count.LookupSpecialMethodUncached("__index__") != null
+                    ? count.GetAttribute("__index__").Call(Array.Empty<PyObject>(), null) as PyInt : null,
+            };
+            return index == null ? PyNotImplemented.Instance : sequence.Multiply(index);
+        }
+
         private PyObject TryReverseBinaryOp(PyObject right, PyObject left, BinaryOpType binaryOp)
         {
             try

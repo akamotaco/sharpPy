@@ -1154,6 +1154,7 @@ namespace SharpPy
 
         public override PyObject Power(PyObject other)
         {
+            if (other is PyIntSubclass subclass) other = subclass.GetIntValue();
             // CPython 3.12: Objects/longobject.c:long_pow
             // int ** int → int (if exponent >= 0) or float (if exponent < 0)
             // int ** float → float
@@ -1344,95 +1345,34 @@ namespace SharpPy
 
         #region Bitwise Operations
 
-        public override PyObject BitwiseAnd(PyObject other)
+        /// <summary>PyLong_Check: bool and int subclasses are ints, at any size.</summary>
+        private static bool TryIntValue(PyObject other, out BigInteger value)
         {
-            // CPython 3.12: Objects/longobject.c:5336 (long_and)
-            // Line 1547-1551: CHECK_BINOP macro
-            // #define CHECK_BINOP(v,w) if (!PyLong_Check(v) || !PyLong_Check(w)) Py_RETURN_NOTIMPLEMENTED;
-
-            // CPython 3.12: Include/longobject.h:12-13
-            // PyLong_Check: Include/longobject.h:12-13
-            // #define PyLong_Check(op) PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_LONG_SUBCLASS)
-            // This includes int subclasses (IntEnum, IntFlag, etc.)
-
-            long otherValue;
-            if (other is PyInt otherInt)
+            switch (other)
             {
-                otherValue = (long)otherInt.Value;
+                case PyBool truth:
+                    value = truth.Value ? BigInteger.One : BigInteger.Zero;
+                    return true;
+                case PyInt number:
+                    value = number.Value;
+                    return true;
+                case PyIntSubclass subclass:
+                    value = subclass.GetIntValue().Value;
+                    return true;
+                default:
+                    value = default;
+                    return false;
             }
-            else if (other is PyIntSubclass intSubclass)
-            {
-                // int subclass is also PyLong_Check compatible
-                otherValue = (long)intSubclass.GetIntValue().Value;
-            }
-            else if (other is PyBool otherBool)
-            {
-                otherValue = otherBool.Value ? 1 : 0;
-            }
-            else
-            {
-                // CPython: Py_RETURN_NOTIMPLEMENTED for non-int types
-                return PyNotImplemented.Instance;
-            }
-
-            return new PyInt(Value & otherValue);
         }
 
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            // CPython 3.12: Objects/longobject.c:5347 (long_or)
-            // Line 1547-1551: CHECK_BINOP macro checks PyLong_Check for both operands
+        public override PyObject BitwiseAnd(PyObject other) =>
+            TryIntValue(other, out var right) ? new PyInt(Value & right) : PyNotImplemented.Instance;
 
-            long otherValue;
-            if (other is PyInt otherInt)
-            {
-                otherValue = (long)otherInt.Value;
-            }
-            else if (other is PyIntSubclass intSubclass)
-            {
-                // int subclass passes PyLong_Check (Include/longobject.h:12-13)
-                otherValue = (long)intSubclass.GetIntValue().Value;
-            }
-            else if (other is PyBool otherBool)
-            {
-                otherValue = otherBool.Value ? 1 : 0;
-            }
-            else
-            {
-                // CPython: Py_RETURN_NOTIMPLEMENTED for non-int types
-                return PyNotImplemented.Instance;
-            }
+        public override PyObject BitwiseOr(PyObject other) =>
+            TryIntValue(other, out var right) ? new PyInt(Value | right) : PyNotImplemented.Instance;
 
-            return new PyInt(Value | otherValue);
-        }
-
-        public override PyObject BitwiseXor(PyObject other)
-        {
-            // CPython 3.12: Objects/longobject.c:5358 (long_xor)
-            // Line 1547-1551: CHECK_BINOP macro checks PyLong_Check
-
-            long otherValue;
-            if (other is PyInt otherInt)
-            {
-                otherValue = (long)otherInt.Value;
-            }
-            else if (other is PyIntSubclass intSubclass)
-            {
-                // int subclass passes PyLong_Check
-                otherValue = (long)intSubclass.GetIntValue().Value;
-            }
-            else if (other is PyBool otherBool)
-            {
-                otherValue = otherBool.Value ? 1 : 0;
-            }
-            else
-            {
-                // CPython: Py_RETURN_NOTIMPLEMENTED for non-int types
-                return PyNotImplemented.Instance;
-            }
-
-            return new PyInt(Value ^ otherValue);
-        }
+        public override PyObject BitwiseXor(PyObject other) =>
+            TryIntValue(other, out var right) ? new PyInt(Value ^ right) : PyNotImplemented.Instance;
 
         public override PyObject LeftShift(PyObject other)
         {

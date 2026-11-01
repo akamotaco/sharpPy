@@ -272,22 +272,21 @@ namespace SharpPy
                     if (double.IsNaN(value))
                         throw PyValueError.Create("cannot convert NaN to integer ratio");
 
-                    // For exact integer values
-                    if (value == Math.Floor(value))
-                        return TupleCache.CreatePair(new PyInt((long)value), new PyInt(1));
-
-                    // Convert to fraction (simplified algorithm)
-                    long sign = value < 0 ? -1 : 1;
-                    value = Math.Abs(value);
-
-                    long numerator = (long)(value * 1e15);  // Use high precision
-                    long denominator = 1000000000000000;  // 10^15
-
-                    // Simple GCD to reduce fraction
-                    long gcd = GCD(Math.Abs(numerator), denominator);
-                    numerator = (numerator / gcd) * sign;
-                    denominator = denominator / gcd;
-
+                    // float_as_integer_ratio: the exact value of the double, from its bits.
+                    long bits = BitConverter.DoubleToInt64Bits(value);
+                    int exponent = (int)((bits >> 52) & 0x7FF);
+                    long fraction = bits & 0xFFFFFFFFFFFFFL;
+                    if (exponent == 0) exponent++;
+                    else fraction |= 1L << 52;
+                    exponent -= 1075;
+                    if (fraction == 0) return TupleCache.CreatePair(new PyInt(0), new PyInt(1));
+                    int zeros = System.Numerics.BitOperations.TrailingZeroCount(fraction);
+                    fraction >>= zeros;
+                    exponent += zeros;
+                    var numerator = new System.Numerics.BigInteger(value < 0 ? -fraction : fraction);
+                    var denominator = System.Numerics.BigInteger.One;
+                    if (exponent > 0) numerator <<= exponent;
+                    else denominator <<= -exponent;
                     return TupleCache.CreatePair(new PyInt(numerator), new PyInt(denominator));
                 },
                 minArgs: 0, maxArgs: 0

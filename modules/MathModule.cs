@@ -1164,41 +1164,32 @@ namespace SharpPy.Modules
             return temp + Math.Log(2.5066282746310005 * ser / x);
         }
 
+        private static BigInteger IntArgument(PyObject value) => value switch
+        {
+            PyBool truth => truth.Value ? BigInteger.One : BigInteger.Zero,
+            PyInt number => number.Value,
+            PyIntSubclass subclass => subclass.GetIntValue().Value,
+            _ => throw PyTypeError.Create($"'{value.GetTypeName()}' object cannot be interpreted as an integer"),
+        };
+
         private PyObject CallGcd(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"gcd() takes exactly two arguments ({args.Length} given)");
-
-            // CPython 3.12: Modules/mathmodule.c:3170-3200 - math_gcd
-            if (args[0] is PyInt a && args[1] is PyInt b)
-            {
-                var absA = BigInteger.Abs(a.Value);
-                var absB = BigInteger.Abs(b.Value);
-                return new PyInt(GcdHelper((int)absA, (int)absB));
-            }
-            else
-            {
-                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
-            }
+            var result = BigInteger.Zero;
+            foreach (var arg in args)
+                result = BigInteger.GreatestCommonDivisor(result, IntArgument(arg));
+            return new PyInt(result);
         }
 
         private PyObject CallLcm(PyObject[] args)
         {
-            if (args.Length != 2)
-                throw PyTypeError.Create($"lcm() takes exactly two arguments ({args.Length} given)");
-
-            // CPython 3.12: Modules/mathmodule.c:3203-3233 - math_lcm
-            if (args[0] is PyInt a && args[1] is PyInt b)
+            var result = BigInteger.One;
+            foreach (var arg in args)
             {
-                var absA = BigInteger.Abs(a.Value);
-                var absB = BigInteger.Abs(b.Value);
-                var gcd = GcdHelper((int)absA, (int)absB);
-                return new PyInt(BigInteger.Abs(a.Value * b.Value) / gcd);
+                var value = BigInteger.Abs(IntArgument(arg));
+                if (value.IsZero) return new PyInt(0);
+                result = result / BigInteger.GreatestCommonDivisor(result, value) * value;
             }
-            else
-            {
-                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
-            }
+            return new PyInt(result);
         }
 
         // === 부동소수점 관련 ===

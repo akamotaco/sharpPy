@@ -1007,10 +1007,12 @@ namespace SharpPy
             if (this == PropertyType)
             {
                 // property([fget[, fset[, fdel[, doc]]]])
-                PyObject getter = args.Length > 0 ? args[0] : null;
-                PyObject setter = args.Length > 1 ? args[1] : null;
-                PyObject deleter = args.Length > 2 ? args[2] : null;
-                PyObject doc = args.Length > 3 ? args[3] : null;
+                PyObject Field(int position, string name) => args.Length > position ? args[position]
+                    : kwargs != null && kwargs.TryGetStoredValue(new PyString(name), out var given) ? given : null;
+                PyObject getter = Field(0, "fget");
+                PyObject setter = Field(1, "fset");
+                PyObject deleter = Field(2, "fdel");
+                PyObject doc = Field(3, "doc");
                 return new PyProperty(getter, setter, deleter, doc);
             }
 

@@ -145,15 +145,12 @@ namespace SharpPy
         /// </summary>
         private PyObject CountFunction(PyObject[] args)
         {
-            // CPython 3.12: Modules/itertoolsmodule.c:4510-4550 - itertools_count
-            long start = 0;
-            long step = 1;
-
-            if (args.Length >= 1 && args[0] is PyInt startInt)
-                start = (long)startInt.Value;
-            if (args.Length >= 2 && args[1] is PyInt stepInt)
-                step = (long)stepInt.Value;
-
+            // Modules/itertoolsmodule.c count: any numbers, advanced by +.
+            PyObject start = args.Length >= 1 ? args[0] : new PyInt(0);
+            PyObject step = args.Length >= 2 ? args[1] : new PyInt(1);
+            foreach (var value in new[] { start, step })
+                if (value.LookupSpecialMethodUncached("__add__") == null)
+                    throw PyTypeError.Create("a number is required");
             return new CountIterator(start, step);
         }
 
@@ -585,10 +582,10 @@ namespace SharpPy
     /// </summary>
     public class CountIterator : PyIterator
     {
-        private long _current;
-        private readonly long _step;
+        private PyObject _current;
+        private readonly PyObject _step;
 
-        public CountIterator(long start, long step)
+        public CountIterator(PyObject start, PyObject step)
         {
             _current = start;
             _step = step;
@@ -596,12 +593,12 @@ namespace SharpPy
 
         public override PyObject Next()
         {
-            var result = new PyInt((int)_current);
-            _current += _step;
+            var result = _current;
+            _current = _current.Add(_step);
             return result;
         }
 
-        public override string ToString() => $"count({_current - _step}, {_step})";
+        public override string ToString() => $"count({_current.ToRepr().Value}, {_step.ToRepr().Value})";
     }
 
     /// <summary>

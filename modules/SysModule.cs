@@ -16,6 +16,9 @@ namespace SharpPy.Modules
     /// </summary>
     public static class SysModule
     {
+        /// <summary>The sys module of this interpreter: print reads sys.stdout from it.</summary>
+        internal static PyModule Current;
+
         public static PyModule CreateSysModule()
         {
             // CPython 3.12: sys is a builtin module implemented in C (Python/sysmodule.c)
@@ -83,6 +86,9 @@ namespace SharpPy.Modules
             // stdin, stdout, stderr (간단한 구현)
             module.ModuleDict["stdin"] = new PyFile("stdin");
             module.ModuleDict["stdout"] = new PyFile("stdout");
+            Current = module;
+            foreach (var prefix in new[] { "prefix", "exec_prefix", "base_prefix", "base_exec_prefix" })
+                module.ModuleDict[prefix] = new PyString("");
             module.ModuleDict["stderr"] = new PyFile("stderr");
 
             // sys.argv is a copy of what the host put in PyConfig.argv

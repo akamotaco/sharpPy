@@ -360,7 +360,14 @@ namespace SharpPy
             }
             var output = string.Join(sep.Value, outputParts);
 
-            // file이 지정되지 않았으면 Console에 출력 (기본값)
+            // builtin_print: file=None means sys.stdout, whatever it is now. Only the original goes to the console.
+            if (file == null || file is PyNone)
+            {
+                PyObject stream = null;
+                SharpPy.Modules.SysModule.Current?.ModuleDict.TryGetValue("stdout", out stream);
+                file = stream is SharpPy.Modules.PyFile || stream == null ? null : stream;
+                if (file is PyNone) return PyNone.Instance;
+            }
             if (file == null)
             {
                 Console.Write(output + end.Value);
