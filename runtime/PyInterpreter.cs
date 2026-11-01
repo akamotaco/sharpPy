@@ -29,7 +29,6 @@ namespace SharpPy
     public class IntegratedPythonInterpreter
     {
         // Using CPython 3.12 compatible PEG parser via bridge
-        private readonly PythonCompiler _compiler;
         private readonly PyVM _vm;
         private readonly PyScopeChain _globalScope;
         
@@ -40,7 +39,6 @@ namespace SharpPy
         public IntegratedPythonInterpreter()
         {
             // CPython 3.12 compatible PEG parser is used via GeneratedParserBridge
-            _compiler = new PythonCompiler();
             _vm = PyVM.Instance;
 
             // CPython 3.12: Python/pythonrun.c:408 - PyImport_AddModule("__main__")
@@ -165,7 +163,6 @@ namespace SharpPy
                     return PyNone.Instance;
                 }
 
-                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG
@@ -296,7 +293,6 @@ namespace SharpPy
                     return null;
                 }
 
-                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG

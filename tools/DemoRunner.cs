@@ -34,18 +34,6 @@ namespace SharpPy.Tools
             Console.WriteLine("\n🔄 4. SharpPy → C# 상호 운용 데모:");
             RunSharpPyToCSharpDemo();
             
-            // 5. Python 3.12 문법 검증 (있다면)
-            try
-            {
-                Console.WriteLine("\n🔍 5. Python 3.12 문법 검증:");
-                var syntaxTest = new SharpPy.Tools.Python312SyntaxVerification();
-                syntaxTest.VerifyAllSyntax();
-            }
-            catch
-            {
-                Console.WriteLine("Python 3.12 문법 검증 기능이 현재 비활성화되어 있습니다.");
-            }
-
             Console.WriteLine("\n✅ 모든 데모 완료!");
             Console.WriteLine("\n🎯 데모 요약:");
             Console.WriteLine("  ✅ Python 객체 시스템 (MRO, 속성, 메서드 바인딩, super())");

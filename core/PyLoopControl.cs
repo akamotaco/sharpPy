@@ -17,4 +17,18 @@ namespace SharpPy
     {
         public LoopContinueException() : base("Loop continue") { }
     }
+
+    /// <summary>Raised by RETURN paths of the host and caught where a frame was entered.</summary>
+    public class PyReturnException : Exception
+    {
+        public PyObject Value { get; }
+        public PyReturnException(PyObject value) { Value = value; }
+    }
+
+    /// <summary>YIELD_VALUE leaves ExecuteFrame through this; the generator catches it.</summary>
+    public class PyYieldException : Exception
+    {
+        public PyObject Value { get; }
+        public PyYieldException(PyObject value) { Value = value; }
+    }
 }

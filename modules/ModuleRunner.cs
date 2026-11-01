@@ -78,8 +78,7 @@ namespace SharpPy.Modules
             }
 
             // BytecodeDisassembler를 사용하여 디스어셈블리 실행
-            var disassembler = new SharpPy.Tools.BytecodeDisassembler();
-            disassembler.RunDirectDisassembly(pythonFile);
+            Compiler.CompileSource(System.IO.File.ReadAllText(pythonFile), pythonFile).Disassemble();
         }
     }
 }

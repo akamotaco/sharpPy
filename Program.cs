@@ -161,9 +161,10 @@ namespace SharpPy
 
                 try
                 {
-                    var tokens = PyParserRuntime.LexerSource(System.IO.File.ReadAllText(pythonFile));
-                    var statements = PyParserRuntime.ParseSource(tokens, System.IO.File.ReadAllText(pythonFile), pythonFile);
-                    Console.WriteLine($"✅ Successfully parsed {statements.Count} statements");
+                    var source = System.IO.File.ReadAllText(pythonFile);
+                    var body = ((SharpPy.Generated.GeneratedModule)PyParserRuntime.ParseToAsdl(PyParserRuntime.LexerSource(source), source, pythonFile)).Body;
+                    //), pythonFile);
+                    Console.WriteLine($"✅ Successfully parsed {body.Count} statements");
                     Console.WriteLine("🎉 CPython 3.12 compatibility verified!");
                 }
                 catch (Exception ex)

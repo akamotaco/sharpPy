@@ -7574,8 +7574,7 @@ namespace SharpPy
         /// </summary>
         // Control flow of the host and syntax errors have their own routes.
         private static bool IsHostFailure(Exception exception) => exception is not (
-            LoopBreakException or LoopContinueException or PyReturnException or PyYieldException or
-            PyYieldFromException or PyBreakException or PyContinueException or PySyntaxErrorException or
+            LoopBreakException or LoopContinueException or PyReturnException or PyYieldException or PySyntaxErrorException or
             SyntaxErrorException or SharpPy.Generated.SyntaxErrorException);
 
         private PyBaseException ConvertToPythonException(Exception exception) => exception switch

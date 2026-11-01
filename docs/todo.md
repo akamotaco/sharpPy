@@ -13,11 +13,12 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 2016 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 2081 / 2890 통과 | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5549 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
-| 바이트코드 (Lib/*.py) | 코드 객체 8039: 이름 8010, 인자 8010, 예외 테이블 8009, 줄 번호 7776 | `python tools/compare_bytecode.py --dotnet <dotnet> <files>` |
-| 바이트코드 (프로브) | 코드 객체 5325: 이름 5261, 인자 5261, 예외 테이블 5258, 줄 번호 5245 | `python tools/compare_bytecode.py --dotnet <dotnet>` |
+| 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 이름, 인자, 줄 번호, 예외 테이블 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions <files>` |
+| 바이트코드 (프로브) | 코드 객체 5325개 전부 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions` |
+| 심볼 테이블 (Lib/*.py) | 스코프 8039개 전부 플래그까지 일치 | `python tools/compare_symtable.py --dotnet <dotnet> <files>` |
 | 버그 프로브 | 169 / 169 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
@@ -36,7 +37,7 @@
 
 | 경로 | CPython | SharpPy | 판단 |
 |---|---|---|---|
-| AST | ASDL 하나 | ASDL과 구형 AST 둘, `Bridge` 3400줄 | 합친다 |
+| AST | ASDL 하나 | ASDL 하나. 구형 AST와 `Bridge`는 지웠다 | 끝 |
 | 이항 연산 | `binary_op1`, `binary_iop1`, `SLOT1BINFULL`, `sequence_repeat` | 같은 구조로 포팅 (`PyVM.BinaryOp1`, `SlotNumberBinary`, `InPlaceNumber`). `PyIntSubclass`, `PyStrSubclass`의 `Num`/`StrOp`가 사용자 메서드를 다시 찾는 분기와 `Parser/AstExpressions.cs`의 직접 호출이 남았다 | 남은 분기를 지운다 |
 | 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `GetAttribute` override 76개 | 우선순위 대조 필요 |
 | 호출 | `tp_call`, vectorcall | `Call` override 34개 | 대조 필요 |
@@ -44,27 +45,20 @@
 | 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
 | `FOR_ITER`/`END_FOR` | 소진 시 이터레이터를 스택에 남기고 `END_FOR`가 둘을 꺼낸다 | `FOR_ITER`가 꺼내고 `END_FOR`는 표시만 한다 | 고친다 |
 | 프레임 | `localsplus` 안에 셀 | `Cells`가 따로 있음 (P0-81) | 고친다 |
-| 컴프리헨션 | `compiler_comprehension` 하나 | 리스트, 딕셔너리, 집합, 제너레이터가 각각 300줄 | 하나로 합친다 |
+| 컴파일러 | `symtable.c`, `ast_opt.c`, `compile.c` | `runtime/symtable.cs`, `runtime/future.cs`, `runtime/compiler/`가 같은 함수 이름으로 대응한다. 진입점은 `Compiler.CompileSource` 하나 | 끝 |
 | import | `importlib._bootstrap` | C# 로더 | 라이브러리 정책과 함께 결정 |
-| AST 트리 실행 | 없음 | `Parser/ast.cs`의 `Evaluate`, `runtime/PyExecutor.cs` | 외부 호출부가 없어 보인다. 실행 측정 후 삭제 |
-
-남은 바이트코드 차이(Lib 43개):
-
-- PEP 695: 타입 매개변수 스코프와 클래스의 `.type_params`. 항목 6과 같은 경로.
-- 컴프리헨션의 숨겨진 지역 변수 집합. 클래스 안과 중첩 컴프리헨션에서 `LOAD_FAST_AND_CLEAR` 개수가 다르다. 항목 4-4와 같은 경로.
 
 AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy는 문자 단위다. 비ASCII 소스에서만 다르다.
 
-구조: 파서는 CPython과 같은 ASDL 트리를 만들고, `Parser/PyParserRuntime_Bridge.cs`가 구형 AST로 바꾼 뒤 컴파일한다. 컴파일러가 ASDL을 직접 읽게 되면 변환층은 필요 없다.
+구조: 토큰, ASDL 트리, `AstOptimizer`, `PySymtable`, `Compiler`, `InstructionSequence`, `PyFlowGraph.Build`, `CFGOptimizer`, `PyAssemble`. CPython과 단계가 같다. 열 번호(`co_positions`)는 아직 비교하지 않는다.
 
 ## 1. 예외 경로
 
-**1-1. 시간 초과로 끝나는 모듈.** CLR 예외는 이제 `ExecuteFrame`에서 Python 예외가 되어 프로세스가 죽지 않고, `BuiltinSlots`의 메서드는 METH_NOARGS와 METH_O 인자 수를 검사한다. 남은 것은 시간 초과 둘이고 원인은 미확인이다.
+**1-1. 시간 초과로 끝나는 모듈.** CLR 예외는 이제 `ExecuteFrame`에서 Python 예외가 되어 프로세스가 죽지 않고, `BuiltinSlots`의 메서드는 METH_NOARGS와 METH_O 인자 수를 검사한다. 남은 것은 시간 초과 하나이고 원인은 미확인이다.
 
 | 모듈 | 통과 / CPython | 도달 못함 | 멈춘 테스트 |
 |---|---|---|---|
 | test_bytes | 9 / 279 | 263 | `ByteArrayAsStringTest.test_find_many_lengths` |
-| test_except_star | 47 / 60 | 10 | `TestExceptStar_WeirdExceptionGroupSubclass.test_reraise_unhashable_eg` |
 
 **1-3. `test_abc` 프로세스 종료.** `test_abstractstaticmethod_basics`에서 끝난다. 원인 미확인.
 
@@ -72,7 +66,6 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 `Python/symtable.c`, `Python/compile.c`, `Parser/string_parser.c`, `pegen_errors.c`와 대조한다.
 
-- 2-1. 대입식의 금지 형태: 컴프리헨션 반복 변수 재바인딩, 반복 가능 식 안의 대입식. `symtable_extend_namedexpr_scope`와 `NAMED_EXPR_COMP_*`. test_named_expressions 46/74.
 - 2-2. 올바르게 거부해야 할 소스를 받아들인다. `SyntaxError not raised` 21건, `TypeError not raised` 9건.
 - 2-3. SyntaxError 위치: `testSyntaxErrorOffset` 서브테스트 62건, `test_exception_locations` 계열.
 - 2-4. 메시지: `positional argument follows keyword argument`가 generic `invalid syntax`로 나온다. `invalid_*` 문법 규칙의 두 번째 파스 경로를 확인한다.
@@ -95,7 +88,7 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 - 4-1. `__length_hint__`: `set_iterator` 등 7건. `list()`, `tuple()`의 길이 힌트 호출 (P0-83).
 - 4-2. 이터레이터 피클: `enumerate`, `set_iterator`, `range_iterator`, `iterator` 등 `__reduce__`.
 - 4-3. 제너레이터와 코루틴: test_generators 22/39, test_coroutines 70/89. `cr_frame` 등.
-- 4-4. 인라인 컴프리헨션의 셀 격리 (P0-79, P0-81). `push_inlined_comprehension_state`. 현재 셀이 `LocalsPlus` 밖의 `Cells`에 있는 구조가 원인이다.
+- 4-4. 프레임의 셀이 `LocalsPlus` 밖의 `Cells`에 있다 (P0-81). 컴파일러 쪽 `push_inlined_comprehension_state`는 끝났다.
 
 ## 5. 모듈 표면
 
@@ -123,7 +116,6 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 - `core/PyType.cs:307`: 하위 클래스 캐시 무효화가 없다는 표시. 잘못된 메서드 조회로 이어질 수 있다.
 - `core/PyType.cs:1888`: 여분 인자 허용.
 - `core/PyModule.cs:835`: `__spec__.parent` 미사용.
-- `runtime/compile.cs`, `Parser/ast.cs`: 컴프리헨션 대입식과 제네릭의 `임시` 표시.
 - `runtime/PyVM.cs` `RERAISE`: 인자 0일 때 처리 중인 예외가 없으면 넘어가는 분기. CPython에는 없다.
 
 ## 구조적 차이 (의도적으로 남김)
