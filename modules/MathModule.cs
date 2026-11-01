@@ -894,20 +894,13 @@ namespace SharpPy.Modules
             if (double.IsPositiveInfinity(x)) return new PyFloat(double.PositiveInfinity);
             if (double.IsNegativeInfinity(x)) return new PyFloat(-1);
 
-            // For small |x|, use series: expm1(x) = x + x^2/2 + x^3/6 + ...
-            if (Math.Abs(x) < 1e-5)
-            {
-                double result = x;
-                double term = x;
-                for (int n = 2; n <= 20; n++)
-                {
-                    term *= x / n;
-                    result += term;
-                    if (Math.Abs(term) < Math.Abs(result) * 1e-17) break;
-                }
-                return new PyFloat(result);
-            }
-            return new PyFloat(Math.Exp(x) - 1.0);
+            // Kahan's identity: exact division by log(u) cancels the rounding of u.
+            double u = Math.Exp(x);
+            if (u == 1.0) return new PyFloat(x);
+            double uMinusOne = u - 1.0;
+            if (uMinusOne == -1.0) return new PyFloat(-1.0);
+            if (double.IsInfinity(u)) throw PyOverflowError.Create("math range error");
+            return new PyFloat(uMinusOne * x / Math.Log(u));
         }
 
         private PyObject CallLog1p(PyObject[] args)

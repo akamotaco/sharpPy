@@ -364,7 +364,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"strip() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "strip");
 
-                    if (args.Length == 0)
+                    if (args.Length == 0 || args[0] is PyNone)
                         return new PyString(str.Value.Trim());
 
                     var chars = args[0] is PyString charsStr ? charsStr.Value.ToCharArray() : throw PyTypeError.Create("strip arg must be None or str");
@@ -892,7 +892,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"lstrip() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "lstrip");
 
-                    if (args.Length == 0)
+                    if (args.Length == 0 || args[0] is PyNone)
                         return new PyString(str.Value.TrimStart());
 
                     if (args[0] is not PyString chars)
@@ -912,7 +912,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"rstrip() takes at most 1 argument ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "rstrip");
 
-                    if (args.Length == 0)
+                    if (args.Length == 0 || args[0] is PyNone)
                         return new PyString(str.Value.TrimEnd());
 
                     if (args[0] is not PyString chars)
@@ -3885,6 +3885,20 @@ namespace SharpPy
                 align = formatSpec[0];
                 i = 1;
             }
+
+            // format_string_internal: what a string has no use for is refused by name.
+            if (firstWidth < formatSpec.Length && formatSpec[firstWidth] == '=' || formatSpec[0] == '=')
+                throw PyValueError.Create("'=' alignment not allowed in string format specifier");
+            int probe = i;
+            if (probe < len && (formatSpec[probe] == '+' || formatSpec[probe] == '-'))
+                throw PyValueError.Create("Sign not allowed in string format specifier");
+            if (probe < len && formatSpec[probe] == ' ')
+                throw PyValueError.Create("Space not allowed in string format specifier");
+            if (probe < len && formatSpec[probe] == '#')
+                throw PyValueError.Create("Alternate form (#) not allowed in string format specifier");
+            while (probe < len && char.IsDigit(formatSpec[probe])) probe++;
+            if (probe < len && (formatSpec[probe] == ',' || formatSpec[probe] == '_'))
+                throw PyValueError.Create($"Cannot specify '{formatSpec[probe]}' with 's'.");
 
             // Width
             while (i < len && char.IsDigit(formatSpec[i]))

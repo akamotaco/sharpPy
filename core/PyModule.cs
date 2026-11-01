@@ -413,6 +413,7 @@ public class PyModule : PyObject
             ["_string"] = () => SharpPy.Modules._StringModule.CreateStringModule(),
             ["_thread"] = () => SharpPy.Modules._ThreadModule.CreateThreadModule(),
             ["_contextvars"] = () => SharpPy.Modules._ContextvarsModule.CreateContextvarsModule(),
+            ["zlib"] = () => SharpPy.Modules.ZlibModule.CreateZlibModule(),
             ["_csv"] = () => SharpPy.Modules._CsvModule.CreateCsvModule(),
             ["array"] = () => SharpPy.Modules.ArrayModule.CreateArrayModule(),
             ["_hashes"] = () => SharpPy.Modules._HashesModule.CreateHashlibModule(),

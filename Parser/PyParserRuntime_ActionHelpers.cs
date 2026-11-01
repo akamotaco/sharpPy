@@ -324,8 +324,9 @@ namespace SharpPy.Generated
         public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo token)
         {
             // Check if it's a bytes literal by looking at the prefix
-            bool isBytes = token.Value.Length > 0 &&
-                          (token.Value[0] == 'b' || token.Value[0] == 'B');
+            // The prefix is whatever stands before the quote: b, rb, Br, and so on.
+            int prefixLength = token.Value.IndexOfAny(new[] { '\'', '"' });
+            bool isBytes = prefixLength > 0 && token.Value.IndexOfAny(new[] { 'b', 'B' }, 0, prefixLength) >= 0;
 
             if (isBytes)
             {

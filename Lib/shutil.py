@@ -599,7 +599,7 @@ def copytree(src, dst, symlinks=False, ignore=None, copy_function=copy2,
                      ignore_dangling_symlinks=ignore_dangling_symlinks,
                      dirs_exist_ok=dirs_exist_ok)
 
-if hasattr(os.stat_result, 'st_file_attributes'):
+if hasattr(getattr(os, 'stat_result', None), 'st_file_attributes'):
     def _rmtree_islink(path):
         try:
             st = os.lstat(path)
@@ -699,10 +699,7 @@ def _rmtree_safe_fd(stack, onexc):
         err.filename = path
         onexc(func, path, err)
 
-_use_fd_functions = ({os.open, os.stat, os.unlink, os.rmdir} <=
-                     os.supports_dir_fd and
-                     os.scandir in os.supports_fd and
-                     os.stat in os.supports_follow_symlinks)
+_use_fd_functions = False
 
 def rmtree(path, ignore_errors=False, onerror=None, *, onexc=None, dir_fd=None):
     """Recursively delete a directory tree.
@@ -1398,6 +1395,9 @@ def chown(path, user=None, group=None):
 
     os.chown(path, _user, _group)
 
+_terminal_size = collections.namedtuple('terminal_size', 'columns lines')
+
+
 def get_terminal_size(fallback=(80, 24)):
     """Get the size of the terminal window.
 
@@ -1435,13 +1435,13 @@ def get_terminal_size(fallback=(80, 24)):
         except (AttributeError, ValueError, OSError):
             # stdout is None, closed, detached, or not a terminal, or
             # os.get_terminal_size() is unsupported
-            size = os.terminal_size(fallback)
+            size = _terminal_size(*fallback)
         if columns <= 0:
             columns = size.columns or fallback[0]
         if lines <= 0:
             lines = size.lines or fallback[1]
 
-    return os.terminal_size((columns, lines))
+    return _terminal_size(columns, lines)
 
 
 # Check that a given file can be accessed with the correct mode.
