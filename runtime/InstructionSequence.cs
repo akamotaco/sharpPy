@@ -231,6 +231,8 @@ namespace SharpPy
         /// Get the instruction index where a label points to
         /// Returns -1 if label not found (not yet used)
         /// </summary>
+        public IEnumerable<int> LabelPositions => _labelTargets.Values;
+
         public int GetLabelTarget(Label label)
         {
             if (!label.IsValid)

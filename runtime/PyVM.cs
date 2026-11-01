@@ -5459,7 +5459,7 @@ namespace SharpPy
                     // Implements: __import__(name, globals(), locals(), fromlist, level)
                     var fromlist = frame.ValueStack.Pop(); // TOS
                     var level = frame.ValueStack.Pop();    // TOS1
-                    var moduleName = ((PyString)frame.Code.Constants[argument]).Value;
+                    var moduleName = frame.Code.Names[argument];
 
                     // Extract level as integer (0 for absolute, 1+ for relative)
                     int importLevel = 0;
@@ -5487,7 +5487,7 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.IMPORT_FROM:
-                    var itemName = ((PyString)frame.Code.Constants[argument]).Value;
+                    var itemName = frame.Code.Names[argument];
                     if (frame.ValueStack.Count == 0)
                     {
                         throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");

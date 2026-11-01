@@ -1306,7 +1306,7 @@ namespace SharpPy
             // CPython 3.12: Get final instructions (CFG pipeline: InstructionSequence → CFG → Optimize → Assemble)
             // Exception table is built automatically in PyAssemble.Assemble()
             // Module-level code has no generator flags
-            var finalInstructions = GetFinalInstructions(0);
+            var finalInstructions = GetFinalInstructions(0, parameters.Count);
 
             // CPython 3.12: module code objects can own cellvars when a PEP 709 inlined
             // comprehension contains a nested function capturing its loop variable
@@ -1430,7 +1430,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
 
             // Comprehensions don't have generator flags
-            var finalInstructions = GetFinalInstructions(0);
+            var finalInstructions = GetFinalInstructions(0, parameters.Count);
             var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                             parameters.Count, 0, 0, freeVars, cellVars, null, null, 0, _currentFileName, _sourceLines);
             
@@ -2051,7 +2051,7 @@ namespace SharpPy
             // CPython 3.12: Get final instructions with prefix insertion in CFG phase
             // CPython compile.c:7710 prepare_localsplus calls insert_prefix_instructions
             // BEFORE compile.c:7724 _PyCfg_ResolveJumps calculates JUMP offsets
-            var finalInstructions = GetFinalInstructions(flags);
+            var finalInstructions = GetFinalInstructions(flags, paramNames.Count);
 
             // Prefix instructions (RETURN_GENERATOR, POP_TOP, MAKE_CELL, COPY_FREE_VARS)
             // are now inserted in GetFinalInstructions during CFG phase
@@ -2413,7 +2413,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Get final instruction list from CFG pipeline
         /// </summary>
-        private List<ByteCodeInstruction> GetFinalInstructions(int codeFlags)
+        private List<ByteCodeInstruction> GetFinalInstructions(int codeFlags, int nparams = 0)
         {
             // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → InsertPrefix → Optimize → ByteCode
 #if DEBUG_COMPILER_LOG
@@ -2442,7 +2442,16 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   🔧 Running CFG optimization...");
 #endif
-            var cfgOptimizer = new CFGOptimizer(cfg, _constants);
+            int firstLineNo = 1;
+            foreach (var instruction in _instructionSequence.Instructions)
+            {
+                if (instruction.LineNumber > 0)
+                {
+                    firstLineNo = instruction.LineNumber;
+                    break;
+                }
+            }
+            var cfgOptimizer = new CFGOptimizer(cfg, _constants, GetOrAddConstant, _varNames?.Count ?? 0, nparams, firstLineNo);
             cfgOptimizer.Optimize();
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
@@ -2454,6 +2463,8 @@ namespace SharpPy
             Console.WriteLine($"   🔧 Phase 2.5: Fixing cell/free variable offsets...");
 #endif
             cfg.FixCellOffsets(_varNames ?? new List<string>(), _cellVars ?? new List<string>(), _freeVars ?? new List<string>());
+            cfgOptimizer.ConvertPseudoOps();
+            cfgOptimizer.NormalizeJumps();
 
             // Phase 3: CFG → ByteCode (with correct offsets)
             // CPython compile.c:7724 _PyCfg_ResolveJumps - JUMP offsets calculated here
@@ -6653,7 +6664,7 @@ namespace SharpPy
                 // CPython 3.12 pattern: LOAD_CONST(0), LOAD_CONST(None), IMPORT_NAME
                 var levelIndex = GetOrAddConstant(new PyInt(0));  // fromlist level
                 var fromlistIndex = GetOrAddConstant(PyNone.Instance);  // fromlist
-                var moduleIndex = GetOrAddConstant(new PyString(actualModule));
+                var moduleIndex = GetOrAddName(actualModule);
 
                 EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
                 EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
@@ -6668,11 +6679,11 @@ namespace SharpPy
                     var attributes = actualModule.Split('.');
                     for (int part = 1; part < attributes.Length - 1; part++)
                     {
-                        EmitInstruction(ByteCodeOp.IMPORT_FROM, GetOrAddConstant(new PyString(attributes[part])));
+                        EmitInstruction(ByteCodeOp.IMPORT_FROM, GetOrAddName(attributes[part]));
                         EmitInstruction(ByteCodeOp.SWAP, 2);
                         EmitInstruction(ByteCodeOp.POP_TOP);
                     }
-                    EmitInstruction(ByteCodeOp.IMPORT_FROM, GetOrAddConstant(new PyString(attributes[attributes.Length - 1])));
+                    EmitInstruction(ByteCodeOp.IMPORT_FROM, GetOrAddName(attributes[attributes.Length - 1]));
                     EmitStoreVariable(alias);
                     EmitInstruction(ByteCodeOp.POP_TOP);
                     continue;
@@ -6702,7 +6713,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
 
             // 3. IMPORT_NAME - module name
-            var moduleIndex = GetOrAddConstant(new PyString(importFrom.Module ?? ""));
+            var moduleIndex = GetOrAddName(importFrom.Module ?? "");
             EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
 
             // 4. For each imported name, emit IMPORT_FROM and STORE
@@ -6722,7 +6733,7 @@ namespace SharpPy
                 string alias = importAlias.AsName ?? importAlias.Name;
 
                 // Emit IMPORT_FROM bytecode
-                var itemIndex = GetOrAddConstant(new PyString(actualItem));
+                var itemIndex = GetOrAddName(actualItem);
                 EmitInstruction(ByteCodeOp.IMPORT_FROM, itemIndex);
 
                 // Store the imported item in the correct variable name
@@ -9512,7 +9523,7 @@ namespace SharpPy
                 lambdaFlags |= PyCodeObject.CO_VARARGS;
             if (lambdaKwArgName != null)
                 lambdaFlags |= PyCodeObject.CO_VARKEYWORDS;
-            var lambdaInstructions = GetFinalInstructions(lambdaFlags);
+            var lambdaInstructions = GetFinalInstructions(lambdaFlags, lambdaParamNames.Count);
 
             // CPython 3.12: co_varnames = parameters + local variables collected while
             // compiling the body (e.g. inlined-comprehension loop vars use LOAD_FAST_AND_CLEAR

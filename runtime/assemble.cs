@@ -408,7 +408,7 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"[EMIT] cfg.EntryBlock = Block {cfg.EntryBlock?.BlockId ?? -1}, AllBlocks[0] = Block {cfg.AllBlocks[0].BlockId}");
 #endif
-            BasicBlock? startBlock = cfg.AllBlocks.Count > 0 ? cfg.AllBlocks[0] : cfg.EntryBlock;
+            BasicBlock? startBlock = cfg.EntryBlock;
 #if DEBUG_LOG
             Console.WriteLine($"[EMIT] Starting emission from Block {startBlock?.BlockId ?? -1}");
 #endif

@@ -77,6 +77,12 @@ namespace SharpPy
         /// </summary>
         public bool PreserveLasti { get; set; }
 
+        // b_visited, b_warm, b_cold, b_unsafe_locals_mask
+        public bool Visited { get; set; }
+        public bool Warm { get; set; }
+        public bool Cold { get; set; }
+        public ulong UnsafeLocalsMask { get; set; }
+
         public BasicBlock(int blockId)
         {
             BlockId = blockId;
