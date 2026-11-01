@@ -444,7 +444,7 @@ namespace SharpPy
                     // which now includes astral decimal digits. The rest is a table gap in
                     // docs/known_gaps.md.
                     foreach (int cp in str.CodePoints())
-                        if (!IsDecimalDigitCp(cp))
+                        if (cp >= 0xD800 && cp < 0xE000 || System.Globalization.CharUnicodeInfo.GetDigitValue(char.ConvertFromUtf32(cp), 0) < 0)
                             return PyBool.False;
                     return PyBool.True;
                 },

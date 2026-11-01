@@ -3505,6 +3505,7 @@ namespace SharpPy
         public override string NodeType => "Lambda";
         public List<string> Args { get; }
         public Expression Body { get; }
+        public List<KeyValuePair<string, Expression>> KwOnlyDefaults { get; } = new List<KeyValuePair<string, Expression>>();
         public List<Expression> Defaults { get; } // CPython 3.12: Lambda default value expressions
 
         public LambdaExpression(List<string> args, Expression body)

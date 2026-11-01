@@ -328,7 +328,7 @@ namespace SharpPy
             // ============================================================
             if (_level >= OptimizationLevel.Standard)
             {
-                RegisterRule<BinaryOpExpression>(new AlgebraicSimplificationRule());       // x*1 → x, x+0 → x
+                // x * 1 is not x when x has __mul__: no algebraic rule without knowing the type.       // x*1 → x, x+0 → x
                 RegisterRule<CallExpression>(new BuiltinCallOptimizationRule());           // len([1,2,3]) → 3
                 RegisterRule<CallExpression>(new ContainerSizeOptimizationRule(_typeInference));
             }

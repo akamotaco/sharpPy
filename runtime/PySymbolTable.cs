@@ -2042,6 +2042,11 @@ namespace SharpPy
 
         private void AnalyzeLambda(LambdaExpression lambda)
         {
+            // symtable_visit_expr: defaults belong to the scope the lambda stands in.
+            if (lambda.Defaults != null)
+                foreach (var defaultExpr in lambda.Defaults) AnalyzeExpression(defaultExpr);
+            foreach (var entry in lambda.KwOnlyDefaults) AnalyzeExpression(entry.Value);
+
             // Create new scope for lambda body - similar to function but unnamed
             var lambdaTable = new SymbolTable($"<lambda_{_lambdaCounter++}>", SymbolTableType.Function);
             _currentTable?.AddChild(lambdaTable);

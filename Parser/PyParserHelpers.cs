@@ -1850,6 +1850,7 @@ namespace SharpPy.Generated
                 }
                 else if (format_spec != null)
                 {
+                    // the colon, which SetupFullFormatSpec keeps as the start of the spec
                     rawEndLine = format_spec.LineNo;
                     rawEndCol = format_spec.ColOffset;
                 }

@@ -3188,23 +3188,29 @@ namespace SharpPy
 
                         if (hasAnyKwargs)
                         {
-                            // CPython 3.12: BUILD_MAP with count of regular keyword args
-                            // Stack: [key1, val1, key2, val2, ...] -> BUILD_MAP n -> [dict]
-                            foreach (var kw in regularKwargs)
+                            // compiler_call_helper: keywords keep their written order, runs of
+                            // plain ones become a dict and every part is merged into the first.
+                            bool haveKeywordDict = false;
+                            for (int position = 0; position < call.Keywords.Count;)
                             {
-                                EmitLoadConst(new PyString(kw.Arg));  // key
-                                CompileExpression(kw.Value);         // value
-                            }
-                            EmitInstruction(ByteCodeOp.BUILD_MAP, regularKwargs.Count);
-
-                            // CPython 3.12: Then merge each **kwargs dict using DICT_MERGE
-                            foreach (var kwarg in call.Keywords)
-                            {
-                                if (kwarg.Arg == null)
+                                if (call.Keywords[position].Arg == null)
                                 {
-                                    CompileExpression(kwarg.Value); // This should be a dict
+                                    if (!haveKeywordDict) EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+                                    haveKeywordDict = true;
+                                    CompileExpression(call.Keywords[position].Value);
                                     EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                                    position++;
+                                    continue;
                                 }
+                                int runStart = position;
+                                for (; position < call.Keywords.Count && call.Keywords[position].Arg != null; position++)
+                                {
+                                    EmitLoadConst(new PyString(call.Keywords[position].Arg));
+                                    CompileExpression(call.Keywords[position].Value);
+                                }
+                                EmitInstruction(ByteCodeOp.BUILD_MAP, position - runStart);
+                                if (haveKeywordDict) EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                                haveKeywordDict = true;
                             }
 
                             EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, 1); // 1 = has kwargs
@@ -5160,109 +5166,29 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)operation);
         }
 
-        /// <summary>
-        /// CPython 3.12 compile-time constant folding (compile.c:fold_binop)
-        /// Try to evaluate binary operation on constants at compile time
-        /// Returns null if folding is not safe or not supported
-        /// </summary>
+        /// <summary>fold_binop (Python/ast_opt.c): the operation itself, on numbers, or nothing if it raises.</summary>
         private PyObject? TryFoldBinaryOpAtCompileTime(PyObject left, PyObject right, BinaryOperator op)
         {
+            if (!(left is PyInt or PyFloat) || !(right is PyInt or PyFloat)) return null;
             try
             {
-                var opType = op.GetOpType();
-
-                // Only fold numeric operations (integers and floats)
-                if (left is PyInt leftInt && right is PyInt rightInt)
+                return op.GetOpType() switch
                 {
-                    return FoldIntBinaryOp(leftInt, rightInt, opType);
-                }
-                else if ((left is PyInt || left is PyFloat) && (right is PyInt || right is PyFloat))
-                {
-                    // Convert to double for float operations
-                    double leftVal = left is PyInt li ? (double)li.Value : ((PyFloat)left).Value;
-                    double rightVal = right is PyInt ri ? (double)ri.Value : ((PyFloat)right).Value;
-                    return FoldFloatBinaryOp(leftVal, rightVal, opType);
-                }
+                    BinaryOpType.ADD => left.Add(right),
+                    BinaryOpType.SUBTRACT => left.Subtract(right),
+                    BinaryOpType.MULTIPLY => left.Multiply(right),
+                    BinaryOpType.TRUE_DIVIDE => left.Divide(right),
+                    BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
+                    BinaryOpType.MODULO => left.Modulo(right),
+                    BinaryOpType.AND when left is PyInt && right is PyInt => left.BitwiseAnd(right),
+                    BinaryOpType.OR when left is PyInt && right is PyInt => left.BitwiseOr(right),
+                    BinaryOpType.XOR when left is PyInt && right is PyInt => left.BitwiseXor(right),
+                    _ => null,
+                };
             }
-            catch
+            catch (PythonException)
             {
-                // If folding fails (e.g., division by zero), don't fold
                 return null;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Fold integer binary operations at compile time
-        /// </summary>
-        private PyObject? FoldIntBinaryOp(PyInt left, PyInt right, BinaryOpType opType)
-        {
-            long leftVal = (long)left.Value;
-            long rightVal = (long)right.Value;
-
-            switch (opType)
-            {
-                case BinaryOpType.ADD:
-                    return new PyInt(leftVal + rightVal);
-                case BinaryOpType.AND:
-                    return new PyInt(leftVal & rightVal);
-                case BinaryOpType.FLOOR_DIVIDE:
-                    if (rightVal == 0) return null;  // Don't fold division by zero
-                    return new PyInt(leftVal / rightVal);
-                case BinaryOpType.LSHIFT:
-                    return null;  // Don't fold, can be unsafe
-                case BinaryOpType.MATRIX_MULTIPLY:
-                    return null;  // Not applicable to int
-                case BinaryOpType.MULTIPLY:
-                    return new PyInt(leftVal * rightVal);
-                case BinaryOpType.MODULO:
-                    if (rightVal == 0) return null;
-                    return new PyInt(leftVal % rightVal);
-                case BinaryOpType.OR:
-                    return new PyInt(leftVal | rightVal);
-                case BinaryOpType.POWER:
-                    return null;  // Don't fold, can overflow
-                case BinaryOpType.RSHIFT:
-                    return null;  // Don't fold, can be unsafe
-                case BinaryOpType.SUBTRACT:
-                    return new PyInt(leftVal - rightVal);
-                case BinaryOpType.TRUE_DIVIDE:
-                    if (rightVal == 0) return null;
-                    return new PyFloat((double)leftVal / (double)rightVal);
-                case BinaryOpType.XOR:
-                    return new PyInt(leftVal ^ rightVal);
-                default:
-                    return null;
-            }
-        }
-
-        /// <summary>
-        /// Fold float binary operations at compile time
-        /// </summary>
-        private PyObject? FoldFloatBinaryOp(double left, double right, BinaryOpType opType)
-        {
-            switch (opType)
-            {
-                case BinaryOpType.ADD:
-                    return new PyFloat(left + right);
-                case BinaryOpType.FLOOR_DIVIDE:
-                    if (right == 0) return null;
-                    return new PyFloat(Math.Floor(left / right));
-                case BinaryOpType.MULTIPLY:
-                    return new PyFloat(left * right);
-                case BinaryOpType.MODULO:
-                    if (right == 0) return null;
-                    return new PyFloat(left % right);
-                case BinaryOpType.POWER:
-                    return null;  // Don't fold, can be unsafe
-                case BinaryOpType.SUBTRACT:
-                    return new PyFloat(left - right);
-                case BinaryOpType.TRUE_DIVIDE:
-                    if (right == 0) return null;
-                    return new PyFloat(left / right);
-                default:
-                    return null;
             }
         }
 
@@ -9945,6 +9871,17 @@ namespace SharpPy
                 Console.WriteLine($"  → Built defaults tuple: {defaultValues.Count} defaults (constants)");
                 #endif
             }
+
+            // compiler_visit_kwonlydefaults
+            if (lambda.KwOnlyDefaults.Count > 0)
+            {
+                foreach (var entry in lambda.KwOnlyDefaults)
+                {
+                    EmitLoadConst(new PyString(entry.Key));
+                    CompileExpression(entry.Value);
+                }
+                EmitInstruction(ByteCodeOp.BUILD_MAP, lambda.KwOnlyDefaults.Count);
+            }
             
             // Handle closure creation if there are free variables (스택 순서 2)
             if (freeVars.Count > 0)
@@ -9974,6 +9911,10 @@ namespace SharpPy
             if (hasDefaults)
             {
                 flags |= MakeFunctionFlags.DEFAULTS;
+            }
+            if (lambda.KwOnlyDefaults.Count > 0)
+            {
+                flags |= MakeFunctionFlags.KWDEFAULTS;
             }
             if (freeVars.Count > 0)
             {

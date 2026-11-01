@@ -2216,11 +2216,11 @@ namespace SharpPy.Generated
 
                 // Lambda expressions
                 // CPython 3.12: Python/compile.c:2590-2650 (compiler_lambda)
-                GeneratedLambda lambda => new LambdaExpression(
+                GeneratedLambda lambda => WithKwOnlyDefaults(new LambdaExpression(
                     ConvertFunctionArgumentsToNames(lambda.Args),
                     ConvertAnyExpression(lambda.Body),
                     ConvertFunctionArgumentsDefaults(lambda.Args)
-                ),
+                ), lambda.Args),
 
                 // Ternary (if expression)
                 GeneratedIfExp ifExp => new ConditionalExpression(
@@ -3015,6 +3015,16 @@ namespace SharpPy.Generated
         /// Convert GeneratedArguments.Defaults to List&lt;Expression&gt; for Lambda expressions
         /// CPython 3.12: Python/ast.c - ast_for_arguments()
         /// </summary>
+        private static LambdaExpression WithKwOnlyDefaults(LambdaExpression lambda, GeneratedArguments? arguments)
+        {
+            if (arguments == null) return lambda;
+            var converted = ConvertFunctionArguments(arguments);
+            for (int i = 0; i < converted.KwOnlyArgs.Count && i < converted.KwDefaults.Count; i++)
+                if (converted.KwDefaults[i] != null)
+                    lambda.KwOnlyDefaults.Add(new KeyValuePair<string, Expression>(converted.KwOnlyArgs[i].Name, converted.KwDefaults[i]));
+            return lambda;
+        }
+
         private static List<Expression> ConvertFunctionArgumentsDefaults(GeneratedArguments? argumentsData)
         {
             var defaults = new List<Expression>();

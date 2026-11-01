@@ -399,28 +399,7 @@ namespace SharpPy
                 }
             }
 
-            if (right is ConstantExpression rightLiteral)
-            {
-                if (operator_ == "and")
-                {
-                    // X and False → False
-                    if (!rightLiteral.Value.ToBool())
-                        return rightLiteral;
-
-                    // X and True → X
-                    return left;
-                }
-                else if (operator_ == "or")
-                {
-                    // X or True → True
-                    if (rightLiteral.Value.ToBool())
-                        return rightLiteral;
-
-                    // X or False → X
-                    return left;
-                }
-            }
-
+            // A literal on the right decides nothing: x and True is True or x, whatever x is.
             // No optimization applicable - return original node to prevent cycles
             return originalNode;
         }

@@ -551,12 +551,12 @@ namespace SharpPy.Generated
             if (colon == null) return null;
             if (spec == null || spec.Count == 0)
             {
-                return PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+                return PyAst.Constant(new GeneratedPyConstantString(""), null, colon.Line, colon.Column, end_lineno, end_col_offset);
             }
 
             // CPython: format_spec is ALWAYS a JoinedStr, even for simple constants
             // This matches CPython's AST structure
-            return PyAst.JoinedStr(spec, lineno, col_offset, end_lineno, end_col_offset);
+            return PyAst.JoinedStr(spec, colon.Line, colon.Column, end_lineno, end_col_offset);
         }
 
         /// <summary>
