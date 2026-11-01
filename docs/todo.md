@@ -13,13 +13,13 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 2081 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 2322 / 2890 통과 | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5549 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
 | 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 이름, 인자, 줄 번호, 예외 테이블 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions <files>` |
 | 바이트코드 (프로브) | 코드 객체 5325개 전부 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions` |
 | 심볼 테이블 (Lib/*.py) | 스코프 8039개 전부 플래그까지 일치 | `python tools/compare_symtable.py --dotnet <dotnet> <files>` |
-| 버그 프로브 | 169 / 169 | `python tools/run_bughunt.py` |
+| 버그 프로브 | 171 / 171 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
 
@@ -54,30 +54,24 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 ## 1. 예외 경로
 
-**1-1. 시간 초과로 끝나는 모듈.** CLR 예외는 이제 `ExecuteFrame`에서 Python 예외가 되어 프로세스가 죽지 않고, `BuiltinSlots`의 메서드는 METH_NOARGS와 METH_O 인자 수를 검사한다. 남은 것은 시간 초과 하나이고 원인은 미확인이다.
-
-| 모듈 | 통과 / CPython | 도달 못함 | 멈춘 테스트 |
-|---|---|---|---|
-| test_bytes | 9 / 279 | 263 | `ByteArrayAsStringTest.test_find_many_lengths` |
-
-**1-3. `test_abc` 프로세스 종료.** `test_abstractstaticmethod_basics`에서 끝난다. 원인 미확인.
+**1-1. 시간 초과로 끝나는 모듈은 없다.** CLR 예외는 `ExecuteFrame`에서 Python 예외가 되고, `bytes.find`와 `count`는 최악에도 선형이다.
 
 ## 2. 컴파일 시 검사
 
-`Python/symtable.c`, `Python/compile.c`, `Parser/string_parser.c`, `pegen_errors.c`와 대조한다.
+파서는 `_PyPegen_run_parser`처럼 두 번 돌고, `invalid_` 규칙은 두 번째에만 돈다. RAISE 매크로는 위치까지 채운다. 남은 것:
 
-- 2-2. 올바르게 거부해야 할 소스를 받아들인다. `SyntaxError not raised` 21건, `TypeError not raised` 9건.
-- 2-3. SyntaxError 위치: `testSyntaxErrorOffset` 서브테스트 62건, `test_exception_locations` 계열.
-- 2-4. 메시지: `positional argument follows keyword argument`가 generic `invalid syntax`로 나온다. `invalid_*` 문법 규칙의 두 번째 파스 경로를 확인한다.
-- 2-5. 문자열 리터럴: `warn_invalid_escape_sequence`가 없어 `"\d"`, `"\777"`에 SyntaxWarning이 없다. `b"é"`가 오류가 아니다. test_string_literals 0/20.
+- 2-1. f-string 토크나이저 오류: `tokenizer.c`의 `tok_get_fstring_mode`와 대조한다. `Tokenizer.cs`의 f-string 오류는 아직 `InvalidOperationException`이고 메시지가 다르다. test_fstring의 실패 대부분이다.
+- 2-2. 숫자 리터럴 오류의 열 위치 (`verify_end_of_number`, `_syntaxerror_range`).
+- 2-3. 줄 연속 문자 오류 `unexpected character after line continuation character`.
+- 2-4. 문자열 리터럴: `warn_invalid_escape_sequence`, `b"é"` 거부. test_string_literals는 `os.open`이 없어 먼저 막힌다.
+- 2-5. test_patma의 `SyntaxError not raised` 7건. `compile.c`의 패턴 검사는 옮겼으니 `invalid_` 규칙이나 생성기 쪽을 본다.
 
 ## 3. 타입과 디스크립터
 
 `Objects/typeobject.c`, `Objects/descrobject.c`, `Objects/funcobject.c`와 대조한다.
 
-- 3-1. 내장 타입을 상속한 클래스의 `__init__`: `StringIO` 하위 클래스에서 `descriptor '__init__' requires a 'StringIO'` 13건. doctest 전체를 막는다(`_SpoofOut`). test_extcall이 여기에 걸린다.
+- 3-1. C# 클래스로 된 내장 타입의 상속: `StringIO`, `BytesIO`, `bytearray`, `classmethod`, `staticmethod`는 `tp_new`가 하위 타입을 할당한다. `complex` 등 남은 타입은 같은 방식으로 옮긴다. test_descr 78/148. test_extcall이 여기에 걸린다.
 - 3-2. `object.__init__` 인자 규칙 9건, `__init_subclass__`의 키워드 전달. `object_init`, `excess_args`.
-- 3-3. `__subclasshook__` 7건, `classmethod() argument must be callable (got property)`.
 - 3-4. 함수 속성: `__defaults__` 등 setter (P0-71). test_funcattrs 15/33.
 - 3-5. 비교와 동등성: slot wrapper와 바인드 메서드 비교 (P0-56, P0-67, P0-69).
 - 3-6. `raise`한 객체와 `except`에서 받은 객체의 동일성 (P0-70).
@@ -92,7 +86,7 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 ## 5. 모듈 표면
 
-- 5-1. `_ast`: `ast`가 필요로 하고, test_builtin과 test_fstring의 로드를 막는다.
+- 5-1. 피클: `range_iterator` 등 내장 이터레이터의 `__reduce__`, 내장 함수의 `__reduce__`, `__self__`. 실패 건수로는 가장 크다. `surrogatepass`, `raw-unicode-escape`도 이 경로에서 필요하다.
 - 5-2. `os.open` 20건, `raw-unicode-escape` 코덱 9건, `tempfile` 없음.
 - 5-3. `KeyError: 'importlib'` 7건. 원인 미확인.
 - 5-4. `weakref` 프록시, `bytearray %`.
@@ -100,12 +94,7 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 ## 6. PEP 695
 
-- 6-1. 클래스 안의 제네릭 함수가 클래스 이름을 찾지 못한다. `__classdict__` 경로가 없다.
-- 6-2. `type X[T] = ...`가 지연 평가를 하지 않고 `TypeAliasType`이 아니다.
-
-## 7. 성능 (1000배 이상만)
-
-- 7-1. `bytes.find`가 최악 입력에서 이차 시간이다. `Objects/stringlib/fastsearch.h`의 two-way를 옮긴다. 그때까지 `tools/cpython_test_driver.py`의 `KNOWN_TOO_SLOW`가 `test_adaptive_find`를 양쪽에서 건너뛴다. 옮긴 뒤 이 목록을 지운다.
+컴파일은 끝났다. 남은 것은 `typing` 쪽 런타임이다: `TypeAliasType.__value__`, `__type_params__`, 제네릭 클래스 피클. test_type_params 27/38.
 
 ## 8. 코드의 미완성 표시
 
@@ -114,7 +103,6 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 - `core/PyFunction.cs:403`: kwargs를 무시한다는 표시.
 - `core/PyClassmethod.cs:38`: 그대로 반환하는 분기.
 - `core/PyType.cs:307`: 하위 클래스 캐시 무효화가 없다는 표시. 잘못된 메서드 조회로 이어질 수 있다.
-- `core/PyType.cs:1888`: 여분 인자 허용.
 - `core/PyModule.cs:835`: `__spec__.parent` 미사용.
 - `runtime/PyVM.cs` `RERAISE`: 인자 0일 때 처리 중인 예외가 없으면 넘어가는 분기. CPython에는 없다.
 
