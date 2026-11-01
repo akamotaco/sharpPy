@@ -13,9 +13,12 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 1889 / 2890 통과 | `python tools/run_cpython_tests.py` |
-| 바이트코드 일치 | 5019 / 5194 코드 객체 | `python tools/compare_bytecode.py --dotnet <dotnet> --minimum 5019` |
-| 버그 프로브 | 167 / 167 | `python tools/run_bughunt.py` |
+| CPython 언어 테스트 | 1895 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5549 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
+| AST (프로브) | 6268 / 6268 문장, 위치 포함 6248 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
+| 바이트코드 (Lib/*.py) | 7996 / 8039 코드 객체 | `python tools/compare_bytecode.py --dotnet <dotnet> <files>` |
+| 바이트코드 (프로브) | 5143 / 5194 코드 객체 | `python tools/compare_bytecode.py --dotnet <dotnet>` |
+| 버그 프로브 | 168 / 168 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
 
@@ -33,6 +36,7 @@
 
 | 경로 | CPython | SharpPy | 판단 |
 |---|---|---|---|
+| AST | ASDL 하나 | ASDL과 구형 AST 둘, `Bridge` 3400줄 | 합친다 |
 | 이항 연산 | `binary_op1`: 오른쪽이 하위 클래스면 오른쪽 슬롯 먼저, 같은 슬롯은 한 번 | `left.Add(right)` 뒤 `__radd__`를 인스턴스 속성으로 조회, list/tuple 하위 클래스 전용 분기 | 고친다 |
 | 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `GetAttribute` override 76개 | 우선순위 대조 필요 |
 | 호출 | `tp_call`, vectorcall | `Call` override 34개 | 대조 필요 |
@@ -44,13 +48,14 @@
 | import | `importlib._bootstrap` | C# 로더 | 라이브러리 정책과 함께 결정 |
 | AST 트리 실행 | 없음 | `Parser/ast.cs`의 `Evaluate`, `runtime/PyExecutor.cs` | 외부 호출부가 없어 보인다. 실행 측정 후 삭제 |
 
-남은 바이트코드 차이(173개):
+남은 바이트코드 차이(Lib 43개):
 
 - PEP 695: 타입 매개변수 스코프와 클래스의 `.type_params`. 항목 6과 같은 경로.
-- `LOAD_SUPER_ATTR`: `maybe_optimize_super_call`이 없고 `self`/`cls` 이름으로 판단한다.
-- `optimize_format`: `"%s" % (x,)`를 f-string으로 바꾸는 `ast_opt.c` 경로가 없다.
-- `compiler_call`의 `CALL_FUNCTION_EX` 경로 인자 구성.
-- 줄 번호 차이로 `NOP`가 남는다. `compiler_*`의 `NO_LOCATION`과 `LOC(s)` 대응이 맞지 않는 곳이다.
+- 컴프리헨션의 숨겨진 지역 변수 집합. 클래스 안과 중첩 컴프리헨션에서 `LOAD_FAST_AND_CLEAR` 개수가 다르다. 항목 4-4와 같은 경로.
+
+AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy는 문자 단위다. 비ASCII 소스에서만 다르다.
+
+구조: 파서는 CPython과 같은 ASDL 트리를 만들고, `Parser/PyParserRuntime_Bridge.cs`가 구형 AST로 바꾼 뒤 컴파일한다. 컴파일러가 ASDL을 직접 읽게 되면 변환층은 필요 없다.
 
 ## 1. 예외 경로
 

@@ -527,6 +527,8 @@ namespace SharpPy.Generated
                 endColumn = System.Math.Max(_column, startColumn + value.Length);
             else if (type == PyToken.Type.NEWLINE && startLine == _line)
                 endColumn = startColumn + 1;
+            else if (type == PyToken.Type.STRING && value.IndexOf('\n') >= 0)
+                endColumn = value.Length - value.LastIndexOf('\n') - 1;
             var token = new GeneratedTokenInfo(type, value, startLine, startColumn, _line, endColumn);
             token.Level = _level; // CPython 3.12: Assign current parenthesis nesting level
             _tokens.Add(token);
@@ -929,6 +931,7 @@ namespace SharpPy.Generated
         private void HandleTripleQuotedString(char quote, int start, int startLine, int startColumn)
         {
             _position += 3; // Skip opening triple quotes
+            _column += 3;
 
             // Read until closing triple quotes
             while (_position + 2 < _source.Length)
@@ -936,8 +939,12 @@ namespace SharpPy.Generated
                 if (_source[_position] == quote && _source[_position + 1] == quote && _source[_position + 2] == quote)
                 {
                     _position += 3; // Skip closing triple quotes
+                    _column += 3;
                     break;
                 }
+                // A backslash takes the next character with it, in raw strings too.
+                if (_source[_position] == '\\')
+                    Advance();
                 Advance(); // This handles line counting for multiline strings
             }
 

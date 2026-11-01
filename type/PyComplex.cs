@@ -515,9 +515,9 @@ namespace SharpPy
             return new PyComplex(-Real, -Imag);
         }
 
-        public PyObject Positive()
+        public override PyObject Positive()
         {
-            return this;
+            return new PyComplex(Real, Imag);
         }
 
         public PyObject Absolute()

@@ -373,28 +373,31 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            var sb = new StringBuilder("bytearray(b'");
+            // bytearray_repr: the quote is chosen as for bytes, but ' is escaped either way.
+            bool hasSingle = false, hasDouble = false;
             foreach (byte b in _bytes)
             {
-                if (b >= 32 && b < 127 && b != '\\' && b != '\'')
-                {
-                    sb.Append((char)b);
-                }
-                else
-                {
-                    switch (b)
-                    {
-                        case (byte)'\\': sb.Append("\\\\"); break;
-                        case (byte)'\'': sb.Append("\\'"); break;
-                        case (byte)'\n': sb.Append("\\n"); break;
-                        case (byte)'\r': sb.Append("\\r"); break;
-                        case (byte)'\t': sb.Append("\\t"); break;
-                        default: sb.Append($"\\x{b:x2}"); break;
-                    }
-                }
+                hasSingle |= b == '\'';
+                hasDouble |= b == '"';
             }
-            sb.Append("')");
-            return new PyString(sb.ToString());
+            char quote = hasSingle && !hasDouble ? '"' : '\'';
+            var sb = new StringBuilder("bytearray(b").Append(quote);
+            foreach (byte b in _bytes)
+            {
+                if (b == quote || b == '\\' || b == '\'')
+                    sb.Append('\\').Append((char)b);
+                else if (b == '\n')
+                    sb.Append("\\n");
+                else if (b == '\r')
+                    sb.Append("\\r");
+                else if (b == '\t')
+                    sb.Append("\\t");
+                else if (b < 32 || b >= 127)
+                    sb.Append($"\\x{b:x2}");
+                else
+                    sb.Append((char)b);
+            }
+            return new PyString(sb.Append(quote).Append(')').ToString());
         }
 
         public override int Length() => _bytes.Count;
