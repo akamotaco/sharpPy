@@ -218,14 +218,7 @@ public class PyModule : PyObject
 #endif
 
         // 1단계: 파싱 (소스 → AST)
-        var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
-
-        var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
-
-        // 2단계: 컴파일 (AST → 바이트코드)
-        // CPython 3.12 호환: 모듈 코드 객체 이름은 항상 "<module>"
-        var compiler = new PythonCompiler();
-        var codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
+        var codeObject = Compiler.CompileSource(sourceCode, FileName);
 
         // 3단계: 모듈 전용 글로벌 스코프 생성
         var moduleGlobalScope = CreateModuleGlobalScope();
@@ -247,10 +240,7 @@ public class PyModule : PyObject
     // sys.modules entry.
     public void ExecuteForReload(string sourceCode)
     {
-        var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
-        var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
-        var compiler = new PythonCompiler();
-        var codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
+        var codeObject = Compiler.CompileSource(sourceCode, FileName);
         var moduleGlobalScope = CreateModuleGlobalScope();
         PyVM.Instance.ExecuteModule(codeObject, moduleGlobalScope);
         IsInitialized = true;

@@ -175,7 +175,7 @@ namespace SharpPy
 #endif
                 // CPython 3.12: Python/bltinmodule.c:776-781
                 // "exec" → Py_file_input, "eval" → Py_eval_input, "single" → Py_single_input
-                var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName, mode);
+                var codeObject = Compiler.CompileSource(sourceCode, fileName ?? "<string>", mode);
 
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
@@ -304,7 +304,7 @@ namespace SharpPy
                 Console.WriteLine("2️⃣ 컴파일: AST → 바이트코드 (실행 안 함)");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName);
+                var codeObject = Compiler.CompileSource(sourceCode, fileName ?? "<string>");
 
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 완료: {codeObject.Instructions.Count} instructions");

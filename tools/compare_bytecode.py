@@ -66,6 +66,8 @@ def detail(i):
         return constant_detail(i.argval)
     if op in NAME_OPS:
         return str(i.argval)
+    if op == "LOAD_SUPER_ATTR":
+        return "%s|%d" % (i.argval, i.arg & 3)
     if op in FLAGGED_OPS:
         return "%s|%d" % (i.argval, i.arg & 1)
     if op in LOCAL_OPS:

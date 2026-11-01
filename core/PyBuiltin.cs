@@ -1306,19 +1306,7 @@ namespace SharpPy
 
                 try
                 {
-                    // 1. Tokenize
-                    var tokens = PyParserRuntime.LexerSource(sourceCode);
-
-                    // 2. Parse as expression (eval mode)
-                    var expression = PyParserRuntime.ParseExpression(tokens, sourceCode, filename);
-
-                    // 3. Compile to bytecode
-                    // For eval(), we need to wrap the expression in a Return statement
-                    var returnStmt = new ReturnStatement(expression) { IsEvalResult = true };
-                    var statements = new List<Statement> { returnStmt };
-
-                    var compiler = new PythonCompiler();
-                    codeObject = compiler.Compile(statements, filename, new List<string>(), null);
+                    codeObject = Compiler.CompileSource(sourceCode, filename, CompileMode.Eval);
                 }
                 catch (Exception ex)
                 {
@@ -1386,44 +1374,12 @@ namespace SharpPy
 
             try
             {
-                // 1. Tokenize
-                var tokens = PyParserRuntime.LexerSource(sourceCode);
-
-                // 2. Parse based on mode
-                if (mode == "eval")
+                codeObject = Compiler.CompileSource(sourceCode, filename, mode switch
                 {
-                    // Parse as expression
-                    var expression = PyParserRuntime.ParseExpression(tokens, sourceCode, filename);
-
-                    // Wrap in Return statement for eval mode
-                    var returnStmt = new ReturnStatement(expression) { IsEvalResult = true };
-                    var statements = new List<Statement> { returnStmt };
-
-                    var compiler = new PythonCompiler();
-                    // CPython: code object name is "<module>" for eval mode
-                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
-                }
-                else if (mode == "exec")
-                {
-                    // Parse as module (statements)
-                    var statements = PyParserRuntime.ParseSource(tokens, sourceCode, filename);
-
-                    var compiler = new PythonCompiler();
-                    // CPython: code object name is "<module>" for exec mode
-                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
-                }
-                else // mode == "single"
-                {
-                    // Parse as single interactive statement
-                    // CPython: single mode prints expression results automatically
-                    var statements = PyParserRuntime.ParseSource(tokens, sourceCode, filename);
-
-                    var compiler = new PythonCompiler();
-                    // CPython: code object name is "<module>" for single mode
-                    // CPython 3.12: Python/bltinmodule.c:780 - mode "single" for interactive
-                    // Include/compile.h:8 - Py_single_input = 256
-                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename, CompileMode.Single);
-                }
+                    "eval" => CompileMode.Eval,
+                    "single" => CompileMode.Single,
+                    _ => CompileMode.File,
+                });
             }
             catch (Exception ex)
             {
@@ -1437,6 +1393,8 @@ namespace SharpPy
         /// <summary>What compile, exec and eval raise for source that does not compile.</summary>
         private static Exception CompilerError(Exception error, string filename)
         {
+            if (error is PythonException { PyException: PySyntaxError })
+                return error;
             if (error is SyntaxErrorException compiler)
                 return PySyntaxError.Create(compiler.Text, filename, Math.Max(compiler.LineNumber, 1));
             if (error is PySyntaxErrorException parser)
@@ -1527,16 +1485,7 @@ namespace SharpPy
 
                 try
                 {
-                    // 1. Tokenize
-                    var tokens = PyParserRuntime.LexerSource(sourceCode);
-
-                    // 2. Parse as statements (exec mode)
-                    var statements = PyParserRuntime.ParseSource(tokens, sourceCode, filename);
-
-                    // 3. Compile to bytecode
-                    // CPython: code object name is "<module>" for exec mode, filename is "<string>"
-                    var compiler = new PythonCompiler();
-                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
+                    codeObject = Compiler.CompileSource(sourceCode, filename);
                 }
                 catch (Exception ex)
                 {

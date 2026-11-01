@@ -3104,10 +3104,10 @@ namespace SharpPy
                     #endif
                     // CPython 3.12: super() attribute access
                     // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
-                    // oparg format: (name_index << 1) | method_flag
+                    // oparg: (name_index << 2) | (two_arguments << 1) | load_method
                     int superOparg = argument;
-                    int superMethodFlag = superOparg & 1;  // Low bit: method flag
-                    int superAttrIndex = superOparg >> 1;  // High bits: name index
+                    int superMethodFlag = superOparg & 1;
+                    int superAttrIndex = superOparg >> 2;
                     var superAttrName = frame.Code.Names[superAttrIndex];
                     var selfObj = frame.ValueStack.Pop();         // self
                     var classObj = frame.ValueStack.Pop();        // __class__

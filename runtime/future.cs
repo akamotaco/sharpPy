@@ -1,4 +1,5 @@
 // Python/future.c of CPython v3.12.15.
+using System.Collections.Generic;
 using SharpPy.Generated;
 
 namespace SharpPy
@@ -18,10 +19,10 @@ namespace SharpPy
             return body[0] is GeneratedExprStmt { Value: GeneratedConstant { Value: GeneratedPyConstantString } value } ? value : null;
         }
 
-        private static SyntaxErrorException Error(string message, string filename, GeneratedAstNode at) =>
-            new(message, filename, at.LineNo, at.ColOffset + 1, at.EndLineNo, at.EndColOffset + 1);
+        private static PythonException Error(string message, string filename, GeneratedAstNode at, List<string>? lines) =>
+            PySyntaxError.At(message, filename, at.LineNo, at.ColOffset + 1, at.EndLineNo, at.EndColOffset + 1, lines);
 
-        private void CheckFeatures(GeneratedImportFrom s, string filename)
+        private void CheckFeatures(GeneratedImportFrom s, string filename, List<string>? lines)
         {
             foreach (GeneratedAlias name in s.Names)
             {
@@ -43,15 +44,15 @@ namespace SharpPy
                         Annotations = true;
                         break;
                     case "braces":
-                        throw Error("not a chance", filename, name);
+                        throw Error("not a chance", filename, name, lines);
                     default:
-                        throw Error($"future feature {name.Name.Value} is not defined", filename, name);
+                        throw Error($"future feature {name.Name.Value} is not defined", filename, name, lines);
                 }
             }
         }
 
         // _PyFuture_FromAST
-        public static PyFuture FromAst(GeneratedMod mod, string filename)
+        public static PyFuture FromAst(GeneratedMod mod, string filename, List<string>? lines = null)
         {
             var future = new PyFuture();
             GeneratedSeq? body = mod switch
@@ -66,7 +67,7 @@ namespace SharpPy
             {
                 if (body[i] is not GeneratedImportFrom { Module.Value: "__future__" } statement)
                     return future;
-                future.CheckFeatures(statement, filename);
+                future.CheckFeatures(statement, filename, lines);
                 future.LastLine = statement.LineNo;
                 future.LastColumn = statement.ColOffset;
             }

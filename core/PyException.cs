@@ -878,6 +878,21 @@ namespace SharpPy
             { "msg", "filename", "lineno", "offset", "text", "end_lineno", "end_offset", "print_file_and_line" };
         private readonly PyObject[] _fields = new PyObject[FieldNames.Length];
 
+        // compiler_error and PyErr_RangedSyntaxLocationObject: msg, (filename, lineno, offset, text, end_lineno, end_offset)
+        internal static PythonException At(string message, string filename, int line, int offset, int endLine, int endOffset,
+            List<string> sourceLines)
+        {
+            var error = new PySyntaxError(message, filename, line);
+            PyObject text = sourceLines != null && line >= 1 && line <= sourceLines.Count
+                ? new PyString(sourceLines[line - 1] + "\n")
+                : PyNone.Instance;
+            var details = new PyTuple(new PyString(filename), new PyInt(line), new PyInt(offset), text,
+                new PyInt(endLine), new PyInt(endOffset));
+            error.ReadDetails(details);
+            error.Args = new PyObject[] { new PyString(message), details };
+            return new PythonException(error);
+        }
+
         internal static PythonException IntegerLiteralLimit(string message, string filename, int line, string source)
         {
             var error = new PySyntaxError(message, filename, line);

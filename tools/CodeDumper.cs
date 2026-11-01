@@ -83,8 +83,9 @@ namespace SharpPy
                     return Name(code, argument);
                 case ByteCodeOp.LOAD_GLOBAL:
                 case ByteCodeOp.LOAD_ATTR:
-                case ByteCodeOp.LOAD_SUPER_ATTR:
                     return Name(code, argument >> 1) + "|" + (argument & 1);
+                case ByteCodeOp.LOAD_SUPER_ATTR:
+                    return Name(code, argument >> 2) + "|" + (argument & 3);
                 case ByteCodeOp.LOAD_FAST:
                 case ByteCodeOp.STORE_FAST:
                 case ByteCodeOp.DELETE_FAST:

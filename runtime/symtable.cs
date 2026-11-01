@@ -63,16 +63,19 @@ namespace SharpPy
         private string? _private;
         public PySTEntry Top { get; private set; } = null!;
 
-        private PySymtable(string filename, bool futureAnnotations)
+        private readonly List<string>? _sourceLines;
+
+        private PySymtable(string filename, bool futureAnnotations, List<string>? sourceLines)
         {
             _filename = filename;
             _futureAnnotations = futureAnnotations;
+            _sourceLines = sourceLines;
         }
 
         // _PySymtable_Build
-        public static PySymtable Build(GeneratedMod mod, string filename, bool futureAnnotations)
+        public static PySymtable Build(GeneratedMod mod, string filename, bool futureAnnotations, List<string>? sourceLines = null)
         {
-            var st = new PySymtable(filename, futureAnnotations);
+            var st = new PySymtable(filename, futureAnnotations, sourceLines);
             st.EnterBlock("top", BlockType.ModuleBlock, mod, 0, 0, 0, 0);
             st.Top = st._cur;
             switch (mod)
@@ -97,7 +100,7 @@ namespace SharpPy
         public PySTEntry Lookup(object key) => _blocks[key];
 
         private Exception Error(string message, int line, int column, int endLine, int endColumn) =>
-            new SyntaxErrorException(message, _filename, line, column, endLine, endColumn);
+            PySyntaxError.At(message, _filename, line, column, endLine, endColumn, _sourceLines);
 
         private Exception Error(string message, GeneratedAstNode at) =>
             Error(message, at.LineNo, at.ColOffset + 1, at.EndLineNo, at.EndColOffset + 1);
