@@ -10,18 +10,24 @@ namespace SharpPy
     {
         private static PyObject ConstantValue(GeneratedPyConstant value) => AstOptimizer.Value(value);
 
-        // Py_CompileStringObject: the single route from text to a code object.
-        public static PyCodeObject CompileSource(string source, string filename, CompileMode mode = CompileMode.File,
-            int optimize = 0, int inheritedFlags = 0)
+        // _PyParser_ASTFromString
+        public static GeneratedMod Parse(string source, string filename, CompileMode mode)
         {
             var tokens = PyParserRuntime.LexerSource(source);
             var parser = new PyParser(tokens, filename, source);
-            GeneratedMod mod = mode switch
+            return mode switch
             {
                 CompileMode.Eval => parser.ParseEval(),
                 CompileMode.Single => new GeneratedInteractive { Body = ((GeneratedModule)parser.ParseFile()).Body },
                 _ => parser.ParseFile(),
             };
+        }
+
+        // Py_CompileStringObject: the single route from text to a code object.
+        public static PyCodeObject CompileSource(string source, string filename, CompileMode mode = CompileMode.File,
+            int optimize = 0, int inheritedFlags = 0)
+        {
+            var mod = Parse(source, filename, mode);
             var lines = new List<string>(source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
             return Compile(mod, filename, optimize, lines, inheritedFlags);
         }

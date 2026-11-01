@@ -1363,10 +1363,34 @@ namespace SharpPy
             if (source is PyCodeObject pyCode)
                 return pyCode;
 
+            // builtin_compile_impl: flags, dont_inherit, optimize, and a tree in place of text.
+            PyObject Option(int position, string name) => args.Length > position ? args[position]
+                : kwargs != null ? PyObject.KwValue(kwargs, name) : null;
+            int compileFlags = Option(3, "flags") is PyInt flagsValue ? flagsValue.ToInt() : 0;
+            int optimizeLevel = Option(5, "optimize") is PyInt optimizeValue ? optimizeValue.ToInt() : -1;
+            if (optimizeLevel < 0)
+                optimizeLevel = 0;
+            var compileMode = mode switch
+            {
+                "eval" => CompileMode.Eval,
+                "single" => CompileMode.Single,
+                _ => CompileMode.File,
+            };
+            if (PythonAst.IsAst(source))
+            {
+                if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
+                    return source;
+                return Compiler.Compile(PythonAst.ObjectToMod(source, compileMode), filename, optimizeLevel, null);
+            }
+
             // Extract source code string
             string sourceCode;
             if (source is PyString pyString)
                 sourceCode = pyString.Value;
+            else if (source is PyBytes rawSource)
+                sourceCode = System.Text.Encoding.UTF8.GetString(rawSource.Value);
+            else if (source is PyByteArray rawArray)
+                sourceCode = System.Text.Encoding.UTF8.GetString(rawArray.ToByteArrayCopy());
             else
                 throw PyTypeError.Create($"compile() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
 
@@ -1374,12 +1398,9 @@ namespace SharpPy
 
             try
             {
-                codeObject = Compiler.CompileSource(sourceCode, filename, mode switch
-                {
-                    "eval" => CompileMode.Eval,
-                    "single" => CompileMode.Single,
-                    _ => CompileMode.File,
-                });
+                if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
+                    return PythonAst.ModToObject(Compiler.Parse(sourceCode, filename, compileMode));
+                codeObject = Compiler.CompileSource(sourceCode, filename, compileMode, optimizeLevel);
             }
             catch (Exception ex)
             {
