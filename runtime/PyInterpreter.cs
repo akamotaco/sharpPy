@@ -157,6 +157,8 @@ namespace SharpPy
                 if (showAst)
                 {
                     // The tree the parser built, the one to compare with CPython's ast.dump.
+                    if (Environment.GetEnvironmentVariable("SHARPPY_SYMTABLE") == "1")
+                        Console.Write(SymtableDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>"), fileName ?? "<string>"));
                     Console.WriteLine("[===== ast log ====]");
                     Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>")));
                     Console.WriteLine("[===== ast end ====]");
@@ -286,6 +288,8 @@ namespace SharpPy
                 if (showAst)
                 {
                     // The tree the parser built, the one to compare with CPython's ast.dump.
+                    if (Environment.GetEnvironmentVariable("SHARPPY_SYMTABLE") == "1")
+                        Console.Write(SymtableDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>"), fileName ?? "<string>"));
                     Console.WriteLine("[===== ast log ====]");
                     Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>")));
                     Console.WriteLine("[===== ast end ====]");

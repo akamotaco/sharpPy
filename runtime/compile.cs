@@ -28,6 +28,16 @@ namespace SharpPy
             ColumnOffset = columnOffset;
         }
 
+        public int EndLineNumber { get; }
+        public int EndColumnOffset { get; }
+
+        public SyntaxErrorException(string message, string? fileName, int lineNumber, int columnOffset, int endLine, int endColumn)
+            : this(message, fileName, lineNumber, columnOffset)
+        {
+            EndLineNumber = endLine;
+            EndColumnOffset = endColumn;
+        }
+
         public SyntaxErrorException(string message) : base($"SyntaxError: {message}")
         {
             Text = message;
