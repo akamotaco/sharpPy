@@ -165,6 +165,9 @@ namespace SharpPy.Generated
         /// </summary>
         public int Level { get; set; }
 
+        /// <summary>On ENDMARKER: tok->parenstack, what was left open at the end of the source.</summary>
+        public (char Open, int Line, int Column)? UnclosedBracket { get; set; }
+
         public int Line { get; set; }
         public int Column { get; set; }
         public int EndLine { get; set; }
@@ -247,7 +250,7 @@ namespace SharpPy.Generated
         private bool _currentLineHasRealTokens = false;
 
         // Parentheses context tracking for correct NL/NEWLINE classification
-        private readonly Stack<char> _parenStack = new();
+        private readonly Stack<(char Open, int Line, int Column)> _parenStack = new();
         // CPython 3.12: Check if inside parentheses/brackets/braces using _level
         // _level > 0 means we're inside (), [], or {}
         private bool IsInsideParentheses => _level > 0;
@@ -440,8 +443,6 @@ namespace SharpPy.Generated
             }
 
             // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
-            if (_parenStack.Count > 0)
-                throw new PySyntaxErrorException($"'{_parenStack.Peek()}' was never closed", null, _line, _column);
 
             // A last line of nothing but spaces has no statement to end.
             if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r' &&
@@ -462,6 +463,8 @@ namespace SharpPy.Generated
 
             // Add ENDMARKER for compatibility with CPython generate_tokens()
             AddToken(PyToken.Type.ENDMARKER, "", _line, _column);
+            if (_parenStack.Count > 0)
+                _tokens[_tokens.Count - 1].UnclosedBracket = _parenStack.Peek();
             return _tokens;
         }
 
@@ -928,18 +931,23 @@ namespace SharpPy.Generated
             }
         }
 
+        private int _fstringStackDepth() => _fstringExpressionDepth;
+        private int _fstringExpressionDepth;
+
         private void HandleTripleQuotedString(char quote, int start, int startLine, int startColumn)
         {
             _position += 3; // Skip opening triple quotes
             _column += 3;
 
             // Read until closing triple quotes
+            bool closedTriple = false;
             while (_position + 2 < _source.Length)
             {
                 if (_source[_position] == quote && _source[_position + 1] == quote && _source[_position + 2] == quote)
                 {
                     _position += 3; // Skip closing triple quotes
                     _column += 3;
+                    closedTriple = true;
                     break;
                 }
                 // A backslash takes the next character with it, in raw strings too.
@@ -947,6 +955,10 @@ namespace SharpPy.Generated
                     Advance();
                 Advance(); // This handles line counting for multiline strings
             }
+
+            if (!closedTriple)
+                throw new PySyntaxErrorException($"unterminated triple-quoted string literal (detected at line {_line})",
+                    null, startLine, startColumn, startColumn + 1, null);
 
             // The token goes on: the newlines inside it start no logical line.
             _atLineStart = false;
@@ -961,6 +973,8 @@ namespace SharpPy.Generated
 
             while (_position < _source.Length && CurrentChar != quote)
             {
+                if (CurrentChar == '\n' || CurrentChar == '\r')
+                    break;
                 if (CurrentChar == '\\' && _position + 1 < _source.Length)
                 {
                     Advance(); // Skip escape character
@@ -968,10 +982,10 @@ namespace SharpPy.Generated
                 Advance();
             }
 
-            if (_position < _source.Length)
-            {
-                Advance(); // Skip closing quote
-            }
+            if (_position >= _source.Length || CurrentChar != quote)
+                throw new PySyntaxErrorException($"unterminated string literal (detected at line {_line})",
+                    null, startLine, startColumn, startColumn + 1, null);
+            Advance(); // Skip closing quote
 
             var str = _source.Substring(start, _position - start);
             AddToken(PyToken.Type.STRING, str, startLine, startColumn);
@@ -995,8 +1009,27 @@ namespace SharpPy.Generated
             // Decrement BEFORE creating token for closing parens/brackets/braces
             if (lit.type == PyToken.Type.RPAR || lit.type == PyToken.Type.RSQB || lit.type == PyToken.Type.RBRACE)
             {
+                char closing = lit.name[0];
+                if (_parenStack.Count == 0)
+                {
+                    if (_fstringStackDepth() == 0)
+                        throw new PySyntaxErrorException($"unmatched '{closing}'", null, _line, _column, _column + 1, null);
+                }
+                else
+                {
+                    var opening = _parenStack.Pop();
+                    if ((opening.Open, closing) is not (('(', ')') or ('[', ']') or ('{', '}')))
+                        throw new PySyntaxErrorException(opening.Line != _line
+                            ? $"closing parenthesis '{closing}' does not match opening parenthesis '{opening.Open}' on line {opening.Line}"
+                            : $"closing parenthesis '{closing}' does not match opening parenthesis '{opening.Open}'",
+                            null, _line, _column, _column + 1, null);
+                }
                 if (_level > 0)
                     _level--;
+            }
+            else if (lit.type == PyToken.Type.LPAR || lit.type == PyToken.Type.LSQB || lit.type == PyToken.Type.LBRACE)
+            {
+                _parenStack.Push((lit.name[0], _line, _column));
             }
 
             // CPython 3.12: In visualization mode (generateExtraTokens), use generic OP for display
@@ -1408,6 +1441,7 @@ namespace SharpPy.Generated
             // Also save the starting parenthesis/bracket level
             // This prevents ':' inside subscripts (e.g., lst[2:4]) from being treated as format spec
             int exprStartLevel = _level;
+            _fstringExpressionDepth++;
 
             while (_position < _source.Length)
             {

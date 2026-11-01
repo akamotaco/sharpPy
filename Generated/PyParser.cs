@@ -12940,7 +12940,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return NonparenGenexpInCall ( a , b );
+                    return ASTHelpers . NonparenGenexpInCall ( this , a , ( GeneratedComprehensionSeq ) b );
                 }
             }
 
@@ -12984,7 +12984,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return ArgumentsParsingError ( a );
+                    return ASTHelpers . ArgumentsParsingError ( this , a );
                 }
             }
 
@@ -13202,7 +13202,7 @@ namespace SharpPy.Generated
                 )
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?" ): null;
+                    return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '%s'. Did you mean %s(...)?", a . GetNameValue (), a . GetNameValue () ): null;
                 }
             }
 
@@ -14192,7 +14192,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_SlashWithDefault()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return null;
+                    return new GeneratedArguments();
                 }
             }
 
@@ -14209,7 +14209,7 @@ namespace SharpPy.Generated
                 if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return null;
+                    return new GeneratedArguments();
                 }
             }
 

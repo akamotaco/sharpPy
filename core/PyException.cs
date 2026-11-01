@@ -880,11 +880,11 @@ namespace SharpPy
 
         // compiler_error and PyErr_RangedSyntaxLocationObject: msg, (filename, lineno, offset, text, end_lineno, end_offset)
         internal static PythonException At(string message, string filename, int line, int offset, int endLine, int endOffset,
-            List<string> sourceLines, bool indentation = false)
+            List<string> sourceLines, bool indentation = false, bool lastLineHasNewline = true)
         {
             var error = indentation ? new PyIndentationError(message) : new PySyntaxError(message, filename, line);
             PyObject text = sourceLines != null && line >= 1 && line <= sourceLines.Count
-                ? new PyString(sourceLines[line - 1] + "\n")
+                ? new PyString(sourceLines[line - 1] + (lastLineHasNewline ? "\n" : ""))
                 : PyNone.Instance;
             var details = new PyTuple(new PyString(filename), new PyInt(line), new PyInt(offset), text,
                 new PyInt(endLine), new PyInt(endOffset));

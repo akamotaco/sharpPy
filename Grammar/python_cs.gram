@@ -1719,7 +1719,7 @@ expression_without_invalid[GeneratedExpr]:
     | lambdef
 invalid_legacy_expression:
     | a=NAME !'(' b=star_expressions {
-        CheckLegacyStmt(NameToken(a)) ? RaiseSyntaxErrorKnownRange(NameToken(a), b, $"Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?") : null}
+        CheckLegacyStmt(NameToken(a)) ? RaiseSyntaxErrorKnownRange(NameToken(a), b, $"Missing parentheses in call to '%s'. Did you mean %s(...)?", a . GetNameValue (), a . GetNameValue ()) : null}
 
 invalid_expression:
     # !(NAME STRING) is not matched so we don't show this error with some invalid string prefixes like: kf"dsfsdf"
@@ -1807,8 +1807,8 @@ invalid_kwds:
     | '**' param ',' a=param { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
     | '**' param ',' a[GeneratedTokenInfo]=('*'|'**'|'/') { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
 invalid_parameters_helper[GeneratedArguments]: # This is only there to avoid type errors
-    | a=slash_with_default { null }
-    | a=param_with_default+ { null }
+    | a=slash_with_default { new GeneratedArguments() }
+    | a=param_with_default+ { new GeneratedArguments() }
 invalid_lambda_parameters:
     | a="/" ',' {
         RaiseSyntaxErrorKnownLocation(a, "at least one argument must precede /") }

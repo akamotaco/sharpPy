@@ -13,14 +13,27 @@ namespace SharpPy
         // _PyParser_ASTFromString
         public static GeneratedMod Parse(string source, string filename, CompileMode mode)
         {
-            var tokens = PyParserRuntime.LexerSource(source);
-            var parser = new PyParser(tokens, filename, source);
-            return mode switch
+            try
             {
-                CompileMode.Eval => parser.ParseEval(),
-                CompileMode.Single => new GeneratedInteractive { Body = ((GeneratedModule)parser.ParseFile()).Body },
-                _ => parser.ParseFile(),
-            };
+                var tokens = PyParserRuntime.LexerSource(source);
+                var parser = new PyParser(tokens, filename, source);
+                return mode switch
+                {
+                    CompileMode.Eval => parser.ParseEval(),
+                    CompileMode.Single => new GeneratedInteractive { Body = ((GeneratedModule)parser.ParseFile()).Body },
+                    _ => parser.ParseFile(),
+                };
+            }
+            catch (PySyntaxErrorException error)
+            {
+                // The tokenizer's errors: _syntaxerror_range, with the text of the line as it was read.
+                int line = Math.Max(error.LineNumber, 1);
+                var lines = new List<string>(source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
+                string text = error.Message.StartsWith("SyntaxError: ") ? error.Message.Substring("SyntaxError: ".Length) : error.Message;
+                throw PySyntaxError.At(text, filename, line, error.ColumnOffset + 1, line,
+                    error.EndColumnOffset >= 0 ? error.EndColumnOffset : error.ColumnOffset + 1, lines,
+                    lastLineHasNewline: line < lines.Count);
+            }
         }
 
         // Py_CompileStringObject: the single route from text to a code object.

@@ -99,7 +99,7 @@ namespace SharpPy
             if ((inheritedFlags & CO_FUTURE_BARRY_AS_BDFL) != 0)
                 future.BarryAsBdfl = true;
             var folded = new AstOptimizer(optimize, future.Annotations).Optimize(mod);
-            var st = PySymtable.Build(folded, filename, future.Annotations, sourceLines);
+            var st = PySymtable.Build(folded, filename, future.Annotations, System.IO.File.Exists(filename) ? sourceLines : null);
             return new Compiler(filename, st, future, optimize, sourceLines).CompilerMod(folded);
         }
 
@@ -792,6 +792,7 @@ namespace SharpPy
 
         // compiler_error
         private PythonException Error(Loc loc, string message) =>
-            PySyntaxError.At(message, _filename, loc.Line, loc.Col + 1, loc.EndLine, loc.EndCol + 1, _sourceLines);
+            PySyntaxError.At(message, _filename, loc.Line, loc.Col + 1, loc.EndLine, loc.EndCol + 1,
+                System.IO.File.Exists(_filename) ? _sourceLines : null);
     }
 }

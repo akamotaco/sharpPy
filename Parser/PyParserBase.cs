@@ -662,7 +662,7 @@ namespace SharpPy.Generated
         private static string Format(string format, object[] args)
         {
             int next = 0;
-            return System.Text.RegularExpressions.Regex.Replace(format, @"%(?:\.\d+)?[sUcR]",
+            return System.Text.RegularExpressions.Regex.Replace(format, @"%(?:\.\d+)?[sUcRd]",
                 match => next < args.Length ? args[next++]?.ToString() ?? "" : match.Value);
         }
 
@@ -681,21 +681,30 @@ namespace SharpPy.Generated
                 _sourceLines == null ? null : new List<string>(_sourceLines), indentation);
 
         // RAISE_SYNTAX_ERROR: at known_err_token, or the last token read
-        protected GeneratedPtr RaiseSyntaxError(string format, params object[] args)
+        public GeneratedPtr RaiseSyntaxError(string format, params object[] args)
         {
             var t = _knownErrToken ?? FillToken;
+            // A DEDENT at the end of the source is read on the last line: tok->cur stands in.
+            if (t.Type is PyToken.Type.DEDENT or PyToken.Type.ENDMARKER)
+            {
+                int index = Math.Min(_fill, _tokens.Count) - 1;
+                while (index > 0 && _tokens[index].Type is PyToken.Type.DEDENT or PyToken.Type.ENDMARKER)
+                    index--;
+                var previous = _tokens[index];
+                throw ErrorAt(false, previous.Line, previous.EndColumn, previous.Line, -1, Format(format, args));
+            }
             throw ErrorAt(false, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
         }
 
         // RAISE_SYNTAX_ERROR_KNOWN_LOCATION
-        protected GeneratedPtr RaiseSyntaxErrorKnownLocation(GeneratedPtr node, string format, params object[] args)
+        public GeneratedPtr RaiseSyntaxErrorKnownLocation(GeneratedPtr node, string format, params object[] args)
         {
             var at = Where(node);
             throw ErrorAt(false, at.Line, at.Col + 1, at.EndLine, at.EndCol + 1, Format(format, args));
         }
 
         // RAISE_SYNTAX_ERROR_KNOWN_RANGE
-        protected GeneratedPtr RaiseSyntaxErrorKnownRange(GeneratedPtr startNode, GeneratedPtr endNode, string format, params object[] args)
+        public GeneratedPtr RaiseSyntaxErrorKnownRange(GeneratedPtr startNode, GeneratedPtr endNode, string format, params object[] args)
         {
             if (args.Length == 0 && format.Contains("%s") && startNode is GeneratedTokenInfo named)
                 args = new object[] { named.Value };
@@ -709,20 +718,23 @@ namespace SharpPy.Generated
         {
             var a = Where(node);
             var t = FillToken;
-            throw ErrorAt(false, a.Line, a.Col + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
+            throw ErrorAt(false, a.Line, a.Col + 1, t.EndLine, t.EndColumn, Format(format, args));
         }
 
         // RAISE_INDENTATION_ERROR
         protected GeneratedPtr RaiseIndentationError(string format, params object[] args)
         {
             var t = _knownErrToken ?? FillToken;
+            // An INDENT or DEDENT has no column: the tokenizer's position stands in, with no end.
+            if (t.Type is PyToken.Type.INDENT or PyToken.Type.DEDENT)
+                throw ErrorAt(true, t.Line, t.EndColumn, t.EndLine, -1, Format(format, args));
             throw ErrorAt(true, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
         }
 
         // RAISE_ERROR_KNOWN_LOCATION
         protected GeneratedPtr RaiseErrorKnownLocation(Type exceptionType, int lineno, int colOffset, int endLineno, int endColOffset, string format, params object[] args)
         {
-            throw ErrorAt(false, lineno, colOffset + 1, endLineno, endColOffset < 0 ? endColOffset : endColOffset + 1, Format(format, args));
+            throw ErrorAt(false, lineno, colOffset + 1, endLineno, endColOffset + 1, Format(format, args));
         }
 
         // RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN
@@ -801,6 +813,10 @@ namespace SharpPy.Generated
         // _Pypegen_set_syntax_error
         private void SetSyntaxError(GeneratedTokenInfo lastToken)
         {
+            // Parser reached the end inside brackets: raise_unclosed_parentheses_error
+            var end = _tokens[_tokens.Count - 1];
+            if (end.UnclosedBracket is { } open && lastToken.Type is PyToken.Type.ENDMARKER or PyToken.Type.NEWLINE or PyToken.Type.DEDENT)
+                throw ErrorAt(false, open.Line, open.Column + 1, open.Line, 0, $"'{open.Open}' was never closed");
             if (lastToken.Type == PyToken.Type.INDENT)
                 RaiseIndentationError("unexpected indent");
             if (lastToken.Type == PyToken.Type.DEDENT)

@@ -1916,65 +1916,11 @@ namespace SharpPy.Generated
         }
 
         // ==================== Expression Name Helpers ====================
-        // CPython: GetExprName - Gets a string representation of expression for error messages
-        public static string GetExprName(GeneratedExpr expr)
-        {
-            // CPython logic: Returns name representation based on expression type
-            // For now, return a generic name - TODO: implement full logic
-            if (expr is GeneratedName nameExpr)
-            {
-                return nameExpr.Id;
-            }
-            else if (expr is GeneratedAttribute attrExpr)
-            {
-                return "attribute";
-            }
-            else if (expr is GeneratedSubscript)
-            {
-                return "subscript";
-            }
-            else if (expr is GeneratedStarred)
-            {
-                return "starred";
-            }
-            else if (expr is GeneratedList)
-            {
-                return "list";
-            }
-            else if (expr is GeneratedTuple)
-            {
-                return "tuple";
-            }
-            else if (expr is GeneratedCall)
-            {
-                return "function call";
-            }
-            return "expression";
-        }
+        public static string GetExprName(GeneratedExpr expr) => ASTHelpers.GetExprName(expr);
 
         // ==================== Comprehension Helpers ====================
-        // CPython: GetLastComprehensionItem
-        public static GeneratedComprehension GetLastComprehensionItem(GeneratedComprehension comp)
-        {
-            return comp; // Just returns the same item (used for error location tracking)
-        }
-
-        // ==================== Error Raising Helpers ====================
-        // CPython: NonparenGenexpInCall - Raise error for non-parenthesized generator expression in call
-        public static GeneratedArguments? NonparenGenexpInCall(GeneratedExprSeq? args, GeneratedSeq for_if_clauses)
-        {
-            // TODO: Raise proper syntax error
-            // RaiseSyntaxError("Generator expression must be parenthesized");
-            return null;
-        }
-
-        // CPython: ArgumentsParsingError - Raise error for invalid arguments
-        public static GeneratedArguments? ArgumentsParsingError(GeneratedExprSeq args)
-        {
-            // TODO: Raise proper syntax error
-            // RaiseSyntaxError("Invalid arguments");
-            return null;
-        }
+        public static GeneratedExpr GetLastComprehensionItem(GeneratedComprehension comp) =>
+            ASTHelpers.GetLastComprehensionItem(comp);
 
     }
 
@@ -2163,6 +2109,9 @@ namespace SharpPy.Generated
                 GeneratedSet => "set display",
                 GeneratedJoinedStr => "f-string expression",
                 GeneratedFormattedValue => "f-string expression",
+                GeneratedCompare => "comparison",
+                GeneratedIfExp => "conditional expression",
+                GeneratedNamedExpr => "named expression",
                 GeneratedConstant c => GetConstantName(c),
                 _ => "expression"
             };
@@ -2170,7 +2119,7 @@ namespace SharpPy.Generated
 
         private static string GetConstantName(GeneratedConstant c)
         {
-            if (c.Value == null) return "None";
+            if (c.Value is null or GeneratedPyConstantNone) return "None";
             var pyConstant = c.Value as GeneratedPyConstant;
             if (pyConstant is GeneratedPyConstantBool b)
             {
@@ -2203,7 +2152,7 @@ namespace SharpPy.Generated
         // CPython action_helpers.c:1118
         // void *ArgumentsParsingError(Parser *p, expr_ty e)
         // Note: Made internal so PyParser can access it
-        internal static GeneratedPtr ArgumentsParsingError(dynamic p, GeneratedExpr e)
+        public static GeneratedPtr ArgumentsParsingError(dynamic p, GeneratedExpr e)
         {
             if (e == null || !(e is GeneratedCall call)) return null!;
 
@@ -2231,7 +2180,7 @@ namespace SharpPy.Generated
         // CPython action_helpers.c:1137
         // void *NonparenGenexpInCall(Parser *p, expr_ty args, asdl_comprehension_seq *comprehensions)
         // Note: Made internal so PyParser can access it
-        internal static GeneratedPtr NonparenGenexpInCall(dynamic p, GeneratedExpr args,
+        public static GeneratedPtr NonparenGenexpInCall(dynamic p, GeneratedExpr args,
                                                                       GeneratedComprehensionSeq comprehensions)
         {
             if (!(args is GeneratedCall call)) return null!;
