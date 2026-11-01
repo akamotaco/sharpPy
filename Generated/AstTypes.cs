@@ -250,8 +250,6 @@ namespace SharpPy.Generated
     /// </summary>
     public class GeneratedPass : GeneratedStmt
     {
-        public static readonly GeneratedPass Instance = new();
-        private GeneratedPass() { }
     }
 
     /// <summary>
@@ -259,8 +257,6 @@ namespace SharpPy.Generated
     /// </summary>
     public class GeneratedBreak : GeneratedStmt
     {
-        public static readonly GeneratedBreak Instance = new();
-        private GeneratedBreak() { }
     }
 
     /// <summary>
@@ -268,8 +264,6 @@ namespace SharpPy.Generated
     /// </summary>
     public class GeneratedContinue : GeneratedStmt
     {
-        public static readonly GeneratedContinue Instance = new();
-        private GeneratedContinue() { }
     }
 
     // ============================================================

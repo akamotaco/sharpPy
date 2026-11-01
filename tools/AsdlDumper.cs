@@ -102,8 +102,23 @@ namespace SharpPy
                 else
                     Write(text, value);
             }
+            if (IncludeAttributes && node is GeneratedAstNode located && HasAttributes(node))
+            {
+                if (!first)
+                    text.Append(", ");
+                text.Append($"lineno={located.LineNo}, col_offset={located.ColOffset}, ");
+                text.Append($"end_lineno={located.EndLineNo}, end_col_offset={located.EndColOffset}");
+            }
             text.Append(')');
         }
+
+        // ast.dump(include_attributes=True), for tools/compare_ast.py --attributes
+        private static readonly bool IncludeAttributes =
+            System.Environment.GetEnvironmentVariable("SHARPPY_AST_ATTRIBUTES") == "1";
+
+        // The sum types Python.asdl gives attributes (lineno, col_offset, end_lineno, end_col_offset).
+        private static bool HasAttributes(object node) => node is GeneratedStmt or GeneratedExpr or GeneratedExcepthandler
+            or GeneratedArg or GeneratedKeyword or GeneratedAlias or GeneratedPattern or GeneratedTypeParam;
 
         private static string ConstantRepr(GeneratedPyConstant constant) => constant switch
         {

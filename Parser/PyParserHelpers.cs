@@ -437,7 +437,7 @@ namespace SharpPy.Generated
 
         public static GeneratedStmt Pass(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            var node = GeneratedPass.Instance;
+            var node = new GeneratedPass();
             node.LineNo = lineno;
             node.ColOffset = col_offset;
             node.EndLineNo = end_lineno ?? 0;
@@ -447,7 +447,7 @@ namespace SharpPy.Generated
 
         public static GeneratedStmt Break(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            var node = GeneratedBreak.Instance;
+            var node = new GeneratedBreak();
             node.LineNo = lineno;
             node.ColOffset = col_offset;
             node.EndLineNo = end_lineno ?? 0;
@@ -457,7 +457,7 @@ namespace SharpPy.Generated
 
         public static GeneratedStmt Continue(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            var node = GeneratedContinue.Instance;
+            var node = new GeneratedContinue();
             node.LineNo = lineno;
             node.ColOffset = col_offset;
             node.EndLineNo = end_lineno ?? 0;
@@ -2735,13 +2735,23 @@ namespace SharpPy.Generated
         // CPython: _PyPegen_constant_from_string - Creates a Constant from a STRING token with decoding
         public static GeneratedExpr ConstantFromString(GeneratedTokenInfo tok)
         {
-            return PyParserRuntime.DecodedConstantFromToken(tok);
+            var constant = PyParserRuntime.DecodedConstantFromToken(tok);
+            constant.LineNo = tok.Line;
+            constant.ColOffset = tok.Column;
+            constant.EndLineNo = tok.EndLine;
+            constant.EndColOffset = tok.EndColumn;
+            return constant;
         }
 
         // CPython: DecodedConstantFromToken - Decode constant from token
         public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo tok)
         {
-            return PyParserRuntime.DecodedConstantFromToken(tok);
+            var constant = PyParserRuntime.DecodedConstantFromToken(tok);
+            constant.LineNo = tok.Line;
+            constant.ColOffset = tok.Column;
+            constant.EndLineNo = tok.EndLine;
+            constant.EndColOffset = tok.EndColumn;
+            return constant;
         }
 
         // CPython: _PyPegen_concatenate_strings - Concatenate string expressions

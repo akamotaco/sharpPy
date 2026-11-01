@@ -2411,6 +2411,10 @@ namespace SharpPy
         {
             switch (target)
             {
+                case StarredExpression starredTarget:
+                    AnalyzeAssignmentTarget(starredTarget.Value);
+                    break;
+
                 case NameExpression name:
                     // Simple assignment target: mark as assigned
                     _currentTable?.DefineSymbol(name.Name, SymbolFlags.Assigned);

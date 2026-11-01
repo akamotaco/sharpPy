@@ -135,7 +135,9 @@ public class AstGenerator
             WriteLine($"public class {className} : {baseClass}");
             WriteLine("{");
             _indentLevel++;
-            WriteLine($"public static readonly {className} Instance = new();");
+            // A statement has a location of its own: no shared instance.
+            if (typeName != "stmt")
+                WriteLine($"public static readonly {className} Instance = new();");
             WriteLine($"private {className}() {{ }}");
             _indentLevel--;
             WriteLine("}");

@@ -1297,9 +1297,9 @@ namespace SharpPy
             if (addNone)
             {
                 var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-                EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+                EmitNoLocation(ByteCodeOp.LOAD_CONST, noneConstIndex);
             }
-            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+            EmitNoLocation(ByteCodeOp.RETURN_VALUE);
 
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
             GeneratePendingExceptionHandlers();
@@ -3048,79 +3048,22 @@ namespace SharpPy
                     break;
 
                 case AttributeExpression attr:
-                    // CPython 3.12: Check for super() calls and use LOAD_SUPER_ATTR
-                    if (attr.Value is CallExpression superCall && 
-                        superCall.Function is NameExpression superName && 
-                        superName.Name == "super" && 
-                        superCall.Arguments.Count == 0)
+                    // compiler_visit_expr, Attribute_kind
+                    if (CanOptimizeSuperCall(attr))
                     {
-                        // super().method pattern: use LOAD_SUPER_ATTR
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 Detected super().{attr.Attr} - generating LOAD_DEREF + LOAD_SUPER_ATTR");
-                        #endif
-                        
-                        // Load __class__ free variable using LOAD_DEREF
-                        // Note: In methods, __class__ is a free variable, not a cell variable
-                        var classIndex = _freeVars.IndexOf("__class__");
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 Looking for __class__ in free variables: index={classIndex}, freeVars=[{string.Join(", ", _freeVars)}]");
-                        #endif
-                        if (classIndex >= 0)
-                        {
-                            // Load super() (null + self)
-                            // CPython 3.12: Check if we have 'self' or 'cls' in local scope
-                            // In nested functions, this check will fail and we fallback to regular super()
-                            bool hasSelfParameter = _varNames.Count > 0 &&
-                                                   (_varNames[0] == "self" || _varNames[0] == "cls");
-
-                            if (hasSelfParameter)
-                            {
-                                // CPython 3.12: LOAD_GLOBAL without NULL for LOAD_SUPER_ATTR
-                                EmitLoadGlobal("super", pushNull: false);
-                                // CPython 3.12: Use EmitLoadDeref to calculate correct localsplus offset
-                                EmitLoadDeref("__class__");
-
-                                // Load self - first parameter (cls/self)
-                                EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
-
-                                // LOAD_SUPER_ATTR for value access (not method call)
-                                // CPython 3.12: oparg = (name_index << 1) | method_flag
-                                var attrNameIndex = GetOrAddName(attr.Attr);
-                                var flags = (attrNameIndex << 1) | 0;  // name index in high bits, method flag=0
-                                EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, flags);
-                            }
-                            else
-                            {
-                                // No self parameter (e.g., nested function)
-                                // CPython 3.12: This will fail at runtime with proper error message
-                                #if DEBUG_LOG
-                                Console.WriteLine("⚠️  No self/cls parameter in current scope, zero-arg super() will fail");
-                                #endif
-
-                                // Generate code that will call super() without arguments
-                                // This will properly trigger "super(): no arguments" error at runtime
-                                CompileExpression(attr.Value);
-                                EmitLoadAttr(attr.Attr);
-                            }
-                        }
-                        else
-                        {
-                            // Fallback to regular attribute access if no __class__ cell
-                            #if DEBUG_LOG
-                            Console.WriteLine("⚠️  No __class__ cell variable found, falling back to LOAD_ATTR");
-                            #endif
-                            CompileExpression(attr.Value);
-                            EmitLoadAttr(attr.Attr);
-                        }
+                        LoadArgsForSuper((CallExpression)attr.Value);
+                        EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, GetOrAddName(attr.Attr) << 1);
+                        MatchLocationToAttribute(attr);
+                        EmitInstruction(ByteCodeOp.NOP);
                     }
                     else
                     {
-                        // Regular attribute access
                         CompileExpression(attr.Value);
+                        MatchLocationToAttribute(attr);
                         EmitLoadAttr(attr.Attr);
                     }
                     break;
-                    
+
                 case SubscriptExpression subscript:
                     CompileExpression(subscript.Value);
 
@@ -3851,6 +3794,7 @@ namespace SharpPy
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
 
             // Step 4: Create closure and emit MAKE_FUNCTION
+            UpdateSourceLocation(func);
             CompilerMakeClosure(funcCode, freeVars, makeFunctionFlags);
 
             // Step 5: Apply decorators (calls them in forward order)
@@ -7769,6 +7713,7 @@ namespace SharpPy
             }
             
             // Compile the lambda body expression - parameters will now be recognized as FAST variables
+            UpdateSourceLocation(lambda);
             // compiler_lambda: None first, so the lambda can't have a docstring.
             GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RESUME, 0);
@@ -8748,12 +8693,8 @@ namespace SharpPy
                 _instructionSequence.UseLabel(ifCleanupLabel);
 
                 // CPython: ADDOP_JUMP(c, elt_loc, JUMP, start)
-                _instructionSequence.AddOpWithLabel(
-                    ByteCodeOp.JUMP,
-                    startLabel,
-                    -1, -1,
-                    _currentFileName
-                );
+                UpdateSourceLocation(elt);
+                EmitJump(ByteCodeOp.JUMP, startLabel);
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  ↩️  JUMP back to start label");
@@ -8761,7 +8702,7 @@ namespace SharpPy
 
                 // CPython: USE_LABEL(c, anchor); ADDOP(c, NO_LOCATION, END_FOR)
                 _instructionSequence.UseLabel(anchorLabel);
-                EmitInstruction(gen.IsAsync ? ByteCodeOp.END_ASYNC_FOR : ByteCodeOp.END_FOR, 0);
+                EmitNoLocation(gen.IsAsync ? ByteCodeOp.END_ASYNC_FOR : ByteCodeOp.END_FOR);
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  🔚 END_FOR at anchor label");

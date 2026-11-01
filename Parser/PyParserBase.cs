@@ -504,7 +504,7 @@ namespace SharpPy.Generated
         protected GeneratedConstant NumberToken(GeneratedTokenInfo token)
         {
             if (token == null) return null;
-            var constant = new GeneratedConstant();
+            var constant = new GeneratedConstant { LineNo = token.Line, ColOffset = token.Column, EndLineNo = token.EndLine, EndColOffset = token.EndColumn };
             // CPython 3.12: Parse number value (decimal, hex, octal, binary, float)
             string value = token.Value;
 
@@ -803,6 +803,27 @@ namespace SharpPy.Generated
         /// Capture start position before parsing an alternative
         /// CPython 3.12: EXTRA macro - captures start position from first token
         /// </summary>
+        /// <summary>
+        /// EXTRA of an action: _start_* from the token where this rule began, _end_* from
+        /// _PyPegen_get_last_nonnwhitespace_token. Nested rules have run by now, so it is
+        /// asked for here and not kept from before them.
+        /// </summary>
+        protected void CaptureAction(int ruleStart)
+        {
+            if (ruleStart < _tokens.Count)
+                _startToken = _tokens[ruleStart];
+            for (int m = _position - 1; m >= 0; m--)
+            {
+                var token = _tokens[m];
+                if (token.Type != PyToken.Type.ENDMARKER && token.Type != PyToken.Type.NEWLINE &&
+                    token.Type != PyToken.Type.INDENT && token.Type != PyToken.Type.DEDENT)
+                {
+                    _lastToken = token;
+                    break;
+                }
+            }
+        }
+
         protected void CaptureStart()
         {
             _startMark = _position;

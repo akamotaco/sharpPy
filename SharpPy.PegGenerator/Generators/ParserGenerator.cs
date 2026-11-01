@@ -668,7 +668,7 @@ public class ParserGenerator
         if (!string.IsNullOrEmpty(alt.ActionCode))
         {
             // User-defined action code from python_cs.gram
-            WriteLine($"// Action code from grammar");
+            WriteLine($"CaptureAction(_mark); // Action code from grammar");
             var expandedCode = alt.ActionCode.Replace("EXTRA", "_start_lineno, _start_col_offset, _end_lineno, _end_col_offset");
             expandedCode = ExpandSingletons(expandedCode);
 

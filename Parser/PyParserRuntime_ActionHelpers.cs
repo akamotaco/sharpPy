@@ -312,7 +312,8 @@ namespace SharpPy.Generated
             string processed = ProcessEscapeSequences(token.Value);
             return new GeneratedConstant
             {
-                Value = new GeneratedPyConstantString(processed)
+                Value = new GeneratedPyConstantString(processed),
+                LineNo = token.Line, ColOffset = token.Column, EndLineNo = token.EndLine, EndColOffset = token.EndColumn
             };
         }
 
@@ -524,7 +525,7 @@ namespace SharpPy.Generated
                     }
                 }
             }
-            return new GeneratedJoinedStr { Values = flattened };
+            return new GeneratedJoinedStr { Values = flattened, LineNo = a.Line, ColOffset = a.Column, EndLineNo = c.EndLine, EndColOffset = c.EndColumn };
         }
 
         /// <summary>
@@ -677,7 +678,8 @@ namespace SharpPy.Generated
             return new GeneratedName
             {
                 Id = new GeneratedIdentifier(token.Value),
-                Ctx = GeneratedLoad.Instance
+                Ctx = GeneratedLoad.Instance,
+                LineNo = token.Line, ColOffset = token.Column, EndLineNo = token.EndLine, EndColOffset = token.EndColumn
             };
         }
 
@@ -887,6 +889,19 @@ namespace SharpPy.Generated
         /// Creates an `expr_ty` equivalent to `expr` but with `ctx` as context
         /// </summary>
         public static GeneratedExpr SetExprContext(GeneratedExpr expr, GeneratedExprContext ctx)
+        {
+            var result = SetExprContextNode(expr, ctx);
+            if (result != null && expr != null)
+            {
+                result.LineNo = expr.LineNo;
+                result.ColOffset = expr.ColOffset;
+                result.EndLineNo = expr.EndLineNo;
+                result.EndColOffset = expr.EndColOffset;
+            }
+            return result;
+        }
+
+        private static GeneratedExpr SetExprContextNode(GeneratedExpr expr, GeneratedExprContext ctx)
         {
             if (expr == null) return null;
 

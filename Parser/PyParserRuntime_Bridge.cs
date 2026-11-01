@@ -263,6 +263,14 @@ namespace SharpPy.Generated
         /// </summary>
         private static Statement? ConvertStatement(GeneratedStmt stmt, bool insideLoop = false, bool insideFunction = false)
         {
+            var converted = ConvertStatementNode(stmt, insideLoop, insideFunction);
+            if (converted != null && converted.LineNo < 0)
+                CopySourceLocation(stmt, converted);
+            return converted;
+        }
+
+        private static Statement? ConvertStatementNode(GeneratedStmt stmt, bool insideLoop = false, bool insideFunction = false)
+        {
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertStatement: Converting statement type '{stmt.GetType().Name}' (insideLoop: {insideLoop})");
 #endif
@@ -1969,7 +1977,10 @@ namespace SharpPy.Generated
             }
 
             // Handle GeneratedExpr objects (modern parser output)
-            return ConvertGeneratedExpression(expr);
+            var converted = ConvertGeneratedExpression(expr);
+            if (converted.LineNo < 0)
+                CopySourceLocation(expr, converted);
+            return converted;
         }
 
         /// <summary>

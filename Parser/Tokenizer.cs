@@ -509,7 +509,7 @@ namespace SharpPy.Generated
             }
         }
 
-        private void AddToken(PyToken.Type type, string value, int startLine, int startColumn)
+        private void AddToken(PyToken.Type type, string value, int startLine, int startColumn, int? literalEnd = null)
         {
             // tok_get_fstring_mode gives {{ and }} back as one brace.
             if (type == PyToken.Type.FSTRING_MIDDLE)
@@ -521,7 +521,13 @@ namespace SharpPy.Generated
             }
 
             // CPython 3.12: Use current _line, _column as end position (already points to end of token)
-            var token = new GeneratedTokenInfo(type, value, startLine, startColumn, _line, _column);
+            // Operators are added before they are read past: the text itself gives the end.
+            int endColumn = literalEnd ?? _column;
+            if (type != PyToken.Type.FSTRING_MIDDLE && startLine == _line && value.Length > 0 && value.IndexOf('\n') < 0)
+                endColumn = System.Math.Max(_column, startColumn + value.Length);
+            else if (type == PyToken.Type.NEWLINE && startLine == _line)
+                endColumn = startColumn + 1;
+            var token = new GeneratedTokenInfo(type, value, startLine, startColumn, _line, endColumn);
             token.Level = _level; // CPython 3.12: Assign current parenthesis nesting level
             _tokens.Add(token);
         }
@@ -1286,7 +1292,7 @@ namespace SharpPy.Generated
                         if (_position - 1 > literalStart)
                         {
                             var middleContent = _source.Substring(literalStart, _position - 1 - literalStart);
-                            AddToken(PyToken.Type.FSTRING_MIDDLE, isRawFString ? middleContent.Replace("\\", "\\\\") : middleContent, literalStartLine, literalStartColumn);
+                            AddToken(PyToken.Type.FSTRING_MIDDLE, isRawFString ? middleContent.Replace("\\", "\\\\") : middleContent, literalStartLine, literalStartColumn, _column - 1);
                             _currentLineHasRealTokens = true;
                         }
 

@@ -78,9 +78,10 @@ def split_body(text):
     return items
 
 
-def sharppy_ast(dotnet, path):
+def sharppy_ast(dotnet, path, attributes=False):
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", SHARPPY_AST_ATTRIBUTES="1" if attributes else "0")
     run = subprocess.run([dotnet, DLL, "--ast", "--compile", path], capture_output=True, timeout=60,
-                         stdin=subprocess.DEVNULL, env=dict(os.environ, PYTHONIOENCODING="utf-8"), cwd=ROOT)
+                         stdin=subprocess.DEVNULL, env=env, cwd=ROOT)
     out = run.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
     match = re.search(r"\[=+ ast log =+\]\n(.*?)\[=+ ast end =+\]", out, re.S)
     return match.group(1) if match else None
@@ -109,6 +110,7 @@ def main():
     parser.add_argument("--dotnet", default="dotnet")
     parser.add_argument("--show", type=int, default=20)
     parser.add_argument("--minimum", type=int, default=0)
+    parser.add_argument("--attributes", action="store_true", help="compare line and column too")
     parser.add_argument("files", nargs="*")
     args = parser.parse_args()
     files = args.files or sorted(glob.glob(os.path.join(ROOT, "tests", "bughunt", "*.py")))
@@ -121,8 +123,8 @@ def main():
             source = open(path, encoding="utf-8").read()
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                theirs = split_body(squeeze(ast.dump(ast.parse(source))))
-            produced = sharppy_ast(args.dotnet, path)
+                theirs = split_body(squeeze(ast.dump(ast.parse(source), include_attributes=args.attributes)))
+            produced = sharppy_ast(args.dotnet, path, args.attributes)
         except (SyntaxError, ValueError, RecursionError, subprocess.TimeoutExpired):
             failed += 1
             continue
