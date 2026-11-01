@@ -2753,7 +2753,7 @@ namespace SharpPy
                     break;
 
                 case AsyncWithStatement asyncWithStmt:
-                    CompileAsyncWith(asyncWithStmt);
+                    CompilerAsyncWith(asyncWithStmt, 0);
                     break;
 
                 case MatchStatement matchStmt:
@@ -3307,7 +3307,12 @@ namespace SharpPy
 #if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] Compiler: Compiling f-string part: {value.GetType().Name}");
 #endif
+                // parse_literal in ast_opt.c: a literal of a folded % format has no location.
+                int lineOfString = _currentLineNumber;
+                if (value is ConstantExpression && value.LineNo < 0)
+                    _currentLineNumber = -1;
                 CompileExpression(value);
+                _currentLineNumber = lineOfString;
             }
 
             // CPython 3.12: Only use BUILD_STRING if there are multiple parts
@@ -3798,6 +3803,7 @@ namespace SharpPy
             {
                 kwOnlyArgNames.Add(arg.Name);
             }
+            UpdateSourceLocation(func);
             int makeFunctionFlags = CompilerDefaultArguments(defaultExprs, kwDefaultExprs, kwOnlyArgNames);
 
             // Step 3: Compile annotations and update funcflags
@@ -5092,37 +5098,7 @@ namespace SharpPy
 
             // CPython 3.12: Load decorators FIRST (Python/compile.c:2547, 1852-1862)
             // compiler_decorators: for (i = 0; i < asdl_seq_LEN(decos); i++)
-            // Decorators are loaded in forward order (0 to N-1)
-            if (cls.Decorators != null && cls.Decorators.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🎨 Loading {cls.Decorators.Count} decorators for {cls.Name}");
-                #endif
-
-                // CPython: VISIT(c, expr, (expr_ty)asdl_seq_GET(decos, i))
-                // Load each decorator expression onto the stack
-                for (int i = 0; i < cls.Decorators.Count; i++)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → Loading decorator {i}: {cls.Decorators[i].GetType().Name}");
-                    #endif
-
-                    var decorator = cls.Decorators[i];
-                    // Compile the decorator function
-                    CompileExpression(decorator.DecoratorFunction);
-
-                    // If the decorator has arguments (e.g., @decorator(arg1, arg2))
-                    // we need to call it first to get the actual decorator
-                    if (decorator.Arguments != null && decorator.Arguments.Count > 0)
-                    {
-                        foreach (var arg in decorator.Arguments)
-                        {
-                            CompileExpression(arg);
-                        }
-                        EmitInstruction(ByteCodeOp.CALL, decorator.Arguments.Count);
-                    }
-                }
-            }
+            CompilerDecorators(cls.Decorators);
 
             // CPython 3.12: Regular class compilation (no type parameters)
             UpdateSourceLocation(cls);
@@ -5208,35 +5184,14 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
             }
 
-            _currentLineNumber = FirstLineOf(cls, cls.Decorators);
+            UpdateSourceLocation(cls);
             // Call __build_class__(class_body_function, name, *bases, metaclass=Meta)
             // Note: CALL argument count includes only positional args (keyword args handled by KW_NAMES)
             EmitInstruction(ByteCodeOp.CALL, totalArgs);
 
             // CPython 3.12: Apply decorators (Python/compile.c:2634-2635, 1865-1876)
-            // Decorators are applied in reverse order: last decorator is called first
-            // Each decorator is a CALL with 0 arguments (the class is already on the stack)
-            if (cls.Decorators != null && cls.Decorators.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🎨 Applying {cls.Decorators.Count} decorators to {cls.Name}");
-                #endif
-
-                // CPython: for (i = asdl_seq_LEN(decos) - 1; i > -1; i--)
-                // Apply decorators in reverse order
-                for (int i = cls.Decorators.Count - 1; i >= 0; i--)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → Decorator {i}: {cls.Decorators[i].GetType().Name}");
-                    #endif
-
-                    // CPython: ADDOP_I(c, loc, CALL, 0)
-                    // The decorator is already on the stack (loaded before class creation)
-                    // The class is on the stack (result of __build_class__)
-                    // Call decorator(class) with 0 arguments
-                    EmitInstruction(ByteCodeOp.CALL, 0);
-                }
-            }
+            CompilerApplyDecorators(cls.Decorators);
+            UpdateSourceLocation(cls);
 
             // Store the created class (or decorated class)
             EmitStoreName(cls.BindName);
@@ -6846,203 +6801,6 @@ namespace SharpPy
 
         private void CompileWith(WithStatement withStmt) => CompilerWith(withStmt, 0);
 
-        /// <summary>
-        /// CPython 3.12: async with statement compilation (Python/compile.c:5901-5979)
-        /// async with expr as var:
-        ///     body
-        /// </summary>
-        private void CompileAsyncWith(AsyncWithStatement asyncWithStmt)
-        {
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileAsyncWith: Using InstructionSequence (CPython 3.12)");
-#endif
-
-            // For now, implement single context manager (recursive for multiple later)
-            if (asyncWithStmt.Items.Count == 0)
-            {
-                throw PySyntaxError.Create("async with statement requires at least one context manager");
-            }
-
-            if (asyncWithStmt.Items.Count == 1)
-            {
-                CompileSingleAsyncWith(asyncWithStmt);
-            }
-            else
-            {
-                // Multiple context managers - transform to nested async with
-                CompileMultipleAsyncWith(asyncWithStmt);
-            }
-        }
-
-        /// <summary>
-        /// CPython 3.12: Compile single async context manager (Python/compile.c:5901-5979)
-        /// </summary>
-        private void CompileSingleAsyncWith(AsyncWithStatement asyncWithStmt)
-        {
-            var item = asyncWithStmt.Items[0];
-            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-
-            // CPython: Create labels (compile.c:5913-5916)
-            var blockLabel = _instructionSequence.NewLabel();
-            var finalLabel = _instructionSequence.NewLabel();
-            var exitLabel = _instructionSequence.NewLabel();
-            var cleanupLabel = _instructionSequence.NewLabel();
-
-            // 1. Evaluate context expression
-            // CPython: VISIT(c, expr, item->context_expr);
-            CompileExpression(item.ContextExpr);
-
-            // 2. BEFORE_ASYNC_WITH: Call __aenter__()
-            // CPython: ADDOP(c, loc, BEFORE_ASYNC_WITH);
-            EmitInstruction(ByteCodeOp.BEFORE_ASYNC_WITH);
-
-            // 3. Get awaitable from __aenter__() result
-            // CPython: ADDOP_I(c, loc, GET_AWAITABLE, 1);
-            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 1);
-
-            // 4. Await the __aenter__() result (yield from pattern)
-            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
-            // CPython: ADD_YIELD_FROM(c, loc, 1);
-            CompileYieldFrom(isAwait: true);
-
-            // 5. Setup exception handler with SETUP_WITH
-            // CPython: ADDOP_JUMP(c, loc, SETUP_WITH, final);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_WITH, finalLabel, _currentLineNumber);
-
-            // 6. Mark block label and push ASYNC_WITH fblock
-            // CPython: USE_LABEL(c, block);
-            // CPython: compiler_push_fblock(c, loc, ASYNC_WITH, block, final, s);
-            _instructionSequence.UseLabel(blockLabel);
-            PushFBlock(loc, FBlockType.ASYNC_WITH, blockLabel, finalLabel, asyncWithStmt);
-
-            // 7. Handle __aenter__() result
-            if (item.OptionalVars != null)
-            {
-                // CPython: VISIT(c, expr, item->optional_vars);
-                CompileAssignmentTarget(item.OptionalVars);
-            }
-            else
-            {
-                // CPython: ADDOP(c, loc, POP_TOP);
-                EmitInstruction(ByteCodeOp.POP_TOP);
-            }
-
-            // 8. Execute body
-            // CPython: pos++; if (pos == len) { VISIT_SEQ(c, stmt, body) }
-            foreach (var stmt in asyncWithStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            // 9. Pop fblock and exception handler
-            // CPython: compiler_pop_fblock(c, ASYNC_WITH, block);
-            PopFBlock(FBlockType.ASYNC_WITH, blockLabel);
-
-            // CPython: ADDOP(c, loc, POP_BLOCK);
-            EmitInstruction(ByteCodeOp.POP_BLOCK);
-
-            // 10. Normal exit: call __aexit__(None, None, None) and await it
-            // CPython: compiler_call_exit_with_nones(c, loc);
-            EmitLoadConst(PyNone.Instance);
-            EmitLoadConst(PyNone.Instance);
-            EmitLoadConst(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.CALL, 2);  // __aexit__(exc_type, exc_val, exc_tb)
-
-            // CPython: ADDOP_I(c, loc, GET_AWAITABLE, 2);
-            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
-
-            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
-            // CPython: ADD_YIELD_FROM(c, loc, 1);
-            CompileYieldFrom(isAwait: true);
-
-            // CPython: ADDOP(c, loc, POP_TOP);
-            EmitInstruction(ByteCodeOp.POP_TOP);
-
-            // CPython: ADDOP_JUMP(c, loc, JUMP, exit);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, _currentLineNumber);
-
-            // 11. Exception handler
-            // CPython: USE_LABEL(c, final);
-            _instructionSequence.UseLabel(finalLabel);
-
-            // CPython: ADDOP_JUMP(c, loc, SETUP_CLEANUP, cleanup);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
-
-            // CPython: ADDOP(c, loc, PUSH_EXC_INFO);
-            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
-
-            // CPython: ADDOP(c, loc, WITH_EXCEPT_START);
-            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
-
-            // CPython: ADDOP_I(c, loc, GET_AWAITABLE, 2);
-            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
-
-            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
-            // CPython: ADD_YIELD_FROM(c, loc, 1);
-            CompileYieldFrom(isAwait: true);
-
-            // CPython: compiler_with_except_finish(c, cleanup);
-            // Check if exception was suppressed
-            var suppressLabel = _instructionSequence.NewLabel();
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, suppressLabel, _currentLineNumber);
-
-            // Re-raise exception if not suppressed
-            EmitInstruction(ByteCodeOp.RERAISE, 2);
-
-            // Exception suppressed
-            _instructionSequence.UseLabel(suppressLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP);
-            EmitInstruction(ByteCodeOp.POP_EXCEPT);
-            EmitInstruction(ByteCodeOp.POP_TOP);
-            EmitInstruction(ByteCodeOp.POP_TOP);
-
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, _currentLineNumber);
-
-            // Cleanup handler
-            _instructionSequence.UseLabel(cleanupLabel);
-            EmitInstruction(ByteCodeOp.COPY, 3);
-            EmitInstruction(ByteCodeOp.POP_EXCEPT);
-            EmitInstruction(ByteCodeOp.RERAISE, 1);
-
-            // CPython: USE_LABEL(c, exit);
-            _instructionSequence.UseLabel(exitLabel);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Compile multiple async context managers (recursive)
-        /// </summary>
-        private void CompileMultipleAsyncWith(AsyncWithStatement asyncWithStmt)
-        {
-            if (asyncWithStmt.Items.Count < 2)
-            {
-                throw new InvalidOperationException("CompileMultipleAsyncWith requires at least 2 context managers");
-            }
-
-            // Take the first context manager
-            var outerItem = asyncWithStmt.Items[0];
-
-            // Create inner async with statement with remaining context managers
-            var remainingItems = new List<WithItem>();
-            for (int i = 1; i < asyncWithStmt.Items.Count; i++)
-            {
-                remainingItems.Add(asyncWithStmt.Items[i]);
-            }
-
-            var innerAsyncWith = new AsyncWithStatement(
-                items: remainingItems,
-                body: asyncWithStmt.Body
-            );
-
-            // Create outer async with statement with first context manager and nested inner as body
-            var outerAsyncWith = new AsyncWithStatement(
-                items: new List<WithItem> { outerItem },
-                body: new List<Statement> { innerAsyncWith }
-            );
-
-            // Compile the transformed outer async with statement
-            CompileSingleAsyncWith(outerAsyncWith);
-        }
-
         // CPython 3.12: CompileSingleWith and CompileMultipleWith removed
         // With statements now use CompileWithCFG (InstructionSequence/CFG path) only
 
@@ -7740,6 +7498,7 @@ namespace SharpPy
             GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RESUME, 0);
             CompileExpression(lambda.Body);
+            UpdateSourceLocation(lambda.Body);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
             int lambdaFlags = lambdaTable?.IsGenerator == true ? PyCodeObject.CO_GENERATOR : 0;
@@ -7747,7 +7506,10 @@ namespace SharpPy
                 lambdaFlags |= PyCodeObject.CO_VARARGS;
             if (lambdaKwArgName != null)
                 lambdaFlags |= PyCodeObject.CO_VARKEYWORDS;
+            int lineBeforeLambda = _firstLineNumber;
+            _firstLineNumber = lambda.LineNo;
             var lambdaInstructions = GetFinalInstructions(lambdaFlags, lambdaParamNames.Count);
+            _firstLineNumber = lineBeforeLambda;
 
             // CPython 3.12: co_varnames = parameters + local variables collected while
             // compiling the body (e.g. inlined-comprehension loop vars use LOAD_FAST_AND_CLEAR
@@ -10476,7 +10238,8 @@ namespace SharpPy
             CompileExpression(item.ContextExpr);
 
             // Will push bound __exit__
-            UpdateSourceLocation(s);
+            int lineOfWith = _currentLineNumber;
+            UpdateSourceLocation(item.ContextExpr);
             var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
             EmitInstruction(ByteCodeOp.BEFORE_WITH);
             EmitJump(ByteCodeOp.SETUP_WITH, final);
@@ -10505,7 +10268,7 @@ namespace SharpPy
             PopFBlock(FBlockType.WITH, block);
 
             // For successful outcome: call __exit__(None, None, None)
-            UpdateSourceLocation(s);
+            UpdateSourceLocation(item.ContextExpr);
             CompilerCallExitWithNones(loc);
             EmitInstruction(ByteCodeOp.POP_TOP);
             EmitJump(ByteCodeOp.JUMP, exit);
@@ -10515,8 +10278,14 @@ namespace SharpPy
             SetupNoLocation(ByteCodeOp.SETUP_CLEANUP, cleanup);
             EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
             EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
+            CompilerWithExceptFinish(cleanup);
 
-            // compiler_with_except_finish
+            _instructionSequence.UseLabel(exit);
+            _currentLineNumber = lineOfWith;
+        }
+
+        private void CompilerWithExceptFinish(SharpPy.Label cleanup)
+        {
             var suppress = _instructionSequence.NewLabel();
             SetupNoLocation(ByteCodeOp.POP_JUMP_IF_TRUE, suppress);
             EmitNoLocation(ByteCodeOp.RERAISE, 2);
@@ -10526,13 +10295,71 @@ namespace SharpPy
             EmitNoLocation(ByteCodeOp.POP_EXCEPT);
             EmitNoLocation(ByteCodeOp.POP_TOP);
             EmitNoLocation(ByteCodeOp.POP_TOP);
-            var finished = _instructionSequence.NewLabel();
-            EmitJumpNoLocation(finished);
+            var exit = _instructionSequence.NewLabel();
+            EmitJumpNoLocation(exit);
             _instructionSequence.UseLabel(cleanup);
             EmitPopExceptAndReraise();
-            _instructionSequence.UseLabel(finished);
+            _instructionSequence.UseLabel(exit);
+        }
+
+        // compiler_async_with
+        private void CompilerAsyncWith(AsyncWithStatement s, int pos)
+        {
+            var item = s.Items[pos];
+            var block = _instructionSequence.NewLabel();
+            var final = _instructionSequence.NewLabel();
+            var exit = _instructionSequence.NewLabel();
+            var cleanup = _instructionSequence.NewLabel();
+
+            CompileExpression(item.ContextExpr);
+            int lineOfWith = _currentLineNumber;
+            UpdateSourceLocation(item.ContextExpr);
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            EmitInstruction(ByteCodeOp.BEFORE_ASYNC_WITH);
+            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 1);
+            CompileYieldFrom(isAwait: true);
+
+            EmitJump(ByteCodeOp.SETUP_WITH, final);
+
+            _instructionSequence.UseLabel(block);
+            PushFBlock(loc, FBlockType.ASYNC_WITH, block, final, s);
+
+            if (item.OptionalVars != null)
+                CompileAssignmentTarget(item.OptionalVars);
+            else
+                EmitInstruction(ByteCodeOp.POP_TOP);
+
+            pos++;
+            if (pos == s.Items.Count)
+            {
+                foreach (var statement in s.Body)
+                    CompileStatement(statement);
+            }
+            else
+            {
+                CompilerAsyncWith(s, pos);
+            }
+
+            PopFBlock(FBlockType.ASYNC_WITH, block);
+
+            UpdateSourceLocation(item.ContextExpr);
+            EmitInstruction(ByteCodeOp.POP_BLOCK);
+            CompilerCallExitWithNones(loc);
+            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
+            CompileYieldFrom(isAwait: true);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+            EmitJump(ByteCodeOp.JUMP, exit);
+
+            _instructionSequence.UseLabel(final);
+            EmitJump(ByteCodeOp.SETUP_CLEANUP, cleanup);
+            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
+            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
+            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
+            CompileYieldFrom(isAwait: true);
+            CompilerWithExceptFinish(cleanup);
 
             _instructionSequence.UseLabel(exit);
+            _currentLineNumber = lineOfWith;
         }
 
         // compiler_function, compiler_class: a decorated definition starts at its first decorator.
@@ -10613,6 +10440,8 @@ namespace SharpPy
                     int n = compare.Ops.Count - 1;
                     CheckCompare(compare);
                     var cleanup = _instructionSequence.NewLabel();
+                    int lineOfJump = _currentLineNumber;
+                    UpdateSourceLocation(compare);
                     CompileExpression(compare.Left);
                     for (int i = 0; i < n; i++)
                     {
@@ -10632,6 +10461,7 @@ namespace SharpPy
                     if (!cond)
                         EmitJumpNoLocation(next);
                     _instructionSequence.UseLabel(end);
+                    _currentLineNumber = lineOfJump;
                     return;
                 }
             }
