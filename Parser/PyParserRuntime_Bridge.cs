@@ -701,7 +701,9 @@ namespace SharpPy.Generated
                             }
                             catch { }
 
-                            exceptHandlersList.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
+                            var convertedHandler = new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts);
+                            CopySourceLocation((GeneratedPtr)exceptData, convertedHandler);
+                            exceptHandlersList.Add(convertedHandler);
                         }
                         }
 
@@ -779,6 +781,7 @@ namespace SharpPy.Generated
 
                                 // Create except* handler (marked as exception group handler)
                                 var exHandler = new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts, isStar: true);  // Mark as except* handler for PEP 654
+                                CopySourceLocation((GeneratedPtr)handler, exHandler);
                                 exceptHandlers.Add(exHandler);
                             }
                         }

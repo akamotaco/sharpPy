@@ -910,7 +910,7 @@ namespace SharpPy
             }
             // 'conditional jump T' becomes 'reversed_jump b_next' followed by 'jump_backwards T'
             var backwardsJump = _cfg.CreateBlock();
-            backwardsJump.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.JUMP, 0, last.LineNumber, last.ColumnOffset, last.FileName, last.TargetBlock, last.ExceptBlock));
+            backwardsJump.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.JUMP, 0, last.LineNumber, last.ColumnOffset, last.FileName, last.TargetBlock, null));
             b.Instructions[lastIndex] = Retarget(last, reversed, b.Next!);
             backwardsJump.Cold = b.Cold;
             backwardsJump.Next = b.Next;

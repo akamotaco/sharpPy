@@ -693,6 +693,7 @@ namespace SharpPy
         /// </summary>
         private void UnwindFBlock(ref SourceLocation loc, FBlockInfo info, bool preserveTos)
         {
+            _currentLineNumber = loc.Line;
             switch (info.Type)
             {
                 case FBlockType.WHILE_LOOP:
@@ -755,6 +756,7 @@ namespace SharpPy
                 case FBlockType.WITH:
                 case FBlockType.ASYNC_WITH:
                     loc = info.Loc;
+                    _currentLineNumber = loc.Line;
                     EmitInstruction(ByteCodeOp.POP_BLOCK);
                     if (preserveTos)
                     {
@@ -1257,6 +1259,8 @@ namespace SharpPy
             // CPython 3.12: SETUP_ANNOTATIONS once if module has any annotations
             if (FindAnnotation(optimizedStatements))
             {
+                if (optimizedStatements.Count > 0)
+                    UpdateSourceLocation(optimizedStatements[0]);
                 EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
             }
 
@@ -1271,6 +1275,7 @@ namespace SharpPy
                 {
                     // CPython: VISIT(c, expr, st->v.Expr.value);
                     // Load docstring constant
+                    UpdateSourceLocation(optimizedStatements[0]);
                     var docConstIndex = GetOrAddConstant(new PyString(docstring));
                     EmitInstruction(ByteCodeOp.LOAD_CONST, docConstIndex);
 
@@ -2173,9 +2178,10 @@ namespace SharpPy
             #endif
 
             // CPython 3.12: Apply decorators in forward order
-            for (int i = 0; i < decorators.Count; i++)
+            for (int i = decorators.Count - 1; i >= 0; i--)
             {
                 // Call decorator with function (no arguments - they were already processed)
+                UpdateSourceLocation(decorators[i].DecoratorFunction);
                 EmitInstruction(ByteCodeOp.CALL, 0);
             }
         }
@@ -2639,6 +2645,7 @@ namespace SharpPy
                             EmitInstruction(ByteCodeOp.NOP);
                         }
                         UnwindFBlockStack(ref loc, preserveTos, findLoop: false);
+                        _currentLineNumber = loc.Line;
                         if (folded == null)
                             EmitLoadConst(PyNone.Instance);
                         else if (!preserveTos)
@@ -2774,6 +2781,7 @@ namespace SharpPy
 
                         // Unwind the loop itself (pops iterator for FOR_LOOP)
                         UnwindFBlock(ref loc, loop, preserveTos: false);
+                        _currentLineNumber = loc.Line;
 
                         // Jump to loop exit (fb_exit)
                         _instructionSequence!.AddOpWithLabel(
@@ -3802,6 +3810,7 @@ namespace SharpPy
 
             // Step 5: Apply decorators (calls them in forward order)
             CompilerApplyDecorators(func.Decorators);
+            UpdateSourceLocation(func);
 
             // Step 6: Store the final function (decorated or original)
             EmitStoreName(func.BindName);
@@ -5056,6 +5065,7 @@ namespace SharpPy
 
             // 9. 함수를 변수에 저장
             CompilerApplyDecorators(asyncFunc.Decorators);
+            UpdateSourceLocation(asyncFunc);
             EmitStoreName(asyncFunc.BindName);
             
             #if DEBUG_LOG
@@ -5115,6 +5125,7 @@ namespace SharpPy
             }
 
             // CPython 3.12: Regular class compilation (no type parameters)
+            UpdateSourceLocation(cls);
             EmitInstruction(ByteCodeOp.PUSH_NULL);
             EmitInstruction(ByteCodeOp.LOAD_BUILD_CLASS);
 
@@ -5197,6 +5208,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
             }
 
+            _currentLineNumber = FirstLineOf(cls, cls.Decorators);
             // Call __build_class__(class_body_function, name, *bases, metaclass=Meta)
             // Note: CALL argument count includes only positional args (keyword args handled by KW_NAMES)
             EmitInstruction(ByteCodeOp.CALL, totalArgs);
@@ -5489,6 +5501,7 @@ namespace SharpPy
                 // CPython 3.12: Check if class body has annotations
                 if (FindAnnotation(body))
                 {
+                    _currentLineNumber = _firstLineNumber;
                     EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
                 }
 
@@ -5500,6 +5513,7 @@ namespace SharpPy
                 {
                     // CPython: VISIT(c, expr, st->v.Expr.value);
                     // Load docstring constant
+                    UpdateSourceLocation(body[0]);
                     var docConstIndex = GetOrAddConstant(new PyString(docstring));
                     EmitInstruction(ByteCodeOp.LOAD_CONST, docConstIndex);
 
@@ -6510,7 +6524,7 @@ namespace SharpPy
                 var exceptStarHandlers = new List<ExceptStarHandler>();
                 foreach (var h in tryStmt.Handlers!)
                 {
-                    exceptStarHandlers.Add(new ExceptStarHandler(h.Type, h.Name, h.Body));
+                    exceptStarHandlers.Add(new ExceptStarHandler(h.Type, h.Name, h.Body) { LineNo = h.LineNo, ColOffset = h.ColOffset });
                 }
                 var tryStarStmt = new TryStarStatement(
                     tryStmt.Body,
@@ -6571,7 +6585,7 @@ namespace SharpPy
             var reraiseLabel = _instructionSequence.NewLabel();
 
             // SETUP_FINALLY except (line 3563)
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, -1);
             // Push exception handler to stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptLabel);
             #if DEBUG
@@ -6591,7 +6605,7 @@ namespace SharpPy
             // The cleanup handler needs to know the OUTER try block's handler (not the inner except* handler)
 
             // POP_BLOCK and JUMP orelse (lines 3570-3571)
-            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, -1);
             // Pop exception handler from stack (normal completion path)
             if (_exceptionHandlerStack.Count > 0)
             {
@@ -6600,7 +6614,7 @@ namespace SharpPy
                 Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Popped inner except* handler from stack. Stack count = {_exceptionHandlerStack.Count}");
                 #endif
             }
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, -1);
 
             int n = tryStarStmt.Handlers.Count;
 
@@ -6608,8 +6622,8 @@ namespace SharpPy
             _instructionSequence.UseLabel(exceptLabel);
 
             // SETUP_CLEANUP cleanup and PUSH_EXC_INFO (lines 3576-3577)
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, -1);
+            _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, -1);
 
             // Process each except* handler (lines 3584-3686)
             for (int i = 0; i < n; i++)
@@ -6663,38 +6677,34 @@ namespace SharpPy
                 }
 
                 // POP_BLOCK after handler body (line 3645)
-                _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, -1);
 
                 // Clean up exception name (lines 3646-3652)
                 if (!string.IsNullOrEmpty(handler.Name))
                 {
-                    EmitLoadConst(PyNone.Instance);
-                    EmitStoreName(handler.Name);
-                    EmitDeleteName(handler.Name);
+                    EmitNameCleanupNoLocation(handler.Name);
                 }
 
                 // JUMP to next except label (line 3653)
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, nextExceptLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, nextExceptLabel, -1);
 
                 // Cleanup handler (lines 3656-3670)
                 _instructionSequence.UseLabel(cleanupEndLabel);
 
                 if (!string.IsNullOrEmpty(handler.Name))
                 {
-                    EmitLoadConst(PyNone.Instance);
-                    EmitStoreName(handler.Name);
-                    EmitDeleteName(handler.Name);
+                    EmitNameCleanupNoLocation(handler.Name);
                 }
 
                 // LIST_APPEND to collected exceptions list (line 3668)
-                _instructionSequence.AddOpWithArg(ByteCodeOp.LIST_APPEND, 3, _currentLineNumber);
-                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber); // lasti
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exceptWithErrorLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.LIST_APPEND, 3, -1);
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, -1); // lasti
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exceptWithErrorLabel, -1);
 
                 // Next except handler (lines 3672-3674)
                 _instructionSequence.UseLabel(nextExceptLabel);
-                _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exceptWithErrorLabel, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.NOP, -1);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exceptWithErrorLabel, -1);
 
                 // No match handler (lines 3676-3677)
                 _instructionSequence.UseLabel(noMatchLabel);
@@ -6705,8 +6715,8 @@ namespace SharpPy
                 // Last handler: LIST_APPEND and jump to reraise_star (lines 3681-3685)
                 if (i == n - 1)
                 {
-                    _instructionSequence.AddOpWithArg(ByteCodeOp.LIST_APPEND, 1, _currentLineNumber);
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, reraiseStarLabel, _currentLineNumber);
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.LIST_APPEND, 1, -1);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, reraiseStarLabel, -1);
                 }
 
                 exceptLabel = nextExceptLabel;
@@ -6715,30 +6725,30 @@ namespace SharpPy
             // Reraise star logic (lines 3691-3706)
             _instructionSequence.UseLabel(reraiseStarLabel);
             // PREP_RERAISE_STAR intrinsic: Prepares exception group for re-raising
-            _instructionSequence.AddOpWithArg(ByteCodeOp.CALL_INTRINSIC_2, (int)IntrinsicFunction.INTRINSIC_PREP_RERAISE_STAR, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NOT_NONE, reraiseLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.CALL_INTRINSIC_2, (int)IntrinsicFunction.INTRINSIC_PREP_RERAISE_STAR, -1);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, -1);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NOT_NONE, reraiseLabel, -1);
 
             // Nothing to reraise (lines 3696-3700)
             // CRITICAL: Use outerHandlerForCleanup so POP_EXCEPT is protected by outer try block
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, -1);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, -1);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, -1);
 
             // Reraise exception group (lines 3702-3706)
             // CRITICAL: Use outerHandlerForCleanup so RERAISE 0 is protected by outer try block
             _instructionSequence.UseLabel(reraiseLabel);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, -1);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, -1);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, -1);
 
             // Cleanup handler (lines 3708-3709)
             // CRITICAL: Pass outerHandlerForCleanup to all instructions
             // This ensures RERAISE is protected by outer try block's exception handler
             _instructionSequence.UseLabel(cleanupLabel);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, -1);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, -1);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, -1);
 
             // Else block (lines 3711-3712)
             _instructionSequence.UseLabel(orelseLabel);
@@ -6771,7 +6781,7 @@ namespace SharpPy
             var cleanupLabel = _instructionSequence.NewLabel();
 
             // SETUP_FINALLY end (line 3299)
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, endLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, endLabel, -1);
 
             // USE_LABEL body (line 3301)
             _instructionSequence.UseLabel(bodyLabel);
@@ -6793,7 +6803,7 @@ namespace SharpPy
             }
 
             // POP_BLOCK (line 3312)
-            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, -1);
 
             // Visit finalbody (line 3314)
             foreach (var stmt in tryStarStmt.FinalBody)
@@ -6802,14 +6812,14 @@ namespace SharpPy
             }
 
             // JUMP exit (line 3316)
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, -1);
 
             // Finally block: USE_LABEL end (line 3319)
             _instructionSequence.UseLabel(endLabel);
 
             // SETUP_CLEANUP cleanup, PUSH_EXC_INFO (lines 3322-3323)
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, -1);
+            _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, -1);
 
             // Visit finalbody again (line 3327)
             foreach (var stmt in tryStarStmt.FinalBody)
@@ -6818,13 +6828,13 @@ namespace SharpPy
             }
 
             // RERAISE 0 (line 3331)
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, -1);
 
             // USE_LABEL cleanup: POP_EXCEPT_AND_RERAISE (lines 3333-3334)
             _instructionSequence.UseLabel(cleanupLabel);
             // POP_EXCEPT_AND_RERAISE pattern
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, -1);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, -1);
 
             // USE_LABEL exit (line 3336)
             _instructionSequence.UseLabel(exitLabel);
@@ -7064,7 +7074,7 @@ namespace SharpPy
             if (caseCount == 0)
             {
                 // No cases - just pop subject and done
-                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
                 _instructionSequence.UseLabel(endLabel);
                 return;
             }
@@ -7088,6 +7098,7 @@ namespace SharpPy
                 var matchCase = matchStmt.Cases[i];
 
                 // CPython: Only copy the subject if we're *not* on the last case
+                UpdateSourceLocation(matchCase.Pattern);
                 if (i != loopEnd - 1)
                 {
                     _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
@@ -7123,7 +7134,7 @@ namespace SharpPy
                 // Pattern matched - pop subject if not last case
                 if (i != loopEnd - 1)
                 {
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
                 }
 
                 // Compile case body
@@ -7148,12 +7159,12 @@ namespace SharpPy
                 if (caseCount == 1)
                 {
                     // Only default case - pop subject
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
                 }
                 else
                 {
                     // CPython: Show line coverage for default case (it doesn't create bytecode)
-                    _instructionSequence.AddOp(ByteCodeOp.NOP, 0);
+                    _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
                 }
 
                 if (lastCase.Guard != null)
@@ -7186,6 +7197,7 @@ namespace SharpPy
         /// </summary>
         private bool CompilePatternMatchCFG(Expression pattern, PatternContext pc)
         {
+            UpdateSourceLocation(pattern);
             switch (pattern)
             {
                 case ConstantExpression:
@@ -7777,6 +7789,7 @@ namespace SharpPy
                 sourceLines: _sourceLines
             );
             functionCode.FirstLineNo = lambda.LineNo;
+            functionCode.ExceptionTable.AddRange(_exceptionTable);
             functionCode.QualName = lambdaQualName;
             if (_defQualStack.Count > 0)
                 _defQualStack.RemoveAt(_defQualStack.Count - 1);
@@ -8407,7 +8420,10 @@ namespace SharpPy
                     CompileExpression(_fold.FoldIter(firstGenerator.Iter));
                 }
 
+                int lineBeforeIter1 = _currentLineNumber;
+                UpdateSourceLocation(firstGenerator.Iter);
                 EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
+                _currentLineNumber = lineBeforeIter1;
             }
             // 첫 번째 generator가 단일 요소인 경우: GET_ITER 생성 안함
 
@@ -8597,7 +8613,10 @@ namespace SharpPy
                     Console.WriteLine($"  📦 Compiling iterator expression for generator[{genIndex}]");
                     #endif
                     CompileGeneratorIterable(gen.Iter);
+                    int lineBeforeIter2 = _currentLineNumber;
+                    UpdateSourceLocation(gen.Iter);
                     EmitInstruction(gen.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
+                    _currentLineNumber = lineBeforeIter2;
                 }
             }
 
@@ -8621,6 +8640,7 @@ namespace SharpPy
                 }
                 else
                 {
+                    UpdateSourceLocation(gen.Iter);
                     // CPython: ADDOP_JUMP(c, loc, FOR_ITER, anchor)
                     _instructionSequence.AddOpWithLabel(
                         ByteCodeOp.FOR_ITER,
@@ -8637,6 +8657,7 @@ namespace SharpPy
             }
 
             // CPython line 5289: VISIT(c, expr, gen->target)
+            UpdateSourceLocation(gen.Target);
             CompileComprehensionTarget(gen.Target, comprehensionVars);
 
             // CPython line 5292-5296: condition handling with labels
@@ -8677,14 +8698,17 @@ namespace SharpPy
                 {
                     case ComprehensionType.ListComp:
                         CompileExpression(elt);
+                        UpdateSourceLocation(elt);
                         EmitInstruction(ByteCodeOp.LIST_APPEND, depth + 1);
                         break;
                     case ComprehensionType.SetComp:
                         CompileExpression(elt);
+                        UpdateSourceLocation(elt);
                         EmitInstruction(ByteCodeOp.SET_ADD, depth + 1);
                         break;
                     case ComprehensionType.DictComp:
                         CompileExpression(elt);
+                        UpdateSourceLocation(elt);
                         if (val != null)
                         {
                             CompileExpression(val);
@@ -8713,7 +8737,15 @@ namespace SharpPy
 
                 // CPython: USE_LABEL(c, anchor); ADDOP(c, NO_LOCATION, END_FOR)
                 _instructionSequence.UseLabel(anchorLabel);
-                EmitNoLocation(gen.IsAsync ? ByteCodeOp.END_ASYNC_FOR : ByteCodeOp.END_FOR);
+                if (gen.IsAsync)
+                {
+                    UpdateSourceLocation(gen.Iter);
+                    EmitInstruction(ByteCodeOp.END_ASYNC_FOR);
+                }
+                else
+                {
+                    EmitNoLocation(ByteCodeOp.END_FOR);
+                }
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  🔚 END_FOR at anchor label");
@@ -8959,7 +8991,10 @@ namespace SharpPy
                     CompileExpression(_fold.FoldIter(firstGenerator.Iter));
                 }
 
+                int lineBeforeIter3 = _currentLineNumber;
+                UpdateSourceLocation(firstGenerator.Iter);
                 EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
+                _currentLineNumber = lineBeforeIter3;
             }
 
             // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화 (CPython 3.12 패턴)
@@ -9249,7 +9284,10 @@ namespace SharpPy
 
             // 먼저 첫 번째 generator의 iterable 로드
             CompileExpression(_fold.FoldIter(firstGenerator.Iter));
+            int lineBeforeIter4 = _currentLineNumber;
+            UpdateSourceLocation(firstGenerator.Iter);
             EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
+            _currentLineNumber = lineBeforeIter4;
 
             // CPython 3.12: LOAD_FAST_AND_CLEAR (allVars 사용)
             foreach (var varName in allVars)  // allVars = loop vars + walrus vars
@@ -9478,6 +9516,7 @@ namespace SharpPy
 
             // CPython 3.12: 중첩된 generator expression의 경우 이미 CALL이 되어 generator 반환됨
             // 그 generator를 GET_ITER로 iterator화 해야 함
+            UpdateSourceLocation(outerGenerator.Iter);
             EmitInstruction(outerGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);  // iterator 생성 (generator도 iterable이므로 GET_ITER 필요)
             EmitInstruction(ByteCodeOp.CALL, 0);  // 제너레이터 함수 호출 (iterator는 특별 처리)
             
@@ -9645,6 +9684,16 @@ namespace SharpPy
         /// Assumes the value is already on the stack
         /// </summary>
         private void CompileAssignmentTarget(Expression target)
+        {
+            int line = _currentLineNumber;
+            int column = _currentColumnOffset;
+            UpdateSourceLocation(target);
+            CompileAssignmentTargetHere(target);
+            _currentLineNumber = line;
+            _currentColumnOffset = column;
+        }
+
+        private void CompileAssignmentTargetHere(Expression target)
         {
             switch (target)
             {
@@ -10085,6 +10134,7 @@ namespace SharpPy
             foreach (var argument in call.Arguments)
                 CompileExpression(argument);
             UpdateSourceLocation(call);
+            MatchLocationToAttribute(method);
             if (keywords > 0)
             {
                 foreach (var keyword in call.Keywords)
@@ -10463,8 +10513,8 @@ namespace SharpPy
             // For exceptional outcome:
             _instructionSequence.UseLabel(final);
             SetupNoLocation(ByteCodeOp.SETUP_CLEANUP, cleanup);
-            EmitNoLocation(ByteCodeOp.PUSH_EXC_INFO);
-            EmitNoLocation(ByteCodeOp.WITH_EXCEPT_START);
+            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
+            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
 
             // compiler_with_except_finish
             var suppress = _instructionSequence.NewLabel();
@@ -11045,14 +11095,14 @@ namespace SharpPy
             pc.OnTop++;
 
             // CPython: MATCH_SEQUENCE - Check if subject is a sequence
-            _instructionSequence.AddOp(ByteCodeOp.MATCH_SEQUENCE, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.MATCH_SEQUENCE, _currentLineNumber);
             JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
 
             // CPython: GET_LEN + length check
             if (star < 0)
             {
                 // No star: len(subject) == size
-                _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.GET_LEN, _currentLineNumber);
                 EmitLoadConst(new PyInt(size));
                 _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ, _currentLineNumber);
                 JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
@@ -11060,7 +11110,7 @@ namespace SharpPy
             else if (size > 1)
             {
                 // Star: len(subject) >= size - 1
-                _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.GET_LEN, _currentLineNumber);
                 EmitLoadConst(new PyInt(size - 1));
                 _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE, _currentLineNumber);
                 JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
@@ -11073,7 +11123,7 @@ namespace SharpPy
             if (onlyWildcard)
             {
                 // Patterns like: [] / [_] / [*_] - just pop subject
-                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
             }
             else if (starWildcard)
             {
@@ -11158,7 +11208,7 @@ namespace SharpPy
             pc.OnTop++;
 
             // CPython: MATCH_MAPPING - Check if subject is a mapping
-            _instructionSequence.AddOp(ByteCodeOp.MATCH_MAPPING, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.MATCH_MAPPING, _currentLineNumber);
             JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
 
             if (size == 0)
@@ -11167,7 +11217,7 @@ namespace SharpPy
                 pc.OnTop--;
                 if (matchMap.Rest == null)
                 {
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
                     return true;
                 }
                 // {**rest}: the subject itself becomes the copy.
@@ -11178,7 +11228,7 @@ namespace SharpPy
             }
 
             // CPython: If the pattern has any keys, perform a length check (len >= size)
-            _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.GET_LEN, _currentLineNumber);
             EmitLoadConst(new PyInt(size));
             _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE, _currentLineNumber);
             JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
@@ -11194,7 +11244,7 @@ namespace SharpPy
             _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_TUPLE, size, _currentLineNumber);
 
             // CPython: MATCH_KEYS - extracts values for the given keys
-            _instructionSequence.AddOp(ByteCodeOp.MATCH_KEYS, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.MATCH_KEYS, _currentLineNumber);
 
             // CPython: There's now a tuple of keys and a tuple of values on top of the subject
             pc.OnTop += 2;
@@ -11230,12 +11280,12 @@ namespace SharpPy
                 {
                     _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1 + remaining, _currentLineNumber); // [copy, keys..., copy]
                     _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);             // [copy, keys..., copy, key]
-                    _instructionSequence.AddOp(ByteCodeOp.DELETE_SUBSCR, 0, _currentLineNumber);           // [copy, keys...]
+                    _instructionSequence.AddOp(ByteCodeOp.DELETE_SUBSCR, _currentLineNumber);           // [copy, keys...]
                 }
                 return PatternHelperStoreName(matchMap.Rest, pc);
             }
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys.
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Subject.
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);  // Tuple of keys.
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);  // Subject.
 
             return true;
         }
@@ -11382,7 +11432,7 @@ namespace SharpPy
             // CPython: if (n == NULL) { ADDOP(c, loc, POP_TOP); return SUCCESS; } (line 6664-6666)
             if (name == null || name == "_")
             {
-                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
                 return true;
             }
 
@@ -11503,7 +11553,7 @@ namespace SharpPy
             pc.AllowIrrefutable = oldPc.AllowIrrefutable;
 
             // CPython: No match - POP_TOP the remaining copy
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
 
             // CPython: jump_to_fail_pop(c, LOC(p), pc, JUMP)
             JumpToFailPop(pc, ByteCodeOp.JUMP);
@@ -11523,7 +11573,7 @@ namespace SharpPy
             }
 
             // Pop the copy of the subject
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
 
             return true;
         }
@@ -11572,7 +11622,7 @@ namespace SharpPy
                 {
                     // fail_pop[N] (N>0): emit ONE POP_TOP, then fall through
                     // CPython does --pc->fail_pop_size in loop, so each iteration pops once
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
                 }
             }
 
@@ -11620,13 +11670,13 @@ namespace SharpPy
                 else
                 {
                     // Negative index: GET_LEN, load (size - i), subtract
-                    _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+                    _instructionSequence.AddOp(ByteCodeOp.GET_LEN, _currentLineNumber);
                     EmitLoadConst(new PyInt(size - i));
                     _instructionSequence.AddOpWithArg(ByteCodeOp.BINARY_OP, (int)BinaryOpType.SUBTRACT, _currentLineNumber);
                 }
 
                 // BINARY_SUBSCR
-                _instructionSequence.AddOp(ByteCodeOp.BINARY_SUBSCR, 0, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.BINARY_SUBSCR, _currentLineNumber);
 
                 // CPython 3.12: compiler_pattern_subpattern (lines 6765)
                 // This will call PatternHelperStoreName which handles SWAP and stores
@@ -11641,7 +11691,7 @@ namespace SharpPy
 
             // CPython 3.12: Pop the subject, we're done with it (lines 6767-6769)
             pc.OnTop--;
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
         }
 
         /// <summary>
