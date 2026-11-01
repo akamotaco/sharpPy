@@ -2227,9 +2227,10 @@ CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 �
 
 ## P0-84 CPython 언어 테스트로 찾은 남은 차이 (측정 2026-11-01, 미해결)
 
-`tools/run_cpython_tests.py` 기준 1762/2597. CPython 3.12.15 Lib/test를 양쪽에서 같은 지원 스텁으로 실행한 값이다.
+`tools/run_cpython_tests.py` 기준 1889/2890. CPython 3.12.15 Lib/test를 양쪽에서 같은 지원 스텁으로 실행한 값이다. 이전에 기록한 1762/2597은 오래된 기준 캐시로 분모가 빠진 값이었다. 작업 순서는 [todo.md](todo.md)에 있다.
 
 - 잘못된 이스케이프의 SyntaxWarning이 나오지 않는다(`"\d"`, `"\777"`, 경로: `string_parser.c` `warn_invalid_escape_sequence`). `b"é"`도 SyntaxError가 아니다.
+- CLR 예외를 Python에서 잡을 수 없어 실행이 끝난다. `BuiltinSlots.Method`에 인자 수 검사가 없어 `range(2).index()`가 그렇게 끝나고, test_bytes 등의 나머지 테스트가 실행되지 않는다.
 - `_ast` 모듈이 없어 test_builtin, test_fstring을 불러오지 못한다.
 - `bytes.find`가 최악 입력에서 이차 시간이다. `stringlib` two-way를 옮기기 전까지 드라이버가 `test_adaptive_find`를 양쪽에서 건너뛴다.
 - test_abc가 `test_abstractstaticmethod_basics`에서 프로세스째 끝난다.

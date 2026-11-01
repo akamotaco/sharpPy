@@ -1,6 +1,6 @@
 # SharpPy 개발 안내
 
-현재 작업 기준은 [평가 및 성능 개선 계획](docs/evaluation_and_performance_plan.md)과 [README](readme.md)다.
+현재 작업 기준은 [평가 및 성능 개선 계획](docs/evaluation_and_performance_plan.md)과 [README](readme.md)다. 남은 작업은 [TODO](docs/todo.md)에 경로 단위로 정리한다.
 
 기존 개발 메모는 [보관본](docs/archive/2026-10-09/claude.md)으로 이동했다. 보관본의 이전 PC 경로, 구현 상태, 진행 중이라는 표현은 현재 상태로 간주하지 않는다.
 
