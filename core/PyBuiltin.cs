@@ -3053,7 +3053,7 @@ namespace SharpPy
             // CPython: if (PyType_Check(obj) && PyType_IsSubtype((PyTypeObject *)obj, type))
             if (obj is PyType objAsType)
             {
-                if (IsSubtype(objAsType, type))
+                if (objAsType.IsSubclassOf(type))
                 {
                     return objAsType;
                 }
@@ -3065,7 +3065,7 @@ namespace SharpPy
             // Case 2: Normal case - obj is an instance of 'type'
             // CPython: if (PyType_IsSubtype(Py_TYPE(obj), type))
             PyType objType = obj.GetPyType() as PyType;
-            if (objType != null && IsSubtype(objType, type))
+            if (objType != null && objType.IsSubclassOf(type))
             {
                 return objType;
             }
@@ -3077,7 +3077,7 @@ namespace SharpPy
                 PyObject classAttr = obj.GetAttribute("__class__");
                 if (classAttr is PyType classType && classType != objType)
                 {
-                    if (IsSubtype(classType, type))
+                    if (classType.IsSubclassOf(type))
                     {
                         return classType;
                     }
@@ -3089,29 +3089,6 @@ namespace SharpPy
             }
 
             throw PyTypeError.Create("super(type, obj): obj must be an instance or subtype of type");
-        }
-
-        /// <summary>
-        /// CPython 3.12: PyType_IsSubtype() check
-        /// Returns true if 'a' is a subtype of 'b' (or same type)
-        /// </summary>
-        private static bool IsSubtype(PyType a, PyType b)
-        {
-            if (a == b) return true;
-
-            // Check MRO of 'a' for 'b'
-            if (a.MRO != null)
-            {
-                foreach (var mroType in a.MRO)
-                {
-                    if (mroType == b || mroType.Name == b.Name)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -3184,7 +3161,7 @@ namespace SharpPy
             int skipUntil = -1;
             for (int i = 0; i < startType.MRO.Count; i++)
             {
-                if (startType.MRO[i] == Type || startType.MRO[i].Name == Type.Name)
+                if (ReferenceEquals(startType.MRO[i], Type))
                 {
                     skipUntil = i;
                     break;

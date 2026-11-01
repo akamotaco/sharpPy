@@ -882,22 +882,6 @@ namespace SharpPy
                 }
             }
 
-            // Fallback: Check by type name for built-in types
-            // This handles cases where the same built-in type might have different PyType instances
-            foreach (var mroType in MRO)
-            {
-                if (mroType.Name == other.Name &&
-                    (mroType.Name == "tuple" || mroType.Name == "list" || mroType.Name == "dict" ||
-                     mroType.Name == "str" || mroType.Name == "int" || mroType.Name == "float" ||
-                     mroType.Name == "bool" || mroType.Name == "object" || mroType.Name == "type"))
-                {
-#if DEBUG
-                    Console.WriteLine($"[IsSubclassOf] Found match by name: {mroType.Name}");
-#endif
-                    return true;
-                }
-            }
-
 #if DEBUG
             Console.WriteLine($"[IsSubclassOf] No match found, returning false");
 #endif

@@ -995,43 +995,6 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// CPython 3.12: Symbol table lookup helper
-        /// </summary>
-        private SymbolTable? FindSymbolTableByName(SymbolTable rootTable, string name)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 FindSymbolTableByName: Searching for '{name}' in table '{rootTable.GetName()}' (type: {rootTable.GetType()})");
-            #endif
-
-            // Check current table
-            if (rootTable.GetName() == name)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"✅ Found matching table: {name}");
-                #endif
-                return rootTable;
-            }
-
-            // Search children recursively
-            foreach (var child in rootTable.GetChildren())
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Checking child table: '{child.GetName()}' (type: {child.GetType()})");
-                #endif
-                var found = FindSymbolTableByName(child, name);
-                if (found != null)
-                {
-                    return found;
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"❌ Table '{name}' not found in '{rootTable.GetName()}'");
-            #endif
-            return null;
-        }
-
         private void PreScanStatement(Statement stmt)
         {
             switch (stmt)
@@ -4115,12 +4078,8 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Otherwise, look for symbol table in children with function name format
-                    // CPython walks the tables in source order (compiler_enter_scope takes the next
-                    // entry), so two defs of one name under if and else each get their own table. A body
-                    // compiled twice, such as a finally block, takes the first again.
-                    funcSymbolTable = _currentSymbolTable.TakeChild(child =>
-                        child.Name == $"<function:{func.Name}>" || child.Name == func.Name);
+                    // compiler_enter_scope: _PySymtable_Lookup(st, key), the AST node is the key.
+                    funcSymbolTable = _symbolTableBuilder?.LookupSymbolTable(func);
                 }
 
                 #if DEBUG_LOG
@@ -5788,7 +5747,7 @@ namespace SharpPy
             // variables from the enclosing function, those become free variables.
             // Example: def outer(): x=1; class Inner: def get(self): return x
             // The class body receives 'x' as a free variable via closure.
-            var classFreeVars = GetClassFreeVariables(cls.Name);
+            var classFreeVars = _symbolTableBuilder?.LookupSymbolTable(cls)?.FindFreeVariables() ?? new List<string>();
 
             #if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔍 CompileRegularClass: {cls.Name} free variables: [{string.Join(", ", classFreeVars)}]");
@@ -5808,7 +5767,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, classFreeVars.Count);
             }
 
-            var classBodyCode = CompileClassBody(cls.Body, classBodyName, classFreeVars);
+            var classBodyCode = CompileClassBody(cls, classBodyName, classFreeVars);
             EmitLoadConst(classBodyCode);
 
             // CPython 3.12: MAKE_FUNCTION with closure flag if class has free variables
@@ -5903,119 +5862,6 @@ namespace SharpPy
                 current = current.GetParent()!; // Non-null assertion since we checked it's not null
             }
             return current;
-        }
-
-        /// <summary>
-        /// Find the class in its lexical parent before using the legacy root lookup.
-        /// </summary>
-        private SymbolTable? FindClassSymbolTable(string className)
-        {
-            string actualName = className.Replace("<class_body_", "").TrimEnd('>');
-            if (_currentSymbolTable != null)
-                foreach (var child in _currentSymbolTable.GetChildren())
-                    if (child.Type == SymbolTableType.Class && child.GetName() == actualName)
-                        return child;
-            return _symbolTable == null ? null :
-                FindSymbolTableByName(GetRootSymbolTable(_symbolTable), actualName);
-        }
-
-        /// <summary>Get the free variables belonging to this class scope.</summary>
-        private List<string> GetClassFreeVariables(string className)
-        {
-            if (_symbolTable == null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"❌ _symbolTable is null, cannot look up class {className}");
-                #endif
-                return new List<string>();
-            }
-
-            // Search from the root of the symbol table hierarchy, not the current scope
-            var rootSymbolTable = GetRootSymbolTable(_symbolTable);
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 GetClassFreeVariables: Looking for class '{className}' from root table '{rootSymbolTable.GetName()}'");
-            #endif
-
-            var classSymbolTable = FindClassSymbolTable(className);
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 FindSymbolTableByName({className}): {(classSymbolTable != null ? "Found" : "Not found")}");
-            if (classSymbolTable != null)
-            {
-                Console.WriteLine($"🔍 Class {className} symbol table has {classSymbolTable.GetSymbols().Count} symbols:");
-                foreach (var symbol in classSymbolTable.GetSymbols().Values)
-                {
-                    Console.WriteLine($"  Symbol {symbol.Name}: Scope={symbol.Scope}, IsFree={symbol.IsFree()}, Flags={symbol.Flags}");
-                }
-                var freeVars = classSymbolTable.FindFreeVariables();
-                Console.WriteLine($"🔍 Class {className} symbol table free vars: [{string.Join(", ", freeVars)}]");
-                return freeVars;
-            }
-            else
-            {
-                Console.WriteLine($"❌ Symbol table for class {className} not found even from root!");
-            }
-            #endif
-
-            if (classSymbolTable != null)
-            {
-                return classSymbolTable.FindFreeVariables();
-            }
-
-            return new List<string>();
-        }
-
-        /// <summary>
-        /// Alternative method: Extract free variables by analyzing class body functions
-        /// This is used when symbol table context is not available during compilation
-        /// </summary>
-        private List<string> GetClassFreeVariablesFromBody(List<Statement> classBody)
-        {
-            var freeVariables = new HashSet<string>();
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 GetClassFreeVariablesFromBody: Analyzing {classBody.Count} statements");
-            #endif
-
-            foreach (var statement in classBody)
-            {
-                if (statement is FunctionDefStatement funcDef)
-                {
-                    // For each method in the class, collect variables that are:
-                    // 1. Referenced but not defined locally
-                    // 2. Not parameters
-                    var referencedVars = CollectReferencedVariables(funcDef.Body);
-                    var localVars = CollectLocallyDefinedVariables(funcDef.Body);
-                    // Performance: Eliminated LINQ
-                    var parameters = new HashSet<string>(funcDef.Parameters);
-
-                    foreach (var varName in referencedVars)
-                    {
-                        if (!localVars.Contains(varName) && !parameters.Contains(varName) && !IsKeywordOrBuiltin(varName) && !IsGlobalVariable(varName))
-                        {
-                            freeVariables.Add(varName);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  Found potential free variable: {varName} in method {funcDef.Name}");
-                            #endif
-                        }
-                        #if DEBUG_LOG
-                        else if (IsGlobalVariable(varName))
-                        {
-                            Console.WriteLine($"  Skipping global variable: {varName} in method {funcDef.Name}");
-                        }
-                        #endif
-                    }
-                }
-            }
-
-            // Performance: Eliminated LINQ
-            var result = new List<string>(freeVariables);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 GetClassFreeVariablesFromBody result: [{string.Join(", ", result)}]");
-            #endif
-
-            return result;
         }
 
         private HashSet<string> CollectReferencedVariables(List<Statement> statements)
@@ -6172,7 +6018,7 @@ namespace SharpPy
             return prefix + (parent.Type == SymbolTableType.Function ? ".<locals>." : ".") + name;
         }
 
-        private PyCodeObject CompileClassBody(List<Statement> body, string className, List<string>? classFreeVars = null)
+        private PyCodeObject CompileClassBody(ClassDefStatement cls, string className, List<string>? classFreeVars = null)
         {
             // Save current compilation state
             var savedInstructionSequence = _instructionSequence;
@@ -6193,37 +6039,9 @@ namespace SharpPy
                 classQualPart = classQualPart.Substring("<class ".Length).TrimEnd('>') ;
             _defQualStack.Add((classQualPart, true));
 
-            // CPython 3.12: Find class symbol table for this class
-            SymbolTable? classSymbolTable = null;
-            if (_symbolTable != null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Searching for class symbol table: {className} in root table: {_symbolTable.Name}");
-                Console.WriteLine($"🔍 Root table children: {_symbolTable.Children.Count()}");
-                foreach (var child in _symbolTable.Children)
-                {
-                    Console.WriteLine($"  Child: {child.Name}");
-                }
-                #endif
-
-                // Find the class symbol table by name
-                classSymbolTable = FindClassSymbolTable(className);
-                if (classSymbolTable == null)
-                {
-                    // Try extracting class name from className (remove <class_body_ prefix)
-                    var actualClassName = className.Replace("<class_body_", "").TrimEnd('>');
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Trying actual class name: {actualClassName}");
-                    #endif
-                    classSymbolTable = FindSymbolTableByName(_symbolTable, actualClassName);
-                }
-            }
-            else
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"❌ _symbolTable is null when compiling class body {className}");
-                #endif
-            }
+            // compiler_enter_scope: _PySymtable_Lookup(st, key), the AST node is the key.
+            var body = cls.Body;
+            SymbolTable? classSymbolTable = _symbolTableBuilder?.LookupSymbolTable(cls);
 
             if (classSymbolTable != null)
             {
@@ -9857,20 +9675,6 @@ namespace SharpPy
                 sb.Append(_defQualStack[_defQualStack.Count - 1].IsClass ? "." : ".<locals>.");
             sb.Append(leafPart);
             return sb.ToString();
-        }
-
-        private SymbolTable? FindLambdaSymbolTable(string lambdaName)
-        {
-            // Find lambda symbol table from current symbol table context (not root)
-            #if DEBUG_LOG
-            Console.WriteLine($"  🔍 Looking for lambda symbol table: {lambdaName}");
-            Console.WriteLine($"  🔍 Current symbol table context: {_currentSymbolTable?.GetName()}");
-            #endif
-            var result = _currentSymbolTable != null ? FindSymbolTableByName(_currentSymbolTable, lambdaName) : null;
-            #if DEBUG_LOG
-            Console.WriteLine($"  🔍 Found lambda symbol table: {result?.GetName()} (null: {result == null})");
-            #endif
-            return result;
         }
 
         /// <summary>

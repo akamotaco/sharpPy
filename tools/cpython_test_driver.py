@@ -59,6 +59,8 @@ try:
     module = __import__("test." + name, fromlist=["*"])
     suite = unittest.defaultTestLoader.loadTestsFromModule(module)
 except BaseException as error:
+    import traceback
+    traceback.print_exc()
     emit("IMPORT", name, f"{type(error).__name__}: {error}")
     sys.exit(0)
 

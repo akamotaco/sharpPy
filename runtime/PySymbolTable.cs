@@ -163,21 +163,6 @@ namespace SharpPy
 
         private bool _taken;
 
-        /// <summary>The next child in source order that matches.</summary>
-        public SymbolTable? TakeChild(Func<SymbolTable, bool> matches)
-        {
-            SymbolTable? first = null;
-            foreach (var child in _children)
-            {
-                if (!matches(child)) continue;
-                first ??= child;
-                if (child._taken) continue;
-                child._taken = true;
-                return child;
-            }
-            return first;
-        }
-
         public void AddChild(SymbolTable child)
         {
             _children.Add(child);
@@ -873,6 +858,7 @@ namespace SharpPy
             // Create new scope for function body
             var functionTable = new SymbolTable($"<function:{func.Name}>", SymbolTableType.Function);
             _currentTable?.AddChild(functionTable);
+            _astNodeToSymbolTable.AddOrUpdate(func, functionTable);
 
             var savedTable = _currentTable;
             _currentTable = functionTable;
@@ -2306,6 +2292,7 @@ namespace SharpPy
             // Create new scope for class body
             var classTable = new SymbolTable(cls.Name, SymbolTableType.Class);
             _currentTable?.AddChild(classTable);
+            _astNodeToSymbolTable.AddOrUpdate(cls, classTable);
 
             var savedTable = _currentTable;
             _currentTable = classTable;

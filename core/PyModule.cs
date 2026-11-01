@@ -210,44 +210,24 @@ public class PyModule : PyObject
         Console.WriteLine($"📄 모듈 '{Name}' 실행 중...");
 #endif
 
-        try
-        {
-            // 1단계: 파싱 (소스 → AST)
-            var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
+        // 1단계: 파싱 (소스 → AST)
+        var tokens = SharpPy.Generated.PyParserRuntime.LexerSource(sourceCode);
 
-            var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
+        var statements = SharpPy.Generated.PyParserRuntime.ParseSource(tokens, sourceCode, FileName);
 
-            // 2단계: 컴파일 (AST → 바이트코드)
-            // CPython 3.12 호환: 모듈 코드 객체 이름은 항상 "<module>"
-            var compiler = new PythonCompiler();
-            var codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
+        // 2단계: 컴파일 (AST → 바이트코드)
+        // CPython 3.12 호환: 모듈 코드 객체 이름은 항상 "<module>"
+        var compiler = new PythonCompiler();
+        var codeObject = compiler.Compile(statements, "<module>", new List<string>(), FileName);
 
-            // 3단계: 모듈 전용 글로벌 스코프 생성
-            var moduleGlobalScope = CreateModuleGlobalScope();
+        // 3단계: 모듈 전용 글로벌 스코프 생성
+        var moduleGlobalScope = CreateModuleGlobalScope();
 
-            // 4단계: VM 실행 (모듈 네임스페이스에서 실행)
-            var vm = PyVM.Instance;
-            vm.ExecuteModule(codeObject, moduleGlobalScope);
+        // 4단계: VM 실행 (모듈 네임스페이스에서 실행)
+        // What the module raises reaches the importer unchanged (_load_unlocked).
+        PyVM.Instance.ExecuteModule(codeObject, moduleGlobalScope);
 
-            // CPython 3.12 호환: 모듈 딕셔너리가 직접 사용되므로 별도 업데이트 불필요
-
-            IsInitialized = true;
-#if DEBUG_MODULE_LOG
-            Console.WriteLine($"✅ 모듈 '{Name}' 초기화 완료");
-#endif
-        }
-        catch (PySyntaxErrorException)
-        {
-            // SyntaxError는 그대로 throw (line number 정보 보존)
-            throw;
-        }
-        catch (System.Exception ex)
-        {
-#if DEBUG_MODULE_LOG
-            Console.WriteLine($"❌ 모듈 '{Name}' 실행 실패: {ex.Message}");
-#endif
-            throw PyImportError.Create($"Failed to execute module '{Name}': {ex.Message}");
-        }
+        IsInitialized = true;
     }
 
     /// <summary>
@@ -748,11 +728,11 @@ public class PyModule : PyObject
                 RemoveModule(moduleName);
                 throw PySyntaxError.Create(syntax.Message.Replace("SyntaxError: ", ""), filePath, Math.Max(syntax.LineNumber, 0));
             }
-            catch (System.Exception ex)
+            catch (System.Exception)
             {
-                // CPython 3.12: Remove from sys.modules on load failure
+                // _load_unlocked: gone from sys.modules, and the exception stays what it was.
                 RemoveModule(moduleName);
-                throw PyImportError.Create($"Failed to load module '{moduleName}' from '{filePath}': {ex.Message}");
+                throw;
             }
         }
 
