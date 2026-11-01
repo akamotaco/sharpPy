@@ -987,7 +987,7 @@ namespace SharpPy
             var iterObj = iterable.GetIterator();
             if (iterObj == null)
                 throw PyTypeError.Create("accumulate argument must be iterable");
-            _iterator = (PyIterator)iterObj;
+            _iterator = PyObjectIteratorShim.Of(iterObj);
             _binop = func;
             _total = null;
             _initial = initial;
@@ -1047,12 +1047,12 @@ namespace SharpPy
             var dataObj = data.GetIterator();
             if (dataObj == null)
                 throw PyTypeError.Create("compress data must be iterable");
-            _dataIterator = (PyIterator)dataObj;
+            _dataIterator = PyObjectIteratorShim.Of(dataObj);
 
             var selectorsObj = selectors.GetIterator();
             if (selectorsObj == null)
                 throw PyTypeError.Create("compress selectors must be iterable");
-            _selectorIterator = (PyIterator)selectorsObj;
+            _selectorIterator = PyObjectIteratorShim.Of(selectorsObj);
         }
 
         public override PyObject Next()
@@ -1092,7 +1092,7 @@ namespace SharpPy
             var iterObj = iterable.GetIterator();
             if (iterObj == null)
                 throw PyTypeError.Create("dropwhile argument 2 must be iterable");
-            _iterator = (PyIterator)iterObj;
+            _iterator = PyObjectIteratorShim.Of(iterObj);
             _start = 0;
         }
 
@@ -1145,7 +1145,7 @@ namespace SharpPy
             var iterObj = iterable.GetIterator();
             if (iterObj == null)
                 throw PyTypeError.Create("takewhile argument 2 must be iterable");
-            _iterator = (PyIterator)iterObj;
+            _iterator = PyObjectIteratorShim.Of(iterObj);
             _stop = 0;
         }
 
@@ -1199,7 +1199,7 @@ namespace SharpPy
             var iterObj = iterable.GetIterator();
             if (iterObj == null)
                 throw PyTypeError.Create("filterfalse argument 2 must be iterable");
-            _iterator = (PyIterator)iterObj;
+            _iterator = PyObjectIteratorShim.Of(iterObj);
         }
 
         public override PyObject Next()
@@ -1256,7 +1256,7 @@ namespace SharpPy
             var iteratorObj = args[0].GetIterator();
             if (iteratorObj == null)
                 throw PyTypeError.Create("islice argument 1 must be iterable");
-            _iterator = (PyIterator)iteratorObj;
+            _iterator = PyObjectIteratorShim.Of(iteratorObj);
 
             // CPython 3.12: Modules/itertoolsmodule.c:1658 - default values
             // stop=-1 means "infinite" (None), start=0, step=1
@@ -1524,7 +1524,7 @@ namespace SharpPy
                 var iterObj = iterables[i].GetIterator();
                 if (iterObj == null)
                     throw PyTypeError.Create("zip_longest argument must be iterable");
-                _iterators[i] = (PyIterator)iterObj;
+                _iterators[i] = PyObjectIteratorShim.Of(iterObj);
                 _active[i] = true;
             }
         }
@@ -1579,7 +1579,7 @@ namespace SharpPy
             var iterObj = iterable.GetIterator();
             if (iterObj == null)
                 throw PyTypeError.Create("starmap argument 2 must be iterable");
-            _iterator = (PyIterator)iterObj;
+            _iterator = PyObjectIteratorShim.Of(iterObj);
         }
 
         public override PyObject Next()

@@ -3886,7 +3886,14 @@ namespace SharpPy
                         // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
                         // See Objects/typeobject.c:type_subscript
                         PyObject subscriptResult;
-                        if (subscriptObj is PyType typeObj)
+                        // type_subscript comes after the metatype's own mp_subscript: Color["RED"].
+                        var metaGetItem = subscriptObj is PyType subscripted
+                            ? (subscripted.GetPyType() as PyClass)?.LookupInMRO("__getitem__") : null;
+                        if (metaGetItem != null)
+                        {
+                            subscriptResult = metaGetItem.Call(new[] { subscriptObj, subscriptKey }, null);
+                        }
+                        else if (subscriptObj is PyType typeObj)
                         {
                             // Subscripting a type (e.g., dict[int], list[str]) - use __class_getitem__
                             var classGetitemAttr = typeObj.LookupSpecial("__class_getitem__");

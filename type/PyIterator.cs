@@ -214,6 +214,9 @@ namespace SharpPy
         }
 
         public override PyObject Next() => _inner.Next();
+
+        /// <summary>What iter() returned: a user object with __next__ is an iterator as much as a CLR one.</summary>
+        internal static PyIterator Of(PyObject iterator) => iterator as PyIterator ?? new PyObjectIteratorShim(iterator);
     }
 
     public class PyTupleIterator : PyIterator

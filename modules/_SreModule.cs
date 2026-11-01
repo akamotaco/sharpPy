@@ -102,24 +102,8 @@ namespace SharpPy.Modules
         {
             if (args.Length < 2)
                 throw PyTypeError.Create("match() missing required arguments");
-
-            var pattern = args[0].ToStr();
-            var text = args[1].ToStr();
-            var flags = args.Length > 2 ? GetFlags(args[2]) : RegexOptions.None;
-
-            try
-            {
-                var regex = BuildRegex(pattern.Value, flags, out var names, out var count);
-                var match = regex.Match(text.Value);
-
-                return match.Success
-                    ? new PySreMatch(match, text.Value, 0, names, count)
-                    : PyNone.Instance;
-            }
-            catch (ArgumentException ex)
-            {
-                throw PyRegexError.Create($"Invalid regular expression: {ex.Message}");
-            }
+            var pattern = new PyObject[] { args[0], args.Length > 2 ? args[2] : new PyInt(0) };
+            return Compile(pattern).GetAttribute("match").Call(new[] { args[1] }, null);
         }
 
         public static PyObject Search(PyObject[] args)
@@ -751,71 +735,40 @@ namespace SharpPy.Modules
         /// CPython 3.12: Modules/_sre/sre.c:1754-1825 (pattern_match_impl)
         /// Signature: match(string, pos=0, endpos=sys.maxsize)
         /// </summary>
-        private PyObject Match(PyObject[] args)
+        private Regex _anchored, _whole;
+
+        // SRE_MATCH and SRE_SEARCH are one engine started in two ways. .NET's is a search, so match and fullmatch
+        // pin it at the start position with \G, and fullmatch at the end too. It stays a search from pos, not a
+        // substring: '^' and lookbehind see the real beginning of the string, as in CPython.
+        private Regex Anchored => _anchored ??= new Regex("\\G(?:" + _regex + ")", _regex.Options);
+        private Regex Whole => _whole ??= new Regex("\\G(?:" + _regex + ")\\z", _regex.Options);
+
+        private PyObject Run(Regex regex, PyObject[] args, string name)
         {
             if (args.Length == 0)
-                throw PyTypeError.Create("match() missing 1 required positional argument: 'string'");
+                throw PyTypeError.Create($"{name}() missing 1 required positional argument: 'string'");
 
-            var text = args[0].ToStr();
-            // CPython 3.12: Modules/_sre/sre.c:1761-1767 - handle pos and endpos parameters
+            var text = args[0].ToStr().Value;
             int pos = args.Length > 1 && args[1] is PyInt posInt ? (int)posInt.Value : 0;
-            int endpos = args.Length > 2 && args[2] is PyInt endposInt ? (int)endposInt.Value : text.Value.Length;
+            int endpos = args.Length > 2 && args[2] is PyInt endposInt
+                ? (int)System.Numerics.BigInteger.Min(endposInt.Value, text.Length) : text.Length;
+            pos = Math.Clamp(pos, 0, text.Length);
+            endpos = Math.Max(endpos, 0);
+            if (endpos < pos) return PyNone.Instance;
 
-            // Clamp pos and endpos to valid range
-            if (pos < 0) pos = 0;
-            if (pos > text.Value.Length) pos = text.Value.Length;
-            if (endpos < pos) endpos = pos;
-            if (endpos > text.Value.Length) endpos = text.Value.Length;
-
-            // Use C# Regex.Match with starting position
-            var match = _regex.Match(text.Value, pos, endpos - pos);
-            return match.Success ? new PySreMatch(match, text.Value, 0, _names, _count) : PyNone.Instance;
+            var match = regex.Match(endpos == text.Length ? text : text.Substring(0, endpos), pos);
+            return match.Success
+                ? new PySreMatch(match, text, 0, _names, _count) { Pattern = this, Pos = pos, EndPos = endpos }
+                : PyNone.Instance;
         }
 
-        /// <summary>
-        /// CPython 3.12: Modules/_sre/sre.c:1827-1897 (pattern_fullmatch_impl)
-        /// Signature: fullmatch(string, pos=0, endpos=sys.maxsize)
-        /// Try to apply the pattern to all of the string, returning a Match object, or None if no match was found.
-        /// </summary>
-        private PyObject FullMatch(PyObject[] args)
-        {
-            if (args.Length == 0)
-                throw PyTypeError.Create("fullmatch() missing 1 required positional argument: 'string'");
+        private PyObject Match(PyObject[] args) => Run(Anchored, args, "match");
 
-            var text = args[0].ToStr();
-            int pos = args.Length > 1 && args[1] is PyInt posInt ? (int)posInt.Value : 0;
-            int endpos = args.Length > 2 && args[2] is PyInt endposInt ? (int)endposInt.Value : text.Value.Length;
+        /// <summary>CPython 3.12: Modules/_sre/sre.c (pattern_fullmatch_impl)</summary>
+        private PyObject FullMatch(PyObject[] args) => Run(Whole, args, "fullmatch");
 
-            // Clamp pos and endpos to valid range
-            if (pos < 0) pos = 0;
-            if (pos > text.Value.Length) pos = text.Value.Length;
-            if (endpos < pos) endpos = pos;
-            if (endpos > text.Value.Length) endpos = text.Value.Length;
-
-            // fullmatch requires the entire string (or substring) to match
-            string substring = text.Value.Substring(pos, endpos - pos);
-            var match = _regex.Match(substring);
-
-            // Check if match covers the entire substring
-            if (match.Success && match.Index == 0 && match.Length == substring.Length)
-            {
-                return new PySreMatch(match, text.Value, pos, _names, _count);
-            }
-            return PyNone.Instance;
-        }
-
-        /// <summary>
-        /// CPython 3.12: Modules/_sre/sre.c:1899-1970 (pattern_search_impl)
-        /// </summary>
-        private PyObject Search(PyObject[] args)
-        {
-            if (args.Length == 0)
-                throw PyTypeError.Create("search() missing 1 required positional argument: 'string'");
-
-            var text = args[0].ToStr();
-            var match = _regex.Match(text.Value);
-            return match.Success ? new PySreMatch(match, text.Value, 0, _names, _count) : PyNone.Instance;
-        }
+        /// <summary>CPython 3.12: Modules/_sre/sre.c (pattern_search_impl)</summary>
+        private PyObject Search(PyObject[] args) => Run(_regex, args, "search");
 
         /// <summary>
         /// CPython 3.12: Modules/_sre/sre.c:2079-2154 (pattern_findall_impl)
@@ -1023,6 +976,10 @@ namespace SharpPy.Modules
         private readonly Dictionary<string, int> _names;
         private readonly int _count;
 
+        internal PySrePattern Pattern;
+        internal int Pos;
+        internal int? EndPos;
+
         public PySreMatch(Match match, string text, int posOffset = 0,
             Dictionary<string, int> names = null, int count = 0)
         {
@@ -1085,6 +1042,27 @@ namespace SharpPy.Modules
             {
                 case "string":
                     return new PyString(_string);
+                case "lastindex":
+                {
+                    // The group that closed last: the furthest end, and the outer of two that end together.
+                    int last = 0, lastEnd = -1;
+                    for (int i = 1; i < _match.Groups.Count; i++)
+                    {
+                        var group = GroupByNumber(i);
+                        if (group.Success && group.Index + group.Length > lastEnd)
+                        {
+                            last = i;
+                            lastEnd = group.Index + group.Length;
+                        }
+                    }
+                    return last == 0 ? PyNone.Instance : new PyInt(last);
+                }
+                case "re" when Pattern != null:
+                    return Pattern;
+                case "pos":
+                    return new PyInt(Pos);
+                case "endpos":
+                    return new PyInt(EndPos ?? _string.Length);
                 case "group":
                     return new PyBuiltinFunction("group", Group);
                 case "groups":

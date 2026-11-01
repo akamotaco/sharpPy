@@ -610,6 +610,20 @@ namespace SharpPy
         protected virtual PyObject PyGetAttribute(string name)
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
+            // wrap_descr_get and wrap_descr_set: a C descriptor's slots are reachable from Python, as inspect uses them.
+            if (this is IDescriptor descriptor)
+            {
+                if (name == "__get__")
+                    return new PyBuiltinFunction("__get__", args =>
+                        args[0] is PyNone ? this : descriptor.Get(args[0], args[0].GetPyType()));
+                if (name == "__set__")
+                    return new PyBuiltinFunction("__set__", args =>
+                    {
+                        descriptor.Set(args[0], args[1]);
+                        return PyNone.Instance;
+                    });
+            }
+
             // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
             if (name == "__dict__" && this is IDictBackedInstance owner &&
                 GetPyType() is PyClass { } heapClass && heapClass.InstancesHaveDict())

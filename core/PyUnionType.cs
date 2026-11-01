@@ -18,13 +18,23 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.UnionType;
 
+        public override PyString AsString() => new PyString(ToString());
+        public override PyString ToRepr() => new PyString(ToString());
+
         public override string ToString()
         {
             // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray
             var argStrings = new string[Args.Length];
             for (int i = 0; i < Args.Length; i++)
             {
-                argStrings[i] = Args[i].ToString();
+                // union_repr_item: None for NoneType, a class by its dotted name, anything else by repr.
+                argStrings[i] = Args[i] switch
+                {
+                    PyType type when type.Name == "NoneType" => "None",
+                    PyType type when string.IsNullOrEmpty(type.Module) || type.Module == "builtins" => type.Name,
+                    PyType type => $"{type.Module}.{type.Name}",
+                    var other => other.ToRepr().Value,
+                };
             }
             return string.Join(" | ", argStrings);
         }
@@ -34,6 +44,8 @@ namespace SharpPy
         /// </summary>
         public override PyObject BitwiseOr(PyObject other)
         {
+            // _Py_union_type_or: None stands for type(None).
+            if (other is PyNone) other = PyNone.Instance.GetPyType();
             if (other is PyUnionType otherUnion)
             {
                 // Flatten nested unions: (int | str) | (float | bool) → int | str | float | bool

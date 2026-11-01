@@ -222,6 +222,9 @@ namespace SharpPy.Modules
         public string Name { get; }
         public PyObject[] Constraints { get; }
 
+        public override PyObject BitwiseOr(PyObject other) =>
+            PyImportSystem.Import("typing").GetAttribute("_make_union").Call(new[] { this, other }, null);
+
         public PyTypeVar(string name, PyObject[] constraints)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));

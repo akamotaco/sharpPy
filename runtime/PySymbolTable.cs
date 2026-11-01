@@ -579,6 +579,8 @@ namespace SharpPy
                     // Analyze except handlers
                     foreach (var handler in tryStmt.Handlers)
                     {
+                        // symtable_visit_excepthandler: the type is an ordinary expression.
+                        if (handler.Type != null) AnalyzeExpression(handler.Type);
                         if (handler.Name != null)
                         {
                             _currentTable?.DefineSymbol(handler.Name, SymbolFlags.Assigned);

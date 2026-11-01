@@ -9,6 +9,10 @@ namespace SharpPy
     /// </summary>
     public class PyTypeVar : PyObject
     {
+        // typevar_or (Objects/typevarobject.c): typing._make_union, so None or a string works on the right.
+        public override PyObject BitwiseOr(PyObject other) =>
+            PyImportSystem.Import("typing").GetAttribute("_make_union").Call(new[] { this, other }, null);
+
         #region Core Properties
 
         /// <summary>

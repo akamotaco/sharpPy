@@ -118,6 +118,23 @@ public interface IDescriptor
             );
 
             // fget getset descriptor
+            // property_get___isabstractmethod__: abstract when any of its functions is.
+            propType.TypeDict["__isabstractmethod__"] = new PyGetSetDescriptor("__isabstractmethod__", propType,
+                self =>
+                {
+                    foreach (var part in new[] { "fget", "fset", "fdel" })
+                    {
+                        var function = self.GetAttribute(part);
+                        if (function is PyNone) continue;
+                        try
+                        {
+                            if (function.GetAttribute("__isabstractmethod__").IsTrue()) return PyBool.True;
+                        }
+                        catch (PythonException e) when (e.PyException is PyAttributeError) { }
+                    }
+                    return PyBool.False;
+                });
+
             propType.TypeDict["fget"] = new PyGetSetDescriptor(
                 "fget",
                 propType,

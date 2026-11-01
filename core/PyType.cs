@@ -1220,7 +1220,7 @@ namespace SharpPy
                     // CPython 3.12: mappingproxy(dict) - create read-only dict proxy
                     if (args.Length != 1)
                         throw PyTypeError.Create($"mappingproxy expected 1 argument, got {args.Length}");
-                    if (args[0] is PyDict dict)
+                    if (PyNativeStorage.ForDict(args[0]) is PyDict dict)
                     {
                         // Convert PyDict to Dictionary<string, PyObject>
                         var stringDict = new Dictionary<string, PyObject>();

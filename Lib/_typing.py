@@ -41,12 +41,14 @@ class TypeVar:
         self.__module__ = None
 
     def __repr__(self):
-        if self.__covariant__:
+        if self.__infer_variance__:
+            prefix = ''
+        elif self.__covariant__:
             prefix = '+'
         elif self.__contravariant__:
             prefix = '-'
         else:
-            prefix = '~' if self.__infer_variance__ else ''
+            prefix = '~'
         return prefix + self.__name__
 
     def __reduce__(self):
@@ -60,6 +62,15 @@ class TypeVar:
         if isinstance(other, TypeVar):
             return self.__name__ == other.__name__
         return NotImplemented
+
+    # typevar_or: typing._make_union, so a string or None on either side works.
+    def __or__(self, other):
+        import typing
+        return typing._make_union(self, other)
+
+    def __ror__(self, other):
+        import typing
+        return typing._make_union(other, self)
 
 
 class ParamSpecArgs:
@@ -141,12 +152,14 @@ class ParamSpec:
         return ParamSpecKwargs(self)
 
     def __repr__(self):
-        if self.__covariant__:
+        if self.__infer_variance__:
+            prefix = ''
+        elif self.__covariant__:
             prefix = '+'
         elif self.__contravariant__:
             prefix = '-'
         else:
-            prefix = '~' if self.__infer_variance__ else ''
+            prefix = '~'
         return prefix + self.__name__
 
     def __reduce__(self):
@@ -159,6 +172,15 @@ class ParamSpec:
         if isinstance(other, ParamSpec):
             return self.__name__ == other.__name__
         return NotImplemented
+
+    # typevar_or: typing._make_union, so a string or None on either side works.
+    def __or__(self, other):
+        import typing
+        return typing._make_union(self, other)
+
+    def __ror__(self, other):
+        import typing
+        return typing._make_union(other, self)
 
 
 class TypeVarTuple:

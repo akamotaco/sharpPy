@@ -9359,10 +9359,13 @@ namespace SharpPy
         {
             switch (pattern)
             {
-                case ConstantExpression constExpr:
-                    // CPython: compiler_pattern_value - Direct constant comparison
-                    // Stack: [subject] -> [subject, constant] -> [comparison_result]
-                    CompileExpression(constExpr);
+                case ConstantExpression:
+                case AttributeExpression:
+                case UnaryOpExpression:
+                case BinOpExpression:
+                    // compiler_pattern_value: a literal or a dotted name, compared with ==.
+                    // Stack: [subject] -> [subject, value] -> [comparison_result]
+                    CompileExpression(pattern);
                     _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ, _currentLineNumber);
                     JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
                     return true;
@@ -11192,12 +11195,9 @@ namespace SharpPy
             if (IsCellVariable(name) && !IsInlinedLocal(name))
             {
                 // Cell 변수일 때는 STORE_DEREF 사용 (varNames에서의 인덱스)
-                var varIndex = _varNames.IndexOf(name);
-                if (varIndex == -1)
-                {
-                    varIndex = GetOrAddVarName(name);
-                }
-                EmitInstruction(ByteCodeOp.STORE_DEREF, varIndex);
+                // A cell index, which FixCellOffsets maps to the frame.
+                GetOrAddVarName(name);
+                EmitInstruction(ByteCodeOp.STORE_DEREF, _cellVars.IndexOf(name));
                 #if DEBUG_LOG
                 Console.WriteLine($"    → 컴프리헨션 변수 저장: {name} (STORE_DEREF varIndex {varIndex})");
                 #endif
