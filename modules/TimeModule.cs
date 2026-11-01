@@ -6,8 +6,12 @@ using System.Threading;
 namespace SharpPy
 {
     // CPython 3.12 time.struct_time 구현
-    public class PyStructTime : PyObject
+    /// <summary>time.struct_time (Modules/timemodule.c): a nine item tuple with names.</summary>
+    public class PyStructTime : PyTuple
     {
+        internal static readonly PyType StructTimeType =
+            new PyType("struct_time", new[] { PyType.TupleType }) { ConstructedByNewSlot = true };
+
         public int Year { get; }
         public int Month { get; }
         public int Day { get; }
@@ -22,6 +26,11 @@ namespace SharpPy
 
         public PyStructTime(int year, int month, int day, int hour, int minute, int second,
             int weekday, int yearday, int isdst, int gmtoff = 0, string zone = "")
+            : base(new PyObject[]
+            {
+                new PyInt(year), new PyInt(month), new PyInt(day), new PyInt(hour), new PyInt(minute),
+                new PyInt(second), new PyInt(weekday), new PyInt(yearday), new PyInt(isdst),
+            })
         {
             Year = year;
             Month = month;
@@ -75,30 +84,31 @@ namespace SharpPy
             return new DateTime(Year, Month, Day, Hour, Minute, Second, DateTimeKind.Unspecified);
         }
 
-        // Named tuple처럼 인덱스 접근 지원
-        public PyObject GetItem(int index)
-        {
-            return index switch
-            {
-                0 => new PyInt(Year),
-                1 => new PyInt(Month),
-                2 => new PyInt(Day),
-                3 => new PyInt(Hour),
-                4 => new PyInt(Minute),
-                5 => new PyInt(Second),
-                6 => new PyInt(WeekDay),
-                7 => new PyInt(YearDay),
-                8 => new PyInt(IsDst),
-                _ => throw PyIndexError.Create($"tuple index out of range")
-            };
-        }
+        public override PyType GetPyType() => StructTimeType;
+        public override string GetTypeName() => "struct_time";
 
-        public override string ToString()
+        public override PyObject GetAttribute(string name) => name switch
         {
-            return $"time.struct_time(tm_year={Year}, tm_mon={Month}, tm_mday={Day}, " +
-                   $"tm_hour={Hour}, tm_min={Minute}, tm_sec={Second}, " +
-                   $"tm_wday={WeekDay}, tm_yday={YearDay}, tm_isdst={IsDst})";
-        }
+            "tm_year" => Items[0],
+            "tm_mon" => Items[1],
+            "tm_mday" => Items[2],
+            "tm_hour" => Items[3],
+            "tm_min" => Items[4],
+            "tm_sec" => Items[5],
+            "tm_wday" => Items[6],
+            "tm_yday" => Items[7],
+            "tm_isdst" => Items[8],
+            "tm_gmtoff" => new PyInt(GmtOffset),
+            "tm_zone" => new PyString(Zone),
+            _ => base.GetAttribute(name),
+        };
+
+        public override PyString ToRepr() => new PyString(
+            $"time.struct_time(tm_year={Year}, tm_mon={Month}, tm_mday={Day}, " +
+            $"tm_hour={Hour}, tm_min={Minute}, tm_sec={Second}, " +
+            $"tm_wday={WeekDay}, tm_yday={YearDay}, tm_isdst={IsDst})");
+
+        public override PyString AsString() => ToRepr();
     }
 
     public class TimeModule : PyModule
@@ -404,7 +414,9 @@ namespace SharpPy
             }));
 
             // struct_time 타입을 모듈에 추가 (튜플의 서브타입처럼 동작)
-            SetAttribute("struct_time", new PyType("struct_time", new[] { PyType.TupleType }));
+            PyStructTime.StructTimeType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", PyStructTime.StructTimeType,
+                (cls, args, kwargs) => ParseStructTime(args[0]), 1, 1);
+            SetAttribute("struct_time", PyStructTime.StructTimeType);
         }
 
         private void InitializeConstants()
@@ -461,6 +473,9 @@ namespace SharpPy
         {
             if (obj is PyStructTime st)
                 return st;
+
+            if (obj is PyList list)
+                obj = new PyTuple(list.Items);
 
             if (obj is PyTuple tuple)
             {

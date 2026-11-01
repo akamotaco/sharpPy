@@ -1725,9 +1725,86 @@ namespace SharpPy
         internal static bool TypeInitIsObjectInit(PyType type) =>
             type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__init__"), ObjectInitDescriptor());
 
+        private static PyObject AttributeOrNull(PyObject self, string name)
+        {
+            try
+            {
+                return self.GetAttribute(name);
+            }
+            catch (PythonException e) when (e.PyException is PyAttributeError)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>object_getstate_default (Objects/typeobject.c): __dict__, with the slots beside it.</summary>
+        private static PyObject ObjectGetState(PyObject self)
+        {
+            var state = AttributeOrNull(self, "__dict__") ?? PyNone.Instance;
+            if (state is PyDict { } instanceDict && instanceDict.Length() == 0) state = PyNone.Instance;
+            var names = (PyList)PyImportSystem.Import("copyreg").GetAttribute("_slotnames")
+                .Call(new PyObject[] { self.GetPyType() }, null);
+            var slots = new PyDict();
+            foreach (var name in names.Items)
+            {
+                var value = AttributeOrNull(self, ((PyString)name).Value);
+                if (value != null) slots.SetItem(name, value);
+            }
+            return slots.Length() == 0 ? state : new PyTuple(new[] { state, slots });
+        }
+
+        /// <summary>_common_reduce: protocol 2 and up is reduce_newobj; below that, copyreg._reduce_ex.</summary>
+        private static PyObject CommonReduce(PyObject self, int protocol)
+        {
+            var copyreg = PyImportSystem.Import("copyreg");
+            if (protocol < 2)
+                return copyreg.GetAttribute("_reduce_ex").Call(new[] { self, new PyInt(protocol) }, null);
+
+            var type = self.GetPyType();
+            var arguments = new List<PyObject> { type };
+            PyObject factory = copyreg.GetAttribute("__newobj__");
+            var newArgsEx = AttributeOrNull(self, "__getnewargs_ex__");
+            var newArgs = AttributeOrNull(self, "__getnewargs__");
+            if (newArgsEx != null)
+            {
+                var pair = (PyTuple)newArgsEx.Call(Array.Empty<PyObject>(), null);
+                factory = copyreg.GetAttribute("__newobj_ex__");
+                arguments.Add(pair.Items[0]);
+                arguments.Add(pair.Items[1]);
+            }
+            else if (newArgs != null)
+            {
+                arguments.AddRange(((PyTuple)newArgs.Call(Array.Empty<PyObject>(), null)).Items);
+            }
+
+            var state = self.GetAttribute("__getstate__").Call(Array.Empty<PyObject>(), null);
+            PyObject listItems = type.IsSubclassOf(ListType) ? self.GetIterator() : PyNone.Instance;
+            PyObject dictItems = type.IsSubclassOf(DictType)
+                ? self.GetAttribute("items").Call(Array.Empty<PyObject>(), null).GetIterator() : PyNone.Instance;
+            return new PyTuple(new[] { factory, new PyTuple(arguments.ToArray()), state, listItems, dictItems });
+        }
+
         private void InitializeObjectTypeDescriptors()
         {
             var objectType = this;
+
+            TypeDict["__getstate__"] = new PyMethodDescriptor("__getstate__", objectType,
+                (self, args, kwargs) => ObjectGetState(self), 0, 0);
+            TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", objectType,
+                (self, args, kwargs) => CommonReduce(self, 0), 0, 0);
+            TypeDict["__reduce_ex__"] = new PyMethodDescriptor("__reduce_ex__", objectType,
+                (self, args, kwargs) =>
+                {
+                    // object___reduce_ex___impl: a class that overrides __reduce__ decides.
+                    foreach (var level in self.GetPyType().MRO)
+                    {
+                        if (ReferenceEquals(level, objectType)) break;
+                        if ((level as PyClass)?.ClassDict.ContainsKey("__reduce__") == true ||
+                            level.TypeDict.ContainsKey("__reduce__"))
+                            return self.GetAttribute("__reduce__").Call(Array.Empty<PyObject>(), null);
+                    }
+                    return CommonReduce(self, args[0].ToInt());
+                }, 1, 1);
 
             // object.__init__() - CPython object_init
             TypeDict["__init__"] = new PyWrapperDescriptor(

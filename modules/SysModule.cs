@@ -47,6 +47,31 @@ namespace SharpPy.Modules
 
             // 최대 정수 크기 (int 범위로 제한)
             module.ModuleDict["maxsize"] = new PyInt((long)nint.MaxValue);
+            // sys.float_info (Objects/floatobject.c PyFloat_GetInfo): IEEE 754 double.
+            var floatInfo = new PyDict();
+            foreach (var (field, value) in new (string, double)[]
+            {
+                ("max", double.MaxValue), ("min", 2.2250738585072014e-308), ("epsilon", 2.220446049250313e-16),
+            })
+                floatInfo.SetItem(new PyString(field), new PyFloat(value));
+            foreach (var (field, value) in new (string, long)[]
+            {
+                ("max_exp", 1024), ("max_10_exp", 308), ("min_exp", -1021), ("min_10_exp", -307), ("dig", 15),
+                ("mant_dig", 53), ("radix", 2), ("rounds", 1),
+            })
+                floatInfo.SetItem(new PyString(field), new PyInt(value));
+            module.ModuleDict["float_info"] = new PySimpleNamespace(floatInfo);
+
+            // sys.hash_info (Python/sysmodule.c get_hash_info): the parameters numeric hashes are defined by.
+            var hashInfo = new PyDict();
+            foreach (var (field, value) in new (string, long)[]
+            {
+                ("width", 64), ("modulus", (1L << 61) - 1), ("inf", 314159), ("nan", 0), ("imag", 1000003),
+                ("hash_bits", 64), ("seed_bits", 128), ("cutoff", 0),
+            })
+                hashInfo.SetItem(new PyString(field), new PyInt(value));
+            hashInfo.SetItem(new PyString("algorithm"), new PyString("siphash13"));
+            module.ModuleDict["hash_info"] = new PySimpleNamespace(hashInfo);
 
             // 기본 인코딩
             module.ModuleDict["getdefaultencoding"] = new PySysFunction("getdefaultencoding");

@@ -17,6 +17,12 @@ namespace SharpPy
 
         public byte[] ToByteArrayCopy() => _bytes.ToArray();
 
+        /// <summary>Overwrites bytes in place, as a writer through the buffer protocol does.</summary>
+        internal void WriteAt(int offset, byte[] source, int count)
+        {
+            for (int i = 0; i < count; i++) _bytes[offset + i] = source[i];
+        }
+
         #endregion
 
         #region Static Constructor & Descriptors

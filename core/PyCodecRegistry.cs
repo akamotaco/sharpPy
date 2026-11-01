@@ -513,7 +513,7 @@ namespace SharpPy
         private static PyObject Base64Encode(PyObject[] args, PyDict kwargs)
         {
             PyObject data = CodecArg(args, "base64_encode");
-            byte[] encoded = PyBinascii.B2aBase64(data);
+            byte[] encoded = ByteLength(data) == 0 ? Array.Empty<byte>() : PyBinascii.B2aBase64(data);
             return new PyTuple(new PyObject[] { new PyBytes(encoded), new PyInt(ByteLength(data)) });
         }
 

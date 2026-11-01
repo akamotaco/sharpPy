@@ -396,7 +396,6 @@ public class PyModule : PyObject
             ["itertools"] = () => ItertoolsModule.Instance,
             ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
             ["_functools"] = () => SharpPy.Modules._FunctoolsModule.CreateFunctoolsModule(),
-            ["statistics"] = () => SharpPy.Modules.StatisticsModule.CreateStatisticsModule(),
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),  // random.py가 사용
@@ -414,6 +413,7 @@ public class PyModule : PyObject
             ["_string"] = () => SharpPy.Modules._StringModule.CreateStringModule(),
             ["_thread"] = () => SharpPy.Modules._ThreadModule.CreateThreadModule(),
             ["_contextvars"] = () => SharpPy.Modules._ContextvarsModule.CreateContextvarsModule(),
+            ["_struct"] = () => SharpPy.Modules._StructModule.CreateStructModule(),
             ["errno"] = () => SharpPy.Modules.ErrnoModule.CreateErrnoModule(),
             ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
 
@@ -427,7 +427,6 @@ public class PyModule : PyObject
             ["_io"] = () => SharpPy.Modules.IoModule.CreateIoModule(),  // io.py가 사용 (CPython Modules/_io)
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
-            ["_datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),  // datetime.py가 사용
 
             // CPython 3.12: 다음 모듈들은 순수 Python으로 Lib/에서 로드됨:
             // - types (Lib/types.py)

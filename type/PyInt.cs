@@ -898,9 +898,9 @@ namespace SharpPy
             return other switch
             {
                 PyInt otherInt => new PyInt(Value + otherInt.Value),
-                PyFloat otherFloat => new PyFloat((double)Value + otherFloat.Value),
+                PyFloat otherFloat => new PyFloat(ToFloat() + otherFloat.Value),
                 PyBool otherBool => new PyInt(Value + (otherBool.Value ? 1 : 0)),
-                PyComplex otherComplex => new PyComplex((double)Value + otherComplex.Real, otherComplex.Imag),
+                PyComplex otherComplex => new PyComplex(ToFloat() + otherComplex.Real, otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -911,9 +911,9 @@ namespace SharpPy
             return other switch
             {
                 PyInt otherInt => new PyInt(Value - otherInt.Value),
-                PyFloat otherFloat => new PyFloat((double)Value - otherFloat.Value),
+                PyFloat otherFloat => new PyFloat(ToFloat() - otherFloat.Value),
                 PyBool otherBool => new PyInt(Value - (otherBool.Value ? 1 : 0)),
-                PyComplex otherComplex => new PyComplex((double)Value - otherComplex.Real, -otherComplex.Imag),
+                PyComplex otherComplex => new PyComplex(ToFloat() - otherComplex.Real, -otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -924,9 +924,9 @@ namespace SharpPy
             return other switch
             {
                 PyInt otherInt => new PyInt(Value * otherInt.Value),
-                PyFloat otherFloat => new PyFloat((double)Value * otherFloat.Value),
+                PyFloat otherFloat => new PyFloat(ToFloat() * otherFloat.Value),
                 PyBool otherBool => new PyInt(Value * (otherBool.Value ? 1 : 0)),
-                PyComplex otherComplex => new PyComplex((double)Value * otherComplex.Real, (double)Value * otherComplex.Imag),
+                PyComplex otherComplex => new PyComplex(ToFloat() * otherComplex.Real, (double)Value * otherComplex.Imag),
                 _ => PyNotImplemented.Instance
             };
         }
@@ -938,15 +938,10 @@ namespace SharpPy
             {
                 if (otherInt.Value.IsZero)
                     throw PyZeroDivisionError.Create("division by zero");
-                double da = (double)Value;
-                double db = (double)otherInt.Value;
-                if (!double.IsInfinity(da) && !double.IsInfinity(db))
-                {
-                    double q = da / db;
-                    if (double.IsInfinity(q))
-                        throw PyOverflowError.Create("integer division result too large for a float");
-                    return new PyFloat(q);
-                }
+                // Both exact as doubles: IEEE division is already the correctly rounded quotient.
+                const long Exact = 1L << 53;
+                if (Value < Exact && Value > -Exact && otherInt.Value < Exact && otherInt.Value > -Exact)
+                    return new PyFloat((double)Value / (double)otherInt.Value);
                 return BigIntTrueDivide(Value, otherInt.Value);
             }
 
@@ -961,7 +956,7 @@ namespace SharpPy
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("division by zero");
 
-            return new PyFloat((double)Value / otherValue);
+            return new PyFloat(ToFloat() / otherValue);
         }
 
         public override PyObject FloorDivide(PyObject other)
@@ -989,7 +984,7 @@ namespace SharpPy
                 // CPython 3.12: Objects/longobject.c:2453-2494 - long_div (floor division)
                 if (otherFloat.Value == 0.0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
-                return new PyFloat(Math.Floor((double)Value / otherFloat.Value));
+                return new PyFloat(Math.Floor(ToFloat() / otherFloat.Value));
             }
             if (other is PyBool otherBool)
             {
@@ -1025,8 +1020,8 @@ namespace SharpPy
                 if (otherFloat.Value == 0.0)
                     throw PyZeroDivisionError.Create("float modulo");
 
-                var remainder = (double)Value % otherFloat.Value;
-                if (remainder != 0 && (((double)Value < 0) != (otherFloat.Value < 0)))
+                var remainder = ToFloat() % otherFloat.Value;
+                if (remainder != 0 && ((ToFloat() < 0) != (otherFloat.Value < 0)))
                 {
                     remainder += otherFloat.Value;
                 }
@@ -1494,7 +1489,20 @@ namespace SharpPy
         /// CPython PyLong_AsDouble 호환: PyInt에서 C# double 값 추출
         /// Reference: Objects/longobject.c::PyLong_AsDouble
         /// </summary>
-        public override double ToFloat() => (double)Value;
+        // PyLong_AsDouble (Objects/longobject.c): correctly rounded, and an error rather than infinity.
+        public override double ToFloat()
+        {
+            const long Exact = 1L << 53;
+            if (Value < Exact && Value > -Exact) return (double)Value;
+            try
+            {
+                return ((PyFloat)BigIntTrueDivide(Value, BigInteger.One)).Value;
+            }
+            catch (PythonException)
+            {
+                throw PyOverflowError.Create("int too large to convert to float");
+            }
+        }
         
         /// <summary>
         /// CPython PyObject_IsTrue 호환: PyInt에서 C# bool 값 추출
@@ -1553,18 +1561,31 @@ namespace SharpPy
         /// </summary>
         internal static PyObject BigIntTrueDivide(BigInteger a, BigInteger b)
         {
-            bool neg = (a.Sign < 0) ^ (b.Sign < 0);
-            BigInteger aa = BigInteger.Abs(a);
-            BigInteger bb = BigInteger.Abs(b);
-            int la = (int)aa.GetBitLength();
-            int lb = (int)bb.GetBitLength();
-            const int prec = 106;
-            BigInteger t = (aa << prec) / bb; // t ≈ (aa/bb) * 2^prec
-            double v = (double)t;
-            if (double.IsInfinity(v))
+            // long_true_divide (Objects/longobject.c): a quotient of 55 or 56 bits plus a sticky bit for the
+            // remainder, rounded half-even to the 53 bits a double has (fewer in the subnormal range).
+            bool negative = (a.Sign < 0) ^ (b.Sign < 0);
+            var numerator = BigInteger.Abs(a);
+            var denominator = BigInteger.Abs(b);
+            if (numerator.IsZero) return new PyFloat(negative ? -0.0 : 0.0);
+
+            int shift = 55 - (int)(numerator.GetBitLength() - denominator.GetBitLength());
+            var quotient = shift >= 0
+                ? BigInteger.DivRem(numerator << shift, denominator, out var remainder)
+                : BigInteger.DivRem(numerator, denominator << -shift, out remainder);
+            ulong bits = (ulong)quotient;
+            int width = 64 - System.Numerics.BitOperations.LeadingZeroCount(bits);
+            int exponent = width - shift;
+            int excess = Math.Max(width - 53, width - (exponent + 1074));
+            if (excess >= 64) return new PyFloat(negative ? -0.0 : 0.0);
+
+            ulong half = 1UL << (excess - 1);
+            ulong dropped = bits & ((half << 1) - 1);
+            ulong kept = bits >> excess;
+            if (dropped > half || (dropped == half && (!remainder.IsZero || (kept & 1) == 1))) kept++;
+            double value = Math.ScaleB((double)kept, excess - shift);
+            if (double.IsInfinity(value))
                 throw PyOverflowError.Create("integer division result too large for a float");
-            v *= Math.Pow(2.0, -prec); // exact power-of-two scaling
-            return new PyFloat(neg ? -v : v);
+            return new PyFloat(negative ? -value : value);
         }
         
         /// <summary>

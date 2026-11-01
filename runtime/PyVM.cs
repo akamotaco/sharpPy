@@ -8088,16 +8088,6 @@ namespace SharpPy
         /// </summary>
         private PyObject CallTypeWithKeywords(PyType pyType, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
         {
-            // For now, handle common datetime types specially
-            if (pyType.Name == "timedelta")
-            {
-                return CreateTimeDeltaWithKeywords(positionalArgs, keywordArgs);
-            }
-            else if (pyType.Name == "datetime")
-            {
-                return CreateDateTimeWithKeywords(positionalArgs, keywordArgs);
-            }
-
             // CPython 3.12: Convert keyword arguments to PyDict
             PyDict? kwargs = null;
             if (keywordArgs != null && keywordArgs.Count > 0)
@@ -8111,58 +8101,6 @@ namespace SharpPy
 
             // Call with both positional and keyword arguments
             return pyType.Call(positionalArgs, kwargs);
-        }
-
-        /// <summary>
-        /// Create timedelta object with keyword arguments
-        /// </summary>
-        private PyObject CreateTimeDeltaWithKeywords(PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
-        {
-            var days = 0;
-            var seconds = 0;
-            var microseconds = 0;
-            var milliseconds = 0;
-            var minutes = 0;
-            var hours = 0;
-            var weeks = 0;
-
-            // Process positional arguments first
-            if (positionalArgs.Length > 0 && positionalArgs[0] is PyInt daysArg) days = (int)daysArg.Value;
-            if (positionalArgs.Length > 1 && positionalArgs[1] is PyInt secondsArg) seconds = (int)secondsArg.Value;
-            if (positionalArgs.Length > 2 && positionalArgs[2] is PyInt microsecondsArg) microseconds = (int)microsecondsArg.Value;
-            if (positionalArgs.Length > 3 && positionalArgs[3] is PyInt millisecondsArg) milliseconds = (int)millisecondsArg.Value;
-            if (positionalArgs.Length > 4 && positionalArgs[4] is PyInt minutesArg) minutes = (int)minutesArg.Value;
-            if (positionalArgs.Length > 5 && positionalArgs[5] is PyInt hoursArg) hours = (int)hoursArg.Value;
-            if (positionalArgs.Length > 6 && positionalArgs[6] is PyInt weeksArg) weeks = (int)weeksArg.Value;
-
-            // Process keyword arguments
-            foreach (var kvp in keywordArgs)
-            {
-                if (kvp.Value is PyInt intVal)
-                {
-                    switch (kvp.Key)
-                    {
-                        case "days": days = (int)intVal.Value; break;
-                        case "seconds": seconds = (int)intVal.Value; break;
-                        case "microseconds": microseconds = (int)intVal.Value; break;
-                        case "milliseconds": milliseconds = (int)intVal.Value; break;
-                        case "minutes": minutes = (int)intVal.Value; break;
-                        case "hours": hours = (int)intVal.Value; break;
-                        case "weeks": weeks = (int)intVal.Value; break;
-                    }
-                }
-            }
-
-            return new Modules.Stdlib.PyTimeDelta(days, seconds, microseconds, milliseconds, minutes, hours, weeks);
-        }
-
-        /// <summary>
-        /// Create datetime object with keyword arguments
-        /// </summary>
-        private PyObject CreateDateTimeWithKeywords(PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
-        {
-            // Basic implementation - extend as needed
-            return new Modules.Stdlib.PyDateTime(DateTime.Now);
         }
 
         /// <summary>

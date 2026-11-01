@@ -1076,6 +1076,9 @@ namespace SharpPy.Modules
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "SRE_Match";
 
+        // match_getitem (Modules/_sre/sre.c): m[g] is m.group(g).
+        public override PyObject GetItem(PyObject index) => Group(new[] { index });
+
         public override PyObject GetAttribute(string name)
         {
             switch (name)

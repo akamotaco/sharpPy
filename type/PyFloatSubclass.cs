@@ -163,7 +163,7 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
-            InstanceDict[name] = value;
+            PyGlobalsDict.Store(InstanceDict, name, value);
         }
 
         #endregion

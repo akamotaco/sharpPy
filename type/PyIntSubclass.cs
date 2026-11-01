@@ -376,7 +376,7 @@ namespace SharpPy
         {
             // CPython: 인스턴스 __dict__에 저장
             // Objects/longobject.c:5665 - type->tp_alloc allocates space for __dict__
-            InstanceDict[name] = value;
+            PyGlobalsDict.Store(InstanceDict, name, value);
         }
 
         #endregion

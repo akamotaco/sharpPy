@@ -14,15 +14,10 @@ namespace SharpPy
     /// The refusals are binascii.Error (a ValueError subclass), not UnicodeError: a codec that
     /// cannot represent the bytes is a different failure from a text encoding that cannot.
     /// </summary>
-    public class PyBinasciiError : PyValueError
+    internal static class PyBinasciiError
     {
-        public PyBinasciiError(string message) : base(message) { }
-        public override string GetTypeName() => "Error";
-
-        public new static PythonException Create(string message)
-        {
-            return new PythonException(new PyBinasciiError(message));
-        }
+        internal static readonly PyType ErrorType = PyExceptionSlots.NewException("binascii", "Error", PyType.ValueErrorType);
+        internal static PythonException Create(string message) => PyExceptionSlots.Raise(ErrorType, message);
     }
 
     internal static class PyBinascii
@@ -66,10 +61,10 @@ namespace SharpPy
         }
 
         /// <summary>binascii.b2a_base64 with newline=True: padded, with a trailing LF.</summary>
-        internal static byte[] B2aBase64(PyObject obj)
+        internal static byte[] B2aBase64(PyObject obj, bool newline = true)
         {
             byte[] data = ToBytes(obj, requireStrAllowed: false, strWording: ExpectedBytesLike);
-            if (data.Length == 0) return Array.Empty<byte>();
+            if (data.Length == 0) return newline ? new[] { (byte)'\n' } : Array.Empty<byte>();
             var sb = new StringBuilder((data.Length + 2) / 3 * 4 + 1);
             int i = 0;
             while (i + 3 <= data.Length)
@@ -92,7 +87,7 @@ namespace SharpPy
                 sb.Append(Alphabet[(v >> 18) & 63]).Append(Alphabet[(v >> 12) & 63])
                   .Append(Alphabet[(v >> 6) & 63]).Append('=');
             }
-            sb.Append('\n');
+            if (newline) sb.Append('\n');
             return Encoding.ASCII.GetBytes(sb.ToString());
         }
 
@@ -100,9 +95,11 @@ namespace SharpPy
         /// binascii.a2b_base64: characters outside the alphabet are skipped, the first padding
         /// character ends the data, and a tail that cannot be decoded is "Incorrect padding".
         /// </summary>
-        internal static byte[] A2bBase64(PyObject obj)
+        internal static byte[] A2bBase64(PyObject obj, bool strict = false)
         {
-            byte[] data = ToBytes(obj, requireStrAllowed: false, strWording: ExpectedBytesLike);
+            byte[] data = obj is PyString ? ToBytes(new PyBytes(Encoding.ASCII.GetBytes(((PyString)obj).Value)),
+                requireStrAllowed: false, strWording: ExpectedBytesLike)
+                : ToBytes(obj, requireStrAllowed: false, strWording: ExpectedBytesLike);
             var bits = new List<int>();
             bool padded = false;
             foreach (byte b in data)
@@ -110,9 +107,13 @@ namespace SharpPy
                 if (b == (byte)'=') { padded = true; break; }
                 int index = Alphabet.IndexOf((char)b);
                 if (index >= 0) bits.Add(index);
+                else if (strict) throw PyBinasciiError.Create("Only base64 data is allowed");
             }
-            if (!padded && bits.Count % 4 == 3) throw PyBinasciiError.Create("Incorrect padding");
-            if (bits.Count % 4 == 1) throw PyBinasciiError.Create("Incorrect padding");
+            // binascii_a2b_base64_impl (Modules/binascii.c).
+            if (bits.Count % 4 == 1)
+                throw PyBinasciiError.Create("Invalid base64-encoded string: number of data characters " +
+                    $"({bits.Count}) cannot be 1 more than a multiple of 4");
+            if (!padded && bits.Count % 4 != 0) throw PyBinasciiError.Create("Incorrect padding");
 
             var outBytes = new List<byte>(bits.Count * 3 / 4);
             for (int i = 0; i + 4 <= bits.Count; i += 4)
@@ -165,16 +166,33 @@ namespace SharpPy
         public static PyModule CreateBinasciiModule()
         {
             var module = new PyModule("binascii", "Conversion between binary data and ASCII");
+            module.ModuleDict["Error"] = PyBinasciiError.ErrorType;
             module.ModuleDict["hexlify"] = new PyBuiltinFunction("hexlify", a =>
                 new PyBytes(Hexlify(Check(a, "hexlify"))));
             module.ModuleDict["unhexlify"] = new PyBuiltinFunction("unhexlify", a =>
                 new PyBytes(Unhexlify(Check(a, "unhexlify"))));
-            module.ModuleDict["b2a_base64"] = new PyBuiltinFunction("b2a_base64", a =>
-                new PyBytes(B2aBase64(Check(a, "b2a_base64"))));
-            module.ModuleDict["a2b_base64"] = new PyBuiltinFunction("a2b_base64", a =>
-                new PyBytes(A2bBase64(Check(a, "a2b_base64"))));
+            module.ModuleDict["b2a_base64"] = new PyBuiltinFunction("b2a_base64", (a, kwargs) =>
+                new PyBytes(B2aBase64(Check(a, "b2a_base64"), Flag(kwargs, "newline", true))));
+            module.ModuleDict["a2b_base64"] = new PyBuiltinFunction("a2b_base64", (a, kwargs) =>
+                new PyBytes(A2bBase64(Check(a, "a2b_base64"), Flag(kwargs, "strict_mode", false))));
+            module.ModuleDict["b2a_hex"] = module.ModuleDict["hexlify"];
+            module.ModuleDict["a2b_hex"] = module.ModuleDict["unhexlify"];
+            module.ModuleDict["crc32"] = new PyBuiltinFunction("crc32", a =>
+            {
+                uint crc = a.Length > 1 ? (uint)(new System.Numerics.BigInteger(uint.MaxValue) & ((PyInt)a[1]).Value) : 0;
+                crc = ~crc;
+                foreach (byte b in ToBytes(a[0], requireStrAllowed: false, strWording: ExpectedBytesLike))
+                {
+                    crc ^= b;
+                    for (int bit = 0; bit < 8; bit++) crc = (crc >> 1) ^ (0xEDB88320u & (uint)-(int)(crc & 1));
+                }
+                return new PyInt((long)~crc & 0xFFFFFFFFL);
+            });
             return module;
         }
+
+        private static bool Flag(PyDict kwargs, string name, bool fallback) =>
+            kwargs != null && kwargs.TryGetStoredValue(new PyString(name), out var value) ? value.IsTrue() : fallback;
 
         private static PyObject Check(PyObject[] args, string name)
         {

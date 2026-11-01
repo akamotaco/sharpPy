@@ -110,6 +110,19 @@ internal static class PyExceptionSlots
         });
     }
 
+    /// <summary>PyErr_NewException: a module's exception class is an ordinary heap class.</summary>
+    internal static PyType NewException(string module, string name, PyType baseType)
+    {
+        var namespaceDict = new PyDict();
+        namespaceDict.SetItem(new PyString("__module__"), new PyString(module));
+        return (PyType)PyType.TypeType.Call(
+            new PyObject[] { new PyString(name), new PyTuple(new PyObject[] { baseType }), namespaceDict }, null);
+    }
+
+    /// <summary>PyErr_SetString for such a class.</summary>
+    internal static PythonException Raise(PyType type, string message)
+        => new PythonException((PyBaseException)ToTransport(type.Call(new PyObject[] { new PyString(message) }, null)));
+
     internal static PyBaseException LayoutOf(PyObject self) => (Owner(self) as PyExceptionInstance)?.Layout;
 
     private static PyType NearestBuiltin(PyClass type)

@@ -93,6 +93,10 @@ namespace SharpPy
         internal static PyObject GetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, Func<string, PyObject> baseGetAttribute)
         {
+            // A heap class adds a __dict__ after the base's layout; the live view over the same store.
+            if (name == "__dict__" && instanceType.InstancesHaveDict())
+                return PyGlobalsDict.For(instanceDict);
+
             PyObject classAttribute = FirstClassDictEntry(instanceType, name);
 
             if (classAttribute is IDescriptor descriptor)
@@ -123,7 +127,7 @@ namespace SharpPy
                 }
             }
 
-            instanceDict[name] = value;
+            PyGlobalsDict.Store(instanceDict, name, value);
         }
     }
 }

@@ -1279,19 +1279,20 @@ namespace SharpPy.Modules
         private PyObject CallIsqrt(PyObject[] args)
         {
             if (args.Length != 1)
-                throw PyTypeError.Create($"isqrt() takes exactly one argument ({args.Length} given)");
-
-            // CPython 3.12: Modules/mathmodule.c:3102-3167 - math_isqrt
-            if (args[0] is PyInt n)
+                throw PyTypeError.Create($"math.isqrt() takes exactly one argument ({args.Length} given)");
+            if (args[0] is not PyInt && args[0] is not PyIntSubclass && args[0] is not PyBool)
+                throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+            var n = args[0] is PyBool truth ? (truth.Value ? 1 : 0) : (args[0] as PyInt ?? ((PyIntSubclass)args[0]).GetIntValue()).Value;
+            if (n.Sign < 0)
+                throw PyValueError.Create("isqrt() argument must be nonnegative");
+            if (n.IsZero) return new PyInt(0);
+            // Newton's method from above; the C version's adaptive precision is an optimization of the same result.
+            var x = System.Numerics.BigInteger.One << (int)((n.GetBitLength() + 1) / 2);
+            while (true)
             {
-                if (n.Value < 0)
-                    throw PyValueError.Create("isqrt() domain error");
-
-                return new PyInt((int)Math.Floor(Math.Sqrt((double)n.Value)));
-            }
-            else
-            {
-                throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
+                var y = (x + n / x) >> 1;
+                if (y >= x) return new PyInt(x);
+                x = y;
             }
         }
 
