@@ -1176,7 +1176,7 @@ namespace SharpPy.Generated
                     if (_position > literalStart)
                     {
                         var middleContent = _source.Substring(literalStart, _position - literalStart);
-                        AddToken(PyToken.Type.FSTRING_MIDDLE, middleContent, literalStartLine, literalStartColumn);
+                        AddToken(PyToken.Type.FSTRING_MIDDLE, isRawFString ? middleContent.Replace("\\", "\\\\") : middleContent, literalStartLine, literalStartColumn);
                         _currentLineHasRealTokens = true;
                     }
 
@@ -1235,7 +1235,7 @@ namespace SharpPy.Generated
                         if (_position - 1 > literalStart)
                         {
                             var middleContent = _source.Substring(literalStart, _position - 1 - literalStart);
-                            AddToken(PyToken.Type.FSTRING_MIDDLE, middleContent, literalStartLine, literalStartColumn);
+                            AddToken(PyToken.Type.FSTRING_MIDDLE, isRawFString ? middleContent.Replace("\\", "\\\\") : middleContent, literalStartLine, literalStartColumn);
                             _currentLineHasRealTokens = true;
                         }
 

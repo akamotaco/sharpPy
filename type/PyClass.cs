@@ -1272,7 +1272,7 @@ namespace SharpPy
             {
                 // Get __abstractmethods__ from class (NOT instance)
                 // This is set by AbcModule._abc_init or manually
-                abstractMethodsAttr = this.GetAttribute("__abstractmethods__");
+                abstractMethodsAttr = TypeGetAttribute("__abstractmethods__");
             }
             catch
             {
@@ -1348,7 +1348,6 @@ namespace SharpPy
     {
         public PyClass InstanceType { get; private set; }
         public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
-        private PyFunction _customGetAttr;
 
         // --- Attribute-store API (CPython 3.12: _PyObject_MaterializeManagedDict pattern) ---
 
@@ -1464,12 +1463,6 @@ namespace SharpPy
             InstanceType = instanceType;
             _attrs = new Dictionary<string, PyObject>();
             ConstructorArgs = Array.Empty<PyObject>();
-
-            // __getattr__ 메서드가 있는지 확인
-            if (instanceType.ClassDict.ContainsKey("__getattr__"))
-            {
-                _customGetAttr = instanceType.ClassDict["__getattr__"] as PyFunction;
-            }
 
             // CPython 3.12: If this is a dict subclass, create internal dict storage
             if (IsDictSubclass())
@@ -2009,16 +2002,11 @@ namespace SharpPy
             return PyNotImplemented.Instance;
         }
 
-        protected override bool HasCustomGetAttr() => _customGetAttr != null;
+        // slot_tp_getattr_hook finds __getattr__ on the type, inherited or not.
+        protected override bool HasCustomGetAttr() => InstanceType.LookupInMRO("__getattr__") != null;
 
-        protected override PyObject CallGetAttr(string name)
-        {
-            if (_customGetAttr != null)
-            {
-                return _customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
-            }
-            return null;
-        }
+        protected override PyObject CallGetAttr(string name) =>
+            BindSpecialMethod(InstanceType.LookupInMRO("__getattr__")).Call(new PyObject[] { new PyString(name) }, null);
 
         // Descriptor protocol helpers (CPython 3.12: Objects/descrobject.c:1021)
 

@@ -8,6 +8,13 @@ namespace SharpPy
     /// </summary>
     public class PyMethodDescriptor : PyObject, IDescriptor
     {
+        // The methods of str work on the text: a subclass's own __len__ or __getitem__ is not its slot.
+        internal static Func<PyObject, PyObject[], PyDict, PyObject> ReadingStoredText(
+            PyType ownerType, string name, Func<PyObject, PyObject[], PyDict, PyObject> implementation) =>
+            // unicode__format__ with an empty spec is str(self), so it keeps the subclass.
+            !ReferenceEquals(ownerType, PyType.StrType) || name == "__format__" ? implementation
+                : (self, args, kwargs) => implementation(self is PyStrSubclass text ? text.GetStrValue() : self, args, kwargs);
+
         public string Name { get; }
         public PyType OwnerType { get; }
         internal readonly Func<PyObject, PyObject[], PyDict, PyObject> _implementation;
@@ -25,7 +32,7 @@ namespace SharpPy
         {
             Name = name;
             OwnerType = ownerType;
-            _implementation = implementation;
+            _implementation = ReadingStoredText(ownerType, name, implementation);
             _minArgs = minArgs;
             _maxArgs = maxArgs;
             _acceptsKwargs = acceptsKwargs;
@@ -407,7 +414,7 @@ namespace SharpPy
         {
             Name = name;
             OwnerType = ownerType;
-            _implementation = implementation ?? throw new ArgumentNullException(nameof(implementation));
+            _implementation = PyMethodDescriptor.ReadingStoredText(ownerType, name, implementation ?? throw new ArgumentNullException(nameof(implementation)));
         }
 
         // Registration-site compatibility: arg-count validation lives in the

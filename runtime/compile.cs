@@ -3078,6 +3078,12 @@ namespace SharpPy
                     break;
                     
                 case CallExpression call:
+                    // validate_keywords (Python/compile.c)
+                    var keywordNames = new HashSet<string>();
+                    foreach (var keyword in call.Keywords)
+                        if (keyword.Arg != null && !keywordNames.Add(keyword.Arg))
+                            throw new SyntaxErrorException($"keyword argument repeated: {keyword.Arg}", _currentFileName, keyword.LineNo, keyword.ColOffset);
+
                     // CPython 3.12: Python/compile.c check_caller - calling a literal
                     // emits SyntaxWarning at compile time.
                     if (TryGetInferredCallerTypeName(call.Function, out string? inferredCallerType))
@@ -8977,6 +8983,13 @@ namespace SharpPy
                 return;
             }
 
+            // compiler_pattern_capture: only the last case or a guarded one may match everything.
+            for (int i = 0; i < caseCount - 1; i++)
+                if (matchStmt.Cases[i].Guard == null && matchStmt.Cases[i].Pattern is AsPattern { Pattern: null } capture)
+                    throw new SyntaxErrorException(
+                        capture.Name == "_" ? "wildcard makes remaining patterns unreachable" : $"name capture '{capture.Name}' makes remaining patterns unreachable",
+                        _currentFileName, capture.LineNo, capture.ColOffset);
+
             // Check if last case is wildcard (case _:)
             var lastCase = matchStmt.Cases[caseCount - 1];
             bool hasDefault = IsWildcardPattern(lastCase.Pattern) && lastCase.Guard == null && caseCount > 1;
@@ -11758,6 +11771,8 @@ namespace SharpPy
                 case TupleExpression tuple:
                     // CPython 3.12: Python/compile.c:4370-4400 (unpack_helper)
                     // Check if this is starred unpacking (contains StarExpression or StarredExpression)
+                    if (tuple.Elements.FindAll(e => e is StarExpression || e is StarredExpression).Count > 1)
+                        throw new SyntaxErrorException("multiple starred expressions in assignment", _currentFileName, tuple.LineNo, tuple.ColOffset);
                     var starIndex = tuple.Elements.FindIndex(e => e is StarExpression || e is StarredExpression);
                     if (starIndex >= 0)
                     {
@@ -12448,7 +12463,7 @@ namespace SharpPy
                 {
                     if (star >= 0)
                     {
-                        throw new InvalidOperationException("multiple starred names in sequence pattern");
+                        throw new SyntaxErrorException("multiple starred names in sequence pattern", _currentFileName, pattern.LineNo, pattern.ColOffset);
                     }
                     starWildcard = IsWildcardStarPattern(pattern);
                     onlyWildcard &= starWildcard;

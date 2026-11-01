@@ -8303,6 +8303,11 @@ namespace SharpPy
 
             if (handler is PyTuple tuple)
             {
+                // check_except_type_valid: every item is a class, before any of them matches.
+                foreach (var item in tuple.Items)
+                    if (!(item is PyType candidate) || !DerivesFromBaseException(candidate))
+                        throw PyTypeError.Create(
+                            "catching classes that do not inherit from BaseException is not allowed");
                 foreach (var item in tuple.Items)
                 {
                     if (ExceptionMatchesHandler(raised, item))

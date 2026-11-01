@@ -1400,7 +1400,8 @@ namespace SharpPy.Generated
                 }
             }
 
-            if (startIdx >= s.Length) return "";
+            // Text of a format spec comes here without quotes: f"{x:b}" is not a prefix.
+            if (startIdx >= s.Length) return s;
 
             // CPython: Determine quote character - string_parser.c:270-273
             char quote = s[startIdx];
