@@ -580,6 +580,7 @@ namespace SharpPy
         // CPython 3.12 호환: Symbol Table 지원
         private SymbolTable? _symbolTable = null;
         private SymbolTable? _currentSymbolTable = null;
+        private readonly AstFold _fold = new AstFold();
         private SymbolTableBuilder? _symbolTableBuilder = null;  // CPython 3.12: st->st_blocks lookup
 
         // CPython 3.12: Frame block stack for unified control flow tracking
@@ -1208,8 +1209,7 @@ namespace SharpPy
 #endif
 
             // Phase 1: AST 수준 최적화 (CPython 3.12 스타일, 항상 활성화)
-            var astOptimizer = new PyASTOptimizer(GetOptimizationLevel());
-            var optimizedStatements = astOptimizer.OptimizeAST(statements);
+            var optimizedStatements = statements;
             
             // Pre-scan for global variables in functions (CPython 3.12 compatibility)
             if (name == "<module>")
@@ -1403,22 +1403,6 @@ namespace SharpPy
             //   MAKE_CELL 0 (wrapped) → varnames[0]
             //   MAKE_CELL 1 (assigned) → varnames[1]
             //   MAKE_CELL 2 (updated) → varnames[2]
-            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
-            {
-                var cellVar = cellVars[cellIndex];
-                if (parameters.Contains(cellVar))
-                {
-                    // Get the varnames index (localsplus offset) for this parameter
-                    var localsPlusOffset = parameters.IndexOf(cellVar);
-                    if (!SharpPyConfig.DisassemblyOnlyMode)
-                    {
-#if DEBUG_LOG
-                        Console.WriteLine($"  → Making cell for parameter: {cellVar} (varnames index {localsPlusOffset}, cellvars index {cellIndex})");
-#endif
-                    }
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
-                }
-            }
             
             foreach (var statement in statements)
             {
@@ -2007,14 +1991,19 @@ namespace SharpPy
             Console.WriteLine($"  Flags received: 0x{flags:X} (CO_GENERATOR={((flags & PyCodeObject.CO_GENERATOR) != 0)})");
 #endif
 
+            // compiler_function: consts[0] is the docstring or None, and the docstring is not compiled.
+            string? functionDoc = GetDocString(statements);
+            GetOrAddConstant(functionDoc != null ? new PyString(functionDoc) : PyNone.Instance);
+
             // CPython 3.12 compile.c line 1340: Add RESUME 0 at function entry
             // This is added BEFORE compiling the body
             _currentLineNumber = 0;
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             // Compile function body statements
-            foreach (var statement in statements)
+            for (int bodyIndex = functionDoc != null ? 1 : 0; bodyIndex < statements.Count; bodyIndex++)
             {
+                var statement = statements[bodyIndex];
                 CompileStatement(statement);
             }
 
@@ -2594,6 +2583,13 @@ namespace SharpPy
                     }
                     else
                     {
+                        // compiler_stmt_expr: ignore constant statement
+                        if (_fold.Fold(expr.Expression) is ConstantExpression)
+                        {
+                            EmitInstruction(ByteCodeOp.NOP);
+                            break;
+                        }
+
                         // Normal mode: just evaluate and discard
                         #if DEBUG_LOG
                         Console.WriteLine($"📝 Normal mode: Compiling expression statement (no print)");
@@ -2749,9 +2745,6 @@ namespace SharpPy
                     CompileForComplex(forComplexStmt);
                     break;
                     
-                case BlockStatement blockStmt:
-                    CompileBlockStatement(blockStmt);
-                    break;
                     
                 case TryStatement tryStmt:
                     // CPython 3.12: Always use InstructionSequence/CFG path
@@ -2874,6 +2867,7 @@ namespace SharpPy
         
         private void CompileExpression(Expression expression)
         {
+            expression = _fold.Fold(expression);
             // Update current source location
             UpdateSourceLocation(expression);
 
@@ -3008,26 +3002,6 @@ namespace SharpPy
                     break;
                     
                 case BinOpExpression binOp:
-                    // CPython 3.12: Compile-time constant folding (compile.c)
-                    // Try to fold if both operands are constants
-                    if (binOp.Left is ConstantExpression leftConst &&
-                        binOp.Right is ConstantExpression rightConst)
-                    {
-                        var foldedValue = TryFoldBinaryOpAtCompileTime(
-                            leftConst.Value,
-                            rightConst.Value,
-                            binOp.OpNode);
-
-                        if (foldedValue != null)
-                        {
-                            // Successfully folded - emit single LOAD_CONST
-                            EmitLoadConst(foldedValue);
-                            break;
-                        }
-                        // If folding failed (e.g., division by zero), fall through to normal compilation
-                    }
-
-                    // Normal compilation: emit both operands and operator
                     CompileExpression(binOp.Left);
                     CompileExpression(binOp.Right);
                     EmitBinaryOp(binOp.OpNode);
@@ -3235,7 +3209,7 @@ namespace SharpPy
                                 EmitLoadName(funcName.Name);
                             }
                         }
-                        else if (call.Function is AttributeExpression attrExpr)
+                        else if (call.Function is AttributeExpression attrExpr && !IsImportOriginated(attrExpr.Value))
                         {
                             // CPython 3.12: Check for super().method() call pattern
                             if (attrExpr.Value is CallExpression attrSuperCall &&
@@ -3432,298 +3406,39 @@ namespace SharpPy
                 case SubscriptExpression subscript:
                     CompileExpression(subscript.Value);
 
-                    // CPython 3.12: SliceExpression은 BUILD_SLICE + BINARY_SUBSCR 사용
-                    if (subscript.Slice is SliceExpression sliceExpr)
+                    // compiler_subscript: a two-element slice builds no slice object.
+                    if (subscript.Slice is SliceExpression { Step: null } twoElements)
                     {
-                        // Start 값 로드 (None이면 None)
-                        if (sliceExpr.Start != null)
-                            CompileExpression(sliceExpr.Start);
-                        else
-                            EmitLoadConst(PyNone.Instance);
-
-                        // Stop 값 로드 (None이면 None)
-                        if (sliceExpr.Stop != null)
-                            CompileExpression(sliceExpr.Stop);
-                        else
-                            EmitLoadConst(PyNone.Instance);
-
-                        // Step 값 로드 및 BUILD_SLICE 생성
-                        if (sliceExpr.Step != null)
-                        {
-                            CompileExpression(sliceExpr.Step);
-                            EmitInstruction(ByteCodeOp.BUILD_SLICE, 3); // 3 arguments: start, stop, step
-                        }
-                        else
-                        {
-                            EmitInstruction(ByteCodeOp.BUILD_SLICE, 2); // 2 arguments: start, stop
-                        }
-
-                        // CPython 3.12: 슬라이스 객체로 subscript 수행
-                        EmitInstruction(ByteCodeOp.BINARY_SUBSCR);
+                        CompileSliceBounds(twoElements);
+                        EmitInstruction(ByteCodeOp.BINARY_SLICE);
                     }
                     else
                     {
-                        // 일반 인덱싱 - CPython 3.12 uses BINARY_SUBSCR
                         CompileExpression(subscript.Slice);
                         EmitInstruction(ByteCodeOp.BINARY_SUBSCR);
                     }
                     break;
-                    
+
                 case ListExpression list:
-                    // CPython 3.12 LIST_EXTEND optimization: when all elements are constants,
-                    // use BUILD_LIST 0 + LOAD_CONST (tuple) + LIST_EXTEND 1
-                    // Performance: Eliminated LINQ
-                    bool allListElementsConstant = list.Elements.Count > 0;
-                    foreach (var e in list.Elements)
-                    {
-                        if (!(e is ConstantExpression))
-                        {
-                            allListElementsConstant = false;
-                            break;
-                        }
-                    }
-                    if (allListElementsConstant)
-                    {
-                        // All elements are constants, use LIST_EXTEND optimization
-                        EmitInstruction(ByteCodeOp.BUILD_LIST, 0); // Empty list
-
-                        // Create tuple constant from all elements
-                        // Performance: Eliminated LINQ
-                        var constantElements = new PyObject[list.Elements.Count];
-                        for (int i = 0; i < list.Elements.Count; i++)
-                        {
-                            constantElements[i] = ((ConstantExpression)list.Elements[i]).Value;
-                        }
-#if DEBUG_LOG
-                        Console.WriteLine($"🔍 LIST_EXTEND 최적화: {constantElements.Length}개 상수 요소");
-                        for (int i = 0; i < constantElements.Length; i++)
-                        {
-                            Console.WriteLine($"  constantElements[{i}] = {constantElements[i]} (타입: {constantElements[i]?.GetType().Name})");
-                        }
-#endif
-                        var tupleConstant = TupleCache.GetOrCreate(constantElements);
-#if DEBUG_LOG
-                        Console.WriteLine($"🔍 tupleConstant 생성: {tupleConstant.Items.Length}개 아이템");
-                        for (int i = 0; i < tupleConstant.Items.Length; i++)
-                        {
-                            Console.WriteLine($"  tupleConstant.Items[{i}] = {tupleConstant.Items[i]} (타입: {tupleConstant.Items[i]?.GetType().Name})");
-                        }
-#endif
-                        EmitLoadConst(tupleConstant);
-                        
-                        // Extend the list with the tuple
-                        EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                    }
-                    else
-                    {
-                        // CPython 3.12: [a, *b] -> BUILD_LIST 0 then LIST_APPEND for
-                        // regular elements and LIST_EXTEND for starred elements.
-                        bool listHasStarred = false;
-                        foreach (var el in list.Elements) if (el is StarredExpression) { listHasStarred = true; break; }
-                        if (listHasStarred)
-                        {
-                            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-                            foreach (var element in list.Elements)
-                            {
-                                if (element is StarredExpression st)
-                                {
-                                    CompileExpression(st.Value);
-                                    EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                                }
-                                else
-                                {
-                                    CompileExpression(element);
-                                    EmitInstruction(ByteCodeOp.LIST_APPEND, 1);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            foreach (var element in list.Elements)
-                            {
-                                CompileExpression(element);
-                            }
-                            EmitInstruction(ByteCodeOp.BUILD_LIST, list.Elements.Count);
-                        }
-                    }
+                    StarunpackHelper(list.Elements, 0, ByteCodeOp.BUILD_LIST, ByteCodeOp.LIST_APPEND, ByteCodeOp.LIST_EXTEND, false);
                     break;
-                    
+
                 case TupleExpression tuple:
-                    // CPython 3.12: Constant folding for tuples with all constant elements
-                    // Reference: CPython ast_opt.c fold_tuple() and make_const_tuple()
-                    // No size restriction - fold any tuple where all elements are constants
-                    // Performance: Eliminated LINQ
-                    bool allTupleElementsConstant = tuple.Elements.Count > 0;
-                    foreach (var e in tuple.Elements)
-                    {
-                        if (!(e is ConstantExpression))
-                        {
-                            allTupleElementsConstant = false;
-                            break;
-                        }
-                    }
-                    if (allTupleElementsConstant)
-                    {
-                        // All elements are constants, create tuple constant at compile time
-                        // Performance: Eliminated LINQ
-                        var constantValues = new PyObject[tuple.Elements.Count];
-                        for (int i = 0; i < tuple.Elements.Count; i++)
-                        {
-                            constantValues[i] = ((ConstantExpression)tuple.Elements[i]).Value;
-                        }
-                        var tupleConstant = new PyTuple(constantValues);
-                        EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(tupleConstant));
-                    }
+                    // ast_opt.c fold_tuple: any tuple of constants, the empty one too.
+                    if (AreAllItemsConst(tuple.Elements))
+                        EmitLoadConst(new PyTuple(ConstantValues(tuple.Elements)));
                     else
-                    {
-                        // CPython 3.12: (*a, b) -> BUILD_LIST 0 + LIST_APPEND/LIST_EXTEND
-                        // + LIST_TO_TUPLE intrinsic (a tuple literal cannot be built with a
-                        // fixed count when a starred element is present).
-                        bool tupleHasStarred = false;
-                        foreach (var el in tuple.Elements) if (el is StarredExpression) { tupleHasStarred = true; break; }
-                        if (tupleHasStarred)
-                        {
-                            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-                            foreach (var element in tuple.Elements)
-                            {
-                                if (element is StarredExpression st)
-                                {
-                                    CompileExpression(st.Value);
-                                    EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                                }
-                                else
-                                {
-                                    CompileExpression(element);
-                                    EmitInstruction(ByteCodeOp.LIST_APPEND, 1);
-                                }
-                            }
-                            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
-                        }
-                        else
-                        {
-                            foreach (var element in tuple.Elements)
-                            {
-                                CompileExpression(element);
-                            }
-                            EmitInstruction(ByteCodeOp.BUILD_TUPLE, tuple.Elements.Count);
-                        }
-                    }
+                        StarunpackHelper(tuple.Elements, 0, ByteCodeOp.BUILD_LIST, ByteCodeOp.LIST_APPEND, ByteCodeOp.LIST_EXTEND, true);
                     break;
-                    
+
                 case SetExpression set:
-                    // CPython 3.12: {*a, b} -> BUILD_SET 0 + SET_ADD/LIST_EXTEND.
-                    bool setHasStarred = false;
-                    foreach (var el in set.Elements) if (el is StarredExpression) { setHasStarred = true; break; }
-                    if (setHasStarred)
-                    {
-                        EmitInstruction(ByteCodeOp.BUILD_SET, 0);
-                        foreach (var element in set.Elements)
-                        {
-                            if (element is StarredExpression st)
-                            {
-                                CompileExpression(st.Value);
-                                EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                            }
-                            else
-                            {
-                                CompileExpression(element);
-                                EmitInstruction(ByteCodeOp.SET_ADD, 1);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        foreach (var element in set.Elements)
-                        {
-                            CompileExpression(element);
-                        }
-                        EmitInstruction(ByteCodeOp.BUILD_SET, set.Elements.Count);
-                    }
+                    StarunpackHelper(set.Elements, 0, ByteCodeOp.BUILD_SET, ByteCodeOp.SET_ADD, ByteCodeOp.SET_UPDATE, false);
                     break;
-                    
+
                 case DictExpression dict:
-                    // CPython 3.12: Python/compile.c compiler_dict
-                    // **unpacking이 있는지 확인
-                    bool hasUnpacking = false;
-                    foreach (var kvp in dict.Items)
-                    {
-                        if (kvp.Key == null)
-                        {
-                            hasUnpacking = true;
-                            break;
-                        }
-                    }
-
-                    if (!hasUnpacking)
-                    {
-                        // 단순 딕셔너리: 모든 키-값을 스택에 푸시 후 BUILD_MAP
-                        foreach (var kvp in dict.Items)
-                        {
-                            CompileExpression(kvp.Key);
-                            CompileExpression(kvp.Value);
-                        }
-                        EmitInstruction(ByteCodeOp.BUILD_MAP, dict.Items.Count);
-                    }
-                    else
-                    {
-                        // CPython 3.12: **unpacking이 있는 경우
-                        // Python/compile.c:compiler_dict 참조
-                        // 첫 번째 항목이 일반 키-값이면 BUILD_MAP 0 없이 시작
-                        // 첫 번째 항목이 **unpacking이면 BUILD_MAP 0으로 시작
-
-                        bool needsInitialEmptyMap = dict.Items.Count == 0 || dict.Items[0].Key == null;
-                        bool hasDictOnStack = false;
-
-                        if (needsInitialEmptyMap)
-                        {
-                            EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
-                            hasDictOnStack = true;
-                        }
-
-                        int regularCount = 0;
-                        foreach (var kvp in dict.Items)
-                        {
-                            if (kvp.Key == null)
-                            {
-                                // 이전에 쌓인 일반 키-값들이 있으면 먼저 BUILD_MAP
-                                if (regularCount > 0)
-                                {
-                                    EmitInstruction(ByteCodeOp.BUILD_MAP, regularCount);
-                                    if (hasDictOnStack)
-                                    {
-                                        EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
-                                    }
-                                    else
-                                    {
-                                        hasDictOnStack = true;
-                                    }
-                                    regularCount = 0;
-                                }
-                                // **unpacking: 값을 로드하고 DICT_UPDATE
-                                CompileExpression(kvp.Value);
-                                EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
-                            }
-                            else
-                            {
-                                // 일반 키-값: 스택에 푸시
-                                CompileExpression(kvp.Key);
-                                CompileExpression(kvp.Value);
-                                regularCount++;
-                            }
-                        }
-
-                        // 남은 일반 키-값들 처리
-                        if (regularCount > 0)
-                        {
-                            EmitInstruction(ByteCodeOp.BUILD_MAP, regularCount);
-                            if (hasDictOnStack)
-                            {
-                                EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
-                            }
-                        }
-                    }
+                    CompileDict(dict);
                     break;
-                    
+
                 case LambdaExpression lambda:
                     CompileLambda(lambda);
                     break;
@@ -3768,13 +3483,7 @@ namespace SharpPy
                     break;
                     
                 // Type-aware optimized expressions (Phase 2)
-                case TypeSpecializedBinaryOpExpression specializedBinOp:
-                    CompileTypeSpecializedBinaryOp(specializedBinOp);
-                    break;
                     
-                case InlinedMethodCallExpression inlinedCall:
-                    CompileInlinedMethodCall(inlinedCall);
-                    break;
                     
                 case IntrinsicExpression intrinsic:
                     foreach (var argument in intrinsic.Arguments) CompileExpression(argument);
@@ -5152,32 +4861,6 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)operation);
         }
 
-        /// <summary>fold_binop (Python/ast_opt.c): the operation itself, on numbers, or nothing if it raises.</summary>
-        private PyObject? TryFoldBinaryOpAtCompileTime(PyObject left, PyObject right, BinaryOperator op)
-        {
-            if (!(left is PyInt or PyFloat) || !(right is PyInt or PyFloat)) return null;
-            try
-            {
-                return op.GetOpType() switch
-                {
-                    BinaryOpType.ADD => left.Add(right),
-                    BinaryOpType.SUBTRACT => left.Subtract(right),
-                    BinaryOpType.MULTIPLY => left.Multiply(right),
-                    BinaryOpType.TRUE_DIVIDE => left.Divide(right),
-                    BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
-                    BinaryOpType.MODULO => left.Modulo(right),
-                    BinaryOpType.AND when left is PyInt && right is PyInt => left.BitwiseAnd(right),
-                    BinaryOpType.OR when left is PyInt && right is PyInt => left.BitwiseOr(right),
-                    BinaryOpType.XOR when left is PyInt && right is PyInt => left.BitwiseXor(right),
-                    _ => null,
-                };
-            }
-            catch (PythonException)
-            {
-                return null;
-            }
-        }
-
         private int GetOrAddConstant(PyObject value)
         {
             // Use object reference equality for constants
@@ -5239,10 +4922,13 @@ namespace SharpPy
         
         private void EmitUnaryOp(UnaryOperator op)
         {
-            // CPython 3.12: Use type-based switch on operator
+            if (op is UAdd)
+            {
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_UNARY_POSITIVE);
+                return;
+            }
             var opCode = op switch
             {
-                UAdd => ByteCodeOp.UNARY_POSITIVE,
                 USub => ByteCodeOp.UNARY_NEGATIVE,
                 Not => ByteCodeOp.UNARY_NOT,
                 Invert => ByteCodeOp.UNARY_INVERT,
@@ -5403,23 +5089,42 @@ namespace SharpPy
             }
             else if (augAssign.TargetExpr is SubscriptExpression subscriptExpr)
             {
-                // Subscript: list[0] += 1
-                // CPython 3.12 pattern: LOAD container, LOAD index, COPY 2, COPY 2, BINARY_SUBSCR, LOAD value, BINARY_OP, SWAP 3, SWAP 2, STORE_SUBSCR
-                CompileExpression(subscriptExpr.Value);   // Load container (list1)
-                CompileExpression(subscriptExpr.Slice);   // Load index (0)
-                EmitInstruction(ByteCodeOp.COPY, 2);      // Copy top 2: [list1, 0, list1]
-                EmitInstruction(ByteCodeOp.COPY, 2);      // Copy top 2: [list1, 0, list1, 0]
-                EmitInstruction(ByteCodeOp.BINARY_SUBSCR);  // Load current value: [list1, 0, list1[0]]
-                CompileExpression(augAssign.Value);        // Load right-hand value: [list1, 0, list1[0], 10]
+                // compiler_augassign, Subscript_kind
+                CompileExpression(subscriptExpr.Value);
+                bool twoElements = subscriptExpr.Slice is SliceExpression { Step: null };
+                if (twoElements)
+                {
+                    CompileSliceBounds((SliceExpression)subscriptExpr.Slice);
+                    EmitInstruction(ByteCodeOp.COPY, 3);
+                    EmitInstruction(ByteCodeOp.COPY, 3);
+                    EmitInstruction(ByteCodeOp.COPY, 3);
+                    EmitInstruction(ByteCodeOp.BINARY_SLICE);
+                }
+                else
+                {
+                    CompileExpression(subscriptExpr.Slice);
+                    EmitInstruction(ByteCodeOp.COPY, 2);
+                    EmitInstruction(ByteCodeOp.COPY, 2);
+                    EmitInstruction(ByteCodeOp.BINARY_SUBSCR);
+                }
+                CompileExpression(augAssign.Value);
 
-                // Perform binary operation (in-place version)
                 var binaryOpType = ConvertToInplaceBinaryOp(augAssign.Op.GetOpType());
-                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);  // [list1, 0, result]
+                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
 
-                // Store result back: SWAP to get [result, list1, 0], then STORE_SUBSCR
-                EmitInstruction(ByteCodeOp.SWAP, 3);  // [result, 0, list1]
-                EmitInstruction(ByteCodeOp.SWAP, 2);  // [result, list1, 0]
-                EmitInstruction(ByteCodeOp.STORE_SUBSCR);  // list1[0] = result
+                if (twoElements)
+                {
+                    EmitInstruction(ByteCodeOp.SWAP, 4);
+                    EmitInstruction(ByteCodeOp.SWAP, 3);
+                    EmitInstruction(ByteCodeOp.SWAP, 2);
+                    EmitInstruction(ByteCodeOp.STORE_SLICE);
+                }
+                else
+                {
+                    EmitInstruction(ByteCodeOp.SWAP, 3);
+                    EmitInstruction(ByteCodeOp.SWAP, 2);
+                    EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                }
             }
             else
             {
@@ -5745,10 +5450,8 @@ namespace SharpPy
             }
 
             // CPython 3.12: Regular class compilation (no type parameters)
-            // CPython 3.12: Python/bytecodes.c:987 - LOAD_BUILD_CLASS opcode
-            // SharpPy doesn't have LOAD_BUILD_CLASS, so we use LOAD_GLOBAL with pushNull=true
-            // This pushes NULL then __build_class__, equivalent to PUSH_NULL + LOAD_GLOBAL
-            EmitLoadGlobal("__build_class__", pushNull: true);
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
+            EmitInstruction(ByteCodeOp.LOAD_BUILD_CLASS);
 
             // Compile class body into a function
             var classBodyName = $"<class_body_{cls.Name}>";
@@ -6091,24 +5794,11 @@ namespace SharpPy
             // Mark that we're in a class body (for proper name resolution)
             _isInClassBody = true;
 
-            // CPython 3.12: If class has free variables, emit COPY_FREE_VARS first
-            // This must come BEFORE MAKE_CELL and RESUME
-            // See CPython bytecode: Inner class starts with COPY_FREE_VARS 1
-            if (_freeVars.Count > 0)
-            {
-                #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔧 Class {className} has {_freeVars.Count} free variables: [{string.Join(", ", _freeVars)}]");
-                Console.WriteLine($"🔧 Emitting COPY_FREE_VARS {_freeVars.Count}");
-                #endif
-                EmitInstruction(ByteCodeOp.COPY_FREE_VARS, _freeVars.Count);
-            }
-
             // The symbol analysis requests this cell for a nested __class__
             // reference (including the implicit reference used by super()).
             if (classSymbolTable?.ImplicitClassCell != null)
             {
                 _cellVars.Add("__class__");
-                EmitInstruction(ByteCodeOp.MAKE_CELL, 0);
             }
 
             // CPython 3.12: RESUME instruction after COPY_FREE_VARS and MAKE_CELL
@@ -6166,7 +5856,7 @@ namespace SharpPy
                     Console.WriteLine($"🔧 Generating __classcell__ store for __class__ cell at index {classIndex}");
                     #endif
                     
-                    // LOAD_CLOSURE __class__ (CPython: LOAD_CLOSURE 0 (__class__))
+                    // Stays on the stack as the return value.
                     EmitInstruction(ByteCodeOp.LOAD_CLOSURE, classIndex);
                     
                     // COPY 1 (CPython does this to duplicate the cell)
@@ -6180,8 +5870,10 @@ namespace SharpPy
                     #endif
                 }
                 
-                // Return None at the end
-                EmitLoadConst(PyNone.Instance);
+                else
+                {
+                    EmitLoadConst(PyNone.Instance);
+                }
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
                 // CPython 3.12: Get final instructions
@@ -6750,203 +6442,20 @@ namespace SharpPy
         /// </summary>
         private void CompileIf(IfStatement ifStmt)
         {
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileIf: Using InstructionSequence with Labels (CPython 3.12)");
-#endif
-            _cfgPathCount++;
-            CompileIfWithLabels(ifStmt);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Label-based if-elif-else compilation
-        /// Uses InstructionSequence.NewLabel() and UseLabel()
-        /// No manual offset calculation needed!
-        /// </summary>
-        private void CompileIfWithLabels(IfStatement ifStmt)
-        {
-            // Collect all if/elif conditions
-            var conditions = new List<(Expression Test, List<Statement> Body)>();
-            var currentIf = ifStmt;
-
-            while (currentIf != null)
-            {
-                conditions.Add((currentIf.Test, currentIf.Body));
-
-                if (currentIf.OrElse != null && currentIf.OrElse.Count == 1 &&
-                    currentIf.OrElse[0] is IfStatement nextIf)
-                {
-                    currentIf = nextIf;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // Create labels for each elif start and the end
-            // Use SharpPy.Label (from InstructionSequence.cs), NOT PythonCompiler.Label (LEGACY)
-            var nextConditionLabels = new List<SharpPy.Label>();
-            for (int i = 0; i < conditions.Count; i++)
-            {
-                nextConditionLabels.Add(_instructionSequence!.NewLabel());
-            }
-            var endLabel = _instructionSequence!.NewLabel();
-            var elseLabel = _instructionSequence!.NewLabel();
-
-            // Find final else
-            var finalElse = ifStmt;
-            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 &&
-                   finalElse.OrElse[0] is IfStatement)
-            {
-                finalElse = (IfStatement)finalElse.OrElse[0];
-            }
-            bool hasElse = finalElse.OrElse != null && finalElse.OrElse.Count > 0;
-
-            // Compile each condition and body
-            for (int i = 0; i < conditions.Count; i++)
-            {
-                var (test, body) = conditions[i];
-
-                // Mark this condition's start (for previous elif to jump to)
-                if (i > 0)
-                {
-                    _instructionSequence.UseLabel(nextConditionLabels[i - 1]);
-                }
-
-                // Compile condition
-                CompileExpression(test);
-
-                // If false, jump to next elif (or else, or end)
-                SharpPy.Label falseTarget;
-                if (i + 1 < conditions.Count)
-                {
-                    // Jump to next elif
-                    falseTarget = nextConditionLabels[i];
-                }
-                else if (hasElse)
-                {
-                    // Jump to else block
-                    falseTarget = elseLabel;
-                }
-                else
-                {
-                    // Jump to end
-                    falseTarget = endLabel;
-                }
-
-                _instructionSequence.AddOpWithLabel(
-                    ByteCodeOp.POP_JUMP_IF_FALSE,
-                    falseTarget,
-                    _currentLineNumber,
-                    _currentColumnOffset,
-                    _currentFileName
-                );
-
-                // Compile body
-                foreach (var stmt in body)
-                {
-                    CompileStatement(stmt);
-                }
-
-                // CPython pattern: JUMP_FORWARD to end if there's more code after
-                bool isLastCondition = (i == conditions.Count - 1);
-                bool needsJump = !isLastCondition || hasElse;
-
-                if (needsJump)
-                {
-                    _instructionSequence.AddOpWithLabel(
-                        ByteCodeOp.JUMP,
-                        endLabel,
-                        _currentLineNumber,
-                        _currentColumnOffset,
-                        _currentFileName
-                    );
-                }
-            }
-
-            // Compile else block
+            var end = _instructionSequence.NewLabel();
+            bool hasElse = ifStmt.OrElse != null && ifStmt.OrElse.Count > 0;
+            var next = hasElse ? _instructionSequence.NewLabel() : end;
+            CompileJumpIf(ifStmt.Test, next, false);
+            foreach (var statement in ifStmt.Body)
+                CompileStatement(statement);
             if (hasElse)
             {
-                _instructionSequence.UseLabel(elseLabel);
-                foreach (var stmt in finalElse.OrElse)
-                {
-                    CompileStatement(stmt);
-                }
+                EmitJumpNoLocation(end);
+                _instructionSequence.UseLabel(next);
+                foreach (var statement in ifStmt.OrElse!)
+                    CompileStatement(statement);
             }
-
-            // Mark end of if-elif-else
-            _instructionSequence.UseLabel(endLabel);
-        }
-
-        /// <summary>
-        /// CPython 3.12 호환 while True: compilation
-        /// 특징: 조건 체크 없이 바로 루프 바디 시작, NOP 삽입
-        /// </summary>
-        /// <summary>
-        /// CPython 3.12: while True loop compilation
-        /// </summary>
-        private void CompileWhileTrue(WhileStatement whileStmt)
-        {
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileWhileTrue: Using InstructionSequence with Labels");
-#endif
-            _cfgPathCount++;
-            CompileWhileTrueWithLabels(whileStmt);
-        }
-
-        /// <summary>
-        /// NEW: Label-based while True compilation (CPython 3.12)
-        /// Uses InstructionSequence with SharpPy.Label objects
-        /// </summary>
-        private void CompileWhileTrueWithLabels(WhileStatement whileStmt)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 (Label-based)");
-            #endif
-
-            // Create labels for break/continue (use SharpPy.Label, NOT PythonCompiler.Label)
-            var breakLabel = _instructionSequence!.NewLabel();
-            var continueLabel = _instructionSequence!.NewLabel();
-
-            // Push while loop fblock (CPython 3.12: PushFBlock)
-            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.WHILE_LOOP, continueLabel, breakLabel, null);
-
-            // CPython pattern: emit NOP for while True:
-            _instructionSequence.AddOp(
-                ByteCodeOp.NOP,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // Mark loop body start (continue target)
-            _instructionSequence.UseLabel(continueLabel);
-
-            // Compile loop body
-            foreach (var stmt in whileStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            // JUMP_BACKWARD to loop start
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                continueLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // Pop loop fblock (CPython 3.12: PopFBlock)
-            PopFBlock(FBlockType.WHILE_LOOP, continueLabel);
-
-            // Mark break label
-            _instructionSequence.UseLabel(breakLabel);
-
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 완료 (Label-based)");
-            #endif
+            _instructionSequence.UseLabel(end);
         }
 
         /// <summary>
@@ -7056,113 +6565,30 @@ namespace SharpPy
         /// </summary>
         private void CompileWhile(WhileStatement whileStmt)
         {
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 시작");
-            #endif
+            var loop = _instructionSequence.NewLabel();
+            var body = _instructionSequence.NewLabel();
+            var end = _instructionSequence.NewLabel();
+            var anchor = _instructionSequence.NewLabel();
 
-            // Check if this is while True: case
-            bool isWhileTrue = IsConstantTrue(whileStmt.Test);
-            #if DEBUG_LOG
-            Console.WriteLine($"  while True 패턴: {isWhileTrue}");
-            #endif
-
-            if (isWhileTrue)
-            {
-                CompileWhileTrue(whileStmt);
-                return;
-            }
-
-            // CFG implementation (CPython 3.12)
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileWhile: Using InstructionSequence with Labels (CPython 3.12)");
-#endif
-            _cfgPathCount++;
-            CompileWhileWithLabels(whileStmt);
-        }
-
-        /// <summary>
-        /// NEW: Label-based while compilation (CPython 3.12)
-        /// Uses InstructionSequence with SharpPy.Label objects
-        /// </summary>
-        private void CompileWhileWithLabels(WhileStatement whileStmt)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 (Label-based with loop rotation)");
-            #endif
-
-            // Create labels for loop control
-            // CPython 3.12: Python/compile.c:3270-3320 (compiler_while)
-            var loopStartLabel = _instructionSequence!.NewLabel();   // Initial condition check (continue target)
-            var loopBodyLabel = _instructionSequence!.NewLabel();    // Loop body start
-            var elseLabel = _instructionSequence!.NewLabel();        // else clause (condition false target)
-            var endLabel = _instructionSequence!.NewLabel();         // break target (after else clause)
-
-            // Push loop context - break should jump past else clause
+            _instructionSequence.UseLabel(loop);
             var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.WHILE_LOOP, loopStartLabel, endLabel, null);
+            PushFBlock(loc, FBlockType.WHILE_LOOP, loop, end, null);
+            CompileJumpIf(whileStmt.Test, anchor, false);
 
-            // Phase 1: Initial condition check at loop start
-            _instructionSequence.UseLabel(loopStartLabel);
-            CompileExpression(whileStmt.Test);
+            _instructionSequence.UseLabel(body);
+            foreach (var statement in whileStmt.Body)
+                CompileStatement(statement);
+            UpdateSourceLocation(whileStmt);
+            CompileJumpIf(whileStmt.Test, body, true);
 
-            // If condition is false, jump to else clause (or end if no else)
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.POP_JUMP_IF_FALSE,
-                elseLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
+            PopFBlock(FBlockType.WHILE_LOOP, loop);
 
-            // Phase 2: Mark loop body start and compile loop body
-            _instructionSequence.UseLabel(loopBodyLabel);
-            foreach (var stmt in whileStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
+            _instructionSequence.UseLabel(anchor);
+            if (whileStmt.ElseClause != null)
+                foreach (var statement in whileStmt.ElseClause)
+                    CompileStatement(statement);
 
-            // Phase 3: CPython 3.12 loop rotation - re-check condition at loop end
-            CompileExpression(whileStmt.Test);
-
-            // If condition is still true, jump back to loop body (skip initial check)
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.POP_JUMP_IF_FALSE,
-                elseLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // Jump back to loop body
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                loopBodyLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // Pop loop context (CPython 3.12: PopFBlock)
-            PopFBlock(FBlockType.WHILE_LOOP, loopStartLabel);
-
-            // Phase 4: Mark else clause position
-            _instructionSequence.UseLabel(elseLabel);
-
-            // Compile else clause if present (executed when loop exits normally, not via break)
-            if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
-            {
-                foreach (var stmt in whileStmt.ElseClause)
-                {
-                    CompileStatement(stmt);
-                }
-            }
-
-            // Phase 5: Mark end position (break target)
-            _instructionSequence.UseLabel(endLabel);
-
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료 (with loop rotation)");
-            #endif
+            _instructionSequence.UseLabel(end);
         }
 
         /// <summary>
@@ -7216,7 +6642,7 @@ namespace SharpPy
             var endLabel = _instructionSequence.NewLabel();      // 전체 종료
 
             // 1. Get iterator from iterable
-            CompileExpression(forStmt.Iter);
+            CompileExpression(_fold.FoldIter(forStmt.Iter));
 
             // CPython 3.12: Generator function의 .0 매개변수는 이미 iterator
             bool skipGetIter = forStmt.Iter is NameExpression nameExpr && nameExpr.Name == ".0";
@@ -7315,7 +6741,7 @@ namespace SharpPy
 
             // 1. Get async iterator from iterable
             // CPython: VISIT(c, expr, s->v.AsyncFor.iter);
-            CompileExpression(asyncForStmt.Iter);
+            CompileExpression(_fold.FoldIter(asyncForStmt.Iter));
 
             // CPython: ADDOP(c, LOC(s->v.AsyncFor.iter), GET_AITER);
             EmitInstruction(ByteCodeOp.GET_AITER);
@@ -7411,7 +6837,7 @@ namespace SharpPy
             // CPython 3.12: Label-based control flow (no manual offset calculation)
 
             // 1. Get iterator from iterable
-            CompileExpression(forTupleStmt.Iter);  // Push iterable on stack
+            CompileExpression(_fold.FoldIter(forTupleStmt.Iter));  // Push iterable on stack
             EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
 
             // 2. Create labels for loop control flow
@@ -7491,7 +6917,7 @@ namespace SharpPy
             // CPython 3.12: Label-based control flow (no manual offset calculation)
 
             // 1. Get iterator from iterable
-            CompileExpression(forComplexStmt.Iter);  // Push iterable on stack
+            CompileExpression(_fold.FoldIter(forComplexStmt.Iter));  // Push iterable on stack
             EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
 
             // 2. Create labels for loop control flow
@@ -7585,102 +7011,7 @@ namespace SharpPy
             }
         }
         
-        /// <summary>
-        /// Compile a block statement (multiple statements grouped together)
-        /// </summary>
-        private void CompileBlockStatement(BlockStatement blockStmt)
-        {
-            foreach (var statement in blockStmt.Statements)
-            {
-                CompileStatement(statement);
-            }
-        }
-        
-        /// <summary>
-        /// Compile type-specialized binary operation
-        /// </summary>
-        private void CompileTypeSpecializedBinaryOp(TypeSpecializedBinaryOpExpression specializedBinOp)
-        {
-            CompileExpression(specializedBinOp.Left);
-            CompileExpression(specializedBinOp.Right);
-            
-            // 타입에 따른 특수화된 바이트코드 생성
-            var opCode = GetSpecializedBinaryOpCode(specializedBinOp.LeftType, specializedBinOp.RightType, specializedBinOp.Operator);
-            
-            if (opCode != ByteCodeOp.NOP)
-            {
-                // 특수화된 명령어 사용
-                EmitInstruction(opCode);
-                #if DEBUG_LOG
-                Console.WriteLine($"🚀 Type-specialized: {specializedBinOp.LeftType} {specializedBinOp.Operator} {specializedBinOp.RightType} → {opCode}");
-                #endif
-            }
-            else
-            {
-                // 일반 이진 연산 사용
-                var binaryOp = GetSpecializedBinaryOpCode(specializedBinOp.LeftType, specializedBinOp.RightType, specializedBinOp.Operator);
-                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOp);
-            }
-        }
-        
-        /// <summary>
-        /// 타입 기반 특수화된 바이트코드 결정
-        /// </summary>
-        private ByteCodeOp GetSpecializedBinaryOpCode(PyTypeInfo leftType, PyTypeInfo rightType, string op)
-        {
-            // 정수 연산 특수화
-            if (leftType.IsInt && rightType.IsInt)
-            {
-                return op switch
-                {
-                    "+" => ByteCodeOp.BINARY_OP, // 향후 BINARY_ADD_INT로 확장
-                    "-" => ByteCodeOp.BINARY_OP, // 향후 BINARY_SUB_INT로 확장
-                    "*" => ByteCodeOp.BINARY_OP, // 향후 BINARY_MUL_INT로 확장
-                    _ => ByteCodeOp.NOP
-                };
-            }
-            
-            // 문자열 연산 특수화
-            if (leftType.IsString && rightType.IsString && op == "+")
-            {
-                return ByteCodeOp.BINARY_OP; // 향후 BINARY_ADD_STR로 확장
-            }
-            
-            return ByteCodeOp.NOP;
-        }
-        
-        /// <summary>
-        /// Compile inlined method call
-        /// </summary>
-        private void CompileInlinedMethodCall(InlinedMethodCallExpression inlinedCall)
-        {
-            CompileExpression(inlinedCall.Target);
-            
-            // 인수들 컴파일
-            foreach (var arg in inlinedCall.Arguments)
-            {
-                CompileExpression(arg);
-            }
-            
-            // 인라인된 메서드에 특화된 바이트코드 생성
-            var opCode = GetInlinedMethodOpCode(inlinedCall.ObjectType, inlinedCall.MethodName);
-            
-            if (opCode != ByteCodeOp.NOP)
-            {
-                EmitInstruction(opCode, inlinedCall.Arguments.Count);
-                #if DEBUG_LOG
-                Console.WriteLine($"🚀 Method inlined: {inlinedCall.ObjectType}.{inlinedCall.MethodName}() → {opCode}");
-                #endif
-            }
-            else
-            {
-                // 일반 메서드 호출 사용
-                EmitLoadConst(new PyString(inlinedCall.MethodName));
-                EmitInstruction(ByteCodeOp.CALL, inlinedCall.Arguments.Count);
-            }
-        }
-        
-        /// <summary>
+/// <summary>
         /// 인라인된 메서드에 대한 특수화된 바이트코드 결정
         /// </summary>
         private ByteCodeOp GetInlinedMethodOpCode(string objectType, string methodName)
@@ -8866,8 +8197,7 @@ namespace SharpPy
                 // Check guard if present
                 if (matchCase.Guard != null)
                 {
-                    CompileExpression(matchCase.Guard);
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+                    CompileJumpIf(matchCase.Guard, failLabel, false);
                 }
 
                 // Pattern matched - pop subject if not last case
@@ -9003,42 +8333,16 @@ namespace SharpPy
         {
             if (assert.Test is TupleExpression { Elements.Count: > 0 })
                 EmitSyntaxWarning("assertion is always true, perhaps remove parentheses?", assert.LineNo);
-            // CPython 3.12: assert test [, msg]
-            // Pattern: test → POP_JUMP_IF_TRUE → LOAD_ASSERTION_ERROR [→ msg → CALL 0] → RAISE_VARARGS 1
-
-            // Compile test expression
-            CompileExpression(assert.Test);
-
-            // Create label for end of assert (when test is true)
             var endLabel = _instructionSequence.NewLabel();
-
-            // If test is true, skip the assertion error
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel, _currentLineNumber);
-
-            // Load AssertionError class (CPython 3.12 calling convention)
-            _instructionSequence.AddOp(ByteCodeOp.PUSH_NULL, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.LOAD_ASSERTION_ERROR, _currentLineNumber);
-
+            CompileJumpIf(assert.Test, endLabel, true);
+            UpdateSourceLocation(assert);
+            EmitInstruction(ByteCodeOp.LOAD_ASSERTION_ERROR);
             if (assert.Msg != null)
             {
-                // assert test, msg: AssertionError(msg)
                 CompileExpression(assert.Msg);
-                _instructionSequence.AddOpWithArg(ByteCodeOp.CALL, 1, _currentLineNumber);
+                EmitInstruction(ByteCodeOp.CALL, 0);
             }
-            else
-            {
-                // assert test: AssertionError()
-                _instructionSequence.AddOpWithArg(ByteCodeOp.CALL, 0, _currentLineNumber);
-            }
-
-            // Raise the AssertionError
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RAISE_VARARGS, 1, _currentLineNumber);
-
-            // Mark end of assert
-            // CPython 3.12: Python/compile.c:3164 - ADDOP(c, loc, NOP)
-            // CRITICAL FIX (2025-11-29): Add NOP before endLabel
-            // Without NOP, FindNextRealInstruction skips POP_BLOCK and endLabel points to PUSH_EXC_INFO
-            _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
+            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 1);
             _instructionSequence.UseLabel(endLabel);
         }
         private void CompileRaise(RaiseStatement raise)
@@ -9498,23 +8802,10 @@ namespace SharpPy
                 #endif
             }
             
-            // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (람다 파라미터용)
-            // CPython 3.12: MAKE_CELL argument is localsplus offset (varnames index for parameters)
-            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
-            {
-                var cellVar = cellVars[cellIndex];
-                if (lambdaParamNames.Contains(cellVar))
-                {
-                    // Get the varnames index (localsplus offset) for this parameter
-                    var localsPlusOffset = _varNames.IndexOf(cellVar);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  → Making cell for lambda parameter: {cellVar} (localsplus offset {localsPlusOffset}, cellvars index {cellIndex})");
-                    #endif
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
-                }
-            }
-            
             // Compile the lambda body expression - parameters will now be recognized as FAST variables
+            // compiler_lambda: None first, so the lambda can't have a docstring.
+            GetOrAddConstant(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.RESUME, 0);
             CompileExpression(lambda.Body);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
@@ -9766,51 +9057,17 @@ namespace SharpPy
         }
         private void CompileConditional(ConditionalExpression conditional)
         {
-            // CPython 3.12 조건부 표현식: A if B else C
-            // CPython은 조건부 표현식에서 코드 중복 방식을 사용함
-            // 조건을 평가한 후 각 분기에서 전체 표현식 컨텍스트를 중복 실행
-
-            var elseLabel = _instructionSequence.NewLabel();
-
-            // 1. 조건(B) 평가
-            CompileExpression(conditional.Test);
-
-            // 2. 조건이 False면 else 부분으로 점프
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, elseLabel, _currentLineNumber);
-
-            // 3. True 분기: Body 값만 로드 (CPython 3.12 호환성)
+            // compiler_ifexp
+            var end = _instructionSequence.NewLabel();
+            var next = _instructionSequence.NewLabel();
+            CompileJumpIf(conditional.Test, next, false);
             CompileExpression(conditional.Body);
-
-            // 4. else 라벨 없이 직접 계속 (CPython처럼 중복 없음)
-            // CPython은 여기서 JUMP하지 않고 다음 명령어로 계속감
-            // 하지만 우리는 expression context에서 동작해야 하므로
-            // 최소한의 점프 사용
-            if (IsInComplexExpression())
-            {
-                var endLabel = _instructionSequence.NewLabel();
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
-
-                // 5. False 분기
-                _instructionSequence.UseLabel(elseLabel);
-                CompileExpression(conditional.OrElse);
-
-                _instructionSequence.UseLabel(endLabel);
-            }
-            else
-            {
-                // 단순 표현식의 경우 CPython의 코드 중복 패턴 모방
-                // 실제로는 분기 없이 값만 스택에 남김
-                _instructionSequence.UseLabel(elseLabel);
-                CompileExpression(conditional.OrElse);
-            }
+            EmitJumpNoLocation(end);
+            _instructionSequence.UseLabel(next);
+            CompileExpression(conditional.OrElse);
+            _instructionSequence.UseLabel(end);
         }
-        
-        private bool IsInComplexExpression()
-        {
-            // 복잡한 표현식 컨텍스트인지 확인하는 간단한 휴리스틱
-            // 실제 구현에서는 더 정교한 컨텍스트 추적이 필요
-            return true; // 일단 모든 경우를 복잡한 표현식으로 처리
-        }
+
         /// <summary>
         /// CPython 3.12 compatible f-string compilation
         /// Generates BUILD_STRING bytecode instruction
@@ -10225,7 +9482,7 @@ namespace SharpPy
                 else
                 {
                     // 일반적인 경우
-                    CompileExpression(firstGenerator.Iter);
+                    CompileExpression(_fold.FoldIter(firstGenerator.Iter));
                 }
 
                 EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
@@ -10475,16 +9732,7 @@ namespace SharpPy
             // CPython line 5292-5296: condition handling with labels
             foreach (var condition in gen.Ifs)
             {
-                CompileExpression(condition);
-
-                // CPython: ADDOP_JUMP(c, loc, POP_JUMP_IF_FALSE, if_cleanup)
-                _instructionSequence.AddOpWithLabel(
-                    ByteCodeOp.POP_JUMP_IF_FALSE,
-                    ifCleanupLabel,
-                    _currentLineNumber,
-                    _currentColumnOffset,
-                    _currentFileName
-                );
+                CompileJumpIf(condition, ifCleanupLabel, false);
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  ❓ Condition jump to if_cleanup label");
@@ -10802,7 +10050,7 @@ namespace SharpPy
                 }
                 else
                 {
-                    CompileExpression(firstGenerator.Iter);
+                    CompileExpression(_fold.FoldIter(firstGenerator.Iter));
                 }
 
                 EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
@@ -11098,7 +10346,7 @@ namespace SharpPy
             var firstGenerator = setComp.Generators[0];
 
             // 먼저 첫 번째 generator의 iterable 로드
-            CompileExpression(firstGenerator.Iter);
+            CompileExpression(_fold.FoldIter(firstGenerator.Iter));
             EmitInstruction(firstGenerator.IsAsync ? ByteCodeOp.GET_AITER : ByteCodeOp.GET_ITER);
 
             // CPython 3.12: LOAD_FAST_AND_CLEAR (allVars 사용)
@@ -11325,7 +10573,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
 
             // CPython 3.12: 올바른 스택 순서로 호출
-            CompileExpression(outerGenerator.Iter);  // range(5) 또는 중첩 genexpr 컴파일
+            CompileExpression(_fold.FoldIter(outerGenerator.Iter));  // range(5) 또는 중첩 genexpr 컴파일
 
             // CPython 3.12: 중첩된 generator expression의 경우 이미 CALL이 되어 generator 반환됨
             // 그 generator를 GET_ITER로 iterator화 해야 함
@@ -11805,33 +11053,289 @@ namespace SharpPy
         /// </summary>
         private void CompileSliceExpression(SliceExpression sliceExp)
         {
-            // SliceExpression은 실제로는 SubscriptExpression의 일부로 컴파일됨
-            // 하지만 여기서는 직접 슬라이스 객체를 만들어야 할 수도 있음
-            
-            // Start 값 로드 (None이면 None)
-            if (sliceExp.Start != null)
-                CompileExpression(sliceExp.Start);
+            EmitInstruction(ByteCodeOp.BUILD_SLICE, CompileSliceBounds(sliceExp));
+        }
+
+        // compiler_slice: pushes the bounds and answers their number.
+        private int CompileSliceBounds(SliceExpression slice)
+        {
+            if (slice.Start != null)
+                CompileExpression(slice.Start);
             else
                 EmitLoadConst(PyNone.Instance);
-                
-            // Stop 값 로드 (None이면 None) 
-            if (sliceExp.Stop != null)
-                CompileExpression(sliceExp.Stop);
+            if (slice.Stop != null)
+                CompileExpression(slice.Stop);
             else
                 EmitLoadConst(PyNone.Instance);
-                
-            // Step 값 로드 (기본값은 None)
-            if (sliceExp.Step != null)
+            if (slice.Step == null)
+                return 2;
+            CompileExpression(slice.Step);
+            return 3;
+        }
+
+        private const int StackUseGuideline = 30;
+
+        private bool AreAllItemsConst(List<Expression> items)
+        {
+            foreach (var item in items)
+                if (_fold.Fold(item) is not ConstantExpression)
+                    return false;
+            return true;
+        }
+
+        private PyObject[] ConstantValues(List<Expression> items)
+        {
+            var values = new PyObject[items.Count];
+            for (int i = 0; i < values.Length; i++)
+                values[i] = ((ConstantExpression)_fold.Fold(items[i])).Value;
+            return values;
+        }
+
+        // is_import_originated: a name the global scope imported.
+        private bool IsImportOriginated(Expression e)
+        {
+            if (e is not NameExpression name || _currentSymbolTable == null)
+                return false;
+            var top = _currentSymbolTable;
+            while (top.GetParent() != null)
+                top = top.GetParent();
+            var symbol = top.Lookup(name.Name);
+            return symbol != null && (symbol.Flags & SymbolFlags.Imported) != 0;
+        }
+
+        private void EmitJump(ByteCodeOp op, SharpPy.Label target)
+        {
+            _instructionSequence.AddOpWithLabel(op, target, _currentLineNumber, _currentColumnOffset, _currentFileName);
+        }
+
+        private void EmitJumpNoLocation(SharpPy.Label target)
+        {
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, target, -1, _currentColumnOffset, _currentFileName);
+        }
+
+        // CPython 3.12 compile.c compiler_jump_if
+        private void CompileJumpIf(Expression e, SharpPy.Label next, bool cond)
+        {
+            e = _fold.Fold(e);
+            switch (e)
             {
-                CompileExpression(sliceExp.Step);
-                // BUILD_SLICE 3 (start, stop, step)
-                EmitInstruction(ByteCodeOp.BUILD_SLICE, 3);
+                case UnaryOpExpression { OpNode: Not } notOp:
+                    CompileJumpIf(notOp.Operand, next, !cond);
+                    return;
+
+                case BoolOpExpression boolOp:
+                {
+                    int n = boolOp.Values.Count - 1;
+                    bool cond2 = boolOp.OpNode is Or;
+                    var next2 = next;
+                    bool ownLabel = cond2 != cond;
+                    if (ownLabel)
+                        next2 = _instructionSequence.NewLabel();
+                    for (int i = 0; i < n; i++)
+                        CompileJumpIf(boolOp.Values[i], next2, cond2);
+                    CompileJumpIf(boolOp.Values[n], next, cond);
+                    if (ownLabel)
+                        _instructionSequence.UseLabel(next2);
+                    return;
+                }
+
+                case ConditionalExpression ifExp:
+                {
+                    var end = _instructionSequence.NewLabel();
+                    var next2 = _instructionSequence.NewLabel();
+                    CompileJumpIf(ifExp.Test, next2, false);
+                    CompileJumpIf(ifExp.Body, next, cond);
+                    EmitJumpNoLocation(end);
+                    _instructionSequence.UseLabel(next2);
+                    CompileJumpIf(ifExp.OrElse, next, cond);
+                    _instructionSequence.UseLabel(end);
+                    return;
+                }
+
+                case CompareExpression compare when compare.Ops.Count > 1:
+                {
+                    int n = compare.Ops.Count - 1;
+                    CheckCompare(compare);
+                    var cleanup = _instructionSequence.NewLabel();
+                    CompileExpression(compare.Left);
+                    for (int i = 0; i < n; i++)
+                    {
+                        CompileExpression(compare.Comparators[i]);
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                        EmitInstruction(ByteCodeOp.COPY, 2);
+                        EmitCompareOp(compare.Ops[i]);
+                        EmitJump(ByteCodeOp.POP_JUMP_IF_FALSE, cleanup);
+                    }
+                    CompileExpression(compare.Comparators[n]);
+                    EmitCompareOp(compare.Ops[n]);
+                    EmitJump(cond ? ByteCodeOp.POP_JUMP_IF_TRUE : ByteCodeOp.POP_JUMP_IF_FALSE, next);
+                    var end = _instructionSequence.NewLabel();
+                    EmitJumpNoLocation(end);
+                    _instructionSequence.UseLabel(cleanup);
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    if (!cond)
+                        EmitJumpNoLocation(next);
+                    _instructionSequence.UseLabel(end);
+                    return;
+                }
             }
-            else
+
+            CompileExpression(e);
+            EmitJump(cond ? ByteCodeOp.POP_JUMP_IF_TRUE : ByteCodeOp.POP_JUMP_IF_FALSE, next);
+        }
+
+        // CPython 3.12 compile.c starunpack_helper
+        private void StarunpackHelper(List<Expression> elts, int pushed, ByteCodeOp build, ByteCodeOp add, ByteCodeOp extend, bool tuple)
+        {
+            int n = elts.Count;
+            if (n > 2 && AreAllItemsConst(elts))
             {
-                // BUILD_SLICE 2 (start, stop)
-                EmitInstruction(ByteCodeOp.BUILD_SLICE, 2);
+                var folded = ConstantValues(elts);
+                if (tuple && pushed == 0)
+                {
+                    EmitLoadConst(new PyTuple(folded));
+                }
+                else
+                {
+                    EmitInstruction(build, pushed);
+                    if (add == ByteCodeOp.SET_ADD)
+                        EmitLoadConst(new PyFrozenSet(folded));
+                    else
+                        EmitLoadConst(new PyTuple(folded));
+                    EmitInstruction(extend, 1);
+                    if (tuple)
+                        EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
+                }
+                return;
             }
+
+            bool big = n + pushed > StackUseGuideline;
+            bool seenStar = false;
+            foreach (var elt in elts)
+            {
+                if (elt is StarredExpression)
+                {
+                    seenStar = true;
+                    break;
+                }
+            }
+            if (!seenStar && !big)
+            {
+                foreach (var elt in elts)
+                    CompileExpression(elt);
+                EmitInstruction(tuple ? ByteCodeOp.BUILD_TUPLE : build, n + pushed);
+                return;
+            }
+            bool sequenceBuilt = false;
+            if (big)
+            {
+                EmitInstruction(build, pushed);
+                sequenceBuilt = true;
+            }
+            for (int i = 0; i < n; i++)
+            {
+                if (elts[i] is StarredExpression starred)
+                {
+                    if (!sequenceBuilt)
+                    {
+                        EmitInstruction(build, i + pushed);
+                        sequenceBuilt = true;
+                    }
+                    CompileExpression(starred.Value);
+                    EmitInstruction(extend, 1);
+                }
+                else
+                {
+                    CompileExpression(elts[i]);
+                    if (sequenceBuilt)
+                        EmitInstruction(add, 1);
+                }
+            }
+            if (tuple)
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
+        }
+
+        // CPython 3.12 compile.c compiler_subdict
+        private void CompileSubdict(DictExpression dict, int begin, int end)
+        {
+            int n = end - begin;
+            bool big = n * 2 > StackUseGuideline;
+            bool allKeysConst = true;
+            for (int i = begin; i < end; i++)
+                allKeysConst &= _fold.Fold(dict.Items[i].Key) is ConstantExpression;
+            if (n > 1 && !big && allKeysConst)
+            {
+                var keys = new PyObject[n];
+                for (int i = begin; i < end; i++)
+                {
+                    CompileExpression(dict.Items[i].Value);
+                    keys[i - begin] = ((ConstantExpression)_fold.Fold(dict.Items[i].Key)).Value;
+                }
+                EmitLoadConst(new PyTuple(keys));
+                EmitInstruction(ByteCodeOp.BUILD_CONST_KEY_MAP, n);
+                return;
+            }
+            if (big)
+                EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+            for (int i = begin; i < end; i++)
+            {
+                CompileExpression(dict.Items[i].Key);
+                CompileExpression(dict.Items[i].Value);
+                if (big)
+                    EmitInstruction(ByteCodeOp.MAP_ADD, 1);
+            }
+            if (!big)
+                EmitInstruction(ByteCodeOp.BUILD_MAP, n);
+        }
+
+        // CPython 3.12 compile.c compiler_dict
+        private void CompileDict(DictExpression dict)
+        {
+            int n = dict.Items.Count;
+            bool haveDict = false;
+            int elements = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (dict.Items[i].Key == null)
+                {
+                    if (elements > 0)
+                    {
+                        CompileSubdict(dict, i - elements, i);
+                        if (haveDict)
+                            EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                        haveDict = true;
+                        elements = 0;
+                    }
+                    if (!haveDict)
+                    {
+                        EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+                        haveDict = true;
+                    }
+                    CompileExpression(dict.Items[i].Value);
+                    EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                }
+                else if (elements * 2 > StackUseGuideline)
+                {
+                    CompileSubdict(dict, i - elements, i + 1);
+                    if (haveDict)
+                        EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                    haveDict = true;
+                    elements = 0;
+                }
+                else
+                {
+                    elements++;
+                }
+            }
+            if (elements > 0)
+            {
+                CompileSubdict(dict, n - elements, n);
+                if (haveDict)
+                    EmitInstruction(ByteCodeOp.DICT_UPDATE, 1);
+                haveDict = true;
+            }
+            if (!haveDict)
+                EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
         }
 
         /// <summary>
@@ -11856,17 +11360,6 @@ namespace SharpPy
         /// 참조: PEP 659 (Specializing Adaptive Interpreter)
         /// </summary>
         
-        /// <summary>
-        /// CPython 3.12 호환: 최적화 레벨 결정 (항상 활성화)
-        /// </summary>
-        private OptimizationLevel GetOptimizationLevel()
-        {
-            // CPython 3.12 호환: Basic 레벨 (ast_opt.c 호환)
-            // Standard/TypeAware/Aggressive는 SharpPy 확장 기능
-            // 환경변수나 설정에 따라 레벨 조정 가능
-            return OptimizationLevel.Basic;
-        }
-
         /// <summary>
         /// CPython 3.12 호환: 간단한 상수 매칭인지 확인
         /// </summary>

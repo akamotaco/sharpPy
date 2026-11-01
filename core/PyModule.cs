@@ -379,7 +379,7 @@ public class PyModule : PyObject
         private static Dictionary<string, Func<PyModule>> _builtinModules = new Dictionary<string, Func<PyModule>>
         {
             // CPython 3.12 Built-in 모듈
-            ["builtins"] = () => SharpPy.Modules.BuiltinsModule.CreateBuiltinsModule(),
+            ["builtins"] = () => PyBuiltinsModule.Instance,
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_operator"] = () => SharpPy.Modules._OperatorModule.CreateOperatorModule(),  // operator.py가 사용

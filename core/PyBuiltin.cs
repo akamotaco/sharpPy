@@ -1299,7 +1299,7 @@ namespace SharpPy
             if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
-                var builtinsModule = BuiltinsModule.CreateBuiltinsModule();
+                var builtinsModule = PyBuiltinsModule.Instance;
                 globals.SetItem(builtinsKey, builtinsModule);  // Use SetItem to update _keys
             }
 
@@ -1520,7 +1520,7 @@ namespace SharpPy
             if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
-                var builtinsModule = BuiltinsModule.CreateBuiltinsModule();
+                var builtinsModule = PyBuiltinsModule.Instance;
                 globals.SetItem(builtinsKey, builtinsModule);  // Use SetItem to update _keys
             }
 

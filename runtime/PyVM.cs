@@ -6151,6 +6151,22 @@ namespace SharpPy
                 // CPython 3.12: YIELD_FROM removed
 
                 // CPython 3.12 슬라이싱 연산 지원
+                case ByteCodeOp.LOAD_BUILD_CLASS:
+                    // bytecodes.c: looked up in the builtins alone, a global of that name does not count.
+                    frame.ValueStack.Push(frame.ScopeChain.BuiltinModule.GetBuiltin("__build_class__")
+                        ?? throw PyNameError.Create("__build_class__ not found"));
+                    break;
+
+                case ByteCodeOp.SET_UPDATE:
+                {
+                    // bytecodes.c: _PySet_Update(PEEK(oparg), iterable)
+                    var setSource = frame.ValueStack.Pop();
+                    var setTarget = (PySet)frame.ValueStack.PeekAt(argument - 1);
+                    foreach (var updateItem in PySet.IterableItems(setSource))
+                        setTarget.Add(updateItem);
+                    break;
+                }
+
                 case ByteCodeOp.BINARY_SLICE:
                     // Stack: TOS = stop, TOS1 = start, TOS2 = container
                     // Result: container[start:stop]
@@ -6254,7 +6270,7 @@ namespace SharpPy
             _ => "__" + operation.ToString().Replace("INPLACE_", "i").ToLowerInvariant() + "__",
         };
 
-        private PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
+        internal PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
         {
                 // CPython 3.12: BINARY_OP is for bitwise operations only
                 // Logical 'and'/'or' use BoolOp in AST and POP_JUMP_IF_TRUE/FALSE in bytecode (short-circuit)

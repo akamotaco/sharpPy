@@ -685,7 +685,7 @@ namespace SharpPy
                                 bindName = bindName.Substring(0, dotIndex);
                             }
                         }
-                        _currentTable?.DefineSymbol(bindName, SymbolFlags.Assigned);
+                        _currentTable?.DefineSymbol(bindName, SymbolFlags.Assigned | SymbolFlags.Imported);
                         #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"  ImportStatement: Registered '{bindName}' as global symbol");
                         #endif
@@ -698,7 +698,7 @@ namespace SharpPy
                     {
                         // Use alias name if available, otherwise use the actual name
                         string symbolName = importAlias.AsName ?? importAlias.Name;
-                        _currentTable?.DefineSymbol(symbolName, SymbolFlags.Assigned);
+                        _currentTable?.DefineSymbol(symbolName, SymbolFlags.Assigned | SymbolFlags.Imported);
                         #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"  ImportFromStatement: Registered '{symbolName}' as global symbol");
                         #endif
