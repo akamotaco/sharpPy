@@ -203,6 +203,13 @@ public class PyModule : PyObject
     }
 
     
+    // module_setattro with NULL: the name goes from the module's dict.
+    public override void DelAttribute(string name)
+    {
+        if (!ModuleDict.Remove(name))
+            base.DelAttribute(name);
+    }
+
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용
     public void Execute(string sourceCode)
     {

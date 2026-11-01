@@ -393,9 +393,10 @@ namespace SharpPy
             ix += len - 1;
         }
 
-        private static bool Swappable(ByteCodeOp op) => op == ByteCodeOp.STORE_FAST || op == ByteCodeOp.POP_TOP;
+        private static bool Swappable(ByteCodeOp op) => op == ByteCodeOp.STORE_FAST || op == ByteCodeOp.STORE_FAST_MAYBE_NULL || op == ByteCodeOp.POP_TOP;
 
-        private static int StoresTo(ByteCodeInstruction i) => i.OpCode == ByteCodeOp.STORE_FAST ? i.Argument : -1;
+        private static int StoresTo(ByteCodeInstruction i) =>
+            i.OpCode == ByteCodeOp.STORE_FAST || i.OpCode == ByteCodeOp.STORE_FAST_MAYBE_NULL ? i.Argument : -1;
 
         private static int NextSwappableInstruction(BasicBlock block, int i, int lineno)
         {
@@ -643,6 +644,7 @@ namespace SharpPy
                 {
                     case ByteCodeOp.DELETE_FAST:
                     case ByteCodeOp.LOAD_FAST_AND_CLEAR:
+                    case ByteCodeOp.STORE_FAST_MAYBE_NULL:
                         unsafeMask |= bit;
                         break;
                     case ByteCodeOp.STORE_FAST:
@@ -680,6 +682,7 @@ namespace SharpPy
                     {
                         case ByteCodeOp.DELETE_FAST:
                         case ByteCodeOp.LOAD_FAST_AND_CLEAR:
+                        case ByteCodeOp.STORE_FAST_MAYBE_NULL:
                             states[arg - 64] = blocknum - 1;
                             break;
                         case ByteCodeOp.STORE_FAST:
@@ -849,8 +852,12 @@ namespace SharpPy
             {
                 var code = b.Instructions;
                 for (int i = 0; i < code.Count; i++)
+                {
                     if (IsBlockPush(code[i].OpCode) || code[i].OpCode == ByteCodeOp.POP_BLOCK)
                         code[i] = SetOp(code[i], ByteCodeOp.NOP);
+                    else if (code[i].OpCode == ByteCodeOp.STORE_FAST_MAYBE_NULL)
+                        code[i] = SetOp(code[i], ByteCodeOp.STORE_FAST, code[i].Argument);
+                }
             }
             for (var b = Entry; b != null; b = b.Next)
                 RemoveRedundantNops(b);

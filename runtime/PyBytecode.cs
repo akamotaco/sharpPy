@@ -225,6 +225,9 @@ namespace SharpPy
         CALL_INTRINSIC_2 = 174,
         LOAD_FROM_DICT_OR_GLOBALS = 175,
         LOAD_FROM_DICT_OR_DEREF = 176,
+
+        // Pseudo opcode: becomes STORE_FAST in ConvertPseudoOps.
+        STORE_FAST_MAYBE_NULL = 268,
         
         // 177-236: Reserved (CPython uses these for specialized/instrumented opcodes)
         

@@ -6535,7 +6535,7 @@ namespace SharpPy
             _instructionSequence.InsertAt(0, new Instruction(
                 ByteCodeOp.SETUP_CLEANUP,
                 handlerLabel,
-                _currentLineNumber,
+                -1,
                 _currentColumnOffset,
                 _currentFileName
             ));
@@ -9507,6 +9507,11 @@ namespace SharpPy
                 #endif
                 EmitInstruction(ByteCodeOp.SWAP, swapArg); // 스택 재배치
             }
+            var inlinedCleanup = _instructionSequence.NewLabel();
+            var inlinedEnd = _instructionSequence.NewLabel();
+            if (allVars.Count > 0)
+                EmitJump(ByteCodeOp.SETUP_FINALLY, inlinedCleanup);
+
 
             // 4. BUILD_LIST 생성
             EmitInstruction(ByteCodeOp.BUILD_LIST, 0); // [] 빈 리스트 생성
@@ -9538,24 +9543,7 @@ namespace SharpPy
 
             // CPython 3.12 PEP 709: 정상 종료 시 컴프리헨션 변수 복원
             // CPython 패턴: 한 번의 SWAP으로 모든 변수를 재배치한 후 순차적으로 저장
-            if (allVars.Count > 0)
-            {
-                // SWAP으로 스택 재배치: allVars.Count + 1
-                EmitInstruction(ByteCodeOp.SWAP, allVars.Count + 1);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔄 CPython 3.12 스택 재배치: SWAP {allVars.Count + 1}");
-                #endif
-
-                // 역순으로 변수 저장 (CPython 3.12 패턴: 마지막 변수부터)
-                for (int i = allVars.Count - 1; i >= 0; i--)
-                {
-                    var varName = allVars[i];
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔄 변수 복원: {varName} (STORE_FAST {GetOrAddVarName(varName)})");
-                    #endif
-                }
-            }
+            PopInlinedComprehensionState(allVars, inlinedCleanup, inlinedEnd);
 
             // CPython 3.12 PEP 709: pop_inlined_comprehension_state pattern
             // Walrus 변수의 scope를 원래대로 복원
@@ -10068,6 +10056,11 @@ namespace SharpPy
                 int swapArg = firstGeneratorOptimized ? allVars.Count : allVars.Count + 1;
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
             }
+            var inlinedCleanup = _instructionSequence.NewLabel();
+            var inlinedEnd = _instructionSequence.NewLabel();
+            if (allVars.Count > 0)
+                EmitJump(ByteCodeOp.SETUP_FINALLY, inlinedCleanup);
+
 
             // 4. BUILD_MAP 생성 (Dict comprehension의 핵심 차이점!)
             EmitInstruction(ByteCodeOp.BUILD_MAP, 0); // {} 빈 딕셔너리 생성
@@ -10091,16 +10084,7 @@ namespace SharpPy
             );
 
             // 7. 변수 복원 (CPython 3.12 패턴)
-            if (allVars.Count > 0)
-            {
-                EmitInstruction(ByteCodeOp.SWAP, allVars.Count + 1);
-
-                for (int i = allVars.Count - 1; i >= 0; i--)
-                {
-                    var varName = allVars[i];
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
-                }
-            }
+            PopInlinedComprehensionState(allVars, inlinedCleanup, inlinedEnd);
 
             // 8. Walrus 변수의 scope를 원래대로 복원 (CPython 3.12 pop pattern)
             if (_symbolTable != null && savedSymbolScopes.Count > 0)
@@ -10364,6 +10348,11 @@ namespace SharpPy
                 #endif
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
             }
+            var inlinedCleanup = _instructionSequence.NewLabel();
+            var inlinedEnd = _instructionSequence.NewLabel();
+            if (allVars.Count > 0)
+                EmitJump(ByteCodeOp.SETUP_FINALLY, inlinedCleanup);
+
 
             // 1. 빈 셋 생성
             EmitInstruction(ByteCodeOp.BUILD_SET, 0);
@@ -10396,14 +10385,7 @@ namespace SharpPy
             );
 
             // CPython 3.12: 스택 복원
-            if (allVars.Count > 0)
-            {
-                EmitInstruction(ByteCodeOp.SWAP, allVars.Count + 1);
-                for (int i = allVars.Count - 1; i >= 0; i--)
-                {
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(allVars[i]));
-                }
-            }
+            PopInlinedComprehensionState(allVars, inlinedCleanup, inlinedEnd);
 
             // Walrus 변수의 scope를 원래대로 복원 (CPython 3.12 pop pattern)
             if (activeSymbolTable != null && savedSymbolScopes.Count > 0)
@@ -11101,6 +11083,34 @@ namespace SharpPy
                 top = top.GetParent();
             var symbol = top.Lookup(name.Name);
             return symbol != null && (symbol.Flags & SymbolFlags.Imported) != 0;
+        }
+
+        // pop_inlined_comprehension_state: the exception path restores what the normal path restores.
+        private void PopInlinedComprehensionState(List<string> pushedLocals, SharpPy.Label cleanup, SharpPy.Label end)
+        {
+            if (pushedLocals.Count == 0)
+                return;
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, -1);
+            EmitJumpNoLocation(end);
+
+            // cleanup from an exception inside the comprehension
+            _instructionSequence.UseLabel(cleanup);
+            // discard incomplete comprehension result (beneath exc on stack)
+            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, -1);
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, -1);
+            RestoreInlinedComprehensionLocals(pushedLocals);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, -1);
+
+            _instructionSequence.UseLabel(end);
+            RestoreInlinedComprehensionLocals(pushedLocals);
+        }
+
+        private void RestoreInlinedComprehensionLocals(List<string> pushedLocals)
+        {
+            // Preserve the comprehension result (or exception) as TOS.
+            EmitInstruction(ByteCodeOp.SWAP, pushedLocals.Count + 1);
+            for (int i = pushedLocals.Count - 1; i >= 0; i--)
+                EmitInstruction(ByteCodeOp.STORE_FAST_MAYBE_NULL, GetOrAddVarName(pushedLocals[i]));
         }
 
         private void EmitJump(ByteCodeOp op, SharpPy.Label target)

@@ -90,7 +90,7 @@ namespace SharpPy
                 ByteCodeOp.PUSH_EXC_INFO or ByteCodeOp.WITH_EXCEPT_START or ByteCodeOp.BEFORE_WITH or
                 ByteCodeOp.BEFORE_ASYNC_WITH or ByteCodeOp.GET_ANEXT or ByteCodeOp.GET_LEN or
                 ByteCodeOp.MATCH_MAPPING or ByteCodeOp.MATCH_SEQUENCE or ByteCodeOp.MATCH_KEYS => 1,
-            ByteCodeOp.POP_TOP or ByteCodeOp.POP_EXCEPT or ByteCodeOp.STORE_NAME or ByteCodeOp.STORE_FAST or
+            ByteCodeOp.STORE_FAST_MAYBE_NULL or ByteCodeOp.POP_TOP or ByteCodeOp.POP_EXCEPT or ByteCodeOp.STORE_NAME or ByteCodeOp.STORE_FAST or
                 ByteCodeOp.STORE_GLOBAL or ByteCodeOp.STORE_DEREF or ByteCodeOp.DELETE_ATTR or
                 ByteCodeOp.BINARY_OP or ByteCodeOp.BINARY_SUBSCR or ByteCodeOp.COMPARE_OP or ByteCodeOp.IS_OP or
                 ByteCodeOp.CONTAINS_OP or ByteCodeOp.IMPORT_NAME or ByteCodeOp.LIST_APPEND or ByteCodeOp.SET_ADD or

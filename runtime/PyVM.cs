@@ -4376,21 +4376,13 @@ namespace SharpPy
                         // Pop prev_exc from stack (pushed by PUSH_EXC_INFO) for stack shape.
                         var prevExcValue = frame.ValueStack.Pop();
 
-                        // RESTORE the being-handled exception from the scope stack. This is
-                        // authoritative (matches CPython: POP_EXCEPT leaves exc_info pointing
-                        // at the enclosing handler's exception, or none). The value-stack
-                        // prev_exc is redundant with the scope top; keep scope in sync.
-                        if (frame.HasHandledScopes)
-                        {
-                            // Drop the scope this handler just completed (top == CurrentException).
-                            int top = frame.HandledScopes.Count - 1;
-                            if (frame.CurrentException == null ||
-                                ReferenceEquals(frame.HandledScopes[top].Exc, frame.CurrentException))
-                                frame.HandledScopes.RemoveAt(top);
-                        }
-                        frame.CurrentException = frame.HasHandledScopes
-                            ? frame.HandledScopes[frame.HandledScopes.Count - 1].Exc
-                            : null;
+                        // bytecodes.c POP_EXCEPT: exc_info takes the value PUSH_EXC_INFO saved.
+                        // A handler that ended without its own pop (except*) leaves scopes to drop.
+                        var restored = prevExcValue is PyNone ? null : (PyBaseException)PyExceptionSlots.ToTransport(prevExcValue);
+                        while (frame.HasHandledScopes &&
+                               !ReferenceEquals(frame.HandledScopes[frame.HandledScopes.Count - 1].Exc, restored))
+                            frame.HandledScopes.RemoveAt(frame.HandledScopes.Count - 1);
+                        frame.CurrentException = restored;
 
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 POP_EXCEPT: Popped prev_exc={prevExcValue}; CurrentException={frame.CurrentException}");
@@ -5151,22 +5143,7 @@ namespace SharpPy
                         }
                     }
 
-                    // CPython 3.12: If oparg > 0, pop additional values from stack (but don't use them)
-                    // These are typically lasti values used for traceback reconstruction
-                    if (reraiseArg > 0)
-                    {
-                        for (int i = 0; i < reraiseArg; i++)
-                        {
-                            if (frame.ValueStack.Count > 0)
-                            {
-                                var additionalValue = frame.ValueStack.Pop();
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 RERAISE: Popped additional value[{i}]: {additionalValue}");
-                                #endif
-                            }
-                        }
-                    }
-
+                    // bytecodes.c RERAISE (values[oparg], exc -- values[oparg]): the values stay.
                     // Reraise the exception
                     if (exceptionToReraise != null)
                     {
