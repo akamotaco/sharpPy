@@ -2224,3 +2224,14 @@ CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 �
 - PEP 695의 스코프는 한 번 호출되는 함수로 만들었다. 클래스 안의 `def m[T](self, a=X, b: Y)`는 `X`, `Y`가 클래스 이름이면 찾지 못한다. CPython은 `__classdict__`로 찾는다(`can_see_class_scope`).
 - `type X[T] = ...`는 이 경로를 쓰지 않고 지연 평가도 하지 않는다. `TypeAliasType`이 아니다.
 - `run_in_executor`는 스레드 없이 루프에서 실행한다. asyncio에 소켓, 파이프, 서브프로세스는 없다.
+
+## P0-84 CPython 언어 테스트로 찾은 남은 차이 (측정 2026-11-01, 미해결)
+
+`tools/run_cpython_tests.py` 기준 1762/2597. CPython 3.12.15 Lib/test를 양쪽에서 같은 지원 스텁으로 실행한 값이다.
+
+- 잘못된 이스케이프의 SyntaxWarning이 나오지 않는다(`"\d"`, `"\777"`, 경로: `string_parser.c` `warn_invalid_escape_sequence`). `b"é"`도 SyntaxError가 아니다.
+- `_ast` 모듈이 없어 test_builtin, test_fstring을 불러오지 못한다.
+- `bytes.find`가 최악 입력에서 이차 시간이다. `stringlib` two-way를 옮기기 전까지 드라이버가 `test_adaptive_find`를 양쪽에서 건너뛴다.
+- test_abc가 `test_abstractstaticmethod_basics`에서 프로세스째 끝난다.
+- `tempfile`이 `Lib`에 없다. 모듈 실행 예외를 ImportError로 감싸던 경로를 없애면서 드러났다.
+- 네이티브 재귀 한계는 `TryEnsureSufficientExecutionStack`로 판단한다. CPython의 C 재귀 깊이 계산과 예외가 나는 깊이가 다르다.
