@@ -602,6 +602,7 @@ namespace SharpPy
 
         public virtual void DelAttribute(string name)
         {
+            if (this is IDictBackedInstance owner && PyGlobalsDict.Delete(owner.InstanceDict, name)) return;
             PyDelAttribute(name);
         }
 
@@ -609,6 +610,10 @@ namespace SharpPy
         protected virtual PyObject PyGetAttribute(string name)
         {
             // CPython 3.12 호환: GenericGetAttribute 사용
+            // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
+            if (name == "__dict__" && this is IDictBackedInstance owner &&
+                GetPyType() is PyClass { } heapClass && heapClass.InstancesHaveDict())
+                return PyGlobalsDict.For(owner.InstanceDict);
             return GenericGetAttribute(name);
         }
 

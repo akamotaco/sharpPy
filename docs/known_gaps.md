@@ -2203,10 +2203,8 @@ P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만
 
 CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 이름의 범위를 임시로 바꾸고, 셀이면 `MAKE_CELL`로 새 셀을 만든다. SharpPy의 `EmitStoreComprehensionVar`는 프레임의 `_cellVars`에 이름이 있는지만 본다.
 
-- 같은 함수에서 `[x for x in a]`와 `[lambda: x for x in b]`를 함께 쓰면 앞쪽이 `UnboundLocalError`로 끝난다.
-- `q = "keep"; [(lambda: q) for q, *y in [(1, 2)]]` 뒤에 바깥 `q`가 `1`로 바뀐다. CPython은 `"keep"`을 유지한다.
-
-이전 커밋(7f68378) 빌드에서도 앞의 사례가 재현됨을 확인했다. 해결 경로는 컴프리헨션 자신의 심볼 테이블로 범위를 정하고 `LOAD_FAST_AND_CLEAR` 뒤에 `MAKE_CELL`을 내는 것이다.
+- 해결: 같은 함수에서 `[x for x in a]`와 `[lambda: x for x in b]`를 함께 쓰면 앞쪽이 `UnboundLocalError`로 끝나던 문제. 이름의 범위를 그 이름을 묶는 가장 가까운 인라인 컴프리헨션이 정한다(`IsInlinedLocal`).
+- 미해결: `q = "keep"; [(lambda: q) for q, *y in [(1, 2)]]` 뒤에 바깥 `q`가 `1`로 바뀐다. CPython은 `"keep"`을 유지한다. 셀이 `LocalsPlus` 밖의 `Cells`에 있어 `LOAD_FAST_AND_CLEAR`가 셀을 저장하지 못한다. 해결 경로는 이 경우 셀 객체를 저장하고 새 셀을 만든 뒤 복원하는 것이다.
 
 ## P0-82 예외 필드의 남은 경로 (측정 2026-11-01, 미해결)
 

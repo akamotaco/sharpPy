@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace SharpPy
 {
     /// <summary>
@@ -16,7 +18,37 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.GenericAliasType;
-        
+
+        private PyTuple ArgTuple => Args as PyTuple ?? new PyTuple(new[] { Args });
+
+        // ga_getattro (Objects/genericaliasobject.c): its own members, and the origin's attributes otherwise.
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "__origin__": return Origin;
+                case "__args__": return ArgTuple;
+                case "__parameters__": return new PyTuple(ArgTuple.Items.Where(IsTypeVar).ToArray());
+                case "__unpacked__": return PyBool.False;
+                case "__mro_entries__":
+                    return new PyBuiltinFunction("__mro_entries__", _ => new PyTuple(new PyObject[] { Origin }));
+                case "__class__": return PyType.GenericAliasType;
+                case "__reduce__":
+                    return new PyBuiltinFunction("__reduce__", _ => new PyTuple(new PyObject[]
+                        { PyType.GenericAliasType, new PyTuple(new[] { Origin, Args }) }));
+            }
+            return name.StartsWith("__") && name.EndsWith("__") ? base.GetAttribute(name) : Origin.GetAttribute(name);
+        }
+
+        private static bool IsTypeVar(PyObject value) => value.GetPyType().Name == "TypeVar";
+
+        // ga_call: the origin builds the instance.
+        public override PyObject Call(PyObject[] args, PyDict kwargs) => Origin.Call(args, kwargs);
+
+        public override int ToHash() => HashCode.Combine(Origin.ToHash(), ArgTuple.ToHash());
+
+        public override bool IsCallable() => true;
+
         /// <summary>
         /// String representation: list[int], tuple[str, int], etc.
         /// CPython 3.12: Objects/genericaliasobject.c:52-120 (ga_repr_item)
@@ -53,8 +85,9 @@ namespace SharpPy
                 return $"{typeArg.Module}.{typeArg.Name}";
             }
 
-            // For non-types (like literals), use str representation
-            return arg.ToStr().Value;
+            // ga_repr_item: an Ellipsis prints as written, anything else by repr.
+            if (arg is PyEllipsis) return "...";
+            return arg.ToRepr().Value;
         }
 
         public override PyString ToRepr()

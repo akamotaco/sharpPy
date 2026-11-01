@@ -4045,6 +4045,11 @@ namespace SharpPy
             {
                 return new PyUnionType(new PyObject[] { this, otherType });
             }
+            // _Py_union_type_or: None stands for type(None).
+            if (other is PyNone)
+            {
+                return new PyUnionType(new PyObject[] { this, PyNone.Instance.GetPyType() });
+            }
             else if (other is PyUnionType unionType)
             {
                 // Type | Union -> extend Union

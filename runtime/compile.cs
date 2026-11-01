@@ -4666,7 +4666,7 @@ namespace SharpPy
                             {
                                 // A parameter that a closure captured is in both lists, and only the
                                 // cell sees a reassignment, so the cell is asked first.
-                                var localIndex = _cellVars.Contains(name) ? -1 : _varNames.IndexOf(name);
+                                var localIndex = _cellVars.Contains(name) && !IsInlinedLocal(name) ? -1 : _varNames.IndexOf(name);
                                 if (localIndex >= 0)
                                 {
                                     #if DEBUG_COMPILER_LOG
@@ -11162,6 +11162,22 @@ namespace SharpPy
         /// 컴프리헨션 내부 변수는 격리된 스코프에서 관리
         /// Cell 변수일 때는 STORE_DEREF 사용
         /// </summary>
+        /// <summary>
+        /// push_inlined_comprehension_state: the nearest inlined comprehension that binds a name decides its scope.
+        /// Another comprehension in this frame capturing the same name makes it a cell of the frame, not of this one.
+        /// </summary>
+        private bool IsInlinedLocal(string name)
+        {
+            if (!_isInComprehension) return false;
+            for (var table = _currentSymbolTable; table != null && table.ComprehensionType.IsInlined(); table = table.GetParent())
+            {
+                var symbol = table.Lookup(name);
+                if (symbol?.Scope == SymbolScope.Local) return true;
+                if (symbol?.Scope == SymbolScope.Cell) return false;
+            }
+            return false;
+        }
+
         private void EmitStoreComprehensionVar(string name, List<string> comprehensionVars)
         {
             // 컴프리헨션 변수 목록에 추가 (중복 제거)
@@ -11173,7 +11189,7 @@ namespace SharpPy
             // CPython 3.12: Cell 변수인지 확인하고 적절한 명령어 사용
             // CPython 3.12: Python/compile.c, Objects/codeobject.c
             // Cell vars use their original varnames index
-            if (IsCellVariable(name))
+            if (IsCellVariable(name) && !IsInlinedLocal(name))
             {
                 // Cell 변수일 때는 STORE_DEREF 사용 (varNames에서의 인덱스)
                 var varIndex = _varNames.IndexOf(name);
