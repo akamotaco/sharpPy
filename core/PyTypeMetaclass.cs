@@ -17,11 +17,6 @@ namespace SharpPy
     public class PyTypeMetaclass : PyClass
     {
         private static PyTypeMetaclass _instance;
-        private static PyBuiltinMethod _typeNewMethod;  // CPython 3.12: Store reference to type.__new__
-
-        // CPython 3.12: Track if we're already inside CreateNewClass to prevent infinite recursion
-        [ThreadStatic]
-        private static int _createNewClassDepth = 0;
 
         /// <summary>
         /// The global 'type' object - equivalent to CPython's type
@@ -35,23 +30,6 @@ namespace SharpPy
                     _instance = CreateTypeMetaclass();
                 }
                 return _instance;
-            }
-        }
-
-        /// <summary>
-        /// CPython 3.12: Get the builtin type.__new__ method for comparison
-        /// </summary>
-        private static PyBuiltinMethod TypeNewMethod
-        {
-            get
-            {
-                if (_typeNewMethod == null && _instance != null)
-                {
-                    // Get type.__new__ from the type metaclass
-                    var newAttr = _instance.ClassDict.GetValueOrDefault("__new__");
-                    _typeNewMethod = newAttr as PyBuiltinMethod;
-                }
-                return _typeNewMethod;
             }
         }
 
@@ -92,7 +70,8 @@ namespace SharpPy
             {
                 if (mroType is PyType pyType && pyType.TypeDict != null)
                 {
-                    if (pyType.TypeDict.TryGetValue(name, out var attr))
+                    PyObject attr = null;
+                    if ((pyType is PyClass cls && cls.ClassDict.TryGetValue(name, out attr)) || pyType.TypeDict.TryGetValue(name, out attr))
                     {
                         // Found attribute - check if it's a descriptor
                         if (attr is IDescriptor descriptor)
@@ -121,111 +100,11 @@ namespace SharpPy
             
             var classDict = new Dictionary<string, PyObject>();
 
-            // type.__init__(cls, name, bases, namespace) 
-            classDict["__init__"] = new PyBuiltinMethod("__init__", (self, args) => 
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 type.__init__ called with {args.Length} args");
-                #endif
-                
-                // type.__init__ doesn't need to do much - just exist for super() calls
-                // The real work is done in type.__new__
-                return PyNone.Instance;
-            }, 4); // self + 3 args
+            // type_new behind tp_new: type.__new__(metacls, name, bases, namespace, **kwargs)
+            classDict["__new__"] = new PyStaticBuiltinMethod("__new__", TypeNew);
 
-            // type.__prepare__(metacls, name, bases, **kwargs)
-            // CPython 3.12: Returns an empty dict by default, can be overridden in subclasses
-            // CPython reference: Python/bltinmodule.c:186 - passes mkw to __prepare__
-            classDict["__prepare__"] = new PyStaticBuiltinMethod("__prepare__", (args, kwargs) =>
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 type.__prepare__ called with {args.Length} args");
-                if (kwargs != null && kwargs.InternalDict.Count > 0)
-                {
-                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
-                }
-                #endif
-
-                if (args.Length >= 2)
-                {
-                    // args[0] = metaclass (cls)
-                    // args[1] = name
-                    // args[2] = bases (optional)
-                    // kwargs may contain additional parameters for custom __prepare__ methods
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → Returning empty dict for class namespace");
-                    #endif
-                    return new PyDict();
-                }
-                else
-                {
-                    throw PyTypeError.Create($"type.__prepare__() takes at least 2 arguments, got {args.Length}");
-                }
-            });
-
-            // type.__new__(cls, name, bases, namespace, **kwargs)
-            // CPython 3.12: tp_new behaves like staticmethod - cls is explicit first argument
-            // CPython reference: Objects/typeobject.c:3152-3525 (type_new)
-            classDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 type.__new__ (staticmethod) called with {args.Length} args");
-                if (kwargs != null && kwargs.InternalDict.Count > 0)
-                {
-                    Console.WriteLine($"   kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
-                }
-                #endif
-
-                if (args.Length == 4)
-                {
-                    // CPython 3.12: type.__new__(cls, name, bases, namespace, **kwargs)
-                    // args[0] = metaclass (cls)
-                    // args[1] = name
-                    // args[2] = bases
-                    // args[3] = namespace
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → CreateNewClass with metaclass={args[0]}");
-                    #endif
-                    // CRITICAL: Pass skipMetaclassCheck=true to prevent infinite recursion
-                    // When type.__new__ is called (e.g. from ABCMeta.__new__ via super().__new__()),
-                    // we should NOT check for custom metaclass __new__ methods again.
-                    // CPython avoids this because type_new is a C function that doesn't go through metaclass lookup.
-                    return CreateNewClass(args, skipMetaclassCheck: true, kwargs: kwargs);
-                }
-                else
-                {
-                    throw PyTypeError.Create($"type.__new__() takes exactly 4 arguments (metaclass, name, bases, dict), got {args.Length}");
-                }
-            });
-
-            // type.__call__(cls, *args, **kwargs) - class instantiation
-            classDict["__call__"] = new PyBuiltinMethod("__call__", (self, args) => 
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 type.__call__ called: instantiating {self}");
-                #endif
-                
-                if (self is PyClass pyClass)
-                {
-                    // This is class instantiation: MyClass() -> instance
-                    return pyClass.CreateInstance(args);
-                }
-                
-                throw PyTypeError.Create($"'{self}' object is not callable");
-            }, -1); // variable args
-
-            // type.__str__()
-            classDict["__str__"] = new PyBuiltinMethod("__str__", (self, args) => 
-            {
-                if (self is PyClass pyClass)
-                {
-                    return new PyString($"<class '{pyClass.Name}'>");
-                }
-                return new PyString($"<type '{self}'>"); 
-            }, 1);
-
-            // type.__repr__() - same as __str__ for type
-            classDict["__repr__"] = classDict["__str__"];
+            // type___prepare__: a classmethod that makes the namespace.
+            classDict["__prepare__"] = new PyClassmethod(new PyBuiltinFunction("__prepare__", (args, kwargs) => new PyDict()));
 
             // Add other essential type methods...
             classDict["mro"] = new PyBuiltinMethod("mro", (self, args) =>
@@ -269,6 +148,47 @@ namespace SharpPy
             // 1. Calls InitializeTypeTypeDescriptors() to add type_getsets to TypeDict
             // 2. Calls base.InitializeDescriptors() for PyClass-specific descriptors
             var typeClass = new PyTypeMetaclass("type", baseTypes, classDict);
+
+            // type_get_type_params: () for a class that has none in its dict.
+            typeClass.ClassDict["__type_params__"] = new PyGetSetDescriptor("__type_params__", typeClass,
+                self => self is PyClass cls && cls.ClassDict.TryGetValue("__type_params__", out var parameters) ? parameters : PyTuple.Empty,
+                (self, value) =>
+                {
+                    if (self is not PyClass cls) throw PyTypeError.Create($"cannot set '__type_params__' attribute of immutable type '{self}'");
+                    cls.ClassDict["__type_params__"] = value;
+                });
+
+            // type_init: everything is done by then, it only refuses a wrong call.
+            typeClass.ClassDict["__init__"] = new PyWrapperDescriptor("__init__", typeClass, (self, args, kwargs) =>
+            {
+                if (args.Length == 1 && kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("type.__init__() takes no keyword arguments");
+                if (args.Length != 1 && args.Length != 3)
+                    throw PyTypeError.Create("type.__init__() takes 1 or 3 arguments");
+                return PyNone.Instance;
+            });
+
+            // type_call behind tp_call.
+            typeClass.ClassDict["__call__"] = new PyWrapperDescriptor("__call__", typeClass, (self, args, kwargs) =>
+                self is PyClass cls ? cls.TypeCall(args, kwargs) : self.Call(args, kwargs));
+
+            // tp_flags as far as Python can see them: Py_TPFLAGS_HEAPTYPE, _BASETYPE, _IS_ABSTRACT.
+            typeClass.ClassDict["__flags__"] = new PyGetSetDescriptor("__flags__", typeClass, self =>
+            {
+                var type = (PyType)self;
+                long flags = type.HasFeature(PyTypeFlags.BaseType) ? 1L << 10 : 0;
+                if (type is PyClass cls && type is not PyTypeMetaclass)
+                {
+                    flags |= 1L << 9;
+                    if (cls.ClassDict.TryGetValue("__abstractmethods__", out var abstractMethods) && abstractMethods.IsTrue())
+                        flags |= 1L << 20;
+                }
+                return new PyInt(flags);
+            });
+
+            // type___subclasses___impl
+            typeClass.ClassDict["__subclasses__"] = new PyMethodDescriptor("__subclasses__", typeClass, (self, args, kwargs) =>
+                new PyList(((PyType)self).LiveSubclasses().ConvertAll(subclass => (PyObject)subclass)), minArgs: 0, maxArgs: 0);
 
             // Add type.__format__ - CPython 3.12 (defaults to __str__)
             // This descriptor is for type objects themselves
@@ -325,578 +245,275 @@ namespace SharpPy
             return typeClass;
         }
 
-        /// <summary>
-        /// CPython 3.12: Public wrapper for CalculateMetaclass
-        /// Called from __build_class__ to determine winner metaclass
-        /// </summary>
-        public static PyClass CallCalculateMetaclass(PyObject metatype, PyType[] bases)
+        /// <summary>_PyType_CalculateMetaclass (Objects/typeobject.c:3090).</summary>
+        internal static PyType CalculateMetaclass(PyType metatype, PyObject[] bases)
         {
-            return CalculateMetaclass(metatype as PyClass ?? Instance, bases);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Calculate the appropriate metaclass
-        /// Equivalent to CPython's _PyType_CalculateMetaclass
-        /// </summary>
-        private static PyClass CalculateMetaclass(PyClass metatype, PyType[] bases)
-        {
-            // Start with the provided metatype
-            PyClass winner = metatype;
-
-            // Check all bases to find the most derived metaclass
-            foreach (var baseType in bases)
+            var winner = metatype;
+            foreach (var item in bases)
             {
-                if (baseType is PyClass baseClass)
-                {
-                    PyClass baseMeta = baseClass.Metaclass as PyClass ?? Instance;
-
-                    // If baseMeta is more derived than winner, use it
-                    if (IsSubclass(baseMeta, winner))
-                    {
-                        winner = baseMeta;
-                    }
-                    else if (!IsSubclass(winner, baseMeta))
-                    {
-                        // Metaclass conflict
-                        throw PyTypeError.Create($"metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases");
-                    }
-                }
+                var baseMeta = item.GetPyType();
+                if (ReferenceEquals(winner, baseMeta) || winner.IsSubclassOf(baseMeta)) continue;
+                if (!baseMeta.IsSubclassOf(winner))
+                    throw PyTypeError.Create("metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases");
+                winner = baseMeta;
             }
-
             return winner;
         }
 
         /// <summary>
-        /// Check if derived is a subclass of base
+        /// type_new (Objects/typeobject.c:3700). Every class is made here, whatever called it:
+        /// __build_class__, type(...), a metaclass, or super().__new__ inside one.
         /// </summary>
-        private static bool IsSubclass(PyClass derived, PyClass baseClass)
+        internal static PyObject TypeNew(PyObject[] args, PyDict kwargs)
         {
-            if (derived == baseClass)
-                return true;
+            if (args.Length == 0 || args[0] is not PyClass metatype)
+                throw PyTypeError.Create("type.__new__(X): X is not a type object");
+            if (args.Length != 4)
+                throw PyTypeError.Create($"type.__new__() takes exactly 3 arguments ({args.Length - 1} given)");
+            if (args[1] is not PyString name)
+                throw PyTypeError.Create($"type.__new__() argument 1 must be str, not {args[1].GetTypeName()}");
+            if (args[2] is not PyTuple bases)
+                throw PyTypeError.Create($"type.__new__() argument 2 must be tuple, not {args[2].GetTypeName()}");
+            var ns = args[3] as PyDict;
+            if (ns == null && args[3] is PyClassInstance dictInstance && dictInstance.IsDictSubclass())
+                ns = dictInstance.GetDictStorage();
+            if (ns == null)
+                throw PyTypeError.Create($"type.__new__() argument 3 must be dict, not {args[3].GetTypeName()}");
+            if (name.Value.Contains('\0'))
+                throw PyValueError.Create("type name must not contain null characters");
 
-            foreach (var mroType in derived.MRO)
+            foreach (var item in bases.Items)
+                if (item is not PyType && item.LookupSpecialMethodUncached("__mro_entries__") != null)
+                    throw PyTypeError.Create("type() doesn't support MRO entry resolution; use types.new_class()");
+            if (CalculateMetaclass(metatype, bases.Items) is not PyClass winner)
+                throw PyTypeError.Create("metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases");
+            if (!ReferenceEquals(winner, metatype))
             {
-                if (mroType == baseClass)
-                    return true;
+                // A more derived metaclass with its own tp_new takes over.
+                var winnerNew = winner.LookupInMRO("__new__");
+                if (!ReferenceEquals(winnerNew, Instance.LookupInMRO("__new__")))
+                    return winnerNew.Call(new[] { winner, args[1], args[2], args[3] }, kwargs);
+                metatype = winner;
             }
 
-            return false;
-        }
+            var baseTypes = new PyType[bases.Items.Length == 0 ? 1 : bases.Items.Length];
+            baseTypes[0] = PyType.ObjectType;
+            for (int i = 0; i < bases.Items.Length; i++) baseTypes[i] = (PyType)bases.Items[i];
+            BestBase(baseTypes);
 
-        /// <summary>
-        /// CPython 3.12: Check if a __new__ method is type.__new__ (inherited, not overridden)
-        /// Equivalent to CPython's "winner->tp_new != type_new" check
-        /// </summary>
-        private static bool IsTypeNew(PyObject newMethod)
-        {
-            // CPython 3.12: Check for PyStaticBuiltinMethod (tp_new slot)
-            if (newMethod is PyStaticBuiltinMethod staticBuiltin)
+            var dict = new Dictionary<string, PyObject>();
+            foreach (var entry in ns.InternalDict)
+                if (entry.Key is PyString key)
+                    dict[key.Value] = entry.Value;
+            var slotNames = CheckSlots(dict, baseTypes);
+
+            // type_new_set_attrs
+            if (!dict.ContainsKey("__module__") && PyVM.CurrentFrame?.Globals.TryGetValue("__name__", out var module) == true)
+                dict["__module__"] = module;
+            if (!dict.ContainsKey("__doc__")) dict["__doc__"] = PyNone.Instance;
+            if (dict.TryGetValue("__new__", out var newEntry) && newEntry is PyFunction)
+                dict["__new__"] = new PyStaticmethod(newEntry);
+            foreach (var implicitClassmethod in new[] { "__init_subclass__", "__class_getitem__" })
+                if (dict.TryGetValue(implicitClassmethod, out var entry) && entry is PyFunction function)
+                    dict[implicitClassmethod] = new PyClassmethod(function);
+            PyObject classCell = null;
+            if (dict.Remove("__classcell__", out classCell) && classCell is not PyCell)
+                throw PyTypeError.Create($"__classcell__ must be a nonlocal cell, not {classCell.ToRepr().Value}");
+
+            var created = new PyClass(name.Value, baseTypes, dict) { Metaclass = metatype };
+            if (classCell is PyCell cell) cell.Value = created;
+            AddInstanceDescriptors(created, baseTypes, slotNames);
+
+            // mro_internal: a metaclass may answer another order.
+            var mroMethod = metatype.LookupInMRO("mro");
+            if (!ReferenceEquals(mroMethod, Instance.LookupInMRO("mro")))
             {
-                // Check if it's the same reference as type.__new__
-                var typeNew = _instance?.ClassDict.GetValueOrDefault("__new__");
-                if (typeNew != null && ReferenceEquals(staticBuiltin, typeNew))
-                {
-                    return true;
-                }
-
-                // Also check by name
-                if (staticBuiltin.Name == "__new__")
-                {
-                    return true;
-                }
-            }
-
-            // Legacy: If it's a PyBuiltinMethod, also check (for compatibility)
-            if (newMethod is PyBuiltinMethod builtinMethod)
-            {
-                if (TypeNewMethod != null && ReferenceEquals(builtinMethod, TypeNewMethod))
-                {
-                    return true;
-                }
-
-                if (builtinMethod.Name == "__new__")
-                {
-                    return TypeNewMethod != null && builtinMethod.Method == TypeNewMethod.Method;
-                }
-            }
-
-            // If it's a PyMethod (bound method), check the underlying function
-            if (newMethod is PyMethod pyMethod)
-            {
-                if (pyMethod.Function is PyBuiltinMethod || pyMethod.Function is PyStaticBuiltinMethod)
-                {
-                    return IsTypeNew(pyMethod.Function);
-                }
-            }
-
-            // Otherwise, it's a custom __new__ (overridden)
-            return false;
-        }
-
-        /// <summary>
-        /// Implementation of type.__new__ for creating new classes
-        /// </summary>
-        /// <param name="args">Array of [cls, name, bases, namespace]</param>
-        /// <param name="skipMetaclassCheck">CPython 3.12: Skip custom metaclass check (when called from super().__new__)</param>
-        /// <param name="kwargs">CPython 3.12: Keyword arguments to pass to metaclass.__new__</param>
-        private static PyObject CreateNewClass(PyObject[] args, bool skipMetaclassCheck = false, PyDict kwargs = null)
-        {
-            var cls = args[0];        // metaclass (should be type or subclass)
-            var name = args[1];       // class name
-            var bases = args[2];      // base classes tuple
-            var namespaceDict = args[3];  // class namespace dict
-
-            #if DEBUG_LOG
-            if (kwargs != null && kwargs.InternalDict.Count > 0)
-            {
-                Console.WriteLine($"🔍 CreateNewClass called with kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
-            }
-            #endif
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🏗️ type.__new__ creating class: {(name is PyString pyStr ? pyStr.Value : name.ToString())}");
-            Console.WriteLine($"   cls (metaclass): {cls.GetType().Name} / {cls}");
-            Console.WriteLine($"   bases: {bases}");
-            Console.WriteLine($"   namespaceDict: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
-            Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
-            #endif
-
-            // Convert arguments
-            if (!(name is PyString nameStr))
-                throw PyTypeError.Create("type.__new__() name must be string");
-                
-            if (!(bases is PyTuple basesTuple))
-                throw PyTypeError.Create("type.__new__() bases must be tuple");
-
-            // CPython 3.12: namespace can be dict or dict subclass (e.g., _EnumDict)
-            // Accept both PyDict and PyClassInstance (for dict subclasses like _EnumDict)
-            PyList dictItems;
-            if (namespaceDict is PyDict pyDict)
-            {
-                dictItems = pyDict.Items();
-            }
-            else if (namespaceDict is PyClassInstance classInstance)
-            {
-                // This is a dict subclass like _EnumDict - call items() method
+                var order = new List<PyType>();
+                var iterator = created.BindSpecialMethod(mroMethod).Call(new PyObject[0], null).GetIterator();
                 try
                 {
-                    var itemsMethod = classInstance.GetAttribute("items");
-                    if (itemsMethod != null && itemsMethod.IsCallable())
+                    while (true)
                     {
-                        var itemsResult = itemsMethod.Call(new PyObject[0], null);
-                        if (itemsResult is PyList)
-                        {
-                            dictItems = (PyList)itemsResult;
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create("type.__new__() namespace.items() must return list");
-                        }
-                    }
-                    else
-                    {
-                        throw PyTypeError.Create("type.__new__() namespace must be dict or dict-like with items() method");
+                        var next = iterator.Next();
+                        order.Add(next as PyType ?? throw PyTypeError.Create($"mro() returned a non-class ('{next.GetTypeName()}')"));
                     }
                 }
-                catch (PythonException)
-                {
-                    throw PyTypeError.Create("type.__new__() namespace must be dict or dict-like");
-                }
-            }
-            else
-            {
-                throw PyTypeError.Create("type.__new__() namespace must be dict");
+                catch (PythonException stop) when (stop.PyException is PyStopIteration) { }
+                created.SetMro(order);
             }
 
-            // Convert bases tuple to PyType array
-            // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
-            var baseTypes = new PyType[basesTuple.Items.Length];
-            for (int i = 0; i < basesTuple.Items.Length; i++)
+            // type_new_set_names, on a copy because __set_name__ may change the class.
+            foreach (var entry in new Dictionary<string, PyObject>(created.ClassDict))
             {
-                // A base that is not a type drags its own type in as the metaclass, and the winner
-                // must be a (non-strict) subclass of type - Objects/typeobject.c:3083. Measured in
-                // CPython 3.12.15, type("C", (b,), {}) raises exactly this conflict message for
-                // b = 5, an instance, len and None, because int / Inst /
-                // builtin_function_or_method / NoneType are not subclasses of type. The hard cast
-                // here used to leak a CLR InvalidCastException through Python's error machinery.
-                if (!(basesTuple.Items[i] is PyType baseType))
-                    throw PyTypeError.Create(
-                        "metaclass conflict: the metaclass of a derived class must be a (non-strict) " +
-                        "subclass of the metaclasses of all its bases");
-                baseTypes[i] = baseType;
-            }
-
-            // CPython 3.12: If bases is empty, add object as default base
-            // This is done in type.__new__, not in __build_class__
-            if (baseTypes.Length == 0)
-            {
-                baseTypes = new PyType[] { PyType.ObjectType };
-                #if DEBUG_LOG
-                Console.WriteLine($"   No bases provided, added object as default base");
-                #endif
-            }
-
-            // CPython 3.12: Calculate the winner metaclass
-            // This is equivalent to CPython's _PyType_CalculateMetaclass
-            // Objects/typeobject.c:3857-3859
-            PyClass winner = CalculateMetaclass(cls as PyClass ?? Instance, baseTypes);
-
-            // CPython 3.12: Check if we have a custom metaclass before converting namespace
-            // If we have a custom metaclass, we should pass the namespace as-is to its __new__
-            // IMPORTANT: Only detect custom metaclass on the FIRST call, not on recursive calls (skipMetaclassCheck=true)
-            // When metaclass.__new__ calls super().__new__, we're in a recursive call and should NOT treat it as custom
-            PyClass customMetaclass = null;
-            if (!skipMetaclassCheck && winner != null && winner != Instance)
-            {
-                customMetaclass = winner;
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Custom metaclass detected early: {customMetaclass.Name}");
-                Console.WriteLine($"   Will pass namespace dict as-is to metaclass.__new__");
-                #endif
-            }
-            else if (skipMetaclassCheck)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Recursive call (skipMetaclassCheck=true): will create classDict from namespace");
-                #endif
-            }
-
-            // Convert namespace dict to class dict (only if no custom metaclass)
-            Dictionary<string, PyObject> classDict = null;
-            if (customMetaclass == null)
-            {
-                classDict = new Dictionary<string, PyObject>();
-
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 type.__new__: namespace dict has {dictItems.Items.Length} items");
-                // Performance: Eliminated LINQ - manual loop with limit instead of Take
-                int logLimit = System.Math.Min(20, dictItems.Items.Length);
-                for (int i = 0; i < logLimit; i++)
-                {
-                    var item = dictItems.Items[i];
-                    if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyString keyStr)
-                    {
-                        Console.WriteLine($"   - {keyStr.Value}: {tuple.Items[1].GetTypeName()}");
-                    }
-                }
-                #endif
-
-                foreach (var item in dictItems.Items)
-                {
-                    if (item is PyTuple tuple && tuple.Items.Length == 2)
-                    {
-                        if (tuple.Items[0] is PyString keyStr)
-                        {
-                            // CPython 3.12: Objects/typeobject.c:3751 - values preserved as-is
-                            classDict[keyStr.Value] = tuple.Items[1];
-
-                        }
-                    }
-                }
-            }
-
-            // CPython 3.12: Check if we need to call custom metaclass.__new__
-            // This follows CPython's type_new_get_bases logic (typeobject.c:3864-3875)
-            // Key: if (winner->tp_new != type_new) - check if metaclass has custom __new__
-            // This applies whether winner == metatype OR winner != metatype
-            PyClass newClass;
-            PyClass metatype = cls as PyClass ?? Instance;
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Metaclass check: winner={winner?.Name}, metatype={metatype.Name}");
-            Console.WriteLine($"   winner != metatype: {winner != metatype}");
-            Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
-            #endif
-
-            // CPython 3.12: Special handling for metaclass creation (subclass of type)
-            // If we're creating a metaclass (base class is type or subclass of type),
-            // we must NOT call the __new__ from the namespace being created,
-            // because that would cause infinite recursion (ABCMeta.__new__ calling super().__new__ → CreateNewClass → ABCMeta.__new__ → ...)
-            bool creatingMetaclass = false;
-            #if DEBUG_MODULE_LOG
-            Console.WriteLine($"🔍 CreateNewClass: {nameStr.Value}, winner={winner?.GetPyType()?.Name ?? "null"}, bases={string.Join(", ", baseTypes.Select(b => b.GetPyType()?.Name ?? b.ToString()))}");
-            #endif
-
-            foreach (var baseType in baseTypes)
-            {
-                #if DEBUG_MODULE_LOG
-                Console.WriteLine($"  🔍 Checking base: {baseType.GetPyType()?.Name ?? baseType.ToString()}, Instance={baseType == Instance}, isMetaclass={baseType is PyTypeMetaclass}");
-                #endif
-
-                if (baseType == Instance || baseType is PyTypeMetaclass)
-                {
-                    creatingMetaclass = true;
-                    #if DEBUG_MODULE_LOG
-                    Console.WriteLine($"  ✅ Detected metaclass creation (base is type or PyTypeMetaclass)");
-                    #endif
-                    break;
-                }
-                // Check if baseType is a subclass of type by checking its MRO
-                if (baseType is PyClass baseClass)
-                {
-                    #if DEBUG_MODULE_LOG
-                    Console.WriteLine($"  🔍 Checking MRO for {baseClass.Name}...");
-                    #endif
-                    foreach (var mroType in baseClass.MRO)
-                    {
-                        #if DEBUG_MODULE_LOG
-                        Console.WriteLine($"    - MRO entry: {mroType.GetPyType()?.Name ?? mroType.ToString()}");
-                        #endif
-                        if (mroType == Instance || mroType is PyTypeMetaclass)
-                        {
-                            creatingMetaclass = true;
-                            #if DEBUG_MODULE_LOG
-                            Console.WriteLine($"    ✅ Found type in MRO - this is a metaclass");
-                            #endif
-                            break;
-                        }
-                    }
-                    if (creatingMetaclass) break;
-                }
-            }
-
-            if (creatingMetaclass)
-            {
-                #if DEBUG_MODULE_LOG
-                Console.WriteLine($"🔧 Creating metaclass '{nameStr.Value}' (subclass of type) - skipping custom __new__ check to prevent recursion");
-                #endif
-            }
-            else
-            {
-                #if DEBUG_MODULE_LOG
-                Console.WriteLine($"📦 Creating regular class '{nameStr.Value}'");
-                #endif
-            }
-
-            // CPython: Check if the winner metaclass (or metatype if winner==metatype) has custom __new__
-            // We need to call it even when winner == metatype if it's overridden!
-            // BUT: Skip this check if we're creating a metaclass (would cause infinite recursion)
-            bool shouldCallCustomNew = false;
-            PyObject customNewMethod = null;
-
-            #if DEBUG_MODULE_LOG
-            Console.WriteLine($"🔍 Should check for custom __new__? skipCheck={skipMetaclassCheck}, creatingMetaclass={creatingMetaclass}, winner={winner?.GetPyType()?.Name ?? "null"}");
-            #endif
-
-            if (!skipMetaclassCheck && !creatingMetaclass && winner != null && winner != Instance)
-            {
-                // Try to get __new__ from the winner metaclass
-                #if DEBUG_MODULE_LOG
-                Console.WriteLine($"  ✅ Checking for custom __new__ on {winner.GetPyType()?.Name ?? winner.ToString()}");
-                #endif
+                var hook = entry.Value.LookupSpecialMethodUncached("__set_name__");
+                if (hook == null) continue;
                 try
                 {
-                    var newMethod = winner.GetAttribute("__new__");
-                    if (newMethod != null && newMethod.IsCallable())
-                    {
-                        bool isTypeNew = IsTypeNew(newMethod);
-                        #if DEBUG_MODULE_LOG
-                        Console.WriteLine($"    Found __new__ method, isTypeNew={isTypeNew}, method={newMethod.GetType().Name}");
-                        #endif
-
-                        if (!isTypeNew)
-                        {
-                            shouldCallCustomNew = true;
-                            customNewMethod = newMethod;  // Store the method to reuse it
-                            #if DEBUG_MODULE_LOG
-                            Console.WriteLine($"    ⚠️  Will call custom __new__");
-                            #endif
-                        }
-                        else
-                        {
-                            #if DEBUG_MODULE_LOG
-                            Console.WriteLine($"    ✅ Using default type.__new__");
-                            #endif
-                        }
-                    }
+                    entry.Value.BindSpecialMethod(hook).Call(new PyObject[] { created, new PyString(entry.Key) }, null);
                 }
-                catch (PythonException ex)
+                catch (PythonException error)
                 {
-                    if (ex.PyException.GetTypeName() != "AttributeError")
-                    {
-                        throw;
-                    }
-                }
-            }
-            else
-            {
-                #if DEBUG_MODULE_LOG
-                Console.WriteLine($"  ⛔ Skipping custom __new__ check");
-                #endif
-            }
-
-            if (shouldCallCustomNew && customNewMethod != null)
-            {
-                // Custom metaclass with overridden __new__ - call it
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Calling custom metaclass {winner.Name}.__new__");
-                Console.WriteLine($"   Method type: {customNewMethod.GetType().Name}");
-                Console.WriteLine($"   namespaceDict type: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
-                if (kwargs != null && kwargs.InternalDict.Count > 0)
-                {
-                    Console.WriteLine($"   Forwarding kwargs: {string.Join(", ", kwargs.InternalDict.Keys.Select(k => (k as PyString)?.Value))}");
-                }
-                #endif
-
-                // Call metaclass.__new__(cls, name, bases, namespace, **kwargs)
-                // Note: The namespace should be passed as-is (could be _EnumDict)
-                // CPython reference: Objects/typeobject.c:1667 - passes kwargs to tp_new
-                var result = customNewMethod.Call(new PyObject[] { winner, name, bases, namespaceDict }, kwargs);
-
-                if (result is PyClass resultClass)
-                {
-                    newClass = resultClass;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ {winner.Name}.__new__ returned: {newClass.Name}");
-                    #endif
-                }
-                else
-                {
-                    throw PyTypeError.Create($"{winner.Name}.__new__ must return a class, got {result.GetTypeName()}");
-                }
-            }
-            else
-            {
-                // Default type.__new__ behavior - create class directly
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Creating class directly (no custom metaclass __new__)");
-                #endif
-
-                // Convert namespace if needed
-                if (classDict == null)
-                {
-                    classDict = new Dictionary<string, PyObject>();
-                    foreach (var item in dictItems.Items)
-                    {
-                        if (item is PyTuple tuple && tuple.Items.Length == 2)
-                        {
-                            if (tuple.Items[0] is PyString keyStr)
-                            {
-                                classDict[keyStr.Value] = tuple.Items[1];
-                            }
-                        }
-                    }
-                }
-
-                newClass = new PyClass(nameStr.Value, baseTypes, classDict);
-                // CPython 3.12: Use the winner metaclass (could be custom metaclass)
-                newClass.Metaclass = winner ?? Instance;
-
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"✅ Created class {nameStr.Value} with metaclass {newClass.Metaclass?.Name}");
-            #endif
-
-            // PEP 487: Call __set_name__ on all descriptors in the class namespace
-            // CPython 3.12: This MUST be called regardless of custom metaclass
-            // The custom metaclass creates the class, but type.__new__ still needs to call __set_name__
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PEP 487: Calling __set_name__ on descriptors in {nameStr.Value}");
-            Console.WriteLine($"   newClass.ClassDict has {newClass.ClassDict.Count} attributes");
-            #endif
-
-            // CPython 3.12: Objects/typeobject.c:9969-10010 (type_new_set_names)
-            // Line 9972: Create a copy of the dict to iterate over
-            // This prevents "Collection was modified" errors when __set_name__ modifies the dict
-            var classDict_copy = new Dictionary<string, PyObject>(newClass.ClassDict);
-
-            foreach (var kvp in classDict_copy)
-            {
-                string attrName = kvp.Key;
-                PyObject attrValue = kvp.Value;
-
-                // Check if the attribute has __set_name__ method
-                try
-                {
-                    var setNameMethod = attrValue.GetAttribute("__set_name__");
-                    if (setNameMethod != null && setNameMethod.IsCallable())
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  Calling __set_name__ on {attrName}: {attrValue.GetType().Name}");
-                        #endif
-                        // Call __set_name__(owner, name)
-                        setNameMethod.Call(new PyObject[] { newClass, new PyString(attrName) }, null);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  ✅ __set_name__ completed for {attrName}");
-                        #endif
-                    }
-                }
-                catch (PythonException ex)
-                {
-                    // If it's an AttributeError, the attribute doesn't have __set_name__ - that's fine
-                    if (ex.PyException.GetTypeName() == "AttributeError")
-                    {
-                        continue;
-                    }
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  Error calling __set_name__ on {attrName}: {ex.Message}");
-                    #endif
-                    // Re-throw other exceptions - __set_name__ errors should propagate
+                    error.PyException.GetAttribute("add_note").Call(new PyObject[] { new PyString(
+                        $"Error calling __set_name__ on '{entry.Value.GetTypeName()}' instance '{entry.Key}' in '{name.Value}'") }, null);
                     throw;
                 }
             }
 
-            // PEP 487: Call __init_subclass__ on the parent class(es)
-            // CPython 3.12: Objects/typeobject.c:10015 (type_new_init_subclass)
-            // This is called via super().__init_subclass__(**kwargs)
-            // TODO: Pass keyword arguments from class definition (e.g., class Foo(Base, plugin=True))
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PEP 487: Calling __init_subclass__ for {nameStr.Value}");
-            #endif
-
-            try
-            {
-                // Create super(newClass, newClass) to get parent's __init_subclass__
-                var superObj = new PySuper(newClass, newClass);
-                var initSubclassMethod = superObj.GetAttribute("__init_subclass__");
-
-                if (initSubclassMethod != null && initSubclassMethod.IsCallable())
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  Calling __init_subclass__ with cls={nameStr.Value}");
-                    #endif
-
-                    // Call __init_subclass__(cls, **kwargs)
-                    // CPython: __init_subclass__ is a classmethod, so first arg is the subclass
-                    // TODO: Extract kwargs from class definition and pass them here
-                    initSubclassMethod.Call(new PyObject[] { newClass }, null);
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  ✅ __init_subclass__ completed");
-                    #endif
-                }
-            }
-            catch (PythonException ex)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"  Error calling __init_subclass__: {ex.Message}");
-                #endif
-                // Re-throw - __init_subclass__ errors should propagate
-                throw;
-            }
-
-            return newClass;
+            // type_new_init_subclass
+            new PySuper(created, created).GetAttribute("__init_subclass__").Call(new PyObject[0], kwargs);
+            return created;
         }
 
-        /// <summary>
-        /// Convert a plain function to classmethod if it exists in the class dict
-        /// CPython 3.12: Objects/typeobject.c (type_new_classmethod)
-        /// </summary>
-        internal static void ConvertToClassmethod(PyClass cls, string methodName)
+        /// <summary>What a slot does with the function it found on the type.</summary>
+        internal static PyObject Bind(PyObject found, PyObject self)
         {
-            if (cls.ClassDict.TryGetValue(methodName, out PyObject value))
+            if (found is PyFunction function) return new PyMethod(self, function);
+            return found is IDescriptor descriptor ? descriptor.Get(self, self.GetPyType()) : found;
+        }
+
+        // Exceptions that add C fields to PyBaseExceptionObject; the rest share its layout.
+        private static readonly HashSet<string> ExceptionsWithFields = new()
+        {
+            "BaseException", "BaseExceptionGroup", "StopIteration", "SystemExit", "ImportError", "OSError", "SyntaxError",
+            "AttributeError", "NameError", "UnicodeEncodeError", "UnicodeDecodeError", "UnicodeTranslateError",
+        };
+
+        /// <summary>solid_base: the nearest type that adds to the instance layout.</summary>
+        private static PyType SolidBase(PyType type)
+        {
+            if (ReferenceEquals(type, PyType.ObjectType)) return type;
+            if (!(type is PyClass _) || type is PyTypeMetaclass)
             {
-                // Only convert if it's a plain function (not already a classmethod)
-                if (value is PyFunction func)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  Converting {methodName} to classmethod");
-                    #endif
-                    cls.ClassDict[methodName] = new PyClassmethod(func);
-                }
+                bool isException = false;
+                foreach (var ancestor in type.MRO)
+                    if (ancestor.Name == "BaseException") isException = true;
+                if (!isException || ExceptionsWithFields.Contains(type.Name)) return type;
             }
+            else if (type is PyClass cls && cls.ClassDict.TryGetValue("__slots__", out var slots) && slots.Length() != 0)
+            {
+                return type;
+            }
+            return BestBase(type.BaseTypes.ToArray());
+        }
+
+        private static PyType BuiltinLayout(PyClass type)
+        {
+            foreach (var ancestor in type.MRO)
+                if (!(ancestor is PyClass _) || ancestor is PyTypeMetaclass) return SolidBase(ancestor);
+            return PyType.ObjectType;
+        }
+
+        /// <summary>compatible_for_assignment: the two classes lay their instances out alike.</summary>
+        internal static void CheckClassAssignment(PyClass current, PyClass target)
+        {
+            // same_slots_added: the slots they do not share carry the same names.
+            var slots = new[] { new SortedSet<string>(StringComparer.Ordinal), new SortedSet<string>(StringComparer.Ordinal) };
+            foreach (var (one, other, names) in new[] { (current, target, slots[0]), (target, current, slots[1]) })
+                foreach (var ancestor in one.MRO)
+                    if (ancestor is PyClass cls && !other.IsSubclassOf(ancestor))
+                        foreach (var entry in cls.ClassDict)
+                            if (entry.Value is PyMemberDescriptor) names.Add(entry.Key);
+            bool sameSlots = current.InstancesHaveDict() == target.InstancesHaveDict() && slots[0].SetEquals(slots[1]);
+            if (!sameSlots || !ReferenceEquals(BuiltinLayout(current), BuiltinLayout(target)))
+                throw PyTypeError.Create($"__class__ assignment: '{target.Name}' object layout differs from '{current.Name}'");
+        }
+
+        /// <summary>best_base: the solid base of the bases, one layout that extends all the others.</summary>
+        private static PyType BestBase(PyType[] bases)
+        {
+            PyType winner = null;
+            foreach (var candidate in bases)
+            {
+                var solid = SolidBase(candidate);
+                if (winner == null) winner = solid;
+                else if (ReferenceEquals(winner, solid) || winner.IsSubclassOf(solid)) { }
+                else if (solid.IsSubclassOf(winner)) winner = solid;
+                else throw PyTypeError.Create("multiple bases have instance lay-out conflict");
+            }
+            return winner;
+        }
+
+        /// <summary>type_new_slots and type_new_descriptors: the getsets of a class whose instances
+        /// get a __dict__ or a weak reference list that no base gives them.</summary>
+        private static void AddInstanceDescriptors(PyClass created, PyType[] bases, List<string> slotNames)
+        {
+            bool hasDict = false, hasWeakList = false;
+            foreach (var type in bases)
+                foreach (var ancestor in type.MRO)
+                {
+                    if (ReferenceEquals(ancestor, Instance) || ancestor.Name == "BaseException") hasDict = true;
+                    if (ReferenceEquals(ancestor, Instance)) hasWeakList = true;
+                    if (ancestor is PyClass cls && cls.ClassDict.ContainsKey("__dict__")) hasDict = true;
+                    if (ancestor is PyClass weak && weak.ClassDict.ContainsKey("__weakref__")) hasWeakList = true;
+                    // Variable-size instances keep no weak reference list.
+                    if (ReferenceEquals(ancestor, PyType.IntType) || ReferenceEquals(ancestor, PyType.TupleType) || ReferenceEquals(ancestor, PyType.BytesType))
+                        hasWeakList = true;
+                }
+            if (!hasDict && (slotNames == null || slotNames.Contains("__dict__")))
+                created.ClassDict["__dict__"] = new PyGetSetDescriptor("__dict__", created,
+                    self => self.GetAttribute("__dict__"), (self, value) => self.SetAttribute("__dict__", value));
+            if (!hasWeakList && (slotNames == null || slotNames.Contains("__weakref__")))
+                created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created, self => PyNone.Instance);
+            if (slotNames == null) return;
+            foreach (var slot in slotNames)
+            {
+                if (slot is "__dict__" or "__weakref__") continue;
+                string stored = slot.StartsWith("__") && !slot.EndsWith("__")
+                    ? "_" + created.Name.TrimStart('_') + slot : slot;
+                created.ClassDict[stored] = new PyMemberDescriptor(stored, created,
+                    self =>
+                    {
+                        if (self is PyClassInstance instance ? instance.TryGetSlot(stored, out var value)
+                            : ((IInstanceDictAccessor)self).TryGetInstanceAttribute(stored, out value))
+                            return value;
+                        throw PyAttributeError.Create($"'{self.GetTypeName()}' object has no attribute '{stored}'");
+                    },
+                    (self, value) =>
+                    {
+                        if (self is PyClassInstance instance) instance.SetSlot(stored, value);
+                        else ((IDictBackedInstance)self).InstanceDict[stored] = value;
+                    },
+                    deleter: self =>
+                    {
+                        bool removed = self is PyClassInstance instance ? instance.RemoveSlot(stored)
+                            : ((IDictBackedInstance)self).InstanceDict.Remove(stored);
+                        if (!removed) throw PyAttributeError.Create($"'{self.GetTypeName()}' object has no attribute '{stored}'");
+                    });
+            }
+        }
+
+        /// <summary>The checks of type_new_slots_impl. Answers the names, null without __slots__.</summary>
+        private static List<string> CheckSlots(Dictionary<string, PyObject> dict, PyType[] bases)
+        {
+            if (!dict.TryGetValue("__slots__", out var slots)) return null;
+            var names = new List<PyObject>();
+            if (slots is PyString) names.Add(slots);
+            else
+            {
+                var iterator = slots.GetIterator();
+                try
+                {
+                    while (true) names.Add(iterator.Next());
+                }
+                catch (PythonException stop) when (stop.PyException is PyStopIteration) { }
+            }
+            var result = new List<string>();
+            if (names.Count == 0) return result;
+            foreach (var type in bases)
+                foreach (var ancestor in type.MRO)
+                    if (ReferenceEquals(ancestor, PyType.IntType) || ReferenceEquals(ancestor, PyType.TupleType) || ReferenceEquals(ancestor, PyType.BytesType))
+                        throw PyTypeError.Create($"nonempty __slots__ not supported for subtype of '{ancestor.Name}'");
+            foreach (var item in names)
+            {
+                if (item is not PyString text)
+                    throw PyTypeError.Create($"__slots__ items must be strings, not '{item.GetTypeName()}'");
+                if (text.IsIdentifier(new PyObject[0]) is not PyBool { Value: true })
+                    throw PyTypeError.Create("__slots__ must be identifiers");
+                if (dict.ContainsKey(text.Value) && text.Value is not ("__qualname__" or "__classcell__") && !text.Value.StartsWith("__"))
+                    throw PyValueError.Create($"'{text.Value}' in __slots__ conflicts with class variable");
+                result.Add(text.Value);
+            }
+            return result;
         }
 
         /// <summary>
@@ -907,43 +524,22 @@ namespace SharpPy
             return this; // type.__class__ == type
         }
 
-        /// <summary>
-        /// Override Call to handle type() calls properly
-        /// </summary>
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        /// <summary>type_call for type itself (Objects/typeobject.c:1627).</summary>
+        internal override PyObject TypeCall(PyObject[] args, PyDict kwargs)
         {
-            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
-            for (int i = 0; i < args.Length; i++)
+            bool noKeywords = kwargs == null || kwargs.Length() == 0;
+            if (args.Length == 1 && noKeywords) return args[0].GetPyType();
+            if (args.Length != 3) throw PyTypeError.Create("type() takes 1 or 3 arguments");
+            var created = TypeNew(new[] { this, args[0], args[1], args[2] }, kwargs);
+            // tp_init of what came out, which a more derived metaclass may have made.
+            if (created is PyType)
             {
-                #if DEBUG_LOG
-                Console.WriteLine($"   arg[{i}]: {args[i]?.GetType().Name} = {args[i]}");
-                #endif
+                var init = created.LookupSpecialMethodUncached("__init__");
+                if (init != null) created.BindSpecialMethod(init).Call(args, kwargs);
             }
-
-            if (args.Length == 1)
-            {
-                // type(obj) - return type of object
-                return args[0].GetPyType();
-            }
-            else if (args.Length == 3)
-            {
-                // type(name, bases, namespace, **kwargs) - create new class
-                // The metaclass itself is the first argument in CreateNewClass
-                // CPython reference: Objects/typeobject.c:1667 - forwards kwargs to tp_new
-                var newArgs = new PyObject[] { this, args[0], args[1], args[2] };
-                return CreateNewClass(newArgs, skipMetaclassCheck: false, kwargs: kwargs);
-            }
-            else if (args.Length == 4)
-            {
-                // This might be the case where it's called by __build_class__
-                // args[0] might be the metaclass, args[1] name, args[2] bases, args[3] namespace
-                return CreateNewClass(args, skipMetaclassCheck: false, kwargs: kwargs);
-            }
-            else
-            {
-                throw PyTypeError.Create($"type() takes 1, 3 or 4 arguments ({args.Length} given)");
-            }
+            return created;
         }
+
 
         // CPython 3.12: No need to override GetAttribute anymore
         // All type attributes (__dict__, __name__, __module__, etc.) are now handled

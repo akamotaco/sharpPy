@@ -938,6 +938,23 @@ namespace SharpPy
         public override string ToString() => $"{Target} := {Value}";
     }
 
+    /// <summary>CALL_INTRINSIC_1 or CALL_INTRINSIC_2 on evaluated arguments.</summary>
+    public class IntrinsicExpression : Expression
+    {
+        public override string NodeType => "Intrinsic";
+        public IntrinsicFunction Function { get; }
+        public Expression[] Arguments { get; }
+
+        public IntrinsicExpression(IntrinsicFunction function, params Expression[] arguments)
+        {
+            Function = function;
+            Arguments = arguments;
+        }
+
+        public override PyObject Evaluate(PyScope scope) =>
+            throw new NotSupportedException("An intrinsic exists only in compiled code");
+    }
+
     public class ExpressionStatement : Statement
     {
         public override string NodeType => "Expr";

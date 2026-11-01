@@ -506,6 +506,7 @@ namespace SharpPy
         // Typing system types (PEP 484, 585, 612, 646, 695)
         public static readonly PyType UnionType = new PyType("Union", new[] { ObjectType });
         public static readonly PyType TypeVarType = new PyType("TypeVar", new[] { ObjectType });
+        public static readonly PyType MemberDescriptorType = new PyType("member_descriptor", new[] { ObjectType });
         public static readonly PyType GetSetDescriptorType = new PyType("getset_descriptor", new[] { ObjectType });
         public static readonly PyType ParamSpecType = new PyType("ParamSpec", new[] { ObjectType }); // PEP 612
         public static readonly PyType TypeVarTupleType = new PyType("TypeVarTuple", new[] { ObjectType }); // PEP 646
@@ -559,14 +560,57 @@ namespace SharpPy
         public string Name { get; private set; }
         public PyType[] BaseTypes { get; private set; }
 
-        /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO. typing.NamedTuple
-        /// assigns __bases__ on the class it builds. Subclasses are not re-linearized here.</summary>
+        /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
+        /// every subclass, as mro_hierarchy does.</summary>
         internal void SetBases(PyType[] bases)
         {
+            foreach (var oldBase in BaseTypes) oldBase.RemoveSubclass(this);
             BaseTypes = bases;
+            foreach (var newBase in bases) newBase.AddSubclass(this);
+            Relinearize();
+        }
+
+        private void Relinearize()
+        {
             MRO = CalculateC3MRO();
             _cachedBasesTuple = null;
+            InvalidateTypeCache();
+            foreach (var subclass in LiveSubclasses()) subclass.Relinearize();
         }
+
+        /// <summary>mro_internal when the metaclass overrides mro(): what it answered is the MRO.</summary>
+        internal void SetMro(List<PyType> mro)
+        {
+            MRO = mro;
+            InvalidateTypeCache();
+        }
+
+        // tp_subclasses: weak, a class that is gone leaves no entry.
+        private readonly List<WeakReference<PyType>> _subclasses = new List<WeakReference<PyType>>();
+
+        private void AddSubclass(PyType subclass)
+        {
+            lock (_subclasses) _subclasses.Add(new WeakReference<PyType>(subclass));
+        }
+
+        private void RemoveSubclass(PyType subclass)
+        {
+            lock (_subclasses)
+                _subclasses.RemoveAll(entry => !entry.TryGetTarget(out var live) || ReferenceEquals(live, subclass));
+        }
+
+        internal List<PyType> LiveSubclasses()
+        {
+            var live = new List<PyType>();
+            lock (_subclasses)
+            {
+                _subclasses.RemoveAll(entry => !entry.TryGetTarget(out _));
+                foreach (var entry in _subclasses)
+                    if (entry.TryGetTarget(out var subclass)) live.Add(subclass);
+            }
+            return live;
+        }
+
         public List<PyType> MRO { get; private set; }
         public string Module { get; }
 
@@ -600,6 +644,7 @@ namespace SharpPy
             // CPython: Objects/typeobject.c:2789, after check_duplicates and before best_base.
             CheckBaseTypeAcceptable();
             MRO = CalculateC3MRO();
+            foreach (var baseType in BaseTypes) baseType.AddSubclass(this);
             // tp_flags: static spec bits plus what inherit_special propagates from the base
             // (Objects/typeobject.c:6726).
             _flags = ComputeFlags();
@@ -882,71 +927,6 @@ namespace SharpPy
                     slotInit.Call(slotArgs, kwargs);
                 }
                 return created;
-            }
-
-            // type(obj) - 객체의 타입 반환
-            if (this == TypeType && args.Length == 1)
-            {
-                return args[0].GetPyType();
-            }
-
-            // type(name, bases, dict, **kwargs) - 새로운 타입 생성
-            // CPython 3.12: Objects/typeobject.c:1627-1689 (type_call)
-            if (this == TypeType && args.Length == 3)
-            {
-                if (args[0] is PyString name && args[1] is PyTuple bases && args[2] is PyDict classDict)
-                {
-                    // CPython 3.12: If kwargs are provided, we need to determine the metaclass
-                    // and call its __new__ method with the kwargs
-                    if (kwargs != null && kwargs.InternalDict.Count > 0)
-                    {
-                        // Determine metaclass from bases
-                        PyType metaclass = TypeType;
-                        if (bases.Items.Length > 0)
-                        {
-                            var firstBase = bases.Items[0];
-                            if (firstBase is PyClass baseClass)
-                            {
-                                metaclass = baseClass.Metaclass ?? TypeType;
-                            }
-                            else if (firstBase is PyType baseType)
-                            {
-                                metaclass = TypeType;
-                            }
-                        }
-
-                        // Call the metaclass's __new__ method with kwargs
-                        // CPython reference: Objects/typeobject.c:1667
-                        // obj = type->tp_new(type, args, kwds);
-                        var newMethod = metaclass.GetAttribute("__new__");
-                        if (newMethod != null && newMethod.IsCallable())
-                        {
-                            // Call metaclass.__new__(metaclass, name, bases, dict, **kwargs)
-                            var newArgs = new PyObject[] { metaclass, name, bases, classDict };
-                            return newMethod.Call(newArgs, kwargs);
-                        }
-                    }
-
-                    // No kwargs - use simple class creation
-                    // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
-                    var baseTypes = new PyType[bases.Items.Length];
-                    for (int i = 0; i < bases.Items.Length; i++)
-                    {
-                        baseTypes[i] = (PyType)bases.Items[i];
-                    }
-                    // CPython 호환: PyDict의 PyObject 키를 string 키로 변환
-                    var stringDict = new Dictionary<string, PyObject>();
-                    foreach (var kv in classDict.InternalDict)
-                    {
-                        if (kv.Key is PyString keyStr)
-                        {
-                            stringDict[keyStr.Value] = kv.Value;
-                        }
-                        // 문자열이 아닌 키는 무시 (CPython과 동일한 동작)
-                    }
-                    return new PyClass(name.Value, baseTypes, stringDict);
-                }
-                throw PyTypeError.Create("type() arguments must be (name, bases, dict)");
             }
 
             // CPython 3.12: Objects/funcobject.c:1241-1256 (staticmethod)
@@ -2440,69 +2420,7 @@ namespace SharpPy
                 }
             );
 
-            // type.__new__ - CPython type_new
-            TypeDict["__new__"] = new PyStaticBuiltinMethod(
-                "__new__",
-                (args, kwargs) => {
-                    // CPython 3.12: type.__new__(metacls, name, bases, namespace)
-
-                    if (args.Length != 4)
-                        throw PyTypeError.Create($"type.__new__() takes exactly 3 arguments ({Math.Max(0, args.Length - 1)} given)");
-
-                    var metacls = args[0];
-                    var nameArg = args[1];
-                    var basesArg = args[2];
-                    var namespaceArg = args[3];
-
-                    // Validate arguments
-                    if (nameArg is not PyString name)
-                        throw PyTypeError.Create($"type.__new__() argument 2 must be str, not {nameArg.GetTypeName()}");
-
-                    if (basesArg is not PyTuple bases)
-                        throw PyTypeError.Create($"type.__new__() argument 3 must be tuple, not {basesArg.GetTypeName()}");
-
-                    var classDict = namespaceArg as PyDict;
-                    if (classDict == null && namespaceArg is PyClassInstance dictInstance &&
-                        dictInstance.InstanceType.IsSubclassOf(DictType))
-                        classDict = dictInstance.GetDictStorage();
-                    if (classDict == null)
-                        throw PyTypeError.Create($"type.__new__() argument 4 must be dict, not {namespaceArg.GetTypeName()}");
-
-                    // Convert bases tuple to PyType array
-                    var baseTypes = new List<PyType>();
-                    foreach (var baseItem in bases.Items)
-                    {
-                        if (baseItem is PyType baseType)
-                            baseTypes.Add(baseType);
-                        else
-                            throw PyTypeError.Create($"bases must be types, not {baseItem.GetTypeName()}");
-                    }
-
-                    // If no bases specified, default to object
-                    if (baseTypes.Count == 0)
-                        baseTypes.Add(ObjectType);
-
-                    // Convert namespace dict to string dictionary
-                    var stringDict = new Dictionary<string, PyObject>();
-                    foreach (var kv in classDict.InternalDict)
-                    {
-                        if (kv.Key is PyString keyStr)
-                        {
-                            stringDict[keyStr.Value] = kv.Value;
-                        }
-                        // Non-string keys are ignored (same as CPython)
-                    }
-
-                    // Create new class (CPython equivalent: type_new in typeobject.c)
-                    // Performance: Eliminated LINQ - direct array use
-                    var newClass = new PyClass(name.Value, baseTypes.ToArray(), stringDict);
-
-                    // ob_type of the new class. Two routes build a class here and in
-                    // PyTypeMetaclass.CreateNewClass; merging them must keep __init_subclass__ single.
-                    if (metacls is PyClass metaclass) newClass.Metaclass = metaclass;
-                    return newClass;
-                }
-            );
+            TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", PyTypeMetaclass.TypeNew);
 
             // type.__setattr__(cls, name, value) - CPython type_setattro
             // Reference: Objects/typeobject.c:4815-4894 (type_setattro)

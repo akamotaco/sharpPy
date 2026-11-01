@@ -2194,10 +2194,10 @@ P0-70 추가 측정 (L2.5 점검, 2026-11-01). 위 표는 신원만 다루지만
 `def f(x): x = [1, 2]; h = lambda: x; s = [(lambda: x)() for x in h()]` 뒤 `x`가 CPython은 `[1, 2]`, SharpPy는 `2`다. `[x for x in x]`는
 `UnboundLocalError`다. PEP 709 인라인에서 같은 이름의 셀을 분리하지 않는다. 드문 형태라 등록만 한다.
 
-## P0-80 클래스를 만드는 경로가 둘이다 (측정 2026-11-01, 미해결)
+## P0-80 클래스를 만드는 경로가 둘이다 (2026-11-01 해결)
 
-`core/PyType.cs`의 `type.__new__`와 `PyTypeMetaclass.CreateNewClass`. 합치면 `__build_class__`와 `__init_subclass__`가 이중 호출된다. 합칠 때 그 호출을 한
-곳으로 옮겨야 한다.
+경로는 실제로 넷이었다. `__build_class__`, `type.__new__`, `CreateNewClass`, `CallTypeNew`. 지금은 `__build_class__`가 메타클래스를 호출하고 모든 클래스가
+`PyTypeMetaclass.TypeNew`(`type_new`)에서 만들어진다. 클래스 호출은 메타클래스의 `__call__`을 먼저 본다.
 
 ## P0-81 인라인 컴프리헨션의 셀 변수가 프레임 단위로 공유된다 (측정 2026-11-01, 미해결)
 
@@ -2220,6 +2220,7 @@ CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 �
 - 참조 카운팅 시점: `for x in gen(): break` 뒤 제너레이터의 `finally`, `del` 직후 weakref와 `gc` 수치는 CLR GC 시점에 따른다. 구조적 차이다.
 - 코덱: `euc-kr`, `namereplace` 없음.
 - 라이브러리: `sha3_*`, `blake2*`, `zlib.compressobj`, `ast`, `dis`, `tokenize` 없음. `inspect`는 소스와 바이트코드가 필요한 함수를 쓸 수 없다.
-- `class P(property)`의 `__get__`에서 `super().__get__`을 부르면 무한 재귀한다.
 - `enumerate`, `super`, `memoryview`는 아직 타입이 아니다. `exec`는 호출자의 `__future__` 플래그를 물려받지 않는다.
+- PEP 695의 스코프는 한 번 호출되는 함수로 만들었다. 클래스 안의 `def m[T](self, a=X, b: Y)`는 `X`, `Y`가 클래스 이름이면 찾지 못한다. CPython은 `__classdict__`로 찾는다(`can_see_class_scope`).
+- `type X[T] = ...`는 이 경로를 쓰지 않고 지연 평가도 하지 않는다. `TypeAliasType`이 아니다.
 - `run_in_executor`는 스레드 없이 루프에서 실행한다. asyncio에 소켓, 파이프, 서브프로세스는 없다.

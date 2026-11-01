@@ -32,13 +32,37 @@ class TypeVar:
     def __init__(self, name, *constraints, bound=None,
                  covariant=False, contravariant=False, infer_variance=False):
         self.__name__ = name
-        self.__constraints__ = constraints
-        self.__bound__ = bound
+        self._constraints = constraints
+        self._bound = bound
+        self._evaluate_constraints = None
+        self._evaluate_bound = None
         self.__covariant__ = covariant
         self.__contravariant__ = contravariant
         self.__infer_variance__ = infer_variance
         # CPython sets __module__ using caller() - simplified here
         self.__module__ = None
+
+    @classmethod
+    def _from_type_param(cls, name, evaluate_bound, evaluate_constraints):
+        # A parameter of class C[T: bound]: the bound waits until someone asks (PEP 695).
+        self = cls(name, infer_variance=True)
+        self._evaluate_bound = evaluate_bound
+        self._evaluate_constraints = evaluate_constraints
+        return self
+
+    @property
+    def __bound__(self):
+        if self._evaluate_bound is not None:
+            self._bound = self._evaluate_bound()
+            self._evaluate_bound = None
+        return self._bound
+
+    @property
+    def __constraints__(self):
+        if self._evaluate_constraints is not None:
+            self._constraints = self._evaluate_constraints()
+            self._evaluate_constraints = None
+        return self._constraints
 
     def __repr__(self):
         if self.__infer_variance__:
@@ -51,17 +75,16 @@ class TypeVar:
             prefix = '~'
         return prefix + self.__name__
 
+    def __typing_subst__(self, arg):
+        import typing
+        return typing._typevar_subst(self, arg)
+
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of TypeVar")
+
     def __reduce__(self):
         # For pickling - just return the name
         return self.__name__
-
-    def __hash__(self):
-        return hash(self.__name__)
-
-    def __eq__(self, other):
-        if isinstance(other, TypeVar):
-            return self.__name__ == other.__name__
-        return NotImplemented
 
     # typevar_or: typing._make_union, so a string or None on either side works.
     def __or__(self, other):
@@ -162,16 +185,19 @@ class ParamSpec:
             prefix = '~'
         return prefix + self.__name__
 
+    def __typing_subst__(self, arg):
+        import typing
+        return typing._paramspec_subst(self, arg)
+
+    def __typing_prepare_subst__(self, alias, args):
+        import typing
+        return typing._paramspec_prepare_subst(self, alias, args)
+
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of ParamSpec")
+
     def __reduce__(self):
         return self.__name__
-
-    def __hash__(self):
-        return hash(self.__name__)
-
-    def __eq__(self, other):
-        if isinstance(other, ParamSpec):
-            return self.__name__ == other.__name__
-        return NotImplemented
 
     # typevar_or: typing._make_union, so a string or None on either side works.
     def __or__(self, other):
@@ -203,22 +229,22 @@ class TypeVarTuple:
     def __repr__(self):
         return self.__name__
 
+    def __typing_subst__(self, arg):
+        raise TypeError("Substitution of bare TypeVarTuple is not supported")
+
+    def __typing_prepare_subst__(self, alias, args):
+        import typing
+        return typing._typevartuple_prepare_subst(self, alias, args)
+
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of TypeVarTuple")
+
     def __reduce__(self):
         return self.__name__
 
-    def __hash__(self):
-        return hash(self.__name__)
-
-    def __eq__(self, other):
-        if isinstance(other, TypeVarTuple):
-            return self.__name__ == other.__name__
-        return NotImplemented
-
     def __iter__(self):
-        # CPython: yield typing.Unpack[self]
-        # This is called when unpacking *Ts in Generic[*Ts]
-        # For now, yield self - typing.py will handle Unpack
-        yield self
+        import typing
+        yield typing.Unpack[self]
 
 
 class TypeAliasType:
@@ -252,29 +278,6 @@ class TypeAliasType:
         return NotImplemented
 
 
-class _GenericAliasStub:
-    """Minimal stub for Generic[...] before typing.py fully initializes.
-
-    This is used during typing.py's own import when Generic[T] is referenced
-    before _generic_class_getitem is properly set up.
-    """
-    def __init__(self, origin, params):
-        self.__origin__ = origin
-        self.__args__ = params if isinstance(params, tuple) else (params,)
-
-    def __repr__(self):
-        args_str = ', '.join(repr(arg) for arg in self.__args__)
-        return f'{self.__origin__.__name__}[{args_str}]'
-
-    def __hash__(self):
-        return hash((self.__origin__, self.__args__))
-
-    def __eq__(self, other):
-        if isinstance(other, _GenericAliasStub):
-            return self.__origin__ == other.__origin__ and self.__args__ == other.__args__
-        return NotImplemented
-
-
 class Generic:
     """Abstract base class for generic types.
 
@@ -291,11 +294,12 @@ class Generic:
     is provided by typing.py which overrides these methods.
     """
     __slots__ = ()
+    __module__ = 'typing'
 
     def __init_subclass__(cls, *args, **kwargs):
-        pass
+        import typing
+        typing._generic_init_subclass(cls, *args, **kwargs)
 
     def __class_getitem__(cls, params):
-        # typing.py replaces this with _generic_class_getitem after import
-        # During typing.py's own import, use a minimal stub implementation
-        return _GenericAliasStub(cls, params)
+        import typing
+        return typing._generic_class_getitem(cls, params)

@@ -1114,170 +1114,16 @@ namespace SharpPy
 
         // 프레임 실행 (바이트코드 해석)
         // CPython 3.12: Execute class body and return namespace
-        public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody, PyCell[]? closure = null, Dictionary<string, PyObject>? initialNamespace = null)
+        /// <summary>_PyEval_Vector with the namespace as locals: returns what the body returned, the
+        /// __class__ cell if there is one.</summary>
+        public PyObject ExecuteClassBody(PyCodeObject classBody, PyCell[]? closure, PyObject ns)
         {
-            // Store the original global scope state to detect new variables
-            Dictionary<string, PyObject> originalGlobals = null;
-            PyScopeChain parentScope = null;
-
-            if (_frameStack.Count > 0)
-            {
-                parentScope = _frameStack.Peek().ScopeChain;
-                // Capture original global state
-                originalGlobals = new Dictionary<string, PyObject>(parentScope.GlobalScope.Variables);
-            }
-
-            // CPython 3.12: Create frame with closure if provided
+            var parentScope = _frameStack.Count > 0 ? _frameStack.Peek().ScopeChain : null;
             var frame = closure != null
                 ? new PyFrame(classBody, new PyObject[0], parentScope, closure)
                 : new PyFrame(classBody, new PyObject[0], parentScope);
-
-            // CPython 3.12: Check if __prepare__ returned a dict subclass
-            // If so, use it as the LOCALS() dict for STORE_NAME operations
-            PyObject? prepareResult = null;
-            if (initialNamespace != null && initialNamespace.TryGetValue("__prepare_result__", out var prepareMarker))
-            {
-                prepareResult = prepareMarker;
-                frame.ClassLocalsDict = prepareResult;
-                #if DEBUG_LOG
-                Console.WriteLine($"📦 Using __prepare__ result as ClassLocalsDict: {prepareResult?.GetType().Name}");
-                #endif
-            }
-
-            // CPython creates a fresh namespace when no __prepare__ mapping
-            // was supplied. Keep this exact object for all class name access.
-            if (prepareResult == null)
-            {
-                var namespaceDict = new PyDict();
-                if (initialNamespace != null)
-                    foreach (var kvp in initialNamespace)
-                        if (kvp.Key != "__prepare_result__")
-                            namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
-                frame.ClassLocalsDict = namespaceDict;
-            }
-
-            // CPython 3.12: Pre-populate local scope with initial namespace from __prepare__
-            // IMPORTANT: CPython passes the __prepare__ result dict DIRECTLY as locals() to the class body.
-            // The dict is used as-is, without extraction and re-insertion.
-            // (CPython: Python/bltinmodule.c:198 - ns passed directly to _PyEval_Vector)
-            //
-            // SharpPy Note: The ClassLocalsDict is already the SAME object returned by __prepare__.
-            // Items added by __prepare__ (like _generate_next_value_) are already in that dict.
-            // We must NOT call __setitem__ again for those items, as that would trigger validation logic
-            // (e.g., _EnumDict checking if _auto_called was already set).
-            //
-            // Instead, we only need to make items visible to LOAD_NAME by adding to scope chain.
-            if (initialNamespace != null && initialNamespace.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"📦 Pre-populating class namespace with {initialNamespace.Count} items from __prepare__");
-                #endif
-                foreach (var kvp in initialNamespace)
-                {
-                    // Skip the marker - it's not a real class attribute
-                    if (kvp.Key == "__prepare_result__")
-                        continue;
-
-                    // Add to scope chain so LOAD_NAME can find it
-                    // (ClassLocalsDict is checked FIRST by STORE_NAME, but LOAD_NAME uses LEGB)
-                    frame.ScopeChain.CurrentScope.SetVariable(kvp.Key, kvp.Value);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
-                    #endif
-                }
-            }
-
-            var result = ExecuteFrame(frame);
-
-            // Extract class namespace - capture variables added during class body execution
-            var classNamespace = new Dictionary<string, PyObject>();
-
-            if (prepareResult == null && frame.ClassLocalsDict is PyDict plainNamespace)
-            {
-                foreach (var kvp in plainNamespace.InternalDict)
-                    if (kvp.Key is PyString key)
-                        classNamespace[key.Value] = kvp.Value;
-                return classNamespace;
-            }
-
-            // CPython Python/bltinmodule.c:201-209:
-            //   - Class body executes with ns as locals (line 201)
-            //   - After execution, pass SAME ns to metaclass.__new__ (line 208)
-            //   - NO extraction or re-insertion of items
-            //
-            // SharpPy: When ClassLocalsDict was used (prepareResult != null):
-            //   - STORE_NAME already called __setitem__ on ClassLocalsDict for all items
-            //   - Items from initialNamespace are already IN the ClassLocalsDict
-            //   - We must NOT include them in classNamespace again!
-            //   - CallBuildClass will use originalPrepareResult directly
-            //
-            // Only include initialNamespace items when ClassLocalsDict was NOT used
-            if (prepareResult == null && initialNamespace != null)
-            {
-                foreach (var kvp in initialNamespace)
-                {
-                    // Skip the marker - it's not a real class attribute
-                    if (kvp.Key == "__prepare_result__")
-                        continue;
-
-                    classNamespace[kvp.Key] = kvp.Value;
-                }
-            }
-
-            // Method 1: LocalsPlus array (for STORE_FAST operations)
-            for (int i = 0; i < frame.LocalsPlus.Length; i++)
-            {
-                var value = frame.LocalsPlus[i];
-                // Skip uninitialized variables (PyNull)
-                if (!PyNull.IsNull(value))
-                {
-                    var varName = frame.Code.VarNames[i];
-                    classNamespace[varName] = value;
-                }
-            }
-
-            // Method 2: Saved class body variables (FIXED: use saved variables from before scope cleanup)
-            if (frame.ClassBodyVariables != null)
-            {
-                foreach (var kvp in frame.ClassBodyVariables)
-                {
-                    classNamespace[kvp.Key] = kvp.Value;
-                }
-            }
-            // Fallback: Local scope variables (if still available)
-            else if (frame.ScopeChain?.CurrentScope != null)
-            {
-                foreach (var kvp in frame.ScopeChain.CurrentScope.Variables)
-                {
-                    classNamespace[kvp.Key] = kvp.Value;
-                }
-            }
-
-            // Method 3: New global variables (added by class body STORE_GLOBAL operations)
-            if (frame.ScopeChain?.GlobalScope != null && originalGlobals != null)
-            {
-                foreach (var kvp in frame.ScopeChain.GlobalScope.Variables)
-                {
-                    // Only include variables that were added during class body execution
-                    if (!originalGlobals.ContainsKey(kvp.Key) ||
-                        !ReferenceEquals(originalGlobals[kvp.Key], kvp.Value))
-                    {
-                        classNamespace[kvp.Key] = kvp.Value;
-                    }
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"📦 ExecuteClassBody captured {classNamespace.Count} variables:");
-            #endif
-            foreach (var kvp in classNamespace)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
-#endif
-            }
-
-            return classNamespace;
+            frame.ClassLocalsDict = ns;
+            return ExecuteFrame(frame);
         }
 
         /// <summary>
@@ -7036,11 +6882,11 @@ namespace SharpPy
                     }
                     throw PyTypeError.Create($"INTRINSIC_LIST_TO_TUPLE expected list, got {arg.GetTypeName()}");
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVAR:
-                    return CreateTypeVar(arg);
+                    return MakeTypeVar(arg, PyNone.Instance, PyNone.Instance);
                 case (int)IntrinsicFunction.INTRINSIC_PARAMSPEC:
-                    return CreateParamSpec(arg);
+                    return PyImportSystem.Import("_typing").GetAttribute("ParamSpec").Call(new[] { arg }, InferVariance());
                 case (int)IntrinsicFunction.INTRINSIC_TYPEVARTUPLE:
-                    return CreateTypeVarTuple(arg);
+                    return MakeTypingObject("TypeVarTuple", arg);
                 case (int)IntrinsicFunction.INTRINSIC_SUBSCRIPT_GENERIC:
                     return CreateGenericSubscript(arg);
                 case (int)IntrinsicFunction.INTRINSIC_TYPEALIAS:
@@ -7236,43 +7082,33 @@ namespace SharpPy
             return exc;
         }
 
-        /// <summary>
-        /// Create a TypeVar for PEP 695 type parameters
-        /// </summary>
-        private PyObject CreateTypeVar(PyObject nameObj)
+        /// <summary>make_typevar (Python/intrinsics.c): a type parameter is the object typing.TypeVar makes.</summary>
+        private static PyObject MakeTypeVar(PyObject name, PyObject evaluateBound, PyObject evaluateConstraints) =>
+            PyImportSystem.Import("_typing").GetAttribute("TypeVar").GetAttribute("_from_type_param")
+                .Call(new[] { name, evaluateBound, evaluateConstraints }, null);
+
+        private static PyDict InferVariance()
         {
-            var name = nameObj.ToStr().Value;
-            // CPython 3.12: Create proper TypeVar object for PEP 695
-            return new PyTypeVar(name);
+            var keywords = new PyDict();
+            keywords.SetItem(new PyString("infer_variance"), PyBool.True);
+            return keywords;
         }
 
-        /// <summary>
-        /// Create a ParamSpec for PEP 612 parameter specifications
-        /// </summary>
-        private PyObject CreateParamSpec(PyObject nameObj)
-        {
-            var name = nameObj.ToStr().Value;
-            // CPython 3.12: Create proper ParamSpec object for PEP 612
-            return new PyParamSpec(name);
-        }
+        private static PyObject MakeTypingObject(string type, PyObject name) =>
+            PyImportSystem.Import("_typing").GetAttribute(type).Call(new[] { name }, null);
 
-        /// <summary>
-        /// Create a TypeVarTuple for PEP 646 variadic generics
-        /// </summary>
-        private PyObject CreateTypeVarTuple(PyObject nameObj)
-        {
-            var name = nameObj.ToStr().Value;
-            // CPython 3.12: Create proper TypeVarTuple object for PEP 646
-            return new PyTypeVarTuple(name);
-        }
-
-        /// <summary>
-        /// Create generic subscript for type[T] syntax (PEP 695)
-        /// </summary>
+        /// <summary>_Py_subscript_generic (Objects/typevarobject.c): Generic[*params] made by typing.</summary>
         private PyObject CreateGenericSubscript(PyObject arg)
         {
-            // This handles things like Generic[T] or MyClass[T]
-            return arg; // For now, just return the argument
+            var typing = PyImportSystem.Import("typing");
+            var parameters = new List<PyObject>();
+            foreach (var parameter in ((PyTuple)arg).Items)
+            {
+                if (parameter.GetTypeName() == "TypeVarTuple") parameters.Add(parameter.GetIterator().Next());
+                else parameters.Add(parameter);
+            }
+            return typing.GetAttribute("_generic_class_getitem").Call(
+                new[] { typing.GetAttribute("Generic"), new PyTuple(parameters.ToArray()) }, null);
         }
 
         /// <summary>
@@ -7298,6 +7134,10 @@ namespace SharpPy
                     // But PrepReraiseStarExceptions expects (list, orig), so swap
                     // CPython passes (orig, excs) to the intrinsic.
                     return PrepReraiseStar(arg1, arg2);
+                case (int)IntrinsicFunction.INTRINSIC_TYPEVAR_WITH_BOUND:
+                    return MakeTypeVar(arg1, arg2, PyNone.Instance);
+                case (int)IntrinsicFunction.INTRINSIC_TYPEVAR_WITH_CONSTRAINTS:
+                    return MakeTypeVar(arg1, PyNone.Instance, arg2);
                 case (int)IntrinsicFunction.INTRINSIC_SET_FUNCTION_TYPE_PARAMS: // PEP 695 Generic Function
                     return SetFunctionTypeParams(arg1, arg2);
                 default:

@@ -1968,7 +1968,10 @@ namespace SharpPy
             _isInFunction = true;
             // CPython co_qualname for this function (C.meth, outer.<locals>.inner, ...).
             string qualNameForCode = ComputeQualName(name);
-            _defQualStack.Add((name, false));
+            // The scope of type parameters is not a name on the way to what it holds.
+            // ste_nested: some enclosing scope is a function (CO_NESTED).
+            if (_defQualStack.Exists(part => !part.IsClass)) flags |= PyCodeObject.CO_NESTED;
+            if (!name.StartsWith("<generic parameters of ")) _defQualStack.Add((name, false));
             _currentFunctionName = name;
 
             // CRITICAL: Set free and cell variables from parameters
@@ -3775,6 +3778,11 @@ namespace SharpPy
                     CompileInlinedMethodCall(inlinedCall);
                     break;
                     
+                case IntrinsicExpression intrinsic:
+                    foreach (var argument in intrinsic.Arguments) CompileExpression(argument);
+                    EmitInstruction(intrinsic.Arguments.Length == 1 ? ByteCodeOp.CALL_INTRINSIC_1 : ByteCodeOp.CALL_INTRINSIC_2, (int)intrinsic.Function);
+                    break;
+
                 // Python 3.12 Type Parameters
                 case TypeVarExpression typeVar:
                     EmitLoadConst(new PyString(typeVar.Name));
@@ -4065,16 +4073,6 @@ namespace SharpPy
                 }
             }
 
-            // PEP 695: Check if function has type parameters
-            if (func.TypeParams != null && func.TypeParams.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"  → PEP 695 Generic function with type parameters: [{string.Join(", ", func.TypeParams)}]");
-                #endif
-                CompileGenericFunction(func);
-                return;
-            }
-
             // CPython 3.12: Use symbol table for scope analysis
             List<string> freeVars = new List<string>();
             List<string> cellVars = new List<string>();
@@ -4195,7 +4193,8 @@ namespace SharpPy
             #endif
             
             // 내부 함수들의 nonlocal 선언을 기반으로 cell 변수 추가 분석
-            AnalyzeFunctionClosures(func.Body, localVarNames, allFreeVars, additionalCellVars);
+            // The symbol table has the answer whenever there is one.
+            if (funcSymbolTable == null) AnalyzeFunctionClosures(func.Body, localVarNames, allFreeVars, additionalCellVars);
             
             // 업데이트된 cell 변수들 사용
             cellVars = additionalCellVars;
@@ -4502,7 +4501,7 @@ namespace SharpPy
                     foreach (var nonlocalVar in nonlocalVars)
                     {
                         // nonlocal 변수가 현재 함수의 지역변수나 매개변수라면 cell로 만들어야 함
-                        if ((parameters.Contains(nonlocalVar) || _varNames.Contains(nonlocalVar)) && !cellVars.Contains(nonlocalVar))
+                        if (_currentSymbolTable?.Lookup(nonlocalVar)?.Scope != SymbolScope.Free && (parameters.Contains(nonlocalVar) || _varNames.Contains(nonlocalVar)) && !cellVars.Contains(nonlocalVar))
                         {
                             cellVars.Add(nonlocalVar);
                             #if DEBUG_LOG
@@ -5774,230 +5773,11 @@ namespace SharpPy
             Console.WriteLine($"🔍 CompileClass called for: {cls.Name}, TypeParams.Count: {cls.TypeParams.Count}");
             #endif
 
-            // PEP 695: Generic class with type parameters requires special handling
-            if (cls.TypeParams.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Dispatching to CompileGenericClass for: {cls.Name}");
-                #endif
-                CompileGenericClass(cls);
-            }
-            else
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Dispatching to CompileRegularClass for: {cls.Name}");
-                #endif
-                CompileRegularClass(cls);
-            }
+            CompileRegularClass(cls);
         }
         
-        private void CompileGenericClass(ClassDefStatement cls)
-        {
-            // CPython 3.12: PEP 695 generic class compilation  
-            // For now, create a simplified generic parameters function
-            EmitInstruction(ByteCodeOp.PUSH_NULL);
-            
-            // Generate simplified Generic Parameters function code
-            var genericParamsCode = CompileSimplifiedGenericParametersFunction(cls.TypeParams, cls.Name, cls.Body);
-            EmitLoadConst(genericParamsCode);
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
-            EmitInstruction(ByteCodeOp.CALL, 0);
-            
-            // The result is the class with type parameters bound
-            EmitStoreName(cls.BindName);
-        }
         
-        /// <summary>
-        /// PEP 695: Compile generic function with type parameters
-        /// CPython pattern: def identity[T](x: T) -> PUSH_NULL, LOAD_CONST <generic parameters>, MAKE_FUNCTION, CALL
-        /// </summary>
-        private void CompileGenericFunction(FunctionDefStatement func)
-        {
-            // CPython pattern: PUSH_NULL, LOAD_CONST <generic parameters function>, MAKE_FUNCTION, CALL
-            EmitInstruction(ByteCodeOp.PUSH_NULL);
-            
-            // Create generic parameters function
-            var genericParamsCode = CompileGenericParametersFunction(func.TypeParams, func.Name, func);
-            EmitLoadConst(genericParamsCode);
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
-            EmitInstruction(ByteCodeOp.CALL, 0);
-            
-            // Store the resulting function
-            EmitStoreName(func.BindName);
-        }
         
-        /// <summary>
-        /// Compile Generic Parameters function for PEP 695 function
-        /// Creates: <code object <generic parameters of identity>>
-        /// </summary>
-        private PyCodeObject CompileGenericParametersFunction(List<TypeParam> typeParams, string functionName, FunctionDefStatement func)
-        {
-            // Save current compilation state
-            var savedInstructionSequence = _instructionSequence;
-            var savedConstants = _constants;
-            var savedNames = _names;
-            var savedVarNames = _varNames;
-            var savedCellVars = _cellVars;
-            var savedFreeVars = _freeVars;
-
-            // Initialize new compilation state for generic parameters function
-            _instructionSequence = new InstructionSequence();
-            _constants = new List<PyObject>();
-            _names = new List<string>();
-            _varNames = new List<string>();
-            _cellVars = new List<string>();
-            _freeVars = new List<string>();
-            
-            try
-            {
-                // CPython 3.12 pattern for generic function parameters
-                EmitInstruction(ByteCodeOp.RESUME, 0);
-                
-                // Create TYPEVAR for each type parameter
-                foreach (var typeParam in typeParams)
-                {
-                    EmitLoadConst(new PyString(typeParam.Name));
-                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
-                    EmitInstruction(ByteCodeOp.COPY, 1);
-
-                    // Add to varNames for STORE_FAST/LOAD_FAST
-                    if (!_varNames.Contains(typeParam.Name))
-                        _varNames.Add(typeParam.Name);
-
-                    int varIndex = _varNames.IndexOf(typeParam.Name);
-                    EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
-                }
-                
-                // Build tuple of type parameters
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
-                
-                // Create annotations tuple: complex parameter annotations
-                var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
-
-                // Convert defaults for internal use
-                var defaults = new List<PyObject>();
-                foreach (var defaultExpr in defaultExprs)
-                {
-                    if (defaultExpr is ConstantExpression constExpr)
-                    {
-                        defaults.Add(constExpr.Value);
-                    }
-                    else
-                    {
-                        defaults.Add(PyNone.Instance);
-                    }
-                }
-
-                // Convert keyword-only defaults
-                var kwDefaults = new List<PyObject>();
-                foreach (var kwDefaultExpr in kwDefaultExprs)
-                {
-                    if (kwDefaultExpr == null)
-                    {
-                        kwDefaults.Add(PyNone.Instance);
-                    }
-                    else if (kwDefaultExpr is ConstantExpression constExpr)
-                    {
-                        kwDefaults.Add(constExpr.Value);
-                    }
-                    else
-                    {
-                        kwDefaults.Add(PyNone.Instance);
-                    }
-                }
-                
-                // Build complex annotations tuple for all parameters and return type
-                var annotationCount = 0;
-                
-                // Add parameter annotations
-                foreach (var paramName in paramNames)
-                {
-                    EmitLoadConst(new PyString(paramName)); // parameter name
-                    annotationCount++;
-
-                    // Add type annotation (simplified: use first type param for now)
-                    int typeVarIndex = _varNames.IndexOf(typeParams[0].Name);
-                    EmitInstruction(ByteCodeOp.LOAD_FAST, typeVarIndex);
-                    annotationCount++;
-                }
-
-                // Add return type annotation if exists
-                if (func.Parameters.Count > 0) // Simple heuristic: if has params, likely has return type
-                {
-                    EmitLoadConst(new PyString("return"));
-                    annotationCount++;
-
-                    int typeVarIndex = _varNames.IndexOf(typeParams[0].Name);
-                    EmitInstruction(ByteCodeOp.LOAD_FAST, typeVarIndex);
-                    annotationCount++;
-                }
-                
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotationCount);
-
-                // CPython 3.12: compile.c:2371 - compiler_function_body
-                // Compile actual function using CompilerFunctionBody (not legacy CompileFunction)
-                var compiler = new PythonCompiler();
-                compiler.InheritQualStack(this);
-                compiler.SetSourceLocation(_currentFileName, _sourceLines);
-
-                // CPython 3.12: Set symbol table context for the function
-                if (_symbolTable != null)
-                {
-                    var funcSymbolTable = _symbolTable.GetChildren().FirstOrDefault(child =>
-                        child.GetName().Contains(func.Name));
-                    if (funcSymbolTable != null)
-                    {
-                        compiler.SetSymbolTableContext(funcSymbolTable);
-                    }
-                    compiler.SetRootSymbolTable(_symbolTable);
-                }
-
-                var funcCode = compiler.CompilerFunctionBody(
-                    func.Body, func.Name, paramNames,
-                    defaults, kwDefaults, new List<string>(), new List<string>(),
-                    flags, argCount, posonlyArgCount, kwonlyArgCount);
-                EmitLoadConst(funcCode);
-                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 4); // annotations flag
-                
-                // SWAP 2 (not 4!) and CALL_INTRINSIC_2 for SET_FUNCTION_TYPE_PARAMS
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, (int)IntrinsicFunction.INTRINSIC_SET_FUNCTION_TYPE_PARAMS);
-                
-                EmitInstruction(ByteCodeOp.RETURN_VALUE);
-
-                // Build the code object
-                var functionName_full = $"<generic parameters of {functionName}>";
-                // Generic parameters wrapper has no generator flags
-                var finalInstructions = GetFinalInstructions(0);
-                return new PyCodeObject(
-                    functionName_full,
-                    finalInstructions,
-                    _constants,
-                    _names,
-                    _varNames,
-                    0, // argCount
-                    0, // posonlyArgCount
-                    0, // kwonlyArgCount
-                    _freeVars,
-                    _cellVars,
-                    new List<PyObject>(), // defaultValues
-                    null, // kwDefaults
-                    0, // flags
-                    "", // fileName
-                    new List<string>() // sourceLines
-                );
-            }
-            finally
-            {
-                // Restore compilation state
-                _instructionSequence = savedInstructionSequence;
-                _constants = savedConstants;
-                _names = savedNames;
-                _varNames = savedVarNames;
-                _cellVars = savedCellVars;
-                _freeVars = savedFreeVars;
-            }
-        }
         
         private void CompileRegularClass(ClassDefStatement cls)
         {
@@ -6413,126 +6193,6 @@ namespace SharpPy
         }
         #endif
 
-        /// <summary>
-        /// Compile simplified Generic Parameters function for PEP 695
-        /// This creates a basic working version first
-        /// </summary>
-        private PyCodeObject CompileSimplifiedGenericParametersFunction(List<TypeParam> typeParams, string className, List<Statement> classBody)
-        {
-            // Save current compilation state
-            var savedInstructionSequence = _instructionSequence;
-            var savedConstants = _constants;
-            var savedNames = _names;
-            var savedVarNames = _varNames;
-            var savedCellVars = _cellVars;
-            var savedFreeVars = _freeVars;
-            
-            // Initialize new compilation state for generic parameters function
-            _instructionSequence = new InstructionSequence();
-            _constants = new List<PyObject>();
-            _names = new List<string>();
-            _varNames = new List<string>();
-            _cellVars = new List<string>();
-            _freeVars = new List<string>();
-            
-            try
-            {
-                // CPython 3.12 PEP 695: Proper Generic Parameters function setup
-                
-                // 1. Set up VarNames for STORE_FAST/LOAD_FAST operations 
-                _varNames.Add(".generic_base");  // CPython 3.12 standard: ['.generic_base']
-                
-                // 2. Set up CellVars for MAKE_CELL operations (CPython 3.12 order)
-                _cellVars.Add(".type_params");  // Index 1 in MAKE_CELL
-                foreach (var typeParam in typeParams)
-                {
-                    _cellVars.Add(typeParam.Name);    // Index 2+ in MAKE_CELL
-                }
-                
-                // Emit MAKE_CELL instructions
-                // CPython 3.12: MAKE_CELL argument is localsplus offset
-                // For PEP 695 generic function: nlocals=1 (.generic_base), then cells
-                for (int i = 0; i < _cellVars.Count; i++)
-                {
-                    // Localsplus offset: nlocals + cell_index = 1 + i
-                    int localsPlusOffset = _varNames.Count + i;
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
-                }
-                
-                // 2. RESUME instruction
-                EmitInstruction(ByteCodeOp.RESUME, 0);
-                
-                // 3. Create type parameters and store in cells
-                foreach (var typeParam in typeParams)
-                {
-                    EmitLoadConst(new PyString(typeParam.Name));
-                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
-                    EmitInstruction(ByteCodeOp.COPY, 1);
-                    EmitStoreDeref(typeParam.Name);
-                }
-                
-                // 4. Build type parameters tuple and store
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
-                EmitStoreDeref(".type_params");
-                
-                // 5. Create regular class with __build_class__
-                // CPython 3.12: Python/bytecodes.c:987 - LOAD_BUILD_CLASS opcode
-                // SharpPy uses LOAD_GLOBAL with pushNull=true instead
-                EmitLoadGlobal("__build_class__", pushNull: true);
-                
-                // 6. Load closure for class body (type parameters) - CPython 3.12 uses LOAD_CLOSURE
-                EmitLoadClosure(".type_params");
-                EmitLoadClosure(typeParams[0].Name); // Load first type parameter (e.g., 'T')
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, 2);
-                
-                // 7. Compile class body with closure
-                var classBodyCode = CompileClassBody(classBody, $"<class_body_{className}>");
-                EmitLoadConst(classBodyCode);
-                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 8); // 8 = closure flag
-                
-                // 8. Load class name  
-                EmitLoadConst(new PyString(className));
-                
-                // 9. Create generic base using INTRINSIC_SUBSCRIPT_GENERIC
-                EmitLoadDeref(".type_params");
-                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_SUBSCRIPT_GENERIC);
-                EmitStoreFast(".generic_base");  // STORE_FAST 0 (.generic_base)
-                
-                // 10. Load generic base and call __build_class__
-                EmitLoadFast(".generic_base");   // LOAD_FAST 0 (.generic_base)
-                EmitInstruction(ByteCodeOp.CALL, 3);  // __build_class__(function, name, generic_base)
-                
-                // 11. Return the created class
-                EmitInstruction(ByteCodeOp.RETURN_VALUE);
-
-                // Build the code object
-                var functionName = $"<generic parameters of {className}>";
-                // Generic parameters wrapper has no generator flags
-                var finalInstructions = GetFinalInstructions(0);
-                return new PyCodeObject(
-                    functionName,
-                    finalInstructions,
-                    _constants,
-                    _names,
-                    _varNames,
-                    0,  // argCount
-                    0,  // posonlyArgCount
-                    0,  // kwonlyArgCount
-                    _freeVars,    // freeVars
-                    _cellVars     // cellVars
-                );
-            }
-            finally
-            {
-                // Restore compilation state
-                _instructionSequence = savedInstructionSequence;
-                _constants = savedConstants;
-                _names = savedNames;
-                _varNames = savedVarNames;
-                _cellVars = savedCellVars;
-                _freeVars = savedFreeVars;
-            }
-        }
         
         /// <summary>
         /// CPython 3.12: Compile class body with optional free variables
@@ -6549,6 +6209,8 @@ namespace SharpPy
             if (table.Type == SymbolTableType.Function && (name.StartsWith("<function:") || name.StartsWith("<async function:")))
                 name = name.Substring(name.IndexOf(':') + 1).TrimEnd('>');
             var parent = table.GetParent();
+            // The scope of type parameters is not a name on the way to what it holds.
+            if (parent != null && parent.Name.Contains("<generic parameters of ")) parent = parent.GetParent();
             if (parent == null || parent.Type == SymbolTableType.Module || parent.Lookup(name)?.IsGlobal() == true)
                 return name;
             string prefix = QualifiedScopeName(parent);

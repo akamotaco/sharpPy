@@ -328,22 +328,25 @@ namespace SharpPy
         private readonly Func<PyObject, PyObject> _getter;
         private readonly Action<PyObject, PyObject> _setter;
         private readonly bool _readonly;
+        private readonly Action<PyObject> _deleter;
 
         public PyMemberDescriptor(
             string name,
             PyType ownerType,
             Func<PyObject, PyObject> getter,
             Action<PyObject, PyObject> setter = null,
-            bool readOnly = false)
+            bool readOnly = false,
+            Action<PyObject> deleter = null)
         {
             Name = name;
             OwnerType = ownerType;
             _getter = getter ?? throw new ArgumentNullException(nameof(getter));
             _setter = setter;
             _readonly = readOnly || setter == null;
+            _deleter = deleter;
         }
 
-        public override PyType GetPyType() => PyType.PropertyType;
+        public override PyType GetPyType() => PyType.MemberDescriptorType;
         public override string GetTypeName() => "member_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -377,12 +380,14 @@ namespace SharpPy
         {
             if (_readonly || _setter == null)
                 throw PyAttributeError.Create($"attribute '{Name}' of '{OwnerType.Name}' objects is not writable");
-            _setter(instance, PyNone.Instance);
+            if (_deleter != null) _deleter(instance);
+            else _setter(instance, PyNone.Instance);
         }
 
         public bool IsDataDescriptor() => !_readonly && _setter != null;
 
         public override string ToString() => $"<member '{Name}' of '{OwnerType.Name}' objects>";
+        public override PyString ToRepr() => new PyString(ToString());
     }
 
     /// <summary>

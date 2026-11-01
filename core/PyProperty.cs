@@ -39,6 +39,12 @@ public interface IDescriptor
         internal static void InitializePropertyDescriptors()
         {
             var propType = PyType.PropertyType;
+            // property_set_name (Objects/descrobject.c), found on the type by type_new_set_names.
+            propType.TypeDict["__set_name__"] = new PyMethodDescriptor("__set_name__", propType, (self, args, kwargs) =>
+            {
+                if (args[1] is PyString text) ((PyProperty)self)._name = text.Value;
+                return PyNone.Instance;
+            }, minArgs: 2, maxArgs: 2);
 
             // setter 메서드 descriptor
             propType.TypeDict["setter"] = new PyMethodDescriptor(
@@ -135,11 +141,6 @@ public interface IDescriptor
                     return PyBool.False;
                 });
 
-            // property_descr_get, for super().__get__ in a subclass.
-            propType.TypeDict["__get__"] = new PyMethodDescriptor("__get__", propType, (self, args, kwargs) =>
-                ((PyProperty)self).PropertyGet(args[0] is PyNone ? null : args[0], args.Length > 1 ? args[1] as PyType : null),
-                1, 2);
-
             // A Python subclass of property: the same object, under its class.
             propType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", propType, (cls, args, kwargs) =>
             {
@@ -207,7 +208,7 @@ public interface IDescriptor
                     if (instance is PyNone)
                         return prop;
 
-                    return prop.Get(instance, owner);
+                    return prop.PropertyGet(instance, owner);
                 },
                 minArgs: 1,
                 maxArgs: 2
@@ -447,22 +448,6 @@ public interface IDescriptor
                 }
             }
 
-            if (name == "__set_name__")
-            {
-                // CPython 3.12: Objects/descrobject.c property_set_name
-                return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__set_name__", (self, a) =>
-                {
-                    if (a.Length != 2)
-                    {
-                        throw PyTypeError.Create($"__set_name__() takes 2 positional arguments but {a.Length} were given");
-                    }
-                    if (a[1] is PyString s)
-                    {
-                        ((PyProperty)self)._name = s.Value;
-                    }
-                    return PyNone.Instance;
-                }, 2));
-            }
             // CPython 3.12 호환: GenericGetAttribute를 통해 descriptor 테이블 조회
             return GenericGetAttribute(name);
         }

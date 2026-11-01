@@ -29,6 +29,10 @@ namespace SharpPy
             // but sync all changes back to the underlying string-keyed dict
             foreach (var kv in underlyingDict)
             {
+                // The getsets of the function keep their values here too; they are not its __dict__.
+                if (kv.Key is "__type_params__" or "__closure__" or "__defaults__" or "__kwdefaults__"
+                    or "__annotations__" or "__name__" or "__qualname__" or "__module__" or "__doc__")
+                    continue;
                 var pyKey = new PyString(kv.Key);
                 _dict[pyKey] = kv.Value;
                 _keys.Add(pyKey);

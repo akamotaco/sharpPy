@@ -950,6 +950,8 @@ namespace SharpPy
 
         // INTRINSIC_2 (CALL_INTRINSIC_2)
         INTRINSIC_PREP_RERAISE_STAR = 0,    // CPython 3.12: PREP_RERAISE_STAR for except* exception group handling
+        INTRINSIC_TYPEVAR_WITH_BOUND = 2,   // CPython
+        INTRINSIC_TYPEVAR_WITH_CONSTRAINTS = 3, // CPython
         INTRINSIC_SET_FUNCTION_TYPE_PARAMS = 4  // Already used in compile.cs
     }
     

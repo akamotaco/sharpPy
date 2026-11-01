@@ -248,9 +248,7 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
-            // CPython: 인스턴스 __dict__에 저장
-            // Objects/unicodeobject.c:14744 - type->tp_alloc allocates space for __dict__
-            PyGlobalsDict.Store(InstanceDict, name, value);
+            SubclassInstanceSupport.SetAttribute(this, (PyClass)GetPyType(), InstanceDict, name, value);
         }
 
         #endregion

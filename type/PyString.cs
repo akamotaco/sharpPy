@@ -3797,7 +3797,7 @@ namespace SharpPy
             return Encode(encoding);
         }
 
-        private PyObject IsIdentifier(PyObject[] args)
+        internal PyObject IsIdentifier(PyObject[] args)
         {
             // CPython 3.12: str.isidentifier()
             // Returns True if the string is a valid identifier according to Python language definition

@@ -114,6 +114,16 @@ namespace SharpPy
         internal static void SetAttribute(PyObject self, PyClass instanceType,
             Dictionary<string, PyObject> instanceDict, string name, PyObject value)
         {
+            // object_set_dict: the storage stays, __dict__ is a live view of it.
+            if (name == "__dict__")
+            {
+                var replacement = value as PyDict
+                    ?? throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
+                var copy = new List<KeyValuePair<PyObject, PyObject>>(replacement.InternalDict);
+                instanceDict.Clear();
+                foreach (var entry in copy) PyGlobalsDict.Store(instanceDict, ((PyString)entry.Key).Value, entry.Value);
+                return;
+            }
             foreach (var mroType in instanceType.MRO)
             {
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))

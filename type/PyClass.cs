@@ -310,10 +310,6 @@ namespace SharpPy
                 var typeParamsTuple = new PyTuple(TypeParams.ToArray());
                 ClassDict["__type_params__"] = typeParamsTuple;
             }
-            else
-            {
-                ClassDict["__type_params__"] = new PyTuple(new PyObject[0]);
-            }
             
             // PEP 698: @override 데코레이터 - CPython compatible (no runtime validation at class creation)
             // ValidateOverrideDecorators(); // Disabled for CPython compatibility
@@ -426,7 +422,8 @@ namespace SharpPy
             // Step 2: Check if returned object is an instance of this type
             // CPython 3.12: Objects/typeobject.c:1672-1675
             // If __new__ returned a different type, return it immediately (no __init__)
-            if (instance.GetPyType() != this)
+            var instanceType = instance.GetPyType();
+            if (instanceType != this && !instanceType.IsSubclassOf(this))
             {
                 return instance;
             }
@@ -447,13 +444,13 @@ namespace SharpPy
             // CPython 3.12: Objects/typeobject.c:1677-1687
             // __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
             // Reference: Objects/typeobject.c:9028 (slot_tp_init -> lookup_method -> _PyType_Lookup)
-            var init = LookupInMRO("__init__");
+            var init = instance.LookupSpecialMethodUncached("__init__");
             if (init != null)
             {
                 // Apply descriptor protocol if needed
                 if (init is IDescriptor desc)
                 {
-                    init = desc.Get(instance, this);
+                    init = desc.Get(instance, instanceType);
                 }
                 else if (init is PyFunction function)
                 {
@@ -564,7 +561,19 @@ namespace SharpPy
         }
 
         // 클래스 호출 시 인스턴스 생성
+        // Py_TYPE(cls)->tp_call: a metaclass __call__ comes before type_call.
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        {
+            if (Metaclass != null && !ReferenceEquals(Metaclass, PyTypeMetaclass.Instance))
+            {
+                var call = Metaclass.LookupInMRO("__call__");
+                if (call != null && !ReferenceEquals(call, PyTypeMetaclass.Instance.LookupInMRO("__call__")))
+                    return BindSpecialMethod(call).Call(args, kwargs);
+            }
+            return TypeCall(args, kwargs);
+        }
+
+        internal virtual PyObject TypeCall(PyObject[] args, PyDict kwargs)
         {
             // CPython: bytes subclasses inherit bytes_new, and bytes_new honours the type it was asked
             // for - Objects/bytesobject.c dispatches to bytes_subtype_new, which builds the value and
@@ -658,16 +667,7 @@ namespace SharpPy
             // are now handled by descriptors in the metaclass, no need for hardcoded switch cases
             switch (name)
             {
-                case "__call__":
-                    // CPython 3.12: __call__ is special - class itself is callable
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning self for __call__");
-                    #endif
-                    return this;
                 default:
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → searching for '{name}' in ClassDict ({ClassDict.Count} items)");
-                    #endif
 
                     if (ClassDict.TryGetValue(name, out PyObject value))
                     {
@@ -836,6 +836,8 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
+            if (this is PyTypeMetaclass)
+                throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type 'type'");
 #if DEBUG
             // Debug: Track _generate_next_value_ modifications
             if (name == "_generate_next_value_")
@@ -1379,7 +1381,7 @@ namespace SharpPy
     /// </summary>
     public class PyClassInstance : PyObject, IInstanceDictAccessor
     {
-        public PyClass InstanceType { get; }
+        public PyClass InstanceType { get; private set; }
         public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
         private PyFunction _customGetAttr;
 
@@ -1391,6 +1393,19 @@ namespace SharpPy
                 return _materialized.TryGetStoredValue(new PyString(name), out value);
             return _attrs.TryGetValue(name, out value);
         }
+
+        // The slots of __slots__ are storage of the instance beside its __dict__.
+        private Dictionary<string, PyObject> _slots;
+
+        internal bool TryGetSlot(string name, out PyObject value)
+        {
+            value = null;
+            return _slots != null && _slots.TryGetValue(name, out value);
+        }
+
+        internal void SetSlot(string name, PyObject value) => (_slots ??= new Dictionary<string, PyObject>())[name] = value;
+
+        internal bool RemoveSlot(string name) => _slots != null && _slots.Remove(name);
 
         public void SetInstanceAttribute(string name, PyObject value)
         {
@@ -2362,6 +2377,28 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
+            // object_set_class
+            if (name == "__class__")
+            {
+                if (value is not PyType target)
+                    throw PyTypeError.Create($"__class__ must be set to a class, not '{value.GetTypeName()}' object");
+                if (target is not PyClass heapTarget)
+                    throw PyTypeError.Create("__class__ assignment only supported for mutable types or ModuleType subclasses");
+                PyTypeMetaclass.CheckClassAssignment(InstanceType, heapTarget);
+                InstanceType = heapTarget;
+                return;
+            }
+
+            // CPython 3.12: _PyObject_GenericSetAttrWithDict — __dict__ replaces the store itself
+            if (name == "__dict__" && InstanceType.InstancesHaveDict())
+            {
+                if (value is not PyDict)
+                    throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetPyType().Name}'");
+                _materialized = (PyDict)value;
+                _attrs = null;
+                return;
+            }
+
             #if DEBUG_LOG
             Console.WriteLine($"🔧 PyClassInstance.SetAttribute: {InstanceType.Name} instance.{name} = {value}");
             #endif
@@ -2413,16 +2450,6 @@ namespace SharpPy
             if (!InstanceType.InstancesHaveDict() && !InstanceType.IsSlottedAttributeName(name))
             {
                 throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
-            }
-
-            // CPython 3.12: _PyObject_GenericSetAttrWithDict — __dict__ replaces the store itself
-            if (name == "__dict__" && InstanceType.InstancesHaveDict())
-            {
-                if (value is not PyDict)
-                    throw PyTypeError.Create($"__dict__ must be set to a dictionary, not a '{value.GetPyType().Name}'");
-                _materialized = (PyDict)value;
-                _attrs = null;
-                return;
             }
 
             SetInstanceAttribute(name, value);

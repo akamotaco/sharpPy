@@ -812,6 +812,18 @@ namespace SharpPy
             }
         }
 
+        // symtable_visit_annotations: they are evaluated where the def stands, not in the function.
+        private void AnalyzeAnnotations(FunctionArguments arguments, Expression? returns)
+        {
+            foreach (var group in new[] { arguments.PosOnlyArgs, arguments.Args, arguments.KwOnlyArgs })
+                if (group != null)
+                    foreach (var arg in group)
+                        if (arg.Annotation != null) AnalyzeExpression(arg.Annotation);
+            if (arguments.VarArg?.Annotation != null) AnalyzeExpression(arguments.VarArg.Annotation);
+            if (arguments.KwArg?.Annotation != null) AnalyzeExpression(arguments.KwArg.Annotation);
+            if (returns != null) AnalyzeExpression(returns);
+        }
+
         private void AnalyzeFunction(FunctionDefStatement func)
         {
             // CRITICAL: Analyze decorators FIRST in current scope before defining function
@@ -851,6 +863,8 @@ namespace SharpPy
                     }
                 }
             }
+
+            AnalyzeAnnotations(func.Arguments, func.ReturnTypeAnnotation);
 
             // Define function name in current scope
             _currentTable?.DefineSymbol(func.BindName, SymbolFlags.Assigned);
@@ -1401,6 +1415,10 @@ namespace SharpPy
             // CPython 3.12: Post-process to ensure variables used in nested functions become cells
             MarkCellVariablesBasedOnChildUsage(table);
 
+            // A nonlocal name is the cell of an outer scope, however deep it is used from here.
+            foreach (var symbol in table.GetSymbols().Values)
+                if (symbol.IsNonlocal() && symbol.Scope == SymbolScope.Cell) symbol.Scope = SymbolScope.Free;
+
             _recursionDepth--;
         }
 
@@ -1858,6 +1876,10 @@ namespace SharpPy
                     }
                     break;
 
+                case IntrinsicExpression intrinsic:
+                    foreach (var argument in intrinsic.Arguments) AnalyzeExpression(argument);
+                    break;
+
                 case LambdaExpression lambda:
                     // Lambda functions need their own scope to track free variables
 #if DEBUG_COMPILER_LOG
@@ -2087,6 +2109,7 @@ namespace SharpPy
             }
 
             // Similar to regular function
+            AnalyzeAnnotations(func.Arguments, func.ReturnAnnotation);
             _currentTable?.DefineSymbol(func.BindName, SymbolFlags.Assigned);
 
             var functionTable = new SymbolTable($"<async function:{func.Name}>", SymbolTableType.Function);

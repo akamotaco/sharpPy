@@ -1184,10 +1184,11 @@ namespace SharpPy.Generated
 #if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
 #endif
-                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
+                            bool isGeneric = typeParams.Count > 0;
+                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, isGeneric ? null : decoratorExpressions, returnAnnotation);
                             functionDef.BindName = Mangle(name);
                             CopySourceLocation(funcDef, functionDef);
-                            return functionDef;
+                            return isGeneric ? InTypeParamScope(functionDef, name, functionDef.BindName, typeParams, decoratorExpressions) : functionDef;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1224,8 +1225,7 @@ namespace SharpPy.Generated
                             FunctionArguments functionArgs = ConvertFunctionArguments(asyncFuncDef.Args);
 
                             // PEP 695: Convert type parameters if present (returns List<TypeParam>, convert to List<string>)
-                            var typeParamObjs = ConvertTypeParams(asyncFuncDef.TypeParams);
-                            var typeParams = typeParamObjs?.Select(tp => tp.Name).ToList();
+                            var typeParams = ConvertTypeParams(asyncFuncDef.TypeParams);
 
                             // Convert decorators
                             var decoratorExpressions = new List<DecoratorExpression>();
@@ -1251,10 +1251,11 @@ namespace SharpPy.Generated
                                 returnAnnotation = ConvertAnyExpression(asyncFuncDef.Returns);
                             }
 
-                            var result = new AsyncFunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
+                            bool isGeneric = typeParams.Count > 0;
+                            var result = new AsyncFunctionDefStatement(name, functionArgs, bodyStmts, null, isGeneric ? null : decoratorExpressions, returnAnnotation);
                             result.BindName = Mangle(name);
                             CopySourceLocation(asyncFuncDef, result);
-                            return result;
+                            return isGeneric ? InTypeParamScope(result, name, result.BindName, typeParams, decoratorExpressions) : result;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1381,11 +1382,18 @@ namespace SharpPy.Generated
 #if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}, decorators={decoratorExpressions.Count}");
 #endif
-                        var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr, decoratorExpressions);
+                        bool isGeneric = typeParams.Count > 0;
+                        if (isGeneric)
+                        {
+                            baseClassExprs.Add(new NameExpression(".generic_base"));
+                            bool hasDocstring = classBodyStmts.Count > 0 && classBodyStmts[0] is ExpressionStatement { Expression: ConstantExpression { Value: PyString } };
+                            classBodyStmts.Insert(hasDocstring ? 1 : 0, new AssignStatement(new NameExpression("__type_params__"), new NameExpression(".type_params")));
+                        }
+                        var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, null, metaclassExpr, isGeneric ? null : decoratorExpressions);
                         result.ClassKeywords = classKeywordPairs;
                         result.BindName = Mangle(className);
                         CopySourceLocation(classDef, result);
-                        return result;
+                        return isGeneric ? InTypeParamScope(result, className, result.BindName, typeParams, decoratorExpressions) : result;
                     }
 
                 case GeneratedGlobal globalStmt:
@@ -3026,6 +3034,68 @@ namespace SharpPy.Generated
         /// PEP 695: Convert GeneratedTypeParamSeq to List<TypeParam>
         /// Converts Generated AST type parameters to SharpPy AST type parameters
         /// </summary>
+        /// <summary>
+        /// compiler_class and compiler_function with type parameters (Python/compile.c:2566). The
+        /// annotation scope of PEP 695 is a function called once where the definition stands:
+        /// the parameters are its locals, so everything inside reaches them as ordinary closures.
+        /// </summary>
+        private static Statement InTypeParamScope(Statement definition, string name, string bindName, List<TypeParam> typeParams, List<DecoratorExpression> decorators)
+        {
+            var body = new List<Statement>();
+            var parameterNames = new List<Expression>();
+            foreach (var typeParam in typeParams)
+            {
+                var parameter = new NameExpression(Mangle(typeParam.Name));
+                parameterNames.Add(parameter);
+                body.Add(new AssignStatement(parameter, TypeParamValue(typeParam)));
+            }
+            var typeParamsName = new NameExpression(".type_params");
+            body.Add(new AssignStatement(typeParamsName, new TupleExpression(parameterNames)));
+            if (definition is ClassDefStatement)
+            {
+                body.Add(new AssignStatement(new NameExpression(".generic_base"),
+                    new IntrinsicExpression(IntrinsicFunction.INTRINSIC_SUBSCRIPT_GENERIC, typeParamsName)));
+                body.Add(definition);
+            }
+            else
+            {
+                // INTRINSIC_SET_FUNCTION_TYPE_PARAMS
+                body.Add(definition);
+                body.Add(new AssignStatement(new AttributeExpression(new NameExpression(bindName), "__type_params__"), typeParamsName));
+            }
+            body.Add(new ReturnStatement(new NameExpression(bindName)));
+
+            string scopeName = $"<generic parameters of {name}>";
+            var scope = new FunctionDefStatement(scopeName, new List<string>(), body);
+            scope.BindName = scopeName;
+            Expression value = new CallExpression(new NameExpression(scopeName), new List<Expression>());
+            for (int i = decorators.Count - 1; i >= 0; i--)
+                value = new CallExpression(decorators[i].DecoratorFunction, new List<Expression> { value });
+            var block = new List<Statement>
+            {
+                scope,
+                new AssignStatement(new NameExpression(bindName), value),
+                new DeleteStatement(new List<Expression> { new NameExpression(scopeName) }),
+            };
+            return new IfStatement(new ConstantExpression(PyBool.True), block, new List<Statement>());
+        }
+
+        private static Expression TypeParamValue(TypeParam typeParam)
+        {
+            var name = new ConstantExpression(new PyString(typeParam.Name));
+            return typeParam switch
+            {
+                ParamSpecParam => new IntrinsicExpression(IntrinsicFunction.INTRINSIC_PARAMSPEC, name),
+                TypeVarTupleParam => new IntrinsicExpression(IntrinsicFunction.INTRINSIC_TYPEVARTUPLE, name),
+                // The bound is evaluated on first use, by a function of the same scope.
+                TypeVarParam { Bound: TupleExpression constraints } => new IntrinsicExpression(
+                    IntrinsicFunction.INTRINSIC_TYPEVAR_WITH_CONSTRAINTS, name, new LambdaExpression(new List<string>(), constraints)),
+                TypeVarParam { Bound: not null } bounded => new IntrinsicExpression(
+                    IntrinsicFunction.INTRINSIC_TYPEVAR_WITH_BOUND, name, new LambdaExpression(new List<string>(), bounded.Bound)),
+                _ => new IntrinsicExpression(IntrinsicFunction.INTRINSIC_TYPEVAR, name),
+            };
+        }
+
         private static List<TypeParam> ConvertTypeParams(GeneratedTypeParamSeq? typeParamSeq)
         {
             var result = new List<TypeParam>();
