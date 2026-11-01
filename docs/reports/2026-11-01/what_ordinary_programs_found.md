@@ -76,3 +76,27 @@ condition to the innermost loop; it now goes through the same generator loops as
 targets are ordinary assignment targets, so `*r`, `[a, b]`, `o.v` and `d[k]` work.
 
 Gates: bughunt 136/136, evaluate 225/3/2, similarity 0, Godot 82/0. Programs matching: 37 of 37 valid. Open: P0-81.
+
+## The second batch
+
+A second batch of 40 programs leaned on the standard library. It found defects the bughunt probes had walked past for
+months, because they were ordinary rather than strange:
+
+- Calling a free variable from a function that also has a cell read the wrong cell, so `wrapper(x)` failed whenever `x` was
+  captured. The call route had its own copy of the choice `EmitLoadName` makes.
+- Backslash-newline inside a string literal stayed in the string, so `"""\` kept a backslash.
+- `int`, `float` and `str` subclasses ignored their own `__repr__` and `__str__`, so `IntEnum` and `IntFlag` printed numbers.
+- A class pattern compared the exact class, so `case Base():` did not match a `Derived` instance. `MATCH_CLASS` is now
+  `match_class`, and `MATCH_KEYS`, `GET_LEN` and mapping `**rest` follow CPython.
+- `int / int` and `float(big)` were not correctly rounded, and `math.isqrt` overflowed on big integers.
+- `hashlib` returned fake digests and `random.seed(str)` was built on them.
+- `object` had no `__reduce_ex__`, so `copy.copy` failed for plain classes.
+- A Python class named `timedelta` was diverted to a C# type by its name.
+
+Library files are now CPython's for `collections`, `functools`, `datetime`, `decimal`, `fractions`, `statistics`, `struct`,
+`base64`, `locale`, `calendar`, `_strptime`, `encodings` and `asyncio` (minus sockets). `_struct`, `deque` and the hashes were
+written by qwen and corrected here; each needed fixes for faults a comparison with CPython showed, such as missing format
+codes, a full ring buffer overwriting the wrong end, and a 16-byte length field shifted by more than 63 bits.
+
+Gates: bughunt 149/149, evaluate 225/3/2. Programs matching: 35 of 36 valid; the last needs the `euc-kr` codec.
+
