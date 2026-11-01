@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "cpy
 sys.path.append(CPYTHON_LIB)
 
 name, target = sys.argv[1], sys.argv[2]
-KNOWN_TOO_SLOW = ("test_adaptive_find",)
+KNOWN_TOO_SLOW = ()
 output = open(target, "w", encoding="utf-8")
 
 

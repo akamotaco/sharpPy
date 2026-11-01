@@ -366,8 +366,24 @@ namespace SharpPy
 
         #region Core Overrides
 
-        public override string GetTypeName() => "bytearray";
+        public override string GetTypeName() => GetPyType().Name;
         public override PyType GetPyType() => PyType.BytearrayType;
+
+        // bytearray_init: the arguments reach the object tp_new allocated.
+        internal void Initialize(PyObject[] args, PyDict kwargs) =>
+            _bytes = ((PyByteArray)PyType.BytearrayType.CreateInstance(args, kwargs))._bytes;
+
+        internal static void InstallNew()
+        {
+            var type = PyType.BytearrayType;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+                ReferenceEquals(cls, type) ? new PyByteArray() : new PyByteArraySubclass((PyType)cls), acceptsKwargs: true);
+            type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+            {
+                ((PyByteArray)self).Initialize(args, kwargs);
+                return PyNone.Instance;
+            }, 0, int.MaxValue, acceptsKwargs: true);
+        }
 
         public override string ToString() => ToRepr().Value;
 
@@ -1276,4 +1292,17 @@ namespace SharpPy
             return value;
         }
     }
+
+    /// <summary>A Python class deriving from bytearray: the layout of bytearray, its own type and __dict__.</summary>
+    public sealed class PyByteArraySubclass : PyByteArray, IDictBackedInstance
+    {
+        private readonly PyType _type;
+
+        public PyByteArraySubclass(PyType type) => _type = type;
+
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+
+        public override PyType GetPyType() => _type;
+    }
+
 }

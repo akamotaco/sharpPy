@@ -418,59 +418,11 @@ namespace SharpPy
                     if (args.Length < 2 || args.Length > 3)
                         throw PyTypeError.Create($"replace() takes at least 2 arguments ({args.Length} given)");
 
-                    if (args[0] is not PyBytes old)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
-                    if (args[1] is not PyBytes newBytes)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[1].GetTypeName()}'");
-
                     int maxCount = -1;
-                    if (args.Length >= 3 && args[2] is PyInt countInt)
-                        maxCount = (int)countInt.Value;
-
-                    // Build result
-                    var result = new System.Collections.Generic.List<byte>();
-                    int i = 0;
-                    int replaced = 0;
-
-                    while (i < bytes.Value.Length)
-                    {
-                        if (maxCount >= 0 && replaced >= maxCount)
-                        {
-                            // Copy rest of bytes
-                            for (; i < bytes.Value.Length; i++)
-                                result.Add(bytes.Value[i]);
-                            break;
-                        }
-
-                        bool match = false;
-                        if (i <= bytes.Value.Length - old.Value.Length)
-                        {
-                            match = true;
-                            for (int j = 0; j < old.Value.Length; j++)
-                            {
-                                if (bytes.Value[i + j] != old.Value[j])
-                                {
-                                    match = false;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (match)
-                        {
-                            // Replace
-                            result.AddRange(newBytes.Value);
-                            i += old.Value.Length;
-                            replaced++;
-                        }
-                        else
-                        {
-                            result.Add(bytes.Value[i]);
-                            i++;
-                        }
-                    }
-
-                    return new PyBytes(result.ToArray());
+                    if (args.Length >= 3)
+                        maxCount = args[2] is PyInt limit ? limit.ToInt()
+                            : throw PyTypeError.Create($"'{args[2].GetTypeName()}' object cannot be interpreted as an integer");
+                    return new PyBytes(ReplaceBytes(bytes.Value, SubArg(args[0], allowInt: false), SubArg(args[1], allowInt: false), maxCount));
                 },
                 minArgs: 2, maxArgs: 3
             );
@@ -2413,15 +2365,12 @@ namespace SharpPy
                 // CPython matches the empty subsection at the range boundary.
                 return new PyInt(backward ? end : start);
             }
-            if (backward)
+            if (start <= end)
             {
-                for (int i = end - sub.Length; i >= start; i--)
-                    if (SameAt(data, i, sub)) return new PyInt(i);
-            }
-            else
-            {
-                for (int i = start; i + sub.Length <= end; i++)
-                    if (SameAt(data, i, sub)) return new PyInt(i);
+                var range = Bytes(data).Slice(start, end - start);
+                int found = backward ? LastIndexOfBytes(range, sub) : IndexOfBytes(range, sub);
+                if (found >= 0)
+                    return new PyInt(found + start);
             }
             if (raiseWhenMissing) throw PyValueError.Create("subsection not found");
             return new PyInt(-1);
@@ -2433,15 +2382,107 @@ namespace SharpPy
             ParseRange(args, data.Count, out int start, out int end);
             if (sub.Length == 0) return new PyInt(Math.Max(0, end - start + 1));
             int count = 0;
-            for (int i = start; i + sub.Length <= end; i++)
+            if (start <= end)
             {
-                if (SameAt(data, i, sub))
+                var range = Bytes(data).Slice(start, end - start);
+                while (true)
                 {
+                    int found = IndexOfBytes(range, sub);
+                    if (found < 0)
+                        break;
                     count++;
-                    i += sub.Length - 1; // non-overlapping
+                    range = range.Slice(found + sub.Length);
                 }
             }
             return new PyInt(count);
+        }
+
+        private static ReadOnlySpan<byte> Bytes(System.Collections.Generic.IReadOnlyList<byte> data) => data switch
+        {
+            byte[] array => array,
+            List<byte> list => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list),
+            _ => new List<byte>(data).ToArray(),
+        };
+
+        // Linear in the worst case, as fastsearch's two-way is: a periodic needle must not cost n*m.
+        // stringlib/transmogrify.h: replace, with an empty needle between the bytes
+        internal static byte[] ReplaceBytes(byte[] data, byte[] old, byte[] replacement, int maxCount)
+        {
+            var result = new List<byte>(data.Length);
+            int replaced = 0;
+            if (old.Length == 0)
+            {
+                for (int i = 0; i <= data.Length; i++)
+                {
+                    if (maxCount < 0 || replaced < maxCount)
+                    {
+                        result.AddRange(replacement);
+                        replaced++;
+                    }
+                    if (i < data.Length)
+                        result.Add(data[i]);
+                }
+                return result.ToArray();
+            }
+            int position = 0;
+            while (maxCount < 0 || replaced < maxCount)
+            {
+                int found = IndexOfBytes(data.AsSpan(position), old);
+                if (found < 0)
+                    break;
+                result.AddRange(data.AsSpan(position, found).ToArray());
+                result.AddRange(replacement);
+                position += found + old.Length;
+                replaced++;
+            }
+            result.AddRange(data.AsSpan(position).ToArray());
+            return result.ToArray();
+        }
+
+        private static int[] FailureTable(ReadOnlySpan<byte> needle)
+        {
+            var table = new int[needle.Length];
+            for (int i = 1, k = 0; i < needle.Length; i++)
+            {
+                while (k > 0 && needle[i] != needle[k])
+                    k = table[k - 1];
+                if (needle[i] == needle[k])
+                    k++;
+                table[i] = k;
+            }
+            return table;
+        }
+
+        internal static int IndexOfBytes(ReadOnlySpan<byte> data, ReadOnlySpan<byte> needle)
+        {
+            if (needle.Length <= 8)
+                return data.IndexOf(needle);
+            var table = FailureTable(needle);
+            for (int i = 0, k = 0; i < data.Length; i++)
+            {
+                while (k > 0 && data[i] != needle[k])
+                    k = table[k - 1];
+                if (data[i] == needle[k] && ++k == needle.Length)
+                    return i - k + 1;
+            }
+            return -1;
+        }
+
+        internal static int LastIndexOfBytes(ReadOnlySpan<byte> data, ReadOnlySpan<byte> needle)
+        {
+            if (needle.Length <= 8)
+                return data.LastIndexOf(needle);
+            var reversed = needle.ToArray();
+            Array.Reverse(reversed);
+            var table = FailureTable(reversed);
+            for (int i = data.Length - 1, k = 0; i >= 0; i--)
+            {
+                while (k > 0 && data[i] != reversed[k])
+                    k = table[k - 1];
+                if (data[i] == reversed[k] && ++k == reversed.Length)
+                    return i;
+            }
+            return -1;
         }
 
         // CPython startswith_impl: bytes-like or a tuple of bytes-like.
