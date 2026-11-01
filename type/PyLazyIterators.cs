@@ -15,7 +15,6 @@ namespace SharpPy
     {
         private readonly PyObject _func;
         private readonly PyObject[] _iterators;
-        private bool _allEnded;
 
         public PyMapIterator(PyObject func, PyObject[] iterators)
         {
@@ -25,23 +24,10 @@ namespace SharpPy
 
         public override PyObject Next()
         {
-            if (_allEnded)
-                throw PyStopIteration.Create();
-
+            // map_next: the shortest iterable ends this round, an exhausted map asks again.
             var args = new PyObject[_iterators.Length];
             for (int i = 0; i < _iterators.Length; i++)
-            {
-                try
-                {
-                    args[i] = _iterators[i].Next();
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    // Shortest iterable ends the map (CPython map_next cleanup).
-                    _allEnded = true;
-                    throw;
-                }
-            }
+                args[i] = _iterators[i].Next();
             return _func.Call(args, null);
         }
 
@@ -59,8 +45,6 @@ namespace SharpPy
     {
         private readonly PyObject[] _iterators;
         private readonly bool _strict;
-        private bool _done;
-
         public PyZipIterator(PyObject[] iterators, bool strict)
         {
             _iterators = iterators;
@@ -69,7 +53,8 @@ namespace SharpPy
 
         public override PyObject Next()
         {
-            if (_done)
+            // zip_next: an exhausted zip asks its iterators again, they decide.
+            if (_iterators.Length == 0)
                 throw PyStopIteration.Create();
 
             var items = new PyObject[_iterators.Length];
@@ -82,30 +67,33 @@ namespace SharpPy
                 catch (PythonException ex) when (ex.PyException is PyStopIteration)
                 {
                     if (_strict)
-                    {
-                        // Scan the not-yet-fetched iterators: the first one that still
-                        // yields makes it "longer than argument i+1".
-                        for (int j = i + 1; j < _iterators.Length; j++)
-                        {
-                            bool longer = false;
-                            try { _iterators[j].Next(); longer = true; }
-                            catch (PythonException ex2) when (ex2.PyException is PyStopIteration) { }
-                            if (longer)
-                                throw PyValueError.Create($"zip() argument {j + 1} is longer than argument {i + 1}");
-                        }
-                        if (i > 0)
-                        {
-                            // Earlier iterators produced values this round.
-                            string reference = i == 1 ? "argument 1" : $"arguments 1-{i}";
-                            throw PyValueError.Create($"zip() argument {i + 1} is shorter than {reference}");
-                        }
-                    }
-                    _done = true;
+                        CheckStrict(i);
                     throw PyStopIteration.Create();
                 }
             }
             return new PyTuple(items);
         }
+
+        // zip_next "check:": iterator i ran out first; the ones before it gave a value this round.
+        private void CheckStrict(int exhausted)
+        {
+            if (exhausted > 0)
+                throw PyValueError.Create($"zip() argument {exhausted + 1} is shorter than {Earlier(exhausted)}");
+            for (int i = 1; i < _iterators.Length; i++)
+            {
+                try
+                {
+                    _iterators[i].Next();
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    continue;
+                }
+                throw PyValueError.Create($"zip() argument {i + 1} is longer than {Earlier(i)}");
+            }
+        }
+
+        private static string Earlier(int count) => count == 1 ? "argument 1" : $"arguments 1-{count}";
 
         public override string GetTypeName() => "zip";
         public override PyType GetPyType() => PyType.ZipType;
@@ -203,11 +191,21 @@ namespace SharpPy
 
         public override PyObject Next()
         {
-            if (_index < 0)
-                throw PyStopIteration.Create();
-            long i = _index;
-            _index--;
-            return _seq.GetItem(new PyInt(i));
+            // reversed_next, listreviter_next: an index the sequence no longer has ends the iteration.
+            if (_index >= 0)
+            {
+                try
+                {
+                    var item = _seq.GetItem(new PyInt(_index));
+                    _index--;
+                    return item;
+                }
+                catch (PythonException ex) when (ex.PyException is PyIndexError or PyStopIteration)
+                {
+                }
+            }
+            _index = -1;
+            throw PyStopIteration.Create();
         }
 
         protected override string IteratorName => _typeName;

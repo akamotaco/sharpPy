@@ -515,14 +515,13 @@ namespace SharpPy
     /// </summary>
     public class PyEnumerateIterator : PyIterator
     {
-        private readonly PyIterator _iterator;
-        private long _index;
+        private readonly PyObject _iterator;
+        private System.Numerics.BigInteger _index;
 
-        public PyEnumerateIterator(PyObject iterable, long start = 0)
+        public PyEnumerateIterator(PyObject iterable, System.Numerics.BigInteger start = default)
         {
             if (iterable == null) throw new ArgumentNullException(nameof(iterable));
-            _iterator = iterable.GetIterator() as PyIterator
-                ?? throw PyTypeError.Create($"'{iterable.GetTypeName()}' object is not iterable");
+            _iterator = iterable.GetIterator();
             _index = start;
         }
 
@@ -540,7 +539,7 @@ namespace SharpPy
         {
             if (disposing)
             {
-                _iterator?.Dispose();
+                (_iterator as PyIterator)?.Dispose();
             }
             base.Dispose(disposing);
         }

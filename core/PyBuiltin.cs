@@ -535,16 +535,14 @@ namespace SharpPy
             if (iterable == null)
                 throw PyTypeError.Create("enumerate() missing required argument 'iterable'");
 
-            // CPython 3.12: Objects/enumobject.c:246-292 - enum_new
-            // Check kwargs for 'start' parameter first, then positional arg
-            long start = 0;
-            if (kwargs != null && kwargs.Contains(new PyString("start")).ToBool())
+            // CPython 3.12: Objects/enumobject.c:246-292 - enum_new, PyNumber_Index on start
+            var startValue = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "start");
+            var start = System.Numerics.BigInteger.Zero;
+            if (startValue != null)
             {
-                start = (long)((PyInt)kwargs.GetItem(new PyString("start"))).Value;
-            }
-            else if (args.Length > 1)
-            {
-                start = (long)((PyInt)args[1]).Value;
+                var index = PyObject.TryGetIndex(startValue);
+                if (index == null) throw PyTypeError.Create($"'{startValue.GetTypeName()}' object cannot be interpreted as an integer");
+                start = index.Value;
             }
 
             // CPython 3.12 호환: enumerate iterator 객체 반환
