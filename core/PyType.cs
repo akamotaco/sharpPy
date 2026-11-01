@@ -873,7 +873,14 @@ namespace SharpPy
                 var slotArgs = new PyObject[args.Length + 1];
                 slotArgs[0] = this;
                 Array.Copy(args, 0, slotArgs, 1, args.Length);
-                return TypeDict["__new__"].Call(slotArgs, kwargs);
+                var created = TypeDict["__new__"].Call(slotArgs, kwargs);
+                // type_call: tp_init follows tp_new.
+                if (TypeDict.TryGetValue("__init__", out var slotInit))
+                {
+                    slotArgs[0] = created;
+                    slotInit.Call(slotArgs, kwargs);
+                }
+                return created;
             }
 
             // type(obj) - 객체의 타입 반환

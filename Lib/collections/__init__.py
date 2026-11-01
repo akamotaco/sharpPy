@@ -171,51 +171,9 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     return result
 
 
-# deque implementation
-# CPython 3.12: Modules/_collectionsmodule.c (deque_type)
-class deque(list):
-    """Double-ended queue implementation"""
-    def __init__(self, iterable=None, maxlen=None):
-        super().__init__()
-        self.maxlen = maxlen
-        if iterable is not None:
-            for elem in iterable:
-                self.append(elem)
+from _collections import deque
+_collections_abc.MutableSequence.register(deque)
 
-    def appendleft(self, x):
-        """Add an element to the left side of the deque."""
-        self.insert(0, x)
-        if self.maxlen is not None and len(self) > self.maxlen:
-            self.pop()
-
-    def popleft(self):
-        """Remove and return an element from the left side of the deque."""
-        if not self:
-            raise IndexError("pop from an empty deque")
-        return super().pop(0)
-
-    def extendleft(self, iterable):
-        """Extend the left side of the deque with elements from iterable."""
-        for elem in iterable:
-            self.appendleft(elem)
-
-    def rotate(self, n=1):
-        """Rotate the deque n steps to the right (negative for left)."""
-        if not self:
-            return
-        n = n % len(self)
-        if n:
-            # Move last n elements to front (in order)
-            # Pop from right: [0,1,2,3].rotate(2) -> pop 3, pop 2 -> temp=[3,2]
-            # Insert at front in reverse: insert 2 then 3 -> [2,3,0,1]
-            temp = []
-            for _ in range(n):
-                temp.append(super(deque, self).pop())
-            # Reverse to maintain original order
-            temp.reverse()
-            # Insert all at front (in order)
-            for i, elem in enumerate(temp):
-                self.insert(i, elem)
 
 class defaultdict(dict):
     """defaultdict stub - inherits from dict"""

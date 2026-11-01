@@ -3429,7 +3429,8 @@ namespace SharpPy
                     var isSequence = PyBool.FromBool(sequenceSubject is PyList || sequenceSubject is PyTuple ||
                         HasMatchFlag(sequenceSubject, PyType.RangeType, "Sequence") ||
                         HasMatchFlag(sequenceSubject, PyType.ListType, "Sequence") ||
-                        HasMatchFlag(sequenceSubject, PyType.TupleType, "Sequence"));
+                        HasMatchFlag(sequenceSubject, PyType.TupleType, "Sequence") ||
+                        HasMatchFlag(sequenceSubject, SharpPy.Modules.PyDequeModule.DequeType, "Sequence"));
                     frame.ValueStack.Push(isSequence);
                     break;
 

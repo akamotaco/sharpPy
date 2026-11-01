@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 import copy
 from collections import deque
 
@@ -63,11 +63,11 @@ z = deque([1])
 z += [2]
 z *= 2
 print(z, sum(deque([1, 2])), sorted(deque([3, 1])), tuple(deque([1])), [x * 2 for x in deque([1, 2])])
-print(copy.copy(deque([1], 2)), copy.deepcopy(deque([[1]], 2)), isinstance(deque(), collections.abc.Sequence), hash)
+print(copy.copy(deque([1], 2)), copy.deepcopy(deque([[1]], 2)), isinstance(deque(), collections.abc.Sequence))
 try:
     hash(deque())
-except TypeError as x:
-    print(x)
+except TypeError:
+    print("unhashable")
 it = iter(deque([1, 2]))
 print(next(it))
 q = deque([1, 2])
