@@ -1426,6 +1426,7 @@ namespace SharpPy
         {
             // CPython 3.12 호환: 각 타입의 tp_methods, tp_getset 초기화
             // readonly TypeKind를 사용하여 빠른 int 비교 (string 비교보다 훨씬 빠름)
+            InstallBuiltinRepr();
             switch (_kind)
             {
                 case TypeKind.Str:
@@ -1789,6 +1790,33 @@ namespace SharpPy
             PyObject dictItems = type.IsSubclassOf(DictType)
                 ? self.GetAttribute("items").Call(Array.Empty<PyObject>(), null).GetIterator() : PyNone.Instance;
             return new PyTuple(new[] { factory, new PyTuple(arguments.ToArray()), state, listItems, dictItems });
+        }
+
+        /// <summary>tp_repr of the containers as a slot wrapper: dict.__repr__(self) is the base's text whatever
+        /// a subclass declares, so it reads the stored contents and not the virtual ToRepr.</summary>
+        // set_repr: a subclass prints its name around the elements; an empty one prints Name().
+        private static PyObject SubclassSetRepr(PyObject self, string text, string builtin)
+        {
+            string name = self.GetPyType().Name;
+            if (name == builtin) return new PyString(text);
+            if (text.StartsWith(builtin + "(")) return new PyString(name + text.Substring(builtin.Length));
+            return new PyString($"{name}({text})");
+        }
+
+        private void InstallBuiltinRepr()
+        {
+            Func<PyObject, PyObject> repr = Name switch
+            {
+                "dict" => self => PyNativeStorage.ForDict(self).ToRepr(),
+                "list" => self => new PyList(PyNativeStorage.ForList(self).Items).ToRepr(),
+                "tuple" => self => new PyTuple(((PyTuple)self).Items).ToRepr(),
+                "set" => self => SubclassSetRepr(self, PyNativeStorage.ForSet(self).ToRepr().Value, "set"),
+                "frozenset" => self => SubclassSetRepr(self, PyNativeStorage.ForFrozenSet(self).ToRepr().Value, "frozenset"),
+                "bool" => self => self.ToRepr(),
+                _ => null,
+            };
+            if (repr != null)
+                TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) => repr(self));
         }
 
         private void InitializeObjectTypeDescriptors()

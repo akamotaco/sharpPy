@@ -178,35 +178,9 @@ namespace SharpPy
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : null;
 
-                    // For C# PyDict, use direct method
-                    if (self is PyDict dict)
-                        return dict.Pop(key, defaultValue);
-
-                    // For Python dict subclasses, use __delitem__ + __getitem__
-                    // CPython: if key in D: v = D[key]; del D[key]; return v else: return default
-                    var contains = self.Contains(key);
-                    if (contains == PyBool.True)
-                    {
-                        var value = self.GetItem(key);
-
-                        // Call __delitem__ special method
-                        var delitem = self.GetAttribute("__delitem__");
-                        if (delitem != null && delitem.IsCallable())
-                        {
-                            delitem.Call(new PyObject[] { key }, null);
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"'{self.GetTypeName()}' object does not support item deletion");
-                        }
-
-                        return value;
-                    }
-
-                    if (defaultValue != null)
-                        return defaultValue;
-
-                    throw PyKeyError.Create(key);
+                    // dict_pop_default works on the storage: it never calls a subclass's __delitem__,
+                    // which is how OrderedDict.popitem can use it from inside its own __delitem__.
+                    return PyNativeStorage.ForDict(self).Pop(key, defaultValue);
                 },
                 minArgs: 1, maxArgs: 2
             );
