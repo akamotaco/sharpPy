@@ -1339,6 +1339,49 @@ namespace SharpPy
         #endregion
     }
 
+    /// <summary>The globals of exec and eval: a frame reads and writes the dict it was given.</summary>
+    internal sealed class PyDictVariables : IDictionary<string, PyObject>
+    {
+        private readonly PyDict _dict;
+        internal PyDictVariables(PyDict dict) => _dict = dict;
+
+        private IEnumerable<KeyValuePair<string, PyObject>> Entries()
+        {
+            foreach (var entry in new List<KeyValuePair<PyObject, PyObject>>(_dict.GetInternalDict()))
+                if (entry.Key is PyString name)
+                    yield return new KeyValuePair<string, PyObject>(name.Value, entry.Value);
+        }
+
+        public PyObject this[string key]
+        {
+            get => TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
+            set => _dict.SetItem(StringCache.GetOrCreate(key), value);
+        }
+        public bool TryGetValue(string key, out PyObject value) => _dict.TryGetStoredValue(StringCache.GetOrCreate(key), out value);
+        public bool ContainsKey(string key) => TryGetValue(key, out _);
+        public void Add(string key, PyObject value) => this[key] = value;
+        public bool Remove(string key)
+        {
+            if (!ContainsKey(key)) return false;
+            _dict.DelItem(StringCache.GetOrCreate(key));
+            return true;
+        }
+        public void Clear() => _dict.Clear();
+        public int Count => _dict.Length();
+        public bool IsReadOnly => false;
+        public ICollection<string> Keys => System.Linq.Enumerable.ToList(System.Linq.Enumerable.Select(Entries(), entry => entry.Key));
+        public ICollection<PyObject> Values => System.Linq.Enumerable.ToList(System.Linq.Enumerable.Select(Entries(), entry => entry.Value));
+        public void Add(KeyValuePair<string, PyObject> item) => this[item.Key] = item.Value;
+        public bool Contains(KeyValuePair<string, PyObject> item) => TryGetValue(item.Key, out var value) && ReferenceEquals(value, item.Value);
+        public bool Remove(KeyValuePair<string, PyObject> item) => Contains(item) && Remove(item.Key);
+        public void CopyTo(KeyValuePair<string, PyObject>[] array, int arrayIndex)
+        {
+            foreach (var entry in Entries()) array[arrayIndex++] = entry;
+        }
+        public IEnumerator<KeyValuePair<string, PyObject>> GetEnumerator() => Entries().GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     /// <summary>
     /// Special PyDict subclass that synchronizes with global scope variables
     /// CPython 3.12: globals() returns the actual module __dict__, not a copy
@@ -1346,6 +1389,8 @@ namespace SharpPy
     /// </summary>
     public class PyGlobalsDict : PyDict
     {
+        internal IDictionary<string, PyObject> Variables => _globalScopeVariables;
+
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IDictionary<string, PyObject>, PyGlobalsDict> Views = new();
         internal static PyGlobalsDict For(IDictionary<string, PyObject> variables) => variables is PyNamespace owned ? owned.Mapping : Views.GetValue(variables, source => new PyGlobalsDict(source, false));
         internal static void Store(IDictionary<string, PyObject> variables, string name, PyObject value)

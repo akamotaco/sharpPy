@@ -1068,48 +1068,42 @@ namespace SharpPy
             return ExecuteFrame(frame);
         }
 
+        /// <summary>The scope of exec and eval: the given dict is the global scope itself.</summary>
+        internal static PyScopeChain ScopeOver(PyDict globals)
+        {
+            IDictionary<string, PyObject> variables = globals is PyGlobalsDict live ? live.Variables : new PyDictVariables(globals);
+            string name = variables.TryGetValue("__name__", out var moduleName) && moduleName is PyString text ? text.Value : "builtins";
+            return new PyScopeChain(variables, name, null);
+        }
+
+        internal static PyScope PushLocals(PyScopeChain scopeChain, PyDict globals, PyDict locals)
+        {
+            if (locals == null || ReferenceEquals(locals, globals)) return null;
+            var localScope = scopeChain.PushScope(ScopeType.Local, "exec_locals");
+            foreach (var kvp in locals.InternalDict)
+                if (kvp.Key is PyString keyStr)
+                    localScope.Variables[keyStr.Value] = kvp.Value;
+            return localScope;
+        }
+
+        internal static void StoreLocals(PyScope localScope, PyDict locals)
+        {
+            if (localScope == null) return;
+            locals.Clear();
+            foreach (var kvp in localScope.Variables) locals.SetItem(new PyString(kvp.Key), kvp.Value);
+        }
+
         /// <summary>
         /// Execute an expression with custom globals/locals (for eval())
         /// CPython 3.12: Python/pythonrun.c:run_eval_code_obj
         /// </summary>
         public PyObject ExecuteExpression(PyCodeObject codeObject, PyDict globals, PyDict locals)
         {
-            // Create a scope chain from the provided globals/locals
-            var scopeChain = new PyScopeChain();
-
-            // Convert globals dict to scope variables
-            if (globals != null)
-            {
-                foreach (var kvp in globals.InternalDict)
-                {
-                    if (kvp.Key is PyString keyStr)
-                    {
-                        scopeChain.GlobalScope.Variables[keyStr.Value] = kvp.Value;
-                    }
-                }
-            }
-
-            // If locals is different from globals, push a new local scope
-            // CPython 3.12: eval() creates a new local scope if locals dict is provided
-            if (locals != null && locals != globals)
-            {
-                var localScope = scopeChain.PushScope(ScopeType.Local, "eval_locals");
-
-                foreach (var kvp in locals.InternalDict)
-                {
-                    if (kvp.Key is PyString keyStr)
-                    {
-                        localScope.Variables[keyStr.Value] = kvp.Value;
-                    }
-                }
-            }
-
-#if DEBUG_VM_LOG
-            Console.WriteLine($"[ExecuteExpression] Globals count: {scopeChain.GlobalScope.Variables.Count}");
-            Console.WriteLine($"[ExecuteExpression] Scopes count: {scopeChain.ScopeCount}");
-#endif
-
-            return ExecuteModule(codeObject, scopeChain);
+            var scopeChain = ScopeOver(globals);
+            var localScope = PushLocals(scopeChain, globals, locals);
+            var result = ExecuteModule(codeObject, scopeChain);
+            StoreLocals(localScope, locals);
+            return result;
         }
 
         // 프레임 실행 (바이트코드 해석)

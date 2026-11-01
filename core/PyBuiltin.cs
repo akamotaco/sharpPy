@@ -1272,28 +1272,14 @@ namespace SharpPy
                 if (currentFrame != null)
                 {
                     // Convert frame's globals to PyDict
-                    globals = new PyDict();
-                    foreach (var kvp in currentFrame.Globals)
-                    {
-                        globals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
-                    }
+                    globals = PyGlobalsDict.For(currentFrame.Globals);
 
                     // Convert frame's local scope to PyDict
                     if (locals == null)
                     {
                         bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
-                        locals = optimized ? currentFrame.GetOptimizedLocals() : new PyDict();
-                        if (!optimized && currentFrame.LocalScope != null)
-                        {
-                            foreach (var kvp in currentFrame.LocalScope.Variables)
-                            {
-                                locals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
-                            }
-                        }
-
-                        // If no local variables, use globals for locals (like CPython)
-                        if (!optimized && locals.InternalDict.Count == 0)
-                            locals = globals;
+                        locals = optimized ? currentFrame.GetOptimizedLocals()
+                            : currentFrame.ClassLocalsDict as PyDict ?? globals;
                     }
                 }
                 else
@@ -1491,28 +1477,14 @@ namespace SharpPy
                 if (currentFrame != null)
                 {
                     // Convert frame's globals to PyDict
-                    globals = new PyDict();
-                    foreach (var kvp in currentFrame.Globals)
-                    {
-                        globals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
-                    }
+                    globals = PyGlobalsDict.For(currentFrame.Globals);
 
                     // Convert frame's local scope to PyDict
                     if (locals == null)
                     {
                         bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
-                        locals = optimized ? currentFrame.GetOptimizedLocals() : new PyDict();
-                        if (!optimized && currentFrame.LocalScope != null)
-                        {
-                            foreach (var kvp in currentFrame.LocalScope.Variables)
-                            {
-                                locals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
-                            }
-                        }
-
-                        // If no local variables, use globals for locals (like CPython)
-                        if (!optimized && locals.InternalDict.Count == 0)
-                            locals = globals;
+                        locals = optimized ? currentFrame.GetOptimizedLocals()
+                            : currentFrame.ClassLocalsDict as PyDict ?? globals;
                     }
                 }
                 else
@@ -1577,63 +1549,11 @@ namespace SharpPy
             // 4. Execute with provided globals/locals (exec returns None)
             // CPython pattern: PyEval_EvalCode(source, globals, locals)
             // Create a scope chain from the provided globals/locals
-            var scopeChain = new PyScopeChain();
+            var scopeChain = PyVM.ScopeOver(globals);
+            var localScope = PyVM.PushLocals(scopeChain, globals, locals);
+            PyVM.Instance.ExecuteModule(codeObject, scopeChain);
+            PyVM.StoreLocals(localScope, locals);
 
-            // Convert globals dict to global scope variables
-            // IMPORTANT: Use scopeChain.GlobalScope.Variables directly (like ExecuteExpression)
-            if (globals != null)
-            {
-                foreach (var kvp in globals.InternalDict)
-                {
-                    if (kvp.Key is PyString keyStr)
-                    {
-                        scopeChain.GlobalScope.Variables[keyStr.Value] = kvp.Value;
-                    }
-                }
-            }
-
-            // If locals is different from globals, push a new local scope
-            // CPython 3.12: exec() creates a new local scope if locals dict is provided
-            PyScope localScope = null;
-            if (locals != null && locals != globals)
-            {
-                localScope = scopeChain.PushScope(ScopeType.Local, "exec_locals");
-
-                foreach (var kvp in locals.InternalDict)
-                {
-                    if (kvp.Key is PyString keyStr)
-                    {
-                        localScope.Variables[keyStr.Value] = kvp.Value;
-                    }
-                }
-            }
-
-            // Execute the code object
-            var vm = PyVM.Instance;
-            vm.ExecuteModule(codeObject, scopeChain);
-
-            // Copy modified scope variables back to the dicts
-            // IMPORTANT: Use PyDict.Clear() and SetItem() to update both _dict and _keys
-            if (localScope != null)
-            {
-                // If locals dict was provided separately, copy local scope back
-                locals.Clear();  // Clears both _dict and _keys
-                foreach (var kvp in localScope.Variables)
-                {
-                    locals.SetItem(new PyString(kvp.Key), kvp.Value);  // Updates both _dict and _keys
-                }
-            }
-            else
-            {
-                // If no separate locals, copy global scope back to globals dict
-                globals.Clear();
-                foreach (var kvp in scopeChain.GlobalScope.Variables)
-                {
-                    globals.SetItem(new PyString(kvp.Key), kvp.Value);
-                }
-            }
-
-            // CPython: exec() always returns None
             return PyNone.Instance;
         }
 
