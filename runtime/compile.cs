@@ -9600,135 +9600,6 @@ namespace SharpPy
             return true;
         }
 
-        /// <summary>
-        /// CPython 3.12: Compile dictionary pattern matching {"key": value}
-        /// </summary>
-        private bool CompileMappingPattern(MappingPattern pattern, PatternContext pc)
-        {
-            // Extract fail label from pattern context
-            var failLabel = pc.GetFailLabel();
-
-            // CPython 3.12: Dictionary pattern matching with MATCH_MAPPING, MATCH_KEYS
-            // Example: case {"key": value}:
-            // Generates:
-            //   MATCH_MAPPING      - check if subject is mapping
-            //   GET_LEN            - get mapping length
-            //   LOAD_CONST >= 1    - check minimum key count
-            //   COMPARE_OP >=      - compare lengths
-            //   POP_JUMP_IF_FALSE fail
-            //   LOAD_CONST ('key',) - tuple of required keys
-            //   MATCH_KEYS         - check if keys exist, return values
-            //   UNPACK_SEQUENCE    - unpack matched values
-            //   STORE_NAME value   - bind to variables
-
-            // Stack: [subject]
-
-            // Step 1: Check if subject is a mapping (dict-like)
-            EmitInstruction(ByteCodeOp.MATCH_MAPPING);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            // Stack: [subject] (MATCH_MAPPING leaves subject on stack)
-
-            // Step 2: Check minimum length (number of required keys)
-            EmitInstruction(ByteCodeOp.GET_LEN);
-            CompileExpression(new ConstantExpression(new PyInt(pattern.Patterns.Count)));
-            EmitComparison(CompareOp.GE); // >= required count
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            // Stack: [subject]
-            
-            // Step 3: Create tuple of required keys and match them
-            // Performance: Eliminated LINQ
-            var keysList = new List<string>(pattern.Patterns.Keys);
-
-            // CPython 3.12 방식: 컴파일 시점에 튜플 상수 직접 생성
-            // Performance: Eliminated LINQ
-            var keysArray = new PyObject[keysList.Count];
-            for (int i = 0; i < keysList.Count; i++)
-            {
-                keysArray[i] = new PyString(keysList[i]);
-            }
-            var keysTuple = new PyTuple(keysArray);
-            EmitLoadConst(keysTuple);
-            // Stack: [subject, keys_tuple]
-            
-            EmitInstruction(ByteCodeOp.MATCH_KEYS);
-            // Stack: [subject, values_tuple_or_None]
-
-            // Step 4: Check if keys matched (MATCH_KEYS returns None if no match)
-            EmitInstruction(ByteCodeOp.COPY, 1); // Copy result for None check
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            // Stack: [subject, values_tuple]
-            
-            // Step 5: Unpack values and bind to pattern variables
-            EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, keysList.Count);
-            // Stack: [subject, value1, value2, ...]
-            
-            // Step 6: Store values to variables (in correct order - same as keys order)
-            // CPython 3.12: UNPACK_SEQUENCE puts values on stack in same order as keys tuple
-            // First key gets first value, second key gets second value, etc.
-            for (int i = 0; i < keysList.Count; i++)
-            {
-                var key = keysList[i];
-                var valuePattern = pattern.Patterns[key];
-                
-                if (valuePattern is NameExpression nameExpr)
-                {
-                    EmitStoreName(nameExpr.Name);
-                }
-                else
-                {
-                    // Handle complex patterns recursively (sequence, mapping, etc.)
-                    // Stack has value for this pattern, need to match it
-                    var subFailLabel = _instructionSequence.NewLabel();
-
-                    // Create a new context with the sub-fail label
-                    var subPatternContext = pc.Clone();
-                    subPatternContext.FailPop.Clear();
-                    subPatternContext.FailPop[0] = subFailLabel;
-
-                    // Compile the nested pattern recursively
-                    if (!CompilePatternMatchCFG(valuePattern, subPatternContext))
-                    {
-                        // If nested pattern compilation fails, cleanup and fail
-                        _instructionSequence.UseLabel(subFailLabel);
-                        return false;
-                    }
-                    
-                    // If nested pattern succeeds, continue with remaining patterns
-                    // (Note: nested pattern should handle its own variable bindings)
-                }
-            }
-            // Stack: [subject]
-            
-            // Step 7: Handle **rest pattern if present
-            if (!string.IsNullOrEmpty(pattern.RestVariable))
-            {
-                // Create rest dict by copying subject and removing matched keys
-                // Stack: [subject]
-
-                // Duplicate subject for creating rest dict
-                EmitInstruction(ByteCodeOp.COPY, 1);
-                // Stack: [subject, subject_copy]
-
-                // Create the rest dict by removing matched keys from subject_copy
-                foreach (var key in keysList)
-                {
-                    // Load the key to delete and delete it from subject_copy
-                    EmitInstruction(ByteCodeOp.COPY, 1); // Copy subject_copy
-                    CompileExpression(new ConstantExpression(new PyString(key)));
-                    EmitInstruction(ByteCodeOp.DELETE_SUBSCR);
-                    // Stack: [subject, subject_copy_without_key]
-                }
-
-                // Store the rest dict to the rest variable
-                EmitStoreName(pattern.RestVariable);
-                // Stack: [subject]
-            }
-
-            // Step 8: Clean up - remove subject since pattern matched
-            EmitInstruction(ByteCodeOp.POP_TOP); // Remove subject
-
-            return true;
-        }
         
         private void CompileAssert(AssertStatement assert)
         {
@@ -13013,103 +12884,6 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: compiler_pattern_mapping
-        /// Compile mapping/dict pattern (e.g., case {}:  or case {"key": value}:)
-        /// </summary>
-        private bool CompileMappingPattern(DictExpression dictExpr, PatternContext pc)
-        {
-            int size = dictExpr.Items.Count;
-
-            // CPython: We need to keep the subject on top during the mapping and length checks
-            pc.OnTop++;
-
-            // CPython: MATCH_MAPPING - Check if subject is a mapping
-            _instructionSequence.AddOp(ByteCodeOp.MATCH_MAPPING, 0, _currentLineNumber);
-            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
-
-            if (size == 0)
-            {
-                // CPython: If the pattern is just "{}", we're done! Pop the subject
-                pc.OnTop--;
-                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                return true;
-            }
-
-            // CPython: If the pattern has any keys, perform a length check (len >= size)
-            _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
-            EmitLoadConst(new PyInt(size));
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE, _currentLineNumber);
-            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
-
-            // CPython: Collect all keys into a tuple for MATCH_KEYS
-            foreach (var item in dictExpr.Items)
-            {
-                // Keys must be constants or attribute lookups
-                CompileExpression(item.Key);
-            }
-
-            // CPython: BUILD_TUPLE with all keys
-            _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_TUPLE, size, _currentLineNumber);
-
-            // CPython: MATCH_KEYS - extracts values for the given keys
-            _instructionSequence.AddOp(ByteCodeOp.MATCH_KEYS, 0, _currentLineNumber);
-
-            // CPython: There's now a tuple of keys and a tuple of values on top of the subject
-            pc.OnTop += 2;
-
-            // CPython: COPY 1 to get the values tuple, then check if None (missing keys)
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
-            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_NONE);
-
-            // CPython: UNPACK_SEQUENCE to get individual values
-            _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, size, _currentLineNumber);
-            pc.OnTop += size - 1;
-
-            // CPython: Match each value against the pattern
-            for (int i = 0; i < size; i++)
-            {
-                pc.OnTop--;
-                var pattern = dictExpr.Items[i].Value;
-
-                // CPython: For simple variable bindings, store directly from TOS without rotation
-                // After UNPACK_SEQUENCE, values are already at the top of stack in correct order
-                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
-                {
-                    // Simple variable capture - emit STORE instruction directly
-                    if (pc.Stores.Contains(nameExpr.Name))
-                    {
-                        throw new InvalidOperationException($"multiple assignments to name {nameExpr.Name} in pattern");
-                    }
-                    // Emit STORE instruction directly (value is at TOS)
-                    EmitStoreVariable(nameExpr.Name);
-                    // Do NOT add to pc.Stores since we already stored it
-                }
-                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
-                {
-                    // Wildcard - just pop the value
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else
-                {
-                    // Complex pattern - use full pattern matching
-                    if (!CompilePatternMatchCFG(pattern, pc))
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            // CPython: If we get this far, it's a match! Pop the tuple of keys and subject
-            // Note: We decrement pc.OnTop by 2 (keys_tuple + subject), but only POP keys_tuple here
-            // The subject will be POPped by CompileMatch (line 7360)
-            pc.OnTop -= 2;
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys
-            // Subject is left on stack - will be POPped by CompileMatch
-
-            return true;
-        }
-
-        /// <summary>
         /// CPython 3.12: compiler_pattern_mapping (MatchMapping_kind)
         /// Compile mapping pattern from MatchMapping AST node
         /// This is the CORRECT implementation matching CPython's pattern compilation
@@ -13129,7 +12903,16 @@ namespace SharpPy
             {
                 // CPython: If the pattern is just "{}", we're done! Pop the subject
                 pc.OnTop--;
-                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                if (matchMap.Rest == null)
+                {
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                    return true;
+                }
+                // {**rest}: the subject itself becomes the copy.
+                _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_MAP, 0, _currentLineNumber);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.DICT_UPDATE, 1, _currentLineNumber);
+                EmitStoreVariable(matchMap.Rest);
                 return true;
             }
 
@@ -13220,11 +13003,25 @@ namespace SharpPy
             }
 
             // CPython: If we get this far, it's a match! Pop the tuple of keys and subject
-            // Note: We decrement pc.OnTop by 2 (keys_tuple + subject), but only POP keys_tuple here
-            // The subject will be POPped by CompileMatch (line 7360)
             pc.OnTop -= 2;
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys
-            // Subject is left on stack - will be POPped by CompileMatch
+            if (matchMap.Rest != null)
+            {
+                // compiler_pattern_mapping: the rest dict, a copy of the subject without the matched keys.
+                _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_MAP, 0, _currentLineNumber);         // [subject, keys, empty]
+                _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 3, _currentLineNumber);              // [empty, keys, subject]
+                _instructionSequence.AddOpWithArg(ByteCodeOp.DICT_UPDATE, 2, _currentLineNumber);       // [copy, keys]
+                _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, size, _currentLineNumber); // [copy, keys...]
+                for (int remaining = size; remaining > 0; remaining--)
+                {
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1 + remaining, _currentLineNumber); // [copy, keys..., copy]
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);             // [copy, keys..., copy, key]
+                    _instructionSequence.AddOp(ByteCodeOp.DELETE_SUBSCR, 0, _currentLineNumber);           // [copy, keys...]
+                }
+                EmitStoreVariable(matchMap.Rest);
+                return true;
+            }
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys.
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Subject.
 
             return true;
         }

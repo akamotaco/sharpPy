@@ -210,7 +210,7 @@ namespace SharpPy
             }
             return _strValue;
         }
-        public override PyString ToRepr() => new PyString($"'{_strValue.Value}'");
+        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, _strValue.ToRepr);
         public override int ToHash() => _strValue.ToHash();
         public override bool PyBoolValue() => _strValue.PyBoolValue();
 

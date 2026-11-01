@@ -13,6 +13,9 @@ namespace SharpPy
     /// </summary>
     internal static class PySlotWrappers
     {
+        private static readonly System.Collections.Generic.Dictionary<string, PyObject> Unbound =
+            new System.Collections.Generic.Dictionary<string, PyObject>();
+
         private static bool HasSlot(PyType type, string name)
         {
             bool Is(PyType wanted) => type.IsSubclassOf(wanted);
@@ -55,12 +58,20 @@ namespace SharpPy
             if (self is PyType type)
             {
                 if (!HasSlot(type, name)) return null;
-                return new PyBuiltinFunction(name, args =>
+                // One object per slot: object.__lt__ is object.__lt__, and a class that inherits it hands out the
+                // same one, which is what functools.total_ordering tests.
+                lock (Unbound)
+                {
+                    if (Unbound.TryGetValue(name, out var unbound)) return unbound;
+                    unbound = new PyBuiltinFunction(name, args =>
                 {
                     if (args.Length != arity + 1)
                         throw PyTypeError.Create($"expected {arity + 1} arguments, got {args.Length}");
                     return Run(args[0], name, args[1..]);
                 });
+                    Unbound[name] = unbound;
+                    return unbound;
+                }
             }
             if (!HasSlot(self.GetPyType(), name)) return null;
             // __hash__ on an instance is measured narrower than on a type: a list says None through its table.

@@ -1752,8 +1752,14 @@ namespace SharpPy.Generated
                         return result;
                     }
 
-                // TODO: Add GeneratedTypeAliasStmt case when type is available
-                // case "type_alias": - removed as no GeneratedTypeAliasStmt exists yet
+                case GeneratedTypeAlias alias:
+                    {
+                        var aliasName = ((NameExpression)ConvertAnyExpression(alias.Name)).Name;
+                        var result = new TypeAliasStatement(aliasName, ConvertAnyExpression(alias.Value),
+                            ConvertTypeParams(alias.TypeParams));
+                        CopySourceLocation(alias, result);
+                        return result;
+                    }
 
                 default:
                     // Fallback for unhandled statement types

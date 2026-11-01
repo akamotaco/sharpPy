@@ -1030,6 +1030,13 @@ namespace SharpPy.Generated
 
                     switch (next)
                     {
+                        // decode_unicode_with_escapes: backslash-newline is no character at all.
+                        case '\n':
+                            i += 2;
+                            break;
+                        case '\r':
+                            i += i + 2 < input.Length && input[i + 2] == '\n' ? 3 : 2;
+                            break;
                         // Basic escape sequences
                         case '\\':
                             result.Add((byte)'\\');
@@ -1163,6 +1170,13 @@ namespace SharpPy.Generated
 
                     switch (next)
                     {
+                        // decode_unicode_with_escapes: backslash-newline is no character at all.
+                        case '\n':
+                            i += 2;
+                            break;
+                        case '\r':
+                            i += i + 2 < input.Length && input[i + 2] == '\n' ? 3 : 2;
+                            break;
                         // Basic escape sequences
                         case '\\':
                             result.Append('\\');

@@ -13236,7 +13236,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return CheckLegacyStmt ( a )? null : _tokens [ _mark - 1 ]. Level == 0 ? null : RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Perhaps you forgot a comma?" );
+                    return CheckLegacyStmt ( a )? null : _tokens [ _position - 1 ]. Level == 0 ? null : RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Perhaps you forgot a comma?" );
                 }
             }
 

@@ -1624,7 +1624,8 @@ namespace SharpPy
                     if (args[0] is not PyString specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
-                    return new PyString(FormatString(strObj.Value, specStr.Value));
+                    // unicode__format__: an empty spec is str(self).
+                    return specStr.Value.Length == 0 ? self.ToStr() : new PyString(FormatString(strObj.Value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );

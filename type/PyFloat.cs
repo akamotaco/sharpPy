@@ -417,7 +417,8 @@ namespace SharpPy
                     if (args[0] is not PyString specStr)
                         throw PyTypeError.Create($"__format__() argument 1 must be str, not {args[0].GetTypeName()}");
 
-                    return new PyString(FormatFloat(floatObj.Value, specStr.Value));
+                    // _PyFloat_FormatAdvancedWriter: an empty spec is str(self).
+                    return specStr.Value.Length == 0 ? self.ToStr() : new PyString(FormatFloat(floatObj.Value, specStr.Value));
                 },
                 minArgs: 1, maxArgs: 1
             );

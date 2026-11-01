@@ -3418,104 +3418,30 @@ namespace SharpPy
                 case ByteCodeOp.MATCH_MAPPING:
                     // Check if subject is a mapping type (dict, etc.)
                     var mappingSubject = frame.ValueStack.Peek(); // Keep subject on stack
-                    var isMapping = (mappingSubject is PyDict) ? PyBool.True : PyBool.False;
+                    var isMapping = PyBool.FromBool(mappingSubject is PyDict ||
+                        HasMatchFlag(mappingSubject, PyType.DictType, "Mapping"));
                     frame.ValueStack.Push(isMapping);
                     break;
 
                 case ByteCodeOp.MATCH_SEQUENCE:
                     // Check if subject is a sequence type (list, tuple, etc.)
                     var sequenceSubject = frame.ValueStack.Peek(); // Keep subject on stack
-                    var isSequence = (sequenceSubject is PyList || sequenceSubject is PyTuple || sequenceSubject is PyString)
-                        ? PyBool.True : PyBool.False;
+                    var isSequence = PyBool.FromBool(sequenceSubject is PyList || sequenceSubject is PyTuple ||
+                        HasMatchFlag(sequenceSubject, PyType.RangeType, "Sequence") ||
+                        HasMatchFlag(sequenceSubject, PyType.ListType, "Sequence") ||
+                        HasMatchFlag(sequenceSubject, PyType.TupleType, "Sequence"));
                     frame.ValueStack.Push(isSequence);
                     break;
 
                 case ByteCodeOp.GET_LEN:
-                    // Get length of object on top of stack
-                    var lenSubject = frame.ValueStack.Peek(); // Keep subject on stack
-                    PyObject length;
-                    if (lenSubject is PyList list)
-                    {
-                        length = new PyInt(list.Items.Length);
-                    }
-                    else if (lenSubject is PyTuple tupleDup)
-                    {
-                        length = new PyInt(tupleDup.Items.Length);
-                    }
-                    else if (lenSubject is PyString str)
-                    {
-                        // One length implementation: PyString.Length(). This used to recompute it
-                        // from the UTF-16 buffer, i.e. a second len(str).
-                        length = new PyInt(str.Length());
-                    }
-                    else if (lenSubject is PyDict dictDup)
-                    {
-                        length = new PyInt(dictDup.Keys().Items.Length);
-                    }
-                    else
-                    {
-                        // Try to call __len__ method
-                        try
-                        {
-                            var lenMethod = lenSubject.GetAttribute("__len__");
-                            if (lenMethod is PyFunction func)
-                            {
-                                length = func.Call(new PyObject[0], null);
-                            }
-                            else
-                            {
-                                throw new Exception($"'{lenSubject.GetTypeName()}' object has no len()");
-                            }
-                        }
-                        catch
-                        {
-                            throw PyTypeError.Create($"object of type '{lenSubject.GetTypeName()}' has no len()");
-                        }
-                    }
-                    frame.ValueStack.Push(length);
+                    // PyObject_Length; the subject stays on the stack.
+                    frame.ValueStack.Push(new PyInt(frame.ValueStack.Peek().Length()));
                     break;
 
                 case ByteCodeOp.MATCH_KEYS:
-                    // Match keys in mapping - TOS1 is subject, TOS is keys tuple
-                    var keysToMatch = frame.ValueStack.Pop(); // keys tuple
-                    var dictSubject = frame.ValueStack.Peek(); // Keep subject on stack
-
-                    if (dictSubject is PyDict dict && keysToMatch is PyTuple keysTuple)
-                    {
-                        var values = new List<PyObject>();
-                        bool allKeysMatch = true;
-
-                        foreach (var key in keysTuple.Items)
-                        {
-                            if (dict.Contains(key).ToBool())
-                            {
-                                var foundValue = dict.GetItem(key);
-                                values.Add(foundValue);
-                            }
-                            else
-                            {
-                                allKeysMatch = false;
-                                break;
-                            }
-                        }
-
-                        if (allKeysMatch)
-                        {
-                            // Performance: Eliminated LINQ - List already has efficient ToArray
-                            var resultArray = new PyObject[values.Count];
-                            values.CopyTo(resultArray, 0);
-                            var resultTuple = new PyTuple(resultArray);
-                            frame.ValueStack.Push(resultTuple);
-                        }
-                        else
-                        {
-                            frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: None on failure
-                        }
-                    }
-                    else
-                    {
-                        frame.ValueStack.Push(PyNone.Instance);
-                    }
+                    // MATCH_KEYS (Python/bytecodes.c), match_keys (Python/ceval.c): [subject, keys] stay, the
+                    // values or None go on top. Any mapping answers through its own get.
+                    frame.ValueStack.Push(MatchKeys(frame.ValueStack.PeekAt(1), (PyTuple)frame.ValueStack.PeekAt(0)));
                     break;
 
                 case ByteCodeOp.POP_JUMP_IF_NONE:
@@ -3547,137 +3473,12 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MATCH_CLASS:
-                    // CPython 3.12: Python/bytecodes.c:2230-2243 - MATCH_CLASS opcode
-                    // CPython 3.12: Python/ceval.c:406-428 - match_class_attr helper
-                    // CPython 3.12: Python/ceval.c:430-533 - match_class helper
-                    // Match class pattern - structural pattern matching (PEP 634)
-                    var classKwNames = frame.ValueStack.Pop(); // keyword names tuple (unused for now)
-                    var classToMatch = frame.ValueStack.Pop(); // class to match against
-                    var classSubject = frame.ValueStack.Pop(); // subject to match
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 MATCH_CLASS: subject={classSubject?.GetType().Name}, classToMatch={classToMatch?.GetType().Name}");
-                    #endif
-
-                    try
                     {
-                        // Check isinstance(subject, classToMatch) - supports both built-in and custom types
-                        bool isInstance = false;
-
-                        // Handle custom classes FIRST (PyClass inherits from PyType, so check this first)
-                        if (classToMatch is PyClass targetClass && classSubject is PyClassInstance instance)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 MATCH_CLASS: Checking custom class {targetClass.Name}");
-                            #endif
-                            isInstance = (instance.InstanceType == targetClass);
-                        }
-                        // Handle built-in types (int, str, list, etc.)
-                        else if (classToMatch is PyType builtinType)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔍 MATCH_CLASS: Checking built-in type {builtinType.Name}");
-                            #endif
-
-                            if (builtinType.Name == "int" && classSubject is PyInt)
-                                isInstance = true;
-                            else if (builtinType.Name == "str" && classSubject is PyString)
-                                isInstance = true;
-                            else if (builtinType.Name == "list" && classSubject is PyList)
-                                isInstance = true;
-                            else if (builtinType.Name == "dict" && classSubject is PyDict)
-                                isInstance = true;
-                            else if (builtinType.Name == "tuple" && classSubject is PyTuple)
-                                isInstance = true;
-                            else if (builtinType.Name == "float" && classSubject is PyFloat)
-                                isInstance = true;
-                            else if (builtinType.Name == "bool" && classSubject is PyBool)
-                                isInstance = true;
-                        }
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 MATCH_CLASS: isInstance = {isInstance}");
-                        #endif
-
-                        if (isInstance)
-                        {
-                            var positionalCount = argument;
-
-                            // CPython 3.12 behavior: Extract attribute values based on keyword names tuple
-                            if (classKwNames is PyTuple classKwNamesTuple && classKwNamesTuple.Items.Length > 0 &&
-                                classSubject is PyClassInstance classSubjectInstance)
-                            {
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔍 MATCH_CLASS: Extracting {classKwNamesTuple.Items.Length} attributes");
-                                #endif
-
-                                // Extract attribute values in the order specified by keyword names
-                                var attrs = new List<PyObject>();
-                                for (int i = 0; i < classKwNamesTuple.Items.Length; i++)
-                                {
-                                    var classAttrName = classKwNamesTuple.Items[i].ToStr().Value;
-                                    var classAttrValue = classSubjectInstance.GetAttribute(classAttrName);
-                                    attrs.Add(classAttrValue ?? PyNone.Instance);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔍 MATCH_CLASS: Extracted {classAttrName} = {classAttrValue}");
-                                    #endif
-                                }
-
-                                // Performance: Eliminated LINQ - manual List to array + Cache
-                                var attrsArray = new PyObject[attrs.Count];
-                                attrs.CopyTo(attrsArray, 0);
-                                frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
-                            }
-                            else if (classToMatch is PyClass cls && positionalCount > 0 &&
-                                     cls.GetAttribute("__match_args__") is PyTuple matchArgs)
-                            {
-                                // Extract positional attributes for custom classes
-                                var attrs = new List<PyObject>();
-
-                                for (int i = 0; i < Math.Min(positionalCount, matchArgs.Items.Length); i++)
-                                {
-                                    var matchArgName = matchArgs.Items[i].ToStr().Value;
-
-                                    if (classSubject is PyClassInstance matchSubjectInstance)
-                                    {
-                                        var matchAttrValue = matchSubjectInstance.GetAttribute(matchArgName);
-                                        attrs.Add(matchAttrValue ?? PyNone.Instance);
-                                    }
-                                }
-
-                                // Performance: Eliminated LINQ - manual List to array + Cache
-                                var attrsArray = new PyObject[attrs.Count];
-                                attrs.CopyTo(attrsArray, 0);
-                                frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
-                            }
-                            else
-                            {
-                                // CPython 3.12: Python/ceval.c:515-523
-                                // For built-in types (int, str, etc.) with positional patterns like case int(x):
-                                // Return tuple containing the subject if positionalCount > 0
-                                // This allows unpacking: case int(x): captures x=5 from match 5
-                                if (positionalCount > 0)
-                                {
-                                    frame.ValueStack.Push(new PyTuple(new[] { classSubject }));
-                                }
-                                else
-                                {
-                                    // No attributes to extract, return empty tuple
-                                    frame.ValueStack.Push(new PyTuple(new PyObject[0]));
-                                }
-                            }
-                        }
-                        else
-                        {
-                            frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: None on failure
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🚨 MATCH_CLASS error: {ex.Message}");
-                        #endif
-                        frame.ValueStack.Push(PyNone.Instance);
+                        // MATCH_CLASS (Python/bytecodes.c): [subject, type, names] become the attributes or None.
+                        var classKwNames = (PyTuple)frame.ValueStack.Pop();
+                        var classToMatch = frame.ValueStack.Pop();
+                        var classSubject = frame.ValueStack.Pop();
+                        frame.ValueStack.Push(MatchClass(classSubject, classToMatch, argument, classKwNames));
                     }
                     break;
 
@@ -4366,6 +4167,13 @@ namespace SharpPy
                     var dictUpdateSource = frame.ValueStack.Pop();
                     if (!(dictUpdateSource is PyDict dictUpdateSourceDict))
                     {
+                        // dict.update takes any mapping: a mapping pattern's subject need not be a dict.
+                        if (dictUpdateSource.LookupSpecialMethodUncached("keys") != null)
+                        {
+                            frame.ValueStack.PeekAt(argument - 1).GetAttribute("update")
+                                .Call(new[] { dictUpdateSource }, null);
+                            break;
+                        }
                         throw PyTypeError.Create($"'dict' object expected for ** unpacking, got '{dictUpdateSource?.GetTypeName() ?? "null"}'");
                     }
                     // stack[-(arg)]에 있는 dict를 가져옴 (arg=1이면 현재 TOS)
@@ -6873,6 +6681,115 @@ namespace SharpPy
         /// <summary>
         /// Python 스타일 포매팅을 적용 (VM에서 사용)
         /// </summary>
+        /// <summary>Py_TPFLAGS_MAPPING and Py_TPFLAGS_SEQUENCE: inherited from the builtin, and set on a class
+        /// by the collections.abc class of that name (__abc_tpflags__).</summary>
+        private static bool HasMatchFlag(PyObject subject, PyType builtin, string abc)
+        {
+            var type = subject.GetPyType();
+            if (type.IsSubclassOf(builtin)) return true;
+            if (type.MRO == null) return false;
+            foreach (var level in type.MRO)
+                if (level.Name == abc && level is PyClass abcClass &&
+                    abcClass.GetAttribute("__module__") is PyString { Value: "collections.abc" or "_collections_abc" })
+                    return true;
+            return false;
+        }
+
+        /// <summary>Py_TPFLAGS_MATCH_SELF: case int(x) binds the subject itself.</summary>
+        private static bool MatchesSelf(PyType type) =>
+            type.IsSubclassOf(PyType.IntType) || type.IsSubclassOf(PyType.StrType) ||
+            type.IsSubclassOf(PyType.ListType) || type.IsSubclassOf(PyType.TupleType) ||
+            type.IsSubclassOf(PyType.DictType) || type.IsSubclassOf(PyType.SetType) ||
+            type.IsSubclassOf(PyType.FrozenSetType) || type.IsSubclassOf(PyType.FloatType) ||
+            type.IsSubclassOf(PyType.BytesType) || type.IsSubclassOf(PyType.BytearrayType);
+
+        /// <summary>match_class_attr (Python/ceval.c): null when the attribute is missing.</summary>
+        private static PyObject MatchClassAttribute(PyObject subject, PyType type, string name, HashSet<string> seen)
+        {
+            if (!seen.Add(name))
+                throw PyTypeError.Create($"{type.Name}() got multiple sub-patterns for attribute '{name}'");
+            try
+            {
+                return subject.GetAttribute(name);
+            }
+            catch (PythonException e) when (e.PyException is PyAttributeError)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>match_class (Python/ceval.c).</summary>
+        private static PyObject MatchClass(PyObject subject, PyObject cls, int positional, PyTuple keywords)
+        {
+            if (cls is not PyType type)
+                throw PyTypeError.Create("called match pattern must be a class");
+            if (!SharpPy.Modules.BuiltinsModule.IsInstance(new[] { subject, cls }).IsTrue())
+                return PyNone.Instance;
+
+            var seen = new HashSet<string>();
+            var attributes = new List<PyObject>(positional + keywords.Items.Length);
+            if (positional > 0)
+            {
+                PyObject matchArgs = null;
+                try
+                {
+                    matchArgs = cls.GetAttribute("__match_args__");
+                }
+                catch (PythonException e) when (e.PyException is PyAttributeError) { }
+
+                if (matchArgs != null && matchArgs is not PyTuple)
+                    throw PyTypeError.Create($"{type.Name}.__match_args__ must be a tuple (got {matchArgs.GetTypeName()})");
+                bool matchSelf = matchArgs == null && MatchesSelf(type);
+                var names = matchArgs as PyTuple;
+                int allowed = matchSelf ? 1 : names?.Items.Length ?? 0;
+                if (allowed < positional)
+                    throw PyTypeError.Create(
+                        $"{type.Name}() accepts {allowed} positional sub-pattern{(allowed == 1 ? "" : "s")} ({positional} given)");
+                if (matchSelf)
+                {
+                    attributes.Add(subject);
+                }
+                else
+                {
+                    for (int i = 0; i < positional; i++)
+                    {
+                        if (names.Items[i] is not PyString name)
+                            throw PyTypeError.Create(
+                                $"__match_args__ elements must be strings (got {names.Items[i].GetTypeName()})");
+                        var attribute = MatchClassAttribute(subject, type, name.Value, seen);
+                        if (attribute == null) return PyNone.Instance;
+                        attributes.Add(attribute);
+                    }
+                }
+            }
+            foreach (var keyword in keywords.Items)
+            {
+                var attribute = MatchClassAttribute(subject, type, ((PyString)keyword).Value, seen);
+                if (attribute == null) return PyNone.Instance;
+                attributes.Add(attribute);
+            }
+            return new PyTuple(attributes.ToArray());
+        }
+
+        private static readonly PyObject MatchKeysMissing = new PyTuple(Array.Empty<PyObject>());
+
+        private static PyObject MatchKeys(PyObject subject, PyTuple keys)
+        {
+            var get = subject.GetAttribute("get");
+            var seen = new PySet();
+            var values = new PyObject[keys.Items.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                var key = keys.Items[i];
+                if (seen.Contains(key).ToBool())
+                    throw PyValueError.Create($"mapping pattern checks duplicate key ({key.ToRepr().Value})");
+                seen.Add(key);
+                values[i] = get.Call(new[] { key, MatchKeysMissing }, null);
+                if (ReferenceEquals(values[i], MatchKeysMissing)) return PyNone.Instance;
+            }
+            return new PyTuple(values);
+        }
+
         private PyString ApplyFormatting(PyObject obj, string formatSpec) =>
             obj.Format(StringCache.GetOrCreate(formatSpec));
 

@@ -1006,7 +1006,25 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 compatible: Safe type attribute lookup without recursion
         /// </summary>
+        private static readonly Dictionary<string, PyObject> ObjectSlots = new Dictionary<string, PyObject>();
+
+        /// <summary>
+        /// A slot of object is one object in CPython, so getattr(cls, "__lt__") can be compared with
+        /// getattr(object, "__lt__"), as functools.total_ordering does. The lookup below builds them.
+        /// </summary>
         public static PyObject? GetTypeAttribute(PyType pyType, string name)
+        {
+            if (!ReferenceEquals(pyType, PyType.ObjectType)) return BuildTypeAttribute(pyType, name);
+            lock (ObjectSlots)
+            {
+                if (ObjectSlots.TryGetValue(name, out var slot)) return slot;
+                slot = BuildTypeAttribute(pyType, name);
+                if (slot != null) ObjectSlots[name] = slot;
+                return slot;
+            }
+        }
+
+        private static PyObject? BuildTypeAttribute(PyType pyType, string name)
         {
             // CPython 3.12: 내장 타입의 속성을 직접 조회
             // 재귀를 방지하기 위해 PyType의 내부 구조를 직접 사용
@@ -2816,13 +2834,7 @@ namespace SharpPy
         // update_one_slot: a declared __repr__ or __str__ replaces the slot, otherwise tuple's stays.
         public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
 
-        public override PyString AsString()
-        {
-            var declared = this.CallUserSpecialOrNull("__str__", Array.Empty<PyObject>());
-            if (declared == null) return ToRepr();
-            return declared as PyString ?? throw PyTypeError.Create(
-                $"__str__ returned non-string (type {declared.GetTypeName()})");
-        }
+        public override PyString AsString() => SubclassInstanceSupport.Str(this, ToRepr);
 
         public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
         {

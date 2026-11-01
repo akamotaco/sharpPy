@@ -745,6 +745,13 @@ namespace SharpPy
                     }
                     break;
 
+                case TypeAliasStatement typeAlias:
+                    _currentTable?.DefineSymbol(typeAlias.Name, SymbolFlags.Assigned);
+                    foreach (var typeParam in typeAlias.TypeParams)
+                        _currentTable?.DefineSymbol(typeParam.Name, SymbolFlags.Assigned);
+                    AnalyzeExpression(typeAlias.Value);
+                    break;
+
                 // async for and async with bind and nest exactly as their plain forms do.
                 case AsyncForStatement asyncFor:
                     AnalyzeExpression(asyncFor.Iter);

@@ -255,7 +255,7 @@ namespace SharpPy.Modules
         /// CPython 3.12: Objects/abstract.c:2666-2671 (PyObject_IsInstance)
         /// Implements isinstance(obj, classInfo) builtin function.
         /// </summary>
-        private static PyObject IsInstance(PyObject[] args)
+        internal static PyObject IsInstance(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"isinstance() takes exactly 2 arguments ({args.Length} given)");

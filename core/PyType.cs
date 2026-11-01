@@ -1550,6 +1550,9 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                    // long_to_decimal_string: the digits, whatever a subclass declares.
+                    if (self is PyIntSubclass subclass) self = subclass.GetIntValue();
+                    if (self is PyBool truth) return new PyString(truth.Value ? "1" : "0");
                     if (self is not PyInt pyInt)
                         throw PyTypeError.Create("descriptor '__repr__' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return pyInt.ToRepr();
@@ -3631,6 +3634,13 @@ namespace SharpPy
         protected override System.Exception AttributeNotFound(string name)
             => PyAttributeError.Create($"type object '{Name}' has no attribute '{name}'");
 
+        private static readonly PyObject ObjectStr = new PyWrapperDescriptor("__str__", ObjectType,
+            (self, args, kwargs) => self.ToRepr());
+
+        private static bool AnsweredByTheType(string name) => name is "__class__" or "__doc__" or "__name__"
+            or "__qualname__" or "__module__" or "__dict__" or "__mro__" or "__bases__" or "__base__"
+            or "__weakref__" or "__annotations__" or "__subclasses__" or "__call__";
+
         public override PyObject GetAttribute(string name)
         {
             // CPython 3.12 호환: type_getattro() 구현
@@ -3732,34 +3742,25 @@ namespace SharpPy
                 return typeDictAttr;
             }
 
-            // _PyType_Lookup walks the type's own MRO: exception subclasses must
-            // inherit BaseException dunders (__init__/__str__/args) instead of
-            // falling through to the metaclass object.__init__.
+            // _PyType_Lookup walks the type's own MRO, so int.__str__ is object.__str__ and is found before the
+            // metatype's bound method (Objects/typeobject.c:4844). The names object's dict keeps for its
+            // instances are the type's own business, answered below.
             if (MRO != null && MRO.Count > 0 && ReferenceEquals(MRO[0], this))
             {
-                bool isExceptionType = false;
                 foreach (var m in MRO)
                 {
-                    if (ReferenceEquals(m, BaseExceptionType))
+                    if (ReferenceEquals(m, this) || (ReferenceEquals(m, ObjectType) && AnsweredByTheType(name)))
+                        continue;
+                    if (m.TypeDict != null && m.TypeDict.TryGetValue(name, out var inherited))
                     {
-                        isExceptionType = true;
-                        break;
+                        if (inherited is IDescriptor inheritedDescriptor)
+                            return inheritedDescriptor.Get(null, this);
+                        return inherited;
                     }
                 }
-                if (isExceptionType)
-                {
-                    foreach (var m in MRO)
-                    {
-                        if (ReferenceEquals(m, this))
-                            continue;
-                        if (m.TypeDict != null && m.TypeDict.TryGetValue(name, out var inherited))
-                        {
-                            if (inherited is IDescriptor inheritedDescriptor)
-                                return inheritedDescriptor.Get(null, this);
-                            return inherited;
-                        }
-                    }
-                }
+                // object_str. It is not in object's dict here because the C# paths for str() test that dict,
+                // but it is one object, as enum compares member_type.__str__ with object.__str__.
+                if (name == "__str__" && !ReferenceEquals(this, TypeType)) return ObjectStr;
             }
 
             // Check PyClass.GetTypeAttribute() for wrapper descriptors
