@@ -1165,9 +1165,16 @@ namespace SharpPy
 
         public override PyType GetPyType()
         {
-            // CPython 3.12: getset_descriptor has its own type
-            return PyType.ObjectType; // TODO: Create PyType.GetSetDescriptorType
+            return PyType.GetSetDescriptorType;
         }
+
+        // PyDescrObject: inspect tells the type's own __dict__ descriptor from a shadowing one by these.
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "__name__" => new PyString("__dict__"),
+            "__objclass__" => PyType.TypeType,
+            _ => base.GetAttribute(name),
+        };
 
         public override string GetTypeName()
         {

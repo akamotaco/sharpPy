@@ -267,7 +267,7 @@ namespace SharpPy
         /// </summary>
         internal bool HasSetter => _setter != null;
 
-        public override PyType GetPyType() => PyType.PropertyType;
+        public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)
