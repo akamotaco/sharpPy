@@ -913,45 +913,6 @@ namespace SharpPy
                 return created;
             }
 
-            // CPython 3.12: Objects/funcobject.c:1241-1256 (staticmethod)
-            // Special handling for descriptor types
-            if (this == StaticMethodType)
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"staticmethod expected 1 argument, got {args.Length}");
-
-                var func = args[0];
-
-                // If already a staticmethod, return as-is (idempotent)
-                if (func is PyStaticmethod pyStaticmethod)
-                    return pyStaticmethod;
-
-                if (func == null || !func.IsCallable())
-                    throw PyTypeError.Create($"staticmethod() argument must be callable (got {func?.GetTypeName()})");
-
-                // CPython 3.12: Accept ANY callable
-                return new PyStaticmethod(func);
-            }
-
-            // CPython 3.12: Objects/funcobject.c:1055-1068 (classmethod)
-            if (this == ClassMethodType)
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create($"classmethod expected 1 argument, got {args.Length}");
-
-                var func = args[0];
-
-                // If already a classmethod, return as-is (idempotent)
-                if (func is PyClassmethod pyClassmethod)
-                    return pyClassmethod;
-
-                if (func == null || !func.IsCallable())
-                    throw PyTypeError.Create($"classmethod() argument must be callable (got {func?.GetTypeName()})");
-
-                // CPython 3.12: Accept ANY callable
-                return new PyClassmethod(func);
-            }
-
             // CPython 3.12: Objects/classobject.c:216 method_new_impl. Lib/weakref.py:73 (WeakMethod)
             // rebuilds a method through type(method)(func, obj), so this type has to be callable.
             if (this == MethodType)

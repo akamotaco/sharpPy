@@ -128,6 +128,7 @@ namespace SharpPy.Core
         public string Name { get; }
         public CoroutineState State { get; private set; } = CoroutineState.Created;
         public bool IsFinished => _finished;
+        internal PyFrame Frame => _frame;
         
         /// <summary>
         /// CPython 3.12 스타일 Coroutine 상태

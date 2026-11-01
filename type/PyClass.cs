@@ -373,50 +373,27 @@ namespace SharpPy
                     throw PyTypeError.Create($"{Name}() takes no arguments");
             }
 
-            PyObject instance;
-            if (newMethod != null)
-            {
-                // Call __new__ with (cls, *args, **kwargs)
-                var newArgs = new PyObject[args.Length + 1];
-                newArgs[0] = this;  // cls parameter
-                Array.Copy(args, 0, newArgs, 1, args.Length);
+            if (newMethod == null)
+                throw PyTypeError.Create($"cannot create '{Name}' instances");
 
-                // CPython 3.12: __new__ can be a static method, class method, or builtin
-                if (newMethod is PyFunction func)
+            // slot_tp_new: __new__ is read from the type, so a descriptor there binds.
+            var newArgs = new PyObject[args.Length + 1];
+            newArgs[0] = this;
+            Array.Copy(args, 0, newArgs, 1, args.Length);
+            if (newMethod is not (PyFunction or PyStaticBuiltinMethod or PyBuiltinMethod or PyMethodDescriptor))
+            {
+                if (newMethod is IDescriptor newDescriptor)
                 {
-                    // User-defined __new__ (should be staticmethod, but bound correctly)
-                    instance = func.Call(newArgs, kwargs);
-                }
-                else if (newMethod is PyStaticBuiltinMethod staticBuiltin)
-                {
-                    // Builtin static __new__ (e.g., int.__new__)
-                    instance = staticBuiltin.Call(newArgs, kwargs);
-                }
-                else if (newMethod is PyBuiltinMethod builtinMethod)
-                {
-                    // Builtin __new__ from base types (int.__new__, object.__new__, etc.)
-                    instance = builtinMethod.Call(newArgs, kwargs);
-                }
-                else if (newMethod is PyMethodDescriptor descriptor)
-                {
-                    // Builtin type's __new__ descriptor
-                    instance = descriptor.Call(newArgs, kwargs);
-                }
-                else if (newMethod.IsCallable())
-                {
-                    instance = newMethod.Call(newArgs, kwargs);
+                    newMethod = newDescriptor.Get(null, this);
                 }
                 else
                 {
-                    throw PyTypeError.Create($"__new__ is not callable");
+                    var newGet = newMethod.LookupSpecialMethodUncached("__get__");
+                    if (newGet != null)
+                        newMethod = newMethod.BindSpecialMethod(newGet).Call(new PyObject[] { PyNone.Instance, this }, null);
                 }
             }
-            else
-            {
-                // No __new__ found - this should not happen for valid Python classes
-                // All classes inherit object.__new__ at minimum
-                throw PyTypeError.Create($"cannot create '{Name}' instances: no __new__ method");
-            }
+            PyObject instance = newMethod.Call(newArgs, kwargs);
 
             // Step 2: Check if returned object is an instance of this type
             // CPython 3.12: Objects/typeobject.c:1672-1675
@@ -446,33 +423,10 @@ namespace SharpPy
             var init = instance.LookupSpecialMethodUncached("__init__");
             if (init != null)
             {
-                // Apply descriptor protocol if needed
-                if (init is IDescriptor desc)
-                {
-                    init = desc.Get(instance, instanceType);
-                }
-                else if (init is PyFunction function)
-                {
-                    // Convert function to bound method
-                    init = new PyMethod(instance, function);
-                }
-
-                // Call the bound init method
-                if (init is PyMethod method)
-                {
-                    // PyMethod는 이미 self가 바인딩되어 있으므로 args만 전달
-                    method.Call(args, kwargs);
-                }
-                else if (init is PyBuiltinMethod builtinMethod)
-                {
-                    // Builtin method도 이미 바인딩되어 있음
-                    builtinMethod.Call(args, kwargs);
-                }
-                else
-                {
-                    // Fallback: callable object
-                    init.Call(args, kwargs);
-                }
+                // slot_tp_init
+                var result = instance.BindSpecialMethod(init).Call(args, kwargs);
+                if (result != null && result is not PyNone)
+                    throw PyTypeError.Create($"__init__() should return None, not '{result.GetTypeName()}'");
             }
 
             return instance;

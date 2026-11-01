@@ -21,6 +21,11 @@ namespace SharpPy
             InstallObject();
             InstallNumbers();
             InstallText();
+            InstallFrameAttributes(PyType.CoroutineType, "cr", self => ((SharpPy.Core.PyCoroutine)self).Frame, self => ((SharpPy.Core.PyCoroutine)self).IsFinished);
+            InstallFrameAttributes(PyType.AsyncGeneratorType, "ag", self => ((SharpPy.Core.PyAsyncGenerator)self).Frame, self => false);
+            PyType.CoroutineType.TypeDict["cr_origin"] = new PyGetSetDescriptor("cr_origin", PyType.CoroutineType, self => PyNone.Instance);
+            PyCallableWrapper.Install(PyType.ClassMethodType, "classmethod");
+            PyCallableWrapper.Install(PyType.StaticMethodType, "staticmethod");
             Slot(PyType.TypeType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.GenericAliasType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             Slot(PyType.UnionType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
@@ -148,6 +153,20 @@ namespace SharpPy
             else
                 parts.Add(self);
             return new PyUnionType(parts.ToArray());
+        }
+
+        // gen_getframe, gen_getrunning, gen_getsuspended and their cr_ and ag_ twins
+        private static void InstallFrameAttributes(PyType type, string prefix, Func<PyObject, PyFrame> frame, Func<PyObject, bool> finished)
+        {
+            void Attribute(string name, Func<PyObject, PyObject> get)
+            {
+                if (!type.TypeDict.ContainsKey(name))
+                    type.TypeDict[name] = new PyGetSetDescriptor(name, type, get);
+            }
+            Attribute(prefix + "_frame", self => finished(self) || frame(self).State == PyFrame.FrameState.Completed ? PyNone.Instance : frame(self));
+            Attribute(prefix + "_code", self => frame(self).Code);
+            Attribute(prefix + "_running", self => PyBool.FromBool(frame(self).State == PyFrame.FrameState.Executing));
+            Attribute(prefix + "_suspended", self => PyBool.FromBool(!finished(self) && frame(self).State == PyFrame.FrameState.Suspended));
         }
 
         private static void InstallText()

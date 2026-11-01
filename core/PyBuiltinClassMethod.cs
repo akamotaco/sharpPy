@@ -46,9 +46,13 @@ namespace SharpPy
                 // Bind to its class (owner)
                 boundClass = owner ?? instance.GetPyType();
             }
+            else if (owner != null)
+            {
+                // type_getattro: X.method binds to X
+                boundClass = owner;
+            }
             else
             {
-                // Unbound access
                 return this;
             }
 

@@ -11,6 +11,7 @@ namespace SharpPy.Core
     public class PyAsyncGenerator : PyObject
     {
         private readonly PyFrame _frame;
+        internal PyFrame Frame => _frame;
         private readonly PyGenerator _generator;
         internal bool Running;
         private bool _finished;

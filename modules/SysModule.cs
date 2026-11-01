@@ -566,30 +566,18 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"displayhook() takes exactly one argument ({args.Length} given)");
             }
 
+            // sys_displayhook, Python/sysmodule.c
             var value = args[0];
-
-            // CPython: if (o == Py_None) { Py_RETURN_NONE; }
-            // Python/sysmodule.c:467-469
-            if (value == PyNone.Instance || value is PyNone)
-            {
-                // Don't print None values
+            if (value is PyNone)
                 return PyNone.Instance;
-            }
-
-            // CPython: Set builtins._ to the value
-            // Python/sysmodule.c:470-471
-            // TODO: Implement builtins._ = value
-            // For now, we skip this as builtins module needs enhancement
-
-            // CPython: Get sys.stdout
-            // Python/sysmodule.c:472-478
-            // For now, we use Console.WriteLine directly
-
-            // CPython: Print repr(value) to stdout
-            // Python/sysmodule.c:479-499
-            var reprValue = value.ToRepr().Value;
-            Console.WriteLine(reprValue);
-
+            var builtins = PyBuiltinsModule.Instance;
+            builtins.SetAttribute("_", PyNone.Instance);
+            if (!PyImportSystem.TryGetModule("sys", out var sys) || sys.GetAttribute("stdout") is not { } stdout || stdout is PyNone)
+                throw PyRuntimeError.Create("lost sys.stdout");
+            var write = stdout.GetAttribute("write");
+            write.Call(new PyObject[] { value.ToRepr() }, null);
+            write.Call(new PyObject[] { new PyString("\n") }, null);
+            builtins.SetAttribute("_", value);
             return PyNone.Instance;
         }
     }

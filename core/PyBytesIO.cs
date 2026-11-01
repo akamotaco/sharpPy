@@ -27,6 +27,13 @@ public class PyBytesIOType : PyIOBaseType
 {
     public PyBytesIOType(PyType baseType) : base("BytesIO", new[] { baseType })
     {
+        TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", this,
+            (cls, args, kwargs) => new PyBytesIO(null, (PyType)cls), acceptsKwargs: true);
+        TypeDict["__init__"] = new PyWrapperDescriptor("__init__", this, (self, args, kwargs) =>
+        {
+            ((PyBytesIO)self).Initialize(args, kwargs);
+            return PyNone.Instance;
+        }, 0, int.MaxValue, acceptsKwargs: true);
     }
 
     public override PyObject CreateInstance(PyObject[] args, PyDict kwargs)
@@ -41,7 +48,7 @@ public class PyBytesIO : PyIOBaseInstance
     private readonly List<byte> buffer = new();
     private long pos;
 
-    public PyBytesIO(byte[] initial) : base(BytesType)
+    public PyBytesIO(byte[] initial, PyType type = null) : base(type ?? BytesType)
     {
         if (initial != null)
             buffer.AddRange(initial);
@@ -52,6 +59,14 @@ public class PyBytesIO : PyIOBaseInstance
     /// not - reports "BytesIO() takes at most 1 argument (2 given)" (measured).
     /// </summary>
     public static PyObject Construct(PyType type, PyObject[] args, PyDict kwargs)
+    {
+        var created = new PyBytesIO(null, type);
+        created.Initialize(args, kwargs);
+        return created;
+    }
+
+    // _io_BytesIO___init___impl
+    internal void Initialize(PyObject[] args, PyDict kwargs)
     {
         byte[] initial = null;
         int given = args.Length + (kwargs != null ? kwargs.Length() : 0);
@@ -71,7 +86,10 @@ public class PyBytesIO : PyIOBaseInstance
                 initial = BytesLike(raw);
         }
 
-        return new PyBytesIO(initial);
+        buffer.Clear();
+        if (initial != null)
+            buffer.AddRange(initial);
+        pos = 0;
     }
 
     /// <summary>

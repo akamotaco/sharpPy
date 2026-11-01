@@ -1,187 +1,146 @@
+using System.Collections.Generic;
+
 namespace SharpPy
 {
-    // CPython 3.12: Objects/funcobject.c:1001-1123 (classmethod)
-    public class PyClassmethod : PyObject, IDescriptor
+    /// <summary>
+    /// What classmethod and staticmethod share in Objects/funcobject.c: the wrapped callable, a
+    /// __dict__ filled by functools_wraps, and a type that may be a Python subclass.
+    /// </summary>
+    public abstract class PyCallableWrapper : PyObject, IDescriptor, IDictBackedInstance
     {
-        // CPython 3.12: Objects/funcobject.c:1003 - cm_callable can be ANY callable
-        public PyObject Callable { get; }
+        private static readonly string[] WrappedAttributes = { "__module__", "__name__", "__qualname__", "__doc__" };
 
-        public PyClassmethod(PyObject callable)
+        private readonly PyType _type;
+
+        public PyObject Callable { get; private set; }
+        public Dictionary<string, PyObject> InstanceDict { get; set; } = new();
+
+        protected PyCallableWrapper(PyType type, PyObject callable)
         {
-            Callable = callable ?? throw new ArgumentNullException(nameof(callable));
+            _type = type;
+            if (callable != null)
+                Initialize(callable);
         }
 
-        public override string GetTypeName() => "classmethod";
-
-        // CPython 3.12: Return proper type
-        public override PyType GetPyType() => PyType.ClassMethodType;
-
-        // IDescriptor implementation
-        // CPython 3.12: Objects/funcobject.c:1011-1044 (cm_descr_get)
-        public PyObject Get(PyObject instance, PyType owner)
+        // cm_init and sm_init, then functools_wraps
+        internal void Initialize(PyObject callable)
         {
-            // For classmethod, the first argument is always the class, not the instance
-            var actualOwner = owner ?? instance?.GetPyType();
-            if (actualOwner == null)
+            Callable = callable;
+            foreach (var name in WrappedAttributes)
             {
-                return Callable;
-            }
-
-            // Return bound method with class as first argument
-            // For PyFunction, create PyMethod; for other callables, return as-is
-            if (Callable is PyFunction func)
-            {
-                return new PyMethod(actualOwner, func);
-            }
-
-            // For non-PyFunction callables, we'd need to wrap them properly
-            // For now, return as-is (enum module might need this)
-            return Callable;
-        }
-
-        public void Set(PyObject instance, PyObject value)
-        {
-            throw PyTypeError.Create("'classmethod' object has no attribute '__set__'");
-        }
-
-        public void Delete(PyObject instance)
-        {
-            throw PyTypeError.Create("'classmethod' object has no attribute '__delete__'");
-        }
-
-        public bool IsDataDescriptor() => false; // classmethod is not a data descriptor
-
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            return Callable.Call(args, kwargs);
-        }
-
-        // CPython 3.12: Expose descriptor protocol methods as attributes
-        // Objects/funcobject.c:1089-1091 (cm_getset) exposes __func__, __wrapped__
-        // tp_descr_get (line 1157) makes __get__ available
-        public override PyObject GetAttribute(string name)
-        {
-            // CPython 3.12: Objects/funcobject.c:1089-1091 - Support __func__ and __wrapped__ attributes
-            if (name == "__func__" || name == "__wrapped__")
-            {
-                return Callable;
-            }
-
-            // CPython 3.12: tp_descr_get makes __get__ available as a method
-            if (name == "__get__")
-            {
-                // Return a bound descriptor method
-                return new PyBuiltinFunction("__get__", (args) =>
+                try
                 {
-                    // __get__(self, obj, type=None)
-                    PyObject instance = args.Length > 0 ? args[0] : null;
-                    PyType owner = args.Length > 1 && args[1] is PyType t ? t : null;
-                    return Get(instance, owner);
-                });
+                    InstanceDict[name] = callable.GetAttribute(name);
+                }
+                catch (PythonException error) when (error.PyException is PyAttributeError)
+                {
+                }
             }
-
-            // functools_wraps copies these from the callable when the object is made.
-            if (name is "__name__" or "__qualname__" or "__module__" or "__doc__")
-                return Callable.GetAttribute(name);
-            if (name == "__isabstractmethod__")
-            {
-                try { return Callable.GetAttribute(name); }
-                catch (PythonException error) when (error.PyException is PyAttributeError) { return PyBool.False; }
-            }
-            return base.GetAttribute(name);
         }
 
-        // CPython 3.12: Objects/funcobject.c:1096-1100 (cm_repr)
-        public override string ToString()
+        public override PyType GetPyType() => _type;
+        public override string GetTypeName() => _type.Name;
+
+        public abstract PyObject Get(PyObject instance, PyType owner);
+
+        public void Set(PyObject instance, PyObject value) =>
+            throw PyTypeError.Create($"'{GetTypeName()}' object has no attribute '__set__'");
+
+        public void Delete(PyObject instance) =>
+            throw PyTypeError.Create($"'{GetTypeName()}' object has no attribute '__delete__'");
+
+        public bool IsDataDescriptor() => false;
+
+        // _PyObject_IsAbstract
+        internal bool IsAbstract()
         {
-            return $"<classmethod({Callable})>";
+            try
+            {
+                return Callable.GetAttribute("__isabstractmethod__").IsTrue();
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return false;
+            }
+        }
+
+        internal static void Install(PyType type, string name)
+        {
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+                ReferenceEquals(type, PyType.ClassMethodType)
+                    ? new PyClassmethod((PyType)cls, null)
+                    : new PyStaticmethod((PyType)cls, null), acceptsKwargs: true);
+            type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create($"{name}() takes no keyword arguments");
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"{name} expected 1 argument, got {args.Length}");
+                ((PyCallableWrapper)self).Initialize(args[0]);
+                return PyNone.Instance;
+            }, 0, int.MaxValue);
+            type.TypeDict["__func__"] = new PyGetSetDescriptor("__func__", type,
+                self => ((PyCallableWrapper)self).Callable, null);
+            type.TypeDict["__wrapped__"] = new PyGetSetDescriptor("__wrapped__", type,
+                self => ((PyCallableWrapper)self).Callable, null);
+            type.TypeDict["__isabstractmethod__"] = new PyGetSetDescriptor("__isabstractmethod__", type,
+                self => ((PyCallableWrapper)self).IsAbstract() ? PyBool.True : PyBool.False, null);
+            type.TypeDict["__get__"] = new PyWrapperDescriptor("__get__", type, (self, args, kwargs) =>
+            {
+                PyObject instance = args.Length > 0 && args[0] is not PyNone ? args[0] : null;
+                PyObject owner = args.Length > 1 && args[1] is not PyNone ? args[1] : null;
+                if (instance == null && owner == null)
+                    throw PyTypeError.Create("__get__(None, None) is invalid");
+                return ((PyCallableWrapper)self).Get(instance, owner as PyType);
+            }, 1, 2);
+            type.ConstructedByNewSlot = true;
         }
     }
 
-    // CPython 3.12: Objects/funcobject.c:1196-1357 (staticmethod)
-    public class PyStaticmethod : PyObject, IDescriptor
+    // Objects/funcobject.c: classmethod
+    public class PyClassmethod : PyCallableWrapper
     {
-        // CPython 3.12: Objects/funcobject.c:1198 - sm_callable can be ANY callable
-        public PyObject Callable { get; }
+        public PyClassmethod(PyObject callable) : base(PyType.ClassMethodType, callable) { }
 
-        public PyStaticmethod(PyObject callable)
+        internal PyClassmethod(PyType type, PyObject callable) : base(type, callable) { }
+
+        // cm_descr_get
+        public override PyObject Get(PyObject instance, PyType owner)
         {
-            Callable = callable ?? throw new ArgumentNullException(nameof(callable));
+            if (Callable == null)
+                throw PyRuntimeError.Create("uninitialized classmethod object");
+            PyObject type = owner ?? instance.GetPyType();
+            var get = Callable is PyFunction ? null : Callable.LookupSpecialMethodUncached("__get__");
+            if (get != null)
+                return Callable.BindSpecialMethod(get).Call(new[] { type, type }, null);
+            return new PyMethod(type, Callable);
         }
 
-        public override string GetTypeName() => "staticmethod";
+        public override bool IsCallable() => false;
 
-        // CPython 3.12: Return proper type
-        public override PyType GetPyType() => PyType.StaticMethodType;
+        public override string ToString() => $"<classmethod({Callable?.ToRepr().Value})>";
 
-        // IDescriptor implementation
-        // CPython 3.12: Objects/funcobject.c:1228-1238 (sm_descr_get)
-        public PyObject Get(PyObject instance, PyType owner)
-        {
-            // For staticmethod, just return the original callable
-            return Callable;
-        }
+        public override PyString ToRepr() => new(ToString());
+    }
 
-        public void Set(PyObject instance, PyObject value)
-        {
-            throw PyTypeError.Create("'staticmethod' object has no attribute '__set__'");
-        }
+    // Objects/funcobject.c: staticmethod
+    public class PyStaticmethod : PyCallableWrapper
+    {
+        public PyStaticmethod(PyObject callable) : base(PyType.StaticMethodType, callable) { }
 
-        public void Delete(PyObject instance)
-        {
-            throw PyTypeError.Create("'staticmethod' object has no attribute '__delete__'");
-        }
+        internal PyStaticmethod(PyType type, PyObject callable) : base(type, callable) { }
 
-        public bool IsDataDescriptor() => false; // staticmethod is not a data descriptor
+        // sm_descr_get
+        public override PyObject Get(PyObject instance, PyType owner) =>
+            Callable ?? throw PyRuntimeError.Create("uninitialized staticmethod object");
 
-        // CPython 3.12: Objects/funcobject.c:1332 - staticmethod IS callable (has tp_call)
         public override bool IsCallable() => true;
 
-        // CPython 3.12: Objects/funcobject.c:1259-1263 (sm_call)
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            return Callable.Call(args, kwargs);
-        }
+        // sm_call
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null) => Callable.Call(args, kwargs);
 
-        // CPython 3.12: Expose descriptor protocol methods as attributes
-        // Objects/funcobject.c:1265-1268 - Support __func__ and __wrapped__ attributes
-        // tp_descr_get (line 1352) makes __get__ available
-        public override PyObject GetAttribute(string name)
-        {
-            if (name == "__call__") return Callable;
+        public override string ToString() => $"<staticmethod({Callable?.ToRepr().Value})>";
 
-            if (name == "__func__" || name == "__wrapped__")
-            {
-                return Callable;
-            }
-
-            // CPython 3.12: tp_descr_get makes __get__ available as a method
-            if (name == "__get__")
-            {
-                // Return a bound descriptor method
-                return new PyBuiltinFunction("__get__", (args) =>
-                {
-                    // __get__(self, obj, type=None)
-                    // For staticmethod, just return the callable regardless of instance/owner
-                    return Callable;
-                });
-            }
-
-            // functools_wraps copies these from the callable when the object is made.
-            if (name is "__name__" or "__qualname__" or "__module__" or "__doc__")
-                return Callable.GetAttribute(name);
-            if (name == "__isabstractmethod__")
-            {
-                try { return Callable.GetAttribute(name); }
-                catch (PythonException error) when (error.PyException is PyAttributeError) { return PyBool.False; }
-            }
-            return base.GetAttribute(name);
-        }
-
-        // CPython 3.12: Objects/funcobject.c:1291-1295 (sm_repr)
-        public override string ToString()
-        {
-            return $"<staticmethod({Callable})>";
-        }
+        public override PyString ToRepr() => new(ToString());
     }
 }

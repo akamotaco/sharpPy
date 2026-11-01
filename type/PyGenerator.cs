@@ -64,9 +64,15 @@ namespace SharpPy
             // CPython 3.12: genobject.c getseters
             // (gi_code, gi_frame, gi_name, gi_running, gi_yieldfrom)
             genType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", genType,
-                self => new PyString(((PyGenerator)self).Name));
+                self => new PyString(((PyGenerator)self).Name), (self, value) =>
+                    ((PyGenerator)self).Name = value is PyString text ? text.Value
+                        : throw PyTypeError.Create("__name__ must be set to a string object"));
             genType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", genType,
-                self => new PyString(((PyGenerator)self).Name));
+                self => ((PyGenerator)self).Qualname, (self, value) =>
+                    ((PyGenerator)self).Qualname = value is PyString ? value
+                        : throw PyTypeError.Create("__qualname__ must be set to a string object"));
+            genType.TypeDict["gi_suspended"] = new PyGetSetDescriptor("gi_suspended", genType,
+                self => PyBool.FromBool(((PyGenerator)self)._frame.State == PyFrame.FrameState.Suspended && !((PyGenerator)self)._finished));
             genType.TypeDict["gi_code"] = new PyGetSetDescriptor("gi_code", genType,
                 self => ((PyGenerator)self)._frame.Code);
             genType.TypeDict["gi_running"] = new PyGetSetDescriptor("gi_running", genType,
@@ -90,8 +96,10 @@ namespace SharpPy
         private PyObject _sentValue = PyNone.Instance;
         private Exception? _thrownException = null;
 
-        public string Name { get; }
-        public PyObject Qualname { get; }
+        public string Name { get; set; }
+        public PyObject Qualname { get; set; }
+        internal PyFrame Frame => _frame;
+        internal bool Finished => _finished;
         internal bool IsIterableCoroutine => (_frame.Code.Flags & PyCodeObject.CO_ITERABLE_COROUTINE) != 0;
 
         public PyGenerator(PyFrame frame, PyVM vm, string name = "<generator>")
@@ -100,7 +108,7 @@ namespace SharpPy
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
             _finished = false;
             Name = name;
-            Qualname = new PyString(name);
+            Qualname = new PyString(frame.Code.QualName ?? name);
             
             // 제너레이터 플래그 설정
             _frame.IsGenerator = true;
@@ -113,7 +121,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override PyString ToRepr() => new PyString($"<generator object {Name}>");
+        public override PyString ToRepr() => new PyString($"<generator object {((PyString)Qualname).Value} at 0x{GetHashCode():x}>");
 
         #endregion
 

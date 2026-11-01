@@ -2374,20 +2374,6 @@ namespace SharpPy
             }
 
             var func = args[0];
-
-            // CPython 3.12: If already a classmethod, return as-is (idempotent)
-            if (func is PyClassmethod pyClassmethod)
-            {
-                return pyClassmethod;
-            }
-
-            if (func == null || !func.IsCallable())
-            {
-                throw PyTypeError.Create($"classmethod() argument must be callable (got {func?.GetTypeName()})");
-            }
-
-            // CPython 3.12: Objects/funcobject.c:1062 - Accept ANY callable
-            // cm_callable can be PyFunction, PyBuiltinFunction, PyMethodDescriptor, etc.
             return new PyClassmethod(func);
         }
 
@@ -2399,27 +2385,6 @@ namespace SharpPy
             }
 
             var func = args[0];
-            #if DEBUG_LOG
-            Console.WriteLine($"[STATICMETHOD] Received: {func?.GetType().Name} / IsCallable={func?.IsCallable()} / value={func}");
-            #endif
-
-            // CPython 3.12: Objects/funcobject.c:1241-1256 (sm_init)
-            // If already a staticmethod, return as-is (idempotent)
-            if (func is PyStaticmethod pyStaticmethod)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"[STATICMETHOD] Already a staticmethod, returning as-is");
-                #endif
-                return pyStaticmethod;
-            }
-
-            if (func == null || !func.IsCallable())
-            {
-                throw PyTypeError.Create($"staticmethod() argument must be callable (got {func?.GetTypeName()})");
-            }
-
-            // CPython 3.12: Objects/funcobject.c:1250 - Accept ANY callable
-            // sm_callable can be PyFunction, PyBuiltinFunction, PyMethodDescriptor, etc.
             return new PyStaticmethod(func);
         }
 
