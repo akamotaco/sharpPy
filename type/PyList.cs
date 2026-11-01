@@ -1072,7 +1072,7 @@ namespace SharpPy
 
         // CPython 3.12: list.__mul__ and list.__rmul__ - Repeat list n times
         // CPython: Objects/listobject.c:567-589 (list_repeat)
-        // Note: __rmul__ is handled by VM's reverse operation dispatch (TryReverseBinaryOp)
+        // Note: __rmul__ is handled by binary_op1 and sequence_repeat in the VM (PyVM.BinaryOp1)
         public override PyObject Multiply(PyObject other)
         {
             if (other is not PyInt pyInt)

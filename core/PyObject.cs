@@ -1374,7 +1374,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Add(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for +: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1382,7 +1382,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Subtract(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for -: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1390,7 +1390,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Multiply(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for *: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1398,7 +1398,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Divide(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for /: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1406,7 +1406,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject FloorDivide(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for //: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1414,7 +1414,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Modulo(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for %: '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>
@@ -1432,7 +1432,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyObject Power(PyObject other)
         {
-            throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): '{GetTypeName()}' and '{other.GetTypeName()}'");
+            return PyNotImplemented.Instance;
         }
 
         /// <summary>

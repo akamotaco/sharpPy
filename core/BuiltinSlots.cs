@@ -21,6 +21,9 @@ namespace SharpPy
             InstallObject();
             InstallNumbers();
             InstallText();
+            Slot(PyType.TypeType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
+            Slot(PyType.GenericAliasType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
+            Slot(PyType.UnionType, "__ror__", (self, args) => UnionOnTheRight(self, args[0]));
             InstallContainers();
             InstallViews();
             InstallIterators();
@@ -43,8 +46,26 @@ namespace SharpPy
 
         private static void Method(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)
         {
-            if (!type.TypeDict.ContainsKey(name))
-                type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) => operation(self, args));
+            if (type.TypeDict.ContainsKey(name))
+                return;
+            type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
+            {
+                if (args.Length != 0)
+                    throw PyTypeError.Create($"{type.Name}.{name}() takes no arguments ({args.Length} given)");
+                return operation(self, args);
+            });
+        }
+
+        private static void MethodO(PyType type, string name, Func<PyObject, PyObject[], PyObject> operation)
+        {
+            if (type.TypeDict.ContainsKey(name))
+                return;
+            type.TypeDict[name] = new PyMethodDescriptor(name, type, (self, args, kwargs) =>
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"{type.Name}.{name}() takes exactly one argument ({args.Length} given)");
+                return operation(self, args);
+            });
         }
 
         private static void InstallObject()
@@ -109,9 +130,31 @@ namespace SharpPy
             Method(complex, "__complex__", (self, args) => self);
         }
 
+        private static PyObject StoredText(PyObject self) =>
+            (self as PyStrSubclass)?.GetStrValue() ?? PyNativeStorage.Unwrap(self);
+
+        // _Py_union_type_or with the operands as written: None | int.
+        private static PyObject UnionOnTheRight(PyObject self, PyObject left)
+        {
+            if (left is not (PyNone or PyType or PyGenericAlias or PyUnionType))
+                return PyNotImplemented.Instance;
+            var parts = new List<PyObject>();
+            if (left is PyUnionType leftUnion)
+                parts.AddRange(leftUnion.Args);
+            else
+                parts.Add(left is PyNone ? PyNone.Instance.GetPyType() : left);
+            if (self is PyUnionType union)
+                parts.AddRange(union.Args);
+            else
+                parts.Add(self);
+            return new PyUnionType(parts.ToArray());
+        }
+
         private static void InstallText()
         {
-            Slot(PyType.StrType, "__rmul__", (self, args) => self.Multiply(args[0]));
+            // unicode_repeat reads the text; a subclass's own __mul__ is not asked again.
+            Slot(PyType.StrType, "__mul__", (self, args) => StoredText(self).Multiply(args[0]));
+            Slot(PyType.StrType, "__rmul__", (self, args) => StoredText(self).Multiply(args[0]));
             Slot(PyType.StrType, "__rmod__", (self, args) => args[0] is PyString format ? format.Modulo(self) : PyNotImplemented.Instance);
 
             Method(PyType.BytesType, "__bytes__", (self, args) => self);
@@ -160,7 +203,7 @@ namespace SharpPy
             });
 
             // range_count and range_index: arithmetic for an int, a search for anything else.
-            Method(PyType.RangeType, "count", (self, args) =>
+            MethodO(PyType.RangeType, "count", (self, args) =>
             {
                 if (args[0] is PyInt or PyBool && args[0] is not PyIntSubclass)
                     return new PyInt(self.Contains(args[0]).Value ? 1 : 0);
@@ -169,7 +212,7 @@ namespace SharpPy
                     if (PyList.AreEqual(item, args[0])) count++;
                 return new PyInt(count);
             });
-            Method(PyType.RangeType, "index", (self, args) =>
+            MethodO(PyType.RangeType, "index", (self, args) =>
             {
                 var range = (PyRange)self;
                 if (args[0] is PyInt or PyBool && args[0] is not PyIntSubclass)
@@ -223,7 +266,7 @@ namespace SharpPy
                     Slot(view, $"__{slot}__", (self, args) => operation(self, args[0]));
                     Slot(view, $"__r{slot}__", (self, args) => operation(new PySet(new List<PyObject>(PySet.IterableItems(args[0]))), new PySet(new List<PyObject>(PySet.IterableItems(self)))));
                 }
-                Method(view, "isdisjoint", (self, args) =>
+                MethodO(view, "isdisjoint", (self, args) =>
                 {
                     var mine = new PySet(new List<PyObject>(PySet.IterableItems(self)));
                     foreach (var item in PySet.IterableItems(args[0]))

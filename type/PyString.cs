@@ -553,7 +553,7 @@ namespace SharpPy
                 "find", strType,
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"find() takes from 1 to 3 positional arguments but {args.Length} were given");
+                        throw PyTypeError.Create(args.Length < 1 ? "find() takes at least 1 argument (0 given)" : $"find() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "find");
 
                     if (args[0] is not PyString sub)
@@ -572,7 +572,7 @@ namespace SharpPy
                     if (kwargs != null && kwargs.Length() != 0)
                         throw PyTypeError.Create("str.index() takes no keyword arguments");
                     if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"index() takes from 1 to 3 positional arguments but {args.Length} were given");
+                        throw PyTypeError.Create(args.Length < 1 ? "index() takes at least 1 argument (0 given)" : $"index() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "index");
 
                     if (args[0] is not PyString sub)
@@ -589,7 +589,7 @@ namespace SharpPy
                 "rfind", strType,
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"rfind() takes from 1 to 3 positional arguments but {args.Length} were given");
+                        throw PyTypeError.Create(args.Length < 1 ? "rfind() takes at least 1 argument (0 given)" : $"rfind() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "rfind");
 
                     if (args[0] is not PyString sub)
@@ -606,7 +606,7 @@ namespace SharpPy
                 "rindex", strType,
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"rindex() takes from 1 to 3 positional arguments but {args.Length} were given");
+                        throw PyTypeError.Create(args.Length < 1 ? "rindex() takes at least 1 argument (0 given)" : $"rindex() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "rindex");
 
                     if (args[0] is not PyString sub)
@@ -789,7 +789,7 @@ namespace SharpPy
                 "count", strType,
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
-                        throw PyTypeError.Create($"count() takes from 1 to 3 positional arguments but {args.Length} were given");
+                        throw PyTypeError.Create(args.Length < 1 ? "count() takes at least 1 argument (0 given)" : $"count() takes from 1 to 3 positional arguments but {args.Length} were given");
                     PyString str = AsStrReceiver(self, "count");
 
                     if (args[0] is not PyString sub)
@@ -2443,7 +2443,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: str.__mul__ and str.__rmul__ - String repetition
         /// CPython: Objects/unicodeobject.c:unicode_repeat (lines ~10500-10570)
-        /// Note: __rmul__ is handled by VM's reverse operation dispatch (TryReverseBinaryOp)
+        /// Note: __rmul__ is handled by binary_op1 and sequence_repeat in the VM (PyVM.BinaryOp1)
         /// </summary>
         public override PyObject Multiply(PyObject other)
         {

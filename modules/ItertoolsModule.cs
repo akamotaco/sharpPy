@@ -594,7 +594,7 @@ namespace SharpPy
         public override PyObject Next()
         {
             var result = _current;
-            _current = _current.Add(_step);
+            _current = PyVM.Instance.ExecuteBinaryOpType(_current, _step, BinaryOpType.ADD);
             return result;
         }
 
@@ -1018,7 +1018,7 @@ namespace SharpPy
             PyObject newtotal;
             if (_binop == null)
             {
-                newtotal = _total.Add(val);
+                newtotal = PyVM.Instance.ExecuteBinaryOpType(_total, val, BinaryOpType.ADD);
             }
             else
             {

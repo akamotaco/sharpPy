@@ -326,12 +326,7 @@ namespace SharpPy
             }
 
             // Fall back to base implementation for non-type objects
-            var fallback = base.BitwiseOr(other);
-            if (ReferenceEquals(fallback, PyNotImplemented.Instance))
-            {
-                throw PyTypeError.Create($"unsupported operand type(s) for |: '{GetTypeName()}' and '{other.GetTypeName()}'");
-            }
-            return fallback;
+            return base.BitwiseOr(other);
         }
     }
 

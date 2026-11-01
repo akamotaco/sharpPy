@@ -1,6 +1,6 @@
 # SharpPy TODO
 
-측정일 2026-11-01, 브랜치 `work/core-semantics`. 항목은 증상이 아니라 경로 단위로 쓴다. 절차는 [AGENTS.md](../AGENTS.md)의 "단일 경로 점검"을 따르고, 결함의 상세 기록은 [known_gaps.md](known_gaps.md)에 둔다.
+측정일 2026-11-02, 브랜치 `work/core-semantics`. 항목은 증상이 아니라 경로 단위로 쓴다. 절차는 [AGENTS.md](../AGENTS.md)의 "단일 경로 점검"을 따르고, 결함의 상세 기록은 [known_gaps.md](known_gaps.md)에 둔다.
 
 ## 작업 원칙
 
@@ -13,12 +13,12 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 1895 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 2016 / 2890 통과 | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5549 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
-| AST (프로브) | 6268 / 6268 문장, 위치 포함 6248 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
-| 바이트코드 (Lib/*.py) | 7996 / 8039 코드 객체 | `python tools/compare_bytecode.py --dotnet <dotnet> <files>` |
-| 바이트코드 (프로브) | 5143 / 5194 코드 객체 | `python tools/compare_bytecode.py --dotnet <dotnet>` |
-| 버그 프로브 | 168 / 168 | `python tools/run_bughunt.py` |
+| AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
+| 바이트코드 (Lib/*.py) | 코드 객체 8039: 이름 8010, 인자 8010, 예외 테이블 8009, 줄 번호 7776 | `python tools/compare_bytecode.py --dotnet <dotnet> <files>` |
+| 바이트코드 (프로브) | 코드 객체 5325: 이름 5261, 인자 5261, 예외 테이블 5258, 줄 번호 5245 | `python tools/compare_bytecode.py --dotnet <dotnet>` |
+| 버그 프로브 | 169 / 169 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
 
@@ -28,7 +28,7 @@
 - `test_builtin`, `test_asyncgen`은 CPython 쪽에서도 로드 단계에서 건너뛰고, `test_extcall`은 doctest만 있어 0개로 잡힌다. 세 모듈은 분모에 없다.
 - `.artifacts/cpython_tests/*.cpython.txt`는 캐시다. 드라이버나 스텁을 바꾸면 지우고 다시 만든다. 이전 보고의 1762/2597은 오래된 캐시 때문에 분모가 빠진 값이다.
 
-바이트코드 수치의 한계: 코드 객체별 명령어 이름만 비교한다. 인자, 예외 테이블, 줄 번호표는 아직 비교하지 않는다. 대상은 `tests/bughunt`의 프로브다.
+바이트코드 게이트는 `--level names|arguments|lines|exceptions`로 명령어 이름, 인자, 줄 번호, 예외 테이블을 코드 객체별로 비교한다. 열 번호는 비교하지 않는다. 대상은 `tests/bughunt`의 프로브다.
 
 ## 0. 배선 점검
 
@@ -37,11 +37,11 @@
 | 경로 | CPython | SharpPy | 판단 |
 |---|---|---|---|
 | AST | ASDL 하나 | ASDL과 구형 AST 둘, `Bridge` 3400줄 | 합친다 |
-| 이항 연산 | `binary_op1`: 오른쪽이 하위 클래스면 오른쪽 슬롯 먼저, 같은 슬롯은 한 번 | `left.Add(right)` 뒤 `__radd__`를 인스턴스 속성으로 조회, list/tuple 하위 클래스 전용 분기 | 고친다 |
+| 이항 연산 | `binary_op1`, `binary_iop1`, `SLOT1BINFULL`, `sequence_repeat` | 같은 구조로 포팅 (`PyVM.BinaryOp1`, `SlotNumberBinary`, `InPlaceNumber`). `PyIntSubclass`, `PyStrSubclass`의 `Num`/`StrOp`가 사용자 메서드를 다시 찾는 분기와 `Parser/AstExpressions.cs`의 직접 호출이 남았다 | 남은 분기를 지운다 |
 | 속성 조회 | `tp_getattro` 슬롯, 대부분 `PyObject_GenericGetAttr` | `GetAttribute` override 76개 | 우선순위 대조 필요 |
 | 호출 | `tp_call`, vectorcall | `Call` override 34개 | 대조 필요 |
 | 인스턴스 생성 | `tp_new` + `tp_init` | 가상 메서드 `CreateInstance`, 일부만 `ConstructedByNewSlot` | 대조 필요 |
-| 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. 항목 1-1 | C# 예외는 유지, 변환은 고친다 |
+| 오류 전달 | NULL 반환과 스레드 상태 | CLR 예외. `ExecuteFrame`이 어떤 CLR 예외든 Python 예외로 바꾼다 | 유지 |
 | `FOR_ITER`/`END_FOR` | 소진 시 이터레이터를 스택에 남기고 `END_FOR`가 둘을 꺼낸다 | `FOR_ITER`가 꺼내고 `END_FOR`는 표시만 한다 | 고친다 |
 | 프레임 | `localsplus` 안에 셀 | `Cells`가 따로 있음 (P0-81) | 고친다 |
 | 컴프리헨션 | `compiler_comprehension` 하나 | 리스트, 딕셔너리, 집합, 제너레이터가 각각 300줄 | 하나로 합친다 |
@@ -59,27 +59,12 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 ## 1. 예외 경로
 
-**1-1. .NET 예외가 Python 예외가 되지 않는다 (최우선).** VM 안에서 난 `IndexOutOfRangeException` 같은 CLR 예외를 `except BaseException`으로 잡을 수 없고, 실행 전체가 끝난다. 아래 모듈의 미도달 테스트 대부분이 이 때문이다.
+**1-1. 시간 초과로 끝나는 모듈.** CLR 예외는 이제 `ExecuteFrame`에서 Python 예외가 되어 프로세스가 죽지 않고, `BuiltinSlots`의 메서드는 METH_NOARGS와 METH_O 인자 수를 검사한다. 남은 것은 시간 초과 둘이고 원인은 미확인이다.
 
-| 모듈 | 통과 / CPython | 도달 못함 | 끝난 테스트 |
+| 모듈 | 통과 / CPython | 도달 못함 | 멈춘 테스트 |
 |---|---|---|---|
-| test_bytes | 6 / 279 | 269 | `test_additional_rsplit` |
-| test_fstring | 0 / 82 | 82 | 로드 실패, `_ast` 없음 (5-1) |
-| test_descr | 54 / 148 | 48 | `test_specialized_method_call` |
-| test_float | 3 / 49 | 41 | `test_float_ceil` |
-| test_list | 24 / 58 | 31 | `test_index` |
-| test_exceptions | 41 / 85 | 28 | `test_unicode_error_str_does_not_crash` |
-| test_range | 4 / 28 | 21 | `test_index` |
-| test_tuple | 14 / 31 | 15 | `test_index` |
-| test_format | 0 / 16 | 11 | `test_locale` |
-| test_property | 16 / 29 | 7 | `test_property_set_name_incorrect_args` |
-
-- 경로: `PyVM.ExecuteFrame`의 예외 처리. CPython에는 C 수준 예외가 없으므로, 어떤 CLR 예외를 어떤 Python 예외로 바꾸는지 한 지점에서 정한다.
-- `test_range`의 원인은 확인했다. 나머지 모듈은 끝나는 위치만 확인했고 원인이 같은지는 고친 뒤 다시 측정해야 한다.
-
-**1-2. `BuiltinSlots.Method`에 인자 수 검사가 없다.** `range(2).index()`가 `TypeError` 대신 1-1의 크래시가 된다. `core/BuiltinSlots.cs:44`.
-
-- 경로: `Method` 등록 시 인자 범위를 받아 `_PyArg_CheckPositional`에 해당하는 검사를 한 곳에서 한다.
+| test_bytes | 9 / 279 | 263 | `ByteArrayAsStringTest.test_find_many_lengths` |
+| test_except_star | 47 / 60 | 10 | `TestExceptStar_WeirdExceptionGroupSubclass.test_reraise_unhashable_eg` |
 
 **1-3. `test_abc` 프로세스 종료.** `test_abstractstaticmethod_basics`에서 끝난다. 원인 미확인.
 

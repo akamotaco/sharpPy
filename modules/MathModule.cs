@@ -1036,7 +1036,7 @@ namespace SharpPy.Modules
                 PyObject item;
                 try { item = iterator.Next(); }
                 catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
-                result = result.Multiply(item);
+                result = PyVM.Instance.ExecuteBinaryOpType(result, item, BinaryOpType.MULTIPLY);
             }
             return result;
         }

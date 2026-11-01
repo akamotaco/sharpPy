@@ -132,7 +132,7 @@ namespace SharpPy
                 "count", tupleType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"count expected exactly 1 arguments, got {args.Length}");
+                        throw PyTypeError.Create($"tuple.count() takes exactly one argument ({args.Length} given)");
                     if (self is not PyTuple tuple)
                         throw PyTypeError.Create($"descriptor 'count' requires a 'tuple' object but received a '{self.GetTypeName()}'");
 
@@ -341,10 +341,6 @@ namespace SharpPy
         /// </summary>
         public override PyObject Add(PyObject other)
         {
-            var declaredAdd = CallDeclared("__add__", new[] { other });
-            if (declaredAdd != null)
-                return declaredAdd;
-
             if (other is PyTuple otherTuple)
             {
                 // Performance: Eliminated LINQ (.Concat + .ToArray) - manual array concatenation + Cache

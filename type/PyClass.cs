@@ -1888,92 +1888,45 @@ namespace SharpPy
             return ReferenceEquals(value, PyNotImplemented.Instance) ? null : value;
         }
 
-        // CPython 3.12: Magic method overrides for binary operations
-        public override PyObject Add(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__add__", "__radd__");
-            if (result != null) return result;
-            var inherited = InheritedSlotBinary(other, (a, b) => a.Add(b));
-            if (inherited != null) return inherited;
-            return base.Add(other);
-        }
+        // The operators are binary_op1 in the VM. These are the slots the storage gives.
+        public override PyObject Add(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.Add(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject Subtract(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__sub__", "__rsub__");
-            if (result != null) return result;
-            return InheritedSlotBinary(other, (a, b) => a.Subtract(b)) ?? base.Subtract(other);
-        }
+        public override PyObject Subtract(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.Subtract(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject Multiply(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__mul__", "__rmul__");
-            if (result != null) return result;
-            return InheritedSlotBinary(other, (a, b) => a.Multiply(b)) ?? base.Multiply(other);
-        }
+        public override PyObject Multiply(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.Multiply(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject Divide(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__truediv__", "__rtruediv__");
-            return result ?? base.Divide(other);
-        }
+        public override PyObject Divide(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.Divide(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject FloorDivide(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__floordiv__", "__rfloordiv__");
-            return result ?? base.FloorDivide(other);
-        }
+        public override PyObject FloorDivide(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.FloorDivide(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject Modulo(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__mod__", "__rmod__");
-            return result ?? base.Modulo(other);
-        }
+        public override PyObject Modulo(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.Modulo(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject Power(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__pow__", "__rpow__");
-            return result ?? base.Power(other);
-        }
+        public override PyObject Power(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.Power(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject LeftShift(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__lshift__", "__rlshift__");
-            return result ?? base.LeftShift(other);
-        }
+        public override PyObject LeftShift(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.LeftShift(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject RightShift(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__rshift__", "__rrshift__");
-            return result ?? base.RightShift(other);
-        }
+        public override PyObject RightShift(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.RightShift(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject BitwiseAnd(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__and__", "__rand__");
-            if (result != null) return result;
-            return InheritedSlotBinary(other, (a, b) => a.BitwiseAnd(b)) ?? base.BitwiseAnd(other);
-        }
+        public override PyObject BitwiseAnd(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.BitwiseAnd(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject BitwiseOr(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__or__", "__ror__");
-            if (result != null) return result;
-            return InheritedSlotBinary(other, (a, b) => a.BitwiseOr(b)) ?? base.BitwiseOr(other);
-        }
+        public override PyObject BitwiseOr(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.BitwiseOr(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject BitwiseXor(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__xor__", "__rxor__");
-            if (result != null) return result;
-            return InheritedSlotBinary(other, (a, b) => a.BitwiseXor(b)) ?? base.BitwiseXor(other);
-        }
+        public override PyObject BitwiseXor(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.BitwiseXor(b)) ?? PyNotImplemented.Instance;
 
-        public override PyObject MatrixMultiply(PyObject other)
-        {
-            var result = BinaryOpWithMagicMethod(other, "__matmul__", "__rmatmul__");
-            return result ?? base.MatrixMultiply(other);
-        }
+        public override PyObject MatrixMultiply(PyObject other) =>
+            InheritedSlotBinary(other, (a, b) => a.MatrixMultiply(b)) ?? PyNotImplemented.Instance;
 
         public override PyObject DivMod(PyObject other)
         {

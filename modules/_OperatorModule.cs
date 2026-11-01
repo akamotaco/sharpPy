@@ -181,11 +181,14 @@ namespace SharpPy.Modules
             return PyBuiltinFunction.Absolute(args[0]);
         }
 
+        private static PyObject Number(PyObject[] args, BinaryOpType operation) =>
+            PyVM.Instance.ExecuteBinaryOpType(args[0], args[1], operation);
+
         private static PyObject Add(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"add() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Add(args[1]);
+            return Number(args, BinaryOpType.ADD);
         }
 
         private static PyObject Require(PyObject result, string symbol, PyObject left, PyObject right)
@@ -201,14 +204,14 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"and_() takes exactly 2 arguments ({args.Length} given)");
-            return Require(result: args[0].BitwiseAnd(args[1]), symbol: "&", args[0], args[1]);
+            return Number(args, BinaryOpType.AND);
         }
 
         private static PyObject FloorDiv(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"floordiv() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].FloorDivide(args[1]);
+            return Number(args, BinaryOpType.FLOOR_DIVIDE);
         }
 
         private static PyObject Index(PyObject[] args)
@@ -243,28 +246,28 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"lshift() takes exactly 2 arguments ({args.Length} given)");
-            return Require(result: args[0].LeftShift(args[1]), symbol: "<<", args[0], args[1]);
+            return Number(args, BinaryOpType.LSHIFT);
         }
 
         private static PyObject Mod(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"mod() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Modulo(args[1]);
+            return Number(args, BinaryOpType.MODULO);
         }
 
         private static PyObject Mul(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"mul() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Multiply(args[1]);
+            return Number(args, BinaryOpType.MULTIPLY);
         }
 
         private static PyObject MatMul(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"matmul() takes exactly 2 arguments ({args.Length} given)");
-            return Require(result: args[0].MatrixMultiply(args[1]), symbol: "@", args[0], args[1]);
+            return Number(args, BinaryOpType.MATRIX_MULTIPLY);
         }
 
         private static PyObject Neg(PyObject[] args)
@@ -278,7 +281,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"or_() takes exactly 2 arguments ({args.Length} given)");
-            return Require(result: args[0].BitwiseOr(args[1]), symbol: "|", args[0], args[1]);
+            return Number(args, BinaryOpType.OR);
         }
 
         private static PyObject Pos(PyObject[] args)
@@ -292,35 +295,35 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"pow() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Power(args[1]);
+            return Number(args, BinaryOpType.POWER);
         }
 
         private static PyObject RShift(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"rshift() takes exactly 2 arguments ({args.Length} given)");
-            return Require(result: args[0].RightShift(args[1]), symbol: ">>", args[0], args[1]);
+            return Number(args, BinaryOpType.RSHIFT);
         }
 
         private static PyObject Sub(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"sub() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Subtract(args[1]);
+            return Number(args, BinaryOpType.SUBTRACT);
         }
 
         private static PyObject TrueDiv(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"truediv() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Divide(args[1]);
+            return Number(args, BinaryOpType.TRUE_DIVIDE);
         }
 
         private static PyObject Xor(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"xor() takes exactly 2 arguments ({args.Length} given)");
-            return Require(result: args[0].BitwiseXor(args[1]), symbol: "^", args[0], args[1]);
+            return Number(args, BinaryOpType.XOR);
         }
 
         #endregion
@@ -331,7 +334,7 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"concat() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].Add(args[1]);
+            return Number(args, BinaryOpType.ADD);
         }
 
         private static PyObject Contains(PyObject[] args)

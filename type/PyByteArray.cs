@@ -624,6 +624,25 @@ namespace SharpPy
 
         #region Operators
 
+        // bytearray_iconcat and bytearray_irepeat keep the object.
+        public override PyObject? InplaceAdd(PyObject other)
+        {
+            var joined = Add(other);
+            if (joined is not PyByteArray result)
+                return joined;
+            _bytes = result._bytes;
+            return this;
+        }
+
+        public override PyObject? InplaceMultiply(PyObject other)
+        {
+            var repeated = Multiply(other);
+            if (repeated is not PyByteArray result)
+                return repeated;
+            _bytes = result._bytes;
+            return this;
+        }
+
         /// <summary>
         /// __add__ - Concatenation (returns new bytearray)
         /// </summary>

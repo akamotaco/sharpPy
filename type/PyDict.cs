@@ -60,7 +60,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor 'get' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"get expected at most 2 arguments, got {args.Length}");
+                        throw PyTypeError.Create(args.Length < 1 ? "get expected at least 1 argument, got 0" : $"get expected at most 2 arguments, got {args.Length}");
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
@@ -141,7 +141,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor 'setdefault' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"setdefault expected at most 2 arguments, got {args.Length}");
+                        throw PyTypeError.Create(args.Length < 1 ? "setdefault expected at least 1 argument, got 0" : $"setdefault expected at most 2 arguments, got {args.Length}");
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
@@ -173,7 +173,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"descriptor 'pop' requires a 'dict' object but received a '{self.GetTypeName()}'");
 
                     if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"pop expected at most 2 arguments, got {args.Length}");
+                        throw PyTypeError.Create(args.Length < 1 ? "pop expected at least 1 argument, got 0" : $"pop expected at most 2 arguments, got {args.Length}");
 
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : null;
@@ -336,7 +336,7 @@ namespace SharpPy
                     // First arg is the class (from classmethod binding)
                     // Remaining args are: keys, [value]
                     if (args.Length < 2 || args.Length > 3)
-                        throw PyTypeError.Create($"fromkeys expected at most 2 arguments, got {args.Length - 1}");
+                        throw PyTypeError.Create(args.Length < 2 ? "fromkeys expected at least 1 argument, got 0" : $"fromkeys expected at most 2 arguments, got {args.Length - 1}");
 
                     var keys = args[1];
                     var value = args.Length == 3 ? args[2] : PyNone.Instance;

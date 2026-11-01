@@ -765,19 +765,7 @@ namespace SharpPy
                         result = new PyFloat(partial.Value + compensation);
                         compensation = 0;
                     }
-                    var next = result.Add(item);
-                    if (ReferenceEquals(next, PyNotImplemented.Instance))
-                    {
-                        // CPython accumulates with PyNumber_Add, which tries the reflected operand and
-                        // then raises. The virtual Add here only reports NotImplemented, and leaking
-                        // that sentinel made the next iteration report
-                        // "unsupported operand type(s) for +: 'NotImplementedType' and ...".
-                        next = item.Add(result);
-                        if (ReferenceEquals(next, PyNotImplemented.Instance))
-                            throw PyTypeError.Create(
-                                $"unsupported operand type(s) for +: '{result.GetTypeName()}' and '{item.GetTypeName()}'");
-                    }
-                    result = next;
+                    result = PyVM.Instance.ExecuteBinaryOpType(result, item, BinaryOpType.ADD);
                 }
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration)
@@ -1754,7 +1742,7 @@ namespace SharpPy
             else
             {
                 // CPython: Python/bltinmodule.c:2653 - Two-argument power
-                return base_.Power(exp);
+                return PyVM.Instance.ExecuteBinaryOpType(base_, exp, BinaryOpType.POWER);
             }
         }
 

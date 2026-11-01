@@ -2596,7 +2596,7 @@ namespace SharpPy
                 setType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"add() takes exactly 1 argument ({args.Length} given)");
+                        throw PyTypeError.Create($"set.add() takes exactly one argument ({args.Length} given)");
                     var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'add' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Add(args[0]);
                 },
@@ -2621,7 +2621,7 @@ namespace SharpPy
                 setType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
-                        throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
+                        throw PyTypeError.Create($"set.remove() takes exactly one argument ({args.Length} given)");
                     var set = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create("descriptor 'remove' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return set.Remove(args[0]);
                 },
@@ -2887,7 +2887,7 @@ namespace SharpPy
                     var target = PyNativeStorage.ForSet(self) ?? throw PyTypeError.Create(
                         "descriptor '" + name + "' for 'set' objects doesn't apply to a '" +
                         self.GetTypeName() + "' object");
-                    PySet.RequireAnySet(self, args[0], symbol);
+                    if (!PySet.IsAnySetOperand(args[0])) return PyNotImplemented.Instance;
                     mutate(target, args[0]);
                     return self;
                 },
@@ -4015,12 +4015,7 @@ namespace SharpPy
             }
 
             // Fall back to base implementation for non-type objects
-            var fallback = base.BitwiseOr(other);
-            if (ReferenceEquals(fallback, PyNotImplemented.Instance))
-            {
-                throw PyTypeError.Create($"unsupported operand type(s) for |: '{GetTypeName()}' and '{other.GetTypeName()}'");
-            }
-            return fallback;
+            return base.BitwiseOr(other);
         }
 
         #endregion

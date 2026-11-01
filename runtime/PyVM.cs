@@ -1395,8 +1395,12 @@ namespace SharpPy
 
                         frame.InstructionPointer++;
                     }
-                    catch (PythonException pyEx)
+                    catch (Exception thrown) when (thrown is PythonException || IsHostFailure(thrown))
                     {
+                        // What C# threw inside an instruction is a Python exception from here on:
+                        // any except clause sees it, and the frames unwind as for any other.
+                        var pyEx = thrown as PythonException ?? new PythonException(ConvertToPythonException(thrown));
+
                         // CPython-style error location tracking: Enrich exception with current location
                         if (string.IsNullOrEmpty(pyEx.FileName) && !string.IsNullOrEmpty(frame.CurrentFileName))
                         {
@@ -1421,7 +1425,12 @@ namespace SharpPy
                         if (!TryEnterExceptionHandler(frame, pyEx))
                         {
                             // No handler - re-throw with location information
-                            if (ReferenceEquals(frame, entryFrame)) throw;
+                            if (ReferenceEquals(frame, entryFrame))
+                            {
+                                if (thrown is PythonException)
+                                    throw;
+                                throw pyEx;
+                            }
                             // exit_unwind: an inlined call has no host frame to throw through, so the
                             // error moves to the caller, whose next step raises it at its CALL.
                             _frameStack.Pop();
@@ -1432,6 +1441,7 @@ namespace SharpPy
                         // This method now outlives the calls it runs, so a handled exception left in the
                         // catch variable would stay alive, with everything it holds, until it returns.
                         pyEx = null;
+                        thrown = null;
                     }
                     catch (LoopBreakException)
                     {
@@ -6200,271 +6210,299 @@ namespace SharpPy
             BinaryOpType.MATRIX_MULTIPLY => "__matmul__",
             BinaryOpType.INPLACE_ADD => "__iadd__",
             BinaryOpType.INPLACE_MULTIPLY => "__imul__",
-            _ => "__" + operation.ToString().Replace("INPLACE_", "i").ToLowerInvariant() + "__",
+            BinaryOpType.INPLACE_SUBTRACT => "__isub__",
+            BinaryOpType.INPLACE_TRUE_DIVIDE => "__itruediv__",
+            BinaryOpType.INPLACE_FLOOR_DIVIDE => "__ifloordiv__",
+            BinaryOpType.INPLACE_MODULO => "__imod__",
+            BinaryOpType.INPLACE_POWER => "__ipow__",
+            BinaryOpType.INPLACE_LSHIFT => "__ilshift__",
+            BinaryOpType.INPLACE_RSHIFT => "__irshift__",
+            BinaryOpType.INPLACE_AND => "__iand__",
+            BinaryOpType.INPLACE_OR => "__ior__",
+            BinaryOpType.INPLACE_XOR => "__ixor__",
+            BinaryOpType.INPLACE_MATRIX_MULTIPLY => "__imatmul__",
+            _ => throw new InvalidOperationException($"no slot for {operation}"),
         };
 
+        // PyNumber_Add and friends, PyNumber_InPlaceAdd and friends. CPython v3.12.15 Objects/abstract.c.
         internal PyObject ExecuteBinaryOpType(PyObject left, PyObject right, BinaryOpType binaryOp)
         {
-                // CPython 3.12: BINARY_OP is for bitwise operations only
-                // Logical 'and'/'or' use BoolOp in AST and POP_JUMP_IF_TRUE/FALSE in bytecode (short-circuit)
-                // BINARY_OP with AND/OR/XOR are bitwise operators (&, |, ^)
-
-                // Use PyObject's built-in binary operation methods (CPython compatible)
-                try
-                {
-                    // slot_nb_add and friends: a list or tuple subclass with a method of its own.
-                    if (left is PyListSubclass or PyTupleSubclass)
-                    {
-                        var declared = left.LookupUserSpecial(BinarySlotName(binaryOp));
-                        if (declared != null)
-                        {
-                            var answer = left.BindSpecialMethod(declared).Call(new[] { right }, null);
-                            if (answer != PyNotImplemented.Instance) return answer;
-                        }
-                    }
-
-                    // CPython 3.12: Try left.__op__(right) first
-                    // CPython: Objects/abstract.c:947-1054 (binary_op1)
-                    PyObject result = binaryOp switch
-                    {
-                        BinaryOpType.ADD => left.Add(right),
-                        BinaryOpType.SUBTRACT => left.Subtract(right),
-                        BinaryOpType.MULTIPLY => left.Multiply(right),
-                        BinaryOpType.TRUE_DIVIDE => left.Divide(right),
-                        BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
-                        BinaryOpType.MODULO => left.Modulo(right),
-                        BinaryOpType.POWER => left.Power(right),
-                        BinaryOpType.LSHIFT => left.LeftShift(right),
-                        BinaryOpType.RSHIFT => left.RightShift(right),
-                        BinaryOpType.AND => left.BitwiseAnd(right),
-                        BinaryOpType.OR => left.BitwiseOr(right),
-                        BinaryOpType.XOR => left.BitwiseXor(right),
-                        BinaryOpType.MATRIX_MULTIPLY => left.MatrixMultiply(right),
-
-                        // CPython 3.12: In-place operations
-                        // CPython: Objects/abstract.c:binary_iop1 (lines 1162-1193)
-                        // Try in-place method first, fallback to regular operation
-                        BinaryOpType.INPLACE_ADD => TryInplaceOp(left, right, "InplaceAdd", BinaryOpType.ADD),
-                        BinaryOpType.INPLACE_SUBTRACT => TryInplaceOp(left, right, "InplaceSubtract", BinaryOpType.SUBTRACT),
-                        BinaryOpType.INPLACE_MULTIPLY => TryInplaceOp(left, right, "InplaceMultiply", BinaryOpType.MULTIPLY),
-                        BinaryOpType.INPLACE_TRUE_DIVIDE => TryInplaceOp(left, right, "InplaceDivide", BinaryOpType.TRUE_DIVIDE),
-                        BinaryOpType.INPLACE_FLOOR_DIVIDE => TryInplaceOp(left, right, "InplaceFloorDivide", BinaryOpType.FLOOR_DIVIDE),
-                        BinaryOpType.INPLACE_MODULO => TryInplaceOp(left, right, "InplaceModulo", BinaryOpType.MODULO),
-                        BinaryOpType.INPLACE_POWER => TryInplaceOp(left, right, "InplacePower", BinaryOpType.POWER),
-                        BinaryOpType.INPLACE_LSHIFT => TryInplaceOp(left, right, "InplaceLeftShift", BinaryOpType.LSHIFT),
-                        BinaryOpType.INPLACE_RSHIFT => TryInplaceOp(left, right, "InplaceRightShift", BinaryOpType.RSHIFT),
-                        BinaryOpType.INPLACE_AND => TryInplaceOp(left, right, "InplaceBitwiseAnd", BinaryOpType.AND),
-                        BinaryOpType.INPLACE_OR => TryInplaceOp(left, right, "InplaceBitwiseOr", BinaryOpType.OR),
-                        BinaryOpType.INPLACE_XOR => TryInplaceOp(left, right, "InplaceBitwiseXor", BinaryOpType.XOR),
-                        BinaryOpType.INPLACE_MATRIX_MULTIPLY => TryInplaceOp(left, right, "InplaceMatrixMultiply", BinaryOpType.MATRIX_MULTIPLY),
-
-                        _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
-                    };
-
-                    // CPython 3.12: If left.__op__ returns NotImplemented, try right.__rop__(left)
-                    // CPython: Objects/abstract.c:964-984 (binary_op1)
-                    // PyNumber_Multiply: when the numbers decline, sq_repeat of either side with the other as index.
-                    if (result == PyNotImplemented.Instance)
-                    {
-                        result = TryReverseBinaryOp(right, left, binaryOp);
-                    }
-                    if (result == PyNotImplemented.Instance && binaryOp == BinaryOpType.MULTIPLY)
-                    {
-                        result = SequenceRepeat(left, right);
-                        if (result == PyNotImplemented.Instance) result = SequenceRepeat(right, left);
-                    }
-
-                    // If still NotImplemented, raise TypeError
-                    if (result == PyNotImplemented.Instance)
-                    {
-                        var opSymbol = GetBinaryOpSymbol(binaryOp);
-
-                        // CPython 3.12: when the final "+" failure has a str instance on the
-                        // left and a non-str on the right, the error uses PyUnicode_Concat's
-                        // wording (Objects/unicodeobject.c:11060-11067, reached via
-                        // ensure_unicode + the reflected-op miss), not the generic one:
-                        //   "a" + 1  -> can only concatenate str (not "int") to str
-                        // while 1 + "a" keeps "unsupported operand type(s)".
-                        if (binaryOp == BinaryOpType.ADD && IsStrLikeInstance(left) && !IsStrLikeInstance(right))
-                            throw PyTypeError.Create($"can only concatenate str (not \"{right.GetTypeName()}\") to str");
-
-                        throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
-                    }
-
-                    return result;
-                }
-            catch (Exception ex) when (!(ex is PythonException))
+            var regular = binaryOp switch
             {
-                // Convert C# exceptions to Python exceptions
-                var opSymbol = GetBinaryOpSymbol(binaryOp);
-                throw PyTypeError.Create($"unsupported operand type(s) for {opSymbol}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
-            }
+                BinaryOpType.INPLACE_ADD => BinaryOpType.ADD,
+                BinaryOpType.INPLACE_SUBTRACT => BinaryOpType.SUBTRACT,
+                BinaryOpType.INPLACE_MULTIPLY => BinaryOpType.MULTIPLY,
+                BinaryOpType.INPLACE_TRUE_DIVIDE => BinaryOpType.TRUE_DIVIDE,
+                BinaryOpType.INPLACE_FLOOR_DIVIDE => BinaryOpType.FLOOR_DIVIDE,
+                BinaryOpType.INPLACE_MODULO => BinaryOpType.MODULO,
+                BinaryOpType.INPLACE_POWER => BinaryOpType.POWER,
+                BinaryOpType.INPLACE_LSHIFT => BinaryOpType.LSHIFT,
+                BinaryOpType.INPLACE_RSHIFT => BinaryOpType.RSHIFT,
+                BinaryOpType.INPLACE_AND => BinaryOpType.AND,
+                BinaryOpType.INPLACE_OR => BinaryOpType.OR,
+                BinaryOpType.INPLACE_XOR => BinaryOpType.XOR,
+                BinaryOpType.INPLACE_MATRIX_MULTIPLY => BinaryOpType.MATRIX_MULTIPLY,
+                _ => binaryOp,
+            };
+            if (regular != binaryOp)
+                return InPlaceNumber(left, right, binaryOp, regular);
+            var result = BinaryOp1(left, right, binaryOp);
+            return ReferenceEquals(result, PyNotImplemented.Instance)
+                ? SequenceOrTypeError(left, right, binaryOp, binaryOp)
+                : result;
         }
 
-        /// <summary>
-        /// Try in-place operation first, fallback to regular operation
-        /// CPython 3.12: Objects/abstract.c:binary_iop1 (lines 1162-1193)
-        ///
-        /// In-place operations modify the object in place and return self for mutable types (list, dict, set).
-        /// For immutable types (int, str, tuple), they fall back to regular operations and return a new object.
-        /// </summary>
-        private PyObject TryInplaceOp(PyObject left, PyObject right, string inplaceMethodName, BinaryOpType regularOperation)
+        // A class has slot_nb_* when __op__ or __rop__ was written in Python somewhere in its MRO.
+        // update_one_slot, Objects/typeobject.c.
+        private static bool HasNumberSlot(PyType type, string name, string reflected)
         {
-            // CPython: Objects/abstract.c:1166-1173 - Try in-place method first
-            // Map C# method name to Python dunder method name
-            string pythonMethodName = inplaceMethodName switch
+            if (type is not PyClass)
+                return false;
+            foreach (var entry in type.MRO)
             {
-                "InplaceAdd" => "__iadd__",
-                "InplaceSubtract" => "__isub__",
-                "InplaceMultiply" => "__imul__",
-                "InplaceDivide" => "__itruediv__",
-                "InplaceFloorDivide" => "__ifloordiv__",
-                "InplaceModulo" => "__imod__",
-                "InplacePower" => "__ipow__",
-                "InplaceLeftShift" => "__ilshift__",
-                "InplaceRightShift" => "__irshift__",
-                "InplaceBitwiseAnd" => "__iand__",
-                "InplaceBitwiseOr" => "__ior__",
-                "InplaceBitwiseXor" => "__ixor__",
-                "InplaceMatrixMultiply" => "__imatmul__",
-                _ => null
-            };
+                if (entry is PyClass written &&
+                    (written.ClassDict.TryGetValue(name, out _) || written.ClassDict.TryGetValue(reflected, out _)))
+                    return true;
+            }
+            return false;
+        }
 
-            // Numeric slots use type-level lookup, not instance __getattribute__/__getattr__.
-            // CPython v3.12.15, Objects/typeobject.c: slot_nb_inplace_* / lookup_maybe_method.
-            // Missing methods return null without allocating/throwing AttributeError.
-            if (pythonMethodName != null)
+        // list, tuple, str, bytes and bytearray have sq_concat and sq_repeat, and no nb_add or nb_multiply.
+        private static bool HasOnlySequenceSlot(PyObject value, BinaryOpType operation) =>
+            operation is BinaryOpType.ADD or BinaryOpType.MULTIPLY &&
+            PyNativeStorage.Unwrap(value) is PyList or PyTuple or PyString or PyStrSubclass or PyBytes
+                or PyBytesSubclass or PyByteArray;
+
+        // SQSLOT("__add__", sq_concat, NULL, ...): __add__ written in Python leaves the slot empty.
+        private static bool HasSequenceSlot(PyObject value, BinaryOpType operation) =>
+            HasOnlySequenceSlot(value, operation) && value.LookupUserSpecial(BinarySlotName(operation)) == null;
+
+        // binary_op1, Objects/abstract.c.
+        private PyObject BinaryOp1(PyObject v, PyObject w, BinaryOpType operation)
+        {
+            var typeV = v.GetPyType();
+            var typeW = w.GetPyType();
+            bool sameType = ReferenceEquals(typeV, typeW);
+            string name = null, reflected = null;
+            bool writtenV = false, writtenW = false;
+            if (typeV is PyClass || typeW is PyClass)
             {
-                var method = left.LookupSpecialMethodUncached(pythonMethodName);
+                name = BinarySlotName(operation);
+                reflected = "__r" + name.Substring(2);
+                writtenV = HasNumberSlot(typeV, name, reflected);
+                writtenW = !sameType && HasNumberSlot(typeW, name, reflected);
+            }
+
+            bool sequenceV = HasOnlySequenceSlot(v, operation);
+            // slotw == slotv: slot_nb_* of the left operand asks both.
+            bool slotW = !sameType && !(writtenV && writtenW);
+            PyObject result;
+            if (slotW && writtenW && (writtenV || !sequenceV) && typeW.IsSubclassOf(typeV))
+            {
+                result = SlotNumberBinary(v, w, name, reflected);
+                if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
+                slotW = false;
+            }
+            if (writtenV)
+            {
+                result = SlotNumberBinary(v, w, name, reflected);
+                if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
+            }
+            else if (!sequenceV)
+            {
+                result = BuiltinNumberSlot(v, w, operation);
+                if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
+            }
+            if (!slotW)
+                return PyNotImplemented.Instance;
+            if (writtenW)
+                return SlotNumberBinary(v, w, name, reflected);
+            // A number slot of a builtin takes either side, and reads no sequence.
+            if (sequenceV || HasOnlySequenceSlot(w, operation))
+                return PyNotImplemented.Instance;
+            var method = w.LookupSpecialMethodUncached(reflected ?? "__r" + BinarySlotName(operation).Substring(2));
+            return method == null
+                ? PyNotImplemented.Instance
+                : w.BindSpecialMethod(method).Call(new[] { v }, null);
+        }
+
+        // SLOT1BINFULL, Objects/typeobject.c.
+        private static PyObject SlotNumberBinary(PyObject self, PyObject other, string name, string reflected)
+        {
+            var typeSelf = self.GetPyType();
+            var typeOther = other.GetPyType();
+            bool sameType = ReferenceEquals(typeSelf, typeOther);
+            bool doOther = !sameType && HasNumberSlot(typeOther, name, reflected);
+            if (HasNumberSlot(typeSelf, name, reflected))
+            {
+                PyObject result;
+                if (doOther && typeOther.IsSubclassOf(typeSelf) && MethodIsOverloaded(self, other, reflected))
+                {
+                    result = CallMaybe(other, reflected, self);
+                    if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                        return result;
+                    doOther = false;
+                }
+                result = CallMaybe(self, name, other);
+                if (!ReferenceEquals(result, PyNotImplemented.Instance) || sameType)
+                    return result;
+            }
+            return doOther ? CallMaybe(other, reflected, self) : PyNotImplemented.Instance;
+        }
+
+        private static bool MethodIsOverloaded(PyObject left, PyObject right, string name)
+        {
+            var overriding = right.LookupSpecialMethodUncached(name);
+            if (overriding == null)
+                return false;
+            return !ReferenceEquals(left.LookupSpecialMethodUncached(name), overriding);
+        }
+
+        // vectorcall_maybe: a type without the method declines.
+        private static PyObject CallMaybe(PyObject self, string name, PyObject argument)
+        {
+            var method = self.LookupSpecialMethodUncached(name);
+            return method == null
+                ? PyNotImplemented.Instance
+                : self.BindSpecialMethod(method).Call(new[] { argument }, null);
+        }
+
+        // PyFloat_Check and PyLong_Check take subclasses: float_add reads the value of an int subclass.
+        private static PyObject NumberOperand(PyObject left, PyObject right)
+        {
+            bool real = left is PyFloat or PyFloatSubclass or PyComplex;
+            if (right is PyIntSubclass integer && (real || left is PyInt or PyIntSubclass or PyBool))
+                return integer.GetIntValue();
+            if (right is PyFloatSubclass floating && real)
+                return floating.GetFloatValue();
+            return right;
+        }
+
+        private static PyObject BuiltinNumberSlot(PyObject left, PyObject right, BinaryOpType operation)
+        {
+            if (left is PyClassInstance)
+            {
+                var inherited = left.LookupSpecialMethodUncached(BinarySlotName(operation));
+                if (inherited != null)
+                    return left.BindSpecialMethod(inherited).Call(new[] { right }, null);
+            }
+            right = NumberOperand(left, right);
+            return operation switch
+            {
+                BinaryOpType.ADD => left.Add(right),
+                BinaryOpType.SUBTRACT => left.Subtract(right),
+                BinaryOpType.MULTIPLY => left.Multiply(right),
+                BinaryOpType.TRUE_DIVIDE => left.Divide(right),
+                BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
+                BinaryOpType.MODULO => left.Modulo(right),
+                BinaryOpType.POWER => left.Power(right),
+                BinaryOpType.LSHIFT => left.LeftShift(right),
+                BinaryOpType.RSHIFT => left.RightShift(right),
+                BinaryOpType.AND => left.BitwiseAnd(right),
+                BinaryOpType.OR => left.BitwiseOr(right),
+                BinaryOpType.XOR => left.BitwiseXor(right),
+                BinaryOpType.MATRIX_MULTIPLY => left.MatrixMultiply(right),
+                _ => throw PyTypeError.Create($"unsupported binary operation: {operation}"),
+            };
+        }
+
+        private static PyObject BuiltinInPlaceSlot(PyObject left, PyObject right, BinaryOpType operation) => operation switch
+        {
+            BinaryOpType.INPLACE_ADD => left.InplaceAdd(right),
+            BinaryOpType.INPLACE_SUBTRACT => left.InplaceSubtract(right),
+            BinaryOpType.INPLACE_MULTIPLY => left.InplaceMultiply(right),
+            BinaryOpType.INPLACE_TRUE_DIVIDE => left.InplaceDivide(right),
+            BinaryOpType.INPLACE_FLOOR_DIVIDE => left.InplaceFloorDivide(right),
+            BinaryOpType.INPLACE_MODULO => left.InplaceModulo(right),
+            BinaryOpType.INPLACE_POWER => left.InplacePower(right),
+            BinaryOpType.INPLACE_LSHIFT => left.InplaceLeftShift(right),
+            BinaryOpType.INPLACE_RSHIFT => left.InplaceRightShift(right),
+            BinaryOpType.INPLACE_AND => left.InplaceBitwiseAnd(right),
+            BinaryOpType.INPLACE_OR => left.InplaceBitwiseOr(right),
+            BinaryOpType.INPLACE_XOR => left.InplaceBitwiseXor(right),
+            BinaryOpType.INPLACE_MATRIX_MULTIPLY => left.InplaceMatrixMultiply(right),
+            _ => null,
+        };
+
+        // binary_iop1 and PyNumber_InPlaceAdd: sq_inplace_concat comes after the numbers declined.
+        private PyObject InPlaceNumber(PyObject left, PyObject right, BinaryOpType operation, BinaryOpType regular)
+        {
+            var name = BinarySlotName(operation);
+            var method = left.LookupSpecialMethodUncached(name);
+            bool sequence = HasOnlySequenceSlot(left, regular) && left.LookupUserSpecial(name) == null;
+            PyObject result;
+            if (!sequence)
+            {
                 if (method != null)
                 {
-                    // Call a plain function directly to avoid a bound-method wrapper and
-                    // its extra argument array. Other descriptors bind before invocation.
-                    PyObject result = method is PyFunction function
-                        ? function.Call(new PyObject[] { left, right }, null)
-                        : left.BindSpecialMethod(method).Call(new PyObject[] { right }, null);
-
-                    // Only NotImplemented requests fallback; method/descriptor errors propagate.
-                    if (result != null && result != PyNotImplemented.Instance)
+                    result = left.BindSpecialMethod(method).Call(new[] { right }, null);
+                    if (result != null && !ReferenceEquals(result, PyNotImplemented.Instance))
                         return result;
                 }
+                result = BuiltinInPlaceSlot(left, right, operation);
+                if (result != null && !ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
             }
-
-            // CPython 3.12: Try C# virtual method for built-in types (PyList, etc.)
-            // Performance: Direct virtual call instead of Reflection (no boxing, JIT inlinable)
-            var inplaceResult = inplaceMethodName switch
+            result = BinaryOp1(left, right, regular);
+            if (!ReferenceEquals(result, PyNotImplemented.Instance))
+                return result;
+            if (sequence)
             {
-                "InplaceAdd" => left.InplaceAdd(right),
-                "InplaceSubtract" => left.InplaceSubtract(right),
-                "InplaceMultiply" => left.InplaceMultiply(right),
-                "InplaceDivide" => left.InplaceDivide(right),
-                "InplaceFloorDivide" => left.InplaceFloorDivide(right),
-                "InplaceModulo" => left.InplaceModulo(right),
-                "InplacePower" => left.InplacePower(right),
-                "InplaceLeftShift" => left.InplaceLeftShift(right),
-                "InplaceRightShift" => left.InplaceRightShift(right),
-                "InplaceBitwiseAnd" => left.InplaceBitwiseAnd(right),
-                "InplaceBitwiseOr" => left.InplaceBitwiseOr(right),
-                "InplaceBitwiseXor" => left.InplaceBitwiseXor(right),
-                "InplaceMatrixMultiply" => left.InplaceMatrixMultiply(right),
-                _ => null
-            };
-
-            // CPython: Objects/abstract.c:1171 - If not NotImplemented, use result
-            if (inplaceResult != null && inplaceResult != PyNotImplemented.Instance)
-            {
-                return inplaceResult;
+                result = method != null
+                    ? left.BindSpecialMethod(method).Call(new[] { right }, null)
+                    : BuiltinInPlaceSlot(left, right, operation);
+                if (result != null && !ReferenceEquals(result, PyNotImplemented.Instance))
+                    return result;
             }
-
-            // CPython: Objects/abstract.c:1179 - Fall back to regular operation
-            // Use the complete regular dispatch, including right.__rop__ for NotImplemented.
-            // CPython v3.12.15, Objects/abstract.c, binary_iop1 -> binary_op1.
-            // Passing an opcode also avoids captured fallback delegates on every BINARY_OP.
-            return ExecuteBinaryOpType(left, right, regularOperation);
+            return SequenceOrTypeError(left, right, regular, operation);
         }
 
-        /// <summary>
-        /// Try reverse binary operation (right.__rop__(left))
-        /// CPython 3.12: Objects/abstract.c:964-984 (binary_op1)
-        /// </summary>
+        // The tail of PyNumber_Add and PyNumber_Multiply, then binop_type_error.
+        private PyObject SequenceOrTypeError(PyObject left, PyObject right, BinaryOpType operation, BinaryOpType shown)
+        {
+            if (operation == BinaryOpType.ADD && HasSequenceSlot(left, operation))
+            {
+                var joined = PyNativeStorage.Unwrap(left).Add(PyNativeStorage.Unwrap(right));
+                if (!ReferenceEquals(joined, PyNotImplemented.Instance))
+                    return joined;
+                // PyUnicode_Concat, Objects/unicodeobject.c.
+                if (IsStrLikeInstance(left))
+                    throw PyTypeError.Create($"can only concatenate str (not \"{right.GetTypeName()}\") to str");
+            }
+            if (operation == BinaryOpType.MULTIPLY)
+            {
+                if (HasSequenceSlot(left, operation))
+                    return SequenceRepeat(left, right);
+                if (HasSequenceSlot(right, operation))
+                    return SequenceRepeat(right, left);
+            }
+            throw PyTypeError.Create(
+                $"unsupported operand type(s) for {GetBinaryOpSymbol(shown)}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+        }
+
+        // sequence_repeat, Objects/abstract.c.
         private static PyObject SequenceRepeat(PyObject sequence, PyObject count)
         {
-            if ((sequence.GetPyType() is PyClass && sequence is not (PyList or PyTuple or PyString or PyBytes)) || sequence is PyInt or PyBool or PyFloat or PyComplex)
-                return PyNotImplemented.Instance;
             PyInt index = count switch
             {
                 PyBool truth => new PyInt(truth.Value ? 1 : 0),
                 PyInt number => number,
                 PyIntSubclass subclass => subclass.GetIntValue(),
-                _ => count.LookupSpecialMethodUncached("__index__") != null
-                    ? count.GetAttribute("__index__").Call(Array.Empty<PyObject>(), null) as PyInt : null,
+                _ => null,
             };
-            return index == null ? PyNotImplemented.Instance : sequence.Multiply(index);
-        }
-
-        private PyObject TryReverseBinaryOp(PyObject right, PyObject left, BinaryOpType binaryOp)
-        {
-            try
+            if (index == null)
             {
-                // Get the reflected method name
-                string methodName = binaryOp switch
-                {
-                    BinaryOpType.ADD => "__radd__",
-                    BinaryOpType.SUBTRACT => "__rsub__",
-                    BinaryOpType.MULTIPLY => "__rmul__",
-                    BinaryOpType.TRUE_DIVIDE => "__rtruediv__",
-                    BinaryOpType.FLOOR_DIVIDE => "__rfloordiv__",
-                    BinaryOpType.MODULO => "__rmod__",
-                    BinaryOpType.POWER => "__rpow__",
-                    BinaryOpType.LSHIFT => "__rlshift__",
-                    BinaryOpType.RSHIFT => "__rrshift__",
-                    BinaryOpType.AND => "__rand__",
-                    BinaryOpType.OR => "__ror__",
-                    BinaryOpType.XOR => "__rxor__",
-                    BinaryOpType.MATRIX_MULTIPLY => "__rmatmul__",
-                    _ => null
-                };
-
-                if (methodName == null)
-                    return PyNotImplemented.Instance;
-
-                // Try to get the reflected method from the right operand
-                PyObject method = null;
-                try
-                {
-                    method = right.GetAttribute(methodName);
-                }
-                catch
-                {
-                    return PyNotImplemented.Instance;
-                }
-
+                var method = count.LookupSpecialMethodUncached("__index__");
                 if (method == null)
-                    return PyNotImplemented.Instance;
-
-                // Call the reflected method with left as argument
-                if (method is PyMethod boundMethod)
-                {
-                    return boundMethod.Call(new PyObject[] { left }, null);
-                }
-                else if (method is PyFunction func)
-                {
-                    return func.Call(new PyObject[] { right, left }, null);
-                }
-                else if (method is PyBuiltinFunction builtinFunc)
-                {
-                    return builtinFunc.Call(new PyObject[] { left });
-                }
-                else
-                {
-                    // Try to call it as a callable
-                    return method.Call(new PyObject[] { left }, null);
-                }
+                    throw PyTypeError.Create($"can't multiply sequence by non-int of type '{count.GetTypeName()}'");
+                var value = count.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                index = value as PyInt ?? (value as PyIntSubclass)?.GetIntValue()
+                    ?? throw PyTypeError.Create($"__index__ returned non-int (type {value.GetTypeName()})");
             }
-            catch
-            {
-                return PyNotImplemented.Instance;
-            }
+            return PyNativeStorage.Unwrap(sequence).Multiply(index);
         }
 
         /// <summary>
@@ -6480,7 +6518,20 @@ namespace SharpPy
                 BinaryOpType.TRUE_DIVIDE => "/",
                 BinaryOpType.FLOOR_DIVIDE => "//",
                 BinaryOpType.MODULO => "%",
-                BinaryOpType.POWER => "**",
+                BinaryOpType.POWER => "** or pow()",
+                BinaryOpType.INPLACE_ADD => "+=",
+                BinaryOpType.INPLACE_SUBTRACT => "-=",
+                BinaryOpType.INPLACE_MULTIPLY => "*=",
+                BinaryOpType.INPLACE_TRUE_DIVIDE => "/=",
+                BinaryOpType.INPLACE_FLOOR_DIVIDE => "//=",
+                BinaryOpType.INPLACE_MODULO => "%=",
+                BinaryOpType.INPLACE_POWER => "**=",
+                BinaryOpType.INPLACE_LSHIFT => "<<=",
+                BinaryOpType.INPLACE_RSHIFT => ">>=",
+                BinaryOpType.INPLACE_AND => "&=",
+                BinaryOpType.INPLACE_OR => "|=",
+                BinaryOpType.INPLACE_XOR => "^=",
+                BinaryOpType.INPLACE_MATRIX_MULTIPLY => "@=",
                 BinaryOpType.LSHIFT => "<<",
                 BinaryOpType.RSHIFT => ">>",
                 BinaryOpType.AND => "&",
@@ -7521,20 +7572,23 @@ namespace SharpPy
         /// <summary>
         /// Convert C# exception to Python exception for context manager __exit__ handling
         /// </summary>
-        private PyBaseException ConvertToPythonException(Exception exception)
-        {
-            // Convert common .NET exceptions to appropriate Python exceptions
-            if (exception is PythonException pyEx)
-                return pyEx.PyException;
-            if (exception is ArgumentException)
-                return new PyTypeError(exception.Message);
-            if (exception is InvalidOperationException)
-                return new PyRuntimeError(exception.Message);
-            if (exception is NotImplementedException)
-                return new PyNotImplementedError(exception.Message);
+        // Control flow of the host and syntax errors have their own routes.
+        private static bool IsHostFailure(Exception exception) => exception is not (
+            LoopBreakException or LoopContinueException or PyReturnException or PyYieldException or
+            PyYieldFromException or PyBreakException or PyContinueException or PySyntaxErrorException or
+            SyntaxErrorException or SharpPy.Generated.SyntaxErrorException);
 
-            return new PyRuntimeError($"Exception in context manager __exit__: {exception.Message}");
-        }
+        private PyBaseException ConvertToPythonException(Exception exception) => exception switch
+        {
+            PythonException python => python.PyException,
+            InsufficientExecutionStackException => new PyRecursionError(),
+            OutOfMemoryException => new PyMemoryError(exception.Message),
+            OverflowException => new PyOverflowError(exception.Message),
+            DivideByZeroException => new PyZeroDivisionError(exception.Message),
+            NotImplementedException => new PyNotImplementedError(exception.Message),
+            // No Python code can cause these in CPython: an interpreter fault, as SystemError says.
+            _ => new PySystemError($"{exception.GetType().Name}: {exception.Message}"),
+        };
 
         /// <summary>
         /// CPython 3.12 style: Optimized function call execution
