@@ -755,7 +755,7 @@ namespace SharpPy
                 "f_trace_lines" => PyBool.True,  // Default to True
                 "f_trace_opcodes" => PyBool.False,  // Default to False
 
-                _ => throw PyAttributeError.Create($"'frame' object has no attribute '{name}'")
+                _ => GenericGetAttribute(name)
             };
         }
 

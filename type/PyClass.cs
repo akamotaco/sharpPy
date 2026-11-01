@@ -991,6 +991,16 @@ namespace SharpPy
             }
         }
 
+        // object_repr: the default, whatever the object's own type declares.
+        private static PyString ObjectRepr(PyObject self)
+        {
+            var type = self.GetPyType();
+            string modulePrefix = type is PyClass cls && cls.ClassDict.TryGetValue("__module__", out var module) &&
+                module is PyString { Value: { Length: > 0 } and not "builtins" } text ? text.Value + "." : "";
+            string name = type is PyClass named ? named.QualNameText : type.Name;
+            return new PyString($"<{modulePrefix}{name} object at 0x{self.GetHashCode():x}>");
+        }
+
         private static PyObject? BuildTypeAttribute(PyType pyType, string name)
         {
             // CPython 3.12: 내장 타입의 속성을 직접 조회
@@ -1020,7 +1030,7 @@ namespace SharpPy
                         "__repr__" => new PyBuiltinMethod("__repr__", (self, args) => {
                             if (args.Length != 0)
                                 throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
-                            return self.ToRepr();
+                            return ObjectRepr(self);
                         }, 1),
                         "__init__" => new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1),
                         "__hash__" => new PyBuiltinMethod("__hash__", (self, args) => {

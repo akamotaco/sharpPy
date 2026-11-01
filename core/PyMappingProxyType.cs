@@ -20,6 +20,8 @@ namespace SharpPy
             _mapping = mapping;
         }
 
+        internal PyDict Snapshot() => new PyDict(_mapping);
+
         public override PyType GetPyType() => PyType.MappingProxyType;
         public override string GetTypeName() => "mappingproxy";
 

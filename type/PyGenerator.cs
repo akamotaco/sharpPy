@@ -63,7 +63,9 @@ namespace SharpPy
 
             // CPython 3.12: genobject.c getseters
             // (gi_code, gi_frame, gi_name, gi_running, gi_yieldfrom)
-            genType.TypeDict["gi_name"] = new PyGetSetDescriptor("gi_name", genType,
+            genType.TypeDict["__name__"] = new PyGetSetDescriptor("__name__", genType,
+                self => new PyString(((PyGenerator)self).Name));
+            genType.TypeDict["__qualname__"] = new PyGetSetDescriptor("__qualname__", genType,
                 self => new PyString(((PyGenerator)self).Name));
             genType.TypeDict["gi_code"] = new PyGetSetDescriptor("gi_code", genType,
                 self => ((PyGenerator)self)._frame.Code);

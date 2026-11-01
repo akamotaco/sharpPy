@@ -80,6 +80,14 @@ namespace SharpPy
                 });
             }
 
+            // functools_wraps copies these from the callable when the object is made.
+            if (name is "__name__" or "__qualname__" or "__module__" or "__doc__")
+                return Callable.GetAttribute(name);
+            if (name == "__isabstractmethod__")
+            {
+                try { return Callable.GetAttribute(name); }
+                catch (PythonException error) when (error.PyException is PyAttributeError) { return PyBool.False; }
+            }
             return base.GetAttribute(name);
         }
 
@@ -140,6 +148,8 @@ namespace SharpPy
         // tp_descr_get (line 1352) makes __get__ available
         public override PyObject GetAttribute(string name)
         {
+            if (name == "__call__") return Callable;
+
             if (name == "__func__" || name == "__wrapped__")
             {
                 return Callable;
@@ -157,6 +167,14 @@ namespace SharpPy
                 });
             }
 
+            // functools_wraps copies these from the callable when the object is made.
+            if (name is "__name__" or "__qualname__" or "__module__" or "__doc__")
+                return Callable.GetAttribute(name);
+            if (name == "__isabstractmethod__")
+            {
+                try { return Callable.GetAttribute(name); }
+                catch (PythonException error) when (error.PyException is PyAttributeError) { return PyBool.False; }
+            }
             return base.GetAttribute(name);
         }
 

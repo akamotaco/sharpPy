@@ -8,6 +8,9 @@ namespace SharpPy
     /// </summary>
     public abstract class PyIterator : PyObject, IDisposable
     {
+        /// <summary>__length_hint__: what is left, or NotImplemented.</summary>
+        internal virtual PyObject RemainingHint() => PyNotImplemented.Instance;
+
         static PyIterator()
         {
             InitializeIteratorDescriptors();
@@ -172,6 +175,8 @@ namespace SharpPy
 
         // Reused for bytes_iterator / reversed-key iteration, so the reported type
         // name is parameterised (default list_iterator).
+        internal override PyObject RemainingHint() => new PyInt(Math.Max(0, _list.RawCount() - _index));
+
         public PyListIterator(PyList list, string typeName = "list_iterator")
         {
             _list = list ?? throw new ArgumentNullException(nameof(list));
@@ -221,6 +226,8 @@ namespace SharpPy
 
     public class PyTupleIterator : PyIterator
     {
+        internal override PyObject RemainingHint() => new PyInt(Math.Max(0, _tuple.Items.Length - _index));
+
         private readonly PyTuple _tuple;
         private int _index;
 
@@ -296,6 +303,8 @@ namespace SharpPy
     /// </summary>
     public class PyRangeIterator : PyIterator
     {
+        internal override PyObject RemainingHint() => new PyInt((System.Numerics.BigInteger)_remaining);
+
         private long _current;
         private readonly long _step;
         private ulong _remaining;

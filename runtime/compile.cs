@@ -17,10 +17,12 @@ namespace SharpPy
         public string? FileName { get; }
         public int LineNumber { get; }
         public int ColumnOffset { get; }
+        public string Text { get; }
 
         public SyntaxErrorException(string message, string? fileName, int lineNumber, int columnOffset)
             : base($"SyntaxError: {message} (file {fileName}, line {lineNumber}, column {columnOffset})")
         {
+            Text = message;
             FileName = fileName;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
@@ -28,6 +30,7 @@ namespace SharpPy
 
         public SyntaxErrorException(string message) : base($"SyntaxError: {message}")
         {
+            Text = message;
         }
     }
 
@@ -8960,6 +8963,12 @@ namespace SharpPy
         /// CPython 3.12: compiler_match_inner (Python/compile.c line 7306)
         /// Match statement compilation using InstructionSequence/CFG
         /// </summary>
+        private void CheckOneStarTarget(List<Expression> elements, Expression target)
+        {
+            if (elements.FindAll(element => element is StarExpression || element is StarredExpression).Count > 1)
+                throw new SyntaxErrorException("multiple starred expressions in assignment", _currentFileName, target.LineNo, target.ColOffset);
+        }
+
         private void CompileMatch(MatchStatement matchStmt)
         {
 #if DEBUG_COMPILER_LOG
@@ -11771,8 +11780,7 @@ namespace SharpPy
                 case TupleExpression tuple:
                     // CPython 3.12: Python/compile.c:4370-4400 (unpack_helper)
                     // Check if this is starred unpacking (contains StarExpression or StarredExpression)
-                    if (tuple.Elements.FindAll(e => e is StarExpression || e is StarredExpression).Count > 1)
-                        throw new SyntaxErrorException("multiple starred expressions in assignment", _currentFileName, tuple.LineNo, tuple.ColOffset);
+                    CheckOneStarTarget(tuple.Elements, tuple);
                     var starIndex = tuple.Elements.FindIndex(e => e is StarExpression || e is StarredExpression);
                     if (starIndex >= 0)
                     {
@@ -11881,6 +11889,7 @@ namespace SharpPy
                         // Starred unpacking in nested tuple
                         var beforeCount = nestedStarIndex;
                         var afterCount = tuple.Elements.Count - nestedStarIndex - 1;
+                        CheckOneStarTarget(tuple.Elements, tuple);
                         var unpackArg = beforeCount | (afterCount << 8);
                         EmitInstruction(ByteCodeOp.UNPACK_EX, unpackArg);
 
@@ -11922,6 +11931,7 @@ namespace SharpPy
                         // Starred unpacking
                         var beforeCount = listStarIndex;
                         var afterCount = list.Elements.Count - listStarIndex - 1;
+                        CheckOneStarTarget(list.Elements, list);
                         var unpackArg = beforeCount | (afterCount << 8);
                         EmitInstruction(ByteCodeOp.UNPACK_EX, unpackArg);
 

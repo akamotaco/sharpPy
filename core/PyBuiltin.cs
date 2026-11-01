@@ -1336,7 +1336,7 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                    throw ex is SyntaxErrorException syntax ? PySyntaxError.Create(syntax.Text, filename, Math.Max(syntax.LineNumber, 0)) : PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
                 }
             }
             else
@@ -1442,7 +1442,7 @@ namespace SharpPy
             catch (Exception ex)
             {
                 if (ex is PythonException pythonError && pythonError.PyException is PySyntaxError) throw;
-                throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                throw ex is SyntaxErrorException syntax ? PySyntaxError.Create(syntax.Text, filename, Math.Max(syntax.LineNumber, 0)) : PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
             }
 
             return codeObject;
@@ -1538,7 +1538,7 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
-                    throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                    throw ex is SyntaxErrorException syntax ? PySyntaxError.Create(syntax.Text, filename, Math.Max(syntax.LineNumber, 0)) : PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
                 }
             }
             else
@@ -1601,55 +1601,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyDict();
 
-            // CPython 3.12: dict(obj) supports mapping protocol
-            var obj = args[0];
-
-            // Fast path: if obj is already a dict, copy it
-            if (obj is PyDict existingDict)
-            {
-                var copy = new PyDict();
-                copy.Update(existingDict);
-                return copy;
-            }
-
-            // CPython 3.12: Mapping protocol - check if obj has keys() method
-            // This allows custom mapping types like _EnumDict to be converted to dict
-            try
-            {
-                var keysMethod = obj.GetAttribute("keys");
-                if (keysMethod != null && keysMethod.IsCallable())
-                {
-                    // Call keys() to get all keys
-                    var keysResult = keysMethod.Call(new PyObject[0], null);
-                    var keysIterator = keysResult.GetIterator();
-
-                    // Create new dict and populate it
-                    var newDict = new PyDict();
-                    try
-                    {
-                        while (true)
-                        {
-                            var key = keysIterator.Next();
-                            // Get value using obj[key]
-                            var value = obj.GetItem(key);
-                            newDict.SetItem(key, value);
-                        }
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        // Normal termination of iteration
-                    }
-
-                    return newDict;
-                }
-            }
-            catch (PythonException)
-            {
-                // obj doesn't have keys() method or not callable, fall through
-            }
-
-            // Fallback: try AsDict() conversion
-            return obj.AsDict();
+            return args[0].AsDict();
         }
 
         private static PyObject CallSet(PyObject[] args, PyDict kwargs = null)
@@ -1867,7 +1819,9 @@ namespace SharpPy
                 // len.__class__ raised AttributeError.
                 "__qualname__" => new PyString(Name),
                 "__call__" => this,
-                "__new__" when Name == "type" => new PyBuiltinFunction("type.__new__"),
+                "__module__" => new PyString("builtins"),
+                "__text_signature__" => PyNone.Instance,
+                "__self__" => PyImportSystem.Import("builtins"),
                 _ => base.GetAttribute(name)
             };
         }
@@ -1883,9 +1837,13 @@ namespace SharpPy
 
             if (args.Length == 0)
             {
-                // dir() with no arguments - return local variables
-                // For now, return empty list (TODO: implement _dir_locals)
-                return new PyList();
+                // _dir_locals: the sorted names of the caller's locals
+                var names = new List<PyObject>();
+                var locals = PyVM.CurrentFrame.GetAttribute("f_locals");
+                foreach (var name in PySet.IterableItems(locals)) names.Add(name);
+                var listing = new PyList(names);
+                listing.GetAttribute("sort").Call(new PyObject[0], null);
+                return listing;
             }
 
             var obj = args[0];

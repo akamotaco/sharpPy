@@ -1232,7 +1232,9 @@ namespace SharpPy
         public override PyDict AsDict()
         {
             // CPython dict() 생성자 동작: 새로운 복사본 생성
-            return Copy();
+            var created = new PyDict();
+            created.Update(this);
+            return created;
         }
         
         /// <summary>

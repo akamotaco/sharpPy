@@ -11,6 +11,7 @@ namespace SharpPy.Modules
     {
         public static PyModule CreateBuiltinsModule()
         {
+            BuiltinSlots.Install();
             var module = new PyModule("builtins", "<builtins module>");
 
             // Built-in types (as type objects, not constructors)

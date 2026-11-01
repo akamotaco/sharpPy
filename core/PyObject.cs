@@ -921,6 +921,9 @@ namespace SharpPy
                 return CallGetAttr(name);
             }
 
+            // object.__repr__ and object.__str__ are answered by the type, see PyType.GetAttribute.
+            if (name is "__repr__" or "__str__" && this is not PyType && PyType.ObjectType.GetAttribute(name) is IDescriptor objectSlot)
+                return objectSlot.Get(this, GetPyType());
             return PySlotWrappers.TryBind(this, name) ?? throw AttributeNotFound(name);
         }
 
@@ -1250,52 +1253,9 @@ namespace SharpPy
         /// </summary>
         public virtual PyDict AsDict()
         {
-            if (this is PyDict dict)
-            {
-                // PyDict 복사본 생성 (CPython dict() 생성자 동작)
-                var newDict = new PyDict();
-                var items = dict.Items(); // PyList of PyTuple pairs
-                foreach (PyTuple pair in items.Items)
-                {
-                    newDict.SetItem(pair.Items[0], pair.Items[1]);
-                }
-                return newDict;
-            }
-
-            // CPython 3.12: dict() can accept an iterable of (key, value) pairs
-            // Objects/dictobject.c:2649-2672
-            try
-            {
-                var newDict = new PyDict();
-                var iter = GetIterator();
-
-                while (true)
-                {
-                    PyObject item;
-                    try
-                    {
-                        item = iter.Next();
-                    }
-                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                    {
-                        break;
-                    }
-
-                    // Each item should be a (key, value) pair
-                    if (item is not PyTuple itemPair || itemPair.Items.Length != 2)
-                    {
-                        throw PyTypeError.Create($"dictionary update sequence element must be a sequence of length 2");
-                    }
-
-                    newDict.SetItem(itemPair.Items[0], itemPair.Items[1]);
-                }
-
-                return newDict;
-            }
-            catch (PythonException ex) when (ex.PyException is PyTypeError te && te.Message.Contains("not iterable"))
-            {
-                throw PyTypeError.Create($"cannot convert '{GetTypeName()}' to dict");
-            }
+            var created = new PyDict();
+            PyDict.UpdateCommon(created, this);
+            return created;
         }
 
         /// <summary>
