@@ -230,7 +230,12 @@ namespace SharpPy
         {
             var lhs = Fold(node.Left);
             var rhs = Fold(node.Right);
-            if (lhs is not ConstantExpression left || rhs is not ConstantExpression right)
+            if (lhs is not ConstantExpression left)
+                return node;
+            if (node.OpNode.GetOpType() == BinaryOpType.MODULO && rhs is TupleExpression arguments &&
+                left.Value is PyString format && !HasStarred(arguments.Elements))
+                return OptimizeFormat(node, format.Value, arguments.Elements);
+            if (rhs is not ConstantExpression right)
                 return node;
             var lv = left.Value;
             var rv = right.Value;
@@ -245,6 +250,143 @@ namespace SharpPy
                 _ => true,
             };
             return allowed ? MakeConst(node, () => PyVM.Instance.ExecuteBinaryOpType(lv, rv, op)) : node;
+        }
+
+        // parse_literal: up to the next conversion, with %% as %.
+        private static Expression? ParseLiteral(string format, ref int position)
+        {
+            int start = position;
+            bool hasPercents = false;
+            while (position < format.Length)
+            {
+                if (format[position] != '%')
+                {
+                    position++;
+                }
+                else if (position + 1 < format.Length && format[position + 1] == '%')
+                {
+                    hasPercents = true;
+                    position += 2;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            if (position == start)
+                return null;
+            string text = format.Substring(start, position - start);
+            return new ConstantExpression(new PyString(hasPercents ? text.Replace("%%", "%") : text));
+        }
+
+        private const int MaxDigits = 3;
+
+        // simple_format_arg_parse
+        private static bool SimpleFormatArgParse(string format, ref int position, out char spec, out bool leftJustify, out int width, out int precision)
+        {
+            spec = '\0';
+            leftJustify = false;
+            width = -1;
+            precision = -1;
+            int pos = position;
+            bool Next(out char ch)
+            {
+                ch = '\0';
+                if (pos >= format.Length)
+                    return false;
+                ch = format[pos++];
+                return true;
+            }
+
+            char c;
+            while (true)
+            {
+                if (!Next(out c))
+                    return false;
+                if (c == '-')
+                    leftJustify = true;
+                else if (c != '+' && c != ' ' && c != '#' && c != '0')
+                    break;
+            }
+            if (c >= '0' && c <= '9')
+            {
+                width = 0;
+                int digits = 0;
+                while (c >= '0' && c <= '9')
+                {
+                    width = width * 10 + (c - '0');
+                    if (!Next(out c))
+                        return false;
+                    if (++digits >= MaxDigits)
+                        return false;
+                }
+            }
+            if (c == '.')
+            {
+                if (!Next(out c))
+                    return false;
+                precision = 0;
+                if (c >= '0' && c <= '9')
+                {
+                    int digits = 0;
+                    while (c >= '0' && c <= '9')
+                    {
+                        precision = precision * 10 + (c - '0');
+                        if (!Next(out c))
+                            return false;
+                        if (++digits >= MaxDigits)
+                            return false;
+                    }
+                }
+            }
+            spec = c;
+            position = pos;
+            return true;
+        }
+
+        // parse_format
+        private static Expression? ParseFormat(string format, ref int position, Expression arg)
+        {
+            if (!SimpleFormatArgParse(format, ref position, out char spec, out bool leftJustify, out int width, out int precision))
+                return null;
+            if (spec != 's' && spec != 'r' && spec != 'a')
+                return null;
+            string text = "";
+            if (!leftJustify && width > 0)
+                text += ">";
+            if (width >= 0)
+                text += width;
+            if (precision >= 0)
+                text += "." + precision;
+            var formatSpec = text.Length > 0 ? new ConstantExpression(new PyString(text)) : null;
+            return Located(new FormattedValueExpression(arg, spec, formatSpec), arg);
+        }
+
+        // optimize_format: "%s" % (a,) is an f-string when every unit is simple.
+        private static Expression OptimizeFormat(Expression node, string format, List<Expression> elts)
+        {
+            int position = 0;
+            int count = 0;
+            var values = new List<Expression>();
+            while (true)
+            {
+                var literal = ParseLiteral(format, ref position);
+                if (literal != null)
+                    values.Add(literal);
+                if (position >= format.Length)
+                    break;
+                if (count >= elts.Count)
+                    return node; // More format units than items.
+                position++;
+                var formatted = ParseFormat(format, ref position, elts[count]);
+                count++;
+                if (formatted == null)
+                    return node;
+                values.Add(formatted);
+            }
+            if (count < elts.Count)
+                return node; // More items than format units.
+            return Located(new JoinedStrExpression(values), node);
         }
 
         private Expression FoldSubscr(SubscriptExpression node)

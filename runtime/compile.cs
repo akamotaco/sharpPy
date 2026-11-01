@@ -581,6 +581,7 @@ namespace SharpPy
         private SymbolTable? _symbolTable = null;
         private SymbolTable? _currentSymbolTable = null;
         private readonly AstFold _fold = new AstFold();
+        private int _positionalArgCount;
         private SymbolTableBuilder? _symbolTableBuilder = null;  // CPython 3.12: st->st_blocks lookup
 
         // CPython 3.12: Frame block stack for unified control flow tracking
@@ -1992,6 +1993,7 @@ namespace SharpPy
             Console.WriteLine($"  Flags received: 0x{flags:X} (CO_GENERATOR={((flags & PyCodeObject.CO_GENERATOR) != 0)})");
 #endif
 
+            _positionalArgCount = argCount + posonlyArgCount;
             // compiler_function: consts[0] is the docstring or None, and the docstring is not compiled.
             string? functionDoc = GetDocString(statements);
             GetOrAddConstant(functionDoc != null ? new PyString(functionDoc) : PyNone.Instance);
@@ -2849,6 +2851,16 @@ namespace SharpPy
         private void CompileExpression(Expression expression)
         {
             expression = _fold.Fold(expression);
+            int line = _currentLineNumber;
+            int column = _currentColumnOffset;
+            UpdateSourceLocation(expression);
+            CompileExpressionHere(expression);
+            _currentLineNumber = line;
+            _currentColumnOffset = column;
+        }
+
+        private void CompileExpressionHere(Expression expression)
+        {
             // Update current source location
             UpdateSourceLocation(expression);
 
@@ -3031,285 +3043,10 @@ namespace SharpPy
                     {
                         EmitUncallableWarning(inferredCallerType!, call.LineNo);
                     }
-                    // CPython 3.12: Check for *args/**kwargs unpacking
-                    // Performance: Eliminated LINQ
-                    bool hasStarArgs = false;
-                    foreach (var arg in call.Arguments)
-                    {
-                        if (arg is StarredExpression)
-                        {
-                            hasStarArgs = true;
-                            break;
-                        }
-                    }
-                    bool hasKwargUnpacking = false;
-                    foreach (var kw in call.Keywords)
-                    {
-                        if (kw.Arg == null) // **kwargs has null Arg
-                        {
-                            hasKwargUnpacking = true;
-                            break;
-                        }
-                    }
 
-                    if (hasStarArgs || hasKwargUnpacking)
-                    {
-                        // Use CALL_FUNCTION_EX for unpacking
-                        EmitInstruction(ByteCodeOp.PUSH_NULL);
-                        CompileExpression(call.Function);
-
-                        // CPython 3.12 (Python/compile.c build_tuple_unpack): the args
-                        // tuple must preserve SOURCE ORDER of regular and starred parts,
-                        // supporting any number of starred expressions.
-                        // Fast path: exactly one starred arg and nothing else -> pass the
-                        // iterable straight to CALL_FUNCTION_EX, which reports
-                        // "argument after * must be an iterable, not T".
-                        bool singleStarredOnly = call.Arguments.Count == 1 && call.Arguments[0] is StarredExpression;
-                        if (singleStarredOnly)
-                        {
-                            CompileExpression(((StarredExpression)call.Arguments[0]).Value);
-                        }
-                        else if (call.Arguments.Count > 0)
-                        {
-                            EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-                            int runCount = 0;
-                            foreach (var arg in call.Arguments)
-                            {
-                                if (arg is StarredExpression starredExpr)
-                                {
-                                    if (runCount > 0)
-                                    {
-                                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, runCount);
-                                        EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                                        runCount = 0;
-                                    }
-                                    CompileExpression(starredExpr.Value);
-                                    EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                                }
-                                else
-                                {
-                                    CompileExpression(arg);
-                                    runCount++;
-                                }
-                            }
-                            if (runCount > 0)
-                            {
-                                EmitInstruction(ByteCodeOp.BUILD_TUPLE, runCount);
-                                EmitInstruction(ByteCodeOp.LIST_EXTEND, 1);
-                            }
-                            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
-                        }
-                        else
-                        {
-                            // No args at all, create empty tuple
-                            EmitLoadConst(new PyTuple(new PyObject[0]));
-                        }
-
-                        // Handle kwargs (both **kwargs unpacking AND regular keyword arguments)
-                        // CPython 3.12: Python/compile.c:5066-5103 (compiler_call_helper)
-                        // CALL_FUNCTION_EX expects: [func, args_tuple, kwargs_dict]
-                        // CPython 3.12: When *args is used with keyword arguments (e.g., method(*args, key=value)),
-                        // kwargs must be passed as a dict even without **kwargs unpacking
-
-                        // Collect regular keyword arguments (kw.Arg != null)
-                        var regularKwargs = new List<KeywordExpression>();
-                        foreach (var kw in call.Keywords)
-                        {
-                            if (kw.Arg != null)
-                            {
-                                regularKwargs.Add(kw);
-                            }
-                        }
-
-                        // Check if we have any kwargs to pass (either **kwargs or regular keyword args)
-                        bool hasAnyKwargs = hasKwargUnpacking || regularKwargs.Count > 0;
-
-                        if (hasAnyKwargs)
-                        {
-                            // compiler_call_helper: keywords keep their written order, runs of
-                            // plain ones become a dict and every part is merged into the first.
-                            bool haveKeywordDict = false;
-                            for (int position = 0; position < call.Keywords.Count;)
-                            {
-                                if (call.Keywords[position].Arg == null)
-                                {
-                                    if (!haveKeywordDict) EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
-                                    haveKeywordDict = true;
-                                    CompileExpression(call.Keywords[position].Value);
-                                    EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
-                                    position++;
-                                    continue;
-                                }
-                                int runStart = position;
-                                for (; position < call.Keywords.Count && call.Keywords[position].Arg != null; position++)
-                                {
-                                    EmitLoadConst(new PyString(call.Keywords[position].Arg));
-                                    CompileExpression(call.Keywords[position].Value);
-                                }
-                                EmitInstruction(ByteCodeOp.BUILD_MAP, position - runStart);
-                                if (haveKeywordDict) EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
-                                haveKeywordDict = true;
-                            }
-
-                            EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, 1); // 1 = has kwargs
-                        }
-                        else
-                        {
-                            EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, 0); // 0 = no kwargs
-                        }
-                    }
-                    else
-                    {
-                        // Regular call without unpacking
-                        // CPython 3.12: Use LOAD_GLOBAL with NULL push for global function calls
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 CallExpression: function type = {call.Function.GetType().Name}");
-                        if (call.Function is NameExpression ne)
-                        {
-                            Console.WriteLine($"   NameExpression: {ne.Name}");
-                        }
-                        #endif
-                        if (call.Function is NameExpression funcName)
-                        {
-                            // compiler_call: VISIT(c, expr, func) with a NULL below it. EmitLoadName is the one
-                            // place that turns a name's scope into an instruction; a second copy of that choice
-                            // here read a free variable by its bare index and got a cell instead.
-                            var symbol = _currentSymbolTable != null && (_isInFunction || _isInComprehension)
-                                ? _currentSymbolTable.Lookup(funcName.Name) ??
-                                  (_isInComprehension ? _currentSymbolTable.GetParent()?.Lookup(funcName.Name) : null)
-                                : null;
-                            bool isFrameName = symbol != null && (symbol.Scope == SymbolScope.Local ||
-                                symbol.Scope == SymbolScope.Free || symbol.Scope == SymbolScope.Cell);
-                            if (_isInFunction && !isFrameName)
-                            {
-                                EmitLoadGlobal(funcName.Name, pushNull: true);
-                            }
-                            else
-                            {
-                                EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                EmitLoadName(funcName.Name);
-                            }
-                        }
-                        else if (call.Function is AttributeExpression attrExpr && !IsImportOriginated(attrExpr.Value))
-                        {
-                            // CPython 3.12: Check for super().method() call pattern
-                            if (attrExpr.Value is CallExpression attrSuperCall &&
-                                attrSuperCall.Function is NameExpression attrSuperName &&
-                                attrSuperName.Name == "super" &&
-                                attrSuperCall.Arguments.Count == 0)
-                            {
-                                // super().method() call: use LOAD_SUPER_ATTR
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔍 Detected super().{attrExpr.Attr}() call - generating LOAD_SUPER_ATTR + CALL");
-                                #endif
-
-                                // Load __class__ free variable using LOAD_DEREF
-                                var classIndex = _freeVars.IndexOf("__class__");
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔍 Looking for __class__ in free variables: index={classIndex}, freeVars=[{string.Join(", ", _freeVars)}]");
-                                #endif
-
-                                if (classIndex >= 0)
-                                {
-                                    // Check if we have 'self' or 'cls' in local scope
-                                    bool hasSelfParameter = _varNames.Count > 0 &&
-                                                           (_varNames[0] == "self" || _varNames[0] == "cls");
-
-                                    if (hasSelfParameter)
-                                    {
-                                        // CPython 3.12: LOAD_GLOBAL without NULL for LOAD_SUPER_ATTR
-                                        EmitLoadGlobal("super", pushNull: false);
-                                        // CPython 3.12: Use EmitLoadDeref to calculate correct localsplus offset
-                                        // Free variable offset = ncellvars + freevar_index
-                                        EmitLoadDeref("__class__");
-
-                                        // Load self - first parameter (cls/self)
-                                        EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
-
-                                        // LOAD_SUPER_ATTR with NULL|self flag for method call
-                                        // CPython 3.12: oparg = (name_index << 1) | method_flag
-                                        var attrNameIndex = GetOrAddName(attrExpr.Attr);
-                                        var flags = (attrNameIndex << 1) | 1;  // name index in high bits, method flag=1
-                                        EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, flags);
-                                    }
-                                    else
-                                    {
-                                        // No self parameter - fall back to regular call
-                                        #if DEBUG_LOG
-                                        Console.WriteLine("⚠️  No self/cls parameter in current scope, using regular call");
-                                        #endif
-                                        CompileExpression(attrExpr.Value); // super()
-                                        EmitLoadAttr(attrExpr.Attr, pushNull: true);
-                                    }
-                                }
-                                else
-                                {
-                                    // No __class__ free variable - fall back to regular call
-                                    #if DEBUG_LOG
-                                    Console.WriteLine("⚠️  No __class__ free variable found, using regular call");
-                                    #endif
-                                    CompileExpression(attrExpr.Value); // super()
-                                    EmitLoadAttr(attrExpr.Attr, pushNull: true);
-                                }
-                            }
-                            else
-                            {
-                                // Regular method call with LOAD_ATTR(pushNull=true)
-                                // This will push [self/NULL, method] for efficient method calls
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Using LOAD_ATTR(pushNull=true) for method call");
-                                #endif
-                                CompileExpression(attrExpr.Value); // Load the object
-                                EmitLoadAttr(attrExpr.Attr, pushNull: true); // Load attribute with method optimization
-                            }
-                        }
-                        else
-                        {
-                            // Other expressions: use PUSH_NULL + expression
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → Using PUSH_NULL + CompileExpression");
-                            #endif
-                            EmitInstruction(ByteCodeOp.PUSH_NULL);
-                            CompileExpression(call.Function);
-                        }
-
-                        // 위치 인수 컴파일
-                        foreach (var arg in call.Arguments)
-                        {
-                            CompileExpression(arg);
-                        }
-
-                        // 키워드 인수가 있는 경우
-                        if (call.Keywords.Count > 0)
-                        {
-                            // 키워드 인수 값들을 스택에 푸시
-                            foreach (var keyword in call.Keywords)
-                            {
-                                CompileExpression(keyword.Value);
-                            }
-
-                            // CPython 3.12: Create keyword names tuple and add to constants
-                            // Performance: Eliminated LINQ + Cache
-                            var kwNames = new PyObject[call.Keywords.Count];
-                            for (int i = 0; i < call.Keywords.Count; i++)
-                            {
-                                kwNames[i] = StringCache.GetOrCreate(call.Keywords[i].Arg ?? "");
-                            }
-                            var kwNamesTuple = TupleCache.GetOrCreate(kwNames);
-                            var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
-
-                            // CPython 3.12: KW_NAMES + CALL pattern
-                            EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
-                            EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count + call.Keywords.Count);
-                        }
-                        else
-                        {
-                            // 키워드 인수가 없는 경우 Python 3.12 방식
-                            EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count);
-                        }
-                    }
+                    CompileCall(call);
                     break;
-                    
+
                 case AttributeExpression attr:
                     // CPython 3.12: Check for super() calls and use LOAD_SUPER_ATTR
                     if (attr.Value is CallExpression superCall && 
@@ -5789,6 +5526,7 @@ namespace SharpPy
             {
                 // CPython 3.12: Setup __module__ attribute in class body
                 // This is equivalent to: __module__ = __name__
+                _currentLineNumber = -1;
                 EmitLoadName("__name__");  // Load current module name
                 EmitStoreName("__module__");  // Store as __module__ in class dict
 
@@ -5829,6 +5567,7 @@ namespace SharpPy
                     CompileStatement(body[i]);
                 }
                 
+                _currentLineNumber = -1;
                 // CPython 3.12: If __class__ cell variable exists, store __classcell__ for __build_class__
                 if (_cellVars.Contains("__class__"))
                 {
@@ -6829,342 +6568,11 @@ namespace SharpPy
                 return;
             }
 
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileTryStatementCFG: Using InstructionSequence with SETUP_FINALLY (CPython 3.12 CFG path)");
-#endif
-            _cfgPathCount++;
-
-            var hasExceptHandlers = tryStmt.Handlers != null && tryStmt.Handlers.Count > 0;
-            var hasElse = tryStmt.OrElse != null && tryStmt.OrElse.Count > 0;
-            var hasFinally = tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0;
-
-            // CPython pattern: Create labels
-            var exceptLabel = _instructionSequence.NewLabel();
-            var endLabel = _instructionSequence.NewLabel();
-            var cleanupLabel = _instructionSequence.NewLabel();
-            var finallyLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
-            var finallyExceptLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
-            var finallyExceptCleanupLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
-
-            // 1. SETUP_FINALLY - marks try block start, pushes exception handler to stack
-            // CPython compile.c:3249 - If finally exists, exception jumps to finally path (end label)
-            // CPython compile.c:3269 - USE_LABEL(end) is where finally exception handler starts
-            var exceptionTarget = hasFinally ? finallyExceptLabel : exceptLabel;
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptionTarget, _currentLineNumber);
-            // Push exception handler to compiler stack (CPython: compiler->u->u_except_stack)
-            _exceptionHandlerStack.Push(exceptionTarget);
-            #if DEBUG
-            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
-            #endif
-
-            // 1.5. Push FINALLY_TRY fblock if finally clause exists
-            // CPython compile.c:3239-3330 compiler_try_finally() pattern
-            // This enables break/continue/return to execute finally inline via UnwindFBlock
-            if (hasFinally)
-            {
-                var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-                // fb_block: continue target (not used for FINALLY_TRY)
-                // fb_exit: break target (not used for FINALLY_TRY)
-                // fb_datum: finalbody statements to execute inline during unwinding
-                PushFBlock(loc, FBlockType.FINALLY_TRY, finallyLabel, endLabel, tryStmt.FinalBody);
-            }
-
-            // 1.6. If both except handlers AND finally exist, add inner SETUP_FINALLY for except handlers
-            // CPython compile.c:3256-3257 pattern: compiler_try_except is called from within compiler_try_finally
-            // This creates nested SETUP_FINALLY instructions:
-            //   Outer: SETUP_FINALLY finallyExceptLabel (for try-finally)
-            //   Inner: SETUP_FINALLY exceptLabel (for try-except)  ← THIS ONE!
-            if (hasExceptHandlers && hasFinally)
-            {
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
-                _exceptionHandlerStack.Push(exceptLabel);
-                #if DEBUG
-                Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed inner except handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
-                #endif
-            }
-
-            if (hasExceptHandlers)
-                PushFBlock(new SourceLocation(_currentLineNumber, _currentColumnOffset),
-                    FBlockType.TRY_EXCEPT, exceptLabel, Label.NoLabel);
-
-            // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
-            foreach (var stmt in tryStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            if (hasExceptHandlers)
-                PopFBlock(FBlockType.TRY_EXCEPT, exceptLabel);
-
-            // NOTE: Don't pop FINALLY_TRY yet! Except handlers need to see it too.
-            // CPython: pop happens AFTER compiler_try_except returns (compile.c:3263)
-
-            // 3. POP_BLOCK - pop exception handler from stack (normal completion)
-            // CRITICAL: POP_BLOCK is a pseudo-instruction, removed by flowgraph
-            // But we still need to track it for exception handler stack management
-            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
-            // Pop exception handler from compiler stack
-            _exceptionHandlerStack.Pop();
-            #if DEBUG
-            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped handler from stack. Stack count = {_exceptionHandlerStack.Count}");
-            #endif
-
-            // 3.5. If inner except handler exists, pop it too
-            if (hasExceptHandlers && hasFinally)
-            {
-                _exceptionHandlerStack.Pop();
-                #if DEBUG
-                Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped inner except handler from stack. Stack count = {_exceptionHandlerStack.Count}");
-                #endif
-            }
-
-            // 4. Else clause (only runs if no exception)
-            if (hasElse)
-            {
-                foreach (var stmt in tryStmt.OrElse)
-                {
-                    CompileStatement(stmt);
-                }
-            }
-
-            // A return in the final conditional branch does not terminate every path.
-            // Always emit the skip; CFG reachability removes it after an unconditional return.
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP,
-                hasFinally ? finallyLabel : endLabel, _currentLineNumber);
-
-            // Exception labels precede setup pseudo-instructions so all incoming
-            // edges establish the handler's cleanup scope.
-            if (hasExceptHandlers)
-            {
-                // CPython pattern (Python/compile.c:3394-3397):
-                //   USE_LABEL(c, except);
-                //   ADDOP_JUMP(c, NO_LOCATION, SETUP_CLEANUP, cleanup);
-                //   ADDOP(c, NO_LOCATION, PUSH_EXC_INFO);
-                // The except label is placed BEFORE SETUP_CLEANUP pseudo-instruction.
-                // When flowgraph removes SETUP_CLEANUP, the label automatically points to PUSH_EXC_INFO.
-                _instructionSequence.UseLabel(exceptLabel);
-
-                // SETUP_CLEANUP protects the exception handlers themselves
-                // Restore exception state before propagating to any enclosing finally.
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
-
-                // Push exception info to start exception handling
-                _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
-
-                // 7. Compile each except handler
-                for (int i = 0; i < tryStmt.Handlers.Count; i++)
-                {
-                    var handler = tryStmt.Handlers[i];
-                    var nextExceptLabel = _instructionSequence.NewLabel();
-
-                    if (handler.Type != null)
-                    {
-                        // Load exception type and check match
-                        CompileExpression(handler.Type);
-                        _instructionSequence.AddOp(ByteCodeOp.CHECK_EXC_MATCH, _currentLineNumber);
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextExceptLabel, _currentLineNumber);
-                    }
-
-                    // CPython pattern: Handle exception variable binding
-                    // CPython compile.c:3417-3468
-                    if (string.IsNullOrEmpty(handler.Name))
-                    {
-                        // No variable binding: just POP_TOP
-                        _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
-
-                        // CPython 3.12: Push HANDLER_CLEANUP fblock so break/continue/return emit POP_EXCEPT
-                        // CPython compile.c:3475-3480
-                        var handlerBodyLabel = _instructionSequence.NewLabel();
-                        PushFBlock(
-                            new SourceLocation(_currentLineNumber, _currentColumnOffset),
-                            FBlockType.HANDLER_CLEANUP,
-                            handlerBodyLabel,
-                            Label.NoLabel,
-                            null  // No exception variable
-                        );
-
-                        // Handler body
-                        foreach (var stmt in handler.Body)
-                        {
-                            CompileStatement(stmt);
-                        }
-
-                        // CPython 3.12: Pop HANDLER_CLEANUP fblock
-                        PopFBlock(FBlockType.HANDLER_CLEANUP, handlerBodyLabel);
-
-                        // Clean exit: POP_BLOCK + POP_EXCEPT + JUMP
-                        _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
-                        _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-
-                        if (hasFinally)
-                        {
-                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
-                        }
-                        else
-                        {
-                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
-                        }
-                    }
-                    else
-                    {
-                        // Variable binding: CPython wraps handler body in nested try-finally
-                        // CPython compile.c:3424-3433 pattern:
-                        //   except type as name:
-                        //       try:
-                        //           # body
-                        //       finally:
-                        //           name = None
-                        //           del name
-
-                        var cleanupEndLabel = _instructionSequence.NewLabel();
-                        var cleanupBodyLabel = _instructionSequence.NewLabel();
-
-                        // Store exception to variable
-                        EmitStoreName(handler.Name);
-
-                        // Inner SETUP_CLEANUP for exception variable cleanup
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupEndLabel, _currentLineNumber);
-
-                        _instructionSequence.UseLabel(cleanupBodyLabel);
-
-                        // CPython 3.12: Push HANDLER_CLEANUP fblock so break/continue/return emit POP_EXCEPT
-                        // CPython compile.c:3439-3445
-                        PushFBlock(
-                            new SourceLocation(_currentLineNumber, _currentColumnOffset),
-                            FBlockType.HANDLER_CLEANUP,
-                            cleanupBodyLabel,
-                            Label.NoLabel,
-                            handler.Name  // Exception variable name for cleanup
-                        );
-
-                        // Handler body
-                        foreach (var stmt in handler.Body)
-                        {
-                            CompileStatement(stmt);
-                        }
-
-                        // CPython 3.12: Pop HANDLER_CLEANUP fblock
-                        PopFBlock(FBlockType.HANDLER_CLEANUP, cleanupBodyLabel);
-
-                        // Normal path cleanup (CPython compile.c:3447-3455)
-                        _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);  // Inner SETUP_CLEANUP
-                        _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);  // Outer SETUP_CLEANUP
-                        _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-
-                        // Exception variable cleanup: name = None; del name
-                        EmitLoadConst(PyNone.Instance);
-                        EmitStoreName(handler.Name);
-                        EmitDeleteName(handler.Name);
-
-                        if (hasFinally)
-                        {
-                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
-                        }
-                        else
-                        {
-                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
-                        }
-
-                        // Exception path cleanup (CPython compile.c:3458-3467)
-                        _instructionSequence.UseLabel(cleanupEndLabel);
-
-                        // Exception variable cleanup: name = None; del name
-                        EmitLoadConst(PyNone.Instance);
-                        EmitStoreName(handler.Name);
-                        EmitDeleteName(handler.Name);
-
-                        _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
-                    }
-
-                    // Next exception handler label
-                    _instructionSequence.UseLabel(nextExceptLabel);
-                }
-
-                // Reraise if no handler matched
-                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
-
-                // CPython pattern: POP_BLOCK MUST come before cleanup label
-                // This ends the SETUP_CLEANUP scope so cleanup code is NOT protected
-                _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
-
-                // 8. Cleanup handler (CPython pattern for exception propagation)
-                // This block is reached when an exception occurs in the except handlers
-                // IMPORTANT: This code is NOT protected by any exception handler (POP_BLOCK above)
-                _instructionSequence.UseLabel(cleanupLabel);
-                _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
-                _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
-            }
+            // compiler_try
+            if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
+                CompileTryFinally(tryStmt);
             else
-            {
-                // No except handlers, but exceptLabel was still created
-                // We need to place it here for the case where there's only finally (or cleanup)
-                // CPython: In this case, exceptLabel is not used at all
-                // SharpPy: We still need to UseLabel to avoid label reference errors
-                _instructionSequence.UseLabel(exceptLabel);
-            }
-
-            // 9. Finally block (normal path) - offset 18 in CPython disassembly
-            if (hasFinally)
-            {
-                // The protected try/except scope ends before either finally copy.
-                PopFBlock(FBlockType.FINALLY_TRY, finallyLabel);
-                _instructionSequence.UseLabel(finallyLabel);
-                if (hasExceptHandlers)
-                    _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
-
-                // Compile finally block (normal execution path)
-                foreach (var stmt in tryStmt.FinalBody)
-                {
-                    CompileStatement(stmt);
-                }
-
-                // Jump to actual end
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
-
-                // 10. Finally block (exception path) - offset 120 in CPython disassembly
-                // This executes when an exception occurs in except handler
-                // Establish the cleanup scope on entry to the exceptional finally path.
-                // SETUP_CLEANUP to protect finally block itself
-                _instructionSequence.UseLabel(finallyExceptLabel);
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, finallyExceptCleanupLabel, _currentLineNumber);
-
-                // PUSH_EXC_INFO to save exception state
-                _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
-
-                PushFBlock(new SourceLocation(_currentLineNumber, _currentColumnOffset),
-                    FBlockType.FINALLY_END, finallyExceptLabel, Label.NoLabel);
-
-                // Compile finally block again (exception execution path)
-                foreach (var stmt in tryStmt.FinalBody)
-                {
-                    CompileStatement(stmt);
-                }
-
-                PopFBlock(FBlockType.FINALLY_END, finallyExceptLabel);
-
-                // RERAISE the exception after finally completes
-                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
-
-                // Finally exception cleanup handler
-                _instructionSequence.UseLabel(finallyExceptCleanupLabel);
-                _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
-                _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
-            }
-
-            // 11. End label
-            // CRITICAL: Add NOP after endLabel to prevent EndsWithTerminator() from considering
-            // the try-except cleanup handler (ending with RERAISE) as the end of enclosing try body.
-            // This ensures that if try-except is the last statement in a parent try block,
-            // the parent try compiler will emit JUMP to skip its except handlers.
-            // Same pattern as CompileWithStatement (Python/compile.c:6063)
-            _instructionSequence.UseLabel(endLabel);
-            _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
-
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"✅ [CFG] CompileTryStatementCFG: Complete (SETUP_FINALLY pattern)");
-#endif
+                CompileTryExcept(tryStmt);
         }
 
         /// <summary>
@@ -7472,161 +6880,7 @@ namespace SharpPy
 #endif
         }
 
-        private void CompileWith(WithStatement withStmt)
-        {
-            // CPython 3.12: Always use InstructionSequence/CFG path
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileWith: Using InstructionSequence (CPython 3.12 CFG path)");
-#endif
-            _cfgPathCount++;
-            CompileWithCFG(withStmt);
-        }
-
-        /// <summary>
-        /// CPython 3.12 CFG: Compile with statement using InstructionSequence
-        /// Supports both single and multiple context managers
-        /// </summary>
-        private void CompileWithCFG(WithStatement withStmt)
-        {
-            if (withStmt.Items.Count == 0)
-            {
-                throw PySyntaxError.Create("with statement requires at least one context manager");
-            }
-
-            if (withStmt.Items.Count == 1)
-            {
-                // Single context manager
-                CompileSingleWithCFG(withStmt);
-            }
-            else
-            {
-                // Multiple context managers - transform to nested with statements
-                CompileMultipleWithCFG(withStmt);
-            }
-        }
-
-        /// <summary>
-        /// CPython 3.12 CFG: Compile single context manager
-        /// Uses InstructionSequence labels and exception handler fblocks
-        /// </summary>
-        private void CompileSingleWithCFG(WithStatement withStmt)
-        {
-            var item = withStmt.Items[0];
-
-            // CPython 3.12 pattern with proper exception handling (compile.c:6004-6063):
-            // 1. Load context manager
-            CompileExpression(item.ContextExpr);
-
-            // 2. BEFORE_WITH: Load __exit__ to stack, call __enter__(), push result
-            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            EmitInstruction(ByteCodeOp.BEFORE_WITH);
-
-            // 3. SETUP_WITH: Setup exception handler (CPython compile.c:6020)
-            // CRITICAL: This is what enables exception handling in with statement!
-            var withCleanupLabel = _instructionSequence.NewLabel();
-            var endLabel = _instructionSequence.NewLabel();
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_WITH, withCleanupLabel, _currentLineNumber);
-
-            // 4. Push WITH fblock (CPython compile.c:6024)
-            var blockLabel = _instructionSequence.NewLabel();
-            _instructionSequence.UseLabel(blockLabel);
-            PushFBlock(loc, FBlockType.WITH, blockLabel, withCleanupLabel, withStmt);
-
-            // 5. CPython 3.12: Handle __enter__ result immediately after SETUP_WITH
-            if (item.OptionalVars != null)
-            {
-                // Use proper assignment target compilation for correct scoping
-                CompileAssignmentTarget(item.OptionalVars);
-            }
-            else
-            {
-                // Discard __enter__ result if no 'as' clause
-                EmitInstruction(ByteCodeOp.POP_TOP);
-            }
-
-            // 6. Execute body (all instructions will be marked with exception handler)
-            foreach (var stmt in withStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            // 7. Pop exception handler (CPython compile.c:6043)
-            EmitInstruction(ByteCodeOp.POP_BLOCK);
-
-            // 8. Pop WITH fblock (body complete - CPython compile.c:6044)
-            PopFBlock(FBlockType.WITH, blockLabel);
-
-            // 9. Normal exit: call __exit__(None, None, None) (CPython compile.c:6051-6052)
-            EmitLoadConst(PyNone.Instance);
-            EmitLoadConst(PyNone.Instance);
-            EmitLoadConst(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.CALL, 2);  // __exit__(exc_type, exc_val, exc_tb)
-            EmitInstruction(ByteCodeOp.POP_TOP);  // discard __exit__ return value
-
-            // Jump to end (CPython compile.c:6053)
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                endLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // 10. Exception handler (CPython compile.c:6056-6061)
-            _instructionSequence.UseLabel(withCleanupLabel);
-
-            // Setup cleanup for nested exceptions (CPython compile.c:6058)
-            var cleanupLabel = _instructionSequence.NewLabel();
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
-
-            // Push exception info and call __exit__ with exception (CPython compile.c:6059-6060)
-            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
-            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
-
-            // Check if exception was suppressed (CPython compile.c:6061 - compiler_with_except_finish)
-            var suppressLabel = _instructionSequence.NewLabel();
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.POP_JUMP_IF_TRUE,
-                suppressLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // Re-raise exception if not suppressed
-            EmitInstruction(ByteCodeOp.RERAISE, 2);
-
-            // Exception suppressed - continue normally (CPython compile.c:5860-5867)
-            _instructionSequence.UseLabel(suppressLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove exc_value
-            EmitInstruction(ByteCodeOp.POP_EXCEPT);  // Remove exception info
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove lasti
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove exit_func
-
-            // Jump to end label to skip cleanup handler (CPython compile.c:5867)
-            _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP,
-                endLabel,
-                _currentLineNumber,
-                _currentColumnOffset,
-                _currentFileName
-            );
-
-            // Cleanup handler for nested exceptions (CPython compile.c:5869-5870)
-            _instructionSequence.UseLabel(cleanupLabel);
-            EmitInstruction(ByteCodeOp.COPY, 3);
-            EmitInstruction(ByteCodeOp.POP_EXCEPT);
-            EmitInstruction(ByteCodeOp.RERAISE, 1);
-
-            // Mark end label
-            // CPython 3.12: Python/compile.c:6063 - USE_LABEL(c, exit)
-            // CRITICAL: Add NOP after endLabel to prevent EndsWithTerminator() from considering
-            // the with exception handler (ending with RERAISE) as the end of enclosing try body.
-            // This ensures that if with is the last statement in a try block, the try compiler
-            // will emit JUMP to skip except handlers (Python/compile.c:3249-3330).
-            _instructionSequence.UseLabel(endLabel);
-            EmitInstruction(ByteCodeOp.NOP);
-        }
+        private void CompileWith(WithStatement withStmt) => CompilerWith(withStmt, 0);
 
         /// <summary>
         /// CPython 3.12: async with statement compilation (Python/compile.c:5901-5979)
@@ -7823,57 +7077,6 @@ namespace SharpPy
 
             // Compile the transformed outer async with statement
             CompileSingleAsyncWith(outerAsyncWith);
-        }
-
-        /// <summary>
-        /// CPython 3.12 CFG: Compile multiple context managers
-        /// Transform to nested with statements recursively
-        /// with a, b, c: body -> with a: (with b: (with c: body))
-        /// </summary>
-        private void CompileMultipleWithCFG(WithStatement withStmt)
-        {
-            if (withStmt.Items.Count < 2)
-            {
-                throw new InvalidOperationException("CompileMultipleWithCFG requires at least 2 context managers");
-            }
-
-            // Take the first context manager
-            var outerItem = withStmt.Items[0];
-
-            // Create inner with statement with remaining context managers
-            // Performance: Eliminated LINQ
-            var remainingItems = new List<WithItem>();
-            for (int i = 1; i < withStmt.Items.Count; i++)
-            {
-                remainingItems.Add(withStmt.Items[i]);
-            }
-            WithStatement innerWith;
-
-            if (remainingItems.Count == 1)
-            {
-                // Base case: create simple with statement for the last context manager
-                innerWith = new WithStatement(
-                    items: remainingItems,
-                    body: withStmt.Body
-                );
-            }
-            else
-            {
-                // Recursive case: create nested with statement
-                innerWith = new WithStatement(
-                    items: remainingItems,
-                    body: withStmt.Body
-                );
-            }
-
-            // Create outer with statement with first context manager and nested inner with as body
-            var outerWith = new WithStatement(
-                items: new List<WithItem> { outerItem },
-                body: new List<Statement> { innerWith }
-            );
-
-            // Compile the transformed outer with statement
-            CompileSingleWithCFG(outerWith);
         }
 
         // CPython 3.12: CompileSingleWith and CompileMultipleWith removed
@@ -10885,6 +10088,450 @@ namespace SharpPy
             _currentLineNumber = line;
         }
 
+        // compiler_call
+        private void CompileCall(CallExpression call)
+        {
+            if (MaybeOptimizeMethodCall(call))
+                return;
+            UpdateSourceLocation(call.Function);
+            EmitInstruction(ByteCodeOp.PUSH_NULL);
+            CompileExpression(call.Function);
+            UpdateSourceLocation(call);
+            CompilerCallHelper(0, call.Arguments, call.Keywords);
+        }
+
+        // maybe_optimize_method_call
+        private bool MaybeOptimizeMethodCall(CallExpression call)
+        {
+            if (call.Function is not AttributeExpression method || IsImportOriginated(method.Value))
+                return false;
+            int keywords = call.Keywords.Count;
+            if (call.Arguments.Count + keywords + (keywords != 0 ? 1 : 0) >= StackUseGuideline)
+                return false;
+            foreach (var argument in call.Arguments)
+                if (argument is StarredExpression)
+                    return false;
+            foreach (var keyword in call.Keywords)
+                if (keyword.Arg == null)
+                    return false;
+
+            UpdateSourceLocation(method);
+            if (CanOptimizeSuperCall(method))
+            {
+                LoadArgsForSuper((CallExpression)method.Value);
+                EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, (GetOrAddName(method.Attr) << 1) | 1);
+                MatchLocationToAttribute(method);
+                EmitInstruction(ByteCodeOp.NOP);
+            }
+            else
+            {
+                CompileExpression(method.Value);
+                MatchLocationToAttribute(method);
+                EmitLoadAttr(method.Attr, pushNull: true);
+            }
+            foreach (var argument in call.Arguments)
+                CompileExpression(argument);
+            UpdateSourceLocation(call);
+            if (keywords > 0)
+            {
+                foreach (var keyword in call.Keywords)
+                    CompileExpression(keyword.Value);
+                EmitKeywordNames(call.Keywords);
+            }
+            EmitInstruction(ByteCodeOp.CALL, call.Arguments.Count + keywords);
+            return true;
+        }
+
+        // update_start_location_to_match_attr
+        private void MatchLocationToAttribute(AttributeExpression attribute)
+        {
+            if (attribute.EndLineNo is int line && line > 0 && line != _currentLineNumber)
+                _currentLineNumber = line;
+        }
+
+        // compiler_call_simple_kw_helper
+        private void EmitKeywordNames(List<KeywordExpression> keywords)
+        {
+            var names = new PyObject[keywords.Count];
+            for (int i = 0; i < names.Length; i++)
+                names[i] = new PyString(keywords[i].Arg);
+            EmitInstruction(ByteCodeOp.KW_NAMES, GetOrAddConstant(new PyTuple(names)));
+        }
+
+        // can_optimize_super_call
+        private bool CanOptimizeSuperCall(AttributeExpression attribute)
+        {
+            if (attribute.Value is not CallExpression { Function: NameExpression { Name: "super" } } call ||
+                attribute.Attr == "__class__" || call.Keywords.Count != 0 || _currentSymbolTable == null)
+                return false;
+            // detect statically-visible shadowing of 'super' name
+            var symbol = _currentSymbolTable.Lookup("super");
+            if (symbol != null && (symbol.Scope is SymbolScope.Local or SymbolScope.Cell or SymbolScope.Free || symbol.IsAssigned()))
+                return false;
+            var top = _currentSymbolTable;
+            while (top.GetParent() != null)
+                top = top.GetParent();
+            if (top.Lookup("super") != null)
+                return false;
+            if (call.Arguments.Count == 2)
+                return call.Arguments[0] is not StarredExpression && call.Arguments[1] is not StarredExpression;
+            if (call.Arguments.Count != 0)
+                return false;
+            // zero-arg super(): a first argument, and the __class__ cell
+            return _isInFunction && _positionalArgCount > 0 && _freeVars.Contains("__class__");
+        }
+
+        // load_args_for_super
+        private void LoadArgsForSuper(CallExpression call)
+        {
+            EmitLoadName("super");
+            if (call.Arguments.Count == 2)
+            {
+                CompileExpression(call.Arguments[0]);
+                CompileExpression(call.Arguments[1]);
+                return;
+            }
+            EmitLoadName("__class__");
+            EmitLoadName(_varNames[0]);
+        }
+
+        // compiler_subkwargs
+        private void CompilerSubkwargs(List<KeywordExpression> keywords, int begin, int end)
+        {
+            int n = end - begin;
+            bool big = n * 2 > StackUseGuideline;
+            if (n > 1 && !big)
+            {
+                var keys = new PyObject[n];
+                for (int i = begin; i < end; i++)
+                {
+                    CompileExpression(keywords[i].Value);
+                    keys[i - begin] = new PyString(keywords[i].Arg);
+                }
+                EmitNoLocation(ByteCodeOp.LOAD_CONST, GetOrAddConstant(new PyTuple(keys)));
+                EmitInstruction(ByteCodeOp.BUILD_CONST_KEY_MAP, n);
+                return;
+            }
+            if (big)
+                EmitNoLocation(ByteCodeOp.BUILD_MAP, 0);
+            for (int i = begin; i < end; i++)
+            {
+                EmitLoadConst(new PyString(keywords[i].Arg));
+                CompileExpression(keywords[i].Value);
+                if (big)
+                    EmitNoLocation(ByteCodeOp.MAP_ADD, 1);
+            }
+            if (!big)
+                EmitInstruction(ByteCodeOp.BUILD_MAP, n);
+        }
+
+        // compiler_call_helper
+        private void CompilerCallHelper(int n, List<Expression> args, List<KeywordExpression> keywords)
+        {
+            int nelts = args.Count;
+            int nkwelts = keywords.Count;
+            bool exCall = nelts + nkwelts * 2 > StackUseGuideline;
+            foreach (var arg in args)
+                exCall |= arg is StarredExpression;
+            foreach (var keyword in keywords)
+                exCall |= keyword.Arg == null;
+
+            if (!exCall)
+            {
+                foreach (var arg in args)
+                    CompileExpression(arg);
+                if (nkwelts > 0)
+                {
+                    foreach (var keyword in keywords)
+                        CompileExpression(keyword.Value);
+                    EmitKeywordNames(keywords);
+                }
+                EmitInstruction(ByteCodeOp.CALL, n + nelts + nkwelts);
+                return;
+            }
+
+            // Do positional arguments.
+            if (n == 0 && nelts == 1 && args[0] is StarredExpression only)
+                CompileExpression(only.Value);
+            else
+                StarunpackHelper(args, n, ByteCodeOp.BUILD_LIST, ByteCodeOp.LIST_APPEND, ByteCodeOp.LIST_EXTEND, true);
+
+            // Then keyword arguments
+            if (nkwelts > 0)
+            {
+                bool haveDict = false;
+                int nseen = 0;
+                for (int i = 0; i < nkwelts; i++)
+                {
+                    if (keywords[i].Arg == null)
+                    {
+                        // A keyword argument unpacking.
+                        if (nseen > 0)
+                        {
+                            CompilerSubkwargs(keywords, i - nseen, i);
+                            if (haveDict)
+                                EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                            haveDict = true;
+                            nseen = 0;
+                        }
+                        if (!haveDict)
+                        {
+                            EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+                            haveDict = true;
+                        }
+                        CompileExpression(keywords[i].Value);
+                        EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                    }
+                    else
+                    {
+                        nseen++;
+                    }
+                }
+                if (nseen > 0)
+                {
+                    // Pack up any trailing keyword arguments.
+                    CompilerSubkwargs(keywords, nkwelts - nseen, nkwelts);
+                    if (haveDict)
+                        EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                }
+            }
+            EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, nkwelts > 0 ? 1 : 0);
+        }
+
+        private void SetupNoLocation(ByteCodeOp op, SharpPy.Label target)
+        {
+            _instructionSequence.AddOpWithLabel(op, target, -1, _currentColumnOffset, _currentFileName);
+        }
+
+        private void EmitPopExceptAndReraise()
+        {
+            EmitNoLocation(ByteCodeOp.COPY, 3);
+            EmitNoLocation(ByteCodeOp.POP_EXCEPT);
+            EmitNoLocation(ByteCodeOp.RERAISE, 1);
+        }
+
+        private void EmitNameCleanupNoLocation(string name)
+        {
+            int line = _currentLineNumber;
+            _currentLineNumber = -1;
+            EmitLoadConst(PyNone.Instance);
+            EmitStoreName(name);
+            EmitDeleteName(name);
+            _currentLineNumber = line;
+        }
+
+        // compiler_try_finally
+        private void CompileTryFinally(TryStatement s)
+        {
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            var body = _instructionSequence.NewLabel();
+            var end = _instructionSequence.NewLabel();
+            var exit = _instructionSequence.NewLabel();
+            var cleanup = _instructionSequence.NewLabel();
+
+            // `try` block
+            EmitJump(ByteCodeOp.SETUP_FINALLY, end);
+            _instructionSequence.UseLabel(body);
+            PushFBlock(loc, FBlockType.FINALLY_TRY, body, end, s.FinalBody);
+            if (s.Handlers != null && s.Handlers.Count > 0)
+            {
+                CompileTryExcept(s);
+            }
+            else
+            {
+                foreach (var statement in s.Body)
+                    CompileStatement(statement);
+            }
+            EmitNoLocation(ByteCodeOp.POP_BLOCK);
+            PopFBlock(FBlockType.FINALLY_TRY, body);
+            foreach (var statement in s.FinalBody!)
+                CompileStatement(statement);
+            EmitJumpNoLocation(exit);
+
+            // `finally` block
+            _instructionSequence.UseLabel(end);
+            SetupNoLocation(ByteCodeOp.SETUP_CLEANUP, cleanup);
+            EmitNoLocation(ByteCodeOp.PUSH_EXC_INFO);
+            PushFBlock(SourceLocation.NoLocation, FBlockType.FINALLY_END, end, Label.NoLabel, null);
+            foreach (var statement in s.FinalBody!)
+                CompileStatement(statement);
+            PopFBlock(FBlockType.FINALLY_END, end);
+            EmitNoLocation(ByteCodeOp.RERAISE, 0);
+
+            _instructionSequence.UseLabel(cleanup);
+            EmitPopExceptAndReraise();
+
+            _instructionSequence.UseLabel(exit);
+        }
+
+        // compiler_try_except
+        private void CompileTryExcept(TryStatement s)
+        {
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            var body = _instructionSequence.NewLabel();
+            var except = _instructionSequence.NewLabel();
+            var end = _instructionSequence.NewLabel();
+            var cleanup = _instructionSequence.NewLabel();
+
+            EmitJump(ByteCodeOp.SETUP_FINALLY, except);
+            _instructionSequence.UseLabel(body);
+            PushFBlock(loc, FBlockType.TRY_EXCEPT, body, Label.NoLabel, null);
+            foreach (var statement in s.Body)
+                CompileStatement(statement);
+            PopFBlock(FBlockType.TRY_EXCEPT, body);
+            EmitNoLocation(ByteCodeOp.POP_BLOCK);
+            if (s.OrElse != null)
+                foreach (var statement in s.OrElse)
+                    CompileStatement(statement);
+            EmitJumpNoLocation(end);
+
+            _instructionSequence.UseLabel(except);
+            SetupNoLocation(ByteCodeOp.SETUP_CLEANUP, cleanup);
+            EmitNoLocation(ByteCodeOp.PUSH_EXC_INFO);
+
+            // Runtime will push a block here, so we need to account for that
+            PushFBlock(loc, FBlockType.EXCEPTION_HANDLER, Label.NoLabel, Label.NoLabel, null);
+
+            int n = s.Handlers.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var handler = s.Handlers[i];
+                UpdateSourceLocation(handler);
+                var handlerLoc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+                if (handler.Type == null && i < n - 1)
+                    throw new SyntaxErrorException("default 'except:' must be last", _currentFileName, handler.LineNo, handler.ColOffset);
+                var nextExcept = _instructionSequence.NewLabel();
+                if (handler.Type != null)
+                {
+                    CompileExpression(handler.Type);
+                    EmitInstruction(ByteCodeOp.CHECK_EXC_MATCH);
+                    EmitJump(ByteCodeOp.POP_JUMP_IF_FALSE, nextExcept);
+                }
+                if (!string.IsNullOrEmpty(handler.Name))
+                {
+                    var cleanupEnd = _instructionSequence.NewLabel();
+                    var cleanupBody = _instructionSequence.NewLabel();
+
+                    EmitStoreName(handler.Name);
+
+                    // second try:
+                    EmitJump(ByteCodeOp.SETUP_CLEANUP, cleanupEnd);
+                    _instructionSequence.UseLabel(cleanupBody);
+                    PushFBlock(handlerLoc, FBlockType.HANDLER_CLEANUP, cleanupBody, Label.NoLabel, handler.Name);
+
+                    // second # body
+                    foreach (var statement in handler.Body)
+                        CompileStatement(statement);
+                    PopFBlock(FBlockType.HANDLER_CLEANUP, cleanupBody);
+                    // name = None; del name; # Mark as artificial
+                    EmitNoLocation(ByteCodeOp.POP_BLOCK);
+                    EmitNoLocation(ByteCodeOp.POP_BLOCK);
+                    EmitNoLocation(ByteCodeOp.POP_EXCEPT);
+                    EmitNameCleanupNoLocation(handler.Name);
+                    EmitJumpNoLocation(end);
+
+                    // except:
+                    _instructionSequence.UseLabel(cleanupEnd);
+                    // name = None; del name; # artificial
+                    EmitNameCleanupNoLocation(handler.Name);
+                    EmitNoLocation(ByteCodeOp.RERAISE, 1);
+                }
+                else
+                {
+                    var cleanupBody = _instructionSequence.NewLabel();
+                    EmitInstruction(ByteCodeOp.POP_TOP); // exc_value
+                    _instructionSequence.UseLabel(cleanupBody);
+                    PushFBlock(handlerLoc, FBlockType.HANDLER_CLEANUP, cleanupBody, Label.NoLabel, null);
+                    foreach (var statement in handler.Body)
+                        CompileStatement(statement);
+                    PopFBlock(FBlockType.HANDLER_CLEANUP, cleanupBody);
+                    EmitNoLocation(ByteCodeOp.POP_BLOCK);
+                    EmitNoLocation(ByteCodeOp.POP_EXCEPT);
+                    EmitJumpNoLocation(end);
+                }
+                _instructionSequence.UseLabel(nextExcept);
+            }
+            // artificial
+            PopFBlock(FBlockType.EXCEPTION_HANDLER, Label.NoLabel);
+            EmitNoLocation(ByteCodeOp.RERAISE, 0);
+
+            _instructionSequence.UseLabel(cleanup);
+            EmitPopExceptAndReraise();
+
+            _instructionSequence.UseLabel(end);
+        }
+
+        // compiler_with
+        private void CompilerWith(WithStatement s, int pos)
+        {
+            var item = s.Items[pos];
+            var block = _instructionSequence.NewLabel();
+            var final = _instructionSequence.NewLabel();
+            var exit = _instructionSequence.NewLabel();
+            var cleanup = _instructionSequence.NewLabel();
+
+            CompileExpression(item.ContextExpr);
+
+            // Will push bound __exit__
+            UpdateSourceLocation(s);
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            EmitInstruction(ByteCodeOp.BEFORE_WITH);
+            EmitJump(ByteCodeOp.SETUP_WITH, final);
+
+            // SETUP_WITH pushes a finally block.
+            _instructionSequence.UseLabel(block);
+            PushFBlock(loc, FBlockType.WITH, block, final, s);
+
+            if (item.OptionalVars != null)
+                CompileAssignmentTarget(item.OptionalVars);
+            else
+                EmitInstruction(ByteCodeOp.POP_TOP); // Discard result from context.__enter__()
+
+            pos++;
+            if (pos == s.Items.Count)
+            {
+                foreach (var statement in s.Body)
+                    CompileStatement(statement);
+            }
+            else
+            {
+                CompilerWith(s, pos);
+            }
+
+            EmitNoLocation(ByteCodeOp.POP_BLOCK);
+            PopFBlock(FBlockType.WITH, block);
+
+            // For successful outcome: call __exit__(None, None, None)
+            UpdateSourceLocation(s);
+            CompilerCallExitWithNones(loc);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+            EmitJump(ByteCodeOp.JUMP, exit);
+
+            // For exceptional outcome:
+            _instructionSequence.UseLabel(final);
+            SetupNoLocation(ByteCodeOp.SETUP_CLEANUP, cleanup);
+            EmitNoLocation(ByteCodeOp.PUSH_EXC_INFO);
+            EmitNoLocation(ByteCodeOp.WITH_EXCEPT_START);
+
+            // compiler_with_except_finish
+            var suppress = _instructionSequence.NewLabel();
+            SetupNoLocation(ByteCodeOp.POP_JUMP_IF_TRUE, suppress);
+            EmitNoLocation(ByteCodeOp.RERAISE, 2);
+            _instructionSequence.UseLabel(suppress);
+            EmitNoLocation(ByteCodeOp.POP_TOP); // exc_value
+            EmitNoLocation(ByteCodeOp.POP_BLOCK);
+            EmitNoLocation(ByteCodeOp.POP_EXCEPT);
+            EmitNoLocation(ByteCodeOp.POP_TOP);
+            EmitNoLocation(ByteCodeOp.POP_TOP);
+            var finished = _instructionSequence.NewLabel();
+            EmitJumpNoLocation(finished);
+            _instructionSequence.UseLabel(cleanup);
+            EmitPopExceptAndReraise();
+            _instructionSequence.UseLabel(finished);
+
+            _instructionSequence.UseLabel(exit);
+        }
+
         private void EmitJump(ByteCodeOp op, SharpPy.Label target)
         {
             _instructionSequence.AddOpWithLabel(op, target, _currentLineNumber, _currentColumnOffset, _currentFileName);
@@ -10962,8 +10609,12 @@ namespace SharpPy
                 }
             }
 
+            // general implementation
             CompileExpression(e);
+            int line = _currentLineNumber;
+            UpdateSourceLocation(e);
             EmitJump(cond ? ByteCodeOp.POP_JUMP_IF_TRUE : ByteCodeOp.POP_JUMP_IF_FALSE, next);
+            _currentLineNumber = line;
         }
 
         // CPython 3.12 compile.c starunpack_helper
