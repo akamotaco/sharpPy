@@ -2214,3 +2214,12 @@ CPython 3.12는 `push_inlined_comprehension_state`에서 컴프리헨션마다 �
 - `(1).x`가 낸 `AttributeError`의 `name`과 `obj`가 `None`이다. CPython은 `set_attribute_error_context`가 한 곳에서 채운다.
 - `class E(OSError)`가 `__init__`을 덮어쓰고 `__new__`는 두면 CPython은 `args`를 비운다(`oserror_use_init`). SharpPy는 `__new__`의 인자를 남긴다.
 - `compile()`의 구문 오류는 `invalid syntax: ...` 형식이고 줄 번호가 없다.
+
+## P0-83 프로그램 비교에서 남은 차이 (측정 2026-11-01, 미해결)
+
+- 참조 카운팅 시점: `for x in gen(): break` 뒤 제너레이터의 `finally`, `del` 직후 weakref와 `gc` 수치는 CLR GC 시점에 따른다. 구조적 차이다.
+- 코덱: `euc-kr`, `namereplace` 없음.
+- 라이브러리: `sha3_*`, `blake2*`, `zlib.compressobj`, `ast`, `dis`, `tokenize` 없음. `inspect`는 소스와 바이트코드가 필요한 함수를 쓸 수 없다.
+- `class P(property)`의 `__get__`에서 `super().__get__`을 부르면 무한 재귀한다.
+- `enumerate`, `super`, `memoryview`는 아직 타입이 아니다. `exec`는 호출자의 `__future__` 플래그를 물려받지 않는다.
+- `run_in_executor`는 스레드 없이 루프에서 실행한다. asyncio에 소켓, 파이프, 서브프로세스는 없다.

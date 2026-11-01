@@ -1130,8 +1130,61 @@ namespace SharpPy
             return null;
         }
 
+        // from __future__ import annotations holds for the whole module, including every nested compiler.
+        [ThreadStatic] private static bool _futureAnnotations;
+
+        private static bool ImportsFutureAnnotations(List<Statement> statements)
+        {
+            foreach (var statement in statements)
+            {
+                if (statement is ExpressionStatement) continue; // the docstring
+                if (statement is not ImportFromStatement { Module: "__future__" } future) return false;
+                foreach (var alias in future.Names)
+                    if (alias.Name == "annotations") return true;
+            }
+            return false;
+        }
+
+        /// <summary>compiler_visit_annotations: under the future import an annotation is its text.</summary>
+        private void CompileAnnotation(Expression annotation)
+        {
+            if (_futureAnnotations) EmitLoadConst(new PyString(UnparseAnnotation(annotation)));
+            else CompileExpression(annotation);
+        }
+
+        // _PyAST_ExprAsUnicode for the forms an annotation is made of.
+        private static string UnparseAnnotation(Expression expression)
+        {
+            string Join(IEnumerable<Expression> items) => string.Join(", ", System.Linq.Enumerable.Select(items, UnparseAnnotation));
+            switch (expression)
+            {
+                case NameExpression name:
+                    return name.Name;
+                case AttributeExpression attribute:
+                    return $"{UnparseAnnotation(attribute.Value)}.{attribute.Attr}";
+                case SubscriptExpression subscript:
+                    string index = subscript.Slice is TupleExpression { Elements.Count: > 0 } tupleIndex
+                        ? Join(tupleIndex.Elements) : UnparseAnnotation(subscript.Slice);
+                    return $"{UnparseAnnotation(subscript.Value)}[{index}]";
+                case ConstantExpression constant:
+                    return constant.Value is PyEllipsis ? "..." : constant.Value.ToRepr().Value;
+                case TupleExpression tuple:
+                    return tuple.Elements.Count == 1 ? $"({UnparseAnnotation(tuple.Elements[0])},)" : $"({Join(tuple.Elements)})";
+                case ListExpression list:
+                    return $"[{Join(list.Elements)}]";
+                case BinOpExpression binary when binary.OpNode.OperatorType == "BitOr":
+                    return $"{UnparseAnnotation(binary.Left)} | {UnparseAnnotation(binary.Right)}";
+                case StarredExpression starred:
+                    return $"*{UnparseAnnotation(starred.Value)}";
+                default:
+                    return expression.ToString();
+            }
+        }
+
         public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null, CompileMode mode = CompileMode.File)
         {
+            if (name == "<module>" || name == "<string>") _futureAnnotations = ImportsFutureAnnotations(statements);
+
             // Clear all compilation state for new compilation
             // CPython 3.12: Each compilation starts with fresh state (compile.c:compiler_init)
             _constants.Clear();
@@ -1587,6 +1640,21 @@ namespace SharpPy
             Console.WriteLine($"  kwdefault expressions = [{string.Join(", ", kwDefaultExprs.Select(d => d?.ToString() ?? "None"))}]");
             Console.WriteLine($"  annotations = [{string.Join(", ", annotations.Select(kv => $"{kv.Key}: {kv.Value}"))}]");
             #endif
+
+            // compiler_visit_annotations: parameters, then *args, then keyword-only ones, then **kwargs.
+            var ordered = new Dictionary<string, Expression>();
+            var keywordOnly = new HashSet<string>();
+            foreach (var arg in arguments.KwOnlyArgs) keywordOnly.Add(arg.Name);
+            foreach (var entry in annotations)
+                if (!keywordOnly.Contains(entry.Key) && entry.Key != arguments.VarArg?.Name && entry.Key != arguments.KwArg?.Name)
+                    ordered[entry.Key] = entry.Value;
+            if (arguments.VarArg != null && annotations.TryGetValue(arguments.VarArg.Name, out var varArgAnnotation))
+                ordered[arguments.VarArg.Name] = varArgAnnotation;
+            foreach (var arg in arguments.KwOnlyArgs)
+                if (annotations.TryGetValue(arg.Name, out var keywordAnnotation)) ordered[arg.Name] = keywordAnnotation;
+            if (arguments.KwArg != null && annotations.TryGetValue(arguments.KwArg.Name, out var kwArgAnnotation))
+                ordered[arguments.KwArg.Name] = kwArgAnnotation;
+            annotations = ordered;
 
             return (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations);
         }
@@ -2227,7 +2295,7 @@ namespace SharpPy
             foreach (var annotation in annotations)
             {
                 EmitLoadConst(new PyString(annotation.Key));
-                CompileExpression(annotation.Value);
+                CompileAnnotation(annotation.Value);
             }
 
             EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
@@ -5600,7 +5668,7 @@ namespace SharpPy
                     // Simple name in module or class scope: store annotation
                     if (annAssign.Simple && InModuleOrClassScope)
                     {
-                        CompileExpression(annAssign.Annotation);
+                        CompileAnnotation(annAssign.Annotation);
                         EmitLoadName("__annotations__");
                         EmitLoadConst(new PyString(name.Name));
                         EmitInstruction(ByteCodeOp.STORE_SUBSCR);
@@ -5631,7 +5699,7 @@ namespace SharpPy
             // Annotation is evaluated last for non-simple targets in module/class scope
             if (!annAssign.Simple && InModuleOrClassScope)
             {
-                CompileExpression(annAssign.Annotation);
+                CompileAnnotation(annAssign.Annotation);
                 EmitInstruction(ByteCodeOp.POP_TOP);
             }
         }
@@ -5664,6 +5732,7 @@ namespace SharpPy
 
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments)
             var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
+            if (asyncFunc.ReturnAnnotation != null) annotations["return"] = asyncFunc.ReturnAnnotation;
 
             // 3. 코드 객체 컴파일 (async 함수 전용)
             var codeObject = CompileAsyncFunctionBody(asyncFunc, freeVars, cellVars);
@@ -5683,7 +5752,7 @@ namespace SharpPy
                 foreach (var annotation in annotations)
                 {
                     EmitLoadConst(new PyString(annotation.Key));   // parameter name
-                    CompileExpression(annotation.Value);            // CPython 3.12: Compile annotation expression
+                    CompileAnnotation(annotation.Value);            // CPython 3.12: Compile annotation expression
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
             }
