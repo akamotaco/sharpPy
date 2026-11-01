@@ -48,6 +48,7 @@ try:
     # The same small test.support on both sides, so both run the same tests.
     import support_stub
     support_stub.__name__ = "test.support"
+    support_stub.__path__ = [os.path.join(CPYTHON_LIB, "test", "support")]
     sys.modules["test.support"] = test.support = support_stub
     module = __import__("test." + name, fromlist=["*"])
     suite = unittest.defaultTestLoader.loadTestsFromModule(module)

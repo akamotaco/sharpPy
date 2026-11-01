@@ -80,6 +80,12 @@ def requires_IEEE_754(test):
     return test
 
 
+def requires_working_socket(*, module=False):
+    if module:
+        raise unittest.SkipTest("no sockets")
+    return unittest.skip("no sockets")
+
+
 def requires_docstrings(test):
     return unittest.skip("no docstrings")(test)
 

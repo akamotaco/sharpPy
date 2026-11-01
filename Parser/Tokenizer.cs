@@ -815,7 +815,8 @@ namespace SharpPy.Generated
 
             var number = _source.Substring(start, _position - start);
             ValidateNumber(number, startLine, startColumn);
-            VerifyEndOfNumber(number, startLine, startColumn);
+            // Inside an f-string a number may be the text of a nested format spec.
+            if (!_insideFString) VerifyEndOfNumber(number, startLine, startColumn);
             AddToken(PyToken.Type.NUMBER, number, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
@@ -934,6 +935,8 @@ namespace SharpPy.Generated
                 Advance(); // This handles line counting for multiline strings
             }
 
+            // The token goes on: the newlines inside it start no logical line.
+            _atLineStart = false;
             var str = _source.Substring(start, _position - start);
             AddToken(PyToken.Type.STRING, str, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
@@ -1090,7 +1093,7 @@ namespace SharpPy.Generated
             if (_position < _source.Length)
             {
                 char c = char.ToLower(CurrentChar);
-                if (c == 'r' || c == 'b' || c == 'f')
+                if (c == 'r' || c == 'b' || c == 'f' || c == 'u')
                 {
                     // Check if followed by quote or another prefix
                     if (_position + 1 < _source.Length)

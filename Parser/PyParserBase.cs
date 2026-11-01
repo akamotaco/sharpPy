@@ -934,13 +934,9 @@ namespace SharpPy.Generated
         /// </summary>
         protected GeneratedPtr ParseOptional(Func<GeneratedPtr> parser)
         {
-            int mark = Mark();
-            var result = parser();
-            if (result == null)
-            {
-                Reset(mark);
-            }
-            return result;
+            // A rule that fails puts the position back itself. A group that matched with an empty
+            // action, like [':' [expression] { d }], also answers null and keeps what it consumed.
+            return parser();
         }
 
         /// <summary>
