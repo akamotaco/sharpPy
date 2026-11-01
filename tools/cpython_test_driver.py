@@ -31,6 +31,7 @@ def fill_importlib():
     machinery.OPTIMIZED_BYTECODE_SUFFIXES = [".pyc"]
     machinery.EXTENSION_SUFFIXES = []
     machinery.all_suffixes = lambda: [".py", ".pyc"]
+    machinery.FileFinder = machinery.SourceFileLoader = machinery.ModuleSpec = object
     util = types.ModuleType("importlib.util")
     sys.modules["importlib.machinery"] = importlib.machinery = machinery
     sys.modules["importlib.util"] = importlib.util = util
@@ -50,6 +51,11 @@ try:
     support_stub.__name__ = "test.support"
     support_stub.__path__ = [os.path.join(CPYTHON_LIB, "test", "support")]
     sys.modules["test.support"] = test.support = support_stub
+    # A helper with no dependencies of its own is the real file.
+    testcase = support_stub.types.ModuleType("test.support.testcase")
+    with open(os.path.join(CPYTHON_LIB, "test", "support", "testcase.py"), encoding="utf-8") as source:
+        exec(source.read(), testcase.__dict__)
+    sys.modules["test.support.testcase"] = support_stub.testcase = testcase
     module = __import__("test." + name, fromlist=["*"])
     suite = unittest.defaultTestLoader.loadTestsFromModule(module)
 except BaseException as error:

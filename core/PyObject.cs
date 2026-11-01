@@ -1136,8 +1136,16 @@ namespace SharpPy
         }
 
         // CPython 3.12 호환: kwargs 지원 버전
+        /// <summary>Py_EnterRecursiveCall for native recursion: what no Python frame counts.</summary>
+        internal static void CheckNativeStack()
+        {
+            if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+                throw new PythonException(new PyRecursionError("maximum recursion depth exceeded"));
+        }
+
         public virtual PyObject Call(PyObject[] args, PyDict kwargs)
         {
+            CheckNativeStack();
             try
             {
                 var callMethod = GetAttribute("__call__");

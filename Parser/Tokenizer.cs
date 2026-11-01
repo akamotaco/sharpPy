@@ -1395,7 +1395,8 @@ namespace SharpPy.Generated
                 // CPython: c == ':' && cursor == current_tok->curly_bracket_expr_start_depth
                 // IMPORTANT: Also check _level to prevent ':' in subscripts (e.g., f"{lst[2:4]}")
                 // from being treated as format spec
-                if (c == ':' && _fstringBraceDepth == exprStartDepth && _level == exprStartLevel)
+                if (c == ':' && ((_fstringBraceDepth == exprStartDepth && _level == exprStartLevel) ||
+                    (_fstringSpecResume && _fstringBraceDepth == exprStartDepth + 1 && _level == exprStartLevel + 1)))
                 {
                     // Emit ':' as OP token
                     var colonType = PyToken.GetOpType(":", exactType: !_generateExtraTokens);
@@ -1407,7 +1408,7 @@ namespace SharpPy.Generated
                     _fstringInFormatSpec = true;
 
                     // Collect format spec content as FSTRING_MIDDLE
-                    HandleFStringFormatSpec(exprStartDepth);
+                    HandleFStringFormatSpec(_fstringBraceDepth);
 
                     // Format spec handler should return when it encounters '{' or '}'
                     // Continue with regular expression processing
@@ -1546,16 +1547,6 @@ namespace SharpPy.Generated
                 // CPython: if (c == '{') { if (peek != '{' || in_format_spec) { ... break ... } }
                 if (c == '{')
                 {
-                    // Check for {{ escape
-                    if (_position + 1 < _source.Length && _source[_position + 1] == '{')
-                    {
-                        // {{ is treated as literal '{' in format spec
-                        // But we still emit FSTRING_MIDDLE and return to let regular processing handle it
-                        // For now, advance to include the first '{'
-                        Advance();
-                        continue;
-                    }
-
                     // Single '{' starts a nested expression in format spec
                     // Emit collected format spec content as FSTRING_MIDDLE
                     if (_position > start)
@@ -1576,14 +1567,6 @@ namespace SharpPy.Generated
                 // CPython: if (c == '}') { ... if (peek == '}' && !in_format_spec && cursor == 0) { ... } else { ... break ... } }
                 if (c == '}')
                 {
-                    // Check for }} escape
-                    if (_position + 1 < _source.Length && _source[_position + 1] == '}')
-                    {
-                        // }} is treated as literal '}' in format spec
-                        Advance();
-                        continue;
-                    }
-
                     // Single '}' at base expression depth ends the format spec
                     if (_fstringBraceDepth == exprStartDepth)
                     {

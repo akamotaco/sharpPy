@@ -88,6 +88,7 @@ namespace SharpPy
         public bool IsLocal() => Scope == SymbolScope.Local;
         public bool IsFree() => Scope == SymbolScope.Free;
         public bool IsCell() => Scope == SymbolScope.Cell;
+        public bool FreeInClass { get; set; }
         public bool IsParameter() => (Flags & SymbolFlags.Parameter) != 0;
         public bool IsNonlocal() => (Flags & SymbolFlags.Nonlocal) != 0;
     }
@@ -228,7 +229,7 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"      Symbol {symbol.Name}: Scope={symbol.Scope}, IsFree={symbol.IsFree()}");
 #endif
-                if (symbol.IsFree())
+                if (symbol.IsFree() || symbol.FreeInClass)
                 {
                     freeVars.Add(symbol.Name);
 #if DEBUG_COMPILER_LOG
@@ -1196,7 +1197,7 @@ namespace SharpPy
                 {
                     // Check if variable is already declared in the function scope
                     var existingSymbol = ste.Lookup(varName);
-                    bool isGlobal = existingSymbol != null && existingSymbol.Scope == SymbolScope.Global;
+                    bool isGlobal = existingSymbol != null && (existingSymbol.IsGlobal() || existingSymbol.Scope == SymbolScope.Global);
 
 #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Found FunctionBlock '{ste.GetName()}'");
@@ -1596,11 +1597,11 @@ namespace SharpPy
                         Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
 #endif
                     }
-                    else
+                    else if (parent.Type == SymbolTableType.Class && parentSymbol.IsAssigned())
                     {
-#if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"    → {freeVar} already available in {parent.GetName()} (scope: {parentSymbol.Scope})");
-#endif
+                        // DEF_FREE_CLASS: a class name is invisible to its methods, so the closure of an
+                        // outer variable of the same name passes through as well.
+                        parentSymbol.FreeInClass = true;
                     }
                 }
             }

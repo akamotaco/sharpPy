@@ -2978,7 +2978,7 @@ namespace SharpPy
                                 case SymbolScope.Free:
                                     // CPython 3.12 PEP 709: In inlined comprehensions, walrus vars are stored
                                     // as parent's local variables using STORE_FAST
-                                    if (_isInComprehension)
+                                    if (_isInComprehension && !_freeVars.Contains(nameTarget.Name))
                                     {
                                         var localIndex = _varNames.IndexOf(nameTarget.Name);
                                         if (localIndex >= 0)
@@ -2991,6 +2991,12 @@ namespace SharpPy
                                         }
                                     }
                                     // Generator expressions: Free variables use STORE_DEREF
+                                    // In an inlined comprehension a name the function declares global is global.
+                                    if (!_freeVars.Contains(nameTarget.Name) && !_cellVars.Contains(nameTarget.Name))
+                                    {
+                                        EmitInstruction(ByteCodeOp.STORE_GLOBAL, AddName(nameTarget.Name));
+                                        break;
+                                    }
                                     EmitStoreDeref(nameTarget.Name);
 #if DEBUG_COMPILER_LOG
                                     Console.WriteLine($"      → Emitted STORE_DEREF for {nameTarget.Name} (FREE variable in genexpr)");
@@ -4722,6 +4728,13 @@ namespace SharpPy
                 }
                 if (symbol != null)
                 {
+                    // DEF_FREE_CLASS: the closure only passes through, the class itself binds the name.
+                    if (symbol.FreeInClass && _isInClassBody && !_isInComprehension)
+                    {
+                        EmitInstruction(ByteCodeOp.LOAD_NAME, AddName(name));
+                        return;
+                    }
+
                     #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"    🔍 Symbol Table lookup: {name} → Scope: {symbol.Scope}");
                     #endif
@@ -4751,7 +4764,7 @@ namespace SharpPy
                             {
                                 // A parameter that a closure captured is in both lists, and only the
                                 // cell sees a reassignment, so the cell is asked first.
-                                var localIndex = _cellVars.Contains(name) && !IsInlinedLocal(name) ? -1 : _varNames.IndexOf(name);
+                                var localIndex = (_cellVars.Contains(name) || _freeVars.Contains(name)) && !IsInlinedLocal(name) ? -1 : _varNames.IndexOf(name);
                                 if (localIndex >= 0)
                                 {
                                     #if DEBUG_COMPILER_LOG
@@ -13126,7 +13139,7 @@ namespace SharpPy
                 else if (nstores != control.Count)
                 {
                     // Different number of captures
-                    throw new InvalidOperationException($"alternative patterns bind different names");
+                    throw new SyntaxErrorException("alternative patterns bind different names", _currentFileName, orPat.LineNo, orPat.ColOffset);
                 }
                 else if (nstores > 0)
                 {
@@ -13138,7 +13151,7 @@ namespace SharpPy
 
                         if (istores < 0)
                         {
-                            throw new InvalidOperationException($"alternative patterns bind different names");
+                            throw new SyntaxErrorException("alternative patterns bind different names", _currentFileName, orPat.LineNo, orPat.ColOffset);
                         }
 
                         if (icontrol != istores)
@@ -13165,7 +13178,8 @@ namespace SharpPy
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // CPython: emit_and_reset_fail_pop
-                EmitAndResetFailPop(pc, oldPc.FailPop[0]);
+                EmitAndResetFailPop(pc, default);
+                pc.FailPop.Clear();
             }
 
             // CPython: Restore original pc and pop subject copy
@@ -13183,17 +13197,19 @@ namespace SharpPy
             // CPython: USE_LABEL(c, end)
             _instructionSequence.UseLabel(endLabel);
 
-            // CPython 3.12: Python/compile.c line 7183
-            // Pop the copy of the subject after successful OR match
-            // ADDOP(c, LOC(p), POP_TOP);
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-
-            // CPython: Stores from control need to be moved to the right position
+            // The captures sit above the other stores, the copy of the subject and what is on top.
             int controlStores = control?.Count ?? 0;
+            int rotateCount = controlStores + 1 + pc.OnTop + pc.Stores.Count;
             for (int i = 0; i < controlStores; i++)
             {
+                PatternHelperRotate(rotateCount);
+                if (pc.Stores.Contains(control[i]))
+                    throw new SyntaxErrorException($"multiple assignments to name '{control[i]}' in pattern", _currentFileName, orPat.LineNo, orPat.ColOffset);
                 pc.Stores.Add(control[i]);
             }
+
+            // Pop the copy of the subject
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
 
             return true;
         }

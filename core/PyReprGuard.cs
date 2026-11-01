@@ -28,6 +28,7 @@ namespace SharpPy
         /// </summary>
         internal static bool Enter(PyObject obj)
         {
+            PyObject.CheckNativeStack();
             // Reference identity: these containers are unhashable in Python terms, a user class may
             // define __hash__ that matches other objects, and CPython marks the object, not a value.
             Active ??= new HashSet<PyObject>(ReferenceEqualityComparer.Instance);

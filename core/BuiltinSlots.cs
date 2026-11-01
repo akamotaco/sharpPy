@@ -159,8 +159,11 @@ namespace SharpPy
                 return new PyListIterator(new PyList(keys), "dict_reversekeyiterator");
             });
 
+            // range_count and range_index: arithmetic for an int, a search for anything else.
             Method(PyType.RangeType, "count", (self, args) =>
             {
+                if (args[0] is PyInt or PyBool && args[0] is not PyIntSubclass)
+                    return new PyInt(self.Contains(args[0]).Value ? 1 : 0);
                 long count = 0;
                 foreach (var item in PySet.IterableItems(self))
                     if (PyList.AreEqual(item, args[0])) count++;
@@ -168,13 +171,20 @@ namespace SharpPy
             });
             Method(PyType.RangeType, "index", (self, args) =>
             {
+                var range = (PyRange)self;
+                if (args[0] is PyInt or PyBool)
+                {
+                    if (!self.Contains(args[0]).Value) throw PyValueError.Create($"{args[0].ToRepr().Value} is not in range");
+                    var value = args[0] is PyBool truth ? (truth.Value ? BigInteger.One : BigInteger.Zero) : ((PyInt)args[0]).Value;
+                    return new PyInt((value - range.Start) / range.Step);
+                }
                 long index = 0;
                 foreach (var item in PySet.IterableItems(self))
                 {
                     if (PyList.AreEqual(item, args[0])) return new PyInt(index);
                     index++;
                 }
-                throw PyValueError.Create($"{args[0].ToRepr().Value} is not in range");
+                throw PyValueError.Create("sequence.index(x): x not in sequence");
             });
             Method(PyType.RangeType, "__reversed__", (self, args) => self.GetItem(new PySlice(PyNone.Instance, PyNone.Instance, new PyInt(-1))).GetIterator());
 
