@@ -1247,6 +1247,15 @@ namespace SharpPy.Generated
                 if (c == '\\')
                 {
                     Advance(); // Move past backslash
+                    // tok_get_fstring_mode: \N{BULLET} is one escape, its braces are no field.
+                    if (!isRawFString && _position + 1 < _source.Length && CurrentChar == 'N' && _source[_position + 1] == '{')
+                    {
+                        while (_position < _source.Length && CurrentChar != '}' && !IsAtFStringEnd())
+                            Advance();
+                        if (_position < _source.Length && CurrentChar == '}')
+                            Advance();
+                        continue;
+                    }
                     // A brace after a backslash is still a brace: rf"\{{" and f"\{x}".
                     if (_position < _source.Length && CurrentChar != '{' && CurrentChar != '}')
                     {

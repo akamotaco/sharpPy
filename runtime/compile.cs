@@ -9014,7 +9014,7 @@ namespace SharpPy
                 }
 
                 // CPython 3.12: Create pattern context for this case
-                var pc = new PatternContext();
+                var pc = new PatternContext { AllowIrrefutable = matchCase.Guard != null || i == caseCount - 1 };
                 SharpPy.Label failLabel = _instructionSequence.NewLabel();
 
                 // CPython: Initialize fail_pop[0] with the fail label for this case
@@ -9057,7 +9057,7 @@ namespace SharpPy
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // CPython 3.12: emit_and_reset_fail_pop - generate POP_TOP chain for cleanup
-                EmitAndResetFailPop(pc, failLabel);
+                EmitAndResetFailPop(pc);
 
                 // Place fail label for next case
                 _instructionSequence.UseLabel(failLabel);
@@ -9124,6 +9124,7 @@ namespace SharpPy
                     // CPython 3.12: NameExpression in match context is treated as MatchAs(null, name)
                     // This is a capture pattern (binds subject to variable) or wildcard (_)
                     // Python/compile.c line 6789-6799: An irrefutable match
+                    CheckIrrefutableAllowed(nameExpr.Name, nameExpr, pc);
                     return PatternHelperStoreName(nameExpr.Name, pc);
 
                 case OrPattern orPat:
@@ -9131,39 +9132,12 @@ namespace SharpPy
                     return CompileOrPattern(orPat, pc);
 
                 case StarExpression starExpr:
-                    // CPython 3.12: compiler_pattern_star (MatchStar_kind)
-                    // Star pattern *name - only store the name, don't emit STORE instruction yet
-                    // Stack: [subject] -> [subject] (star pattern consumes nothing from stack)
-                    if (starExpr.Value is NameExpression starName)
-                    {
-                        if (starName.Name != "_")
-                        {
-                            // CPython: pattern_helper_store_name - add to stores list
-                            if (pc.Stores.Contains(starName.Name))
-                            {
-                                throw new InvalidOperationException($"multiple assignments to name {starName.Name} in pattern");
-                            }
-                            pc.Stores.Add(starName.Name);
-                        }
-                        // Wildcard star (*_) - do nothing
-                    }
-                    return true;
+                    // CPython 3.12: compiler_pattern_star
+                    return PatternHelperStoreName((starExpr.Value as NameExpression)?.Name, pc);
 
                 case StarPattern starPat:
-                    // CPython 3.12: compiler_pattern_star (MatchStar_kind)
-                    // Star pattern *name inside sequence patterns
-                    // Stack: [subject] -> [subject] (star pattern consumes nothing from stack)
-                    if (starPat.Name != "_")
-                    {
-                        // CPython: pattern_helper_store_name - add to stores list
-                        if (pc.Stores.Contains(starPat.Name))
-                        {
-                            throw new InvalidOperationException($"multiple assignments to name {starPat.Name} in pattern");
-                        }
-                        pc.Stores.Add(starPat.Name);
-                    }
-                    // Wildcard star (*_) - do nothing
-                    return true;
+                    // CPython 3.12: compiler_pattern_star
+                    return PatternHelperStoreName(starPat.Name, pc);
 
                 case MatchSequence matchSeq:
                     // CPython 3.12: compiler_pattern_sequence (MatchSequence_kind)
@@ -9194,164 +9168,6 @@ namespace SharpPy
             }
         }
         
-
-        /// <summary>
-        /// Compile sequence pattern matching like [1, 2, *rest]
-        /// </summary>
-        private bool CompileSequencePattern(SequencePattern pattern, PatternContext pc)
-        {
-            // Extract fail label from pattern context
-            var failLabel = pc.GetFailLabel();
-
-            var patterns = pattern.Patterns;
-
-            // Check if pattern has star expressions
-            // Performance: Eliminated LINQ
-            bool hasStarPattern = false;
-            foreach (var p in patterns)
-            {
-                if (p is StarPattern)
-                {
-                    hasStarPattern = true;
-                    break;
-                }
-            }
-            int starIndex = -1;
-            int countBefore = 0, countAfter = 0;
-
-            if (hasStarPattern)
-            {
-                starIndex = patterns.FindIndex(p => p is StarPattern);
-                countBefore = starIndex;
-                countAfter = patterns.Count - starIndex - 1;
-            }
-
-            // Stack: [subject] (the list/sequence to match)
-
-            // 1. Check if subject is a sequence (CPython MATCH_SEQUENCE)
-            EmitInstruction(ByteCodeOp.MATCH_SEQUENCE);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            
-            // 2. Check length constraints
-            EmitInstruction(ByteCodeOp.GET_LEN);
-            
-            if (hasStarPattern)
-            {
-                // For star patterns: len >= (before + after)
-                EmitLoadConst(new PyInt(countBefore + countAfter));
-                EmitComparison(CompareOp.GE);
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            }
-            else
-            {
-                // For exact patterns: len == pattern_count
-                EmitLoadConst(new PyInt(patterns.Count));
-                EmitComparison(CompareOp.EQ);
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            }
-            
-            // 3. Unpack and match elements
-            if (hasStarPattern)
-            {
-                // Use UNPACK_EX for star patterns
-                int arg = countBefore | (countAfter << 8);
-                EmitInstruction(ByteCodeOp.UNPACK_EX, arg);
-                
-                // CPython UNPACK_EX puts elements on stack in pattern order
-                // For [first, *rest, last] with UNPACK_EX 257, stack becomes: [first, rest, last]
-                // Then CPython stores in pattern order: STORE_FAST(first), STORE_FAST(rest), STORE_FAST(last)
-
-                // 1. Store before elements (first on stack)
-                for (int i = 0; i < countBefore; i++)
-                {
-                    var p = patterns[i];
-
-                    if (p is ConstantExpression constExpr)
-                    {
-                        CompileExpression(constExpr);
-                        EmitComparison(CompareOp.EQ);
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                    else if (p is NameExpression nameExpr)
-                    {
-                        EmitStoreName(nameExpr.Name);
-                    }
-                    else
-                    {
-                        // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatchCFG(p, pc))
-                        {
-                            return false; // Nested pattern compilation failed
-                        }
-                    }
-                }
-
-                // 2. Store star pattern (next on stack)
-                if (starIndex >= 0 && patterns[starIndex] is StarPattern starPat)
-                {
-                    EmitStoreName(starPat.Name);
-                }
-
-                // 3. Store after elements (remaining on stack)
-                for (int i = 0; i < countAfter; i++)
-                {
-                    var patternIdx = starIndex + 1 + i;  // patterns after star
-                    var p = patterns[patternIdx];
-
-                    if (p is ConstantExpression constExpr)
-                    {
-                        CompileExpression(constExpr);
-                        EmitComparison(CompareOp.EQ);
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                    else if (p is NameExpression nameExpr)
-                    {
-                        EmitStoreName(nameExpr.Name);
-                    }
-                    else
-                    {
-                        // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatchCFG(p, pc))
-                        {
-                            return false; // Nested pattern compilation failed
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Use regular UNPACK_SEQUENCE for non-star patterns
-                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, patterns.Count);
-
-                // Match each pattern (CPython-compatible order)
-                // UNPACK_SEQUENCE pushes elements, then we match in forward order
-                for (int i = 0; i < patterns.Count; i++)
-                {
-                    var p = patterns[i];
-                    if (p is ConstantExpression constExpr)
-                    {
-                        // CPython directly compares without DUP_TOP
-                        CompileExpression(constExpr);
-                        EmitComparison(CompareOp.EQ);
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                    else if (p is NameExpression nameExpr)
-                    {
-                        EmitStoreName(nameExpr.Name);
-                    }
-                    else
-                    {
-                        // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatchCFG(p, pc))
-                        {
-                            return false; // Nested pattern compilation failed
-                        }
-                    }
-                }
-            }
-            
-            return true;
-        }
 
         
         private void CompileAssert(AssertStatement assert)
@@ -12594,75 +12410,7 @@ namespace SharpPy
                 // One less item to keep track of each time we loop through:
                 // Python/compile.c line 6724: pc->on_top--;
                 pc.OnTop--;
-                var pattern = patterns[i];
-
-                // SharpPy optimization: For simple bindings, emit STORE directly (like mapping pattern)
-                // to avoid unnecessary SWAP operations from PatternHelperRotate.
-                // CPython calls compiler_pattern_subpattern (line 6726) which may call pattern_helper_store_name
-                // and pattern_helper_rotate (Python/compile.c lines 6661-6682), but we optimize simple cases.
-                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
-                {
-                    // Simple name binding - emit STORE directly
-                    EmitStoreVariable(nameExpr.Name);
-                }
-                else if (pattern is AsPattern asPattern && asPattern.Pattern == null && asPattern.Name != "_")
-                {
-                    // AsPattern with no inner pattern (MatchAs(name='x', pattern=None))
-                    // This is CPython's AST form for simple capture patterns
-                    EmitStoreVariable(asPattern.Name);
-                }
-                else if (IsStarPattern(pattern))
-                {
-                    // Star pattern (*rest or *middle)
-                    // CPython 3.12: Python/compile.c lines 6693-6700
-                    // if (elt->kind == MatchStar_kind && !seen_star) {
-                    //     ...
-                    //     ADDOP_I(c, loc, UNPACK_EX, (i + ((n-i-1) << 8)));
-                    //     seen_star = 1;
-                    // }
-                    // After UNPACK_EX, star value is on stack and needs to be stored.
-                    // CPython calls compiler_pattern_subpattern which calls compiler_pattern_star (line 6810-6817)
-                    // which calls pattern_helper_store_name for the star name.
-                    // SharpPy optimization: For simple star names, emit STORE directly.
-                    var starName = GetStarPatternName(pattern);
-                    if (starName != null && starName != "_")
-                    {
-                        EmitStoreVariable(starName);
-                    }
-                    else
-                    {
-                        // Star wildcard (*_) - just pop
-                        _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                    }
-                }
-                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
-                {
-                    // Wildcard - just pop the value
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else if (pattern is AsPattern wildcardAs && wildcardAs.Pattern == null && wildcardAs.Name == "_")
-                {
-                    // AsPattern wildcard (MatchAs(name='_', pattern=None))
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else
-                {
-                    // Complex pattern - call compiler_pattern_subpattern
-                    // Python/compile.c lines 6775-6783:
-                    // static int compiler_pattern_subpattern(struct compiler *c,
-                    //                             pattern_ty p, pattern_context *pc)
-                    // {
-                    //     int allow_irrefutable = pc->allow_irrefutable;
-                    //     pc->allow_irrefutable = 1;
-                    //     RETURN_IF_ERROR(compiler_pattern(c, p, pc));
-                    //     pc->allow_irrefutable = allow_irrefutable;
-                    //     return SUCCESS;
-                    // }
-                    int oldAllowIrrefutable = pc.AllowIrrefutable ? 1 : 0;
-                    pc.AllowIrrefutable = true;
-                    CompilePatternMatchCFG(pattern, pc);
-                    pc.AllowIrrefutable = oldAllowIrrefutable != 0;
-                }
+                CompilePatternSubpattern(patterns[i], pc);
             }
         }
 
@@ -12708,8 +12456,7 @@ namespace SharpPy
                 _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_MAP, 0, _currentLineNumber);
                 _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);
                 _instructionSequence.AddOpWithArg(ByteCodeOp.DICT_UPDATE, 1, _currentLineNumber);
-                EmitStoreVariable(matchMap.Rest);
-                return true;
+                return PatternHelperStoreName(matchMap.Rest, pc);
             }
 
             // CPython: If the pattern has any keys, perform a length check (len >= size)
@@ -12748,54 +12495,8 @@ namespace SharpPy
             for (int i = 0; i < size; i++)
             {
                 pc.OnTop--;
-                var pattern = matchMap.Patterns[i];
-
-                // SharpPy optimization: For simple variable bindings, store directly from TOS
-                // without rotation. After UNPACK_SEQUENCE, values are already at top in correct order.
-                // CPython calls compiler_pattern_subpattern which may use pattern_helper_store_name
-                // and PatternHelperRotate, but for simple names we can optimize by emitting STORE directly.
-                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
-                {
-                    // Simple variable capture - emit STORE instruction directly
-                    if (pc.Stores.Contains(nameExpr.Name))
-                    {
-                        throw new InvalidOperationException($"multiple assignments to name {nameExpr.Name} in pattern");
-                    }
-                    // Emit STORE instruction directly (value is at TOS)
-                    EmitStoreVariable(nameExpr.Name);
-                    // Do NOT add to pc.Stores since we already stored it
-                }
-                else if (pattern is AsPattern asPattern && asPattern.Pattern == null && asPattern.Name != "_")
-                {
-                    // AsPattern with no inner pattern (MatchAs(name='x', pattern=None))
-                    // This is CPython's AST form for simple capture patterns in mapping values
-                    if (pc.Stores.Contains(asPattern.Name))
-                    {
-                        throw new InvalidOperationException($"multiple assignments to name {asPattern.Name} in pattern");
-                    }
-                    // Emit STORE instruction directly (value is at TOS)
-                    EmitStoreVariable(asPattern.Name);
-                    // Do NOT add to pc.Stores since we already stored it
-                }
-                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
-                {
-                    // Wildcard - just pop the value
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else if (pattern is AsPattern wildcardAs && wildcardAs.Pattern == null && wildcardAs.Name == "_")
-                {
-                    // AsPattern wildcard (MatchAs(name='_', pattern=None))
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else
-                {
-                    // Complex pattern - use full pattern matching
-                    // Python/compile.c line 7008: compiler_pattern_subpattern(c, pattern, pc)
-                    if (!CompilePatternMatchCFG(pattern, pc))
-                    {
-                        return false;
-                    }
-                }
+                if (!CompilePatternSubpattern(matchMap.Patterns[i], pc))
+                    return false;
             }
 
             // CPython: If we get this far, it's a match! Pop the tuple of keys and subject
@@ -12813,8 +12514,7 @@ namespace SharpPy
                     _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);             // [copy, keys..., copy, key]
                     _instructionSequence.AddOp(ByteCodeOp.DELETE_SUBSCR, 0, _currentLineNumber);           // [copy, keys...]
                 }
-                EmitStoreVariable(matchMap.Rest);
-                return true;
+                return PatternHelperStoreName(matchMap.Rest, pc);
             }
             _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys.
             _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Subject.
@@ -12883,134 +12583,8 @@ namespace SharpPy
                     pattern = matchCls.KwdPatterns[i - nargs];
                 }
 
-                // CPython: Python/compile.c lines 6899-6902
-                // if (WILDCARD_CHECK(pattern)) {
-                //     ADDOP(c, LOC(p), POP_TOP);
-                //     continue;
-                // }
-                // SharpPy optimization: For simple bindings, emit STORE directly instead of
-                // calling compiler_pattern_subpattern. This avoids unnecessary SWAP operations.
-                // CPython's WILDCARD_CHECK includes both wildcard (_) and simple names.
-                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
-                {
-                    // Simple name binding - emit STORE directly
-                    EmitStoreVariable(nameExpr.Name);
-                }
-                else if (pattern is AsPattern asPattern && asPattern.Pattern == null && asPattern.Name != "_")
-                {
-                    // AsPattern with no inner pattern (MatchAs(name='x', pattern=None))
-                    // This is CPython's AST form for simple capture patterns
-                    EmitStoreVariable(asPattern.Name);
-                }
-                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
-                {
-                    // Wildcard - POP_TOP (CPython line 6900)
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else if (pattern is AsPattern wildcardAs && wildcardAs.Pattern == null && wildcardAs.Name == "_")
-                {
-                    // AsPattern wildcard (MatchAs(name='_', pattern=None))
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else
-                {
-                    // Complex pattern - use full pattern matching
-                    // Python/compile.c line 6903: compiler_pattern_subpattern(c, pattern, pc)
-                    if (!CompilePatternMatchCFG(pattern, pc))
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            // Success! The tuple has been consumed
-            return true;
-        }
-
-        /// <summary>
-        /// CPython 3.12: compiler_pattern_class
-        /// Compile class pattern (e.g., case Point(x=0, y=0):)
-        /// </summary>
-        private bool CompileClassPattern(CallExpression callExpr, PatternContext pc)
-        {
-            int nargs = callExpr.Arguments.Count;
-            int nattrs = callExpr.Keywords.Count;
-
-            // CPython: Compile the class expression
-            CompileExpression(callExpr.Function);
-
-            // CPython: Build tuple of keyword attribute names
-            // Performance: Eliminated LINQ
-            var attrNames = new PyObject[callExpr.Keywords.Count];
-            for (int i = 0; i < callExpr.Keywords.Count; i++)
-            {
-                attrNames[i] = new PyString(callExpr.Keywords[i].Arg ?? "");
-            }
-            EmitLoadConst(new PyTuple(attrNames));
-
-            // CPython: MATCH_CLASS with nargs (positional count)
-            _instructionSequence.AddOpWithArg(ByteCodeOp.MATCH_CLASS, nargs, _currentLineNumber);
-
-            // CPython: COPY 1 to check if result is None
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
-
-            // CPython: Check if None (isinstance failed)
-            EmitLoadConst(PyNone.Instance);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.IS_OP, 1, _currentLineNumber);
-
-            // CPython: TOS is now a tuple of (nargs + nattrs) attributes (or None)
-            pc.OnTop++;
-            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
-
-            // CPython: UNPACK_SEQUENCE to get individual attributes
-            _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, nargs + nattrs, _currentLineNumber);
-            pc.OnTop += nargs + nattrs - 1;
-
-            // CPython: Match each attribute value against its pattern
-            for (int i = 0; i < nargs + nattrs; i++)
-            {
-                pc.OnTop--;
-                Expression pattern;
-
-                if (i < nargs)
-                {
-                    // Positional: from Arguments list
-                    pattern = callExpr.Arguments[i];
-                }
-                else
-                {
-                    // Keyword: from Keywords list
-                    pattern = callExpr.Keywords[i - nargs].Value;
-                }
-
-                // SharpPy optimization: For simple bindings, emit STORE directly
-                // (same as MatchClass version above)
-                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
-                {
-                    EmitStoreVariable(nameExpr.Name);
-                }
-                else if (pattern is AsPattern asPattern && asPattern.Pattern == null && asPattern.Name != "_")
-                {
-                    // AsPattern with no inner pattern (MatchAs(name='x', pattern=None))
-                    EmitStoreVariable(asPattern.Name);
-                }
-                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
-                {
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else if (pattern is AsPattern wildcardAs && wildcardAs.Pattern == null && wildcardAs.Name == "_")
-                {
-                    // AsPattern wildcard (MatchAs(name='_', pattern=None))
-                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
-                }
-                else
-                {
-                    // Complex pattern - use full pattern matching
-                    if (!CompilePatternMatchCFG(pattern, pc))
-                    {
-                        return false;
-                    }
-                }
+                if (!CompilePatternSubpattern(pattern, pc))
+                    return false;
             }
 
             // Success! The tuple has been consumed
@@ -13031,6 +12605,9 @@ namespace SharpPy
 
             if (asPattern.Pattern != null)
             {
+                if (IsWildcardPattern(asPattern.Pattern) && !pc.AllowIrrefutable)
+                    throw new SyntaxErrorException("wildcard makes remaining patterns unreachable", _currentFileName, asPattern.LineNo, asPattern.ColOffset);
+
                 // CPython: Need to make a copy for storing later
                 // pc->on_top++; (line 6802)
                 // ADDOP_I(c, LOC(p), COPY, 1); (line 6803)
@@ -13052,9 +12629,29 @@ namespace SharpPy
             else
             {
                 // CPython: An irrefutable match (line 6789-6799)
-                // return pattern_helper_store_name(c, LOC(p), p->v.MatchAs.name, pc);
+                CheckIrrefutableAllowed(asPattern.Name, asPattern, pc);
                 return PatternHelperStoreName(asPattern.Name, pc);
             }
+        }
+
+        /// <summary>CPython 3.12: compiler_pattern_subpattern. Below the top, anything may be irrefutable.</summary>
+        private bool CompilePatternSubpattern(Expression pattern, PatternContext pc)
+        {
+            bool allowIrrefutable = pc.AllowIrrefutable;
+            pc.AllowIrrefutable = true;
+            bool result = CompilePatternMatchCFG(pattern, pc);
+            pc.AllowIrrefutable = allowIrrefutable;
+            return result;
+        }
+
+        private void CheckIrrefutableAllowed(string name, Expression pattern, PatternContext pc)
+        {
+            if (pc.AllowIrrefutable)
+                return;
+            string message = name == null || name == "_"
+                ? "wildcard makes remaining patterns unreachable"
+                : $"name capture '{name}' makes remaining patterns unreachable";
+            throw new SyntaxErrorException(message, _currentFileName, pattern.LineNo, pattern.ColOffset);
         }
 
         /// <summary>
@@ -13074,7 +12671,7 @@ namespace SharpPy
             // CPython: Can't assign to the same name twice (line 6671-6676)
             if (pc.Stores.Contains(name))
             {
-                throw new InvalidOperationException($"multiple assignments to name {name} in pattern");
+                throw new SyntaxErrorException($"multiple assignments to name '{name}' in pattern", _currentFileName, _currentLineNumber, _currentColumnOffset);
             }
 
             // CPython: Rotate this object underneath any items we need to preserve (line 6677-6679)
@@ -13178,8 +12775,7 @@ namespace SharpPy
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // CPython: emit_and_reset_fail_pop
-                EmitAndResetFailPop(pc, default);
-                pc.FailPop.Clear();
+                EmitAndResetFailPop(pc);
             }
 
             // CPython: Restore original pc and pop subject copy
@@ -13224,9 +12820,10 @@ namespace SharpPy
             int pops = pc.OnTop + pc.Stores.Count;
 
             // Ensure we have a label for this number of pops
-            if (!pc.FailPop.ContainsKey(pops))
+            for (int size = 0; size <= pops; size++)
             {
-                pc.FailPop[pops] = _instructionSequence.NewLabel();
+                if (!pc.FailPop.ContainsKey(size))
+                    pc.FailPop[size] = _instructionSequence.NewLabel();
             }
 
             _instructionSequence.AddOpWithLabel(jumpOp, pc.FailPop[pops], _currentLineNumber);
@@ -13239,7 +12836,7 @@ namespace SharpPy
         /// CPython: while (--pc->fail_pop_size) { USE_LABEL; ADDOP(POP_TOP); }
         ///          USE_LABEL(pc->fail_pop[0]);
         /// </summary>
-        private void EmitAndResetFailPop(PatternContext pc, SharpPy.Label finalFailLabel)
+        private void EmitAndResetFailPop(PatternContext pc)
         {
             if (pc.FailPop.Count == 0)
                 return;

@@ -1318,12 +1318,18 @@ namespace SharpPy.Generated
                             }
                             break;
 
-                        // Named Unicode escape: \N{name}
-                        // TODO: This requires a Unicode name database, skipping for now
+                        // Named Unicode escape: \N{name}, _PyUnicode_DecodeUnicodeEscapeInternal
                         case 'N':
-                            // For now, keep as-is
-                            result.Append('\\');
-                            i++;
+                            {
+                                int close = i + 2 < input.Length && input[i + 2] == '{' ? input.IndexOf('}', i + 3) : -1;
+                                if (close <= i + 3)
+                                    throw UnicodeEscapeError(i, close < 0 ? input.Length - 1 : close - 1, "malformed \\N character escape");
+                                int named = UnicodeNames.Lookup(input.Substring(i + 3, close - i - 3));
+                                if (named < 0)
+                                    throw UnicodeEscapeError(i, close, "unknown Unicode character name");
+                                result.Append(char.ConvertFromUtf32(named));
+                                i = close + 1;
+                            }
                             break;
 
                         // Unknown escape: keep the backslash
@@ -1343,6 +1349,9 @@ namespace SharpPy.Generated
 
             return result.ToString();
         }
+
+        private static PySyntaxErrorException UnicodeEscapeError(int start, int end, string reason) =>
+            new PySyntaxErrorException($"SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes in position {start}-{end}: {reason}");
 
         // Helper: Check if string contains only hex digits
         private static bool IsHexDigits(string s, int expectedLength)

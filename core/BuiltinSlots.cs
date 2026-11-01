@@ -172,7 +172,7 @@ namespace SharpPy
             Method(PyType.RangeType, "index", (self, args) =>
             {
                 var range = (PyRange)self;
-                if (args[0] is PyInt or PyBool)
+                if (args[0] is PyInt or PyBool && args[0] is not PyIntSubclass)
                 {
                     if (!self.Contains(args[0]).Value) throw PyValueError.Create($"{args[0].ToRepr().Value} is not in range");
                     var value = args[0] is PyBool truth ? (truth.Value ? BigInteger.One : BigInteger.Zero) : ((PyInt)args[0]).Value;
