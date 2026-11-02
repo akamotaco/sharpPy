@@ -361,6 +361,8 @@ namespace SharpPy
             if (instance is PyClassInstance classInstance)
             {
                 if (classInstance.BuildsValueFromArguments) classInstance.ConstructorArgs = args;
+                // frozenset_new iterates now: its errors come out of the constructor.
+                if (classInstance.IsFrozenSetSubclass()) classInstance.GetFrozenStorage();
             }
             else if (instance is PyTupleSubclass tupleSubclass)
             {
@@ -1441,7 +1443,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"{InstanceType.Name} expected at most 1 argument, got {a.Length}");
             _frozenStorage = a.Length == 0
                 ? new PyFrozenSet()
-                : new PyFrozenSet(PySet.IterableItems(a[0]));
+                : new PyFrozenSet(PySet.SourceItems(a[0]));
             return _frozenStorage;
         }
 

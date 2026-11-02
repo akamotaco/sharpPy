@@ -12,7 +12,6 @@ namespace SharpPy.Modules
     ///   CallableProxyType, ProxyType, ReferenceType, _remove_dead_weakref, getweakrefcount,
     ///   getweakrefs, proxy, ref
     /// with _weakref.ref is ReferenceType, __name__ 'ReferenceType', __module__ 'weakref'.
-    /// Proxy and the two proxy types are placeholders until Q5.
     /// </summary>
     internal static class WeakrefModule
     {
@@ -54,14 +53,14 @@ namespace SharpPy.Modules
             });
 
             module.ModuleDict["proxy"] = new PyBuiltinFunction("proxy", a =>
-                throw PyNotImplementedError.Create(
-                    "weakref proxy is not implemented yet (see docs/known_gaps.md P0-50)"));
-            module.ModuleDict["ProxyType"] = new PyBuiltinFunction("ProxyType", a =>
-                throw PyNotImplementedError.Create(
-                    "weakref proxy is not implemented yet (see docs/known_gaps.md P0-50)"));
-            module.ModuleDict["CallableProxyType"] = new PyBuiltinFunction("CallableProxyType", a =>
-                throw PyNotImplementedError.Create(
-                    "weakref proxy is not implemented yet (see docs/known_gaps.md P0-50)"));
+            {
+                if (a.Length is < 1 or > 2)
+                    throw PyTypeError.Create($"proxy expected at most 2 arguments, got {a.Length}");
+                return PyWeakProxy.Create(a[0], a.Length > 1 ? a[1] : PyNone.Instance);
+            });
+            PyWeakProxy.InstallTypes();
+            module.ModuleDict["ProxyType"] = PyType.ProxyType;
+            module.ModuleDict["CallableProxyType"] = PyType.CallableProxyType;
 
             return module;
         }

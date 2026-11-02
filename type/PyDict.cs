@@ -328,9 +328,7 @@ namespace SharpPy
                     if (args.Length < 2 || args.Length > 3)
                         throw PyTypeError.Create(args.Length < 2 ? "fromkeys expected at least 1 argument, got 0" : $"fromkeys expected at most 2 arguments, got {args.Length - 1}");
 
-                    var keys = args[1];
-                    var value = args.Length == 3 ? args[2] : PyNone.Instance;
-                    return PyDict.FromKeys(keys, value);
+                    return PyDict.FromKeys(args[0], args[1], args.Length == 3 ? args[2] : PyNone.Instance);
                 })
             );
 
@@ -1064,6 +1062,47 @@ namespace SharpPy
         /// <summary>
         /// 키 시퀀스와 값으로부터 딕셔너리 생성
         /// </summary>
+        // _PyDict_FromKeys: cls() is what gets filled, an exact dict or set gives its hashes.
+        internal static PyObject FromKeys(PyObject cls, PyObject iterable, PyObject value)
+        {
+            var target = cls.Call(Array.Empty<PyObject>(), null);
+            var exact = PySet.IsExactDict(target) ? (PyDict)target : null;
+            if (exact != null && exact.Length() == 0)
+            {
+                if (PySet.IsExactDict(iterable))
+                {
+                    int position = 0;
+                    while (((PyDict)iterable).InternalDict.NextEntry(ref position, out var entry))
+                        exact.SetKnownHash(entry.Key, value, entry.Hash);
+                    return exact;
+                }
+                IEnumerable<PySetStorage.Entry> entries = null;
+                if (iterable is PySet set && ReferenceEquals(set.GetPyType(), PyType.SetType)) entries = set.Entries();
+                if (iterable is PyFrozenSet frozen && ReferenceEquals(frozen.GetPyType(), PyType.FrozenSetType))
+                    entries = ((PySetStorage)frozen.Items).Entries();
+                if (entries != null)
+                {
+                    foreach (var entry in entries)
+                        exact.SetKnownHash(entry.Key, value, entry.Hash);
+                    return exact;
+                }
+            }
+            var iterator = iterable.GetIterator();
+            while (true)
+            {
+                PyObject key;
+                try { key = iterator.Next(); }
+                catch (PythonException error) when (error.PyException is PyStopIteration) { return target; }
+                if (exact != null) exact.SetItem(key, value);
+                else PyAbstract.SetItem(target, key, value);
+            }
+        }
+
+        internal void SetKnownHash(PyObject key, PyObject value, long hash)
+        {
+            if (_dict.SetKnownHash(key, value, hash)) AddOrderedKey(key);
+        }
+
         public static PyDict FromKeys(PyObject keys, PyObject value = null)
         {
             var dict = new PyDict();

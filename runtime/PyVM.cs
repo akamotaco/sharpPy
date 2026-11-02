@@ -6088,6 +6088,9 @@ namespace SharpPy
         // binary_op1, Objects/abstract.c.
         private PyObject BinaryOp1(PyObject v, PyObject w, BinaryOpType operation)
         {
+            // WRAP_BINARY: the slot of a proxy on the left works on what it refers to.
+            if (v is PyWeakProxy)
+                return ExecuteBinaryOpType(PyWeakProxy.Unwrap(v), PyWeakProxy.Unwrap(w), operation);
             var typeV = v.GetPyType();
             var typeW = w.GetPyType();
             bool sameType = ReferenceEquals(typeV, typeW);

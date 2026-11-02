@@ -382,6 +382,8 @@ namespace SharpPy
         public static readonly PyType GeneratorType = new PyType("generator", new[] { IteratorType });
         public static readonly PyType MapType = new PyType("map", new[] { ObjectType });
         public static readonly PyType WeakRefType = new PyType("ReferenceType", new[] { ObjectType });
+        public static readonly PyType ProxyType = new PyType("ProxyType", new[] { ObjectType }, "weakref");
+        public static readonly PyType CallableProxyType = new PyType("CallableProxyType", new[] { ObjectType }, "weakref");
         public static readonly PyType ZipType = new PyType("zip", new[] { ObjectType });
         public static readonly PyType FilterType = new PyType("filter", new[] { ObjectType });
         public static readonly PyType CallableIteratorType = new PyType("callable_iterator", new[] { ObjectType });
@@ -1268,7 +1270,7 @@ namespace SharpPy
                         return PySet.Empty;
                     if (args.Length == 1)
                     {
-                        return new PySet(PySet.IterableItems(args[0]));
+                        return new PySet(PySet.SourceItems(args[0]));
                     }
                     throw PyTypeError.Create($"set expected at most 1 argument, got {args.Length}");
                 case "frozenset":
@@ -1280,7 +1282,7 @@ namespace SharpPy
                     if (args.Length == 1)
                     {
                         if (args[0] is PyFrozenSet frozen) return frozen;
-                        return new PyFrozenSet(PySet.IterableItems(args[0]));
+                        return new PyFrozenSet(PySet.SourceItems(args[0]));
                     }
                     throw PyTypeError.Create($"frozenset expected at most 1 argument, got {args.Length}");
                 case "bytearray":
@@ -1661,18 +1663,8 @@ namespace SharpPy
         internal static PyObject BuildSetReduce(PyObject self, IEnumerable<PyObject> items)
         {
             var itemList = new PyList(items);
-            PyObject state = PyNone.Instance;
-            if (self is IInstanceDictAccessor accessor)
-            {
-                var saved = new PyDict();
-                bool any = false;
-                foreach (var entry in accessor.InstanceAttributes)
-                {
-                    saved.SetItem(new PyString(entry.Key), entry.Value);
-                    any = true;
-                }
-                if (any) state = saved;
-            }
+            // _PyObject_GetState: slots included.
+            var state = self.GetAttribute("__getstate__").Call(Array.Empty<PyObject>(), null);
             return new PyTuple(new PyObject[]
             {
                 self.GetPyType(),
@@ -1759,7 +1751,7 @@ namespace SharpPy
             type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__new__"), ObjectNewDescriptor());
 
         internal static bool TypeInitIsObjectInit(PyType type) =>
-            type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__init__"), ObjectInitDescriptor());
+            ReferenceEquals(type is PyClass cls ? cls.LookupInMRO("__init__") : type.LookupSpecial("__init__"), ObjectInitDescriptor());
 
         private static PyObject AttributeOrNull(PyObject self, string name)
         {
@@ -3084,13 +3076,14 @@ namespace SharpPy
                 foreach (var other in a) result = result.Union(other);
                 return result;
             });
+            // set_copy: with no others these still answer a new object, unlike frozenset.copy.
             RegisterFrozenSetMethod("intersection", 0, int.MaxValue, (frozen, a) => {
-                PyFrozenSet result = frozen;
+                PyFrozenSet result = new PyFrozenSet(frozen.Items);
                 foreach (var other in a) result = result.Intersection(other);
                 return result;
             });
             RegisterFrozenSetMethod("difference", 0, int.MaxValue, (frozen, a) => {
-                PyFrozenSet result = frozen;
+                PyFrozenSet result = new PyFrozenSet(frozen.Items);
                 foreach (var other in a) result = result.Difference(other);
                 return result;
             });

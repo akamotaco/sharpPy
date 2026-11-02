@@ -1610,7 +1610,7 @@ namespace SharpPy
             if (args.Length == 0)
                 return PySet.Empty;
 
-            return new PySet(PySet.IterableItems(args[0]));
+            return new PySet(PySet.SourceItems(args[0]));
         }
 
         private static PyObject CallFrozenSet(PyObject[] args, PyDict kwargs = null)

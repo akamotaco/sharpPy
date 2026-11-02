@@ -18,6 +18,36 @@ namespace SharpPy
         public PySet(IEnumerable<PyObject> items) => 
             _items = new PySetStorage(items);
 
+        // set_contains, set_remove, set_discard: a set is looked up as the frozenset of its members.
+        internal static T WithSetKey<T>(PyObject key, Func<PyObject, T> operation)
+        {
+            try
+            {
+                return operation(key);
+            }
+            catch (PythonException error) when (error.PyException is PyTypeError && PyNativeStorage.ForSet(key) != null)
+            {
+                return operation(new PyFrozenSet(PyNativeStorage.ForSet(key).Items));
+            }
+        }
+
+        // set_merge and _PyDict_Next: what the table of an exact dict holds is not hashed again.
+        internal static PySetStorage StorageOf(PyDict dict)
+        {
+            var storage = new PySetStorage();
+            int position = 0;
+            while (dict.InternalDict.NextEntry(ref position, out var entry))
+                storage.AddKnown(entry.Key, entry.Hash);
+            return storage;
+        }
+
+        internal static bool IsExactDict(PyObject value) => value is PyDict && ReferenceEquals(value.GetPyType(), PyType.DictType);
+
+        internal IEnumerable<PySetStorage.Entry> Entries() => _items.Entries();
+
+        internal static IEnumerable<PyObject> SourceItems(PyObject value) =>
+            IsExactDict(value) ? StorageOf((PyDict)value) : IterableItems(value);
+
         internal static IEnumerable<PyObject> IterableItems(PyObject value)
         {
             // set_update_internal: any set is merged from its table, __iter__ of a subclass or not.
@@ -221,20 +251,28 @@ namespace SharpPy
         /// </summary>
         internal PyString Repr(string typeName, bool exactType)
         {
-            if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
-
-            // Performance: Eliminated LINQ (Select) - use StringBuilder
-            bool prefix = !exactType;
-            var sb = new System.Text.StringBuilder(prefix ? typeName + "({" : "{");
-            bool first = true;
-            foreach (var item in _items)
+            if (!PyReprGuard.Enter(this)) return new PyString(typeName + "(...)");
+            try
             {
-                if (!first) sb.Append(", ");
-                sb.Append(item.ToRepr().Value);
-                first = false;
+                if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
+
+                // Performance: Eliminated LINQ (Select) - use StringBuilder
+                bool prefix = !exactType;
+                var sb = new System.Text.StringBuilder(prefix ? typeName + "({" : "{");
+                bool first = true;
+                foreach (var item in _items)
+                {
+                    if (!first) sb.Append(", ");
+                    sb.Append(item.ToRepr().Value);
+                    first = false;
+                }
+                sb.Append(prefix ? "})" : "}");
+                return StringCache.GetOrCreate(sb.ToString());
             }
-            sb.Append(prefix ? "})" : "}");
-            return StringCache.GetOrCreate(sb.ToString());
+            finally
+            {
+                PyReprGuard.Leave(this);
+            }
         }
 
         #endregion
@@ -271,7 +309,7 @@ namespace SharpPy
         /// </summary>
         public PyNone Remove(PyObject item)
         {
-            if (!_items.Remove(item))
+            if (!WithSetKey(item, _items.Remove))
                 throw PyKeyError.Create(item);
             return PyNone.Instance;
         }
@@ -281,7 +319,7 @@ namespace SharpPy
         /// </summary>
         public PyNone Discard(PyObject item)
         {
-            _items.Remove(item);
+            WithSetKey(item, _items.Remove);
             return PyNone.Instance;
         }
 
@@ -311,7 +349,7 @@ namespace SharpPy
         /// </summary>
         public override PyBool Contains(PyObject item)
         {
-            return PyBool.FromBool(_items.Contains(item));
+            return PyBool.FromBool(WithSetKey(item, _items.Contains));
         }
 
         /// <summary>
@@ -321,6 +359,7 @@ namespace SharpPy
         {
             if (other is PySet set) { _items.Merge(set._items); return PyNone.Instance; }
             if (other is PyFrozenSet frozen) { _items.Merge((PySetStorage)frozen.Items); return PyNone.Instance; }
+            if (IsExactDict(other)) { _items.Merge(StorageOf((PyDict)other)); return PyNone.Instance; }
             var items = GetIterableItems(other);
             foreach (var item in items)
             {
@@ -376,6 +415,15 @@ namespace SharpPy
         /// </summary>
         public PySet Difference(PyObject other)
         {
+            // set_difference: an exact dict answers with the hash the entry already has.
+            if (IsExactDict(other) && (Length() >> 2) <= other.Length())
+            {
+                var table = ((PyDict)other).InternalDict;
+                var kept = new PySet();
+                foreach (var entry in _items.Entries())
+                    if (!table.TryGetKnownHash(entry.Key, entry.Hash, out _)) kept._items.AddKnown(entry.Key, entry.Hash);
+                return kept;
+            }
             if ((other is not PySet && other is not PyFrozenSet) || (Length() >> 2) > other.Length())
             {
                 var copied = Copy();
@@ -621,6 +669,7 @@ namespace SharpPy
             {
                 PySet set => set._items,
                 PyFrozenSet frozenSet => (PySetStorage)frozenSet.Items,
+                PyDict dict when IsExactDict(dict) => StorageOf(dict),
                 _ => new PySetStorage(GetIterableItems(obj))
             };
         }
@@ -732,19 +781,27 @@ namespace SharpPy
 
         internal PyString Repr(string typeName)
         {
-            if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
-
-            // Performance: Eliminated LINQ (Select) - use StringBuilder
-            var sb = new System.Text.StringBuilder(typeName).Append("({");
-            bool first = true;
-            foreach (var item in _items)
+            if (!PyReprGuard.Enter(this)) return new PyString(typeName + "(...)");
+            try
             {
-                if (!first) sb.Append(", ");
-                sb.Append(item.ToRepr().Value);
-                first = false;
+                if (_items.Count == 0) return StringCache.GetOrCreate(typeName + "()");
+
+                // Performance: Eliminated LINQ (Select) - use StringBuilder
+                var sb = new System.Text.StringBuilder(typeName).Append("({");
+                bool first = true;
+                foreach (var item in _items)
+                {
+                    if (!first) sb.Append(", ");
+                    sb.Append(item.ToRepr().Value);
+                    first = false;
+                }
+                sb.Append("})");
+                return StringCache.GetOrCreate(sb.ToString());
             }
-            sb.Append("})");
-            return StringCache.GetOrCreate(sb.ToString());
+            finally
+            {
+                PyReprGuard.Leave(this);
+            }
         }
 
         #endregion
@@ -770,7 +827,7 @@ namespace SharpPy
 
         #region Set Operations (Read-only versions)
 
-        public override PyBool Contains(PyObject item) => PyBool.FromBool(_items.Contains(item));
+        public override PyBool Contains(PyObject item) => PyBool.FromBool(PySet.WithSetKey(item, _items.Contains));
         
         public PyFrozenSet Union(PyObject other) => new PyFrozenSet(new PySet(_items).Union(other).Items);
         public PyFrozenSet Intersection(PyObject other) => new PyFrozenSet(new PySet(_items).Intersection(other).Items);

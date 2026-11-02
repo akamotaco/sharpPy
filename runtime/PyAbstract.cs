@@ -51,6 +51,8 @@ namespace SharpPy
         /// <summary>ternary_op: pow(v, w, z) with a modulus that is not None.</summary>
         internal static PyObject Power(PyObject v, PyObject w, PyObject z)
         {
+            if (v is PyWeakProxy || w is PyWeakProxy || z is PyWeakProxy)
+                return Power(PyWeakProxy.Unwrap(v), PyWeakProxy.Unwrap(w), PyWeakProxy.Unwrap(z));
             var slotV = SlotOf(v);
             var slotW = ReferenceEquals(w.GetPyType(), v.GetPyType()) ? PowerSlot.None : SlotOf(w);
             if (slotW == slotV) slotW = PowerSlot.None;
