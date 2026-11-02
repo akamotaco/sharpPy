@@ -2741,7 +2741,7 @@ namespace SharpPy
                             : ToBase(ival, 16, conv == 'X');
                         if (hasPrecision && digits.Length < precision)
                             digits = new string('0', precision - digits.Length) + digits;
-                        string prefix = alt && !ival.IsZero
+                        string prefix = alt
                             ? (conv == 'o' ? "0o" : conv == 'X' ? "0X" : "0x")
                             : "";
                         body = prefix + digits;
@@ -2791,14 +2791,9 @@ namespace SharpPy
                 if (numeric && alt && (conv == 'o' || conv == 'x' || conv == 'X') && zeroPad && !leftAdjust && width > head.Length)
                 {
                     int pad = width - head.Length;
-                    // 0-padding after sign, before digits (digits already contain alt prefix)
-                    if (sign.Length > 0 && (core.StartsWith("0x") || core.StartsWith("0X") || core.StartsWith("0")))
-                    {
-                        int p = core.StartsWith("0") ? 1 : 0;
-                        sb.Append(sign).Append(core.Substring(0, p)).Append('0', pad).Append(core.Substring(p));
-                    }
-                    else
-                        sb.Append(head).Append(' ', Math.Max(0, width - head.Length));
+                    // The zeros go between the sign and prefix and the digits.
+                    int prefix = core.Length > 1 && core[0] == '0' && !char.IsDigit(core[1]) ? 2 : 0;
+                    sb.Append(sign).Append(core, 0, prefix).Append('0', Math.Max(0, pad)).Append(core, prefix, core.Length - prefix);
                 }
                 else if (leftAdjust)
                 {

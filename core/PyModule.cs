@@ -29,7 +29,6 @@ public class PyNamespaceModule : PyModule
         ModuleDict["__path__"] = new PyList(pathList);
 
         // 네임스페이스 패키지 표시
-        ModuleDict["__file__"] = PyNone.Instance; // 네임스페이스 패키지는 __file__이 None
         ModuleDict["__doc__"] = new PyString($"Namespace package {Name}");
     }
     
@@ -121,7 +120,9 @@ public class PyModule : PyObject
     private void InitializeBuiltinAttributes()
     {
         ModuleDict["__name__"] = new PyString(Name);
-        ModuleDict["__file__"] = new PyString(FileName);
+        // A builtin module has no __file__.
+        if (!string.IsNullOrEmpty(FileName) && !FileName.StartsWith("<"))
+            ModuleDict["__file__"] = new PyString(FileName);
         ModuleDict["__doc__"] = new PyString($"Module {Name}");
 
         // CPython 3.12: Set __package__

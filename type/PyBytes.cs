@@ -793,7 +793,7 @@ namespace SharpPy
                             : System.Numerics.BigInteger.Abs(bi).ToString("x").TrimStart('0').PadLeft(1, '0');
                         if (conv == 'X') digits = digits.ToUpperInvariant();
                         if (precision > digits.Length) digits = digits.PadLeft(precision, '0');
-                        text = (neg ? "-" : "") + (alt && bi != 0 ? (conv == 'o' ? "0" : conv == 'x' ? "0x" : "0X") : "") + digits;
+                        text = (neg ? "-" : "") + (alt ? (conv == 'o' ? "0o" : conv == 'x' ? "0x" : "0X") : "") + digits;
                         isNumeric = true;
                         break;
                     }
@@ -808,21 +808,11 @@ namespace SharpPy
                         {
                             throw PyTypeError.Create($"%{conv} format: a real number is required, not {arg.GetTypeName()}");
                         }
-                        var culture = System.Globalization.CultureInfo.InvariantCulture;
-                        if (conv == 'f' || conv == 'F')
-                        {
-                            text = dv.ToString((precision >= 0 ? "F" + precision : "F6"), culture);
-                        }
-                        else if (conv == 'e' || conv == 'E')
-                        {
-                            text = dv.ToString((precision >= 0 ? "E" + precision : "E6"), culture);
-                            text = NormalizeExp(text, conv == 'e');
-                        }
-                        else
-                        {
-                            text = dv.ToString(precision == 0 ? "G1" : "G" + (precision > 0 ? precision : 6), culture);
-                            if (conv == 'G') text = text.ToUpperInvariant();
-                        }
+                        // formatfloat: one writer with str % and format().
+                        if (double.IsNaN(dv)) text = char.IsUpper(conv) ? "NAN" : "nan";
+                        else if (double.IsInfinity(dv)) text = char.IsUpper(conv) ? "INF" : "inf";
+                        else text = PyFloatFormatter.DoubleToString(Math.Abs(dv), conv, precision, alt);
+                        if (!double.IsNaN(dv) && double.IsNegative(dv)) text = "-" + text;
                         isNumeric = true;
                         break;
                     }
@@ -847,6 +837,12 @@ namespace SharpPy
                         {
                             sign = text.Substring(0, 1);
                             text = text.Substring(1);
+                        }
+                        // The zeros go between the prefix and the digits.
+                        if (alt && text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'o')
+                        {
+                            sign += text.Substring(0, 2);
+                            text = text.Substring(2);
                         }
                         text = sign + text.PadLeft(width - sign.Length, '0');
                     }

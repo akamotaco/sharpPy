@@ -250,6 +250,9 @@ namespace SharpPy
 
         // Module-qualified prefix used by CPython's "got multiple values for keyword
         // argument" error (measured: "__main__.g() ...").
+        // _PyObject_FunctionStr: str() of what has no __qualname__.
+        internal static string FunctionStr(PyObject f) => f is PyNone ? "None" : GetFuncErrPrefix(f) + "()";
+
         internal static string GetFuncErrPrefix(PyObject f)
         {
             string name = GetCallDisplayName(f);
@@ -2873,10 +2876,13 @@ namespace SharpPy
                                 }
                             }
                         }
-                        catch (PythonException ex) when (ex.PyException is PyTypeError)
+                        // check_args_iterable: only what has neither __iter__ nor __getitem__.
+                        catch (PythonException ex) when (ex.PyException is PyTypeError &&
+                            argsIterable.LookupSpecialMethodUncached("__iter__") == null &&
+                            argsIterable.LookupSpecialMethodUncached("__getitem__") == null)
                         {
                             // CPython 3.12 measured wording includes the callee name.
-                            throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(functionToCall)}() argument after * must be an iterable, not {argsIterable.GetTypeName()}");
+                            throw PyTypeError.Create($"{PyFrame.FunctionStr(functionToCall)} argument after * must be an iterable, not {argsIterable.GetTypeName()}");
                         }
                     }
 
@@ -2989,14 +2995,12 @@ namespace SharpPy
                     // (module-qualified); plain dict literals never reach this opcode.
                     // Stack here (after popping source and target): [.., NULL, func, argsTuple]
                     PyObject mergeCallee = frame.ValueStack.Count >= 2 ? frame.ValueStack.PeekAt(1) : null;
-                    if (mergeCallee is PyNone)
-                        mergeCallee = null;
 
                     // Merge sourceDict into targetDict
                     if (sourceDict is not PyDict && sourceDict.LookupSpecialMethodUncached("keys") == null)
                     {
                         // CPython 3.12 measured wording for f(**non_mapping).
-                        string mapPrefix = mergeCallee != null ? PyFrame.GetFuncErrPrefix(mergeCallee) + "() " : "";
+                        string mapPrefix = mergeCallee != null ? PyFrame.FunctionStr(mergeCallee) + " " : "";
                         throw PyTypeError.Create($"{mapPrefix}argument after ** must be a mapping, not {sourceDict.GetTypeName()}");
                     }
                     // dict_merge: a mapping is read through keys(), which may repeat one.
@@ -3770,7 +3774,7 @@ namespace SharpPy
                     {
                         extendIterator = extendIterable.GetIterator();
                     }
-                    catch (PythonException ex) when (ex.PyException is PyTypeError)
+                    catch (PythonException ex) when (ex.PyException is PyTypeError && extendIterable.LookupSpecialMethodUncached("__iter__") == null && extendIterable.LookupSpecialMethodUncached("__getitem__") == null)
                     {
                         throw PyTypeError.Create($"Value after * must be an iterable, not {extendIterable.GetTypeName()}");
                     }

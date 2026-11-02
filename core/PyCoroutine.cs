@@ -215,7 +215,8 @@ namespace SharpPy.Core
             PyObject result;
             try
             {
-                _frame.ParentFrame = SharpPy.PyVM.CurrentFrame;
+                _frame.ParentFrame = _resumedBy ?? SharpPy.PyVM.CurrentFrame;
+                _resumedBy = null;
                 result = _vm.ExecuteFrame(_frame) ?? PyNone.Instance;
             }
             catch (PyYieldException yieldEx)
@@ -313,6 +314,10 @@ namespace SharpPy.Core
             return null;
         }
 
+        private PyFrame _resumedBy;
+
+        internal PyFrame ResumedBy { set => _resumedBy = value; }
+
         internal PyObject Throw(PyObject[] args)
         {
             var receiver = GetAwaitReceiver();
@@ -345,10 +350,21 @@ namespace SharpPy.Core
                         PythonException delegateError;
                         try
                         {
+                            // _gen_throw: this frame stands on the stack while the delegate runs.
+                            _frame.ParentFrame = _resumedBy ?? SharpPy.PyVM.CurrentFrame;
                             if (nativeGenerator)
+                            {
+                                ((PyGenerator)receiver).ResumedBy = _frame;
                                 return ((PyGenerator)receiver).Throw(args[0],
                                     args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null);
-                            if (nativeWrapper) return ((PyCoroutineAwaiter)receiver).Throw(args);
+                            }
+                            if (nativeWrapper)
+                            {
+                                ((PyCoroutineAwaiter)receiver).ResumedBy = _frame;
+                                return ((PyCoroutineAwaiter)receiver).Throw(args);
+                            }
+                            if (receiver is PyCoroutine inner)
+                                inner.ResumedBy = _frame;
                             return method.Call(args, null);
                         }
                         catch (PythonException error) { delegateError = error; }
@@ -470,6 +486,8 @@ namespace SharpPy.Core
         public PyObject Send(PyObject value) => _coroutine.Send(value);
         public void Close() => _coroutine.Close();
         internal PyObject Throw(PyObject[] args) => _coroutine.Throw(args);
+
+        internal PyFrame ResumedBy { set => _coroutine.ResumedBy = value; }
         
         public PyCoroutineAwaiter(PyCoroutine coroutine)
         {
