@@ -213,7 +213,13 @@ namespace SharpPy
         private long _index;
         private readonly string _typeName;
 
-        internal override PyObject RemainingHint() => new PyInt(_index + 1);
+        // reversed_len: asks the sequence, which may have shrunk or may refuse.
+        internal override PyObject RemainingHint()
+        {
+            if (_index < 0 || _typeName.StartsWith("dict_"))
+                return new PyInt(_index + 1);
+            return new PyInt(_index + 1 > _seq.Length() ? 0 : _index + 1);
+        }
 
         // reversed_reduce and listreviter_reduce. reversed(range) is a range_iterator going down.
         internal override PyObject Reduce()

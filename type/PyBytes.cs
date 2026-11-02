@@ -706,6 +706,12 @@ namespace SharpPy
                 {
                     case 'a':
                     case 'r':
+                        // _PyBytes_FormatEx: %r is %a here, the ASCII form of the object.
+                        text = ((PyString)PyBuiltinsModule.Instance.GetAttribute("ascii").Call(new[] { arg }, null)).Value;
+                        if (precision >= 0 && text.Length > precision)
+                            text = text.Substring(0, precision);
+                        break;
+                    case '\0':
                         throw PyTypeError.Create($"{conv} formatting: a bytes-like object is required, not 'str'");
                     case 's':
                     case 'b':
@@ -759,11 +765,17 @@ namespace SharpPy
                     case 'i':
                     case 'u':
                     {
-                        if (!TryGetIntArg(arg, out var di))
+                        // mainformatlong: %d takes what int() takes, except text.
+                        if (!TryGetIntArg(arg, out var di) && arg.LookupSpecialMethodUncached("__int__") != null)
+                            di = ((PyInt)PyType.IntType.Call(new[] { arg }, null)).Value;
+                        else if (!TryGetIntArg(arg, out di))
                         {
                             throw PyTypeError.Create($"%{conv} format: a real number is required, not {arg.GetTypeName()}");
                         }
-                        text = di.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        // _PyUnicode_FormatLong: precision is a minimum of digits.
+                        text = System.Numerics.BigInteger.Abs(di).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        if (precision > text.Length) text = text.PadLeft(precision, '0');
+                        if (di < 0) text = "-" + text;
                         isNumeric = true;
                         break;
                     }
@@ -778,8 +790,9 @@ namespace SharpPy
                         bool neg = bi < 0;
                         var digits = conv == 'o'
                             ? ToRadixString(System.Numerics.BigInteger.Abs(bi), 8)
-                            : System.Numerics.BigInteger.Abs(bi).ToString("x");
+                            : System.Numerics.BigInteger.Abs(bi).ToString("x").TrimStart('0').PadLeft(1, '0');
                         if (conv == 'X') digits = digits.ToUpperInvariant();
+                        if (precision > digits.Length) digits = digits.PadLeft(precision, '0');
                         text = (neg ? "-" : "") + (alt && bi != 0 ? (conv == 'o' ? "0" : conv == 'x' ? "0x" : "0X") : "") + digits;
                         isNumeric = true;
                         break;
@@ -871,8 +884,9 @@ namespace SharpPy
         {
             if (arg is PyInt pi) { value = pi.Value; return true; }
             if (arg is PyBool pb) { value = pb.Value ? 1 : 0; return true; }
-            value = 0;
-            return false;
+            var index = arg is PyString || arg is PyBytes ? null : PyObject.TryGetIndex(arg);
+            value = index?.Value ?? 0;
+            return index != null;
         }
 
         // CPython bytes find/count/index start/stop: accept int, bool, or __index__;

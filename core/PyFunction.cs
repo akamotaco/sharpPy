@@ -38,6 +38,7 @@ public partial class PyFunction : PyObject, IDescriptor
     // Python에서 func.__dict__ is func.__dict__는 True여야 함
     private PyDict? _dictCache = null;
     private PyDict? _globalsCache = null;
+    private PyObject? _inheritedBuiltins;
     private PyObject? _module;
     private PyTuple? _closureTuple;
     private PyCell[]? _closureSource;
@@ -118,6 +119,10 @@ public partial class PyFunction : PyObject, IDescriptor
         var function = new PyFunction(name is PyString text ? text.Value : code.Name, null, null, null, closureCells, code);
         function.GlobalsDict = PyVM.ScopeOver(globals).GlobalScope.Variables;
         function._globalsCache = globals;
+        // _PyFunction_FromConstructor: no __builtins__ in globals, so the caller's.
+        PyObject current = null;
+        PyVM.CurrentFrame?.Globals.TryGetValue("__builtins__", out current);
+        function._inheritedBuiltins = current;
         if (defaults is not PyNone)
             function.SetAttribute("__defaults__", defaults);
         return function;
@@ -308,7 +313,7 @@ public partial class PyFunction : PyObject, IDescriptor
                 var func = (PyFunction)self;
                 PyObject builtins = null;
                 func.GlobalsDict?.TryGetValue("__builtins__", out builtins);
-                builtins ??= PyImportSystem.Import("builtins");
+                builtins ??= func._inheritedBuiltins ?? PyImportSystem.Import("builtins");
                 return builtins is PyModule ? builtins.GetAttribute("__dict__") : builtins;
             }
         );

@@ -63,10 +63,10 @@ namespace SharpPy
 
         #region Hash and Equality
 
-        public override int ToHash()
-        {
-            return HashCode.Combine(Start.ToHash(), Stop.ToHash(), Step.ToHash());
-        }
+        // slicehash: of the three, and it fails as they do.
+        internal override long GetPythonHash() => new PyTuple(new[] { Start, Stop, Step }).GetPythonHash();
+
+        public override int ToHash() => unchecked((int)GetPythonHash());
 
         protected override PyObject PyEquals(PyObject other)
         {

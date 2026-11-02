@@ -34,7 +34,7 @@ namespace SharpPy.Generated
         protected int _level = 0;  // Nesting depth for recursion limit
         protected GeneratedTokenInfo _knownErrToken = null;  // Error location tracking
         protected int _errorIndicator = 0;  // Error state flag
-        protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit
+        protected const int MAX_RECURSION_DEPTH = 6000;  // Python's recursion limit
 
         // Position tracking for AST node creation
         // CPython 3.12: EXTRA macro captures token positions for AST nodes

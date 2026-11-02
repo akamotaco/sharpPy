@@ -297,7 +297,12 @@ namespace SharpPy
         public override PyObject Negative() => Value ? SmallIntCache.MinusOne : SmallIntCache.Zero;
         public override PyObject Positive() => Value ? SmallIntCache.One : SmallIntCache.Zero;
         public PyObject Absolute() => Value ? SmallIntCache.One : SmallIntCache.Zero;
-        public override PyObject BitwiseNot() => SmallIntCache.GetOrCreate(Value ? -2 : -1); // ~True = -2, ~False = -1
+        // bool_invert
+        public override PyObject BitwiseNot()
+        {
+            PyWarnings.Deprecated("Bitwise inversion '~' on bool is deprecated and will be removed in Python 3.16. This returns the bitwise inversion of the underlying int object and is usually not what you expect from negating a bool. Use the 'not' operator for boolean negation or ~int(x) if you really want the bitwise inversion of the underlying int.");
+            return SmallIntCache.GetOrCreate(Value ? -2 : -1); // ~True = -2, ~False = -1;
+        }
 
         #endregion
 

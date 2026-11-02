@@ -67,6 +67,13 @@ def check_impl_detail(**guards):
     return guards.get("cpython", True) is True
 
 
+def sortdict(dict):
+    items = sorted(dict.items())
+    reprpairs = ["%r: %r" % pair for pair in items]
+    withcommas = ", ".join(reprpairs)
+    return "{%s}" % withcommas
+
+
 def gc_collect():
     gc.collect()
     gc.collect()

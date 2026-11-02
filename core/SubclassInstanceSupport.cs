@@ -61,8 +61,14 @@ namespace SharpPy
             if (method != null)
             {
                 var result = self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
-                if (result is PyInt or PyBool)
-                    return result is PyInt exact ? exact : new PyInt(((PyBool)result).Value ? 1 : 0);
+                if (result is PyInt exact)
+                    return exact;
+                // PyNumber_Long: a strict subclass of int still answers, with a warning.
+                if (result is PyBool or PyIntSubclass)
+                {
+                    PyWarnings.Deprecated($"__int__ returned non-int (type {result.GetTypeName()}).  The ability to return an instance of a strict subclass of int is deprecated, and may be removed in a future version of Python.");
+                    return result is PyBool truth ? new PyInt(truth.Value ? 1 : 0) : ((PyIntSubclass)result).GetIntValue();
+                }
                 throw PyTypeError.Create($"__int__ returned non-int (type {result.GetTypeName()})");
             }
             var index = PyClassInstance.TryGetIndex(self);

@@ -439,9 +439,17 @@ namespace SharpPy
                 int given = positionalArgs.Length;
                 int slots = regularArgCount;
                 int required = slots - Math.Min(defaultCountForError, slots);
-                if (required < slots)
-                    throw PyTypeError.Create($"{CallName(code)}() takes from {required} to {slots} positional arguments but {given} {(given == 1 ? "was" : "were")} given");
-                throw PyTypeError.Create($"{CallName(code)}() takes {slots} positional argument{(slots == 1 ? "" : "s")} but {given} {(given == 1 ? "was" : "were")} given");
+                // too_many_positional
+                int kwonlyGiven = 0;
+                if (keywordArgs != null)
+                    for (int i = slots; i < slots + code.KwonlyArgCount; i++)
+                        if (keywordArgs.ContainsKey(code.VarNames[i]))
+                            kwonlyGiven++;
+                string signature = required < slots ? $"from {required} to {slots}" : slots.ToString();
+                bool plural = required < slots || slots != 1;
+                string kwonlyText = kwonlyGiven == 0 ? "" :
+                    $" positional argument{(given != 1 ? "s" : "")} (and {kwonlyGiven} keyword-only argument{(kwonlyGiven != 1 ? "s" : "")})";
+                throw PyTypeError.Create($"{CallName(code)}() takes {signature} positional argument{(plural ? "s" : "")} but {given}{kwonlyText} {(given == 1 && kwonlyGiven == 0 ? "was" : "were")} given");
             }
             if (missingPositional.Count > 0)
             {
@@ -2991,10 +2999,29 @@ namespace SharpPy
                         string mapPrefix = mergeCallee != null ? PyFrame.GetFuncErrPrefix(mergeCallee) + "() " : "";
                         throw PyTypeError.Create($"{mapPrefix}argument after ** must be a mapping, not {sourceDict.GetTypeName()}");
                     }
-                    var mergedEntries = new PyDict();
-                    PyDict.UpdateCommon(mergedEntries, sourceDict);
-                    foreach (var kvp in mergedEntries.InternalDict)
+                    // dict_merge: a mapping is read through keys(), which may repeat one.
+                    var mergedEntries = new List<KeyValuePair<PyObject, PyObject>>();
+                    if (sourceDict is PyDict plainSource)
                     {
+                        foreach (var entry in plainSource.InternalDict)
+                            mergedEntries.Add(new KeyValuePair<PyObject, PyObject>(entry.Key, entry.Value));
+                    }
+                    else
+                    {
+                        var keysOfSource = sourceDict.GetAttribute("keys").Call(new PyObject[0], null).GetIterator();
+                        while (true)
+                        {
+                            PyObject mergeKey;
+                            try { mergeKey = keysOfSource.Next(); }
+                            catch (PythonException done) when (done.PyException is PyStopIteration) { break; }
+                            mergedEntries.Add(new KeyValuePair<PyObject, PyObject>(mergeKey, PyAbstract.GetItem(sourceDict, mergeKey)));
+                        }
+                    }
+                    foreach (var kvp in mergedEntries)
+                    {
+                        // format_kwargs_error: %S of the key, in quotes.
+                        if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool() && kvp.Key is not PyString)
+                            throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument '{kvp.Key.AsString().Value}'");
                         if (mergeCallee != null && targetPyDict.Contains(kvp.Key).ToBool())
                             throw PyTypeError.Create($"{PyFrame.GetFuncErrPrefix(mergeCallee)}() got multiple values for keyword argument {kvp.Key.ToRepr().Value}");
                         targetPyDict.SetItem(kvp.Key, kvp.Value);

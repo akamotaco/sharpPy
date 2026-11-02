@@ -761,7 +761,7 @@ namespace SharpPy
 
         // enum_reduce
         internal override PyObject Reduce() => new PyTuple(new PyObject[]
-            { Builtin("enumerate"), new PyTuple(new PyObject[] { _iterator, new PyInt(_index) }) });
+            { GetPyType(), new PyTuple(new PyObject[] { _iterator, new PyInt(_index) }) });
 
         public PyEnumerateIterator(PyObject iterable, System.Numerics.BigInteger start = default)
         {

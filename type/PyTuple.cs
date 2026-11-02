@@ -118,7 +118,7 @@ namespace SharpPy
                         var si = PyObject.TryGetIndex(args[2]);
                         if (si == null)
                             throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        stop = (long)si.Value;
+                        stop = (long)System.Numerics.BigInteger.Clamp(si.Value, long.MinValue, long.MaxValue);
                     }
 
                     return tuple.Index(value, start, stop);
@@ -363,6 +363,9 @@ namespace SharpPy
             {
                 if (count.Value <= 0)
                     return PyTuple.Empty;
+                // tuple_repeat: an exact tuple once over is itself.
+                if (count.Value.IsOne && GetType() == typeof(PyTuple) && !HasCustomType)
+                    return this;
 
                 // Performance: Eliminated LINQ (Enumerable.Range + .SelectMany + .ToArray) - manual repetition + Cache
                 var result = new PyObject[Items.Length * (int)count.Value];

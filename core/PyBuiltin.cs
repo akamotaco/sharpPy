@@ -1273,6 +1273,8 @@ namespace SharpPy
             if (source is PyCodeObject pyCode)
             {
                 codeObject = pyCode;
+                if (pyCode.FreeVars.Count != 0)
+                    throw PyTypeError.Create("code object passed to eval() may not contain free variables");
             }
             // If source is a string, parse and compile it
             else
@@ -1492,6 +1494,8 @@ namespace SharpPy
             if (source is PyCodeObject pyCode)
             {
                 codeObject = pyCode;
+                if (pyCode.FreeVars.Count != 0)
+                    throw PyTypeError.Create($"code object requires a closure of exactly length {pyCode.FreeVars.Count}");
             }
             // If source is a string, compile it first
             else
