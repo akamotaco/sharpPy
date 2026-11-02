@@ -109,7 +109,7 @@ namespace SharpPy
             try
             {
                 var value = o.GetAttribute(name);
-                if (value is PyNone && !optional)
+                if (value is PyNone && !optional && owner != "Constant") // obj2ast_constant takes None
                     throw PyValueError.Create($"field '{name}' is required for {owner}");
                 return value;
             }

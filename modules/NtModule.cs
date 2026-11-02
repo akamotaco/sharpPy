@@ -60,6 +60,11 @@ namespace SharpPy.Modules
                 Environment.Exit(args[0].ToInt());
                 return PyNone.Instance;
             });
+            module.ModuleDict["waitstatus_to_exitcode"] = new PyBuiltinFunction("waitstatus_to_exitcode", args => new PyInt(args[0].ToInt() >> 8));
+            // No child process is ever started here.
+            module.ModuleDict["waitpid"] = new PyBuiltinFunction("waitpid", args =>
+                throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(10), new PyString("No child processes") }, null)));
+            module.ModuleDict["pipe"] = new PyBuiltinFunction("pipe", Pipe);
             module.ModuleDict["open"] = new PyBuiltinFunction("open", Open);
             module.ModuleDict["close"] = new PyBuiltinFunction("close", Close);
             module.ModuleDict["read"] = new PyBuiltinFunction("read", Read);
@@ -399,6 +404,14 @@ namespace SharpPy.Modules
             int other => $"Unknown error {other}",
         });
 
+        // os_pipe_impl
+        private static PyObject Pipe(PyObject[] args)
+        {
+            var server = new System.IO.Pipes.AnonymousPipeServerStream(System.IO.Pipes.PipeDirection.Out);
+            var client = new System.IO.Pipes.AnonymousPipeClientStream(System.IO.Pipes.PipeDirection.In, server.ClientSafePipeHandle);
+            return new PyTuple(new PyObject[] { new PyInt(PyFileDescriptors.Add(client)), new PyInt(PyFileDescriptors.Add(server)) });
+        }
+
         // os_open_impl
         private static PyObject Open(PyObject[] args, PyDict kwargs)
         {
@@ -428,7 +441,9 @@ namespace SharpPy.Modules
             if (length < 0)
                 throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(22), new PyString("Invalid argument") }, null));
             var buffer = new byte[length];
-            int count = PyFileDescriptors.Get(Descriptor(args[0])).Read(buffer, 0, length);
+            var stream = PyFileDescriptors.Get(Descriptor(args[0]));
+            int count = 0;
+            PyGil.AllowThreads(() => count = stream.Read(buffer, 0, length));
             Array.Resize(ref buffer, count);
             return new PyBytes(buffer);
         }
@@ -438,8 +453,11 @@ namespace SharpPy.Modules
         {
             var stream = PyFileDescriptors.Get(Descriptor(args[0]));
             var data = BytesMethods.Buffer(args[1]);
-            stream.Write(data, 0, data.Length);
-            stream.Flush();
+            PyGil.AllowThreads(() =>
+            {
+                stream.Write(data, 0, data.Length);
+                stream.Flush();
+            });
             return new PyInt(data.Length);
         }
 

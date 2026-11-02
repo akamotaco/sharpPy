@@ -854,6 +854,7 @@ namespace SharpPy
         public override PyObject GetAttribute(string name) => name switch
         {
             "__self__" when _owner != null => _owner,
+            "__module__" => PyNone.Instance,
             "__name__" => new PyString(Name),
             "__qualname__" when _owner != null => new PyString($"{_owner.Name}.{Name}"),
             _ => base.GetAttribute(name),

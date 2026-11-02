@@ -135,10 +135,37 @@ namespace SharpPy.Modules
                 PyVM.Instance.TraceFunction = args[0] is PyNone ? null : args[0];
                 return PyNone.Instance;
             });
+            module.ModuleDict["setprofile"] = new PyBuiltinFunction("setprofile", args =>
+            {
+                PyVM.Instance.ProfileFunction = args[0] is PyNone ? null : args[0];
+                return PyNone.Instance;
+            });
+            module.ModuleDict["getprofile"] = new PyBuiltinFunction("getprofile", args => PyVM.Instance.ProfileFunction ?? PyNone.Instance);
+            module.ModuleDict["_settraceallthreads"] = new PyBuiltinFunction("_settraceallthreads", args =>
+            {
+                var function = args[0] is PyNone ? null : args[0];
+                PyGil.ForAllThreads(state => state.TraceFunction = function);
+                return PyNone.Instance;
+            });
+            module.ModuleDict["_setprofileallthreads"] = new PyBuiltinFunction("_setprofileallthreads", args =>
+            {
+                var function = args[0] is PyNone ? null : args[0];
+                PyGil.ForAllThreads(state => state.ProfileFunction = function);
+                return PyNone.Instance;
+            });
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
             module.ModuleDict["getfilesystemencodeerrors"] = new PyBuiltinFunction("getfilesystemencodeerrors", args =>
                 new PyString(System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? "surrogatepass" : "surrogateescape"));
             module.ModuleDict["intern"] = new PySysFunction("intern");
+            module.ModuleDict["getswitchinterval"] = new PyBuiltinFunction("getswitchinterval", args => new PyFloat(PyGil.SwitchInterval));
+            module.ModuleDict["setswitchinterval"] = new PyBuiltinFunction("setswitchinterval", args =>
+            {
+                double interval = args[0].AsFloat().Value;
+                if (interval <= 0)
+                    throw PyValueError.Create("switch interval must be strictly positive");
+                PyGil.SwitchInterval = interval;
+                return PyNone.Instance;
+            });
             module.ModuleDict["flags"] = new PySysFlags();
             module.ModuleDict["warnoptions"] = new PyList();
 

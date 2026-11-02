@@ -33,21 +33,23 @@ namespace SharpPy.Modules
                 {
                     throw PyTypeError.Create($"__import__() argument 1 must be str, not {args[0].GetTypeName()}");
                 }
-                int level = 0;
-                if (args.Length == 2)
+                // import_module and _resolve_name: the module named, not its top package.
+                string name = nameStr.Value;
+                if (name.StartsWith("."))
                 {
-                    var idx = PyObject.TryGetIndex(args[1]);
-                    if (idx == null)
-                    {
-                        throw PyTypeError.Create($"'{args[1].GetTypeName()}' object cannot be interpreted as an integer");
-                    }
-                    level = (int)(long)idx.Value;
+                    if (args.Length < 2 || args[1] is not PyString package)
+                        throw PyTypeError.Create($"the 'package' argument is required to perform a relative import for {nameStr.ToRepr().Value}");
+                    int level = 0;
+                    while (level < name.Length && name[level] == '.')
+                        level++;
+                    var parts = package.Value.Split('.');
+                    if (level > parts.Length)
+                        throw PyImportError.Create("attempted relative import beyond top-level package");
+                    string parent = string.Join(".", parts, 0, parts.Length - level + 1);
+                    name = level == name.Length ? parent : parent + "." + name.Substring(level);
                 }
-                if (level != 0)
-                {
-                    throw PyTypeError.Create("the 'package' argument is required to perform a relative import");
-                }
-                return PyImportSystem.Import(nameStr.Value, 0, Array.Empty<string>(), null);
+                PyImportSystem.Import(name, 0, Array.Empty<string>(), null);
+                return PyImportSystem.TryGetModule(name, out var leaf) ? leaf : PyImportSystem.Import(name, 0, Array.Empty<string>(), null);
             });
 
             module.ModuleDict["reload"] = new PyBuiltinFunction("reload", (args, kwargs) =>

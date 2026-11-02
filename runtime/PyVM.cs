@@ -909,7 +909,7 @@ namespace SharpPy
         public static PyVM Instance { get; } = new PyVM();
         internal int IntMaxStrDigits { get; set; } = 4300;
 
-        private readonly Stack<PyFrame> _frameStack;
+        private Stack<PyFrame> _frameStack;
         private readonly PyScopeChain _globalScope;
 
         // CPython 3.12: Adaptive Specialization System (PEP 659)
@@ -976,7 +976,8 @@ namespace SharpPy
 
         private PyVM()
         {
-            _frameStack = new Stack<PyFrame>();
+            BoundState = new PyThreadState { IsMain = true };
+            _frameStack = BoundState.Frames;
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템 사용!
             _specializer = new AdaptiveSpecializer(); // CPython 3.12: PEP 659
         }
@@ -1172,6 +1173,42 @@ namespace SharpPy
 
         internal int FrameDepth => _frameStack.Count;
 
+        /// <summary>The thread state whose fields the VM holds now.</summary>
+        internal PyThreadState BoundState { get; private set; }
+
+        // PyThreadState_Swap, in two halves: only the GIL's holder uses these fields.
+        internal void Bind(PyThreadState state)
+        {
+            BoundState = state;
+            _frameStack = state.Frames;
+            _inlineCall = state.InlineCall;
+            _hostFrames = state.HostFrames;
+            _tracing = state.Tracing;
+            TraceFunction = state.TraceFunction;
+            ProfileFunction = state.ProfileFunction;
+            // COMPUTE_EVAL_BREAKER: a tripped signal waits for the main thread.
+            if (PyGil.InterruptPending && state.IsMain)
+                PyPending.Flag = true;
+        }
+
+        internal void Unbind(PyThreadState state)
+        {
+            state.InlineCall = _inlineCall;
+            state.HostFrames = _hostFrames;
+            state.Tracing = _tracing;
+            state.TraceFunction = TraceFunction;
+            state.ProfileFunction = ProfileFunction;
+        }
+
+        // _Py_HandlePending
+        private void EvalBreaker()
+        {
+            PyFinalizer.Drain();
+            PyGil.YieldIfRequested();
+            if (PyGil.InterruptPending && BoundState.IsMain)
+                Modules._SignalModule.RunPending();
+        }
+
         private void CheckRecursionLimit()
         {
             if (_frameStack.Count >= Modules.PySysFunction.RecursionLimit)
@@ -1358,7 +1395,7 @@ namespace SharpPy
                         frame.CurrentColumnOffset = instruction.ColumnOffset;
                     }
                     frame.CurrentFileName = frame.Code.FileName;
-                    if (TraceFunction != null && !_tracing)
+                    if ((TraceFunction != null || ProfileFunction != null) && !_tracing)
                         TraceInstruction(frame, instruction);
 
 #if DEBUG_LOG
@@ -1454,6 +1491,8 @@ namespace SharpPy
                         // Handle Python exceptions with proper exception handler routing
                         if (!TryEnterExceptionHandler(frame, pyEx))
                         {
+                            if (ProfileFunction != null && !_tracing)
+                                ProfileEvent(frame, "return", PyNone.Instance);
                             // PY_UNWIND: the frame ends with a return event of None.
                             if (frame.Trace != null && !_tracing)
                                 TraceEvent(frame, "return", PyNone.Instance);
@@ -1622,6 +1661,9 @@ namespace SharpPy
         /// <summary>sys.settrace: the global function, called with 'call' for each new frame.</summary>
         internal PyObject TraceFunction;
 
+        /// <summary>sys.setprofile: called with 'call' and 'return' of Python frames.</summary>
+        internal PyObject ProfileFunction;
+
         // tstate->tracing: a trace function is not traced.
         private bool _tracing;
 
@@ -1650,8 +1692,47 @@ namespace SharpPy
             }
         }
 
+        private void ProfileEvent(PyFrame frame, string what, PyObject argument)
+        {
+            _tracing = true;
+            try
+            {
+                ProfileFunction.Call(new PyObject[] { frame, new PyString(what), argument }, null);
+            }
+            catch
+            {
+                ProfileFunction = null;
+                throw;
+            }
+            finally
+            {
+                _tracing = false;
+            }
+        }
+
+        private void ProfileInstruction(PyFrame frame, ByteCodeInstruction instruction)
+        {
+            switch (instruction.OpCode)
+            {
+                case ByteCodeOp.RESUME:
+                    ProfileEvent(frame, "call", PyNone.Instance);
+                    break;
+                case ByteCodeOp.RETURN_VALUE:
+                case ByteCodeOp.YIELD_VALUE:
+                    ProfileEvent(frame, "return", frame.ValueStack.Peek());
+                    break;
+                case ByteCodeOp.RETURN_CONST:
+                    ProfileEvent(frame, "return", frame.Code.Constants[instruction.Argument]);
+                    break;
+            }
+        }
+
         private void TraceInstruction(PyFrame frame, ByteCodeInstruction instruction)
         {
+            if (ProfileFunction != null)
+                ProfileInstruction(frame, instruction);
+            if (TraceFunction == null)
+                return;
             if (instruction.OpCode == ByteCodeOp.RESUME)
             {
                 // After a yield the frame goes on from the line it was on.
@@ -2761,6 +2842,9 @@ namespace SharpPy
 
                 case ByteCodeOp.CALL:
                     ExecuteCall(frame, argument);
+                    // CHECK_EVAL_BREAKER: a callee in this loop has its own at RESUME.
+                    if (PyPending.Flag && _inlineCall == null)
+                        EvalBreaker();
                     break;
 
                 // Specialized Method Calls - CPython 3.12 Adaptive Specialization
@@ -3028,7 +3112,7 @@ namespace SharpPy
                     // Python/bytecodes.c:145-146 tests the eval breaker here, and only for
                     // oparg < 2 (a frame resumed for a generator send is not interrupted).
                     // SharpPy uses the same point for the lifetime queue (PyFinalizer.Drain).
-                    if (argument < 2 && PyPending.Flag) PyFinalizer.Drain();
+                    if (argument < 2 && PyPending.Flag) EvalBreaker();
                     break;
 
                 // Duplicate CALL case removed (was CALL_FUNCTION_KW)
@@ -3627,7 +3711,7 @@ namespace SharpPy
                 case ByteCodeOp.JUMP_BACKWARD:
                     // The back edge of a loop is the other safe point. JUMP_BACKWARD_NO_INTERRUPT
                     // deliberately has no such test, in CPython and here.
-                    if (PyPending.Flag) PyFinalizer.Drain();
+                    if (PyPending.Flag) EvalBreaker();
                     // CPython 3.12 호환: QuickenedCodeObject 방식으로 JUMP_BACKWARD 계산
                     int currentInstrPos = frame.InstructionPointer;
                     int targetInstrPos;

@@ -159,8 +159,7 @@ namespace SharpPy
                     throw PyValueError.Create("sleep() argument must be non-negative");
 
                 int delayMs = (int)(delay * 1000);
-                if (delayMs > 0)
-                    Thread.Sleep(delayMs);
+                PyGil.AllowThreads(() => Thread.Sleep(delayMs));
 
                 return PyNone.Instance;
             }));

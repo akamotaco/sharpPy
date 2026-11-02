@@ -60,6 +60,13 @@ try:
     support_stub.__name__ = "test.support"
     support_stub.__path__ = [os.path.join(CPYTHON_LIB, "test", "support")]
     sys.modules["test.support"] = test.support = support_stub
+    import types as module_types
+    # threading_helper is pure Python and the threading tests need the real one.
+    helper = module_types.ModuleType("test.support.threading_helper")
+    helper_path = os.path.join(CPYTHON_LIB, "test", "support", "threading_helper.py")
+    with open(helper_path, encoding="utf-8") as stream:
+        exec(compile(stream.read(), helper_path, "exec"), helper.__dict__)
+    sys.modules[helper.__name__] = support_stub.threading_helper = helper
     # A helper with no dependencies of its own is the real file.
     testcase = support_stub.types.ModuleType("test.support.testcase")
     with open(os.path.join(CPYTHON_LIB, "test", "support", "testcase.py"), encoding="utf-8") as source:

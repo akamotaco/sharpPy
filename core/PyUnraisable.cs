@@ -87,12 +87,12 @@ namespace SharpPy
             return repr ? value.ToRepr().Value : value.ToStr().Value;
         }
 
-        internal static void Report(PythonException error, PyObject target)
+        internal static void Report(PythonException error, PyObject target, string message = null)
         {
             var exception = error.PyException;
             var args = new PyUnraisableHookArgs(new PyObject[] {
                 exception.GetPyType(), exception, (PyObject)exception.__traceback__ ?? PyNone.Instance,
-                PyNone.Instance, target
+                message != null ? new PyString(message) : PyNone.Instance, target
             });
             PyObject hook = null;
             if (PyImportSystem.TryGetModule("sys", out var sys))

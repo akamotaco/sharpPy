@@ -192,6 +192,7 @@ namespace SharpPy
         public override PyObject GetAttribute(string name) => name switch
         {
             "__self__" => OwnerType,
+            "__module__" => PyNone.Instance,
             _ => base.GetAttribute(name),
         };
 

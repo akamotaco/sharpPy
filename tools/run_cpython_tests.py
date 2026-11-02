@@ -27,7 +27,7 @@ test_contains test_decorators test_funcattrs test_metaclass test_super test_prop
 test_sort test_with test_generators test_yield_from test_iter test_exceptions test_except_star
 test_exception_group test_patma test_string_literals test_fstring test_format test_type_params test_abc
 test_bool test_int test_float test_complex test_list test_tuple test_dict test_dictviews test_set test_range
-test_bytes test_builtin test_descr test_coroutines test_asyncgen test_marshal test_code""".split()
+test_bytes test_builtin test_descr test_coroutines test_asyncgen test_marshal test_code test_thread test_threading test_threading_local test_queue""".split()
 
 
 class MemStatus(ctypes.Structure):

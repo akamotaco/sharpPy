@@ -4,7 +4,11 @@ Lib/test/support reaches for importlib internals, subprocess and ctypes. Only th
 are here. Any other name is a stand-in: as a decorator it skips the test, called inside a test it skips
 that test, so a missing helper shows up as SKIP and never as a pass.
 """
+import ast
 import contextlib
+import importlib
+import time
+import os
 import functools
 import gc
 import io
@@ -65,6 +69,61 @@ def impl_detail(msg=None, **guards):
 
 def check_impl_detail(**guards):
     return guards.get("cpython", True) is True
+
+
+SHORT_TIMEOUT = 30.0
+LONG_TIMEOUT = 300.0
+LOOPBACK_TIMEOUT = 5.0
+INTERNET_TIMEOUT = 60.0
+PIPE_MAX_SIZE = 1024 * 1024
+
+
+# subprocess reads these at class level when it finds no msvcrt.
+for _name in ("WIFSTOPPED", "WSTOPSIG"):
+    if not hasattr(os, _name):
+        setattr(os, _name, lambda status: 0)
+for _name in ("WNOHANG", "WUNTRACED"):
+    if not hasattr(os, _name):
+        setattr(os, _name, 0)
+
+
+def requires_subprocess():
+    return unittest.skip("no subprocess here")
+
+
+def reap_children():
+    pass
+
+
+def setswitchinterval(interval):
+    return sys.setswitchinterval(interval)
+
+
+def requires_fork():
+    return unittest.skipUnless(hasattr(os, "fork"), "requires working os.fork()")
+
+
+def print_warning(msg):
+    for line in msg.splitlines():
+        print(f"Warning -- {line}", file=sys.__stderr__, flush=True)
+
+
+def _import_fresh_module(name, fresh=(), blocked=(), *, deprecated=False, usefrozen=False):
+    fresh, blocked = list(fresh), list(blocked)
+    names = {name, *fresh, *blocked}
+    saved = {n: sys.modules.pop(n) for n in names if n in sys.modules}
+    for n in blocked:
+        sys.modules[n] = None
+    try:
+        for n in fresh:
+            importlib.import_module(n)
+        return importlib.import_module(name)
+    except ImportError:
+        return None
+    finally:
+        for n in names:
+            sys.modules.pop(n, None)
+        sys.modules.update(saved)
 
 
 class TestFailed(Exception):
@@ -349,14 +408,25 @@ def _check_syntax_warning(testcase, statement, errtext="", *, lineno=1, offset=N
         testcase.assertRegex(str(caught[0].message), errtext)
 
 
-import_helper = _helper_module("import_helper", import_module=_import_module)
+import_helper = _helper_module("import_helper", import_fresh_module=_import_fresh_module, import_module=_import_module)
 os_helper = _helper_module("os_helper", TESTFN=TESTFN, unlink=_unlink)
 warnings_helper = _helper_module("warnings_helper", check_warnings=_check_warnings, check_no_warnings=_check_no_warnings,
                                  check_syntax_warning=_check_syntax_warning, ignore_warnings=lambda *, category: (lambda f: f))
 script_helper = _helper_module("script_helper")
-threading_helper = _helper_module("threading_helper", requires_working_threading=lambda *, module=False: (lambda f: f),
-                                  reap_threads=lambda f: f)
 socket_helper = _helper_module("socket_helper")
 logging_helper = _helper_module("logging_helper")
 hashlib_helper = _helper_module("hashlib_helper")
 bytecode_helper = _helper_module("bytecode_helper")
+
+
+def _take_from_support(*names):
+    """Pure Python helpers come from the real file, so nothing of Lib/test is copied."""
+    path = os.path.join(os.path.dirname(os.path.dirname(unittest.__file__)), "test", "support", "__init__.py")
+    with open(path, encoding="utf-8") as stream:
+        tree = ast.parse(stream.read())
+    for node in tree.body:
+        if getattr(node, "name", None) in names:
+            exec(compile(ast.Module([node], []), path, "exec"), globals())
+
+
+_take_from_support("busy_retry", "sleeping_retry", "catch_unraisable_exception", "catch_threading_exception")

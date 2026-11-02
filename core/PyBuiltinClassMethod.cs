@@ -22,6 +22,8 @@ namespace SharpPy
         // CPython: builtin classmethods (dict.fromkeys) surface as
         // builtin_function_or_method both unbound and bound (a PyCFunction).
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
+
+        public override PyObject GetAttribute(string name) => name == "__module__" ? PyNone.Instance : base.GetAttribute(name);
         public override string GetTypeName() => "builtin_function_or_method";
 
         // IDescriptor implementation
