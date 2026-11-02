@@ -246,13 +246,13 @@ namespace SharpPy
         }
 
         private void ADDOP(Loc loc, ByteCodeOp op) =>
-            _u.Seq.AddOp(op, loc.Line, loc.Col, _filename);
+            _u.Seq.AddOp(op, loc.Line, loc.Col, new EndPosition(loc.EndLine, loc.EndCol));
 
         private void ADDOP_I(Loc loc, ByteCodeOp op, int arg) =>
-            _u.Seq.AddOpWithArg(op, arg, loc.Line, loc.Col, _filename);
+            _u.Seq.AddOpWithArg(op, arg, loc.Line, loc.Col, new EndPosition(loc.EndLine, loc.EndCol));
 
         private void ADDOP_JUMP(Loc loc, ByteCodeOp op, Label target) =>
-            _u.Seq.AddOpWithLabel(op, target, loc.Line, loc.Col, _filename);
+            _u.Seq.AddOpWithLabel(op, target, loc.Line, loc.Col, new EndPosition(loc.EndLine, loc.EndCol));
 
         private void ADDOP_LOAD_CONST(Loc loc, PyObject o) =>
             ADDOP_I(loc, ByteCodeOp.LOAD_CONST, AddConst(o));
@@ -782,7 +782,7 @@ namespace SharpPy
         private void WrapInStopiterationHandler()
         {
             var handler = NewLabel();
-            _u.Seq.InsertAt(0, new Instruction(ByteCodeOp.SETUP_CLEANUP, handler, -1, -1, _filename));
+            _u.Seq.InsertAt(0, new Instruction(ByteCodeOp.SETUP_CLEANUP, handler, -1, -1, default));
             ADDOP_LOAD_CONST(Loc.NoLocation, PyNone.Instance);
             ADDOP(Loc.NoLocation, ByteCodeOp.RETURN_VALUE);
             UseLabel(handler);

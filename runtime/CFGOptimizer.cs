@@ -43,16 +43,16 @@ namespace SharpPy
         private BasicBlock Entry => _cfg.EntryBlock;
 
         private static ByteCodeInstruction SetOp(ByteCodeInstruction i, ByteCodeOp op, int arg = 0) =>
-            new ByteCodeInstruction(op, arg, i.LineNumber, i.ColumnOffset, i.FileName, null, i.ExceptBlock);
+            new ByteCodeInstruction(op, arg, i.LineNumber, i.ColumnOffset, i.End, null, i.ExceptBlock);
 
         private static ByteCodeInstruction Retarget(ByteCodeInstruction i, ByteCodeOp op, BasicBlock target) =>
-            new ByteCodeInstruction(op, i.Argument, i.LineNumber, i.ColumnOffset, i.FileName, target, i.ExceptBlock);
+            new ByteCodeInstruction(op, i.Argument, i.LineNumber, i.ColumnOffset, i.End, target, i.ExceptBlock);
 
         private static ByteCodeInstruction WithLine(ByteCodeInstruction i, ByteCodeInstruction from) =>
-            new ByteCodeInstruction(i.OpCode, i.Argument, from.LineNumber, from.ColumnOffset, from.FileName, i.TargetBlock, i.ExceptBlock);
+            new ByteCodeInstruction(i.OpCode, i.Argument, from.LineNumber, from.ColumnOffset, from.End, i.TargetBlock, i.ExceptBlock);
 
         private static ByteCodeInstruction WithLine(ByteCodeInstruction i, int line) =>
-            new ByteCodeInstruction(i.OpCode, i.Argument, line, i.ColumnOffset, i.FileName, i.TargetBlock, i.ExceptBlock);
+            new ByteCodeInstruction(i.OpCode, i.Argument, line, i.ColumnOffset, i.End, i.TargetBlock, i.ExceptBlock);
 
         internal static bool IsBlockPush(ByteCodeOp op) =>
             op == ByteCodeOp.SETUP_FINALLY || op == ByteCodeOp.SETUP_CLEANUP || op == ByteCodeOp.SETUP_WITH;
@@ -608,7 +608,7 @@ namespace SharpPy
                 var code = b.Instructions;
                 for (int i = 0; i < code.Count; i++)
                     if (HasConst(code[i].OpCode))
-                        code[i] = new ByteCodeInstruction(code[i].OpCode, reverse[code[i].Argument], code[i].LineNumber, code[i].ColumnOffset, code[i].FileName, code[i].TargetBlock, code[i].ExceptBlock);
+                        code[i] = new ByteCodeInstruction(code[i].OpCode, reverse[code[i].Argument], code[i].LineNumber, code[i].ColumnOffset, code[i].End, code[i].TargetBlock, code[i].ExceptBlock);
             }
         }
 
@@ -653,7 +653,7 @@ namespace SharpPy
                         break;
                     case ByteCodeOp.LOAD_FAST:
                         if ((unsafeMask & bit) != 0)
-                            code[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_FAST_CHECK, instr.Argument, instr.LineNumber, instr.ColumnOffset, instr.FileName, null, instr.ExceptBlock);
+                            code[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_FAST_CHECK, instr.Argument, instr.LineNumber, instr.ColumnOffset, instr.End, null, instr.ExceptBlock);
                         unsafeMask &= ~bit;
                         break;
                 }
@@ -690,7 +690,7 @@ namespace SharpPy
                             break;
                         case ByteCodeOp.LOAD_FAST:
                             if (states[arg - 64] != blocknum)
-                                code[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_FAST_CHECK, arg, instr.LineNumber, instr.ColumnOffset, instr.FileName, null, instr.ExceptBlock);
+                                code[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_FAST_CHECK, arg, instr.LineNumber, instr.ColumnOffset, instr.End, null, instr.ExceptBlock);
                             states[arg - 64] = blocknum;
                             break;
                     }
@@ -812,7 +812,7 @@ namespace SharpPy
                 {
                     var explicitJump = _cfg.CreateBlock();
                     b.Next.Label = 1;
-                    explicitJump.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.JUMP, 0, -1, 0, null, b.Next, null));
+                    explicitJump.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.JUMP, 0, -1, -1, default, b.Next, null));
                     explicitJump.Cold = true;
                     explicitJump.Next = b.Next;
                     b.Next = explicitJump;
@@ -862,6 +862,75 @@ namespace SharpPy
         }
 
         /// <summary>_PyCfg_ConvertPseudoOps</summary>
+        // stack_effect (Python/compile.c)
+        internal static int StackEffect(ByteCodeOp opcode, int oparg, bool jump)
+        {
+            switch (opcode)
+            {
+                case ByteCodeOp.POP_BLOCK:
+                case ByteCodeOp.JUMP:
+                case ByteCodeOp.JUMP_NO_INTERRUPT:
+                    return 0;
+                case ByteCodeOp.SETUP_FINALLY:
+                case ByteCodeOp.SETUP_WITH:
+                    return jump ? 1 : 0;
+                case ByteCodeOp.SETUP_CLEANUP:
+                    return jump ? 2 : 0;
+                case ByteCodeOp.STORE_FAST_MAYBE_NULL:
+                    return -1;
+            }
+            return OpcodeMetadata.NumPushed(opcode, oparg, jump) - OpcodeMetadata.NumPopped(opcode, oparg, jump);
+        }
+
+        // _PyCfg_Stackdepth
+        public int Stackdepth(int codeFlags)
+        {
+            const int NOT_SEEN = int.MinValue;
+            var startDepth = new Dictionary<BasicBlock, int>();
+            var stack = new Stack<BasicBlock>();
+
+            void Push(BasicBlock b, int depth)
+            {
+                if (!startDepth.ContainsKey(b))
+                {
+                    startDepth[b] = depth;
+                    stack.Push(b);
+                }
+            }
+
+            int maxDepth = 0;
+            bool generator = (codeFlags & (0x20 | 0x80 | 0x200)) != 0;
+            Push(Entry, generator ? 1 : 0);
+            while (stack.Count != 0)
+            {
+                var b = stack.Pop();
+                int depth = startDepth.GetValueOrDefault(b, NOT_SEEN);
+                var next = b.Next;
+                foreach (var instr in b.Instructions)
+                {
+                    int newDepth = depth + StackEffect(instr.OpCode, instr.Argument, false);
+                    if (newDepth > maxDepth)
+                        maxDepth = newDepth;
+                    if (instr.TargetBlock != null)
+                    {
+                        int targetDepth = depth + StackEffect(instr.OpCode, instr.Argument, true);
+                        if (targetDepth > maxDepth)
+                            maxDepth = targetDepth;
+                        Push(instr.TargetBlock, targetDepth);
+                    }
+                    depth = newDepth;
+                    if (IsUnconditionalJump(instr.OpCode) || IsScopeExit(instr.OpCode))
+                    {
+                        next = null;
+                        break;
+                    }
+                }
+                if (next != null)
+                    Push(next, depth);
+            }
+            return maxDepth;
+        }
+
         public void ConvertPseudoOps()
         {
             for (var b = Entry; b != null; b = b.Next)
@@ -910,7 +979,7 @@ namespace SharpPy
             }
             // 'conditional jump T' becomes 'reversed_jump b_next' followed by 'jump_backwards T'
             var backwardsJump = _cfg.CreateBlock();
-            backwardsJump.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.JUMP, 0, last.LineNumber, last.ColumnOffset, last.FileName, last.TargetBlock, null));
+            backwardsJump.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.JUMP, 0, last.LineNumber, last.ColumnOffset, last.End, last.TargetBlock, null));
             b.Instructions[lastIndex] = Retarget(last, reversed, b.Next!);
             backwardsJump.Cold = b.Cold;
             backwardsJump.Next = b.Next;

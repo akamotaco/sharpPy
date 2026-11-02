@@ -350,13 +350,29 @@ namespace SharpPy
 
     // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction
     // No intermediate ExceptHandlerInfo struct needed - use ExceptBlock reference directly
+    /// <summary>The end of a location. The default is no location, as (-1, -1).</summary>
+    public readonly struct EndPosition
+    {
+        private readonly int _line;
+        private readonly int _column;
+
+        public EndPosition(int line, int column)
+        {
+            _line = line + 1;
+            _column = column + 1;
+        }
+
+        public int Line => _line - 1;
+        public int Column => _column - 1;
+    }
+
     public struct ByteCodeInstruction
     {
         public ByteCodeOp OpCode { get; }
         public int Argument { get; }
         public int LineNumber { get; }      // Source line number (1-based)
         public int ColumnOffset { get; }    // Source column offset (0-based)
-        public string? FileName { get; }    // Source file name
+        public EndPosition End { get; }     // end_lineno and end_col_offset of its location
 
         // CPython 3.12: _PyCfgInstruction compatibility
         // typedef struct {
@@ -369,13 +385,13 @@ namespace SharpPy
         public BasicBlock? TargetBlock { get; set; }  // i_target: Jump/branch target block
         public BasicBlock? ExceptBlock { get; set; }  // i_except: Exception handler block
 
-        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null, BasicBlock? targetBlock = null, BasicBlock? exceptBlock = null)
+        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, EndPosition end = default, BasicBlock? targetBlock = null, BasicBlock? exceptBlock = null)
         {
             OpCode = opCode;
             Argument = argument;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
-            FileName = fileName;
+            End = end;
             TargetBlock = targetBlock;
             ExceptBlock = exceptBlock;
         }
@@ -617,7 +633,7 @@ namespace SharpPy
             }
             return new PyCodeObject(name, Instructions, Constants, Names, VarNames, ArgCount, PosonlyArgCount,
                 KwonlyArgCount, FreeVars, CellVars, DefaultValues, KwDefaults, flags, FileName, SourceLines,
-                IsOptimized, LineNumberTable, ExceptionTable) { QualName = qualName };
+                IsOptimized, LineNumberTable, ExceptionTable) { QualName = qualName, FirstLineNo = FirstLineNo, Tables = Tables, StackSize = StackSize };
         }
 
         public override PyObject GetAttribute(string name)
@@ -643,8 +659,12 @@ namespace SharpPy
                 "co_filename" => new PyString(FileName ?? "<unknown>"),
                 "co_firstlineno" => new PyInt(GetFirstLineNo()),
                 "co_nlocals" => new PyInt(VarNames.Count),
-                "co_stacksize" => new PyInt(64), // Placeholder - actual stack size calculation needed
-                "co_code" => PyNone.Instance, // Raw bytecode - not implemented yet
+                "co_stacksize" => new PyInt(StackSize),
+                "co_code" => new PyBytes(Tables.Code),
+                "_co_code_adaptive" => new PyBytes(Tables.Code),
+                "co_linetable" => new PyBytes(Tables.LineTable),
+                "co_exceptiontable" => new PyBytes(Tables.ExceptionTable),
+                "co_lines" => new PyBuiltinFunction("co_lines", CoLinesMethod),
                 "co_lnotab" => PyNone.Instance, // Line number table - deprecated in 3.12
                 "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
                 _ => base.GetAttribute(name)
@@ -667,36 +687,41 @@ namespace SharpPy
             return 1; // Default to line 1
         }
 
-        /// <summary>
-        /// CPython 3.12: co_positions() method
-        /// Returns iterator of (lineno, end_lineno, col_offset, end_col_offset) for each instruction
-        /// </summary>
+        // positionsiter_next
         private PyObject CoPositionsMethod(PyObject[] args)
         {
-            // Return a generator-like object that yields position tuples
+            static PyObject Value(int number) => number < 0 ? PyNone.Instance : new PyInt(number);
             var positions = new List<PyObject>();
-
-            for (int i = 0; i < Instructions.Count; i++)
-            {
-                // Try to get line number for this instruction
-                int lineno = LineNumberTable.TryGetValue(i, out int line) ? line : -1;
-
-                // For now, we don't have column information, so return None for columns
-                // Format: (lineno, end_lineno, col_offset, end_col_offset)
-                var posTuple = new PyTuple(new PyObject[]
-                {
-                    lineno > 0 ? new PyInt(lineno) : PyNone.Instance,  // lineno
-                    lineno > 0 ? new PyInt(lineno) : PyNone.Instance,  // end_lineno (same as lineno)
-                    PyNone.Instance,  // col_offset (not tracked yet)
-                    PyNone.Instance   // end_col_offset (not tracked yet)
-                });
-                positions.Add(posTuple);
-            }
-
-            // Return a list that can be iterated (simpler than true generator for now)
-            return new PyList(positions.ToArray());
+            foreach (var position in LocationTable.Read(Tables.LineTable, GetFirstLineNo()))
+                positions.Add(new PyTuple(new[] { Value(position.Line), Value(position.EndLine), Value(position.Column), Value(position.EndColumn) }));
+            return new PyList(positions.ToArray()).GetIterator();
         }
-        
+
+        // The tables as Python sees them.
+        public AssembledTables Tables { get; set; } = new AssembledTables();
+        public int StackSize { get; set; }
+
+        private PyObject CoLinesMethod(PyObject[] args)
+        {
+            // lineiter_next: consecutive units of one line are one range.
+            var positions = LocationTable.Read(Tables.LineTable, GetFirstLineNo());
+            var ranges = new List<PyObject>();
+            int start = 0;
+            while (start < positions.Count)
+            {
+                int end = start + 1;
+                while (end < positions.Count && positions[end].Line == positions[start].Line)
+                    end++;
+                ranges.Add(new PyTuple(new PyObject[]
+                {
+                    new PyInt(start * 2), new PyInt(end * 2),
+                    positions[start].Line < 0 ? PyNone.Instance : new PyInt(positions[start].Line),
+                }));
+                start = end;
+            }
+            return new PyList(ranges.ToArray()).GetIterator();
+        }
+
         public void Disassemble()
         {
             if (CodeDumper.Enabled)

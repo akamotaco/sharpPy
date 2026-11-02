@@ -58,7 +58,7 @@ namespace SharpPy
 
         public int LineNumber { get; }
         public int ColumnOffset { get; }
-        public string? FileName { get; }
+        public EndPosition End { get; }
 
         // Constructor for non-jump instructions with integer argument
         public Instruction(
@@ -66,14 +66,14 @@ namespace SharpPy
             int arg,
             int lineNumber,
             int columnOffset,
-            string? fileName)
+            EndPosition end)
         {
             OpCode = opCode;
             Arg = arg;
             Target = null;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
-            FileName = fileName;
+            End = end;
         }
 
         // Constructor for jump instructions with label target
@@ -82,14 +82,14 @@ namespace SharpPy
             Label target,
             int lineNumber,
             int columnOffset,
-            string? fileName)
+            EndPosition end)
         {
             OpCode = opCode;
             Arg = null;
             Target = target;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
-            FileName = fileName;
+            End = end;
         }
 
         // Constructor for instructions with no argument (NOP, POP_TOP, etc.)
@@ -97,14 +97,14 @@ namespace SharpPy
             ByteCodeOp opCode,
             int lineNumber,
             int columnOffset,
-            string? fileName)
+            EndPosition end)
         {
             OpCode = opCode;
             Arg = null;
             Target = null;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
-            FileName = fileName;
+            End = end;
         }
 
         public bool IsJump => Target.HasValue;
@@ -174,13 +174,13 @@ namespace SharpPy
             ByteCodeOp opCode,
             int lineNumber,
             int columnOffset = -1,
-            string? fileName = null)
+            EndPosition end = default)
         {
             _instructions.Add(new Instruction(
                 opCode,
                 lineNumber,
                 columnOffset,
-                fileName
+                end
             ));
         }
 
@@ -193,14 +193,14 @@ namespace SharpPy
             int arg,
             int lineNumber,
             int columnOffset = -1,
-            string? fileName = null)
+            EndPosition end = default)
         {
             _instructions.Add(new Instruction(
                 opCode,
                 arg,
                 lineNumber,
                 columnOffset,
-                fileName
+                end
             ));
         }
 
@@ -213,7 +213,7 @@ namespace SharpPy
             Label target,
             int lineNumber,
             int columnOffset = -1,
-            string? fileName = null)
+            EndPosition end = default)
         {
             if (!target.IsValid)
                 throw new ArgumentException("Invalid label for jump target", nameof(target));
@@ -223,7 +223,7 @@ namespace SharpPy
                 target,
                 lineNumber,
                 columnOffset,
-                fileName
+                end
             ));
         }
 

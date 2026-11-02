@@ -1308,7 +1308,7 @@ namespace SharpPy
                             combinedArg,
                             instruction.LineNumber,
                             instruction.ColumnOffset,
-                            instruction.FileName,
+                            instruction.End,
                             instruction.TargetBlock,
                             instruction.ExceptBlock
                         );
@@ -1329,10 +1329,7 @@ namespace SharpPy
                     {
                         frame.CurrentColumnOffset = instruction.ColumnOffset;
                     }
-                    if (!string.IsNullOrEmpty(instruction.FileName))
-                    {
-                        frame.CurrentFileName = instruction.FileName;
-                    }
+                    frame.CurrentFileName = frame.Code.FileName;
 
 #if DEBUG_LOG
                     if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력

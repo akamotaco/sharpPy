@@ -6,6 +6,7 @@ Four levels, each one a separate count:
   arguments   each argument as dis shows it: the name, the constant, the jump target
   lines       the source line of each instruction
   exceptions  the exception table
+  raw         co_code, co_linetable (so the columns too), co_exceptiontable and co_stacksize, byte for byte
 
 Usage: python tools/compare_bytecode.py --dotnet <dotnet> [--show N] [--level L]
                                         [--minimum N] [files]
@@ -50,6 +51,7 @@ class Unit:
         self.details = []
         self.lines = []
         self.table = []
+        self.raw = None
 
 
 def constant_detail(value):
@@ -92,6 +94,7 @@ def cpython_code(source, path):
             line = i.positions.lineno if i.positions else None
             unit.lines.append(line if line is not None else -1)
         unit.table = [(e.start, e.end, e.target, e.depth, 1 if e.lasti else 0) for e in dis._parse_exception_table(code)]
+        unit.raw = (code.co_code.hex(), code.co_linetable.hex(), code.co_exceptiontable.hex(), code.co_stacksize)
         found[code.co_name].append(unit)
         for const in code.co_consts:
             if isinstance(const, types.CodeType):
@@ -117,6 +120,9 @@ def sharppy_code(dotnet, path):
                 unit.ops.append(parts[1])
                 unit.details.append(parts[2])
                 unit.lines.append(int(parts[3]))
+        elif line.startswith("@raw\t") and unit is not None:
+            parts = line.split("\t")
+            unit.raw = (parts[1], parts[2], parts[3], int(parts[4]))
         elif line.startswith("@exc\t") and unit is not None:
             unit.table.append(tuple(int(x) for x in line.split("\t")[1:]))
     return found
@@ -133,7 +139,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dotnet", default="dotnet")
     parser.add_argument("--show", type=int, default=25)
-    parser.add_argument("--level", choices=("names", "arguments", "lines", "exceptions"), default="names",
+    parser.add_argument("--level", choices=("names", "arguments", "lines", "exceptions", "raw"), default="names",
                         help="which level the list of differences shows")
     parser.add_argument("--minimum", type=int, default=0, help="fail below this many identical code objects by name")
     parser.add_argument("files", nargs="*")
@@ -182,11 +188,23 @@ def main():
                     count["exceptions"] += 1
                 elif args.level == "exceptions":
                     tally[(str(len(unit.table)), str(len(other.table)))] += 1
+                if other.raw == unit.raw:
+                    count["raw"] += 1
+                elif args.level == "raw" and other.raw is not None:
+                    for field, a, b in zip(("code", "linetable", "exceptiontable", "stacksize"), unit.raw, other.raw):
+                        if a != b:
+                            count["raw_" + field] += 1
+                            if field == "stacksize":
+                                tally[(field, "%+d" % (b - a))] += 1
+                            else:
+                                at = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+                                tally[(field + " " + name, "%s | %s at %d" % (a[max(0, at - 8):at + 8], b[max(0, at - 8):at + 8], at))] += 1
+                            break
 
     print("=== most frequent differences (CPython -> SharpPy), level %s ===" % args.level)
     for (theirs, mine), n in tally.most_common(args.show):
         print(f"{n:6} {theirs[:64]:64} -> {mine[:64]}")
-    print(json.dumps({key: count[key] for key in ("code_objects", "names", "arguments", "lines", "exceptions", "missing", "files_failed")}))
+    print(json.dumps({key: count[key] for key in ("code_objects", "names", "arguments", "lines", "exceptions", "raw", "raw_code", "raw_linetable", "raw_exceptiontable", "raw_stacksize", "missing", "files_failed")}))
     return 1 if count["names"] < args.minimum else 0
 
 

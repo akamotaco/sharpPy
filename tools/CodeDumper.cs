@@ -32,6 +32,7 @@ namespace SharpPy
             }
             foreach (var entry in code.ExceptionTable)
                 Console.WriteLine($"@exc\t{entry.StartOffset}\t{entry.EndOffset}\t{entry.HandlerOffset}\t{entry.Depth}\t{(entry.Lasti ? 1 : 0)}");
+            Console.WriteLine($"@raw\t{Convert.ToHexString(code.Tables.Code).ToLowerInvariant()}\t{Convert.ToHexString(code.Tables.LineTable).ToLowerInvariant()}\t{Convert.ToHexString(code.Tables.ExceptionTable).ToLowerInvariant()}\t{code.StackSize}");
             foreach (var constant in code.Constants)
                 if (constant is PyCodeObject nested)
                     Dump(nested);

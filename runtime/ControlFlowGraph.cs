@@ -132,7 +132,7 @@ namespace SharpPy
                                     newoffset,
                                     instr.LineNumber,
                                     instr.ColumnOffset,
-                                    instr.FileName,
+                                    instr.End,
                                     instr.TargetBlock,
                                     instr.ExceptBlock
                                 );

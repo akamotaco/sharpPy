@@ -104,7 +104,7 @@ namespace SharpPy
                     {
                         var ops = new GeneratedCmpopSeq();
                         ops.Add(op);
-                        return Located(new GeneratedCompare { Left = compare.Left, Ops = ops, Comparators = compare.Comparators }, node);
+                        return Located(new GeneratedCompare { Left = compare.Left, Ops = ops, Comparators = compare.Comparators }, compare);
                     }
                 }
                 return node;

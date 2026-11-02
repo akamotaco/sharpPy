@@ -124,6 +124,7 @@ namespace SharpPy
             optimizer.Optimize();
             optimizer.InsertPrefixInstructions(codeFlags, CellsInFrameOrder(varnames, cellvars), freevars.Count, u.FirstLineNo);
             cfg.FixCellOffsets(varnames, cellvars, freevars);
+            int maxDepth = optimizer.Stackdepth(codeFlags);
             optimizer.ConvertPseudoOps();
             optimizer.NormalizeJumps();
             var assembled = PyAssemble.Assemble(cfg, _filename);
@@ -134,6 +135,13 @@ namespace SharpPy
             code.QualName = u.QualName;
             code.FirstLineNo = u.FirstLineNo;
             code.ExceptionTable.AddRange(assembled.ExceptionTable);
+            code.StackSize = maxDepth;
+            code.Tables = new AssembledTables
+            {
+                Code = LocationTable.CodeBytes(assembled.Instructions),
+                LineTable = LocationTable.LineBytes(assembled.Instructions, u.FirstLineNo),
+                ExceptionTable = LocationTable.ExceptionBytes(assembled.ExceptionTable),
+            };
             return code;
         }
     }

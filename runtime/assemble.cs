@@ -360,7 +360,7 @@ namespace SharpPy
                                 jumpArg,
                                 instr.LineNumber,
                                 instr.ColumnOffset,
-                                instr.FileName,
+                                instr.End,
                                 instr.TargetBlock,
                                 instr.ExceptBlock
                             );
@@ -452,7 +452,7 @@ namespace SharpPy
                             0,  // arg=0 for CACHE
                             instr.LineNumber,
                             instr.ColumnOffset,
-                            instr.FileName,
+                            instr.End,
                             null,  // No target for CACHE
                             null   // No except for CACHE
                         ));
@@ -493,7 +493,7 @@ namespace SharpPy
                     (arg >> 24) & 0xFF,
                     instr.LineNumber,
                     instr.ColumnOffset,
-                    instr.FileName,
+                    instr.End,
                     instr.TargetBlock,
                     instr.ExceptBlock
                 ));
@@ -502,7 +502,7 @@ namespace SharpPy
                     (arg >> 16) & 0xFF,
                     instr.LineNumber,
                     instr.ColumnOffset,
-                    instr.FileName,
+                    instr.End,
                     instr.TargetBlock,
                     instr.ExceptBlock
                 ));
@@ -511,7 +511,7 @@ namespace SharpPy
                     (arg >> 8) & 0xFF,
                     instr.LineNumber,
                     instr.ColumnOffset,
-                    instr.FileName,
+                    instr.End,
                     instr.TargetBlock,
                     instr.ExceptBlock
                 ));
@@ -524,7 +524,7 @@ namespace SharpPy
                     (arg >> 16) & 0xFF,
                     instr.LineNumber,
                     instr.ColumnOffset,
-                    instr.FileName,
+                    instr.End,
                     instr.TargetBlock,
                     instr.ExceptBlock
                 ));
@@ -533,7 +533,7 @@ namespace SharpPy
                     (arg >> 8) & 0xFF,
                     instr.LineNumber,
                     instr.ColumnOffset,
-                    instr.FileName,
+                    instr.End,
                     instr.TargetBlock,
                     instr.ExceptBlock
                 ));
@@ -546,7 +546,7 @@ namespace SharpPy
                     (arg >> 8) & 0xFF,
                     instr.LineNumber,
                     instr.ColumnOffset,
-                    instr.FileName,
+                    instr.End,
                     instr.TargetBlock,
                     instr.ExceptBlock
                 ));
@@ -558,7 +558,7 @@ namespace SharpPy
                 arg & 0xFF,
                 instr.LineNumber,
                 instr.ColumnOffset,
-                instr.FileName,
+                instr.End,
                 instr.TargetBlock,
                 instr.ExceptBlock
             ));

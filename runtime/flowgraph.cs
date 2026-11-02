@@ -59,7 +59,7 @@ namespace SharpPy
                         }
                     }
                     block.Instructions.Add(new ByteCodeInstruction(instr.OpCode, instr.Arg ?? 0, instr.LineNumber,
-                        instr.ColumnOffset, instr.FileName, target, null));
+                        instr.ColumnOffset, instr.End, target, null));
                 }
             }
 
@@ -125,7 +125,7 @@ namespace SharpPy
                     else if (CFGOptimizer.IsJump(instr))
                     {
                         code[i] = new ByteCodeInstruction(instr.OpCode, instr.Argument, instr.LineNumber, instr.ColumnOffset,
-                            instr.FileName, instr.TargetBlock, handler);
+                            instr.End, instr.TargetBlock, handler);
                         if (visited.Add(instr.TargetBlock!))
                         {
                             if (CFGOptimizer.HasFallthrough(b))
@@ -144,7 +144,7 @@ namespace SharpPy
                     {
                         int arg = instr.OpCode == ByteCodeOp.YIELD_VALUE ? exceptStack!.Depth : instr.Argument;
                         code[i] = new ByteCodeInstruction(instr.OpCode, arg, instr.LineNumber, instr.ColumnOffset,
-                            instr.FileName, null, handler);
+                            instr.End, null, handler);
                     }
                 }
                 if (CFGOptimizer.HasFallthrough(b) && b.Next != null && visited.Add(b.Next))
