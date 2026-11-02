@@ -28,6 +28,11 @@ DEFAULT_EXCLUDES = ("subprocess", "multiprocessing", "socket", "ssl", "http", "u
                     "concurrent.futures.process")
 
 
+# encodings imports its codecs by name at run time, so nothing in the bytecode shows them.
+ENCODINGS = ("aliases", "ascii", "charmap", "latin_1", "raw_unicode_escape", "unicode_escape",
+             "utf_16", "utf_32", "utf_8", "utf_8_sig")
+
+
 def imports_of(code, package, top_level):
     """(name, fromlist) of every IMPORT_NAME, with relative names made absolute."""
     found = []
@@ -69,7 +74,19 @@ def excluded(name, excludes):
     return any(name == item or name.startswith(item + ".") for item in excludes)
 
 
-def collect(scripts, paths, includes, excludes, top_level):
+def encoding_modules(paths, every):
+    if not every:
+        return [f"encodings.{name}" for name in ENCODINGS]
+    found = []
+    for path in paths:
+        folder = os.path.join(path, "encodings")
+        if os.path.isdir(folder):
+            found.extend(f"encodings.{name[:-3]}" for name in os.listdir(folder)
+                         if name.endswith(".py") and name != "__init__.py")
+    return found
+
+
+def collect(scripts, paths, includes, excludes, top_level, every_encoding):
     """name -> (file, is_package, code), and the names with no source."""
     modules = {}
     native = set()
@@ -103,6 +120,8 @@ def collect(scripts, paths, includes, excludes, top_level):
         code = compile(source, filename, "exec", dont_inherit=True)
         modules[name] = (path, is_package, code)
         visit(code, name if is_package else name.rpartition(".")[0])
+        if name == "encodings":
+            pending.extend(encoding_modules(paths, every_encoding))
     return modules, native
 
 
@@ -137,11 +156,13 @@ def main():
     parser.add_argument("--path", action="append", default=[])
     parser.add_argument("--include", action="append", default=[])
     parser.add_argument("--exclude", action="append", default=[])
+    parser.add_argument("--all-encodings", action="store_true",
+                        help="every codec of encodings, not only the common ones")
     parser.add_argument("--top-level", action="store_true",
                         help="follow module-level imports only, not those inside functions")
     options = parser.parse_args()
     modules, native = collect(options.scripts, options.path, options.include,
-                              (*DEFAULT_EXCLUDES, *options.exclude), options.top_level)
+                              (*DEFAULT_EXCLUDES, *options.exclude), options.top_level, options.all_encodings)
     size = write(options.output, modules)
     print(f"{options.output}: {len(modules)} modules, {size} bytes")
     print("no source found (C# modules, or optional imports):", " ".join(sorted(native)))

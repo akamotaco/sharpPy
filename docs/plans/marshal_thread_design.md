@@ -160,8 +160,10 @@ M2가 M3보다 먼저인 이유는 위험이 가장 큰 부분이 바이트에�
 
 코드 데이터는 `marshal` 그대로이고 포장만 SharpPy 형식이다. 머리말에 표시 `SPKB`, 형식 버전, Python 매직 3531을 두어 맞지 않으면 `ImportError`로 멈춘다. 모듈별 소스 해시도 색인에 들어 있으나, 읽을 때는 검사하지 않는다.
 
-- 만들기: `python tools/make_bundle.py --output game.spk --path Lib main.py`. 바이트코드의 `IMPORT_NAME`을 따라가 쓰이는 모듈만 담는다. 이름이 실행 중에 정해지는 import는 `--include`로 지정한다. `--top-level`은 함수 안의 import를 따라가지 않는다.
+- 만들기: `python tools/make_bundle.py --output game.spk --path Lib main.py`. 바이트코드의 `IMPORT_NAME`을 따라가 쓰이는 모듈만 담는다. 이름이 실행 중에 정해지는 import는 `--include`로 지정한다. `--top-level`은 함수 안의 import를 따라가지 않는다. `encodings`의 코덱은 실행 중에 이름으로 불리므로 흔한 것만 담기고, 전부 필요하면 `--all-encodings`를 쓴다.
 - 쓰기: `PyHost.UseBundle("res://python/game.spk")` 또는 `sys.path`에 경로를 넣는다. 묶음보다 앞선 경로에 소스가 있으면 소스가 이긴다.
 - Godot: `godot/addons/sharppy_bundle`을 켜면 내보낼 때 묶음을 만들어 넣고 `.py`를 뺀다. `make_bundle.py`를 그 폴더에 복사하거나 `sharppy/bundle/tool`로 지정한다. `sharppy/bundle/scripts`에 시작 스크립트를, `sharppy/bundle/runner`에 실행할 Python 또는 `dotnet sharppy.dll`을 준다.
 
 측정값(Windows, 표본 import, 새 프로세스): 소스 1473~1499ms, 묶음 371~384ms (Godot 헤드리스).
+
+검증: `PYTHONPATH`로 묶음을 표준 라이브러리 앞에 두고 bughunt 174/174. `typing.__file__`이 묶음 안을 가리키는지 함께 확인한다.

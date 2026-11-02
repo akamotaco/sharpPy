@@ -72,7 +72,11 @@ namespace SharpPy.Modules
                 // (no real __file__) return unchanged, matching CPython reload(sys).
                 // The module keeps its identity and sys.modules registration, and the
                 // source runs against the existing __dict__ (stale attributes remain).
-                if (m.HasSourceFile)
+                if (m.Bundle != null)
+                {
+                    m.ExecuteCode(m.Bundle.Code(m.Name));
+                }
+                else if (m.HasSourceFile)
                 {
                     var source = IOHelper.ReadAllText(m.FileName);
                     m.ExecuteForReload(source);

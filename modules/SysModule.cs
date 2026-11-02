@@ -237,17 +237,7 @@ namespace SharpPy.Modules
             var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
 #endif
 
-            // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
-            // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
-
-            // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
-
-            // 4순위: 실행 파일 디렉토리
-            pathList.Add(new PyString(exeDir));
-
-            // 4. 환경 변수 PYTHONPATH
+            // getpath.py: PYTHONPATH comes before the standard library.
             var pythonPath = Environment.GetEnvironmentVariable("PYTHONPATH");
             if (!string.IsNullOrEmpty(pythonPath))
             {
@@ -257,6 +247,16 @@ namespace SharpPy.Modules
                     pathList.Add(new PyString(path.Trim()));
                 }
             }
+
+            // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
+            // CPython 3.12: Lib 디렉토리만 사용 (stdlib 폴더 삭제됨)
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
+
+            // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
+
+            // 4순위: 실행 파일 디렉토리
+            pathList.Add(new PyString(exeDir));
 
             return new PyList(pathList.ToArray());
         }

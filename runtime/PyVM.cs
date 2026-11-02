@@ -5410,13 +5410,8 @@ namespace SharpPy
                                 try
                                 {
                                     var fileAttr = module.GetAttribute("__file__");
-                                    // SharpPy's native modules carry placeholder __file__ values
-                                    // (_io.py, time.py, "<builtin sys module>"). CPython has no
-                                    // origin for extension and builtin modules and prints
-                                    // "unknown location", so only a file that actually exists
-                                    // counts as an origin.
-                                    if (fileAttr is PyString fileStr && fileStr.Value.Length > 0
-                                        && System.IO.File.Exists(fileStr.Value))
+                                    // A builtin module has none, and that is "unknown location".
+                                    if (fileAttr is PyString fileStr && fileStr.Value.Length > 0)
                                         origin = fileStr.Value;
                                 }
                                 catch { }
