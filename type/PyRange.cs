@@ -78,21 +78,27 @@ namespace SharpPy
 
         #region Hash and Equality
 
-        public override int ToHash()
-        {
-            // range는 불변이므로 해시 가능
-            return HashCode.Combine(Start, Stop, Step);
-        }
 
         // range_equals: as sequences. Length, then the first item, then the step if there is a second.
         private bool SameSequence(PyRange other)
         {
             if (ReferenceEquals(this, other)) return true;
-            if (Length() != other.Length()) return false;
-            if (Length() == 0) return true;
+            if (ExactLength != other.ExactLength) return false;
+            if (ExactLength.IsZero) return true;
             if (Start != other.Start) return false;
-            return Length() == 1 || Step == other.Step;
+            return ExactLength.IsOne || Step == other.Step;
         }
+
+        // range_hash: hash((len, start, step)), None for what does not distinguish the sequence.
+        internal override long GetPythonHash()
+        {
+            var length = ExactLength;
+            PyObject first = length.IsZero ? PyNone.Instance : new PyInt(Start);
+            PyObject step = length <= BigInteger.One ? PyNone.Instance : new PyInt(Step);
+            return new PyTuple(new[] { new PyInt(length), first, step }).GetPythonHash();
+        }
+
+        public override int ToHash() => unchecked((int)GetPythonHash());
 
         // range_richcompare: == and != only.
         public override PyObject RichCompare(PyObject other, CompareOp op)

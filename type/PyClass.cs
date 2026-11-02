@@ -618,6 +618,11 @@ namespace SharpPy
                     {
                         var baseClass = MRO[i];
 
+                        // A builtin in the MRO answers with its slots in their place.
+                        if (baseClass is not SharpPy.PyClass && !ReferenceEquals(baseClass, PyType.ObjectType) && !baseClass.TypeDict.ContainsKey(name) &&
+                            baseClass.SlotDict.TryGetValue(name, out var slot))
+                            return slot;
+
                         // Handle both PyClass and PyType in MRO
                         if (baseClass is PyClass pyClass)
                         {

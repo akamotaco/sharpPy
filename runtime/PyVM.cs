@@ -17,6 +17,30 @@ namespace SharpPy
         // _PyInterpreterFrame.prev_instr: the instruction being run, in code units
         public int LastInstruction;
 
+        /// <summary>f_trace, and what the line event decides from.</summary>
+        internal PyObject Trace;
+        internal bool TraceLines = true;
+        internal int TraceLine = -1;
+        internal int TraceLastInstruction;
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            switch (name)
+            {
+                case "f_trace":
+                    Trace = value is PyNone ? null : value;
+                    break;
+                case "f_trace_lines":
+                    TraceLines = value.IsTrue();
+                    break;
+                case "f_trace_opcodes":
+                    break;
+                default:
+                    base.SetAttribute(name, value);
+                    break;
+            }
+        }
+
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking
@@ -738,8 +762,8 @@ namespace SharpPy
                 "f_lasti" => new PyInt(LastInstruction * 2),
 
                 // CPython 3.12: f_trace, f_trace_lines, f_trace_opcodes (not implemented yet)
-                "f_trace" => PyNone.Instance,
-                "f_trace_lines" => PyBool.True,  // Default to True
+                "f_trace" => Trace ?? PyNone.Instance,
+                "f_trace_lines" => PyBool.FromBool(TraceLines),
                 "f_trace_opcodes" => PyBool.False,  // Default to False
 
                 // frame_clear: nothing here holds locals past the frame.
@@ -1333,6 +1357,8 @@ namespace SharpPy
                         frame.CurrentColumnOffset = instruction.ColumnOffset;
                     }
                     frame.CurrentFileName = frame.Code.FileName;
+                    if (TraceFunction != null && !_tracing)
+                        TraceInstruction(frame, instruction);
 
 #if DEBUG_LOG
                     if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
@@ -1421,9 +1447,15 @@ namespace SharpPy
                         // Corresponds to PyTraceBack_Here() in CPython ceval.c:941
                         PyTraceBack_Here(frame, pyEx);
 
+                        if (frame.Trace != null && !_tracing && !pyEx.FromReraise)
+                            TraceRaised(frame, pyEx);
+
                         // Handle Python exceptions with proper exception handler routing
                         if (!TryEnterExceptionHandler(frame, pyEx))
                         {
+                            // PY_UNWIND: the frame ends with a return event of None.
+                            if (frame.Trace != null && !_tracing)
+                                TraceEvent(frame, "return", PyNone.Instance);
                             // No handler - re-throw with location information
                             if (ReferenceEquals(frame, entryFrame))
                             {
@@ -1586,6 +1618,76 @@ namespace SharpPy
         }
 
         /// <summary>The inlined frame finished: its caller resumes after the CALL with the result.</summary>
+        /// <summary>sys.settrace: the global function, called with 'call' for each new frame.</summary>
+        internal PyObject TraceFunction;
+
+        // tstate->tracing: a trace function is not traced.
+        private bool _tracing;
+
+        // call_trampoline: a None answer leaves the local function as it was.
+        private void TraceEvent(PyFrame frame, string what, PyObject argument)
+        {
+            var callback = what == "call" ? TraceFunction : frame.Trace;
+            if (callback == null) return;
+            _tracing = true;
+            try
+            {
+                var answer = callback.Call(new PyObject[] { frame, new PyString(what), argument }, null);
+                if (answer is not PyNone)
+                    frame.Trace = answer;
+            }
+            catch
+            {
+                // A trace function that raises is removed.
+                TraceFunction = null;
+                frame.Trace = null;
+                throw;
+            }
+            finally
+            {
+                _tracing = false;
+            }
+        }
+
+        private void TraceInstruction(PyFrame frame, ByteCodeInstruction instruction)
+        {
+            if (instruction.OpCode == ByteCodeOp.RESUME)
+            {
+                // After a yield the frame goes on from the line it was on.
+                if (instruction.Argument == 0)
+                    frame.TraceLine = -1;
+                frame.TraceLastInstruction = frame.InstructionPointer;
+                TraceEvent(frame, "call", PyNone.Instance);
+                return;
+            }
+            if (frame.Trace == null) return;
+            int line = instruction.LineNumber;
+            bool backward = frame.InstructionPointer < frame.TraceLastInstruction;
+            frame.TraceLastInstruction = frame.InstructionPointer;
+            if (line > 0 && frame.TraceLines && (line != frame.TraceLine || backward))
+            {
+                frame.TraceLine = line;
+                TraceEvent(frame, "line", PyNone.Instance);
+            }
+            switch (instruction.OpCode)
+            {
+                case ByteCodeOp.RETURN_VALUE:
+                case ByteCodeOp.YIELD_VALUE:
+                    TraceEvent(frame, "return", frame.ValueStack.Peek());
+                    break;
+                case ByteCodeOp.RETURN_CONST:
+                    TraceEvent(frame, "return", frame.Code.Constants[instruction.Argument]);
+                    break;
+            }
+        }
+
+        // sys_trace_exception_func: 'exception' with (type, value, traceback).
+        private void TraceRaised(PyFrame frame, PythonException raised)
+        {
+            var value = PyExceptionSlots.Visible(raised.PyException);
+            TraceEvent(frame, "exception", new PyTuple(new[] { value.GetPyType(), value, value.GetAttribute("__traceback__") }));
+        }
+
         private PyFrame ReturnToCaller(PyObject result)
         {
             _frameStack.Pop();

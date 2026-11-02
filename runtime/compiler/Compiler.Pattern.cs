@@ -239,7 +239,8 @@ namespace SharpPy
                 JumpToFailPop(at, pc, ByteCodeOp.POP_JUMP_IF_FALSE);
             }
 
-            var seen = new HashSet<string>();
+            // compiler_pattern_mapping: a set of the constants, so 0, 0.0, 0j and False are one key.
+            var seen = new PySet();
             for (int i = 0; i < size; i++)
             {
                 var key = (GeneratedExpr?)keys[i];
@@ -248,8 +249,9 @@ namespace SharpPy
                 if (key is GeneratedConstant constant)
                 {
                     var value = ConstantValue(constant.Value);
-                    if (!seen.Add(HashKey(value)))
+                    if (seen.Contains(value).Value)
                         throw Error(at, $"mapping pattern checks duplicate key ({value.ToRepr().Value})");
+                    seen.Add(value);
                 }
                 else if (key is not GeneratedAttribute)
                 {
@@ -295,16 +297,6 @@ namespace SharpPy
         }
 
         // The equal constants of a set: 1, 1.0 and True are one key.
-        private static string HashKey(PyObject value) => value switch
-        {
-            PyBool truth => "n" + (truth.Value ? "1" : "0"),
-            PyInt number => "n" + number.Value,
-            PyFloat real when real.Value == Math.Floor(real.Value) && !double.IsInfinity(real.Value) =>
-                "n" + new System.Numerics.BigInteger(real.Value),
-            PyString text => "s" + text.Value,
-            PyBytes bytes => "y" + Convert.ToHexString(bytes.Value),
-            _ => "r" + value.GetTypeName() + value.ToRepr().Value,
-        };
 
         private void PatternOr(GeneratedMatchOr p, PatternContext pc)
         {
