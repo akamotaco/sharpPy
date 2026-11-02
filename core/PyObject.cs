@@ -1801,6 +1801,7 @@ namespace SharpPy
         private PyNotImplemented() { }
 
         public override string GetTypeName() => "NotImplementedType";
+        public override PyType GetPyType() => PyType.NotImplementedType;
         public override PyString AsString() => new PyString("NotImplemented");
         public override PyString ToRepr() => new PyString("NotImplemented");
     }

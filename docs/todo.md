@@ -13,13 +13,13 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 2322 / 2890 통과 | `python tools/run_cpython_tests.py` |
-| AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5549 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
+| CPython 언어 테스트 | 2452 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5550 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
-| 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 이름, 인자, 줄 번호, 예외 테이블 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions <files>` |
+| 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 `co_code`, `co_linetable`(열 번호 포함), `co_exceptiontable`, `co_stacksize` 바이트 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level raw <files>` |
 | 바이트코드 (프로브) | 코드 객체 5325개 전부 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level exceptions` |
 | 심볼 테이블 (Lib/*.py) | 스코프 8039개 전부 플래그까지 일치 | `python tools/compare_symtable.py --dotnet <dotnet> <files>` |
-| 버그 프로브 | 171 / 171 | `python tools/run_bughunt.py` |
+| 버그 프로브 | 174 / 174 | `python tools/run_bughunt.py` |
 | 평가 | 225 일치, 3 변동 필드, 2 참조 없음 | `python tools/evaluate.py --dotnet <dotnet> --timeout 90` |
 | Godot | 82 일치 | `.artifacts/round30-godot`에서 `--replay` |
 
@@ -29,7 +29,7 @@
 - `test_builtin`, `test_asyncgen`은 CPython 쪽에서도 로드 단계에서 건너뛰고, `test_extcall`은 doctest만 있어 0개로 잡힌다. 세 모듈은 분모에 없다.
 - `.artifacts/cpython_tests/*.cpython.txt`는 캐시다. 드라이버나 스텁을 바꾸면 지우고 다시 만든다. 이전 보고의 1762/2597은 오래된 캐시 때문에 분모가 빠진 값이다.
 
-바이트코드 게이트는 `--level names|arguments|lines|exceptions`로 명령어 이름, 인자, 줄 번호, 예외 테이블을 코드 객체별로 비교한다. 열 번호는 비교하지 않는다. 대상은 `tests/bughunt`의 프로브다.
+바이트코드 게이트는 `--level names|arguments|lines|exceptions|raw`로 비교한다. `raw`는 코드 객체의 표를 바이트 단위로 본다. 대상을 주지 않으면 `tests/bughunt`의 프로브다.
 
 ## 0. 배선 점검
 
@@ -48,9 +48,7 @@
 | 컴파일러 | `symtable.c`, `ast_opt.c`, `compile.c` | `runtime/symtable.cs`, `runtime/future.cs`, `runtime/compiler/`가 같은 함수 이름으로 대응한다. 진입점은 `Compiler.CompileSource` 하나 | 끝 |
 | import | `importlib._bootstrap` | C# 로더 | 라이브러리 정책과 함께 결정 |
 
-AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy는 문자 단위다. 비ASCII 소스에서만 다르다.
-
-구조: 토큰, ASDL 트리, `AstOptimizer`, `PySymtable`, `Compiler`, `InstructionSequence`, `PyFlowGraph.Build`, `CFGOptimizer`, `PyAssemble`. CPython과 단계가 같다. 열 번호(`co_positions`)는 아직 비교하지 않는다.
+구조: 토큰, ASDL 트리, `AstOptimizer`, `PySymtable`, `Compiler`, `InstructionSequence`, `PyFlowGraph.Build`, `CFGOptimizer`, `PyAssemble`. CPython과 단계가 같다.
 
 ## 1. 예외 경로
 
@@ -58,19 +56,18 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 ## 2. 컴파일 시 검사
 
-파서는 `_PyPegen_run_parser`처럼 두 번 돌고, `invalid_` 규칙은 두 번째에만 돈다. RAISE 매크로는 위치까지 채운다. 남은 것:
+`Parser/Tokenizer.cs`는 `tokenizer.c`, `Parser/PyParserBase.Strings.cs`는 `string_parser.c`다. 파서는 토큰을 규칙이 요구할 때 읽고, 오류 우선순위는 `pegen_errors.c`를 따른다. `tests/bughunt/p173`이 오류 약 110건의 메시지, 줄, 열, 끝 열, 원문을 CPython과 비교한다. 남은 것:
 
-- 2-1. f-string 토크나이저 오류: `tokenizer.c`의 `tok_get_fstring_mode`와 대조한다. `Tokenizer.cs`의 f-string 오류는 아직 `InvalidOperationException`이고 메시지가 다르다. test_fstring의 실패 대부분이다.
-- 2-2. 숫자 리터럴 오류의 열 위치 (`verify_end_of_number`, `_syntaxerror_range`).
-- 2-3. 줄 연속 문자 오류 `unexpected character after line continuation character`.
-- 2-4. 문자열 리터럴: `warn_invalid_escape_sequence`, `b"é"` 거부. test_string_literals는 `os.open`이 없어 먼저 막힌다.
-- 2-5. test_patma의 `SyntaxError not raised` 7건. `compile.c`의 패턴 검사는 옮겼으니 `invalid_` 규칙이나 생성기 쪽을 본다.
+- 2-1. `type_comments`와 `compile(..., "func_type")`: 토크나이저와 파서가 `TYPE_COMMENT`, `TYPE_IGNORE`를 내지 않는다.
+- 2-2. 원본이 UTF-8이 아닌 바이트 소스의 끝 열: 깨진 바이트를 U+DC80~DCFF로 들고 있어 폭이 1바이트 어긋난다.
+- 2-3. test_string_literals는 `os.open`이 없어 먼저 막힌다.
 
 ## 3. 타입과 디스크립터
 
 `Objects/typeobject.c`, `Objects/descrobject.c`, `Objects/funcobject.c`와 대조한다.
 
-- 3-1. C# 클래스로 된 내장 타입의 상속: `StringIO`, `BytesIO`, `bytearray`, `classmethod`, `staticmethod`는 `tp_new`가 하위 타입을 할당한다. `complex` 등 남은 타입은 같은 방식으로 옮긴다. test_descr 78/148. test_extcall이 여기에 걸린다.
+- 3-0. `add_operators`: `PySlotWrappers`와 생성 표 `core/SlotTable.g.cs`가 슬롯 래퍼를 준다. `PyType.SlotDict`에 따로 두었고 디스패치는 읽지 않는다(`vars`, `dir`, 속성 조회만). 슬롯이 `TypeDict`로 들어가면 특수 메서드 조회가 같은 CLR 가상 메서드로 되돌아오기 때문이다. `tools/type_surface_probe.py`로 비교하면 빠진 항목이 273개 남았다(`co_*`, `f_*`, `tb_*`, `start` 같은 getset과 `__sizeof__`, `__reduce__` 등).
+- 3-1. C# 클래스로 된 내장 타입의 상속: `StringIO`, `BytesIO`, `bytearray`, `classmethod`, `staticmethod`는 `tp_new`가 하위 타입을 할당한다. `complex` 등 남은 타입은 같은 방식으로 옮긴다. test_descr 82/148, 남은 항목은 개별 동작 차이다. test_extcall이 여기에 걸린다.
 - 3-2. `object.__init__` 인자 규칙 9건, `__init_subclass__`의 키워드 전달. `object_init`, `excess_args`.
 - 3-4. 함수 속성: `__defaults__` 등 setter (P0-71). test_funcattrs 15/33.
 - 3-5. 비교와 동등성: slot wrapper와 바인드 메서드 비교 (P0-56, P0-67, P0-69).
@@ -79,16 +76,17 @@ AST 위치의 남은 차이: `col_offset`이 CPython은 UTF-8 바이트, SharpPy
 
 ## 4. 이터레이터와 제너레이터
 
-- 4-1. `__length_hint__`: `set_iterator` 등 7건. `list()`, `tuple()`의 길이 힌트 호출 (P0-83).
-- 4-2. 이터레이터 피클: `enumerate`, `set_iterator`, `range_iterator`, `iterator` 등 `__reduce__`.
+- 4-1. 이터레이터의 `__reduce__`, `__setstate__`, `__length_hint__`는 끝났다. `list()`, `tuple()`이 길이 힌트를 호출하는지는 대조가 남았다.
 - 4-3. 제너레이터와 코루틴: test_generators 22/39, test_coroutines 70/89. `cr_frame` 등.
 - 4-4. 프레임의 셀이 `LocalsPlus` 밖의 `Cells`에 있다 (P0-81). 컴파일러 쪽 `push_inlined_comprehension_state`는 끝났다.
 
 ## 5. 모듈 표면
 
-- 5-1. 피클: `range_iterator` 등 내장 이터레이터의 `__reduce__`, 내장 함수의 `__reduce__`, `__self__`. 실패 건수로는 가장 크다. `surrogatepass`, `raw-unicode-escape`도 이 경로에서 필요하다.
-- 5-2. `os.open` 20건, `raw-unicode-escape` 코덱 9건, `tempfile` 없음.
-- 5-3. `KeyError: 'importlib'` 7건. 원인 미확인.
+- 5-0. 라이브러리 복사: `encodings`, `pickle`, `warnings`, `_collections_abc`, `dis`, `opcode`, `inspect`, `dataclasses`, `tokenize`, `linecache`, `tracemalloc`, `abc`, `types`, `keyword`, `io`, `stat`, `colorsys`, `collections.abc`는 CPython 원본이다. `_warnings`는 `Lib/_warnings.py`, `_tracemalloc`는 추적 없는 스텁이다. `collections/__init__.py`, `os.py`, `pathlib.py`, `hashlib.py`, `shutil.py`, `asyncio`는 아직 수정본이다.
+- 5-1. `importlib`: `Lib/importlib/`는 네이티브 import 위의 얇은 패키지다. `machinery`의 클래스는 이름만 있다.
+- 5-1a. `TextIOWrapper`를 직접 호출하면 `core/PyTextWrapper.cs`가 버퍼를 한 번에 읽는다. `open()`의 경로와 합칠 대상이다.
+- 5-1b. 최상위 예외 출력(`runtime/PyInterpreter.cs`)은 `sys.excepthook`과 다른 경로이고, 임포트된 모듈의 원문을 찾지 못한다. `traceback.py`가 쓰는 표는 이제 맞으므로 `PyErr_Display` 경로로 합친다.
+- 5-2. `os.open` 20건, `tempfile` 없음.
 - 5-4. `weakref` 프록시, `bytearray %`.
 - 5-5. 그 밖의 라이브러리 목록은 P0-83. 필요성이 확인된 것만 한다.
 
