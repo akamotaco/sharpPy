@@ -705,11 +705,23 @@ namespace SharpPy
         public string Name { get; }
         public Func<PyObject[], PyDict, PyObject> Method { get; }
 
-        public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method)
+        private readonly PyType _owner;
+
+        public PyStaticBuiltinMethod(string name, Func<PyObject[], PyDict, PyObject> method, PyType owner = null)
         {
             Name = name;
             Method = method;
+            _owner = owner;
         }
+
+        // tp_new_methoddef: __self__ is the type, which copyreg compares.
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "__self__" when _owner != null => _owner,
+            "__name__" => new PyString(Name),
+            "__qualname__" when _owner != null => new PyString($"{_owner.Name}.{Name}"),
+            _ => base.GetAttribute(name),
+        };
 
         public override string ToString()
         {

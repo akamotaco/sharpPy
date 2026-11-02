@@ -201,6 +201,9 @@ namespace SharpPy
 
         private static void InitializeBytesDescriptors()
         {
+            BytesMethods.Install(PyType.BytesType);
+            BytesMethods.InstallBytes(PyType.BytesType);
+
             var bytesType = PyType.BytesType;
 
             // CPython publishes bytes' sequence slots as slot wrappers in type.__dict__
@@ -213,7 +216,7 @@ namespace SharpPy
             // fallback and a user __new__ that forwards to bytes.__new__(cls, value) - a normal way to
             // write an immutable byte wrapper - died with "type.__new__() takes exactly 4 arguments".
             // CPython's bytes_new honours the requested type via bytes_subtype_new.
-            bytesType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__",
+            bytesType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", owner: bytesType, method:
                 (args, kwargs) => {
                     var requested = args.Length > 0 ? args[0] : (PyObject)bytesType;
                     var rest = args.Length > 1 ? args[1..] : System.Array.Empty<PyObject>();
@@ -250,93 +253,7 @@ namespace SharpPy
                     return self.Multiply(args[0]);
                 });
 
-            // CPython 3.12: Objects/bytesobject.c:2300-2320 - bytes_decode
-            // B.decode(encoding='utf-8', errors='strict') -> str
-            bytesType.TypeDict["decode"] = new PyMethodDescriptor(
-                "decode", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'decode' requires a 'bytes' object but received a '{self.GetTypeName()}'");
 
-                    string encoding = "utf-8";
-                    string errors = "strict";
-
-                    if (args.Length > 0 && args[0] is PyString encStr)
-                        encoding = encStr.Value;
-                    if (args.Length > 1 && args[1] is PyString errStr)
-                        errors = errStr.Value;
-
-                    var encLower = encoding.ToLowerInvariant();
-                    if (encLower == "utf-8" || encLower == "utf8")
-                    {
-                        // CPython 3.12: Objects/unicodeobject.c ascii/utf8 decoder with
-                        // per-handler behaviour and byte-accurate messages.
-                        return new PyString(DecodeUtf8Python(bytes.Value, errors));
-                    }
-                    if (encLower == "ascii" || encLower == "us-ascii" || encLower == "646")
-                    {
-                        return new PyString(DecodeAsciiPython(bytes.Value, errors));
-                    }
-
-                    // Everything else goes to the one decoder the str(bytes, enc, errors) path uses.
-                    // This local table knew four names, so b'ab'.decode('utf-16-le') reported an
-                    // unknown encoding while str(b'ab', 'utf-16-le') worked, and the catch below could
-                    // never fire because .NET's default decoder fallback replaces rather than throws.
-                    // Refuse a non-text codec the way CPython's bytes.decode does, then stay on the
-                    // one native decoder (it handles error handlers and byte-order marks).
-                    PyCodecRegistry.RefuseNonTextEncoding(encoding, "codecs.decode()");
-                    return new PyString(PyStringNewArguments.DecodeBytes(bytes.Value, encoding, errors));
-                },
-                minArgs: 0, maxArgs: 2
-, acceptsKwargs: true);
-
-            // CPython 3.12: Objects/bytesobject.c:2560-2580 - bytes_hex
-            // B.hex([sep[, bytes_per_sep]]) -> str
-            bytesType.TypeDict["hex"] = new PyMethodDescriptor(
-                "hex", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'hex' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    // Measured against CPython 3.12.15: hex() parses one separator that may be str or a
-                    // buffer, takes at most two positionals, and ignores the second. bytes_offset does
-                    // not exist in 3.12 - hex(sep=':', bytes_offset=1) says it is an invalid keyword.
-                    // A separator whose length is not 1 is ValueError; a non-buffer argument fails
-                    // inside len(), and that is the message CPython reports.
-                    if (args.Length > 2)
-                        throw PyTypeError.Create($"hex() takes at most 2 arguments ({args.Length} given)");
-                    if (kwargs != null)
-                    {
-                        foreach (var entry in kwargs.GetInternalDict())
-                        {
-                            string key = entry.Key.ToClrString();
-                            if (key != "sep")
-                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for hex()");
-                        }
-                    }
-
-                    PyObject sepArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "sep");
-                    string separator = "";
-                    if (sepArg != null && sepArg != PyNone.Instance)
-                    {
-                        byte[] sepBytes = StringOrBufferOrNull(sepArg)
-                            ?? throw PyTypeError.Create($"object of type '{sepArg.GetTypeName()}' has no len()");
-                        if (sepBytes.Length != 1)
-                            throw PyValueError.Create("sep must be length 1.");
-                        separator = ((char)sepBytes[0]).ToString();
-                    }
-
-                    var sb = new System.Text.StringBuilder(bytes.Value.Length * 2 + separator.Length);
-                    for (int position = 0; position < bytes.Value.Length; position++)
-                    {
-                        if (position > 0)
-                            sb.Append(separator);
-                        sb.Append($"{bytes.Value[position]:x2}");
-                    }
-                    return new PyString(sb.ToString());
-                },
-                minArgs: 0, maxArgs: 2, acceptsKwargs: true
-            );
 
             // CPython 3.12: Objects/bytesobject.c:2450-2500 - bytes_fromhex (classmethod)
             // bytes.fromhex(string) -> bytes
@@ -383,7 +300,6 @@ namespace SharpPy
                 },
                 minArgs: 1, maxArgs: 1
             );
-            bytesType.TypeDict["fromhex"] = new PyClassMethodDescriptor("fromhex", bytesType, fromhexMethod);
 
                         // p41: one CPython-shaped dispatcher for the whole byte search/query family.
             // CPython 3.12 Objects/bytesobject.c owns these: find_impl / reverse_find_impl
@@ -404,1237 +320,45 @@ namespace SharpPy
                     return body(selfBytes, args);
                 }, minArgs: min, maxArgs: max);
 
-            bytesType.TypeDict["find"] = Bts("find", (b, args) => FindCore(b.Value, args, false, false), 1, 3);
-            bytesType.TypeDict["rfind"] = Bts("rfind", (b, args) => FindCore(b.Value, args, true, false), 1, 3);
-            bytesType.TypeDict["index"] = Bts("index", (b, args) => FindCore(b.Value, args, false, true), 1, 3);
-            bytesType.TypeDict["rindex"] = Bts("rindex", (b, args) => FindCore(b.Value, args, true, true), 1, 3);
-            bytesType.TypeDict["count"] = Bts("count", (b, args) => CountCore(b.Value, args), 1, 3);
-            bytesType.TypeDict["startswith"] = Bts("startswith", (b, args) => StartEndCore(b.Value, args, true), 1, 3);
-            bytesType.TypeDict["endswith"] = Bts("endswith", (b, args) => StartEndCore(b.Value, args, false), 1, 3);
-            bytesType.TypeDict["removeprefix"] = Bts("removeprefix", (b, args) => new PyBytes(TrimEdgeBytes(b.Value, args, true)), 1, 1);
-            bytesType.TypeDict["removesuffix"] = Bts("removesuffix", (b, args) => new PyBytes(TrimEdgeBytes(b.Value, args, false)), 1, 1);
 
 
             
-            // CPython 3.12: Objects/bytesobject.c:2200-2250 - bytes_replace
-            // B.replace(old, new[, count]) -> bytes
-            bytesType.TypeDict["replace"] = new PyMethodDescriptor(
-                "replace", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'replace' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 2 || args.Length > 3)
-                        throw PyTypeError.Create($"replace() takes at least 2 arguments ({args.Length} given)");
-
-                    int maxCount = -1;
-                    if (args.Length >= 3)
-                        maxCount = args[2] is PyInt limit ? limit.ToInt()
-                            : throw PyTypeError.Create($"'{args[2].GetTypeName()}' object cannot be interpreted as an integer");
-                    return new PyBytes(ReplaceBytes(bytes.Value, SubArg(args[0], allowInt: false), SubArg(args[1], allowInt: false), maxCount));
-                },
-                minArgs: 2, maxArgs: 3
-            );
 
             
             
-            // CPython 3.12: Objects/bytesobject.c:1700-1800 - bytes_split
-            // B.split(sep=None, maxsplit=-1) -> list of bytes
-            bytesType.TypeDict["split"] = new PyMethodDescriptor(
-                "split", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'split' requires a 'bytes' object but received a '{self.GetTypeName()}'");
 
-                    // CPython bytes_split reports its own arity text and accepts sep/maxsplit by name.
-                    if (args.Length > 2)
-                        throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
-                    if (kwargs != null)
-                    {
-                        foreach (var entry in kwargs.GetInternalDict())
-                        {
-                            string key = entry.Key.ToClrString();
-                            if (key != "sep" && key != "maxsplit")
-                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for split()");
-                        }
-                    }
-
-                    PyBytes? sep = null;
-                    int maxsplit = -1;
-
-                    PyObject sepArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "sep");
-                    PyObject maxsplitArg = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "maxsplit");
-
-                    if (sepArg != null && sepArg != PyNone.Instance)
-                    {
-                        // b"a,b".split(",") is legal in CPython: the separator is parsed as a buffer,
-                        // and str is accepted where a buffer is.
-                        byte[] sepBytes = BufferOrNull(sepArg)
-                            ?? throw PyTypeError.Create(
-                                $"a bytes-like object is required, not '{sepArg.GetTypeName()}'");
-                        sep = new PyBytes(sepBytes);
-                    }
-                    if (maxsplitArg != null && maxsplitArg != PyNone.Instance)
-                    {
-                        if (PyInt.TryLongSelf(maxsplitArg, out var maxsplitInt))
-                            maxsplit = (int)maxsplitInt.Value;
-                        else
-                            throw PyTypeError.Create(
-                                $"an integer is required (got type {maxsplitArg.GetTypeName()})");
-                    }
-
-                    var result = new System.Collections.Generic.List<PyObject>();
-
-                    if (sep == null)
-                    {
-                        // Split on whitespace
-                        int i = 0;
-                        while (i < bytes.Value.Length && (maxsplit < 0 || result.Count < maxsplit))
-                        {
-                            // Skip whitespace
-                            while (i < bytes.Value.Length && IsWhitespace(bytes.Value[i]))
-                                i++;
-
-                            if (i >= bytes.Value.Length)
-                                break;
-
-                            // Find end of word
-                            int start = i;
-                            while (i < bytes.Value.Length && !IsWhitespace(bytes.Value[i]))
-                                i++;
-
-                            var word = new byte[i - start];
-                            Array.Copy(bytes.Value, start, word, 0, i - start);
-                            result.Add(new PyBytes(word));
-                        }
-                    }
-                    else
-                    {
-                        // Split on separator
-                        int i = 0;
-                        int splitCount = 0;
-                        while (i < bytes.Value.Length && (maxsplit < 0 || splitCount < maxsplit))
-                        {
-                            bool match = false;
-                            if (i <= bytes.Value.Length - sep.Value.Length)
-                            {
-                                match = true;
-                                for (int j = 0; j < sep.Value.Length; j++)
-                                {
-                                    if (bytes.Value[i + j] != sep.Value[j])
-                                    {
-                                        match = false;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (match)
-                            {
-                                var part = new byte[i];
-                                Array.Copy(bytes.Value, 0, part, 0, i);
-                                result.Add(new PyBytes(part));
-                                i += sep.Value.Length;
-                                splitCount++;
-
-                                // Remaining bytes as result
-                                var remaining = new byte[bytes.Value.Length - i];
-                                Array.Copy(bytes.Value, i, remaining, 0, remaining.Length);
-                                bytes = new PyBytes(remaining);
-                                i = 0;
-                            }
-                            else
-                            {
-                                i++;
-                            }
-                        }
-                        // Add remaining
-                        result.Add(bytes);
-                    }
-
-                    return new PyList(result.ToArray());
-                },
-                minArgs: 0, maxArgs: 2, acceptsKwargs: true
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1600-1650 - bytes_join
-            // B.join(iterable_of_bytes) -> bytes
-            bytesType.TypeDict["join"] = new PyMethodDescriptor(
-                "join", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes separator)
-                        throw PyTypeError.Create($"descriptor 'join' requires a 'bytes' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
-
-                    // CPython joins any iterable containing any bytes-like object. Requiring a PyList of
-                    // PyBytes made b",".join((b"a", b"b")) fail, and made
-                    // b",".join([b"a", bytearray(b"b")]) report "expected bytes, bytearray" instead of
-                    // "expected a bytes-like object, bytearray found".
-                    var elements = new System.Collections.Generic.List<PyObject>();
-                    try
-                    {
-                        foreach (var element in PySet.IterableItems(args[0]))
-                            elements.Add(element);
-                    }
-                    catch (PythonException error) when (error.PyException is PyTypeError)
-                    {
-                        throw PyTypeError.Create("can only join an iterable");
-                    }
-
-                    var result = new System.Collections.Generic.List<byte>();
-                    for (int i2 = 0; i2 < elements.Count; i2++)
-                    {
-                        byte[] itemBytes = BufferOrNull(elements[i2])
-                            ?? throw PyTypeError.Create(
-                                $"sequence item {i2}: expected a bytes-like object, {elements[i2].GetTypeName()} found");
-
-                        if (i2 > 0)
-                            result.AddRange(separator.Value);
-                        result.AddRange(itemBytes);
-                    }
-
-                    return new PyBytes(result.ToArray());
-                },
-                minArgs: 1, maxArgs: 1
-            );
 
             
             
             
-            // CPython 3.12: Objects/bytesobject.c:1550-1600 - bytes_partition
-            // B.partition(sep) -> (head, sep, tail)
-            bytesType.TypeDict["partition"] = new PyMethodDescriptor(
-                "partition", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'partition' requires a 'bytes' object but received a '{self.GetTypeName()}'");
 
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"partition() takes exactly one argument ({args.Length} given)");
 
-                    if (args[0] is not PyBytes sep)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
 
-                    if (sep.Value.Length == 0)
-                        throw PyValueError.Create("empty separator");
 
-                    // Find separator
-                    for (int i = 0; i <= bytes.Value.Length - sep.Value.Length; i++)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sep.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sep.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match)
-                        {
-                            // Found separator
-                            var head = new byte[i];
-                            Array.Copy(bytes.Value, 0, head, 0, i);
 
-                            var tail = new byte[bytes.Value.Length - i - sep.Value.Length];
-                            Array.Copy(bytes.Value, i + sep.Value.Length, tail, 0, tail.Length);
 
-                            return new PyTuple(
-                                new PyBytes(head),
-                                sep,
-                                new PyBytes(tail)
-                            );
-                        }
-                    }
 
-                    // Separator not found
-                    return new PyTuple(bytes, new PyBytes(new byte[0]), new PyBytes(new byte[0]));
-                },
-                minArgs: 1, maxArgs: 1
-            );
 
-            // CPython 3.12: Objects/bytesobject.c:1550-1600 - bytes_rpartition
-            // B.rpartition(sep) -> (head, sep, tail)
-            bytesType.TypeDict["rpartition"] = new PyMethodDescriptor(
-                "rpartition", bytesType,
-                (self, args, kwargs) => {
-                    if (self is not PyBytes bytes)
-                        throw PyTypeError.Create($"descriptor 'rpartition' requires a 'bytes' object but received a '{self.GetTypeName()}'");
 
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"rpartition() takes exactly one argument ({args.Length} given)");
 
-                    if (args[0] is not PyBytes sep)
-                        throw PyTypeError.Create($"a bytes-like object is required, not '{args[0].GetTypeName()}'");
 
-                    if (sep.Value.Length == 0)
-                        throw PyValueError.Create("empty separator");
 
-                    // Find separator from right
-                    for (int i = bytes.Value.Length - sep.Value.Length; i >= 0; i--)
-                    {
-                        bool match = true;
-                        for (int j = 0; j < sep.Value.Length; j++)
-                        {
-                            if (bytes.Value[i + j] != sep.Value[j])
-                            {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match)
-                        {
-                            // Found separator
-                            var head = new byte[i];
-                            Array.Copy(bytes.Value, 0, head, 0, i);
 
-                            var tail = new byte[bytes.Value.Length - i - sep.Value.Length];
-                            Array.Copy(bytes.Value, i + sep.Value.Length, tail, 0, tail.Length);
 
-                            return new PyTuple(
-                                new PyBytes(head),
-                                sep,
-                                new PyBytes(tail)
-                            );
-                        }
-                    }
 
-                    // Separator not found
-                    return new PyTuple(new PyBytes(new byte[0]), new PyBytes(new byte[0]), bytes);
-                },
-                minArgs: 1, maxArgs: 1
-            );
 
-            // CPython 3.12: Objects/bytearrayobject.c:1510-1538 (bytearray_isalnum_impl)
-            // bytes.isalnum() - Return True if all characters are alphanumeric and not empty
-            bytesType.TypeDict["isalnum"] = new PyMethodDescriptor(
-                "isalnum",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'isalnum' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"isalnum() takes no arguments ({args.Length} given)");
 
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
 
-                    foreach (byte b in data)
-                    {
-                        // Alphanumeric: 0-9, A-Z, a-z
-                        if (!((b >= '0' && b <= '9') || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')))
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
 
-            // CPython 3.12: Objects/bytearrayobject.c:1540-1568 (bytearray_isalpha_impl)
-            // bytes.isalpha() - Return True if all characters are alphabetic and not empty
-            bytesType.TypeDict["isalpha"] = new PyMethodDescriptor(
-                "isalpha",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'isalpha' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"isalpha() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
-
-                    foreach (byte b in data)
-                    {
-                        // Alphabetic: A-Z, a-z
-                        if (!((b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')))
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1570-1598 (bytearray_isascii_impl)
-            // bytes.isascii() - Return True if all bytes are < 128
-            bytesType.TypeDict["isascii"] = new PyMethodDescriptor(
-                "isascii",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'isascii' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"isascii() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    // Empty bytes is ASCII
-                    foreach (byte b in data)
-                    {
-                        if (b >= 128)
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1600-1628 (bytearray_isdigit_impl)
-            // bytes.isdigit() - Return True if all characters are digits and not empty
-            bytesType.TypeDict["isdigit"] = new PyMethodDescriptor(
-                "isdigit",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'isdigit' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"isdigit() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
-
-                    foreach (byte b in data)
-                    {
-                        // Digits: 0-9
-                        if (!(b >= '0' && b <= '9'))
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1630-1658 (bytearray_islower_impl)
-            // bytes.islower() - Return True if all cased characters are lowercase
-            bytesType.TypeDict["islower"] = new PyMethodDescriptor(
-                "islower",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'islower' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"islower() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
-
-                    bool hasLower = false;
-                    foreach (byte b in data)
-                    {
-                        // Upper case exists?
-                        if (b >= 'A' && b <= 'Z')
-                            return PyBool.False;
-                        // At least one lower case?
-                        if (b >= 'a' && b <= 'z')
-                            hasLower = true;
-                    }
-                    return PyBool.FromBool(hasLower);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1660-1688 (bytearray_isspace_impl)
-            // bytes.isspace() - Return True if all characters are whitespace and not empty
-            bytesType.TypeDict["isspace"] = new PyMethodDescriptor(
-                "isspace",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'isspace' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"isspace() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
-
-                    foreach (byte b in data)
-                    {
-                        // Whitespace: space, tab, newline, carriage return, form feed, vertical tab
-                        if (!(b == ' ' || b == '\t' || b == '\n' || b == '\r' || b == '\f' || b == '\v'))
-                            return PyBool.False;
-                    }
-                    return PyBool.True;
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1690-1745 (bytearray_istitle_impl)
-            // bytes.istitle() - Return True if the bytes is titlecased
-            bytesType.TypeDict["istitle"] = new PyMethodDescriptor(
-                "istitle",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'istitle' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"istitle() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
-
-                    bool cased = false;
-                    bool previousIsCased = false;
-
-                    foreach (byte b in data)
-                    {
-                        bool isUpper = (b >= 'A' && b <= 'Z');
-                        bool isLower = (b >= 'a' && b <= 'z');
-
-                        if (isUpper)
-                        {
-                            // Upper case after cased char is wrong
-                            if (previousIsCased)
-                                return PyBool.False;
-                            previousIsCased = true;
-                            cased = true;
-                        }
-                        else if (isLower)
-                        {
-                            // Lower case must follow cased char
-                            if (!previousIsCased)
-                                return PyBool.False;
-                            cased = true;
-                        }
-                        else
-                        {
-                            previousIsCased = false;
-                        }
-                    }
-                    return PyBool.FromBool(cased);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1747-1775 (bytearray_isupper_impl)
-            // bytes.isupper() - Return True if all cased characters are uppercase
-            bytesType.TypeDict["isupper"] = new PyMethodDescriptor(
-                "isupper",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'isupper' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"isupper() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return PyBool.False;
-
-                    bool hasUpper = false;
-                    foreach (byte b in data)
-                    {
-                        // Lower case exists?
-                        if (b >= 'a' && b <= 'z')
-                            return PyBool.False;
-                        // At least one upper case?
-                        if (b >= 'A' && b <= 'Z')
-                            hasUpper = true;
-                    }
-                    return PyBool.FromBool(hasUpper);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1777-1810 (bytearray_capitalize_impl)
-            // bytes.capitalize() - Return a capitalized version of the bytes
-            bytesType.TypeDict["capitalize"] = new PyMethodDescriptor(
-                "capitalize",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'capitalize' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"capitalize() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    if (data.Length == 0) return selfBytes;
-
-                    byte[] result = new byte[data.Length];
-                    // First char to upper
-                    if (data[0] >= 'a' && data[0] <= 'z')
-                        result[0] = (byte)(data[0] - 32);
-                    else
-                        result[0] = data[0];
-
-                    // Rest to lower
-                    for (int i = 1; i < data.Length; i++)
-                    {
-                        if (data[i] >= 'A' && data[i] <= 'Z')
-                            result[i] = (byte)(data[i] + 32);
-                        else
-                            result[i] = data[i];
-                    }
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1812-1840 (bytearray_lower_impl)
-            // bytes.lower() - Return a copy with all the cased characters converted to lowercase
-            bytesType.TypeDict["lower"] = new PyMethodDescriptor(
-                "lower",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'lower' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] result = new byte[data.Length];
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        if (data[i] >= 'A' && data[i] <= 'Z')
-                            result[i] = (byte)(data[i] + 32);
-                        else
-                            result[i] = data[i];
-                    }
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1842-1870 (bytearray_upper_impl)
-            // bytes.upper() - Return a copy with all the cased characters converted to uppercase
-            bytesType.TypeDict["upper"] = new PyMethodDescriptor(
-                "upper",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'upper' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] result = new byte[data.Length];
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        if (data[i] >= 'a' && data[i] <= 'z')
-                            result[i] = (byte)(data[i] - 32);
-                        else
-                            result[i] = data[i];
-                    }
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1872-1900 (bytearray_swapcase_impl)
-            // bytes.swapcase() - Return a copy with uppercase characters converted to lowercase and vice versa
-            bytesType.TypeDict["swapcase"] = new PyMethodDescriptor(
-                "swapcase",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'swapcase' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"swapcase() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] result = new byte[data.Length];
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        if (data[i] >= 'A' && data[i] <= 'Z')
-                            result[i] = (byte)(data[i] + 32);  // Upper to lower
-                        else if (data[i] >= 'a' && data[i] <= 'z')
-                            result[i] = (byte)(data[i] - 32);  // Lower to upper
-                        else
-                            result[i] = data[i];
-                    }
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytearrayobject.c:1902-1970 (bytearray_title_impl)
-            // bytes.title() - Return a titlecased version of the bytes
-            bytesType.TypeDict["title"] = new PyMethodDescriptor(
-                "title",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'title' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] result = new byte[data.Length];
-                    bool previousIsCased = false;
-
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        bool isUpper = (data[i] >= 'A' && data[i] <= 'Z');
-                        bool isLower = (data[i] >= 'a' && data[i] <= 'z');
-
-                        if (isLower)
-                        {
-                            if (!previousIsCased)
-                            {
-                                // Start of word - convert to upper
-                                result[i] = (byte)(data[i] - 32);
-                                previousIsCased = true;
-                            }
-                            else
-                            {
-                                // Middle of word - keep lower
-                                result[i] = data[i];
-                            }
-                        }
-                        else if (isUpper)
-                        {
-                            if (previousIsCased)
-                            {
-                                // Middle of word - convert to lower
-                                result[i] = (byte)(data[i] + 32);
-                            }
-                            else
-                            {
-                                // Start of word - keep upper
-                                result[i] = data[i];
-                                previousIsCased = true;
-                            }
-                        }
-                        else
-                        {
-                            // Non-cased character
-                            result[i] = data[i];
-                            previousIsCased = false;
-                        }
-                    }
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 0
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1300-1350 (bytes_strip_impl)
-            // bytes.strip([chars]) - Remove leading and trailing bytes
-            bytesType.TypeDict["strip"] = new PyMethodDescriptor(
-                "strip",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'strip' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] stripChars = null;
-
-                    if (args.Length > 0)
-                    {
-                        if (args[0] is PyBytes stripBytes)
-                            stripChars = stripBytes.Value;
-                        else if (args[0] is PyNone)
-                            stripChars = null;
-                        else
-                            throw PyTypeError.Create("strip() argument must be bytes or None");
-                    }
-
-                    int start = 0;
-                    int end = data.Length;
-
-                    // Strip from left
-                    while (start < end && ShouldStrip(data[start], stripChars))
-                        start++;
-
-                    // Strip from right
-                    while (end > start && ShouldStrip(data[end - 1], stripChars))
-                        end--;
-
-                    if (start == 0 && end == data.Length)
-                        return selfBytes;
-
-                    byte[] result = new byte[end - start];
-                    Array.Copy(data, start, result, 0, end - start);
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 1
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1000-1050 (bytes_center_impl)
-            // bytes.center(width[, fillchar]) - Center bytes in field of width
-            bytesType.TypeDict["center"] = new PyMethodDescriptor(
-                "center",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'center' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("center() takes at least 1 argument (0 given)");
-
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("center() argument 1 must be int");
-
-                    int width = (int)widthInt.Value;
-                    byte fillByte = (byte)' ';
-
-                    if (args.Length > 1)
-                    {
-                        if (args[1] is PyBytes fillBytes && fillBytes.Value.Length == 1)
-                            fillByte = fillBytes.Value[0];
-                        else
-                            throw PyTypeError.Create("center() argument 2 must be a byte string of length 1");
-                    }
-
-                    byte[] data = selfBytes.Value;
-                    if (width <= data.Length)
-                        return selfBytes;
-
-                    int totalPad = width - data.Length;
-                    // CPython Objects/stringlib/transmogrify.h: left = marg/2 + (marg & width & 1),
-                    // so with an odd margin the extra byte goes left only when width is odd too
-                    // (b'ab'.center(5) is b'--ab-', not b'-ab--').
-                    int leftPad = totalPad / 2 + (totalPad & width & 1);
-                    int rightPad = totalPad - leftPad;
-
-                    byte[] result = new byte[width];
-                    for (int i = 0; i < leftPad; i++)
-                        result[i] = fillByte;
-                    Array.Copy(data, 0, result, leftPad, data.Length);
-                    for (int i = leftPad + data.Length; i < width; i++)
-                        result[i] = fillByte;
-
-                    return new PyBytes(result);
-                },
-                minArgs: 1,
-                maxArgs: 2
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:900-940 (bytes_ljust_impl)
-            // bytes.ljust(width[, fillchar]) - Left justify bytes
-            bytesType.TypeDict["ljust"] = new PyMethodDescriptor(
-                "ljust",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'ljust' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("ljust() takes at least 1 argument (0 given)");
-
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("ljust() argument 1 must be int");
-
-                    int width = (int)widthInt.Value;
-                    byte fillByte = (byte)' ';
-
-                    if (args.Length > 1)
-                    {
-                        if (args[1] is PyBytes fillBytes && fillBytes.Value.Length == 1)
-                            fillByte = fillBytes.Value[0];
-                        else
-                            throw PyTypeError.Create("ljust() argument 2 must be a byte string of length 1");
-                    }
-
-                    byte[] data = selfBytes.Value;
-                    if (width <= data.Length)
-                        return selfBytes;
-
-                    byte[] result = new byte[width];
-                    Array.Copy(data, 0, result, 0, data.Length);
-                    for (int i = data.Length; i < width; i++)
-                        result[i] = fillByte;
-
-                    return new PyBytes(result);
-                },
-                minArgs: 1,
-                maxArgs: 2
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:950-990 (bytes_rjust_impl)
-            // bytes.rjust(width[, fillchar]) - Right justify bytes
-            bytesType.TypeDict["rjust"] = new PyMethodDescriptor(
-                "rjust",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'rjust' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("rjust() takes at least 1 argument (0 given)");
-
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("rjust() argument 1 must be int");
-
-                    int width = (int)widthInt.Value;
-                    byte fillByte = (byte)' ';
-
-                    if (args.Length > 1)
-                    {
-                        if (args[1] is PyBytes fillBytes && fillBytes.Value.Length == 1)
-                            fillByte = fillBytes.Value[0];
-                        else
-                            throw PyTypeError.Create("rjust() argument 2 must be a byte string of length 1");
-                    }
-
-                    byte[] data = selfBytes.Value;
-                    if (width <= data.Length)
-                        return selfBytes;
-
-                    int padSize = width - data.Length;
-                    byte[] result = new byte[width];
-                    for (int i = 0; i < padSize; i++)
-                        result[i] = fillByte;
-                    Array.Copy(data, 0, result, padSize, data.Length);
-
-                    return new PyBytes(result);
-                },
-                minArgs: 1,
-                maxArgs: 2
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1100-1140 (bytes_zfill_impl)
-            // bytes.zfill(width) - Pad bytes with zeros on the left
-            bytesType.TypeDict["zfill"] = new PyMethodDescriptor(
-                "zfill",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'zfill' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length != 1)
-                        throw PyTypeError.Create($"zfill() takes exactly 1 argument ({args.Length} given)");
-
-                    if (args[0] is not PyInt widthInt)
-                        throw PyTypeError.Create("zfill() argument must be int");
-
-                    int width = (int)widthInt.Value;
-                    byte[] data = selfBytes.Value;
-
-                    if (width <= data.Length)
-                        return selfBytes;
-
-                    int padSize = width - data.Length;
-                    byte[] result = new byte[width];
-
-                    // Handle sign
-                    int dataStart = 0;
-                    int resultStart = padSize;
-                    if (data.Length > 0 && (data[0] == '+' || data[0] == '-'))
-                    {
-                        result[0] = data[0];
-                        dataStart = 1;
-                        resultStart = padSize + 1;
-                        padSize++;
-                    }
-
-                    // Fill with zeros
-                    for (int i = (dataStart > 0 ? 1 : 0); i < resultStart; i++)
-                        result[i] = (byte)'0';
-
-                    // Copy data
-                    Array.Copy(data, dataStart, result, resultStart, data.Length - dataStart);
-
-                    return new PyBytes(result);
-                },
-                minArgs: 1,
-                maxArgs: 1
-            );
 
             // bytes.removeprefix(prefix) - Remove prefix if present (Python 3.9+)
             
             // bytes.removesuffix(suffix) - Remove suffix if present (Python 3.9+)
             
-            // CPython 3.12: Objects/bytesobject.c:1360-1400 (bytes_lstrip_impl)
-            // bytes.lstrip([chars]) - Remove leading bytes
-            bytesType.TypeDict["lstrip"] = new PyMethodDescriptor(
-                "lstrip",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'lstrip' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
 
-                    byte[] data = selfBytes.Value;
-                    byte[] stripChars = null;
 
-                    if (args.Length > 0)
-                    {
-                        if (args[0] is PyBytes stripBytes)
-                            stripChars = stripBytes.Value;
-                        else if (args[0] is PyNone)
-                            stripChars = null;
-                        else
-                            throw PyTypeError.Create("lstrip() argument must be bytes or None");
-                    }
 
-                    int start = 0;
-                    while (start < data.Length && ShouldStrip(data[start], stripChars))
-                        start++;
 
-                    if (start == 0)
-                        return selfBytes;
-
-                    byte[] result = new byte[data.Length - start];
-                    Array.Copy(data, start, result, 0, data.Length - start);
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 1
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1410-1450 (bytes_rstrip_impl)
-            // bytes.rstrip([chars]) - Remove trailing bytes
-            bytesType.TypeDict["rstrip"] = new PyMethodDescriptor(
-                "rstrip",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'rstrip' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] stripChars = null;
-
-                    if (args.Length > 0)
-                    {
-                        if (args[0] is PyBytes stripBytes)
-                            stripChars = stripBytes.Value;
-                        else if (args[0] is PyNone)
-                            stripChars = null;
-                        else
-                            throw PyTypeError.Create("rstrip() argument must be bytes or None");
-                    }
-
-                    int end = data.Length;
-                    while (end > 0 && ShouldStrip(data[end - 1], stripChars))
-                        end--;
-
-                    if (end == data.Length)
-                        return selfBytes;
-
-                    byte[] result = new byte[end];
-                    Array.Copy(data, 0, result, 0, end);
-                    return new PyBytes(result);
-                },
-                minArgs: 0,
-                maxArgs: 1
-            );
-
-            // CPython 3.12: Objects/bytesobject.c:1700-1760 (bytes_splitlines_impl)
-            // bytes.splitlines([keepends]) - Return a list of lines
-            bytesType.TypeDict["splitlines"] = new PyMethodDescriptor(
-                "splitlines",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'splitlines' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    // CPython bytes.splitlines is METH_FASTCALL|METH_KEYWORDS with keepends=False:
-                    //   b'a\nb'.splitlines(keepends=True) -> [b'a\n', b'b']
-                    PyObject keependsArg = args.Length > 0
-                        ? args[0]
-                        : kwargs?.GetItem(new PyString("keepends"));
-                    bool keepends = keependsArg != null && keependsArg.ToBool();
-
-                    byte[] data = selfBytes.Value;
-                    var lines = new System.Collections.Generic.List<PyObject>();
-                    int lineStart = 0;
-
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        if (data[i] == '\n' || data[i] == '\r')
-                        {
-                            int lineEnd = i;
-                            int nextStart = i + 1;
-
-                            // Handle \r\n
-                            if (data[i] == '\r' && i + 1 < data.Length && data[i + 1] == '\n')
-                            {
-                                nextStart = i + 2;
-                                if (keepends)
-                                    lineEnd = i + 2;
-                            }
-                            else if (keepends)
-                            {
-                                lineEnd = i + 1;
-                            }
-
-                            byte[] line = new byte[lineEnd - lineStart];
-                            Array.Copy(data, lineStart, line, 0, lineEnd - lineStart);
-                            lines.Add(new PyBytes(line));
-                            lineStart = nextStart;
-                            i = nextStart - 1;
-                        }
-                    }
-
-                    // Add last line if any
-                    if (lineStart < data.Length)
-                    {
-                        byte[] line = new byte[data.Length - lineStart];
-                        Array.Copy(data, lineStart, line, 0, data.Length - lineStart);
-                        lines.Add(new PyBytes(line));
-                    }
-
-                    return new PyList(lines.ToArray());
-                },
-                minArgs: 0,
-                maxArgs: 1
-, acceptsKwargs: true);
-
-            // CPython 3.12: Objects/bytesobject.c:1850-1900 (bytes_expandtabs_impl)
-            // bytes.expandtabs([tabsize]) - Expand tabs to spaces
-            bytesType.TypeDict["expandtabs"] = new PyMethodDescriptor(
-                "expandtabs",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'expandtabs' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    if (args.Length > 1)
-                        throw PyTypeError.Create($"expandtabs() takes at most 1 argument ({args.Length} given)");
-                    if (kwargs != null)
-                    {
-                        foreach (var entry in kwargs.GetInternalDict())
-                        {
-                            string key = entry.Key.ToClrString();
-                            if (key != "tabsize")
-                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for expandtabs()");
-                        }
-                    }
-                    PyObject tabArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "tabsize");
-
-                    int tabsize = 8;
-                    if (tabArg != null && tabArg is not PyNone)
-                    {
-                        if (PyInt.TryLongSelf(tabArg, out var tabInt))
-                            tabsize = (int)tabInt.Value;
-                        else
-                            throw PyTypeError.Create("expandtabs() argument must be int");
-                    }
-
-                    byte[] data = selfBytes.Value;
-                    var result = new System.Collections.Generic.List<byte>();
-                    int column = 0;
-
-                    foreach (byte b in data)
-                    {
-                        if (b == '\t')
-                        {
-                            // Add spaces to next tab stop
-                            int spaces = tabsize - (column % tabsize);
-                            for (int i = 0; i < spaces; i++)
-                            {
-                                result.Add((byte)' ');
-                            }
-                            column += spaces;
-                        }
-                        else if (b == '\n' || b == '\r')
-                        {
-                            result.Add(b);
-                            column = 0;
-                        }
-                        else
-                        {
-                            result.Add(b);
-                            column++;
-                        }
-                    }
-
-                    return new PyBytes(result.ToArray());
-                },
-                minArgs: 0,
-                maxArgs: 1
-            , acceptsKwargs: true);
-
-            // CPython 3.12: Objects/bytesobject.c:2200-2280 (bytes_translate_impl)
-            // bytes.translate(table[, delete]) - Translate bytes using table
-            bytesType.TypeDict["translate"] = new PyMethodDescriptor(
-                "translate",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'translate' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("translate() takes at least 1 argument (0 given)");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] table = null;
-                    byte[] deleteBytes = null;
-
-                    // Get translation table
-                    if (args[0] is PyBytes tableBytes)
-                    {
-                        table = tableBytes.Value;
-                        if (table.Length != 256)
-                            throw PyValueError.Create("translation table must be 256 bytes");
-                    }
-                    else if (args[0] is not PyNone)
-                    {
-                        throw PyTypeError.Create("translate() argument 1 must be bytes or None");
-                    }
-
-                    // Get delete bytes
-                    if (args.Length > 1)
-                    {
-                        if (args[1] is PyBytes delBytes)
-                            deleteBytes = delBytes.Value;
-                        else
-                            throw PyTypeError.Create("translate() argument 2 must be bytes");
-                    }
-
-                    var result = new System.Collections.Generic.List<byte>();
-                    foreach (byte b in data)
-                    {
-                        // Check if byte should be deleted
-                        bool shouldDelete = false;
-                        if (deleteBytes != null)
-                        {
-                            foreach (byte delByte in deleteBytes)
-                            {
-                                if (b == delByte)
-                                {
-                                    shouldDelete = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (!shouldDelete)
-                        {
-                            // Apply translation if table exists
-                            if (table != null)
-                                result.Add(table[b]);
-                            else
-                                result.Add(b);
-                        }
-                    }
-
-                    return new PyBytes(result.ToArray());
-                },
-                minArgs: 1,
-                maxArgs: 2
-            );
 
             // CPython 3.12: Objects/bytesobject.c:2350-2380 (bytes_maketrans) - classmethod
             // bytes.maketrans(frm, to) -> bytes (translation table)
@@ -1676,151 +400,7 @@ namespace SharpPy
                 minArgs: 0,
                 maxArgs: 2
             );
-            bytesType.TypeDict["maketrans"] = new PyClassMethodDescriptor("maketrans", bytesType, maketransMethod);
 
-            // CPython 3.12: Objects/bytesobject.c:1600-1660 (bytes_rsplit_impl)
-            // bytes.rsplit([sep[, maxsplit]]) - Split from right
-            bytesType.TypeDict["rsplit"] = new PyMethodDescriptor(
-                "rsplit",
-                bytesType,
-                (self, args, kwargs) =>
-                {
-                    if (self is not PyBytes selfBytes)
-                        throw PyTypeError.Create("descriptor 'rsplit' for 'bytes' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-
-                    byte[] data = selfBytes.Value;
-                    byte[] sep = null;
-                    int maxsplit = -1;
-
-                    if (args.Length > 2)
-                        throw PyTypeError.Create($"rsplit() takes at most 2 arguments ({args.Length} given)");
-                    if (kwargs != null)
-                    {
-                        foreach (var entry in kwargs.GetInternalDict())
-                        {
-                            string key = entry.Key.ToClrString();
-                            if (key != "sep" && key != "maxsplit")
-                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for rsplit()");
-                        }
-                    }
-                    PyObject rsSepArg = args.Length > 0 ? args[0] : PyObject.KwValue(kwargs, "sep");
-                    PyObject rsMaxArg = args.Length > 1 ? args[1] : PyObject.KwValue(kwargs, "maxsplit");
-
-                    if (rsSepArg != null && rsSepArg is not PyNone)
-                    {
-                        byte[] sepBytes = BufferOrNull(rsSepArg)
-                            ?? throw PyTypeError.Create("rsplit() argument 1 must be bytes or None, not "
-                                + rsSepArg.GetTypeName());
-                        sep = sepBytes;
-                    }
-
-                    if (rsMaxArg != null && rsMaxArg is not PyNone)
-                    {
-                        if (PyInt.TryLongSelf(rsMaxArg, out var maxInt))
-                            maxsplit = (int)maxInt.Value;
-                        else
-                            throw PyTypeError.Create("rsplit() argument 2 must be int");
-                    }
-
-                    var parts = new System.Collections.Generic.List<PyBytes>();
-
-                    if (sep == null || sep.Length == 0)
-                    {
-                        // Split on whitespace from right
-                        int end = data.Length;
-                        int splits = 0;
-
-                        for (int i = data.Length - 1; i >= 0; i--)
-                        {
-                            if (IsWhitespace(data[i]))
-                            {
-                                if (end > i + 1)
-                                {
-                                    byte[] part = new byte[end - i - 1];
-                                    Array.Copy(data, i + 1, part, 0, end - i - 1);
-                                    parts.Insert(0, new PyBytes(part));
-                                    splits++;
-                                    if (maxsplit >= 0 && splits >= maxsplit)
-                                    {
-                                        // Add remaining as one part
-                                        int remaining = i;
-                                        while (remaining > 0 && IsWhitespace(data[remaining - 1]))
-                                            remaining--;
-                                        if (remaining > 0)
-                                        {
-                                            byte[] lastPart = new byte[remaining];
-                                            Array.Copy(data, 0, lastPart, 0, remaining);
-                                            parts.Insert(0, new PyBytes(lastPart));
-                                        }
-                                        return new PyList(parts.ToArray());
-                                    }
-                                }
-                                end = i;
-                            }
-                        }
-
-                        // Add first part
-                        if (end > 0)
-                        {
-                            int start = 0;
-                            while (start < end && IsWhitespace(data[start]))
-                                start++;
-                            if (start < end)
-                            {
-                                byte[] part = new byte[end - start];
-                                Array.Copy(data, start, part, 0, end - start);
-                                parts.Insert(0, new PyBytes(part));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Split on separator from right
-                        int end = data.Length;
-                        int splits = 0;
-
-                        for (int i = data.Length - sep.Length; i >= 0; i--)
-                        {
-                            bool match = true;
-                            for (int j = 0; j < sep.Length; j++)
-                            {
-                                if (data[i + j] != sep[j])
-                                {
-                                    match = false;
-                                    break;
-                                }
-                            }
-
-                            if (match)
-                            {
-                                byte[] part = new byte[end - i - sep.Length];
-                                Array.Copy(data, i + sep.Length, part, 0, end - i - sep.Length);
-                                parts.Insert(0, new PyBytes(part));
-                                splits++;
-                                if (maxsplit >= 0 && splits >= maxsplit)
-                                {
-                                    // Add remaining
-                                    byte[] lastPart = new byte[i];
-                                    Array.Copy(data, 0, lastPart, 0, i);
-                                    parts.Insert(0, new PyBytes(lastPart));
-                                    return new PyList(parts.ToArray());
-                                }
-                                end = i;
-                                i -= sep.Length - 1;
-                            }
-                        }
-
-                        // Add first part
-                        byte[] firstPart = new byte[end];
-                        Array.Copy(data, 0, firstPart, 0, end);
-                        parts.Insert(0, new PyBytes(firstPart));
-                    }
-
-                    return new PyList(parts.ToArray());
-                },
-                minArgs: 0,
-                maxArgs: 2
-            , acceptsKwargs: true);
 
             // CPython 3.12: Objects/bytesobject.c:2890-2920 - bytes_iter
             // bytes.__iter__() - Return an iterator over the bytes
@@ -1970,40 +550,33 @@ namespace SharpPy
             if (declaredAdd != null)
                 return declaredAdd;
 
-            if (other is PyBytes otherBytes)
-            {
-                var result = new byte[Value.Length + otherBytes.Value.Length];
-                Array.Copy(Value, 0, result, 0, Value.Length);
-                Array.Copy(otherBytes.Value, 0, result, Value.Length, otherBytes.Value.Length);
-                return new PyBytes(result);
-            }
-            
-            // CPython 3.12: bytes_concat reports "can't concat <type> to bytes".
-            throw PyTypeError.Create($"can't concat {other.GetTypeName()} to bytes");
+            return BytesMethods.Concat(this, other);
         }
 
         /// <summary>
         /// CPython 3.12: bytes % params - Objects/bytesobject.c bytes_format.
         /// Positional (tuple or single) and named (dict with bytes keys) forms.
         /// </summary>
-        public override PyObject Modulo(PyObject other)
+        public override PyObject Modulo(PyObject other) => new PyBytes(Format(Value, other));
+
+        // _PyBytes_FormatEx
+        internal static byte[] Format(byte[] format, PyObject other)
         {
             List<PyObject> seq = null;
-            PyDict named = null;
+            PyObject named = null;
             if (other is PyTuple tup)
             {
                 seq = new List<PyObject>(tup.Items);
             }
-            else if (other is PyDict dict)
-            {
-                named = dict;
-            }
             else
             {
                 seq = new List<PyObject> { other };
+                // _PyBytes_FormatEx: a mapping that is no tuple, bytes or bytearray serves %(key)s.
+                if (other is not PyBytes and not PyByteArray && other.LookupSpecialMethodUncached("__getitem__") != null || other is PyDict)
+                    named = other;
             }
 
-            var fmt = Value;
+            var fmt = format;
             var outBytes = new List<byte>();
             int argIndex = 0;
             int i = 0;
@@ -2028,13 +601,33 @@ namespace SharpPy
                     continue;
                 }
 
-                PyObject arg;
-                if (ch == (byte)'(')
+                PyObject keyed = null;
+
+                // getnextarg: the value of %(key), or the next of the arguments
+                PyObject NextArgument()
+                {
+                    if (keyed != null)
+                        return keyed;
+                    if (seq == null || argIndex >= seq.Count)
+                        throw PyTypeError.Create("not enough arguments for format string");
+                    return seq[argIndex++];
+                }
+
+                int StarValue()
+                {
+                    var given = NextArgument();
+                    if (given is not (PyInt or PyBool or PyIntSubclass))
+                        throw PyTypeError.Create("* wants int");
+                    return given.ToInt();
+                }
+
+                if (fmt[i] == (byte)'(')
                 {
                     if (named == null)
                     {
                         throw PyTypeError.Create("format requires a mapping");
                     }
+                    i++;
                     int close = i;
                     var keyBytes = new List<byte>();
                     int depth = 1;
@@ -2051,22 +644,7 @@ namespace SharpPy
                     }
                     var key = new PyBytes(keyBytes.ToArray());
                     i = close + 1;
-                    if (!named.InternalDict.TryGetValue(key, out arg))
-                    {
-                        throw PyKeyError.Create(key);
-                    }
-                }
-                else if (named != null)
-                {
-                    throw PyTypeError.Create("format requires a mapping");
-                }
-                else
-                {
-                    if (argIndex >= seq.Count)
-                    {
-                        throw PyTypeError.Create("not enough arguments for format string");
-                    }
-                    arg = seq[argIndex++];
+                    keyed = named.GetItem(key);
                 }
 
                 // flags
@@ -2082,27 +660,45 @@ namespace SharpPy
                     else break;
                 }
                 int width = 0;
-                while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
+                if (i < fmt.Length && fmt[i] == (byte)'*')
                 {
-                    width = width * 10 + (fmt[i] - (byte)'0');
                     i++;
+                    width = StarValue();
+                    if (width < 0)
+                    {
+                        leftAlign = true;
+                        width = -width;
+                    }
                 }
+                else
+                    while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
+                    {
+                        width = width * 10 + (fmt[i] - (byte)'0');
+                        i++;
+                    }
                 int precision = -1;
                 if (i < fmt.Length && fmt[i] == (byte)'.')
                 {
                     i++;
                     precision = 0;
-                    while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
+                    if (i < fmt.Length && fmt[i] == (byte)'*')
                     {
-                        precision = precision * 10 + (fmt[i] - (byte)'0');
                         i++;
+                        precision = Math.Max(0, StarValue());
                     }
+                    else
+                        while (i < fmt.Length && fmt[i] >= (byte)'0' && fmt[i] <= (byte)'9')
+                        {
+                            precision = precision * 10 + (fmt[i] - (byte)'0');
+                            i++;
+                        }
                 }
                 if (i >= fmt.Length)
                 {
                     throw PyValueError.Create("incomplete format");
                 }
                 char conv = (char)fmt[i++];
+                PyObject arg = NextArgument();
 
                 string text;
                 bool isNumeric = false;
@@ -2243,11 +839,11 @@ namespace SharpPy
                 outBytes.AddRange(System.Text.Encoding.Latin1.GetBytes(text));
             }
 
-            if (seq != null && argIndex < seq.Count)
+            if (seq != null && argIndex < seq.Count && named == null)
             {
                 throw PyTypeError.Create("not all arguments converted during bytes formatting");
             }
-            return new PyBytes(outBytes.ToArray());
+            return outBytes.ToArray();
         }
 
         private static string ToRadixString(System.Numerics.BigInteger value, int radix)
@@ -2594,6 +1190,11 @@ namespace SharpPy
             {
                 if (count.Value < 0)
                     return new PyBytes(new byte[0]);
+                // bytes_repeat: one copy of an exact bytes is that bytes.
+                if (count.Value == 1 && ReferenceEquals(GetPyType(), PyType.BytesType))
+                    return this;
+                if (count.Value * Value.Length > int.MaxValue)
+                    throw PyMemoryError.Create();
 
                 int countInt = (int)count.Value;
                 var result = new byte[Value.Length * countInt];
@@ -2710,31 +1311,7 @@ namespace SharpPy
         /// <summary>
         /// bytes containment check
         /// </summary>
-        public override PyBool Contains(PyObject item)
-        {
-            if (item is PyBytes other)
-            {
-                // Check if 'other' bytes sequence is contained in this bytes
-                return PyBool.FromBool(IndexOf(other.Value) >= 0);
-            }
-            else if (item is PyInt pyInt)
-            {
-                // Check if byte value is in bytes
-                if (pyInt.Value < 0 || pyInt.Value > 255)
-                    return PyBool.False;
-                
-                byte b = (byte)pyInt.Value;
-                // Performance: Eliminated LINQ - manual loop instead of Array.Contains
-                for (int i = 0; i < Value.Length; i++)
-                {
-                    if (Value[i] == b)
-                        return PyBool.True;
-                }
-                return PyBool.False;
-            }
-            
-            return PyBool.False;
-        }
+        public override PyBool Contains(PyObject item) => PyBool.FromBool(BytesMethods.Contains(Value, item));
 
         /// <summary>
         /// Helper method to find index of byte sequence

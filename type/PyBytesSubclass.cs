@@ -30,18 +30,7 @@ namespace SharpPy
         /// </summary>
         internal static PyObject BytesSubtypeNew(PyClass cls, PyObject[] args, PyDict kwargs)
         {
-            bool hasTextArg = args.Length > 0 && args[0] is PyString;
-            bool hasCodec = args.Length > 1 ||
-                (kwargs != null && PyObject.KwValue(kwargs, "encoding") != null);
-            if (hasCodec && !hasTextArg)
-                throw PyTypeError.Create("encoding without a string argument");
-            if (hasTextArg && !hasCodec)
-                throw PyTypeError.Create("string argument without an encoding");
-
-            var built = PyBuiltinFunction.CallBytes(args, kwargs);
-            if (built is PyBytes value)
-                return new PyBytesSubclass(cls, value.Value) { ConstructorArgs = args };
-            return built;
+            return new PyBytesSubclass(cls, ((PyBytes)BytesMethods.BytesNew(args, kwargs)).Value) { ConstructorArgs = args };
         }
 
         public override PyType GetPyType() => InstanceType;

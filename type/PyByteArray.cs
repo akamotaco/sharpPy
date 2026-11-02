@@ -209,93 +209,7 @@ namespace SharpPy
                     return body(selfBa, args);
                 }, minArgs: min, maxArgs: max);
 
-            baType.TypeDict["find"] = Ba("find", (ba, args) => PyBytes.FindCore(ba._bytes, args, false, false), 1, 3);
-            baType.TypeDict["rfind"] = Ba("rfind", (ba, args) => PyBytes.FindCore(ba._bytes, args, true, false), 1, 3);
-            baType.TypeDict["index"] = Ba("index", (ba, args) => PyBytes.FindCore(ba._bytes, args, false, true), 1, 3);
-            baType.TypeDict["rindex"] = Ba("rindex", (ba, args) => PyBytes.FindCore(ba._bytes, args, true, true), 1, 3);
-            baType.TypeDict["count"] = Ba("count", (ba, args) => PyBytes.CountCore(ba._bytes, args), 1, 3);
-            baType.TypeDict["startswith"] = Ba("startswith", (ba, args) => PyBytes.StartEndCore(ba._bytes, args, true), 1, 3);
-            baType.TypeDict["endswith"] = Ba("endswith", (ba, args) => PyBytes.StartEndCore(ba._bytes, args, false), 1, 3);
-            baType.TypeDict["removeprefix"] = Ba("removeprefix", (ba, args) => new PyByteArray(PyBytes.TrimEdgeBytes(ba._bytes, args, true)), 1, 1);
-            baType.TypeDict["removesuffix"] = Ba("removesuffix", (ba, args) => new PyByteArray(PyBytes.TrimEdgeBytes(ba._bytes, args, false)), 1, 1);
 
-            baType.TypeDict["translate"] = new PyMethodDescriptor(
-                "translate", baType,
-                (self, args, kwargs) => {
-                    if (self is not PyByteArray ba)
-                        throw PyTypeError.Create($"descriptor 'translate' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
-
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"translate() takes at least 1 argument ({args.Length} given)");
-
-                    // Get translation table (can be None)
-                    PyObject tableArg = args[0];
-                    byte[]? table = null;
-
-                    if (tableArg != PyNone.Instance)
-                    {
-                        if (tableArg is PyBytes tableBytes)
-                        {
-                            table = tableBytes.Value;
-                            if (table.Length != 256)
-                                throw PyValueError.Create("translation table must be 256 characters long");
-                        }
-                        else if (tableArg is PyByteArray tableByteArray)
-                        {
-                            table = tableByteArray._bytes.ToArray();
-                            if (table.Length != 256)
-                                throw PyValueError.Create("translation table must be 256 characters long");
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"a bytes-like object is required, not '{tableArg.GetTypeName()}'");
-                        }
-                    }
-
-                    // Get delete characters (optional)
-                    byte[] deleteChars = Array.Empty<byte>();
-                    if (args.Length >= 2 && args[1] != PyNone.Instance)
-                    {
-                        if (args[1] is PyBytes deleteBytes)
-                        {
-                            deleteChars = deleteBytes.Value;
-                        }
-                        else if (args[1] is PyByteArray deleteByteArray)
-                        {
-                            deleteChars = deleteByteArray._bytes.ToArray();
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"a bytes-like object is required, not '{args[1].GetTypeName()}'");
-                        }
-                    }
-
-                    // Create delete set for fast lookup
-                    HashSet<byte> deleteSet = new HashSet<byte>(deleteChars);
-
-                    // Translate bytearray
-                    List<byte> result = new List<byte>();
-                    foreach (byte b in ba._bytes)
-                    {
-                        // Skip if in delete set
-                        if (deleteSet.Contains(b))
-                            continue;
-
-                        // Apply translation if table exists
-                        if (table != null)
-                        {
-                            result.Add(table[b]);
-                        }
-                        else
-                        {
-                            result.Add(b);
-                        }
-                    }
-
-                    return new PyByteArray(result.ToArray());
-                },
-                minArgs: 1, maxArgs: 2
-            );
         }
 
         #endregion
@@ -371,11 +285,12 @@ namespace SharpPy
 
         // bytearray_init: the arguments reach the object tp_new allocated.
         internal void Initialize(PyObject[] args, PyDict kwargs) =>
-            _bytes = ((PyByteArray)PyType.BytearrayType.CreateInstance(args, kwargs))._bytes;
+            _bytes = new List<byte>(BytesMethods.ByteArrayInit(args, kwargs));
 
         internal static void InstallNew()
         {
             var type = PyType.BytearrayType;
+            type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
                 ReferenceEquals(cls, type) ? new PyByteArray() : new PyByteArraySubclass((PyType)cls), acceptsKwargs: true);
             type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
@@ -386,6 +301,11 @@ namespace SharpPy
         }
 
         public override string ToString() => ToRepr().Value;
+
+        // ob_alloc: there is room for the trailing NUL of a C string.
+        internal int Allocated => _bytes.Count == 0 ? 0 : Math.Max(_bytes.Capacity, _bytes.Count + 1);
+
+        public override PyObject Modulo(PyObject other) => new PyByteArray(PyBytes.Format(ToByteArrayCopy(), other));
 
         public override PyString ToRepr()
         {
@@ -434,16 +354,15 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetItem(PyObject index)
         {
-            if (index is PyInt pyInt)
+            if (BytesMethods.IsIndex(index))
             {
-                // Single index access - returns PyInt (0-255)
-                int idx = (int)pyInt.Value;
+                long idx = BytesMethods.AsIndex(index);
                 if (idx < 0) idx += _bytes.Count;
 
                 if (idx < 0 || idx >= _bytes.Count)
                     throw PyIndexError.Create("bytearray index out of range");
 
-                return new PyInt(_bytes[idx]);
+                return new PyInt(_bytes[(int)idx]);
             }
             else if (index is PySlice slice)
             {
@@ -495,10 +414,9 @@ namespace SharpPy
         /// </summary>
         public override void SetItem(PyObject index, PyObject value)
         {
-            if (index is PyInt pyInt)
+            if (BytesMethods.IsIndex(index))
             {
-                // Single index assignment
-                int idx = (int)pyInt.Value;
+                long idx = BytesMethods.AsIndex(index);
                 // CPython converts the value before checking the current size:
                 // its __index__ callback may resize this bytearray.
                 int byteValue = GetByteValue(value);
@@ -507,10 +425,12 @@ namespace SharpPy
                 if (idx < 0 || idx >= _bytes.Count)
                     throw PyIndexError.Create("bytearray index out of range");
 
-                _bytes[idx] = (byte)byteValue;
+                _bytes[(int)idx] = (byte)byteValue;
             }
             else if (index is PySlice slice)
             {
+                if (value is PyInt or PyBool or PyString)
+                    throw PyTypeError.Create("can assign only bytes, buffers, or iterables of ints in range(0, 256)");
                 var (start, stop, step) = slice.UnpackStorage();
                 List<byte> newBytes;
                 if (value is PyByteArray source && !ReferenceEquals(source, this))
@@ -526,6 +446,9 @@ namespace SharpPy
                 }
                 // Both index callbacks and RHS iteration may resize the target.
                 (start, stop, step) = PySlice.AdjustStorageIndices(_bytes.Count, start, stop, step);
+                // bytearray_ass_subscript: an empty slice is an insertion point.
+                if ((step < 0 && start < stop) || (step > 0 && start > stop))
+                    stop = start;
                 ReadOnlySpan<byte> replacement = value is PyBytes bytes
                     ? bytes.Value : System.Runtime.InteropServices.CollectionsMarshal.AsSpan(newBytes);
 
@@ -569,16 +492,15 @@ namespace SharpPy
             if (HasBufferExports)
                 throw PyBufferError.Create("Existing exports of data: object cannot be re-sized");
 
-            if (index is PyInt pyInt)
+            if (BytesMethods.IsIndex(index))
             {
-                // Single index deletion
-                int idx = (int)pyInt.Value;
+                long idx = BytesMethods.AsIndex(index);
                 if (idx < 0) idx += _bytes.Count;
 
                 if (idx < 0 || idx >= _bytes.Count)
                     throw PyIndexError.Create("bytearray index out of range");
 
-                _bytes.RemoveAt(idx);
+                _bytes.RemoveAt((int)idx);
             }
             else if (index is PySlice slice)
             {
@@ -606,30 +528,7 @@ namespace SharpPy
         /// <summary>
         /// __contains__ - Check if byte or bytes is in bytearray
         /// </summary>
-        public override PyBool Contains(PyObject item)
-        {
-            if (item is PyInt pyInt)
-            {
-                // Check for single byte
-                int value = (int)pyInt.Value;
-                if (value < 0 || value > 255)
-                    return PyBool.False;
-
-                return _bytes.Contains((byte)value) ? PyBool.True : PyBool.False;
-            }
-            else if (item is PyBytes pyBytes)
-            {
-                // Check for subsequence
-                return ContainsSubsequence(pyBytes.Value) ? PyBool.True : PyBool.False;
-            }
-            else if (item is PyByteArray pyByteArray)
-            {
-                // Performance: Direct list access instead of ToArray
-                return ContainsSubsequenceList(pyByteArray._bytes) ? PyBool.True : PyBool.False;
-            }
-
-            return PyBool.False;
-        }
+        public override PyBool Contains(PyObject item) => PyBool.FromBool(BytesMethods.Contains(ToByteArrayCopy(), item));
 
         public override PyObject GetIterator()
         {
@@ -664,22 +563,7 @@ namespace SharpPy
         /// </summary>
         public override PyObject Add(PyObject other)
         {
-            if (other is PyByteArray otherBa)
-            {
-                var result = new byte[_bytes.Count + otherBa._bytes.Count];
-                _bytes.CopyTo(result, 0);
-                otherBa._bytes.CopyTo(result, _bytes.Count);
-                return new PyByteArray(result);
-            }
-            else if (other is PyBytes otherBytes)
-            {
-                var result = new byte[_bytes.Count + otherBytes.Value.Length];
-                _bytes.CopyTo(result, 0);
-                Array.Copy(otherBytes.Value, 0, result, _bytes.Count, otherBytes.Value.Length);
-                return new PyByteArray(result);
-            }
-
-            throw PyTypeError.Create($"can't concat bytearray to {other.GetTypeName()}");
+            return BytesMethods.Concat(this, other);
         }
 
         // Note: For mutable types, += is handled by the VM which calls extend()
@@ -915,102 +799,10 @@ namespace SharpPy
         /// <summary>
         /// Validate and convert PyObject to byte value (0-255)
         /// </summary>
-        /// <summary>
-        /// CPython's bytearray carries the whole bytes method surface, and its non-mutating methods
-        /// return bytearray - with split/rsplit/splitlines/partition/rpartition/join producing
-        /// bytearrays for every element too. SharpPy had the bytes half and none of this: 32 names
-        /// were missing from dir(bytearray), including upper, strip, split, replace, hex and the whole
-        /// is* family, so `bytearray(b"ab").upper(...)` was an AttributeError.
-        ///
-        /// The algorithms are not copied a second time. A bytearray method calls the descriptor bytes
-        /// already registers, against a read-only proxy holding the same bytes, and converts the
-        /// result type back - one implementation per operation.
-        /// </summary>
-        private static readonly string[] BytesBackedMethods =
-        {
-            "capitalize", "center", "decode", "expandtabs", "hex", "isalnum", "isalpha", "isascii",
-            "isdigit", "islower", "isspace", "istitle", "isupper", "join", "ljust", "lower",
-            "lstrip", "partition", "replace", "rjust", "rpartition", "rsplit", "rstrip", "split",
-            "splitlines", "strip", "swapcase", "title", "upper", "zfill",
-        };
-
-        /// <summary>
-        /// Methods whose CPython arity/keyword errors are the generic *qualified* form, with the exact
-        /// number of arguments CPython allows. Measured, not derived: bytearray.center() and
-        /// bytearray.strip() produce handwritten texts instead ("center expected at least 1 argument,
-        /// got 0"), and those come from the delegated bytes implementation untouched.
-        /// </summary>
-        private static readonly Dictionary<string, int[]> QualifiedArity = new()
-        {
-            ["capitalize"] = new[] { 0, 0 },
-            ["isalnum"] = new[] { 0, 0 },
-            ["isalpha"] = new[] { 0, 0 },
-            ["isascii"] = new[] { 0, 0 },
-            ["isdigit"] = new[] { 0, 0 },
-            ["islower"] = new[] { 0, 0 },
-            ["isspace"] = new[] { 0, 0 },
-            ["istitle"] = new[] { 0, 0 },
-            ["isupper"] = new[] { 0, 0 },
-            ["lower"] = new[] { 0, 0 },
-            ["swapcase"] = new[] { 0, 0 },
-            ["title"] = new[] { 0, 0 },
-            ["upper"] = new[] { 0, 0 },
-            ["join"] = new[] { 1, 1 },
-            ["partition"] = new[] { 1, 1 },
-            ["rpartition"] = new[] { 1, 1 },
-            ["zfill"] = new[] { 1, 1 },
-        };
-
-        /// <summary>
-        /// Methods CPython parses by parameter name, so an unknown keyword is reported as
-        /// "'zz' is an invalid keyword argument for split()" rather than as a blanket refusal.
-        /// </summary>
-        private static readonly HashSet<string> NamedKeywordMethods = new()
-        {
-            "decode", "expandtabs", "hex", "rsplit", "split", "splitlines",
-        };
-
         private static void RegisterBytesBackedMethods(PyType baType)
         {
-            foreach (var name in BytesBackedMethods)
-            {
-                if (!PyType.BytesType.TypeDict.TryGetValue(name, out PyObject bytesDescriptor))
-                    continue;   // bytes does not have it either; nothing to delegate to
-
-                string methodName = name;
-                // acceptsKwargs: the keyword decision belongs to the bytes descriptor being delegated
-                // to - bytearray.split(sep=b",") is legal in CPython, and a guard here would refuse it.
-                baType.TypeDict[name] = new PyMethodDescriptor(name, baType,
-                    (self, args, kwargs) =>
-                    {
-                        if (self is not PyByteArray ba)
-                            throw PyTypeError.Create(
-                                $"descriptor '{methodName}' for 'bytearray' objects doesn't apply to a '{self.GetTypeName()}' object");
-                        return BytesBackedCall(methodName, bytesDescriptor, ba, args, kwargs);
-                    }, acceptsKwargs: true);
-            }
-
-            // The two class-level helpers, and the dunder surface CPython publishes for bytearray.
-            // Registered as plain callables rather than classmethod descriptors: a classmethod binding
-            // (PyCMethod) moves the class into the positional argument list, which the delegated bytes
-            // implementation then counts as an argument - bytearray.fromhex("01ab") reported
-            // "fromhex() takes exactly one argument (2 given)". type(bytearray.fromhex) is
-            // builtin_function_or_method either way, which is what CPython shows.
-            baType.TypeDict["fromhex"] = new PyBuiltinFunction("fromhex", (args, kwargs) =>
-            {
-                if (args.Length != 1)
-                    throw PyTypeError.Create(
-                        $"bytearray.fromhex() takes exactly one argument ({args.Length} given)");
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("bytearray.fromhex() takes no keyword arguments");
-                return BytesBackedStatic("fromhex", args, kwargs);
-            });
-            baType.TypeDict["maketrans"] = new PyBuiltinFunction("maketrans", (args, kwargs) =>
-            {
-                if (kwargs != null && kwargs.Length() != 0)
-                    throw PyTypeError.Create("bytearray.maketrans() takes no keyword arguments");
-                return BytesBackedStatic("maketrans", args, kwargs);
-            });
+            BytesMethods.Install(baType);
+            BytesMethods.InstallByteArray(baType);
 
             // Measured surface: bytearray has __add__/__mul__/__rmul__/__iter__, and does NOT have
             // __bytes__ or __getnewargs__ (bytes has both). An earlier draft published them.
@@ -1022,77 +814,6 @@ namespace SharpPy
                 (self, args, kwargs) => self.Multiply(args[0]), minArgs: 1, maxArgs: 1);
             baType.TypeDict["__iter__"] = new PyMethodDescriptor("__iter__", baType,
                 (self, args, kwargs) => self.GetIterator(), minArgs: 0, maxArgs: 0);
-        }
-
-        private static PyObject BytesBackedCall(string name, PyObject descriptor,
-            PyByteArray self, PyObject[] args, PyDict kwargs)
-        {
-            // The delegated implementation reports "bytes."; CPython's generic argument parser reports
-            // the defining type, which here is bytearray. Only the qualified families are rewritten -
-            // handwritten texts are passed through unchanged.
-            if (QualifiedArity.TryGetValue(name, out int[] allowed))
-            {
-                if (args.Length < allowed[0] || args.Length > allowed[1])
-                {
-                    if (allowed[1] == 0)
-                        throw PyTypeError.Create(
-                            $"bytearray.{name}() takes no arguments ({args.Length} given)");
-                    throw PyTypeError.Create(
-                        $"bytearray.{name}() takes exactly one argument ({args.Length} given)");
-                }
-            }
-            if (kwargs != null && kwargs.Length() != 0 && !NamedKeywordMethods.Contains(name))
-                throw PyTypeError.Create($"bytearray.{name}() takes no keyword arguments");
-
-            var proxy = new PyBytes(self.ToByteArrayCopy());
-            if (descriptor is not PyMethodDescriptor methodDescriptor)
-                throw PyTypeError.Create($"bytearray.{name}() is not available in this build");
-            return ByteArrayResult(methodDescriptor.CallWithReceiver(proxy, args, kwargs));
-        }
-
-        private static PyObject BytesBackedStatic(string name, PyObject[] args, PyDict kwargs)
-        {
-            // bytes.fromhex and bytes.maketrans are classmethod descriptors. The implementation behind
-            // them ignores its receiver and reads positionals, so it is called with the bytearray type
-            // as receiver: binding through __get__ instead pushed the class into the argument list and
-            // produced "fromhex() takes exactly one argument (2 given)".
-            if (!PyType.BytesType.TypeDict.TryGetValue(name, out PyObject entry))
-                throw PyAttributeError.Create($"type object 'bytes' has no attribute '{name}'");
-            if (entry is not PyClassMethodDescriptor classMethod)
-                throw PyAttributeError.Create($"type object 'bytes' has no attribute '{name}'");
-            PyObject implementation = classMethod.CallableForDelegation;
-            PyObject result = implementation is PyMethodDescriptor methodDescriptor
-                ? methodDescriptor.CallWithReceiver(PyType.BytearrayType, args, kwargs)
-                : implementation.Call(args, kwargs);
-            // bytearray.maketrans returns a bytes translation table, not a bytearray; fromhex does
-            // return bytearray. The difference is CPython's, and it is measured.
-            return name == "maketrans" ? result : ByteArrayResult(result);
-        }
-
-        /// <summary>
-        /// bytes methods hand back bytes; CPython's bytearray methods hand back bytearray, including
-        /// inside the lists and tuples that split/partition produce. Anything else (str, bool, int)
-        /// passes through unchanged.
-        /// </summary>
-        private static PyObject ByteArrayResult(PyObject value)
-        {
-            switch (value)
-            {
-                case PyBytes bytesValue:
-                    return new PyByteArray(bytesValue.Value);
-                case PyList listValue:
-                    var convertedItems = new System.Collections.Generic.List<PyObject>(listValue.Items.Length);
-                    foreach (var item in listValue.Items)
-                        convertedItems.Add(ByteArrayResult(item));
-                    return new PyList(convertedItems);
-                case PyTuple tupleValue:
-                    var convertedParts = new PyObject[tupleValue.Items.Length];
-                    for (int i = 0; i < convertedParts.Length; i++)
-                        convertedParts[i] = ByteArrayResult(tupleValue.Items[i]);
-                    return new PyTuple(convertedParts);
-                default:
-                    return value;
-            }
         }
 
         private static byte[] AsBytes(PyObject self)
@@ -1120,24 +841,7 @@ namespace SharpPy
             PySlice.DeleteItems(_bytes, start, step, count);
         }
 
-        private static List<byte> ConvertToBytes(PyObject obj)
-        {
-            if (obj is PyBytes bytes) return new List<byte>(bytes.Value);
-            if (obj is PyByteArray byteArray) return new List<byte>(byteArray._bytes);
-            var result = new List<byte>();
-            var iterator = obj.GetIterator();
-            while (true)
-            {
-                PyObject item;
-                try { item = iterator.Next(); }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration) { break; }
-                if (item == null) break; // Legacy native iterator exhaustion.
-                // Only Next() exhaustion ends iteration; conversion errors propagate.
-                result.Add((byte)GetByteValue(item));
-            }
-
-            return result;
-        }
+        private static List<byte> ConvertToBytes(PyObject obj) => new List<byte>(BytesMethods.FromObject(obj, "bytearray"));
 
         /// <summary>
         /// Check if subsequence exists in bytearray
@@ -1273,8 +977,10 @@ namespace SharpPy
     /// </summary>
     public class PyByteArrayIterator : PyIterator
     {
-        private readonly PyByteArray _bytearray;
+        private PyByteArray _bytearray;
         private int _index;
+
+        protected override string IteratorName => "bytearray_iterator";
 
         public PyByteArrayIterator(PyByteArray bytearray)
         {
@@ -1282,14 +988,30 @@ namespace SharpPy
             _index = 0;
         }
 
+        // bytearrayiter_next: an exhausted iterator lets go of the bytearray.
         public override PyObject? Next()
         {
-            if (_index >= _bytearray.Length())
+            if (_bytearray == null || _index >= _bytearray.Length())
+            {
+                _bytearray = null;
                 throw PyStopIteration.Create();
+            }
 
             var value = _bytearray.GetItem(new PyInt(_index));
             _index++;
             return value;
+        }
+
+        internal override PyObject RemainingHint() => new PyInt(_bytearray == null ? 0 : Math.Max(0, _bytearray.Length() - _index));
+
+        internal override PyObject Reduce() => _bytearray != null
+            ? ReduceIter(_bytearray, _index)
+            : ReduceExhausted(new PyTuple(new PyObject[0]));
+
+        internal override void SetState(PyObject state)
+        {
+            if (_bytearray != null)
+                _index = (int)ClippedIndex(state, _bytearray.Length());
         }
     }
 
@@ -1303,6 +1025,12 @@ namespace SharpPy
         public Dictionary<string, PyObject> InstanceDict { get; } = new();
 
         public override PyType GetPyType() => _type;
+
+        public override PyObject GetAttribute(string name) =>
+            SubclassInstanceSupport.GetAttribute(this, (PyClass)_type, InstanceDict, name, n => base.GetAttribute(n));
+
+        public override void SetAttribute(string name, PyObject value) =>
+            SubclassInstanceSupport.SetAttribute(this, (PyClass)_type, InstanceDict, name, value);
     }
 
 }

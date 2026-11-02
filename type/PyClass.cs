@@ -528,22 +528,6 @@ namespace SharpPy
 
         internal virtual PyObject TypeCall(PyObject[] args, PyDict kwargs)
         {
-            // CPython: bytes subclasses inherit bytes_new, and bytes_new honours the type it was asked
-            // for - Objects/bytesobject.c dispatches to bytes_subtype_new, which builds the value and
-            // then allocates it as the subclass. This used to return the plain bytes object, which
-            // erased the subclass: type(B(b"xy")).__name__ said 'bytes', and a declared __len__,
-            // __add__, __contains__, __iter__, __getitem__, __eq__, __hash__ or __repr__ was
-            // unreachable. A user-declared __new__ is a real slot and still runs first.
-            foreach (var t in MRO)
-            {
-                if (ReferenceEquals(t, PyType.BytesType))
-                {
-                    if (!DeclaresUserSpecial("__new__"))
-                        return PyBytesSubclass.BytesSubtypeNew(this, args, kwargs);
-                    break;
-                }
-            }
-
             // Check for abstract methods before allowing instantiation
             CheckAbstractMethods();
             return CreateInstance(args, kwargs);
