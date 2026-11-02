@@ -78,7 +78,11 @@ namespace SharpPy
                 if (args.Length < 1 || args[0] is not PyString name)
                     throw PyTypeError.Create("module() argument 'name' must be str");
                 var module = new PyModule(name.Value);
+                // module_init: these five, no __file__.
+                module.ModuleDict.Remove("__file__");
                 module.ModuleDict["__doc__"] = args.Length > 1 ? args[1] : PyNone.Instance;
+                foreach (var key in new[] { "__package__", "__loader__", "__spec__" })
+                    module.ModuleDict[key] = PyNone.Instance;
                 return module;
             }, 0, int.MaxValue, acceptsKwargs: true);
         }

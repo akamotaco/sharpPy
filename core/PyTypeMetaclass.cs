@@ -504,6 +504,15 @@ namespace SharpPy
             return winner;
         }
 
+        // subtype_setdict: a metatype's base has a __dict__ getset, the class keeps type's.
+        private static void RefuseTypeDict(PyObject self)
+        {
+            if (self is PyType)
+                throw PyAttributeError.Create("attribute '__dict__' of 'type' objects is not writable");
+            if (self.GetPyType().IsSubclassOf(PyType.ModuleType))
+                throw PyAttributeError.Create("readonly attribute");
+        }
+
         /// <summary>type_new_slots and type_new_descriptors: the getsets of a class whose instances
         /// get a __dict__ or a weak reference list that no base gives them.</summary>
         private static void AddInstanceDescriptors(PyClass created, PyType[] bases, List<string> slotNames)
@@ -522,7 +531,19 @@ namespace SharpPy
                 }
             if (!hasDict && (slotNames == null || slotNames.Contains("__dict__")))
                 created.ClassDict["__dict__"] = new PyGetSetDescriptor("__dict__", created,
-                    self => self.GetAttribute("__dict__"), (self, value) => self.SetAttribute("__dict__", value));
+                    self => self is PyType type ? ((IDescriptor)PyType.TypeType.TypeDict["__dict__"]).Get(type, Instance) : self.GetAttribute("__dict__"),
+                    (self, value) =>
+                    {
+                        RefuseTypeDict(self);
+                        self.SetAttribute("__dict__", value);
+                    },
+                    deleter: self =>
+                    {
+                        RefuseTypeDict(self);
+                        if (self.GetPyType().IsSubclassOf(PyType.BaseExceptionType))
+                            throw PyTypeError.Create("cannot delete __dict__");
+                        self.SetAttribute("__dict__", new PyDict());
+                    });
             if (!hasWeakList && (slotNames == null || slotNames.Contains("__weakref__")))
                 created.ClassDict["__weakref__"] = new PyGetSetDescriptor("__weakref__", created, self => PyNone.Instance);
             if (slotNames == null) return;
@@ -1192,8 +1213,9 @@ namespace SharpPy
             if (instance is PyClass pyClass)
             {
                 // CPython: PyDict_GetItemWithError(dict, &_Py_ID(__doc__))
+                // type_get_doc: what the dict holds is asked as a descriptor.
                 if (pyClass.ClassDict.TryGetValue("__doc__", out var doc))
-                    return doc;
+                    return PyClassInstance.CallDescriptorGet(doc, null, pyClass);
 
                 // Return None if not found
                 return PyNone.Instance;

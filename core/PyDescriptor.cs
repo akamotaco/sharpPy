@@ -379,6 +379,9 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.MemberDescriptorType;
+
+        public override PyObject GetAttribute(string name) =>
+            PyMethodDescriptor.DescriptorAttribute(name, OwnerType, Name) ?? base.GetAttribute(name);
         public override string GetTypeName() => "member_descriptor";
 
         public PyObject Get(PyObject instance, PyType owner)

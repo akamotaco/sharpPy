@@ -188,6 +188,9 @@ public class PyModule : PyObject
     
     public override void SetAttribute(string name, PyObject value)
     {
+        // module_members: __dict__ is READONLY.
+        if (name == "__dict__")
+            throw PyAttributeError.Create("readonly attribute");
         SetVariable(name, value);
     }
     
@@ -206,6 +209,8 @@ public class PyModule : PyObject
     // module_setattro with NULL: the name goes from the module's dict.
     public override void DelAttribute(string name)
     {
+        if (name == "__dict__")
+            throw PyAttributeError.Create("readonly attribute");
         if (!ModuleDict.Remove(name))
             base.DelAttribute(name);
     }

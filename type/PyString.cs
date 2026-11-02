@@ -347,13 +347,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "split");
 
-                    string sep = null;
-                    int maxsplit = -1;
-                    PyObject[] pa = ProjectKeywordSlots(args, kwargs, "sep", "maxsplit");
-                    if (pa.Length >= 1 && pa[0] is PyString sepStr)
-                        sep = sepStr.Value;
-                    if (pa.Length >= 2 && pa[1] is PyInt maxsplitInt)
-                        maxsplit = (int)maxsplitInt.Value;
+                    var (sep, maxsplit) = SplitArguments(ProjectKeywordSlots(args, kwargs, "sep", "maxsplit"));
 
                     return str.Split(sep, maxsplit);
                 },
@@ -935,19 +929,7 @@ namespace SharpPy
                         throw PyTypeError.Create($"rsplit() takes at most 2 arguments ({args.Length} given)");
                     PyString str = AsStrReceiver(self, "rsplit");
 
-                    string sep = null;
-                    int maxsplit = -1;
-                    PyObject[] pa = ProjectKeywordSlots(args, kwargs, "sep", "maxsplit");
-
-                    if (pa.Length >= 1 && pa[0] is not PyNone)
-                    {
-                        if (pa[0] is not PyString sepStr)
-                            throw PyTypeError.Create("sep must be str or None");
-                        sep = sepStr.Value;
-                    }
-
-                    if (pa.Length >= 2 && pa[1] is PyInt maxInt)
-                        maxsplit = (int)maxInt.Value;
+                    var (sep, maxsplit) = SplitArguments(ProjectKeywordSlots(args, kwargs, "sep", "maxsplit"));
 
                     // CPython: rsplit splits from the right but returns results in left-to-right order
                     string[] parts;
@@ -3717,6 +3699,30 @@ namespace SharpPy
             }
             
             return new PyString(Value.Replace(old, newStr));
+        }
+
+        // unicode_split_impl and unicode_rsplit_impl: argument clinic, then split's empty check.
+        private static (string, int) SplitArguments(PyObject[] arguments)
+        {
+            string separator = null;
+            if (arguments.Length >= 1 && arguments[0] != null && arguments[0] is not PyNone)
+            {
+                separator = arguments[0] switch
+                {
+                    PyString text => text.Value,
+                    var other => throw PyTypeError.Create($"must be str or None, not {other.GetTypeName()}"),
+                };
+                if (separator.Length == 0)
+                    throw PyValueError.Create("empty separator");
+            }
+            int limit = -1;
+            if (arguments.Length >= 2 && arguments[1] != null)
+            {
+                var index = TryGetIndex(arguments[1]) ?? throw PyTypeError.Create(
+                    $"'{arguments[1].GetTypeName()}' object cannot be interpreted as an integer");
+                limit = index.Value > int.MaxValue ? int.MaxValue : index.Value < 0 ? -1 : (int)index.Value;
+            }
+            return (separator, limit);
         }
 
         private PyObject Split(PyObject[] args)

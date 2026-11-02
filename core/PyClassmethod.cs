@@ -41,6 +41,33 @@ namespace SharpPy
         public override PyType GetPyType() => _type;
         public override string GetTypeName() => _type.Name;
 
+        // cm_dict: generic attribute access over the wrapper's own __dict__.
+        private bool TypeHasDataDescriptor(string name) =>
+            _type.LookupSpecial(name) is IDescriptor descriptor && descriptor.IsDataDescriptor();
+
+        public override PyObject GetAttribute(string name)
+        {
+            if (!TypeHasDataDescriptor(name) && InstanceDict.TryGetValue(name, out var value))
+                return value;
+            return base.GetAttribute(name);
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "__dict__" || TypeHasDataDescriptor(name))
+                base.SetAttribute(name, value);
+            else
+                InstanceDict[name] = value;
+        }
+
+        public override void DelAttribute(string name)
+        {
+            if (name == "__dict__" || TypeHasDataDescriptor(name))
+                base.DelAttribute(name);
+            else if (!InstanceDict.Remove(name))
+                throw PyAttributeError.Create(name);
+        }
+
         public abstract PyObject Get(PyObject instance, PyType owner);
 
         public void Set(PyObject instance, PyObject value) =>

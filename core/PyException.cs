@@ -162,6 +162,10 @@ namespace SharpPy
                     // replace the previous args while the iterable is consumed.
                     _args = replacement;
                     break;
+                case "__dict__":
+                    _attributes = value as PyDict ?? throw PyTypeError.Create(
+                        $"__dict__ must be set to a dictionary, not a '{value.GetTypeName()}'");
+                    return;
                 case "__cause__":
                     if (value is PyNone)
                         __cause__ = null;
@@ -200,6 +204,8 @@ namespace SharpPy
 
         public override void DelAttribute(string name)
         {
+            if (name == "__dict__")
+                throw PyTypeError.Create("cannot delete __dict__");
             if (name == "args") throw PyTypeError.Create("args may not be deleted");
             var key = new PyString(name);
             if (_attributes != null && _attributes.ContainsKey(key))

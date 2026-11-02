@@ -57,11 +57,11 @@ namespace SharpPy
             // Objects/complexobject.c:398-410 publishes real/imag as getsets and conjugate as a method
             // in the type dict. They used to live only in a GetAttribute override below, which made
             // hasattr(complex, "real") False while (1+2j).real worked - two answers about one attribute.
-            PyType.ComplexType.TypeDict["real"] = new PyGetSetDescriptor(
+            PyType.ComplexType.TypeDict["real"] = new PyMemberDescriptor(
                 "real", PyType.ComplexType,
                 getter: self => self is PyComplex cx ? new PyFloat(cx.Real)
                     : throw WrongComplexSelf("real", self));
-            PyType.ComplexType.TypeDict["imag"] = new PyGetSetDescriptor(
+            PyType.ComplexType.TypeDict["imag"] = new PyMemberDescriptor(
                 "imag", PyType.ComplexType,
                 getter: self => self is PyComplex cx ? new PyFloat(cx.Imag)
                     : throw WrongComplexSelf("imag", self));

@@ -1968,6 +1968,10 @@ namespace SharpPy
                         return instance.GetAttributeGeneric(nameStr.Value);
                     }
 
+                    // A metaclass's own __getattribute__ may be what called this.
+                    if (self is PyClass cls)
+                        return cls.TypeGetAttribute(nameStr.Value);
+
                     // Fallback for non-PyClassInstance objects
                     return self.GetAttribute(nameStr.Value);
                 },

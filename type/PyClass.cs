@@ -595,7 +595,8 @@ namespace SharpPy
                 return TypeGetAttribute(name);
             var getAttribute = Metaclass.LookupInMRO("__getattribute__");
             var missing = Metaclass.LookupInMRO("__getattr__");
-            bool replaced = !ReferenceEquals(getAttribute, PyTypeMetaclass.Instance.LookupInMRO("__getattribute__"));
+            bool replaced = !ReferenceEquals(getAttribute, PyTypeMetaclass.Instance.LookupInMRO("__getattribute__")) &&
+                !ReferenceEquals(getAttribute, PyType.ObjectType.TypeDict["__getattribute__"]);
             try
             {
                 return replaced
@@ -2177,17 +2178,7 @@ namespace SharpPy
                 return classAttribute;
             }
 
-            // 5. __getattr__ 시도
-            if (HasCustomGetAttr())
-            {
-                var customResult = CallGetAttr(name);
-                if (customResult != null)
-                {
-                    return customResult;
-                }
-            }
-
-            // 6. AttributeError
+            // PyObject_GenericGetAttr ends here; __getattr__ belongs to the slot, GetAttribute.
             throw PyAttributeError.Create($"'{InstanceType.Name}' object has no attribute '{name}'");
         }
 
@@ -2219,18 +2210,19 @@ namespace SharpPy
                 }
             }
 
-            // If custom __getattribute__ found, call it directly
-            if (customGetAttr != null)
+            // slot_tp_getattr_hook: tp_getattro first, __getattr__ when it raises AttributeError.
+            // The hook is looked up first: __getattribute__ may delete it.
+            var hook = InstanceType.LookupInMRO("__getattr__");
+            if (hook == null)
+                return customGetAttr != null ? CallSpecial(customGetAttr, new PyString(name)) : GetAttributeGeneric(name);
+            try
             {
-                #if DEBUG_LOG
-                Console.WriteLine($"   🔍 calling custom __getattribute__");
-                #endif
-                return CallSpecial(customGetAttr, new PyString(name));
+                return customGetAttr != null ? CallSpecial(customGetAttr, new PyString(name)) : GetAttributeGeneric(name);
             }
-
-            // Use GetAttributeGeneric for standard attribute lookup
-            // This handles the full CPython 3.12 descriptor protocol
-            return GetAttributeGeneric(name);
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return CallSpecial(hook, new PyString(name));
+            }
         }
 
         public override void SetAttribute(string name, PyObject value)
@@ -2327,12 +2319,7 @@ namespace SharpPy
 
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject method))
                 {
-                    // Found user-defined special method, bind it to self
-                    if (method is PyFunction func)
-                    {
-                        return new PyMethod(this, func);
-                    }
-                    return method;
+                    return BindSpecialMethod(method);
                 }
             }
             return null;
