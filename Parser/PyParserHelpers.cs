@@ -688,11 +688,6 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr FormattedValue(GeneratedExpr value, int conversion, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return FormattedValue(value, conversion, null, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
         public static GeneratedExpr JoinedStr(GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedJoinedStr();
@@ -1799,103 +1794,6 @@ namespace SharpPy.Generated
             return value;
         }
 
-        // ==================== F-string Helper Methods ====================
-        // CPython: FormattedValue
-        public static GeneratedExpr FormattedValue(
-            GeneratedExpr expr,
-            GeneratedTokenInfo? debug_expr,
-            GeneratedResultTokenWithMetadata? conversion,
-            GeneratedExpr? format_spec,
-            GeneratedTokenInfo rbrace,
-            int lineno, int col_offset, int end_lineno, int end_col_offset)
-        {
-            // Conversion: 's' = str(), 'r' = repr(), 'a' = ascii(), -1 = no conversion
-            // CPython: Parser/action_helpers.c:1357-1367
-            // conversion.Metadata contains the NAME node (e.g., NAME(Id="r"))
-            // We extract the first character and store its character code in AST
-            int conv = -1;
-            if (conversion != null)
-            {
-                // CPython: expr_ty conversion_expr = (expr_ty)conversion->result;
-                // CPython: Py_UCS4 first = PyUnicode_READ_CHAR(conversion_expr->v.Name.id, 0);
-                if (conversion.Metadata is GeneratedName name)
-                {
-                    // Extract first character: 's' → 115, 'r' → 114, 'a' → 97
-                    string convStr = name.Id.Value;
-                    if (convStr.Length > 0)
-                    {
-                        conv = (int)convStr[0];  // Store character code, not FVC constant
-                    }
-                }
-            }
-            else if (debug_expr != null && format_spec == null)
-            {
-                // CPython: If no conversion is specified, use !r for debug expressions
-                // CPython: Parser/action_helpers.c:1368-1370
-                conv = (int)'r';
-            }
-
-            GeneratedExpr formatted = PyAst.FormattedValue(expr, conv, format_spec, lineno, col_offset, end_lineno, end_col_offset);
-
-            if (debug_expr != null)
-            {
-                // CPython: Parser/action_helpers.c:1372-1408 - the debug text is the raw
-                // source slice from the start of the expression up to the '}' region
-                // (inclusive of '='), placed before the formatted value.
-                int rawEndLine, rawEndCol;
-                if (conversion != null && conversion.Metadata is GeneratedExpr convExpr)
-                {
-                    rawEndLine = convExpr.LineNo;
-                    rawEndCol = convExpr.ColOffset - 1; // '!' sits one column before the name
-                }
-                else if (format_spec != null)
-                {
-                    // the colon, which SetupFullFormatSpec keeps as the start of the spec
-                    rawEndLine = format_spec.LineNo;
-                    rawEndCol = format_spec.ColOffset;
-                }
-                else
-                {
-                    rawEndLine = rbrace != null ? rbrace.Line : end_lineno;
-                    rawEndCol = rbrace != null ? rbrace.Column : end_col_offset - 1;
-                }
-
-                // Slice from the leftmost source position of the expression. (The rule's
-                // _start_* offsets describe a wider span here; CPython's leading-space
-                // preservation inside "{ a =}" is a known residual gap.)
-                int startLine = expr.LineNo;
-                int startCol = expr.ColOffset;
-                ParserActiveSource.ExprStartPos(expr, ref startLine, ref startCol);
-
-                string debugText = ParserActiveSource.GetRawSourceText(
-                    startLine, startCol, rawEndLine, rawEndCol);
-
-                var debugTextExpr = new GeneratedConstant
-                {
-                    Value = new GeneratedPyConstantString(debugText),
-                    LineNo = expr.LineNo,
-                    ColOffset = expr.ColOffset,
-                    EndLineNo = rawEndLine,
-                    EndColOffset = rawEndCol
-                };
-
-                var values = new GeneratedExprSeq(2);
-                values.Add(debugTextExpr);
-                values.Add(formatted);
-
-                return new GeneratedJoinedStr
-                {
-                    Values = values,
-                    LineNo = lineno,
-                    ColOffset = col_offset,
-                    EndLineNo = end_lineno,
-                    EndColOffset = end_col_offset
-                };
-            }
-
-            return formatted;
-        }
-
         // ==================== Sequence Item Access Helpers ====================
         // CPython: macro-like helpers for accessing sequence items
 
@@ -1962,8 +1860,8 @@ namespace SharpPy.Generated
 
     public class GeneratedResultTokenWithMetadata : GeneratedPtr
     {
-        public GeneratedTokenInfo Token { get; set; }
-        public object? Metadata { get; set; }
+        public GeneratedExpr Result { get; set; }
+        public string Metadata { get; set; }
     }
 
     // ============================================================
@@ -2680,29 +2578,6 @@ namespace SharpPy.Generated
             return PyAst.Call(DummyName(), combined_args, keywords, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        // ==================== F-string Helper Methods ====================
-        // CPython: _PyPegen_constant_from_string - Creates a Constant from a STRING token with decoding
-        public static GeneratedExpr ConstantFromString(GeneratedTokenInfo tok)
-        {
-            var constant = PyParserRuntime.DecodedConstantFromToken(tok);
-            constant.LineNo = tok.Line;
-            constant.ColOffset = tok.Column;
-            constant.EndLineNo = tok.EndLine;
-            constant.EndColOffset = tok.EndColumn;
-            return constant;
-        }
-
-        // CPython: DecodedConstantFromToken - Decode constant from token
-        public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo tok)
-        {
-            var constant = PyParserRuntime.DecodedConstantFromToken(tok);
-            constant.LineNo = tok.Line;
-            constant.ColOffset = tok.Column;
-            constant.EndLineNo = tok.EndLine;
-            constant.EndColOffset = tok.EndColumn;
-            return constant;
-        }
-
         // CPython: _PyPegen_concatenate_strings - Concatenate string expressions
         // CPython 3.12: Parser/action_helpers.c:1413-1603
         public static GeneratedExpr ConcatenateStrings(GeneratedExprSeq strings,
@@ -2746,12 +2621,6 @@ namespace SharpPy.Generated
                     nFlattenedElements++;
                     fStringFound = true;
                 }
-            }
-
-            // CPython: cannot mix bytes and nonbytes literals
-            if ((unicodeStringFound || fStringFound) && bytesFound)
-            {
-                throw new InvalidOperationException("cannot mix bytes and nonbytes literals");
             }
 
             // CPython: Handle bytes concatenation
@@ -2899,26 +2768,6 @@ namespace SharpPy.Generated
 
             // CPython: Return JoinedStr for f-strings
             return PyAst.JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // CPython: JoinedStr - Create a JoinedStr (f-string)
-        public static GeneratedExpr JoinedStr(GeneratedExprSeq parts)
-        {
-            return PyAst.JoinedStr(parts, 0, 0, 0, 0);
-        }
-
-        // CPython: CheckFstringConversion - Check f-string conversion specifier
-        public static GeneratedTokenInfo? CheckFstringConversion(GeneratedTokenInfo? conv)
-        {
-            if (conv == null) return null;
-
-            var text = conv.GetStringValue();
-            if (text != "s" && text != "r" && text != "a")
-            {
-                // TODO: Raise proper syntax error
-                return null;
-            }
-            return conv;
         }
 
         // CPython: SetupFullFormatSpec - Moved to PyParserRuntime_ActionHelpers.cs

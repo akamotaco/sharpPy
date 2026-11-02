@@ -161,17 +161,8 @@ public class ParserGenerator
         WriteLine("/// <summary>");
         WriteLine("/// Constructor - CPython: _PyPegen_Parser_New");
         WriteLine("/// </summary>");
-        WriteLine("public PyParser(List<GeneratedTokenInfo> tokens, string filename)");
-        WriteLine("    : base(tokens, filename)");
-        WriteLine("{");
-        WriteLine("}");
-        WriteLine();
-
-        WriteLine("/// <summary>");
-        WriteLine("/// Constructor with source code for error reporting");
-        WriteLine("/// </summary>");
-        WriteLine("public PyParser(List<GeneratedTokenInfo> tokens, string filename, string source)");
-        WriteLine("    : base(tokens, filename, source)");
+        WriteLine("public PyParser(Tokenizer tok, string filename, string source, CompileMode startRule = CompileMode.File, int flags = 0)");
+        WriteLine("    : base(tok, filename, source, startRule, flags)");
         WriteLine("{");
         WriteLine("}");
         WriteLine();

@@ -137,11 +137,9 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                // CPython 3.12: Pass generateExtraTokens=true for --tokens mode to include COMMENT/NL
-                var tokens = PyParserRuntime.LexerSource(sourceCode, generateExtraTokens: showTokenize);
-
-                if(showTokenize)
+                                if(showTokenize)
                 {
+                    var tokens = PyParserRuntime.LexerSource(sourceCode, generateExtraTokens: true);
                     Console.WriteLine("[===== tokenize log ====]");
                     for (int i = 0; i < tokens.Count; ++i)
                     {
@@ -156,9 +154,9 @@ namespace SharpPy
                 {
                     // The tree the parser built, the one to compare with CPython's ast.dump.
                     if (Environment.GetEnvironmentVariable("SHARPPY_SYMTABLE") == "1")
-                        Console.Write(SymtableDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>"), fileName ?? "<string>"));
+                        Console.Write(SymtableDumper.Dump(PyParserRuntime.ParseToAsdl(sourceCode, fileName ?? "<string>"), fileName ?? "<string>"));
                     Console.WriteLine("[===== ast log ====]");
-                    Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>")));
+                    Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(sourceCode, fileName ?? "<string>")));
                     Console.WriteLine("[===== ast end ====]");
                     return PyNone.Instance;
                 }
@@ -268,10 +266,9 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var tokens = PyParserRuntime.LexerSource(sourceCode, generateExtraTokens: showTokenize);
-
                 if(showTokenize)
                 {
+                    var tokens = PyParserRuntime.LexerSource(sourceCode, generateExtraTokens: true);
                     Console.WriteLine("[===== tokenize log ====]");
                     for (int i = 0; i < tokens.Count; ++i)
                     {
@@ -286,9 +283,9 @@ namespace SharpPy
                 {
                     // The tree the parser built, the one to compare with CPython's ast.dump.
                     if (Environment.GetEnvironmentVariable("SHARPPY_SYMTABLE") == "1")
-                        Console.Write(SymtableDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>"), fileName ?? "<string>"));
+                        Console.Write(SymtableDumper.Dump(PyParserRuntime.ParseToAsdl(sourceCode, fileName ?? "<string>"), fileName ?? "<string>"));
                     Console.WriteLine("[===== ast log ====]");
-                    Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(tokens, sourceCode, fileName ?? "<string>")));
+                    Console.WriteLine(AsdlDumper.Dump(PyParserRuntime.ParseToAsdl(sourceCode, fileName ?? "<string>")));
                     Console.WriteLine("[===== ast end ====]");
                     return null;
                 }

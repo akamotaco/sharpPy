@@ -24,16 +24,8 @@ namespace SharpPy.Generated
         /// <summary>
         /// Constructor - CPython: _PyPegen_Parser_New
         /// </summary>
-        public PyParser(List<GeneratedTokenInfo> tokens, string filename)
-            : base(tokens, filename)
-        {
-        }
-
-        /// <summary>
-        /// Constructor with source code for error reporting
-        /// </summary>
-        public PyParser(List<GeneratedTokenInfo> tokens, string filename, string source)
-            : base(tokens, filename, source)
+        public PyParser(Tokenizer tok, string filename, string source, CompileMode startRule = CompileMode.File, int flags = 0)
+            : base(tok, filename, source, startRule, flags)
         {
         }
 
@@ -10295,7 +10287,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? a = null;
                 GeneratedTokenInfo? debug_expr = null;
                 GeneratedResultTokenWithMetadata? conversion = null;
-                GeneratedExpr? format = null;
+                GeneratedResultTokenWithMetadata? format = null;
                 GeneratedTokenInfo? rbrace = null;
 
                 if (
@@ -10303,7 +10295,7 @@ namespace SharpPy.Generated
                     (a = Parse_Tmp43()) != null &&
                     ((debug_expr = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.EQUAL))) == null || true) &&
                     ((conversion = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringConversion())) == null || true) &&
-                    ((format = (GeneratedExpr)ParseOptional(() => Parse_FstringFullFormatSpec())) == null || true) &&
+                    ((format = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringFullFormatSpec())) == null || true) &&
                     (rbrace = ExpectToken(PyToken.Type.RBRACE)) != null
                 )
                 {
@@ -10375,7 +10367,7 @@ namespace SharpPy.Generated
         /// Alternatives: 1
         /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedExpr? Parse_FstringFullFormatSpec()
+        private GeneratedResultTokenWithMetadata? Parse_FstringFullFormatSpec()
         {
             int _mark = Mark();
 
@@ -10432,7 +10424,7 @@ namespace SharpPy.Generated
                 if ((t = ExpectToken(PyToken.Type.FSTRING_MIDDLE)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . DecodedConstantFromToken ( t );
+                    return DecodedConstantFromToken ( t );
                 }
             }
 
@@ -10521,7 +10513,7 @@ namespace SharpPy.Generated
                 if ((s = ExpectToken(PyToken.Type.STRING)) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . ConstantFromString ( s );
+                    return ConstantFromString ( s );
                 }
             }
 
@@ -10564,7 +10556,7 @@ namespace SharpPy.Generated
                 if ((a = ParseOneOrMore(() => Parse_Tmp44())?.Cast<GeneratedExprSeq>()) != null)
                 {
                     CaptureAction(_mark); // Action code from grammar
-                    return PyParserHelpers . ConcatenateStrings ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                    return ConcatenateStrings ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
                 }
             }
 

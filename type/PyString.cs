@@ -1209,25 +1209,7 @@ namespace SharpPy
                     if (str.Value.Length == 0)
                         return PyBool.False;
 
-                    // CPython Objects/unicodeobject.c unicode_isidentifier checks XID_Start,
-                    // XID_Continue and NFC normalisation. Reading characters rather than units is
-                    // what fixes an astral first character; the NFC requirement stays a recorded gap.
-                    bool first = true;
-                    foreach (int cp in str.CodePoints())
-                    {
-                        if (first)
-                        {
-                            if (cp != '_' && !IsLetterCp(cp))
-                                return PyBool.False;
-                            first = false;
-                        }
-                        else if (cp != '_' && !IsLetterOrDigitCp(cp))
-                        {
-                            return PyBool.False;
-                        }
-                    }
-
-                    return PyBool.True;
+                    return ScanIdentifier(str.Value) ? PyBool.True : PyBool.False;
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -2148,6 +2130,84 @@ namespace SharpPy
         }
 
         internal static bool IsLetterOrDigitCp(int cp) => IsLetterCp(cp) || IsDecimalDigitCp(cp);
+
+        /// <summary>A code point at an index; a lone surrogate stands for itself.</summary>
+        internal static int CodePointAt(string s, int index, out int width)
+        {
+            if (char.IsHighSurrogate(s[index]) && index + 1 < s.Length && char.IsLowSurrogate(s[index + 1]))
+            {
+                width = 2;
+                return char.ConvertToUtf32(s[index], s[index + 1]);
+            }
+            width = 1;
+            return s[index];
+        }
+
+        internal static string CodePointText(int cp) => cp >= 0x10000 ? char.ConvertFromUtf32(cp) : ((char)cp).ToString();
+
+        // XID_Start and XID_Continue of Objects/unicodetype_db.h, from the general category plus
+        // Other_ID_Start, Other_ID_Continue and what NFKC takes out of them.
+        private static bool IsXidExcluded(int cp) =>
+            cp is 0x037A or 0x0E33 or 0x0EB3 or 0x309B or 0x309C or 0xFDFA or 0xFDFB or 0xFE70 or 0xFE72 or 0xFE74 or 0xFE76
+                or 0xFE78 or 0xFE7A or 0xFE7C or 0xFE7E or 0xFF9E or 0xFF9F || (cp >= 0xFC5E && cp <= 0xFC63);
+
+        internal static bool IsXidStart(int cp)
+        {
+            if (cp < 0x80)
+                return (cp >= 'a' && cp <= 'z') || (cp >= 'A' && cp <= 'Z');
+            if (cp is 0x1885 or 0x1886 or 0x2118 or 0x212E)
+                return true;
+            if (IsXidExcluded(cp))
+                return false;
+            switch (CategoryOf(cp))
+            {
+                case System.Globalization.UnicodeCategory.UppercaseLetter:
+                case System.Globalization.UnicodeCategory.LowercaseLetter:
+                case System.Globalization.UnicodeCategory.TitlecaseLetter:
+                case System.Globalization.UnicodeCategory.ModifierLetter:
+                case System.Globalization.UnicodeCategory.OtherLetter:
+                case System.Globalization.UnicodeCategory.LetterNumber:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        internal static bool IsXidContinue(int cp)
+        {
+            if (cp < 0x80)
+                return (cp >= 'a' && cp <= 'z') || (cp >= 'A' && cp <= 'Z') || (cp >= '0' && cp <= '9') || cp == '_';
+            if (IsXidStart(cp) || cp is 0x00B7 or 0x0387 or 0x19DA or 0x0E33 or 0x0EB3 or 0xFF9E or 0xFF9F || (cp >= 0x1369 && cp <= 0x1371))
+                return true;
+            switch (CategoryOf(cp))
+            {
+                case System.Globalization.UnicodeCategory.NonSpacingMark:
+                case System.Globalization.UnicodeCategory.SpacingCombiningMark:
+                case System.Globalization.UnicodeCategory.DecimalDigitNumber:
+                case System.Globalization.UnicodeCategory.ConnectorPunctuation:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        // _PyUnicode_ScanIdentifier, whether the whole string is scanned
+        internal static bool ScanIdentifier(string s)
+        {
+            if (s.Length == 0)
+                return false;
+            int index = 0;
+            bool first = true;
+            while (index < s.Length)
+            {
+                int cp = CodePointAt(s, index, out int width);
+                if (first ? !(IsXidStart(cp) || cp == '_') : !IsXidContinue(cp))
+                    return false;
+                first = false;
+                index += width;
+            }
+            return true;
+        }
 
         // CPython's whitespace set is exactly these code points (the IS_SPACE line of
         // Objects/unicodetype_db.h): Zs plus U+0085 and the ASCII control whitespace.
@@ -3798,32 +3858,9 @@ namespace SharpPy
 
         internal PyObject IsIdentifier(PyObject[] args)
         {
-            // CPython 3.12: str.isidentifier()
-            // Returns True if the string is a valid identifier according to Python language definition
-            // Note: This returns True for keywords too (e.g., "if", "class")
             if (args.Length != 0)
                 throw PyTypeError.Create($"str.isidentifier() takes no arguments ({args.Length} given)");
-
-            if (string.IsNullOrEmpty(Value))
-                return PyBool.False;
-
-            // Python identifier rules:
-            // 1. First character must be letter (a-z, A-Z) or underscore (_)
-            // 2. Subsequent characters can be letters, digits, or underscores
-            // 3. Cannot be empty
-
-            char first = Value[0];
-            if (!char.IsLetter(first) && first != '_')
-                return PyBool.False;
-
-            for (int i = 1; i < Value.Length; i++)
-            {
-                char c = Value[i];
-                if (!char.IsLetterOrDigit(c) && c != '_')
-                    return PyBool.False;
-            }
-
-            return PyBool.True;
+            return ScanIdentifier(Value) ? PyBool.True : PyBool.False;
         }
 
         #endregion

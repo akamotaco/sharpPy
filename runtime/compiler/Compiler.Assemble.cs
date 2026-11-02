@@ -11,48 +11,38 @@ namespace SharpPy
         private static PyObject ConstantValue(GeneratedPyConstant value) => AstOptimizer.Value(value);
 
         // _PyParser_ASTFromString
-        public static GeneratedMod Parse(string source, string filename, CompileMode mode)
+        public static GeneratedMod Parse(string source, string filename, CompileMode mode, int flags = 0)
         {
-            try
+            var tok = new Tokenizer(source, execInput: mode == CompileMode.File, filename: filename);
+            var parser = new PyParser(tok, filename, source, mode, flags);
+            return mode switch
             {
-                var tokens = PyParserRuntime.LexerSource(source);
-                var parser = new PyParser(tokens, filename, source);
-                return mode switch
-                {
-                    CompileMode.Eval => parser.ParseEval(),
-                    CompileMode.Single => new GeneratedInteractive { Body = ((GeneratedModule)parser.ParseFile()).Body },
-                    _ => parser.ParseFile(),
-                };
-            }
-            catch (PySyntaxErrorException error)
-            {
-                // The tokenizer's errors: _syntaxerror_range, with the text of the line as it was read.
-                int line = Math.Max(error.LineNumber, 1);
-                var lines = new List<string>(source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
-                string text = error.Message.StartsWith("SyntaxError: ") ? error.Message.Substring("SyntaxError: ".Length) : error.Message;
-                throw PySyntaxError.At(text, filename, line, error.ColumnOffset + 1, line,
-                    error.EndColumnOffset >= 0 ? error.EndColumnOffset : error.ColumnOffset + 1, lines,
-                    lastLineHasNewline: line < lines.Count);
-            }
+                CompileMode.Eval => parser.ParseEval(),
+                CompileMode.Single => parser.ParseInteractive(),
+                _ => parser.ParseFile(),
+            };
         }
 
         // Py_CompileStringObject: the single route from text to a code object.
         public static PyCodeObject CompileSource(string source, string filename, CompileMode mode = CompileMode.File,
             int optimize = 0, int inheritedFlags = 0)
         {
-            var mod = Parse(source, filename, mode);
+            var mod = Parse(source, filename, mode, inheritedFlags);
             var lines = new List<string>(source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
             return Compile(mod, filename, optimize, lines, inheritedFlags);
         }
 
+        // PyErr_WarnExplicitObject
+        internal static void WarnExplicit(string category, string message, string filename, int lineno) =>
+            PyImportSystem.Import("warnings").GetAttribute("warn_explicit").Call(
+                new PyObject[] { new PyString(message), PyImportSystem.Import("builtins").GetAttribute(category), new PyString(filename), new PyInt(Math.Max(lineno, 1)) }, null);
+
         // compiler_warn
         private void Warn(Loc loc, string message)
         {
-            var category = PyImportSystem.Import("builtins").GetAttribute("SyntaxWarning");
             try
             {
-                PyImportSystem.Import("warnings").GetAttribute("warn_explicit").Call(
-                    new PyObject[] { new PyString(message), category, new PyString(_filename), new PyInt(Math.Max(loc.Line, 1)) }, null);
+                WarnExplicit("SyntaxWarning", message, _filename, loc.Line);
             }
             catch (PythonException error) when (error.PyException.GetTypeName() == "SyntaxWarning")
             {

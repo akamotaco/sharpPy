@@ -17,7 +17,7 @@ namespace SharpPy.Generated
     /// Base class for generated parser - provides common parsing logic
     /// CPython 3.12: Parser/pegen.c equivalent
     /// </summary>
-    public abstract class PyParserBase<TResult>
+    public abstract partial class PyParserBase<TResult>
     {
         protected List<GeneratedTokenInfo> _tokens;
         protected int _position = 0;  // CPython: mark
@@ -27,7 +27,6 @@ namespace SharpPy.Generated
         protected string? _pendingSyntaxError = null;
         protected int _pendingErrorPosition = -1;
         protected bool _callInvalidRules = false;
-        protected int _fill = 0;  // CPython: fill, how far the parser has looked
         // CPython 3.12: Memo cache uses (position, rule_name) tuple keys
         protected Dictionary<(int, string), GeneratedAstNode> _memoCache = new();
 
@@ -43,6 +42,12 @@ namespace SharpPy.Generated
         protected GeneratedTokenInfo? _startToken = null;  // Token at start of current rule
         protected GeneratedTokenInfo? _lastToken = null;  // Last consumed token
 
+        // Parser: where the tokens come from, the rule it starts with and its flags
+        protected readonly Tokenizer _tok;
+        private readonly CompileMode _startRule;
+        private readonly int _flags;
+        private bool _parsingStarted;
+
         // Left-recursion handling (Warth et al. algorithm)
         protected class LREntry
         {
@@ -52,54 +57,52 @@ namespace SharpPy.Generated
         }
         protected Dictionary<(int, string), LREntry> _lrCache = new();
 
-        // CPython 3.12: ResultTokenWithMetadata for f-string conversions/formats
-        // Must inherit from GeneratedPtr to be used as optional rule result
-        protected class ResultTokenWithMetadata : GeneratedPtr
-        {
-            public GeneratedTokenInfo Token { get; set; }
-            public object Metadata { get; set; }
-        }
-
         // CPython 3.12: Token-based memoization
         // Each Token owns its Memo list - no global cache needed
         // MemoEntry is defined in GeneratedTokenInfo (Tokenizer.cs)
 
-        protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename)
+        // _PyPegen_Parser_New: the tokens are read as the rules ask for them.
+        protected PyParserBase(Tokenizer tok, string filename, string source, CompileMode startRule = CompileMode.File, int flags = 0)
         {
-            // CPython 3.12: Filter out COMMENT, NL, TYPE_COMMENT tokens before parsing
-            // Performance: Eliminated LINQ - manual filtering
+            _tok = tok;
             _tokens = new List<GeneratedTokenInfo>();
-            for (int i = 0; i < tokens.Count; i++)
-            {
-                var t = tokens[i];
-                if (t.Type != PyToken.Type.COMMENT &&
-                    t.Type != PyToken.Type.NL &&
-                    t.Type != PyToken.Type.TYPE_COMMENT)
-                {
-                    _tokens.Add(t);
-                }
-            }
             _filename = filename;
-            ParserActiveSource.Lines = null;
-        }
-
-        // CPython 3.12: Constructor with source code for error reporting
-        protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename, string source)
-            : this(tokens, filename)
-        {
             _source = source;
+            _startRule = startRule;
+            _flags = flags;
             // CPython 3.12: Use universal newlines (like Python's str.splitlines)
             _sourceLines = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-            ParserActiveSource.Lines = _sourceLines;
+        }
+
+        // _PyPegen_fill_token and initialize_token
+        private void FillNextToken()
+        {
+            var token = _tok.Get();
+            // At the end, single input mode needs a newline.
+            if (_startRule == CompileMode.Single && token.Type == PyToken.Type.ENDMARKER && _parsingStarted)
+            {
+                token.Type = PyToken.Type.NEWLINE;
+                _parsingStarted = false;
+                if (_tok.Indent != 0 && (_flags & PyCF_DONT_IMPLY_DEDENT) == 0)
+                {
+                    _tok.Pendin = -_tok.Indent;
+                    _tok.Indent = 0;
+                }
+            }
+            else
+                _parsingStarted = true;
+            _tokens.Add(token);
+            if (token.Type == PyToken.Type.ERRORTOKEN)
+                TokenizerError();
         }
 
         protected GeneratedTokenInfo CurrentToken
         {
             get
             {
-                if (_position >= _fill)
-                    _fill = _position + 1;
-                return _position < _tokens.Count ? _tokens[_position] : null;
+                if (_position == _tokens.Count)
+                    FillNextToken();
+                return _tokens[_position];
             }
         }
 
@@ -352,16 +355,7 @@ namespace SharpPy.Generated
             Console.WriteLine($"[MEMO] {ruleName} at pos={_position}");
             #endif
             // STEP 1: Get current token (CPython: Token *t = p->tokens[p->mark])
-            if (_position >= _tokens.Count)
-            {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[MEMO] {ruleName}: Beyond token count, parsing directly");
-                #endif
-                // ENDMARKER or beyond - don't memoize, just parse
-                return ruleFunc();
-            }
-
-            var token = _tokens[_position];
+            var token = CurrentToken;
             int startMark = _position;
 
             // STEP 2: CHECK CACHE - IsMemoized(p, type, &res)
@@ -673,34 +667,127 @@ namespace SharpPy.Generated
             _ => (1, 0, 1, 0),
         };
 
-        private GeneratedTokenInfo FillToken => _tokens[Math.Clamp(_fill - 1, 0, _tokens.Count - 1)];
+        private const int CURRENT_POS = -5;
+        private const int PyCF_DONT_IMPLY_DEDENT = 0x200;
+        private const int PyCF_ALLOW_INCOMPLETE_INPUT = 0x4000;
 
-        // _PyPegen_raise_error_known_location: columns are 1-based here, as in the exception.
-        private Exception ErrorAt(bool indentation, int line, int col, int endLine, int endCol, string message) =>
-            PySyntaxError.At(message, _filename, line, col, endLine, endCol,
-                _sourceLines == null ? null : new List<string>(_sourceLines), indentation);
+        private GeneratedTokenInfo LastFilledToken => _tokens[_tokens.Count - 1];
 
-        // RAISE_SYNTAX_ERROR: at known_err_token, or the last token read
+        // _PyPegen_byte_offset_to_character_offset
+        private static int ByteOffsetToCharacterOffset(string line, int colOffset)
+        {
+            int bytes = 0, characters = 0;
+            for (int i = 0; i < line.Length && bytes < colOffset; i++)
+            {
+                char c = line[i];
+                if (char.IsHighSurrogate(c) && i + 1 < line.Length && char.IsLowSurrogate(line[i + 1]))
+                {
+                    bytes += 4;
+                    i++;
+                }
+                else
+                    bytes += c < 0x80 ? 1 : c < 0x800 ? 2 : 3;
+                characters++;
+            }
+            return bytes < colOffset ? characters + 1 : characters;
+        }
+
+        // _PyErr_ProgramDecodedTextObject
+        private static string ProgramText(string filename, int lineno)
+        {
+            try
+            {
+                if (lineno < 1 || !System.IO.File.Exists(filename))
+                    return null;
+                int current = 0;
+                foreach (var line in System.IO.File.ReadLines(filename))
+                    if (++current == lineno)
+                        return line + "\n";
+            }
+            catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException)
+            {
+            }
+            return null;
+        }
+
+        // get_error_line_from_tokenizer_buffers
+        private string ErrorLineFromTokenizerBuffers(int lineno)
+        {
+            string buffer = _tok.Buffer;
+            int start = 0;
+            for (int i = 0; i < lineno - 1; i++)
+            {
+                int newLine = buffer.IndexOf('\n', start);
+                if (newLine < 0 || newLine + 1 > _tok.Inp)
+                    break;
+                start = newLine + 1;
+            }
+            int end = buffer.IndexOf('\n', start);
+            return buffer.Substring(start, (end < 0 ? buffer.Length : end) - start);
+        }
+
+        // _PyPegen_raise_error_known_location
+        protected Exception KnownLocation(PySyntaxError error, int lineno, int colOffset, int endLineno, int endColOffset, string message)
+        {
+            if (endLineno == CURRENT_POS)
+                endLineno = _tok.Lineno;
+            if (endColOffset == CURRENT_POS)
+                endColOffset = _tok.ByteLength(_tok.LineStart, _tok.Cur);
+
+            string errorLine = _startRule == CompileMode.File ? ProgramText(_filename, lineno) : null;
+            if (errorLine == null)
+            {
+                if (_tok.Lineno <= lineno && _tok.Inp > _tok.Buf)
+                    errorLine = _tok.Buffer.Substring(_tok.LineStart, _tok.Inp - _tok.LineStart);
+                else
+                    errorLine = ErrorLineFromTokenizerBuffers(lineno);
+            }
+
+            int colNumber = ByteOffsetToCharacterOffset(errorLine, colOffset);
+            int endColNumber = endColOffset > 0 ? ByteOffsetToCharacterOffset(errorLine, endColOffset) : endColOffset;
+            return PySyntaxError.Located(error, message, _filename, lineno, colNumber, endLineno, endColNumber, new PyString(errorLine));
+        }
+
+        // RAISE_ERROR_KNOWN_LOCATION
+        private Exception ErrorKnownLocation(PySyntaxError error, int lineno, int colOffset, int endLineno, int endColOffset, string message) =>
+            KnownLocation(error, lineno, colOffset == CURRENT_POS ? CURRENT_POS : colOffset + 1, endLineno,
+                endColOffset == CURRENT_POS ? CURRENT_POS : endColOffset + 1, message);
+
+        // _PyPegen_raise_error
+        private Exception RaiseError(PySyntaxError error, bool useMark, string message)
+        {
+            if (_tokens.Count == 0)
+                return KnownLocation(error, 0, 0, 0, -1, message);
+            if (useMark && _position == _tokens.Count)
+                FillNextToken();
+            var t = _knownErrToken ?? _tokens[useMark ? _position : _tokens.Count - 1];
+            int colOffset;
+            int endColOffset = -1;
+            if (t.Column == -1)
+                colOffset = _tok.Cur == _tok.Buf ? 0 : _tok.ByteLength(_tok.LineStart, _tok.Cur);
+            else
+                colOffset = t.Column + 1;
+            if (t.EndColumn != -1)
+                endColOffset = t.EndColumn + 1;
+            return KnownLocation(error, t.Line, colOffset, t.EndLine, endColOffset, message);
+        }
+
+        // _Pypegen_raise_decode_error
+        private Exception RaiseDecodeError(string message) => RaiseError(new PySyntaxError(message), false, message);
+
+        // RAISE_SYNTAX_ERROR
         public GeneratedPtr RaiseSyntaxError(string format, params object[] args)
         {
-            var t = _knownErrToken ?? FillToken;
-            // A DEDENT at the end of the source is read on the last line: tok->cur stands in.
-            if (t.Type is PyToken.Type.DEDENT or PyToken.Type.ENDMARKER)
-            {
-                int index = Math.Min(_fill, _tokens.Count) - 1;
-                while (index > 0 && _tokens[index].Type is PyToken.Type.DEDENT or PyToken.Type.ENDMARKER)
-                    index--;
-                var previous = _tokens[index];
-                throw ErrorAt(false, previous.Line, previous.EndColumn, previous.Line, -1, Format(format, args));
-            }
-            throw ErrorAt(false, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
+            string message = Format(format, args);
+            throw RaiseError(new PySyntaxError(message), false, message);
         }
 
         // RAISE_SYNTAX_ERROR_KNOWN_LOCATION
         public GeneratedPtr RaiseSyntaxErrorKnownLocation(GeneratedPtr node, string format, params object[] args)
         {
             var at = Where(node);
-            throw ErrorAt(false, at.Line, at.Col + 1, at.EndLine, at.EndCol + 1, Format(format, args));
+            string message = Format(format, args);
+            throw ErrorKnownLocation(new PySyntaxError(message), at.Line, at.Col, at.EndLine, at.EndCol, message);
         }
 
         // RAISE_SYNTAX_ERROR_KNOWN_RANGE
@@ -710,39 +797,35 @@ namespace SharpPy.Generated
                 args = new object[] { named.Value };
             var a = Where(startNode);
             var b = Where(endNode);
-            throw ErrorAt(false, a.Line, a.Col + 1, b.EndLine, b.EndCol + 1, Format(format, args));
+            string message = Format(format, args);
+            throw ErrorKnownLocation(new PySyntaxError(message), a.Line, a.Col, b.EndLine, b.EndCol, message);
         }
 
-        // RAISE_SYNTAX_ERROR_STARTING_FROM: up to where the tokenizer is
+        // RAISE_SYNTAX_ERROR_STARTING_FROM
         protected GeneratedPtr RaiseSyntaxErrorStartingFrom(GeneratedPtr node, string format, params object[] args)
         {
             var a = Where(node);
-            var t = FillToken;
-            throw ErrorAt(false, a.Line, a.Col + 1, t.EndLine, t.EndColumn, Format(format, args));
+            string message = Format(format, args);
+            throw ErrorKnownLocation(new PySyntaxError(message), a.Line, a.Col, CURRENT_POS, CURRENT_POS, message);
         }
 
         // RAISE_INDENTATION_ERROR
         protected GeneratedPtr RaiseIndentationError(string format, params object[] args)
         {
-            var t = _knownErrToken ?? FillToken;
-            // An INDENT or DEDENT has no column: the tokenizer's position stands in, with no end.
-            if (t.Type is PyToken.Type.INDENT or PyToken.Type.DEDENT)
-                throw ErrorAt(true, t.Line, t.EndColumn, t.EndLine, -1, Format(format, args));
-            throw ErrorAt(true, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, Format(format, args));
+            string message = Format(format, args);
+            throw RaiseError(new PyIndentationError(message), false, message);
         }
 
         // RAISE_ERROR_KNOWN_LOCATION
         protected GeneratedPtr RaiseErrorKnownLocation(Type exceptionType, int lineno, int colOffset, int endLineno, int endColOffset, string format, params object[] args)
         {
-            throw ErrorAt(false, lineno, colOffset + 1, endLineno, endColOffset + 1, Format(format, args));
+            string message = Format(format, args);
+            throw ErrorKnownLocation(new PySyntaxError(message), lineno, colOffset, endLineno, endColOffset, message);
         }
 
         // RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN
-        protected GeneratedPtr RaiseSyntaxErrorOnNextToken(string message)
-        {
-            var t = _tokens[Math.Min(_position, _tokens.Count - 1)];
-            throw ErrorAt(false, t.Line, t.Column + 1, t.EndLine, t.EndColumn + 1, message);
-        }
+        protected GeneratedPtr RaiseSyntaxErrorOnNextToken(string message) =>
+            throw RaiseError(new PySyntaxError(message), true, message);
 
         // RAISE_SYNTAX_ERROR_INVALID_TARGET
         protected GeneratedPtr RaiseSyntaxErrorInvalidTarget(string targetType, GeneratedPtr node)
@@ -754,7 +837,7 @@ namespace SharpPy.Generated
             string message = targetType == "use in for loop"
                 ? $"cannot assign to {PyParserRuntime.GetExprName(invalid)}"
                 : $"cannot {targetType} {PyParserRuntime.GetExprName(invalid)}";
-            throw ErrorAt(false, a.Line, a.Col + 1, a.EndLine, a.EndCol + 1, message);
+            throw ErrorKnownLocation(new PySyntaxError(message), a.Line, a.Col, a.EndLine, a.EndCol, message);
         }
 
         // _PyPegen_get_invalid_target
@@ -791,37 +874,172 @@ namespace SharpPy.Generated
             }
         }
 
+        // raise_unclosed_parentheses_error
+        private Exception UnclosedParenthesesError()
+        {
+            int errorLineno = _tok.ParenLinenoStack[_tok.Level - 1];
+            int errorCol = _tok.ParenColStack[_tok.Level - 1];
+            string message = $"'{_tok.ParenStack[_tok.Level - 1]}' was never closed";
+            return ErrorKnownLocation(new PySyntaxError(message), errorLineno, errorCol, errorLineno, -1, message);
+        }
+
+        // _Pypegen_tokenizer_error
+        private void TokenizerError()
+        {
+            if (_tok.Error != null)
+                throw _tok.Error;
+
+            string message;
+            PySyntaxError error;
+            int colOffset = -1;
+            switch (_tok.Done)
+            {
+                case Tokenizer.State.E_EOF:
+                    if (_tok.Level != 0)
+                        throw UnclosedParenthesesError();
+                    RaiseSyntaxError("unexpected EOF while parsing");
+                    return;
+                case Tokenizer.State.E_DEDENT:
+                    RaiseIndentationError("unindent does not match any outer indentation level");
+                    return;
+                case Tokenizer.State.E_TABSPACE:
+                    message = "inconsistent use of tabs and spaces in indentation";
+                    error = new PyTabError(message);
+                    break;
+                case Tokenizer.State.E_TOODEEP:
+                    message = "too many levels of indentation";
+                    error = new PyIndentationError(message);
+                    break;
+                case Tokenizer.State.E_LINECONT:
+                    colOffset = _tok.ByteLength(_tok.Buf, _tok.Cur) - 1;
+                    message = "unexpected character after line continuation character";
+                    error = new PySyntaxError(message);
+                    break;
+                default:
+                    message = "unknown parsing error";
+                    error = new PySyntaxError(message);
+                    break;
+            }
+            throw ErrorKnownLocation(error, _tok.Lineno, colOffset >= 0 ? colOffset : 0, _tok.Lineno, -1, message);
+        }
+
+        // _is_end_of_source
+        private bool IsEndOfSource => _tok.Done is Tokenizer.State.E_EOF or Tokenizer.State.E_EOFS or Tokenizer.State.E_EOLS;
+
+        // bad_single_statement
+        private bool BadSingleStatement()
+        {
+            string buffer = _tok.Buffer;
+            int cur = _tok.Cur;
+            char At(int index) => index < buffer.Length ? buffer[index] : '\0';
+            char c = At(cur);
+            while (true)
+            {
+                while (c == ' ' || c == '\t' || c == '\n' || c == '\f')
+                    c = At(++cur);
+                if (c == '\0')
+                    return false;
+                if (c != '#')
+                    return true;
+                while (c != '\0' && c != '\n')
+                    c = At(++cur);
+            }
+        }
+
         // _PyPegen_run_parser
         protected GeneratedPtr RunParser(Func<GeneratedPtr> rule)
         {
-            _callInvalidRules = false;
-            var result = rule();
-            if (result != null)
-                return result;
-            var lastToken = FillToken;
-            foreach (var token in _tokens)
-                token.Memo = null;
-            _lrCache.Clear();
-            _memoCache.Clear();
-            _position = 0;
-            _callInvalidRules = true;
-            rule();
-            SetSyntaxError(lastToken);
-            return null;
+            bool firstPass = true;
+            try
+            {
+                _callInvalidRules = false;
+                var result = rule();
+                if (result != null)
+                {
+                    if (_startRule == CompileMode.Single && BadSingleStatement())
+                        RaiseSyntaxError("multiple statements found while compiling a single statement");
+                    return result;
+                }
+                firstPass = false;
+                if ((_flags & PyCF_ALLOW_INCOMPLETE_INPUT) != 0 && IsEndOfSource)
+                    RaiseSyntaxError("incomplete input");
+                var lastToken = LastFilledToken;
+
+                // reset_parser_state_for_error_pass
+                foreach (var token in _tokens)
+                    token.Memo = null;
+                _lrCache.Clear();
+                _memoCache.Clear();
+                _position = 0;
+                _callInvalidRules = true;
+                _tok.ReportWarnings = false;
+
+                rule();
+                throw SetSyntaxError(lastToken);
+            }
+            catch (PythonException error) when (error.PyException is PySyntaxError && !_tokenizedToTheEnd)
+            {
+                if (firstPass && (_flags & PyCF_ALLOW_INCOMPLETE_INPUT) != 0 && IsEndOfSource)
+                {
+                    _tokenizedToTheEnd = true;
+                    RaiseSyntaxError("incomplete input");
+                }
+                // Tokenizer errors take priority over those of the parser, if it got no further.
+                if (_tok.Done == Tokenizer.State.E_OK)
+                    throw TokenizeFullSourceToCheckForErrors(error);
+                throw;
+            }
         }
 
-        // _Pypegen_set_syntax_error
-        private void SetSyntaxError(GeneratedTokenInfo lastToken)
+        private bool _tokenizedToTheEnd;
+
+        // _PyPegen_tokenize_full_source_to_check_for_errors
+        private Exception TokenizeFullSourceToCheckForErrors(PythonException error)
         {
-            // Parser reached the end inside brackets: raise_unclosed_parentheses_error
-            var end = _tokens[_tokens.Count - 1];
-            if (end.UnclosedBracket is { } open && lastToken.Type is PyToken.Type.ENDMARKER or PyToken.Type.NEWLINE or PyToken.Type.DEDENT)
-                throw ErrorAt(false, open.Line, open.Column + 1, open.Line, 0, $"'{open.Open}' was never closed");
+            _tokenizedToTheEnd = true;
+            var currentToken = _knownErrToken ?? LastFilledToken;
+            int currentErrLine = currentToken.Line;
+            _tok.Error = null;
+            Exception found = null;
+            while (true)
+            {
+                var token = _tok.Get();
+                if (token.Type == PyToken.Type.ERRORTOKEN)
+                {
+                    if (_tok.Error != null)
+                        found = _tok.Error;
+                    else if (_tok.Level != 0 && currentErrLine > _tok.ParenLinenoStack[_tok.Level - 1])
+                        found = UnclosedParenthesesError();
+                    break;
+                }
+                if (token.Type == PyToken.Type.ENDMARKER)
+                    break;
+            }
+            // An error in the expression part of an f-string is not swallowed by what comes after it.
+            return found != null && _tok.ModeStackIndex <= 0 ? found : error;
+        }
+
+        // _Pypegen_set_syntax_error, with no error set
+        private Exception SetSyntaxError(GeneratedTokenInfo lastToken)
+        {
+            // Parser encountered EOF (End of File) unexpectedtly
+            if (lastToken.Type == PyToken.Type.ERRORTOKEN && _tok.Done == Tokenizer.State.E_EOF)
+            {
+                if (_tok.Level != 0)
+                    return UnclosedParenthesesError();
+                RaiseSyntaxError("unexpected EOF while parsing");
+            }
+            // Indentation error in the tokenizer
             if (lastToken.Type == PyToken.Type.INDENT)
                 RaiseIndentationError("unexpected indent");
             if (lastToken.Type == PyToken.Type.DEDENT)
                 RaiseIndentationError("unexpected unindent");
-            RaiseSyntaxErrorKnownLocation(lastToken, "invalid syntax");
+            // Unknown error (generic case): the last token of the first pass, so that the second
+            // pass reaching further does not move a generic error.
+            var at = Where(lastToken);
+            const string message = "invalid syntax";
+            var generic = (PythonException)ErrorKnownLocation(new PySyntaxError(message), at.Line, at.Col, at.EndLine, at.EndCol, message);
+            return TokenizeFullSourceToCheckForErrors(generic);
         }
 
         /// <summary>
@@ -1195,64 +1413,4 @@ namespace SharpPy.Generated
         protected static readonly GeneratedPtr DummyResponse = new DummyExpr();
     }
 
-    // CPython: f-string debug expressions (PEP 701 self-documenting '=') need the raw
-    // source text of the expression. The parser stores the active source lines for the
-    // static grammar action helpers (parsing is single-threaded).
-    internal static class ParserActiveSource
-    {
-        public static string[]? Lines;
-
-        // Some generated nodes carry a col offset that is not the leftmost source
-        // position (e.g. subscript). Walk the leftmost child chain to find the true
-        // start for f-string debug text slicing.
-        public static void ExprStartPos(GeneratedExpr e, ref int line, ref int col)
-        {
-            if (e == null)
-                return;
-            if (e.LineNo > 0 && (line > e.LineNo || (line == e.LineNo && col > e.ColOffset)))
-            {
-                line = e.LineNo;
-                col = e.ColOffset;
-            }
-            GeneratedExpr left = e switch
-            {
-                GeneratedSubscript sub => sub.Value,
-                GeneratedAttribute att => att.Value,
-                GeneratedCall call => call.Func,
-                GeneratedBinOp bin => bin.Left,
-                GeneratedUnaryOp un => un.Operand,
-                GeneratedCompare cmp => cmp.Left,
-                _ => null
-            };
-            if (left != null)
-                ExprStartPos(left, ref line, ref col);
-        }
-
-        public static string GetRawSourceText(int line, int col, int endLine, int endCol)
-        {
-            var lines = Lines;
-            if (lines == null || line <= 0 || line > lines.Length)
-                return "";
-            if (endLine <= line)
-            {
-                string s = lines[line - 1];
-                int a = Math.Max(0, Math.Min(col, s.Length));
-                int b = Math.Max(a, Math.Min(endCol, s.Length));
-                return s.Substring(a, b - a);
-            }
-            var sb = new StringBuilder();
-            string first = lines[line - 1];
-            sb.Append(first, Math.Min(col, first.Length), first.Length - Math.Min(col, first.Length));
-            for (int l = line; l < endLine - 1 && l < lines.Length; l++)
-            {
-                sb.Append('\n').Append(lines[l]);
-            }
-            if (endLine - 1 < lines.Length && endLine > line)
-            {
-                string last = lines[endLine - 1];
-                sb.Append('\n').Append(last, 0, Math.Min(endCol, last.Length));
-            }
-            return sb.ToString();
-        }
-    }
 }

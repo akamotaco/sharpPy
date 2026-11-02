@@ -166,7 +166,7 @@ namespace SharpPy.Generated
         public int Level { get; set; }
 
         /// <summary>On ENDMARKER: tok->parenstack, what was left open at the end of the source.</summary>
-        public (char Open, int Line, int Column)? UnclosedBracket { get; set; }
+        public string Metadata { get; set; }
 
         public int Line { get; set; }
         public int Column { get; set; }
@@ -230,1443 +230,1348 @@ namespace SharpPy.Generated
         }
     }
 
+
     /// <summary>
-    /// Generated tokenizer for Python 3.12 grammar
+    /// Parser/tokenizer.c of CPython v3.12.15. The parser asks for one token at a time (_PyTokenizer_Get),
+    /// so an error further on is only seen if the parser gets there. The buffer is UTF-16, the columns
+    /// count UTF-8 bytes as CPython's do. async and await stay NAME: the parser's keyword table sorts them.
     /// </summary>
-    public class Tokenizer
+    public sealed class Tokenizer
     {
-        private readonly string _source;
-        private int _position;
-        private int _line = 1;
-        private int _column = 0; // CPython uses 0-based column indexing
-        private readonly List<GeneratedTokenInfo> _tokens = new();
+        public enum State { E_OK, E_EOF, E_ERROR, E_DEDENT, E_TABSPACE, E_TOODEEP, E_LINECONT, E_EOFS, E_EOLS }
 
-        // INDENT/DEDENT handling
-        private readonly Stack<int> _indentStack = new();
-        private bool _atLineStart = true;
-        private readonly Queue<GeneratedTokenInfo> _pendingTokens = new();
+        private const int EOF = -1;
+        private const int MAXINDENT = 100;
+        private const int MAXLEVEL = 200;
+        private const int MAXFSTRINGLEVEL = 150;
+        private const int MAX_EXPR_NESTING = 3;
+        private const int TABSIZE = 8;
+        private const int ALTTABSIZE = 1;
 
-        // Line state tracking for NL vs NEWLINE distinction
-        private bool _currentLineHasRealTokens = false;
-
-        // Parentheses context tracking for correct NL/NEWLINE classification
-        private readonly Stack<(char Open, int Line, int Column)> _parenStack = new();
-        // CPython 3.12: Check if inside parentheses/brackets/braces using _level
-        // _level > 0 means we're inside (), [], or {}
-        private bool IsInsideParentheses => _level > 0;
-
-        // CPython 3.12: Parenthesis nesting level tracking (tok->level in CPython)
-        // Increments on '(', '[', '{' and decrements on ')', ']', '}'
-        private int _level = 0;
-
-        // CPython 3.12: Colon context tracking for compound statement NEWLINE tokens
-        // Rule: colon-followed-by-newline always generates NEWLINE token (not NL)
-        private bool _lastTokenWasColon = false;
-
-        // F-string state tracking for PEP 701 (Python 3.12)
-        private bool _insideFString = false;
-        private int _fstringBraceDepth = 0;
-        private char _fstringQuoteChar = '\0';
-        private int _fstringQuoteSize = 0;
-        private bool _fstringInFormatSpec = false;  // PEP 701: Track if we're inside format spec after ':'
-        private bool _fstringSpecResume = false;    // spec text follows a nested field inside a format spec
-        private int _fstringExprStartDepth = 0;     // PEP 701: Track brace depth when expr started
-
-        // PEP 701: Nested f-string support
-        private struct FStringState
+        // tokenizer_mode
+        private sealed class Mode
         {
-            public bool InsideFString;
-            public int BraceDepth;
-            public char QuoteChar;
-            public int QuoteSize;
-
-            public FStringState(bool insideFString, int braceDepth, char quoteChar, int quoteSize)
-            {
-                InsideFString = insideFString;
-                BraceDepth = braceDepth;
-                QuoteChar = quoteChar;
-                QuoteSize = quoteSize;
-            }
+            public bool Regular = true;
+            public int CurlyBracketDepth;
+            public int CurlyBracketExprStartDepth = -1;
+            public char FStringQuote;
+            public int FStringQuoteSize;
+            public bool FStringRaw;
+            public int FStringStart;
+            public int FStringMultiLineStart;
+            public int FStringLineStart;
+            public int LastExprStart = -1;
+            public int LastExprEnd = -1;
+            public bool FStringDebug;
+            public bool InFormatSpec;
         }
-        private Stack<FStringState> _fstringStateStack = new Stack<FStringState>();
 
-        // NEWLINE position tracking for \r\n sequences
-        // When we encounter \r followed by \n, we save the column before Advance() processes \r
-        private int _savedNewlineColumn = -1;
+        private readonly string _str;
+        private readonly string _filename;
+        private readonly bool _extraTokens;
 
-        // CPython 3.12: tok_extra_tokens flag
-        // When true, COMMENT and NL tokens are generated (for tokenize module)
-        // When false, COMMENT and NL tokens are skipped (for parser)
-        private readonly bool _generateExtraTokens;
+        // tok_state
+        public int Buf;
+        public int Cur;
+        public int Inp;
+        public int Start = -1;
+        public int LineStart;
+        public int MultiLineStart;
+        public int FirstLineno;
+        public int Lineno;
+        public int Level;
+        public int Indent;
+        public int Pendin;
+        public State Done = State.E_OK;
+        public PythonException Error;
+        public bool ReportWarnings;
+        private int _colOffset;
+        private int _startingColOffset = -1;
+        private bool _atbol = true;
+        private bool _contLine;
+        private bool _commentNewline;
+        private readonly int[] _indstack = new int[MAXINDENT];
+        private readonly int[] _altindstack = new int[MAXINDENT];
+        public readonly char[] ParenStack = new char[MAXLEVEL];
+        public readonly int[] ParenLinenoStack = new int[MAXLEVEL];
+        public readonly int[] ParenColStack = new int[MAXLEVEL];
+        private readonly Mode[] _modeStack = new Mode[MAXFSTRINGLEVEL];
+        public int ModeStackIndex;
 
-        public Tokenizer(string source, bool generateExtraTokens = false)
+        // what MAKE_TOKEN reads
+        private int _pStart;
+        private int _pEnd;
+        private string _metadata;
+
+        private static readonly Dictionary<int, PyToken.Type> Operators = BuildOperators();
+
+        private static Dictionary<int, PyToken.Type> BuildOperators()
+        {
+            var table = new Dictionary<int, PyToken.Type>();
+            foreach (var (name, type) in PyToken.Literals)
+            {
+                int key = 0;
+                foreach (char c in name)
+                    key = key << 7 | c;
+                table[key] = type;
+            }
+            table['<' << 7 | '>'] = PyToken.Type.NOTEQUAL;
+            return table;
+        }
+
+        private static PyToken.Type Operator(int key) =>
+            Operators.TryGetValue(key, out var type) ? type : PyToken.Type.OP;
+
+        // _PyToken_OneChar, _PyToken_TwoChars, _PyToken_ThreeChars
+        private static PyToken.Type OneChar(int c) => c < 128 ? Operator(c) : PyToken.Type.OP;
+        private static PyToken.Type TwoChars(int c, int c2) =>
+            c >= 0 && c < 128 && c2 >= 0 && c2 < 128 ? Operator(c << 7 | c2) : PyToken.Type.OP;
+        private static PyToken.Type ThreeChars(int c, int c2, int c3) =>
+            c >= 0 && c < 128 && c2 >= 0 && c2 < 128 && c3 >= 0 && c3 < 128 ? Operator(c << 14 | c2 << 7 | c3) : PyToken.Type.OP;
+
+        // _PyTokenizer_FromUTF8
+        public Tokenizer(string source, bool execInput = true, bool extraTokens = false, string filename = "<string>")
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            // translate_newlines (Parser/tokenizer.c): the tokenizer only ever sees \n, so a multi-line
-            // string in a file saved on Windows holds \n and not \r\n.
-            _source = source.Replace("\r\n", "\n").Replace('\r', '\n');
-            _position = 0;
-            _indentStack.Push(0); // Initialize with base indentation level
-            _generateExtraTokens = generateExtraTokens;
+            _str = TranslateNewlines(source, execInput);
+            _filename = filename;
+            _extraTokens = extraTokens;
+            ReportWarnings = !extraTokens;
+            _modeStack[0] = new Mode();
         }
 
-        /// <summary>
-        /// Tokenize the source code
-        /// </summary>
+        private static string TranslateNewlines(string s, bool execInput)
+        {
+            s = s.Replace("\r\n", "\n").Replace('\r', '\n');
+            return execInput && s.Length > 0 && s[s.Length - 1] != '\n' ? s + "\n" : s;
+        }
+
+        public string Buffer => _str;
+
+        /// <summary>The tokens of the whole source, for --tokens.</summary>
         public List<GeneratedTokenInfo> Tokenize()
         {
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine("[DEBUG] Tokenize() method started");
-            #endif
-            _tokens.Clear();
-            _position = 0;
-            _line = 1;
-            _column = 0; // CPython uses 0-based column indexing
-            _currentLineHasRealTokens = false; // Reset line state tracking
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine($"[DEBUG] Source length: {_source.Length}, Source: '{_source}'");
-            #endif
-
-            // TODO: ENCODING token is commented out for .NET Core compatibility
-            // CPython always emits ENCODING as first token (0,0-0,0: ENCODING 'utf-8')
-            // .NET Core handles encoding differently, so this is not critical
-            // Skip ENCODING token for compatibility with CPython generate_tokens()
-            // AddToken(PyToken.Type.ENCODING, "utf-8", 0, 0);
-
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine("[DEBUG] Starting main tokenization loop");
-            #endif
-            while (_position < _source.Length)
+            var tokens = new List<GeneratedTokenInfo>();
+            while (true)
             {
-                var startPosition = _position; // Track position for infinite loop detection
-                #if DEBUG_TOKEN_LOG
-                Console.WriteLine($"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
-                #endif
-
-                // Process indentation at start of line before any other tokens
-                if (_atLineStart)
-                {
-                    #if DEBUG_TOKEN_LOG
-                    Console.WriteLine("[DEBUG] Calling HandleIndentation");
-                    #endif
-                    HandleIndentation();
-                    #if DEBUG_TOKEN_LOG
-                    Console.WriteLine("[DEBUG] HandleIndentation completed");
-                    #endif
-                    ProcessPendingTokens();
-                }
-
-                // CPython 3.12: Physical line continuation (backslash + newline)
-                // Outside strings: x = 1 + \<newline>    2  →  x = 1 + 2
-                // This is different from escape sequences inside strings
-                if (CurrentChar == '\\' && !_insideFString)
-                {
-                    // Check if next character is newline (line continuation)
-                    if (_position + 1 < _source.Length && (_source[_position + 1] == '\n' || _source[_position + 1] == '\r'))
-                    {
-                        #if DEBUG_TOKEN_LOG
-                        Console.WriteLine($"[DEBUG] Line continuation detected at position {_position}");
-                        #endif
-                        // Skip backslash
-                        _position++;
-                        _column++;
-
-                        // Skip newline characters WITHOUT setting _atLineStart (this is line joining)
-                        if (CurrentChar == '\r' && _position + 1 < _source.Length && _source[_position + 1] == '\n')
-                        {
-                            // \r\n sequence
-                            _position++; // Skip \r
-                            _line++;
-                            _column = 0;
-                            _position++; // Skip \n
-                        }
-                        else if (CurrentChar == '\r')
-                        {
-                            // Standalone \r
-                            _position++;
-                            _line++;
-                            _column = 0;
-                        }
-                        else if (CurrentChar == '\n')
-                        {
-                            // \n
-                            _position++;
-                            _line++;
-                            _column = 0;
-                        }
-
-                        // CRITICAL: Do NOT set _atLineStart - this is a continuation, not a new logical line
-                        // Continue to next iteration - the physical line is joined
-                        continue;
-                    }
-                    // If backslash is not followed by newline, fall through to error handling
-                }
-
-                if (char.IsWhiteSpace(CurrentChar) || CurrentChar == '\r')
-                {
-                    #if DEBUG_TOKEN_LOG
-                    Console.WriteLine($"[DEBUG] Calling HandleWhitespace at position {_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
-                    #endif
-                    HandleWhitespace();
-                }
-                else if (CurrentChar == '#')
-                {
-                    HandleComment();
-                }
-                else if (char.IsLetter(CurrentChar) || CurrentChar == '_')
-                {
-                    HandleName();
-                }
-                else if (StartsNumber())
-                {
-                    HandleNumber();
-                }
-                else if (CurrentChar == '\"' || CurrentChar == '\'')
-                {
-                    HandleString();
-                }
-                else if(HandleLiteral()){}
-                else
-                {
-                    AddToken(PyToken.Type.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
-                    _currentLineHasRealTokens = true; // Mark line as having real tokens
-                    Advance();
-                }
-
-                // CRITICAL: Infinite loop protection
-                if (_position == startPosition)
-                {
-                    // Console.WriteLine($"[ERROR] Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'. Forcing advance.");
-                    // Advance(); // Force advance to prevent infinite loop
-                    throw new InvalidOperationException($"Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'");
-                }
-            }
-
-            // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
-
-            // A last line of nothing but spaces has no statement to end.
-            if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r' &&
-                _tokens.Count > 0 && _tokens[_tokens.Count - 1].Type != PyToken.Type.NEWLINE)
-            {
-                AddToken(PyToken.Type.NEWLINE, "\n", _line, _column);
-            }
-
-            // Generate remaining DEDENT tokens at EOF
-            while (_indentStack.Count > 1)
-            {
-                _indentStack.Pop();
-                _pendingTokens.Enqueue(new GeneratedTokenInfo(PyToken.Type.DEDENT, "", _line + 1, 0, _line + 1, 1));
-            }
-
-            // Process any pending tokens at EOF
-            ProcessPendingTokens();
-
-            // Add ENDMARKER for compatibility with CPython generate_tokens()
-            AddToken(PyToken.Type.ENDMARKER, "", _line, _column);
-            if (_parenStack.Count > 0)
-                _tokens[_tokens.Count - 1].UnclosedBracket = _parenStack.Peek();
-            return _tokens;
-        }
-
-        private char CurrentChar => _position < _source.Length ? _source[_position] : '\0';
-
-        private void Advance()
-        {
-            if (_position < _source.Length)
-            {
-                if (_source[_position] == '\n')
-                {
-                    _line++;
-                    _column = 0; // CPython uses 0-based column indexing
-                    _atLineStart = true; // Next position will be start of new line
-                    // NOTE: Do not reset _currentLineHasRealTokens here - it should be reset AFTER we decide NL vs NEWLINE
-                }
-                else if (_source[_position] == '\r')
-                {
-                    // Handle \r character for line tracking
-                    _line++;
-                    _column = 0; // CPython uses 0-based column indexing
-                    _atLineStart = true; // Next position will be start of new line
-                    // Check if this is followed by \n (Windows CRLF)
-                    if (_position + 1 < _source.Length && _source[_position + 1] == '\n')
-                    {
-                        // This is \r\n, advance past \r but don't double-increment line
-                        _position++;
-                        // The \n will be processed next and should not increment line again
-                        // So we temporarily reset line tracking for the \n
-                        _line--; // Compensate because \n handler will increment again
-                        _atLineStart = false; // Let \n handler set this
-                    }
-                    else
-                    {
-                        // Standalone \r - advance normally
-                        _position++;
-                    }
-                    return; // Early return to avoid double increment
-                }
-                else
-                {
-                    _column++;
-                }
-                _position++;
+                var token = Get();
+                tokens.Add(token);
+                if (token.Type == PyToken.Type.ERRORTOKEN && Error != null)
+                    throw Error;
+                if (token.Type is PyToken.Type.ENDMARKER or PyToken.Type.ERRORTOKEN)
+                    return tokens;
             }
         }
 
-        private void AddToken(PyToken.Type type, string value, int startLine, int startColumn, int? literalEnd = null)
+        // tok_get
+        public GeneratedTokenInfo Get()
         {
-            // tok_get_fstring_mode gives {{ and }} back as one brace.
-            if (type == PyToken.Type.FSTRING_MIDDLE)
-                value = value.Replace("{{", "{").Replace("}}", "}");
-            // CPython 3.12: Skip COMMENT and NL tokens unless generateExtraTokens is enabled
-            if (!_generateExtraTokens && (type == PyToken.Type.COMMENT || type == PyToken.Type.NL))
-            {
-                return; // Skip this token
-            }
-
-            // CPython 3.12: Use current _line, _column as end position (already points to end of token)
-            // Operators are added before they are read past: the text itself gives the end.
-            int endColumn = literalEnd ?? _column;
-            if (type != PyToken.Type.FSTRING_MIDDLE && startLine == _line && value.Length > 0 && value.IndexOf('\n') < 0)
-                endColumn = System.Math.Max(_column, startColumn + value.Length);
-            else if (type == PyToken.Type.NEWLINE && startLine == _line)
-                endColumn = startColumn + 1;
-            else if (type == PyToken.Type.STRING && value.IndexOf('\n') >= 0)
-                endColumn = value.Length - value.LastIndexOf('\n') - 1;
-            var token = new GeneratedTokenInfo(type, value, startLine, startColumn, _line, endColumn);
-            token.Level = _level; // CPython 3.12: Assign current parenthesis nesting level
-            _tokens.Add(token);
+            _pStart = _pEnd = -1;
+            _metadata = null;
+            var mode = _modeStack[ModeStackIndex];
+            return mode.Regular ? GetNormalMode(mode) : GetFStringMode(mode);
         }
 
-        private void HandleWhitespace()
+        private static int ByteWidth(int c) => c < 0x80 ? 1 : c < 0x800 ? 2 : c >= 0xD800 && c <= 0xDFFF ? 2 : 3;
+
+        /// <summary>UTF-8 bytes of the buffer between two places.</summary>
+        public int ByteLength(int from, int to)
         {
-            while (_position < _source.Length && char.IsWhiteSpace(CurrentChar))
-            {
-                #if DEBUG_TOKEN_LOG
-                Console.WriteLine($"[DEBUG] HandleWhitespace loop: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
-                #endif
-                if (CurrentChar == '\r')
-                {
-                    // Handle \r character - could be part of \r\n sequence
-                    #if DEBUG_TOKEN_LOG
-                    Console.WriteLine($"[DEBUG] Found \r at position {_position}, checking next char...");
-                    #endif
-                    // FIXED: Save column BEFORE Advance() for \r\n NEWLINE token position
-                    var savedColumnBeforeAdvance = _column;
-
-                    // Check if next character is \n for Windows line ending
-                    if (_position + 1 < _source.Length && _source[_position + 1] == '\n')
-                    {
-                        #if DEBUG_TOKEN_LOG
-                        Console.WriteLine($"[DEBUG] Found \r\n sequence: skipping \r, will process \n next");
-                        #endif
-                        // This is a \r\n sequence, advance past \r and let \n handler process it
-                        Advance(); // Skip \r, \n will be processed in next iteration
-                        // Store the saved column for later use in \n handler via a class field
-                        _savedNewlineColumn = savedColumnBeforeAdvance;
-                        continue; // Continue loop to process \n character
-                    }
-                    else
-                    {
-                        // Standalone \r (Mac-style line ending) - treat as newline
-                        var newlineColumn = _column;
-                        var newlineValue = "\r";
-
-                        // CPython 3.12: Inside parentheses always NL, even after colon
-                        if (IsInsideParentheses)
-                        {
-                            AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
-                            // Process pending DEDENT tokens after NL
-                            ProcessPendingTokens();
-                            _lastTokenWasColon = false; // Reset after processing
-                        }
-                        // CPython 3.12: Colon-followed-by-newline generates NEWLINE token (only outside parentheses)
-                        else if (_lastTokenWasColon)
-                        {
-                            #if DEBUG_TOKEN_LOG
-                            Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (standalone \r): value='{newlineValue}', line={_line}, col={newlineColumn}");
-                            #endif
-                            AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
-                            _lastTokenWasColon = false; // Reset after processing
-                        }
-                        // Outside parentheses: check if blank line
-                        else
-                        {
-                            bool isBlankLine = IsBlankLine();
-                            if (isBlankLine)
-                            {
-                                AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
-                                // Process pending DEDENT tokens after NL
-                                ProcessPendingTokens();
-                            }
-                            else
-                            {
-                                AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
-                            }
-                        }
-                        _atLineStart = true;
-                        // Process pending DEDENT tokens after NEWLINE
-                        ProcessPendingTokens();
-                        _currentLineHasRealTokens = false; // Reset for new line
-                        Advance();
-                        // Indentation will be handled at the start of the main loop
-                        break; // Stop processing whitespace after handling newline
-                    }
-                }
-                else if (CurrentChar == '\n')
-                {
-                    #if DEBUG_TOKEN_LOG
-                    Console.WriteLine($"[DEBUG] Found \n at position {_position}, processing newline...");
-                    #endif
-                    // Store newline position before advancing - CPython uses start position
-                    var newlineColumn = _column;
-                    // Check for \r\n sequence (Windows line ending)
-                    var newlineValue = "\n";
-                    if (_position > 0 && _source[_position - 1] == '\r')
-                    {
-                        // FIXED: For \r\n sequences, use the saved column from before \r Advance()
-                        // This gives us the correct position where \r\n started
-                        newlineValue = "\r\n";
-                        newlineColumn = _savedNewlineColumn >= 0 ? _savedNewlineColumn : newlineColumn;
-                        _savedNewlineColumn = -1; // Reset after use
-                    }
-
-                    // CPython 3.12: Inside parentheses always NL, even after colon
-                    if (IsInsideParentheses)
-                    {
-                        AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
-                        // Process pending DEDENT tokens after NL
-                        ProcessPendingTokens();
-                        _lastTokenWasColon = false; // Reset after processing
-                    }
-                    // CPython 3.12: Colon-followed-by-newline generates NEWLINE token (only outside parentheses)
-                    else if (_lastTokenWasColon)
-                    {
-                        #if DEBUG_TOKEN_LOG
-                        Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (\n processing): value='{newlineValue}', line={_line}, col={newlineColumn}");
-                        #endif
-                        AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
-                        _lastTokenWasColon = false; // Reset after processing
-                    }
-                    // Outside parentheses: check if blank line
-                    else
-                    {
-                        bool isBlankLine = IsBlankLine();
-                        if (isBlankLine)
-                        {
-                            AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
-                            // Process pending DEDENT tokens after NL
-                            ProcessPendingTokens();
-                        }
-                        else
-                        {
-                            AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
-                        }
-                    }
-                    _atLineStart = true;
-                    // Process pending DEDENT tokens after NEWLINE
-                    ProcessPendingTokens();
-                    _currentLineHasRealTokens = false; // Reset for new line
-                    Advance();
-                    // Indentation will be handled at the start of the main loop
-                    break; // Stop processing whitespace after handling newline
-                }
-                Advance();
-            }
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine($"[DEBUG] HandleWhitespace method ended: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
-            #endif
+            int length = 0;
+            for (int i = from; i < to; i++)
+                length += ByteWidth(_str[i]);
+            return length;
         }
 
-        private bool IsBlankLine()
+        // tok_underflow_string
+        private bool Underflow()
         {
-            // A blank line is one that contains only comments and/or whitespace
-            // CPython rule: if no real tokens on current line, it's blank
-            return !_currentLineHasRealTokens;
-        }
-
-        private void ProcessPendingTokens()
-        {
-            while (_pendingTokens.Count > 0)
-            {
-                var pending = _pendingTokens.Dequeue();
-                _tokens.Add(pending);
-            }
-        }
-
-        private void HandleComment()
-        {
-            var start = _position;
-            var startLine = _line;
-            var startColumn = _column;
-            while (_position < _source.Length && CurrentChar != '\n')
-            {
-                Advance();
-            }
-            var comment = _source.Substring(start, _position - start);
-
-            // CPython 3.12: AddToken will skip COMMENT if generateExtraTokens is false
-            AddToken(PyToken.Type.COMMENT, comment, startLine, startColumn);
-        }
-
-        private void HandleName()
-        {
-            var start = _position;
-            var startLine = _line;
-            var startColumn = _column;
-
-            // Check for string prefixes first (r, b, rb, br, f, fr, rf)
-            // Also check for numeric string prefixes that might be confused
-            if (IsStringPrefix())
-            {
-                HandleString();
-                return;
-            }
-
-            while (_position < _source.Length && (char.IsLetterOrDigit(CurrentChar) || CurrentChar == '_'))
-            {
-                Advance();
-            }
-            var name = _source.Substring(start, _position - start);
-
-            PyToken.Type tokenType = PyToken.Type.NAME;
-            AddToken(tokenType, name, startLine, startColumn);
-            _currentLineHasRealTokens = true; // Mark line as having real tokens
-        }
-
-        // Modules/tokenizer: a '.' followed by a digit starts a fraction, as in .5
-        private bool StartsNumber() => char.IsDigit(CurrentChar)
-            || (CurrentChar == '.' && _position + 1 < _source.Length && char.IsDigit(_source[_position + 1]));
-
-        // verify_end_of_number and tok_decimal_tail: where underscores and leading zeros may stand.
-        private static readonly System.Text.RegularExpressions.Regex ValidNumber = new System.Text.RegularExpressions.Regex(
-            @"^(0[xX](_?[0-9a-fA-F])+|0[oO](_?[0-7])+|0[bB](_?[01])+|(\d(_?\d)*)?(\.(\d(_?\d)*)?)?([eE][+-]?\d(_?\d)*)?[jJ]?)$");
-        private static readonly System.Text.RegularExpressions.Regex LeadingZeros = new System.Text.RegularExpressions.Regex(@"^0[0_]*[1-9][\d_]*$");
-
-        // verify_end_of_number: a letter may only follow a number when it starts a keyword.
-        private void VerifyEndOfNumber(string number, int line, int column)
-        {
-            if (_position >= _source.Length) return;
-            char next = CurrentChar;
-            string prefix = number.Length > 1 && number[0] == '0' ? char.ToLower(number[1]).ToString() : "";
-            string kind = prefix == "x" ? "hexadecimal" : prefix == "o" ? "octal" : prefix == "b" ? "binary"
-                : char.ToLower(number[number.Length - 1]) == 'j' ? "imaginary" : "decimal";
-            if (char.IsDigit(next) && kind is "octal" or "binary")
-                throw new PySyntaxErrorException($"invalid digit '{next}' in {kind} literal", null, line, column);
-            if (!char.IsLetterOrDigit(next) && next != '_') return;
-            foreach (var keyword in new[] { "and", "else", "for", "if", "in", "is", "not", "or" })
-                if (string.CompareOrdinal(_source, _position, keyword, 0, keyword.Length) == 0) return;
-            throw new PySyntaxErrorException($"invalid {kind} literal", null, line, column);
-        }
-
-        private void ValidateNumber(string number, int line, int column)
-        {
-            if (LeadingZeros.IsMatch(number))
-                throw new PySyntaxErrorException("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers", null, line, column);
-            if (!ValidNumber.IsMatch(number))
-                throw new PySyntaxErrorException("invalid decimal literal", null, line, column);
-        }
-
-        private void HandleNumber()
-        {
-            var start = _position;
-            var startLine = _line;
-            var startColumn = _column;
-
-            // Check for special prefixes: 0x, 0X, 0o, 0O, 0b, 0B
-            if (CurrentChar == '0' && _position + 1 < _source.Length)
-            {
-                char nextChar = char.ToLower(_source[_position + 1]);
-                if (nextChar == 'x')
-                {
-                    // Hexadecimal number
-                    Advance(); // Skip '0'
-                    Advance(); // Skip 'x' or 'X'
-                    while (_position < _source.Length && (char.IsDigit(CurrentChar) || (char.ToLower(CurrentChar) >= 'a' && char.ToLower(CurrentChar) <= 'f') || CurrentChar == '_'))
-                    {
-                        Advance();
-                    }
-                }
-                else if (nextChar == 'o')
-                {
-                    // Octal number
-                    Advance(); // Skip '0'
-                    Advance(); // Skip 'o' or 'O'
-                    while (_position < _source.Length && (CurrentChar >= '0' && CurrentChar <= '7' || CurrentChar == '_'))
-                    {
-                        Advance();
-                    }
-                }
-                else if (nextChar == 'b')
-                {
-                    // Binary number
-                    Advance(); // Skip '0'
-                    Advance(); // Skip 'b' or 'B'
-                    while (_position < _source.Length && (CurrentChar == '0' || CurrentChar == '1' || CurrentChar == '_'))
-                    {
-                        Advance();
-                    }
-                }
-                else
-                {
-                    // Regular number starting with 0
-                    ParseDecimalNumber();
-                }
-            }
+            int end = _str.IndexOf('\n', Inp);
+            if (end >= 0)
+                end++;
             else
             {
-                // Regular decimal number
-                ParseDecimalNumber();
-            }
-
-            // Check for complex number suffix (j/J)
-            if (_position < _source.Length && char.ToLower(CurrentChar) == 'j')
-            {
-                Advance();
-            }
-
-            var number = _source.Substring(start, _position - start);
-            ValidateNumber(number, startLine, startColumn);
-            // Inside an f-string a number may be the text of a nested format spec.
-            if (!_insideFString) VerifyEndOfNumber(number, startLine, startColumn);
-            AddToken(PyToken.Type.NUMBER, number, startLine, startColumn);
-            _currentLineHasRealTokens = true; // Mark line as having real tokens
-        }
-
-        private void ParseDecimalNumber()
-        {
-            // Parse integer part
-            while (_position < _source.Length && (char.IsDigit(CurrentChar) || CurrentChar == '_'))
-            {
-                Advance();
-            }
-
-            // Check for decimal point
-            if (_position < _source.Length && CurrentChar == '.')
-            {
-                Advance(); // Skip '.'
-                // Parse fractional part
-                while (_position < _source.Length && (char.IsDigit(CurrentChar) || CurrentChar == '_'))
+                end = _str.Length;
+                if (end == Inp)
                 {
-                    Advance();
-                }
-            }
-
-            // Check for scientific notation (e/E)
-            // 1e5 is an exponent, 1else is a number and a keyword.
-            if (_position + 1 < _source.Length && char.ToLower(CurrentChar) == 'e' &&
-                (char.IsDigit(_source[_position + 1]) ||
-                 ((_source[_position + 1] == '+' || _source[_position + 1] == '-') && _position + 2 < _source.Length && char.IsDigit(_source[_position + 2]))))
-            {
-                Advance(); // Skip 'e' or 'E'
-                // Check for optional sign
-                if (_position < _source.Length && (CurrentChar == '+' || CurrentChar == '-'))
-                {
-                    Advance();
-                }
-                // Parse exponent
-                while (_position < _source.Length && (char.IsDigit(CurrentChar) || CurrentChar == '_'))
-                {
-                    Advance();
-                }
-            }
-        }
-
-        private void HandleString()
-        {
-            var start = _position;
-            var startLine = _line;
-            var startColumn = _column;
-
-            // Check for f-string prefix (f, F, rf, fr, RF, FR)
-            bool isFString = false;
-            int prefixEnd = _position;
-            while (prefixEnd < _source.Length && char.IsLetter(_source[prefixEnd]))
-            {
-                char c = char.ToLower(_source[prefixEnd]);
-                if (c == 'f')
-                {
-                    isFString = true;
-                }
-                prefixEnd++;
-            }
-
-            // If this is an f-string, delegate to HandleFString
-            if (isFString && prefixEnd < _source.Length && (_source[prefixEnd] == '\"' || _source[prefixEnd] == '\''))
-            {
-                HandleFString();
-                return;
-            }
-
-            // Skip any string prefix (r, b, rb, br)
-            while (_position < _source.Length && char.IsLetter(CurrentChar))
-            {
-                Advance();
-            }
-
-            // Now we should be at the quote
-            if (_position >= _source.Length || (CurrentChar != '\"' && CurrentChar != '\''))
-            {
-                // Not a valid string, treat as regular name
-                _position = start; // Reset position
-                while (_position < _source.Length && (char.IsLetterOrDigit(CurrentChar) || CurrentChar == '_'))
-                {
-                    Advance();
-                }
-                var name = _source.Substring(start, _position - start);
-                AddToken(PyToken.Type.NAME, name, startLine, startColumn);
-                _currentLineHasRealTokens = true; // Mark line as having real tokens
-                return;
-            }
-
-            var quote = CurrentChar;
-
-            // Check for triple-quoted strings
-            if (_position + 2 < _source.Length && _source[_position + 1] == quote && _source[_position + 2] == quote)
-            {
-                HandleTripleQuotedString(quote, start, startLine, startColumn);
-            }
-            else
-            {
-                HandleRegularString(quote, start, startLine, startColumn);
-            }
-        }
-
-        private int _fstringStackDepth() => _fstringExpressionDepth;
-        private int _fstringExpressionDepth;
-
-        private void HandleTripleQuotedString(char quote, int start, int startLine, int startColumn)
-        {
-            _position += 3; // Skip opening triple quotes
-            _column += 3;
-
-            // Read until closing triple quotes
-            bool closedTriple = false;
-            while (_position + 2 < _source.Length)
-            {
-                if (_source[_position] == quote && _source[_position + 1] == quote && _source[_position + 2] == quote)
-                {
-                    _position += 3; // Skip closing triple quotes
-                    _column += 3;
-                    closedTriple = true;
-                    break;
-                }
-                // A backslash takes the next character with it, in raw strings too.
-                if (_source[_position] == '\\')
-                    Advance();
-                Advance(); // This handles line counting for multiline strings
-            }
-
-            if (!closedTriple)
-                throw new PySyntaxErrorException($"unterminated triple-quoted string literal (detected at line {_line})",
-                    null, startLine, startColumn, startColumn + 1, null);
-
-            // The token goes on: the newlines inside it start no logical line.
-            _atLineStart = false;
-            var str = _source.Substring(start, _position - start);
-            AddToken(PyToken.Type.STRING, str, startLine, startColumn);
-            _currentLineHasRealTokens = true; // Mark line as having real tokens
-        }
-
-        private void HandleRegularString(char quote, int start, int startLine, int startColumn)
-        {
-            Advance(); // Skip opening quote
-
-            while (_position < _source.Length && CurrentChar != quote)
-            {
-                if (CurrentChar == '\n' || CurrentChar == '\r')
-                    break;
-                if (CurrentChar == '\\' && _position + 1 < _source.Length)
-                {
-                    Advance(); // Skip escape character
-                }
-                Advance();
-            }
-
-            if (_position >= _source.Length || CurrentChar != quote)
-                throw new PySyntaxErrorException($"unterminated string literal (detected at line {_line})",
-                    null, startLine, startColumn, startColumn + 1, null);
-            Advance(); // Skip closing quote
-
-            var str = _source.Substring(start, _position - start);
-            AddToken(PyToken.Type.STRING, str, startLine, startColumn);
-            _currentLineHasRealTokens = true; // Mark line as having real tokens
-        }
-
-        private bool HandleLiteral()
-        {
-            // Use GetLiteralIndex for longest match (literals sorted by length)
-            var index = PyToken.GetLiteralIndex(_source, _position);
-            if (index == -1)
-                return false;
-
-            var lit = PyToken.Literals[index];
-
-            // CPython 3.12: Track parenthesis nesting level (tok->level in tokenizer.c lines 2560-2576)
-            // Pattern: Token gets CURRENT level, THEN level changes
-            // Before '(': level=0 → token.level=0 → increment to level=1
-            // Before ')': level=1 → decrement to level=0 → token.level=0
-
-            // Decrement BEFORE creating token for closing parens/brackets/braces
-            if (lit.type == PyToken.Type.RPAR || lit.type == PyToken.Type.RSQB || lit.type == PyToken.Type.RBRACE)
-            {
-                char closing = lit.name[0];
-                if (_parenStack.Count == 0)
-                {
-                    if (_fstringStackDepth() == 0)
-                        throw new PySyntaxErrorException($"unmatched '{closing}'", null, _line, _column, _column + 1, null);
-                }
-                else
-                {
-                    var opening = _parenStack.Pop();
-                    if ((opening.Open, closing) is not (('(', ')') or ('[', ']') or ('{', '}')))
-                        throw new PySyntaxErrorException(opening.Line != _line
-                            ? $"closing parenthesis '{closing}' does not match opening parenthesis '{opening.Open}' on line {opening.Line}"
-                            : $"closing parenthesis '{closing}' does not match opening parenthesis '{opening.Open}'",
-                            null, _line, _column, _column + 1, null);
-                }
-                if (_level > 0)
-                    _level--;
-            }
-            else if (lit.type == PyToken.Type.LPAR || lit.type == PyToken.Type.LSQB || lit.type == PyToken.Type.LBRACE)
-            {
-                _parenStack.Push((lit.name[0], _line, _column));
-            }
-
-            // CPython 3.12: In visualization mode (generateExtraTokens), use generic OP for display
-            // In parsing mode (!generateExtraTokens), use exact token type for parser matching
-            var tokenType = PyToken.GetOpType(lit.name, exactType: !_generateExtraTokens);
-            AddToken(tokenType, lit.name, _line, _column);
-            _currentLineHasRealTokens = true; // Mark line as having real tokens
-
-            // Increment AFTER creating token for opening parens/brackets/braces
-            if (lit.type == PyToken.Type.LPAR || lit.type == PyToken.Type.LSQB || lit.type == PyToken.Type.LBRACE)
-            {
-                _level++;
-            }
-
-            _position += lit.name.Length;
-            _column += lit.name.Length;
-
-            return true;
-        }
-
-        // 일단 f-string 은 무시
-        private void HandleIndentation()
-        {
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine($"[DEBUG] HandleIndentation: _atLineStart={_atLineStart}, position={_position}");
-            #endif
-            if (!_atLineStart) return;
-            // Skip indentation processing inside parentheses
-            if (IsInsideParentheses)
-            {
-                #if DEBUG_TOKEN_LOG
-                Console.WriteLine("[DEBUG] Inside parentheses, setting _atLineStart=false");
-                #endif
-                _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
-                return;
-            }
-
-            // Calculate current line indentation
-            int indent = 0;
-            int indentStartColumn = _column; // Save start position for INDENT token
-            while (_position < _source.Length && (CurrentChar == ' ' || CurrentChar == '\t'))
-            {
-                indent += (CurrentChar == '\t' ? 8 : 1);
-                Advance();
-            }
-
-            // CPython 3.12: Handle empty lines and comments for indentation
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine($"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'");
-            #endif
-            if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '\r' || CurrentChar == '#')
-            {
-                #if DEBUG_TOKEN_LOG
-                Console.WriteLine("[DEBUG] Empty line detected, setting _atLineStart=false");
-                #endif
-                _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
-                // CPython 3.12: Don't process indentation for empty/comment lines
-                // DEDENT tokens will be generated when we encounter the next non-empty line
-                return;
-            }
-
-            // Handle indentation changes
-            int currentLevel = _indentStack.Peek();
-            if (indent > currentLevel)
-            {
-                // Increased indentation - INDENT
-                // CPython 3.12: Only generate INDENT if we're actually increasing indentation
-                _indentStack.Push(indent);
-                var indentText = new string(' ', indent);
-                AddToken(PyToken.Type.INDENT, indentText, _line, indentStartColumn);
-                #if DEBUG_TOKEN_LOG
-                Console.WriteLine($"[DEBUG] Generated INDENT token: level {currentLevel} -> {indent}");
-                #endif
-            }
-            else if (indent < currentLevel)
-            {
-                // Decreased indentation - DEDENT(s)
-                while (_indentStack.Count > 1 && _indentStack.Peek() > indent)
-                {
-                    _indentStack.Pop();
-                    // CPython 3.12: DEDENT position should point to current indentation level
-                    // Use current position (start of current token) not previous position
-                    _pendingTokens.Enqueue(new GeneratedTokenInfo(PyToken.Type.DEDENT, "", _line, indent, _line, indent + 1));
-                }
-
-                // Check for indentation error
-                if (_indentStack.Count > 0 && _indentStack.Peek() != indent)
-                {
-                    throw new InvalidOperationException($"IndentationError: unindent does not match any outer indentation level at line {_line}");
-                }
-            }
-
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine("[DEBUG] Setting _atLineStart=false at end of HandleIndentation");
-            #endif
-            _atLineStart = false;
-            // Now that we're starting to process this line, reset the line state for real token tracking
-            _currentLineHasRealTokens = false;
-            #if DEBUG_TOKEN_LOG
-            Console.WriteLine("[DEBUG] HandleIndentation method ending normally");
-            #endif
-        }
-
-        private bool IsStringPrefix()
-        {
-            // Check for string prefixes: r, b, rb, br, f, fr, rf
-            if (_position < _source.Length)
-            {
-                char c = char.ToLower(CurrentChar);
-                if (c == 'r' || c == 'b' || c == 'f' || c == 'u')
-                {
-                    // Check if followed by quote or another prefix
-                    if (_position + 1 < _source.Length)
-                    {
-                        char next = _source[_position + 1];
-                        if (next == '\"' || next == '\'')
-                        {
-                            return true; // Single prefix like r", b", f"
-                        }
-                        else if (_position + 2 < _source.Length)
-                        {
-                            char next2 = char.ToLower(_source[_position + 1]);
-                            char next3 = _source[_position + 2];
-                            if ((c == 'r' && next2 == 'b') || (c == 'b' && next2 == 'r') || (c == 'f' && next2 == 'r') || (c == 'r' && next2 == 'f'))
-                            {
-                                if (next3 == '\"' || next3 == '\'')
-                                {
-                                    return true; // Double prefix like rb", br", fr", rf"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// CPython 3.12 PEP 701: F-string tokenization
-        /// F-strings are tokenized into: FSTRING_START, expression tokens, FSTRING_MIDDLE, FSTRING_END
-        /// </summary>
-        private void HandleFString()
-        {
-            var start = _position;
-            var startLine = _line;
-            var startColumn = _column;
-
-            // PEP 701: Save current f-string state for nested f-strings
-            if (_insideFString)
-            {
-                _fstringStateStack.Push(new FStringState(
-                    _insideFString,
-                    _fstringBraceDepth,
-                    _fstringQuoteChar,
-                    _fstringQuoteSize
-                ));
-            }
-
-            // Skip prefix (f, F, rf, fr, RF, FR)
-            bool isRawFString = false;
-            while (_position < _source.Length && char.IsLetter(CurrentChar))
-            {
-                char c = char.ToLower(CurrentChar);
-                if (c == 'r') isRawFString = true;
-                Advance();
-            }
-
-            // Now we should be at the quote
-            if (_position >= _source.Length || (CurrentChar != '\"' && CurrentChar != '\''))
-            {
-                throw new InvalidOperationException($"F-string format error at line {_line}, column {_column}");
-            }
-
-            _fstringQuoteChar = CurrentChar;
-            Advance(); // Skip opening quote
-
-            // Check for triple-quoted f-string
-            _fstringQuoteSize = 1;
-            if (_position + 1 < _source.Length && _source[_position] == _fstringQuoteChar && _source[_position + 1] == _fstringQuoteChar)
-            {
-                _fstringQuoteSize = 3;
-                Advance(); // Skip second quote
-                Advance(); // Skip third quote
-            }
-
-            // Emit FSTRING_START token
-            var fstringStart = _source.Substring(start, _position - start);
-            AddToken(PyToken.Type.FSTRING_START, fstringStart, startLine, startColumn);
-            _currentLineHasRealTokens = true;
-
-            // Enter f-string mode
-            _insideFString = true;
-            _fstringBraceDepth = 0;
-
-            // Process f-string content
-            HandleFStringContent(isRawFString);
-
-            // PEP 701: Restore previous f-string state for nested f-strings
-            if (_fstringStateStack.Count > 0)
-            {
-                var state = _fstringStateStack.Pop();
-                _insideFString = state.InsideFString;
-                _fstringBraceDepth = state.BraceDepth;
-                _fstringQuoteChar = state.QuoteChar;
-                _fstringQuoteSize = state.QuoteSize;
-            }
-            else
-            {
-                // No outer f-string, reset state
-                _insideFString = false;
-            }
-
-            // Reset _atLineStart flag that might have been set during f-string processing
-            _atLineStart = false;
-        }
-
-        /// <summary>
-        /// Process f-string content: literals and expressions
-        /// </summary>
-        private void HandleFStringContent(bool isRawFString)
-        {
-            var literalStart = _position;
-            var literalStartLine = _line;
-            var literalStartColumn = _column;
-
-            while (_position < _source.Length)
-            {
-                // Check for closing quotes
-                if (IsAtFStringEnd())
-                {
-                    // Emit any pending FSTRING_MIDDLE before ending
-                    if (_position > literalStart)
-                    {
-                        var middleContent = _source.Substring(literalStart, _position - literalStart);
-                        AddToken(PyToken.Type.FSTRING_MIDDLE, isRawFString ? middleContent.Replace("\\", "\\\\") : middleContent, literalStartLine, literalStartColumn);
-                        _currentLineHasRealTokens = true;
-                    }
-
-                    // Emit FSTRING_END token
-                    var endStart = _position;
-                    var endLine = _line;
-                    var endColumn = _column;
-                    for (int i = 0; i < _fstringQuoteSize; i++)
-                    {
-                        Advance();
-                    }
-                    var fstringEnd = _source.Substring(endStart, _position - endStart);
-                    AddToken(PyToken.Type.FSTRING_END, fstringEnd, endLine, endColumn);
-                    _currentLineHasRealTokens = true;
-
-                    // Exit f-string mode
-                    _insideFString = false;
-                    return;
-                }
-
-                char c = CurrentChar;
-
-                // CPython 3.12: Handle backslash escape sequences
-                // When backslash is encountered, consume it AND the next character together
-                // This prevents escaped quotes (like \") from ending the f-string
-                if (c == '\\')
-                {
-                    Advance(); // Move past backslash
-                    // tok_get_fstring_mode: \N{BULLET} is one escape, its braces are no field.
-                    if (!isRawFString && _position + 1 < _source.Length && CurrentChar == 'N' && _source[_position + 1] == '{')
-                    {
-                        while (_position < _source.Length && CurrentChar != '}' && !IsAtFStringEnd())
-                            Advance();
-                        if (_position < _source.Length && CurrentChar == '}')
-                            Advance();
-                        continue;
-                    }
-                    // A brace after a backslash is still a brace: rf"\{{" and f"\{x}".
-                    if (_position < _source.Length && CurrentChar != '{' && CurrentChar != '}')
-                    {
-                        // Consume the escaped character
-                        // CPython handles { and } specially, but for quotes and other chars,
-                        // they are simply consumed and included in FSTRING_MIDDLE
-                        Advance(); // Move past the escaped character
-                    }
-                    continue; // Back to loop start, will check IsAtFStringEnd again
-                }
-
-                // Handle opening brace (expression start)
-                if (c == '{')
-                {
-                    var braceColumn = _column;
-                    Advance();
-
-                    // Check for escaped brace {{
-                    if (_position < _source.Length && CurrentChar == '{')
-                    {
-                        // This is an escaped {{, include in FSTRING_MIDDLE
-                        Advance();
-                        continue;
-                    }
-                    else
-                    {
-                        // Emit FSTRING_MIDDLE for content before expression
-                        if (_position - 1 > literalStart)
-                        {
-                            var middleContent = _source.Substring(literalStart, _position - 1 - literalStart);
-                            AddToken(PyToken.Type.FSTRING_MIDDLE, isRawFString ? middleContent.Replace("\\", "\\\\") : middleContent, literalStartLine, literalStartColumn, _column - 1);
-                            _currentLineHasRealTokens = true;
-                        }
-
-                        // Emit { as OP token (track level for CPython 3.12 compatibility)
-                        var lbraceType = PyToken.GetOpType("{", exactType: !_generateExtraTokens);
-                        AddToken(lbraceType, "{", _line, braceColumn);
-                        _currentLineHasRealTokens = true;
-                        _level++; // Increment level after creating LBRACE token
-                        _fstringBraceDepth++;
-
-                        // Tokenize expression content until matching }
-                        HandleFStringExpression();
-
-                        // After expression, reset literal start
-                        literalStart = _position;
-                        literalStartLine = _line;
-                        literalStartColumn = _column;
-                        continue;
-                    }
-                }
-
-                // Handle closing brace (expression end)
-                if (c == '}')
-                {
-                    Advance();
-
-                    // Check for escaped brace }}
-                    if (_position < _source.Length && CurrentChar == '}')
-                    {
-                        // This is an escaped }}, include in FSTRING_MIDDLE
-                        Advance();
-                        continue;
-                    }
-                    else
-                    {
-                        // Unmatched closing brace outside expression
-                        throw new InvalidOperationException($"F-string: single '}}' is not allowed at line {_line}, column {_column}");
-                    }
-                }
-
-                // Regular character, continue accumulating
-                Advance();
-            }
-
-            // Unterminated f-string
-            throw new InvalidOperationException($"Unterminated f-string literal at line {_line}, column {_column}");
-        }
-
-        /// <summary>
-        /// Emit FSTRING_MIDDLE token for literal content between expressions
-        /// </summary>
-        private void EmitFStringMiddle(int start, int startLine, int startColumn)
-        {
-            if (_position > start)
-            {
-                var middleContent = _source.Substring(start, _position - start);
-                AddToken(PyToken.Type.FSTRING_MIDDLE, middleContent, startLine, startColumn);
-                _currentLineHasRealTokens = true;
-            }
-        }
-
-        /// <summary>
-        /// PEP 701: Check if current quote character starts a nested f-string
-        /// Check if the last token was 'f', 'F', 'rf', 'fr', 'RF', or 'FR' NAME token
-        /// </summary>
-        private bool IsStartOfFString()
-        {
-            // Check if the last token is a NAME token with value indicating an f-string prefix
-            if (_tokens.Count == 0)
-                return false;
-
-            var lastToken = _tokens[_tokens.Count - 1];
-            if (lastToken.Type != PyToken.Type.NAME)
-                return false;
-
-            string value = lastToken.Value.ToLower();
-            // Check for 'f', 'rf', or 'fr' prefix
-            return value == "f" || value == "rf" || value == "fr";
-        }
-
-        /// <summary>
-        /// Check if we're at the end of the f-string
-        /// </summary>
-        private bool IsAtFStringEnd()
-        {
-            if (_position + _fstringQuoteSize > _source.Length)
-                return false;
-
-            for (int i = 0; i < _fstringQuoteSize; i++)
-            {
-                if (_source[_position + i] != _fstringQuoteChar)
+                    Done = State.E_EOF;
                     return false;
+                }
             }
-
+            if (Start == -1)
+                Buf = Cur;
+            LineStart = Cur;
+            Lineno++;
+            _colOffset = 0;
+            Inp = end;
             return true;
         }
 
-        /// <summary>
-        /// Tokenize expression inside f-string braces
-        /// </summary>
-        private void HandleFStringExpression()
+        private int NextC()
         {
-            // PEP 701: Save the starting brace depth for format spec detection
-            // When we enter this function, _fstringBraceDepth has already been incremented
-            int exprStartDepth = _fstringBraceDepth;
-            // Also save the starting parenthesis/bracket level
-            // This prevents ':' inside subscripts (e.g., lst[2:4]) from being treated as format spec
-            int exprStartLevel = _level;
-            _fstringExpressionDepth++;
-
-            while (_position < _source.Length)
+            while (true)
             {
-                char c = CurrentChar;
-
-                // PEP 701: Check for ':' at the base expression level (format spec)
-                // CPython: c == ':' && cursor == current_tok->curly_bracket_expr_start_depth
-                // IMPORTANT: Also check _level to prevent ':' in subscripts (e.g., f"{lst[2:4]}")
-                // from being treated as format spec
-                if (c == ':' && ((_fstringBraceDepth == exprStartDepth && _level == exprStartLevel) ||
-                    (_fstringSpecResume && _fstringBraceDepth == exprStartDepth + 1 && _level == exprStartLevel + 1)))
+                if (Cur != Inp)
                 {
-                    // Emit ':' as OP token
-                    var colonType = PyToken.GetOpType(":", exactType: !_generateExtraTokens);
-                    AddToken(colonType, ":", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
+                    int c = _str[Cur++];
+                    _colOffset += ByteWidth(c);
+                    return c;
+                }
+                if (Done != State.E_OK)
+                    return EOF;
+                if (!Underflow())
+                {
+                    Cur = Inp;
+                    return EOF;
+                }
+                LineStart = Cur;
+                if (_str.IndexOf('\0', LineStart, Inp - LineStart) >= 0)
+                {
+                    SyntaxErrorRange("source code cannot contain null bytes", -1, -1);
+                    Cur = Inp;
+                    return EOF;
+                }
+            }
+        }
 
-                    // Enter format spec mode
-                    _fstringInFormatSpec = true;
+        private void Backup(int c)
+        {
+            if (c != EOF)
+            {
+                Cur--;
+                _colOffset -= ByteWidth(c);
+            }
+        }
 
-                    // Collect format spec content as FSTRING_MIDDLE
-                    HandleFStringFormatSpec(_fstringBraceDepth);
+        private int CodePoints(int from, int to)
+        {
+            int count = 0;
+            for (int i = from; i < to; i++)
+                if (!char.IsLowSurrogate(_str[i]))
+                    count++;
+            return count;
+        }
 
-                    // Format spec handler should return when it encounters '{' or '}'
-                    // Continue with regular expression processing
+        // _syntaxerror_range
+        private void SyntaxErrorRange(string message, int colOffset, int endColOffset)
+        {
+            if (Done == State.E_ERROR)
+                return;
+            if (colOffset == -1)
+                colOffset = CodePoints(LineStart, Cur);
+            if (endColOffset == -1)
+                endColOffset = colOffset;
+            int lineEnd = _str.IndexOf('\n', LineStart);
+            string text = _str.Substring(LineStart, (lineEnd < 0 ? _str.Length : lineEnd) - LineStart);
+            Error = PySyntaxError.Located(new PySyntaxError(message), message, _filename, Lineno, colOffset, Lineno, endColOffset, new PyString(text));
+            Done = State.E_ERROR;
+        }
+
+        private GeneratedTokenInfo SyntaxError(string message)
+        {
+            SyntaxErrorRange(message, -1, -1);
+            return MakeToken(PyToken.Type.ERRORTOKEN);
+        }
+
+        private GeneratedTokenInfo IndentError()
+        {
+            Done = State.E_TABSPACE;
+            Cur = Inp;
+            return MakeToken(PyToken.Type.ERRORTOKEN);
+        }
+
+        // parser_warn: true when the warning became an error
+        private bool ParserWarn(string message)
+        {
+            if (!ReportWarnings)
+                return false;
+            try
+            {
+                Compiler.WarnExplicit("SyntaxWarning", message, _filename, Lineno);
+                return false;
+            }
+            catch (PythonException error) when (error.PyException.GetTypeName() == "SyntaxWarning")
+            {
+                SyntaxErrorRange(message, -1, -1);
+                Done = State.E_ERROR;
+                return true;
+            }
+        }
+
+        private bool WarnInvalidEscapeSequence(int firstInvalidEscapeChar) =>
+            ParserWarn($"invalid escape sequence '\\{(char)firstInvalidEscapeChar}'");
+
+        private static bool IsPotentialIdentifierStart(int c) =>
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 128;
+
+        private static bool IsPotentialIdentifierChar(int c) =>
+            IsPotentialIdentifierStart(c) || (c >= '0' && c <= '9');
+
+        private static bool IsDigit(int c) => c >= '0' && c <= '9';
+
+        private static bool IsXDigit(int c) => IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+
+        private bool Lookahead(string test)
+        {
+            int index = 0;
+            bool res = false;
+            while (true)
+            {
+                int c = NextC();
+                if (index == test.Length)
+                    res = !IsPotentialIdentifierChar(c);
+                else if (c == test[index])
+                {
+                    index++;
                     continue;
                 }
+                Backup(c);
+                while (index != 0)
+                    Backup(test[--index]);
+                return res;
+            }
+        }
 
-                // Check for closing brace
-                // CPython 3.12: tokenizer.c:2568 - only return when depth matches expression start
-                // This allows dict literals {} inside f-string expressions
-                if (c == '}')
+        private bool VerifyEndOfNumber(int c, string kind)
+        {
+            if (_extraTokens)
+                return true;
+            bool r = false;
+            if (c == 'a')
+                r = Lookahead("nd");
+            else if (c == 'e')
+                r = Lookahead("lse");
+            else if (c == 'f')
+                r = Lookahead("or");
+            else if (c == 'i')
+            {
+                int c2 = NextC();
+                if (c2 == 'f' || c2 == 'n' || c2 == 's')
+                    r = true;
+                Backup(c2);
+            }
+            else if (c == 'o')
+                r = Lookahead("r");
+            else if (c == 'n')
+                r = Lookahead("ot");
+            if (r)
+            {
+                Backup(c);
+                if (ParserWarn($"invalid {kind} literal"))
+                    return false;
+                NextC();
+            }
+            else if (c < 128 && IsPotentialIdentifierChar(c))
+            {
+                Backup(c);
+                SyntaxErrorRange($"invalid {kind} literal", -1, -1);
+                return false;
+            }
+            return true;
+        }
+
+        private bool VerifyIdentifier()
+        {
+            if (_extraTokens)
+                return true;
+            string s = _str.Substring(Start, Cur - Start);
+            int index = 0;
+            bool first = true;
+            while (index < s.Length)
+            {
+                int ch = PyString.CodePointAt(s, index, out int width);
+                bool valid = first ? PyString.IsXidStart(ch) || ch == '_' : PyString.IsXidContinue(ch);
+                if (!valid)
                 {
-                    if (_fstringBraceDepth == exprStartDepth)
+                    // the tokenizer goes back to just after the character at fault
+                    if (index + width < s.Length)
+                        Cur = Start + index + width;
+                    string text = PyString.IsPrintableCp(ch)
+                        ? $"invalid character '{PyString.CodePointText(ch)}' (U+{ch:X4})"
+                        : $"invalid non-printable character U+{ch:X4}";
+                    SyntaxErrorRange(text, -1, -1);
+                    return false;
+                }
+                first = false;
+                index += width;
+            }
+            return true;
+        }
+
+        private int DecimalTail()
+        {
+            int c;
+            while (true)
+            {
+                do
+                {
+                    c = NextC();
+                } while (IsDigit(c));
+                if (c != '_')
+                    break;
+                c = NextC();
+                if (!IsDigit(c))
+                {
+                    Backup(c);
+                    SyntaxErrorRange("invalid decimal literal", -1, -1);
+                    return 0;
+                }
+            }
+            return c;
+        }
+
+        private int ContinuationLine()
+        {
+            int c = NextC();
+            if (c == '\r')
+                c = NextC();
+            if (c != '\n')
+            {
+                Done = State.E_LINECONT;
+                return -1;
+            }
+            c = NextC();
+            if (c == EOF)
+            {
+                Done = State.E_EOF;
+                Cur = Inp;
+                return -1;
+            }
+            Backup(c);
+            return c;
+        }
+
+        // token_setup and MAKE_TOKEN
+        private GeneratedTokenInfo MakeToken(PyToken.Type type)
+        {
+            bool stringLiteral = type is PyToken.Type.STRING or PyToken.Type.FSTRING_MIDDLE;
+            int column = -1, endColumn = -1;
+            string value = "";
+            if (_pStart >= 0 && _pEnd >= 0)
+            {
+                column = _startingColOffset;
+                endColumn = _colOffset;
+                value = _str.Substring(_pStart, _pEnd - _pStart);
+            }
+            return new GeneratedTokenInfo(type, value, stringLiteral ? FirstLineno : Lineno, column, Lineno, endColumn)
+            {
+                Level = Level,
+                Metadata = _metadata,
+            };
+        }
+
+        private PyToken.Type OperatorType(PyToken.Type exact) => _extraTokens ? PyToken.Type.OP : exact;
+
+        private void TakeToken(int end)
+        {
+            _pStart = Start;
+            _pEnd = end;
+        }
+
+        // set_fstring_expr
+        private void SetFStringExpr(char c)
+        {
+            var mode = _modeStack[ModeStackIndex];
+            if (!mode.FStringDebug || _metadata != null)
+                return;
+            string buffer = _str.Substring(mode.LastExprStart, mode.LastExprEnd - mode.LastExprStart);
+            if (buffer.IndexOf('#') < 0)
+            {
+                _metadata = buffer;
+                return;
+            }
+            var result = new StringBuilder(buffer.Length);
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                if (buffer[i] == '#')
+                {
+                    while (i < buffer.Length)
                     {
-                        // This is the closing brace for the f-string expression
-                        // Decrement level BEFORE creating RBRACE token (CPython 3.12 compatibility)
-                        if (_level > 0)
-                            _level--;
-                        // Emit } as OP token
-                        var rbraceType = PyToken.GetOpType("}", exactType: !_generateExtraTokens);
-                        AddToken(rbraceType, "}", _line, _column);
-                        _currentLineHasRealTokens = true;
-                        _fstringBraceDepth--;
-                        _fstringSpecResume = false;
-                        Advance();
-                        return;
-                    }
-                    else if (_fstringBraceDepth > exprStartDepth)
-                    {
-                        // This is a closing brace for a nested construct (dict/set literal
-                        // or a nested field inside a format spec)
-                        // Decrement level BEFORE creating RBRACE token
-                        if (_level > 0)
-                            _level--;
-                        // Emit } as OP token
-                        var rbraceType = PyToken.GetOpType("}", exactType: !_generateExtraTokens);
-                        AddToken(rbraceType, "}", _line, _column);
-                        _currentLineHasRealTokens = true;
-                        _fstringBraceDepth--;
-                        Advance();
-                        // CPython 3.12 PEP 701: text after a nested field is still format-spec
-                        // content (f"{x:{a}.{b}}"), not expression code.
-                        if (_fstringSpecResume && _fstringBraceDepth == exprStartDepth)
+                        if (buffer[i] == '\n')
                         {
-                            _fstringSpecResume = false;
-                            _fstringInFormatSpec = true;
-                            HandleFStringFormatSpec(exprStartDepth);
+                            result.Append('\n');
+                            break;
                         }
-                        continue; // Continue processing expression, not return
+                        i++;
                     }
-                    else
+                }
+                else
+                    result.Append(buffer[i]);
+            }
+            _metadata = result.ToString();
+        }
+
+        // update_fstring_expr
+        private void UpdateFStringExpr(char cur)
+        {
+            var mode = _modeStack[ModeStackIndex];
+            switch (cur)
+            {
+                case '{':
+                    mode.LastExprStart = Cur;
+                    mode.LastExprEnd = -1;
+                    break;
+                case '}':
+                case '!':
+                    mode.LastExprEnd = Start;
+                    break;
+                case ':':
+                    if (mode.LastExprEnd == -1)
+                        mode.LastExprEnd = Start;
+                    break;
+            }
+        }
+
+        private bool InsideFString => ModeStackIndex > 0;
+
+        private GeneratedTokenInfo Number(int c)
+        {
+            if (c == '0')
+            {
+                // Hex, octal or binary -- maybe.
+                c = NextC();
+                if (c == 'x' || c == 'X')
+                {
+                    c = NextC();
+                    do
                     {
-                        // _fstringBraceDepth < exprStartDepth - this shouldn't happen
-                        throw new InvalidOperationException($"F-string: unmatched '}}' at line {_line}, column {_column}");
-                    }
+                        if (c == '_')
+                            c = NextC();
+                        if (!IsXDigit(c))
+                        {
+                            Backup(c);
+                            return SyntaxError("invalid hexadecimal literal");
+                        }
+                        do
+                        {
+                            c = NextC();
+                        } while (IsXDigit(c));
+                    } while (c == '_');
+                    if (!VerifyEndOfNumber(c, "hexadecimal"))
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
                 }
-
-                // Handle nested braces (like in dict literals inside f-string)
-                if (c == '{')
+                else if (c == 'o' || c == 'O')
                 {
-                    var nestedLbraceType = PyToken.GetOpType("{", exactType: !_generateExtraTokens);
-                    AddToken(nestedLbraceType, "{", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    _level++; // Increment level AFTER creating LBRACE token (CPython 3.12 compatibility)
-                    _fstringBraceDepth++;
-                    Advance();
-                    continue;
+                    c = NextC();
+                    do
+                    {
+                        if (c == '_')
+                            c = NextC();
+                        if (c < '0' || c >= '8')
+                        {
+                            if (IsDigit(c))
+                                return SyntaxError($"invalid digit '{(char)c}' in octal literal");
+                            Backup(c);
+                            return SyntaxError("invalid octal literal");
+                        }
+                        do
+                        {
+                            c = NextC();
+                        } while ('0' <= c && c < '8');
+                    } while (c == '_');
+                    if (IsDigit(c))
+                        return SyntaxError($"invalid digit '{(char)c}' in octal literal");
+                    if (!VerifyEndOfNumber(c, "octal"))
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
                 }
-
-                // Tokenize expression content normally
-                if (char.IsWhiteSpace(c) && c != '\n' && c != '\r')
+                else if (c == 'b' || c == 'B')
                 {
-                    Advance();
-                }
-                else if (c == '\n' || c == '\r')
-                {
-                    // PEP 701: a replacement field may span lines in any f-string.
-                    Advance();
-                }
-                else if (c == '#')
-                {
-                    HandleComment();
-                }
-                else if (char.IsLetter(c) || c == '_')
-                {
-                    HandleName();
-                }
-                else if (StartsNumber())
-                {
-                    HandleNumber();
-                }
-                else if (c == '\"' || c == '\'')
-                {
-                    // PEP 701: In f-string expressions, strings are parsed normally
-                    // The key insight: we should NOT check for f-string end quote here
-                    // because we might be inside a function call like: f'{func("arg")}'
-                    //
-                    // CPython 3.12 behavior: HandleString() will consume the entire string,
-                    // including nested quotes. Only after the string is fully parsed do we
-                    // check if we're at the f-string end.
-                    //
-                    // The f-string end check happens at:
-                    // 1. Line 1345: when we see '}' and _fstringBraceDepth drops to 0
-                    // 2. HandleFStringContent: when we're OUTSIDE expression braces
-                    HandleString();
-                }
-                else if (HandleLiteral())
-                {
-                    // Literal handled
+                    c = NextC();
+                    do
+                    {
+                        if (c == '_')
+                            c = NextC();
+                        if (c != '0' && c != '1')
+                        {
+                            if (IsDigit(c))
+                                return SyntaxError($"invalid digit '{(char)c}' in binary literal");
+                            Backup(c);
+                            return SyntaxError("invalid binary literal");
+                        }
+                        do
+                        {
+                            c = NextC();
+                        } while (c == '0' || c == '1');
+                    } while (c == '_');
+                    if (IsDigit(c))
+                        return SyntaxError($"invalid digit '{(char)c}' in binary literal");
+                    if (!VerifyEndOfNumber(c, "binary"))
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
                 }
                 else
                 {
-                    AddToken(PyToken.Type.ERRORTOKEN, c.ToString(), _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
+                    bool nonzero = false;
+                    // maybe old-style octal; c is first char of it
+                    while (true)
+                    {
+                        if (c == '_')
+                        {
+                            c = NextC();
+                            if (!IsDigit(c))
+                            {
+                                Backup(c);
+                                return SyntaxError("invalid decimal literal");
+                            }
+                        }
+                        if (c != '0')
+                            break;
+                        c = NextC();
+                    }
+                    int zerosEnd = Cur;
+                    if (IsDigit(c))
+                    {
+                        nonzero = true;
+                        c = DecimalTail();
+                        if (c == 0)
+                            return MakeToken(PyToken.Type.ERRORTOKEN);
+                    }
+                    if (c == '.')
+                    {
+                        c = NextC();
+                        return Fraction(c);
+                    }
+                    if (c == 'e' || c == 'E')
+                        return Exponent(c);
+                    if (c == 'j' || c == 'J')
+                        return Imaginary();
+                    if (nonzero && !_extraTokens)
+                    {
+                        Backup(c);
+                        SyntaxErrorRange("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
+                            ByteLength(LineStart, Start) + 1, ByteLength(LineStart, zerosEnd));
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
+                    }
+                    if (!VerifyEndOfNumber(c, "decimal"))
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
                 }
+                return EndOfNumber(c);
             }
-
-            throw new InvalidOperationException($"Unterminated f-string expression at line {_line}, column {_column}");
+            // Decimal
+            c = DecimalTail();
+            if (c == 0)
+                return MakeToken(PyToken.Type.ERRORTOKEN);
+            if (c == '.')
+            {
+                c = NextC();
+                return Fraction(c);
+            }
+            return AfterFraction(c);
         }
 
-        /// <summary>
-        /// PEP 701: Handle format spec content after ':' in f-string expression
-        /// Collects characters as FSTRING_MIDDLE until encountering '{' or '}'
-        /// </summary>
-        private void HandleFStringFormatSpec(int exprStartDepth)
+        private GeneratedTokenInfo Fraction(int c)
         {
-            int start = _position;
-            int startLine = _line;
-            int startColumn = _column;
-
-            // Collect all characters until we hit '{' or '}'
-            while (_position < _source.Length)
+            if (IsDigit(c))
             {
-                char c = CurrentChar;
+                c = DecimalTail();
+                if (c == 0)
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+            }
+            return AfterFraction(c);
+        }
 
-                // CPython: if (c == '{') { if (peek != '{' || in_format_spec) { ... break ... } }
+        private GeneratedTokenInfo AfterFraction(int c) =>
+            c == 'e' || c == 'E' ? Exponent(c) : AfterExponent(c);
+
+        private GeneratedTokenInfo Exponent(int c)
+        {
+            int e = c;
+            c = NextC();
+            if (c == '+' || c == '-')
+            {
+                c = NextC();
+                if (!IsDigit(c))
+                {
+                    Backup(c);
+                    return SyntaxError("invalid decimal literal");
+                }
+            }
+            else if (!IsDigit(c))
+            {
+                Backup(c);
+                if (!VerifyEndOfNumber(e, "decimal"))
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                Backup(e);
+                TakeToken(Cur);
+                return MakeToken(PyToken.Type.NUMBER);
+            }
+            c = DecimalTail();
+            if (c == 0)
+                return MakeToken(PyToken.Type.ERRORTOKEN);
+            return AfterExponent(c);
+        }
+
+        private GeneratedTokenInfo AfterExponent(int c)
+        {
+            if (c == 'j' || c == 'J')
+                return Imaginary();
+            if (!VerifyEndOfNumber(c, "decimal"))
+                return MakeToken(PyToken.Type.ERRORTOKEN);
+            return EndOfNumber(c);
+        }
+
+        private GeneratedTokenInfo Imaginary()
+        {
+            int c = NextC();
+            if (!VerifyEndOfNumber(c, "imaginary"))
+                return MakeToken(PyToken.Type.ERRORTOKEN);
+            return EndOfNumber(c);
+        }
+
+        private GeneratedTokenInfo EndOfNumber(int c)
+        {
+            Backup(c);
+            TakeToken(Cur);
+            return MakeToken(PyToken.Type.NUMBER);
+        }
+
+        // tok_get_normal_mode
+        private GeneratedTokenInfo GetNormalMode(Mode currentTok)
+        {
+            int c;
+            bool blankline;
+        nextline:
+            Start = -1;
+            _startingColOffset = -1;
+            blankline = false;
+
+            // Get indentation level
+            if (_atbol)
+            {
+                int col = 0;
+                int altcol = 0;
+                _atbol = false;
+                int contLineCol = 0;
+                while (true)
+                {
+                    c = NextC();
+                    if (c == ' ')
+                    {
+                        col++;
+                        altcol++;
+                    }
+                    else if (c == '\t')
+                    {
+                        col = (col / TABSIZE + 1) * TABSIZE;
+                        altcol = (altcol / ALTTABSIZE + 1) * ALTTABSIZE;
+                    }
+                    else if (c == '\f')
+                    {
+                        col = altcol = 0;
+                    }
+                    else if (c == '\\')
+                    {
+                        // the first backslash decides the level of indentation of what comes next
+                        contLineCol = contLineCol != 0 ? contLineCol : col;
+                        if ((c = ContinuationLine()) == -1)
+                            return MakeToken(PyToken.Type.ERRORTOKEN);
+                    }
+                    else
+                        break;
+                }
+                Backup(c);
+                if (c == '#' || c == '\n' || c == '\r')
+                    blankline = true;
+                if (!blankline && Level == 0)
+                {
+                    col = contLineCol != 0 ? contLineCol : col;
+                    altcol = contLineCol != 0 ? contLineCol : altcol;
+                    if (col == _indstack[Indent])
+                    {
+                        if (altcol != _altindstack[Indent])
+                            return IndentError();
+                    }
+                    else if (col > _indstack[Indent])
+                    {
+                        if (Indent + 1 >= MAXINDENT)
+                        {
+                            Done = State.E_TOODEEP;
+                            Cur = Inp;
+                            return MakeToken(PyToken.Type.ERRORTOKEN);
+                        }
+                        if (altcol <= _altindstack[Indent])
+                            return IndentError();
+                        Pendin++;
+                        _indstack[++Indent] = col;
+                        _altindstack[Indent] = altcol;
+                    }
+                    else
+                    {
+                        while (Indent > 0 && col < _indstack[Indent])
+                        {
+                            Pendin--;
+                            Indent--;
+                        }
+                        if (col != _indstack[Indent])
+                        {
+                            Done = State.E_DEDENT;
+                            Cur = Inp;
+                            return MakeToken(PyToken.Type.ERRORTOKEN);
+                        }
+                        if (altcol != _altindstack[Indent])
+                            return IndentError();
+                    }
+                }
+            }
+
+            Start = Cur;
+            _startingColOffset = _colOffset;
+
+            // Return pending indents/dedents
+            if (Pendin != 0)
+            {
+                if (Pendin < 0)
+                {
+                    if (_extraTokens)
+                        TakeToken(Cur);
+                    Pendin++;
+                    return MakeToken(PyToken.Type.DEDENT);
+                }
+                if (_extraTokens)
+                {
+                    _pStart = Buf;
+                    _pEnd = Cur;
+                }
+                Pendin--;
+                return MakeToken(PyToken.Type.INDENT);
+            }
+
+            // Peek ahead at the next character
+            c = NextC();
+            Backup(c);
+
+        again:
+            Start = -1;
+            // Skip spaces
+            do
+            {
+                c = NextC();
+            } while (c == ' ' || c == '\t' || c == '\f');
+
+            // Set start of current token
+            Start = Cur - 1;
+            _startingColOffset = _colOffset - 1;
+
+            // Skip comment
+            if (c == '#')
+            {
+                while (c != EOF && c != '\n' && c != '\r')
+                    c = NextC();
+                if (_extraTokens)
+                {
+                    Backup(c);
+                    TakeToken(Cur);
+                    _commentNewline = blankline;
+                    return MakeToken(PyToken.Type.COMMENT);
+                }
+            }
+
+            // Check for EOF and errors now
+            if (c == EOF)
+            {
+                if (Level != 0)
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                return MakeToken(Done == State.E_EOF ? PyToken.Type.ENDMARKER : PyToken.Type.ERRORTOKEN);
+            }
+
+            // Identifier (most frequent token!)
+            bool nonascii = false;
+            if (IsPotentialIdentifierStart(c))
+            {
+                // Process the various legal combinations of b"", r"", u"", and f"".
+                bool sawB = false, sawR = false, sawU = false, sawF = false;
+                while (true)
+                {
+                    if (!(sawB || sawU || sawF) && (c == 'b' || c == 'B'))
+                        sawB = true;
+                    else if (!(sawB || sawU || sawR || sawF) && (c == 'u' || c == 'U'))
+                        sawU = true;
+                    else if (!(sawR || sawU) && (c == 'r' || c == 'R'))
+                        sawR = true;
+                    else if (!(sawF || sawB || sawU) && (c == 'f' || c == 'F'))
+                        sawF = true;
+                    else
+                        break;
+                    c = NextC();
+                    if (c == '"' || c == '\'')
+                    {
+                        if (sawF)
+                            return FStringQuote(c);
+                        return LetterQuote(c);
+                    }
+                }
+                while (IsPotentialIdentifierChar(c))
+                {
+                    if (c >= 128)
+                        nonascii = true;
+                    c = NextC();
+                }
+                Backup(c);
+                if (nonascii && !VerifyIdentifier())
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                TakeToken(Cur);
+                return MakeToken(PyToken.Type.NAME);
+            }
+
+            if (c == '\r')
+                c = NextC();
+
+            // Newline
+            if (c == '\n')
+            {
+                _atbol = true;
+                if (blankline || Level > 0)
+                {
+                    if (_extraTokens)
+                    {
+                        _commentNewline = false;
+                        TakeToken(Cur);
+                        return MakeToken(PyToken.Type.NL);
+                    }
+                    goto nextline;
+                }
+                if (_commentNewline && _extraTokens)
+                {
+                    _commentNewline = false;
+                    TakeToken(Cur);
+                    return MakeToken(PyToken.Type.NL);
+                }
+                TakeToken(Cur - 1); // Leave '\n' out of the string
+                _contLine = false;
+                return MakeToken(PyToken.Type.NEWLINE);
+            }
+
+            // Period or number starting with period?
+            if (c == '.')
+            {
+                c = NextC();
+                if (IsDigit(c))
+                    return Fraction(c);
+                if (c == '.')
+                {
+                    c = NextC();
+                    if (c == '.')
+                    {
+                        TakeToken(Cur);
+                        return MakeToken(OperatorType(PyToken.Type.ELLIPSIS));
+                    }
+                    Backup(c);
+                    Backup('.');
+                }
+                else
+                    Backup(c);
+                TakeToken(Cur);
+                return MakeToken(OperatorType(PyToken.Type.DOT));
+            }
+
+            // Number
+            if (IsDigit(c))
+                return Number(c);
+
+            if (c == '\'' || c == '"')
+                return LetterQuote(c);
+
+            // Line continuation
+            if (c == '\\')
+            {
+                if ((c = ContinuationLine()) == -1)
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                _contLine = true;
+                goto again; // Read next line
+            }
+
+            // Punctuation character
+            bool isPunctuation = c == ':' || c == '}' || c == '!' || c == '{';
+            if (isPunctuation && InsideFString && currentTok.CurlyBracketExprStartDepth >= 0)
+            {
+                // This code runs before the depth is incremented by the '{' case below.
+                int cursor = currentTok.CurlyBracketDepth - (c != '{' ? 1 : 0);
+                bool inFormatSpec = currentTok.InFormatSpec;
+                bool cursorInFormatWithDebug = cursor == 1 && (currentTok.FStringDebug || inFormatSpec);
+                bool cursorValid = cursor == 0 || cursorInFormatWithDebug;
+                if (cursorValid)
+                    UpdateFStringExpr((char)c);
+                if (cursorValid && c != '{')
+                    SetFStringExpr((char)c);
+
+                if (c == ':' && cursor == currentTok.CurlyBracketExprStartDepth)
+                {
+                    currentTok.Regular = false;
+                    currentTok.InFormatSpec = true;
+                    TakeToken(Cur);
+                    return MakeToken(OperatorType(OneChar(c)));
+                }
+            }
+
+            // Check for two-character token
+            {
+                int c2 = NextC();
+                var currentToken = TwoChars(c, c2);
+                if (currentToken != PyToken.Type.OP)
+                {
+                    int c3 = NextC();
+                    var currentToken3 = ThreeChars(c, c2, c3);
+                    if (currentToken3 != PyToken.Type.OP)
+                        currentToken = currentToken3;
+                    else
+                        Backup(c3);
+                    TakeToken(Cur);
+                    return MakeToken(OperatorType(currentToken));
+                }
+                Backup(c2);
+            }
+
+            // Keep track of parentheses nesting level
+            switch (c)
+            {
+                case '(':
+                case '[':
+                case '{':
+                    if (Level >= MAXLEVEL)
+                        return SyntaxError("too many nested parentheses");
+                    ParenStack[Level] = (char)c;
+                    ParenLinenoStack[Level] = Lineno;
+                    ParenColStack[Level] = ByteLength(LineStart, Start);
+                    Level++;
+                    if (InsideFString)
+                        currentTok.CurlyBracketDepth++;
+                    break;
+                case ')':
+                case ']':
+                case '}':
+                    if (InsideFString && currentTok.CurlyBracketDepth == 0 && c == '}')
+                        return SyntaxError("f-string: single '}' is not allowed");
+                    if (!_extraTokens && Level == 0)
+                        return SyntaxError($"unmatched '{(char)c}'");
+                    if (Level > 0)
+                    {
+                        Level--;
+                        char opening = ParenStack[Level];
+                        if (!_extraTokens && !((opening == '(' && c == ')') || (opening == '[' && c == ']') || (opening == '{' && c == '}')))
+                        {
+                            // The opening bracket of a field (f"{)}") is no construct to match against.
+                            if (InsideFString && opening == '{')
+                            {
+                                int previousBracket = currentTok.CurlyBracketDepth - 1;
+                                if (previousBracket == currentTok.CurlyBracketExprStartDepth)
+                                    return SyntaxError($"f-string: unmatched '{(char)c}'");
+                            }
+                            if (ParenLinenoStack[Level] != Lineno)
+                                return SyntaxError($"closing parenthesis '{(char)c}' does not match opening parenthesis '{opening}' on line {ParenLinenoStack[Level]}");
+                            return SyntaxError($"closing parenthesis '{(char)c}' does not match opening parenthesis '{opening}'");
+                        }
+                    }
+                    if (InsideFString)
+                    {
+                        currentTok.CurlyBracketDepth--;
+                        if (currentTok.CurlyBracketDepth < 0)
+                            return SyntaxError($"f-string: unmatched '{(char)c}'");
+                        if (c == '}' && currentTok.CurlyBracketDepth == currentTok.CurlyBracketExprStartDepth)
+                        {
+                            currentTok.CurlyBracketExprStartDepth--;
+                            currentTok.Regular = false;
+                            currentTok.InFormatSpec = false;
+                            currentTok.FStringDebug = false;
+                        }
+                    }
+                    break;
+            }
+
+            if (!PyString.IsPrintableCp(c))
+                return SyntaxError($"invalid non-printable character U+{c:X4}");
+
+            if (c == '=' && currentTok.CurlyBracketExprStartDepth >= 0)
+                currentTok.FStringDebug = true;
+
+            // Punctuation character
+            TakeToken(Cur);
+            return MakeToken(OperatorType(OneChar(c)));
+        }
+
+        private GeneratedTokenInfo FStringQuote(int c)
+        {
+            char quote = (char)c;
+            int quoteSize = 1;
+
+            // Nodes of type STRING, especially multi line strings must be handled differently
+            // in order to get both the starting line number and the column offset right.
+            FirstLineno = Lineno;
+            MultiLineStart = LineStart;
+
+            // Find the quote size and start of string
+            int afterQuote = NextC();
+            if (afterQuote == quote)
+            {
+                int afterAfterQuote = NextC();
+                if (afterAfterQuote == quote)
+                    quoteSize = 3;
+                else
+                {
+                    Backup(afterAfterQuote);
+                    Backup(afterQuote);
+                }
+            }
+            if (afterQuote != quote)
+                Backup(afterQuote);
+
+            TakeToken(Cur);
+            if (ModeStackIndex + 1 >= MAXFSTRINGLEVEL)
+                return SyntaxError("too many nested f-strings");
+            var theCurrentTok = new Mode
+            {
+                Regular = false,
+                FStringQuote = quote,
+                FStringQuoteSize = quoteSize,
+                FStringStart = Start,
+                FStringMultiLineStart = LineStart,
+                FStringLineStart = Lineno,
+            };
+            _modeStack[++ModeStackIndex] = theCurrentTok;
+            char first = char.ToLowerInvariant(_str[Start]);
+            theCurrentTok.FStringRaw = first == 'f' ? char.ToLowerInvariant(_str[Start + 1]) == 'r' : true;
+            return MakeToken(PyToken.Type.FSTRING_START);
+        }
+
+        private GeneratedTokenInfo LetterQuote(int c)
+        {
+            int quote = c;
+            int quoteSize = 1;
+            int endQuoteSize = 0;
+
+            FirstLineno = Lineno;
+            MultiLineStart = LineStart;
+
+            // Find the quote size and start of string
+            c = NextC();
+            if (c == quote)
+            {
+                c = NextC();
+                if (c == quote)
+                    quoteSize = 3;
+                else
+                    endQuoteSize = 1; // empty string found
+            }
+            if (c != quote)
+                Backup(c);
+
+            // Get rest of string
+            while (endQuoteSize != quoteSize)
+            {
+                c = NextC();
+                if (Done == State.E_ERROR)
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                if (c == EOF || (quoteSize == 1 && c == '\n'))
+                {
+                    // report the error from the initial quote character
+                    Cur = Start + 1;
+                    LineStart = MultiLineStart;
+                    int start = Lineno;
+                    Lineno = FirstLineno;
+
+                    if (InsideFString)
+                    {
+                        // A quote like the f-string's own: the '}' is what is missing.
+                        var mode = _modeStack[ModeStackIndex];
+                        if (mode.FStringQuote == quote && mode.FStringQuoteSize == quoteSize)
+                            return SyntaxError("f-string: expecting '}'");
+                    }
+
+                    if (quoteSize == 3)
+                    {
+                        SyntaxErrorRange($"unterminated triple-quoted string literal (detected at line {start})", -1, -1);
+                        if (c != '\n')
+                            Done = State.E_EOFS;
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
+                    }
+                    SyntaxErrorRange($"unterminated string literal (detected at line {start})", -1, -1);
+                    if (c != '\n')
+                        Done = State.E_EOLS;
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                }
+                if (c == quote)
+                    endQuoteSize++;
+                else
+                {
+                    endQuoteSize = 0;
+                    if (c == '\\')
+                    {
+                        c = NextC(); // skip escaped char
+                        if (c == '\r')
+                            c = NextC();
+                    }
+                }
+            }
+
+            TakeToken(Cur);
+            return MakeToken(PyToken.Type.STRING);
+        }
+
+        // tok_get_fstring_mode
+        private GeneratedTokenInfo GetFStringMode(Mode currentTok)
+        {
+            int endQuoteSize = 0;
+            bool unicodeEscape = false;
+
+            Start = Cur;
+            FirstLineno = Lineno;
+            _startingColOffset = _colOffset;
+
+            // If we start with a bracket, we defer to the normal mode as there is nothing
+            // for us to tokenize before it.
+            int startChar = NextC();
+            if (startChar == '{')
+            {
+                int peek1 = NextC();
+                Backup(peek1);
+                Backup(startChar);
+                if (peek1 != '{')
+                {
+                    currentTok.CurlyBracketExprStartDepth++;
+                    if (currentTok.CurlyBracketExprStartDepth >= MAX_EXPR_NESTING)
+                        return SyntaxError("f-string: expressions nested too deeply");
+                    _modeStack[ModeStackIndex].Regular = true;
+                    return GetNormalMode(currentTok);
+                }
+            }
+            else
+                Backup(startChar);
+
+            // Check if we are at the end of the string
+            bool atEnd = true;
+            for (int i = 0; i < currentTok.FStringQuoteSize; i++)
+            {
+                int quote = NextC();
+                if (quote != currentTok.FStringQuote)
+                {
+                    Backup(quote);
+                    atEnd = false;
+                    break;
+                }
+            }
+            if (atEnd)
+            {
+                TakeToken(Cur);
+                ModeStackIndex--;
+                return MakeToken(PyToken.Type.FSTRING_END);
+            }
+
+            // f_string_middle:
+            MultiLineStart = LineStart;
+            while (endQuoteSize != currentTok.FStringQuoteSize)
+            {
+                int c = NextC();
+                if (Done == State.E_ERROR)
+                    return MakeToken(PyToken.Type.ERRORTOKEN);
+                bool inFormatSpec = currentTok.InFormatSpec && currentTok.CurlyBracketExprStartDepth >= 0;
+
+                if (c == EOF || (currentTok.FStringQuoteSize == 1 && c == '\n'))
+                {
+                    // A format spec ends at a newline: back to the regular mode.
+                    if (inFormatSpec && c == '\n')
+                    {
+                        Backup(c);
+                        _modeStack[ModeStackIndex].Regular = true;
+                        currentTok.InFormatSpec = false;
+                        TakeToken(Cur);
+                        return MakeToken(PyToken.Type.FSTRING_MIDDLE);
+                    }
+
+                    // report the error from the initial quote character
+                    Cur = currentTok.FStringStart;
+                    Cur++;
+                    LineStart = currentTok.FStringMultiLineStart;
+                    int start = Lineno;
+                    Lineno = _modeStack[ModeStackIndex].FStringLineStart;
+
+                    if (currentTok.FStringQuoteSize == 3)
+                    {
+                        SyntaxErrorRange($"unterminated triple-quoted f-string literal (detected at line {start})", -1, -1);
+                        if (c != '\n')
+                            Done = State.E_EOFS;
+                        return MakeToken(PyToken.Type.ERRORTOKEN);
+                    }
+                    return SyntaxError($"unterminated f-string literal (detected at line {start})");
+                }
+
+                if (c == currentTok.FStringQuote)
+                {
+                    endQuoteSize++;
+                    continue;
+                }
+                endQuoteSize = 0;
+
                 if (c == '{')
                 {
-                    // Single '{' starts a nested expression in format spec
-                    // Emit collected format spec content as FSTRING_MIDDLE
-                    if (_position > start)
+                    UpdateFStringExpr('{');
+                    int peek = NextC();
+                    if (peek != '{' || inFormatSpec)
                     {
-                        var content = _source.Substring(start, _position - start);
-                        AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
-                        _currentLineHasRealTokens = true;
+                        Backup(peek);
+                        Backup(c);
+                        currentTok.CurlyBracketExprStartDepth++;
+                        if (currentTok.CurlyBracketExprStartDepth >= MAX_EXPR_NESTING)
+                            return SyntaxError("f-string: expressions nested too deeply");
+                        _modeStack[ModeStackIndex].Regular = true;
+                        currentTok.InFormatSpec = false;
+                        TakeToken(Cur);
                     }
-
-                    // Reset format spec mode and return to let HandleFStringExpression handle the '{'.
-                    // Mark that more spec text may follow once the nested field closes
-                    // (CPython keeps in_format_spec across nested fields: f"{x:{a}.{b}}").
-                    _fstringInFormatSpec = false;
-                    _fstringSpecResume = true;
-                    return;
+                    else
+                        TakeToken(Cur - 1);
+                    return MakeToken(PyToken.Type.FSTRING_MIDDLE);
                 }
-
-                // CPython: if (c == '}') { ... if (peek == '}' && !in_format_spec && cursor == 0) { ... } else { ... break ... } }
-                if (c == '}')
+                else if (c == '}')
                 {
-                    // Single '}' at base expression depth ends the format spec
-                    if (_fstringBraceDepth == exprStartDepth)
+                    if (unicodeEscape)
                     {
-                        // Emit collected format spec content as FSTRING_MIDDLE
-                        if (_position > start)
-                        {
-                            var content = _source.Substring(start, _position - start);
-                            AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
-                            _currentLineHasRealTokens = true;
-                        }
-
-                        // Reset format spec mode and return to let HandleFStringExpression handle the '}'
-                        _fstringInFormatSpec = false;
-                        return;
+                        TakeToken(Cur);
+                        return MakeToken(PyToken.Type.FSTRING_MIDDLE);
                     }
-                }
+                    int peek = NextC();
 
-                // Check for newline in single-quoted f-string
-                if (c == '\n' && _fstringQuoteSize == 1)
+                    // The format spec cannot use double brackets, so they are not looked for there.
+                    int cursor = currentTok.CurlyBracketDepth;
+                    if (peek == '}' && !inFormatSpec && cursor == 0)
+                        TakeToken(Cur - 1);
+                    else
+                    {
+                        Backup(peek);
+                        Backup(c);
+                        _modeStack[ModeStackIndex].Regular = true;
+                        TakeToken(Cur);
+                    }
+                    return MakeToken(PyToken.Type.FSTRING_MIDDLE);
+                }
+                else if (c == '\\')
                 {
-                    // Emit what we have so far
-                    if (_position > start)
+                    int peek = NextC();
+                    if (peek == '\r')
+                        peek = NextC();
+                    // A backslash right before a curly brace: back to the loop for the brace.
+                    if (peek == '{' || peek == '}')
                     {
-                        var content = _source.Substring(start, _position - start);
-                        AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
-                        _currentLineHasRealTokens = true;
+                        if (!currentTok.FStringRaw && WarnInvalidEscapeSequence(peek))
+                            return MakeToken(PyToken.Type.ERRORTOKEN);
+                        Backup(peek);
+                        continue;
                     }
 
-                    _fstringInFormatSpec = false;
-                    throw new InvalidOperationException($"F-string: unterminated string at line {_line}, column {_column}");
+                    if (!currentTok.FStringRaw && peek == 'N')
+                    {
+                        // Handle named unicode escapes (\N{BULLET})
+                        peek = NextC();
+                        if (peek == '{')
+                            unicodeEscape = true;
+                        else
+                            Backup(peek);
+                    }
                 }
-
-                Advance();
             }
 
-            // Emit any remaining content
-            if (_position > start)
-            {
-                var content = _source.Substring(start, _position - start);
-                AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
-                _currentLineHasRealTokens = true;
-            }
-
-            _fstringInFormatSpec = false;
+            // Backup the f-string quotes to emit a final FSTRING_MIDDLE and
+            // add the quotes to the FSTRING_END in the next tokenizer iteration.
+            for (int i = 0; i < currentTok.FStringQuoteSize; i++)
+                Backup(currentTok.FStringQuote);
+            TakeToken(Cur);
+            return MakeToken(PyToken.Type.FSTRING_MIDDLE);
         }
     }
 }

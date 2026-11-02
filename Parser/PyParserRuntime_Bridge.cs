@@ -13,35 +13,12 @@ namespace SharpPy.Generated
     /// </summary>
     public static partial class PyParserRuntime
     {
-        /// <summary>
-        /// Main parsing entry point - uses auto-generated CPython 3.12 compatible tokenizer and parser
-        /// </summary>
-        public static List<GeneratedTokenInfo> LexerSource(string source, bool generateExtraTokens = false)
-        {
-#if DEBUG_AST_LOG
-            Console.WriteLine($"[DEBUG] PyParserRuntime.LexerSource START");
-            Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser");
-#endif
+        /// <summary>The tokens of a whole source, as the tokenize module sees them. For --tokens.</summary>
+        public static List<GeneratedTokenInfo> LexerSource(string source, bool generateExtraTokens = false) =>
+            new Tokenizer(source, extraTokens: generateExtraTokens).Tokenize();
 
-#if DEBUG_AST_LOG
-            Console.WriteLine("[DEBUG] Creating tokenizer...");
-#endif
-            // Use generated tokenizer
-            // CPython 3.12: generateExtraTokens = true for tokenize module (--tokens flag)
-            // CPython 3.12: generateExtraTokens = false for parser (default)
-            var tokenizer = new Tokenizer(source, generateExtraTokens);
-#if DEBUG_AST_LOG
-            Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
-#endif
-            var generatedTokens = tokenizer.Tokenize();
-#if DEBUG_AST_LOG
-            Console.WriteLine($"[DEBUG] Tokenize returned {generatedTokens.Count} tokens");
-#endif
-            return generatedTokens;
-        }
-        
-        public static GeneratedMod ParseToAsdl(List<GeneratedTokenInfo> generatedTokens, string source, string filename) =>
-            new PyParser(generatedTokens, filename, source).ParseFile();
+        public static GeneratedMod ParseToAsdl(string source, string filename) =>
+            new PyParser(new Tokenizer(source, filename: filename), filename, source).ParseFile();
     }
 
     public static class GeneratedParserConfig
