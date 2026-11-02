@@ -1923,18 +1923,6 @@ namespace SharpPy.Generated
             return arg;
         }
 
-        // CPython: CheckBarryAsFlufl
-        // Easter egg: from __future__ import barry_as_BDFL
-        // Returns 0 (false) if token is '!=', non-zero (true) otherwise
-        public static bool CheckBarryAsFlufl(GeneratedTokenInfo tok)
-        {
-            // SharpPy doesn't implement barry_as_BDFL flag
-            // CPython: return strcmp(tok_str, "!=")
-            // strcmp returns 0 if equal, non-zero if different
-            // In C#: return false if tok is "!=", true otherwise
-            return tok.Value != "!=";
-        }
-
         // ============================================================
         // Sequence Helper Functions
         // ============================================================
@@ -2411,15 +2399,6 @@ namespace SharpPy.Generated
         /// CPython: EnsureReal / EnsureImaginary
         /// Validates number token types for complex number literals
         /// </summary>
-        public static GeneratedExpr EnsureReal(GeneratedExpr number)
-        {
-            return PyParserRuntime.EnsureReal(number);
-        }
-
-        public static GeneratedExpr EnsureImaginary(GeneratedExpr number)
-        {
-            return PyParserRuntime.EnsureImaginary(number);
-        }
 
         /// <summary>
         /// CPython: SingletonSeq - Generic singleton sequence wrapper

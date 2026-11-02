@@ -3243,19 +3243,14 @@ namespace SharpPy
                 case ByteCodeOp.MATCH_MAPPING:
                     // Check if subject is a mapping type (dict, etc.)
                     var mappingSubject = frame.ValueStack.Peek(); // Keep subject on stack
-                    var isMapping = PyBool.FromBool(mappingSubject is PyDict ||
-                        HasMatchFlag(mappingSubject, PyType.DictType, "Mapping"));
+                    var isMapping = PyBool.FromBool((mappingSubject.GetPyType().CollectionFlags & PyType.TPFLAGS_MAPPING) != 0);
                     frame.ValueStack.Push(isMapping);
                     break;
 
                 case ByteCodeOp.MATCH_SEQUENCE:
                     // Check if subject is a sequence type (list, tuple, etc.)
                     var sequenceSubject = frame.ValueStack.Peek(); // Keep subject on stack
-                    var isSequence = PyBool.FromBool(sequenceSubject is PyList || sequenceSubject is PyTuple ||
-                        HasMatchFlag(sequenceSubject, PyType.RangeType, "Sequence") ||
-                        HasMatchFlag(sequenceSubject, PyType.ListType, "Sequence") ||
-                        HasMatchFlag(sequenceSubject, PyType.TupleType, "Sequence") ||
-                        HasMatchFlag(sequenceSubject, SharpPy.Modules.PyDequeModule.DequeType, "Sequence"));
+                    var isSequence = PyBool.FromBool((sequenceSubject.GetPyType().CollectionFlags & PyType.TPFLAGS_SEQUENCE) != 0);
                     frame.ValueStack.Push(isSequence);
                     break;
 
@@ -6565,26 +6560,6 @@ namespace SharpPy
             };
 
             return ExecuteBinaryOpType(left, right, operation);
-        }
-
-        /// <summary>
-        /// CPython-style comparison operations
-        /// </summary>
-        /// <summary>
-        /// Python 스타일 포매팅을 적용 (VM에서 사용)
-        /// </summary>
-        /// <summary>Py_TPFLAGS_MAPPING and Py_TPFLAGS_SEQUENCE: inherited from the builtin, and set on a class
-        /// by the collections.abc class of that name (__abc_tpflags__).</summary>
-        private static bool HasMatchFlag(PyObject subject, PyType builtin, string abc)
-        {
-            var type = subject.GetPyType();
-            if (type.IsSubclassOf(builtin)) return true;
-            if (type.MRO == null) return false;
-            foreach (var level in type.MRO)
-                if (level.Name == abc && level is PyClass abcClass &&
-                    abcClass.GetAttribute("__module__") is PyString { Value: "collections.abc" or "_collections_abc" })
-                    return true;
-            return false;
         }
 
         /// <summary>Py_TPFLAGS_MATCH_SELF: case int(x) binds the subject itself.</summary>

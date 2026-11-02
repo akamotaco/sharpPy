@@ -930,7 +930,11 @@ public class ParserGenerator
         // Forced (commit point): &&item
         // Unlike lookahead, this CONSUMES the token after checking it exists
         // CPython: This is a commit point - backtracking not allowed after this
-        return GenerateAtomCode(forced.Inner);
+        // c_generator.py: _PyPegen_expect_forced_token(p, type, "text")
+        var code = GenerateAtomCode(forced.Inner);
+        if (forced.Inner is Keyword literal && code.StartsWith("ExpectToken("))
+            return "ExpectForcedToken(" + code.Substring("ExpectToken(".Length, code.Length - "ExpectToken(".Length - 1) + ", \"" + literal.Value + "\")";
+        return code;
     }
 
     private string GenerateGatherCode(Gather gather)

@@ -841,7 +841,10 @@ namespace SharpPy
                 #endif
                 // CPython 3.12: Return TypeDict as mappingproxy
                 // All descriptors are now in TypeDict, no need to merge
-                return new PyMappingProxy(pyType.TypeDict);
+                var typeDict = new Dictionary<string, PyObject>(pyType.TypeDict);
+                foreach (var slot in pyType.SlotDict)
+                    typeDict.TryAdd(slot.Key, slot.Value);
+                return new PyMappingProxy(typeDict);
             }
 
             // CPython 3.12: If dict is NULL, return None

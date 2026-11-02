@@ -1299,23 +1299,20 @@ namespace SharpPy
                 codeObject = pyCode;
             }
             // If source is a string, parse and compile it
-            else if (source is PyString pyString)
+            else
             {
-                string sourceCode = pyString.Value;
                 string filename = "<string>";
+                // builtin_eval_impl: the leading spaces and tabs are no indentation.
+                string sourceCode = SourceAsString(source, "eval", "string, bytes or code", false, filename).TrimStart(' ', '\t');
 
                 try
                 {
-                    codeObject = Compiler.CompileSource(sourceCode, filename, CompileMode.Eval);
+                    codeObject = Compiler.CompileSource(sourceCode, filename, CompileMode.Eval, 0, InheritedCompilerFlags());
                 }
                 catch (Exception ex)
                 {
                     throw CompilerError(ex, filename);
                 }
-            }
-            else
-            {
-                throw PyTypeError.Create($"eval() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
             }
 
             // 4. Execute with provided globals/locals
@@ -1383,24 +1380,18 @@ namespace SharpPy
                 return Compiler.Compile(PythonAst.ObjectToMod(source, compileMode), filename, optimizeLevel, null);
             }
 
-            // Extract source code string
-            string sourceCode;
-            if (source is PyString pyString)
-                sourceCode = pyString.Value;
-            else if (source is PyBytes rawSource)
-                sourceCode = System.Text.Encoding.UTF8.GetString(rawSource.Value);
-            else if (source is PyByteArray rawArray)
-                sourceCode = System.Text.Encoding.UTF8.GetString(rawArray.ToByteArrayCopy());
-            else
-                throw PyTypeError.Create($"compile() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
+            string sourceCode = SourceAsString(source, "compile", "string, bytes or AST", compileMode == CompileMode.File, filename);
+            bool dontInherit = Option(4, "dont_inherit") is PyObject dontInheritValue && dontInheritValue.IsTrue();
+            if (!dontInherit)
+                compileFlags |= InheritedCompilerFlags();
 
             PyCodeObject codeObject;
 
             try
             {
                 if ((compileFlags & PythonAst.PyCF_ONLY_AST) != 0)
-                    return PythonAst.ModToObject(Compiler.Parse(sourceCode, filename, compileMode));
-                codeObject = Compiler.CompileSource(sourceCode, filename, compileMode, optimizeLevel);
+                    return PythonAst.ModToObject(Compiler.Parse(sourceCode, filename, compileMode, compileFlags));
+                codeObject = Compiler.CompileSource(sourceCode, filename, compileMode, optimizeLevel, compileFlags);
             }
             catch (Exception ex)
             {
@@ -1409,6 +1400,34 @@ namespace SharpPy
             }
 
             return codeObject;
+        }
+
+        // _Py_SourceAsString
+        private static string SourceAsString(PyObject cmd, string funcname, string what, bool execInput, string filename)
+        {
+            if (cmd is PyString text)
+            {
+                if (text.Value.IndexOf('\0') >= 0)
+                    throw new PythonException(new PySyntaxError("source code string cannot contain null bytes"));
+                return text.Value;
+            }
+            byte[] bytes = cmd switch
+            {
+                PyBytes value => value.Value,
+                PyByteArray array => array.ToByteArrayCopy(),
+                PyMemoryView view => ((PyBytes)view.GetAttribute("tobytes").Call(new PyObject[0], null)).Value,
+                _ => throw PyTypeError.Create($"{funcname}() arg 1 must be a {what} object"),
+            };
+            if (Array.IndexOf(bytes, (byte)0) >= 0)
+                throw new PythonException(new PySyntaxError("source code string cannot contain null bytes"));
+            return Tokenizer.DecodeStr(bytes, execInput, filename);
+        }
+
+        // PyEval_MergeCompilerFlags: the __future__ statements of the code that calls
+        private static int InheritedCompilerFlags()
+        {
+            const int PyCF_MASK = 0x20000 | 0x40000 | 0x80000 | 0x100000 | 0x200000 | 0x400000 | 0x800000 | 0x1000000;
+            return PyVM.CurrentFrame?.Code is PyCodeObject code ? code.Flags & PyCF_MASK : 0;
         }
 
         /// <summary>What compile, exec and eval raise for source that does not compile.</summary>
@@ -1499,23 +1518,19 @@ namespace SharpPy
                 codeObject = pyCode;
             }
             // If source is a string, compile it first
-            else if (source is PyString pyString)
+            else
             {
-                string sourceCode = pyString.Value;
                 string filename = "<string>";
+                string sourceCode = SourceAsString(source, "exec", "string, bytes or code", true, filename);
 
                 try
                 {
-                    codeObject = Compiler.CompileSource(sourceCode, filename);
+                    codeObject = Compiler.CompileSource(sourceCode, filename, CompileMode.File, 0, InheritedCompilerFlags());
                 }
                 catch (Exception ex)
                 {
                     throw CompilerError(ex, filename);
                 }
-            }
-            else
-            {
-                throw PyTypeError.Create($"exec() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
             }
 
             // 4. Execute with provided globals/locals (exec returns None)

@@ -294,9 +294,88 @@ namespace SharpPy.Generated
             return result.ToArray();
         }
 
+        // PyUnicode_DecodeUTF8 of a part that was no UTF-8 (the source came as bytes)
+        private void CheckUtf8(string s)
+        {
+            for (int index = 0; index < s.Length; index++)
+            {
+                if (char.IsHighSurrogate(s[index]))
+                    index++;
+                else if (s[index] >= 0xDC80 && s[index] <= 0xDCFF)
+                    throw RaiseDecodeError($"(unicode error) {Utf8Failure(s)}");
+            }
+        }
+
+        private static string Utf8Failure(string s)
+        {
+            var bytes = new List<byte>();
+            for (int index = 0; index < s.Length; index++)
+            {
+                if (s[index] >= 0xDC80 && s[index] <= 0xDCFF && (index == 0 || !char.IsHighSurrogate(s[index - 1])))
+                    bytes.Add((byte)(s[index] - 0xDC00));
+                else
+                {
+                    int cp = PyString.CodePointAt(s, index, out int width);
+                    bytes.AddRange(Encoding.UTF8.GetBytes(PyString.CodePointText(cp)));
+                    index += width - 1;
+                }
+            }
+            try
+            {
+                new PyBytes(bytes.ToArray()).GetAttribute("decode").Call(new PyObject[] { new PyString("utf-8") }, null);
+                return "";
+            }
+            catch (PythonException error)
+            {
+                return error.PyException.AsString().Value;
+            }
+        }
+
         // _PyPegen_decode_string
-        private string DecodeString(bool raw, string s, GeneratedTokenInfo t) =>
-            raw ? s : DecodeUnicodeWithEscapes(s, t);
+        private string DecodeString(bool raw, string s, GeneratedTokenInfo t)
+        {
+            CheckUtf8(s);
+            return raw ? s : DecodeUnicodeWithEscapes(s, t);
+        }
+
+        // _PyPegen_ensure_imaginary
+        protected GeneratedExpr EnsureImaginary(GeneratedExpr exp)
+        {
+            if (!(exp is GeneratedConstant { Value: GeneratedPyConstantComplex }))
+                RaiseSyntaxErrorKnownLocation(exp, "imaginary number required in complex literal");
+            return exp;
+        }
+
+        // _PyPegen_ensure_real
+        protected GeneratedExpr EnsureReal(GeneratedExpr exp)
+        {
+            if (!(exp is GeneratedConstant { Value: not GeneratedPyConstantComplex }))
+                RaiseSyntaxErrorKnownLocation(exp, "real number required in complex literal");
+            return exp;
+        }
+
+        // _PyPegen_check_barry_as_flufl: true fails the rule
+        protected bool CheckBarryAsFlufl(GeneratedTokenInfo token)
+        {
+            if ((_flags & CO_FUTURE_BARRY_AS_BDFL) != 0)
+            {
+                if (token.Value != "<>")
+                    RaiseSyntaxError("with Barry as BDFL, use '<>' instead of '!='");
+                return false;
+            }
+            return token.Value != "!=";
+        }
+
+        // _PyPegen_checked_future_import
+        protected GeneratedStmt CheckedFutureImport(GeneratedIdentifier module, GeneratedAliasSeq names, int level,
+            int lineno, int colOffset, int endLineno, int endColOffset)
+        {
+            if (level == 0 && module != null && module.Value == "__future__")
+                foreach (var item in names)
+                    if (item is GeneratedAlias alias && alias.Name.Value == "barry_as_FLUFL")
+                        _flags |= CO_FUTURE_BARRY_AS_BDFL;
+            return PyParserHelpers.CheckedFutureImport(module, names, level, lineno, colOffset, endLineno, endColOffset);
+        }
 
         // _PyPegen_parse_string
         private GeneratedPyConstant ParseString(GeneratedTokenInfo t)

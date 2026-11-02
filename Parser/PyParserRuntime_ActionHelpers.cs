@@ -258,22 +258,6 @@ namespace SharpPy.Generated
             int level,
             int lineno, int col_offset, int end_lineno, int end_col_offset)
         {
-            // CPython: Check for __future__ import with barry_as_FLUFL
-            if (level == 0 && module != null && module.Value == "__future__")
-            {
-                if (names != null)
-                {
-                    foreach (var item in names)
-                    {
-                        if (item is GeneratedAlias alias && alias.Name.Value == "barry_as_FLUFL")
-                        {
-                            // CPython: p->flags |= PyPARSE_BARRY_AS_BDFL;
-                            // SharpPy: Parser flags handling (currently ignored)
-                        }
-                    }
-                }
-            }
-
             // CPython: return _PyAST_ImportFrom(module, names, level, lineno, col_offset, end_lineno, end_col_offset, arena);
             return new GeneratedImportFrom
             {
@@ -297,24 +281,6 @@ namespace SharpPy.Generated
                 arg.TypeComment = typeComment.Value;
             }
             return arg;
-        }
-
-        /// <summary>
-        /// CPython: expr_ty EnsureReal(Parser *p, expr_ty number)
-        /// </summary>
-        public static GeneratedExpr EnsureReal(GeneratedExpr number)
-        {
-            // Ensure number is real (not imaginary)
-            return number;
-        }
-
-        /// <summary>
-        /// CPython: expr_ty EnsureImaginary(Parser *p, expr_ty number)
-        /// </summary>
-        public static GeneratedExpr EnsureImaginary(GeneratedExpr number)
-        {
-            // Convert to imaginary number
-            return number;
         }
 
         /// <summary>
@@ -655,6 +621,8 @@ namespace SharpPy.Generated
                     return new GeneratedName { Id = name.Id, Ctx = ctx };
 
                 case GeneratedTuple tuple:
+                    if (tuple.Elts == null)
+                        return new GeneratedTuple { Elts = null, Ctx = ctx, LineNo = tuple.LineNo, ColOffset = tuple.ColOffset, EndLineNo = tuple.EndLineNo, EndColOffset = tuple.EndColOffset };
                     var tuple_elts = new GeneratedExprSeq(tuple.Elts.Count);
                     foreach (var elt in tuple.Elts)
                     {
@@ -663,6 +631,8 @@ namespace SharpPy.Generated
                     return new GeneratedTuple { Elts = tuple_elts, Ctx = ctx };
 
                 case GeneratedList list:
+                    if (list.Elts == null)
+                        return new GeneratedList { Elts = null, Ctx = ctx, LineNo = list.LineNo, ColOffset = list.ColOffset, EndLineNo = list.EndLineNo, EndColOffset = list.EndColOffset };
                     var list_elts = new GeneratedExprSeq(list.Elts.Count);
                     foreach (var elt in list.Elts)
                     {

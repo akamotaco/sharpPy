@@ -390,7 +390,7 @@ import_name[GeneratedStmt]: 'import' a=dotted_as_names { PyAst.Import((Generated
 # C#: 'from x import y' - relative or absolute import with optional dots
 import_from[GeneratedStmt]:
     | 'from' a=('.' | '...')* b=dotted_name 'import' c=import_from_targets {
-        PyParserHelpers.CheckedFutureImport(b.GetIdentifier(), (GeneratedAliasSeq)c, PyParserHelpers.SeqCountDots(a.ToRawList()), EXTRA) }
+        CheckedFutureImport(b.GetIdentifier(), (GeneratedAliasSeq)c, PyParserHelpers.SeqCountDots(a.ToRawList()), EXTRA) }
     | 'from' a=('.' | '...')+ 'import' b=import_from_targets {
         PyAst.ImportFrom(null, (GeneratedAliasSeq)b, PyParserHelpers.SeqCountDots(a.ToRawList()), EXTRA) }
 
@@ -840,12 +840,12 @@ signed_real_number[GeneratedExpr]:
 # CPython: real_number[expr_ty]: real=NUMBER { _PyPegen_ensure_real(real) }
 # C#: Real number (ensure it's not complex)
 real_number[GeneratedExpr]:
-    | real=NUMBER { PyParserHelpers.EnsureReal(NumberToken(real)) }
+    | real=NUMBER { EnsureReal(NumberToken(real)) }
 
 # CPython: imaginary_number[expr_ty]: imag=NUMBER { _PyPegen_ensure_imaginary(imag) }
 # C#: Imaginary number (ensure it has 'j' suffix)
 imaginary_number[GeneratedExpr]:
-    | imag=NUMBER { PyParserHelpers.EnsureImaginary(NumberToken(imag)) }
+    | imag=NUMBER { EnsureImaginary(NumberToken(imag)) }
 
 # CPython: capture_pattern[pattern_ty]: target=pattern_capture_target { _PyAST_MatchAs(null, target.GetIdentifier(), EXTRA) }
 # C#: Capture pattern (variable name)
@@ -1160,7 +1160,7 @@ compare_op_bitwise_or_pair[GeneratedCmpopExprPair]:
 # C#: Individual comparison operators
 eq_bitwise_or[GeneratedCmpopExprPair]: '==' a=bitwise_or { PyParserHelpers.CmpopExprPair(Eq, (GeneratedExpr)a) }
 noteq_bitwise_or[GeneratedCmpopExprPair]:
-    | (tok='!=' { ASTHelpers.CheckBarryAsFlufl(tok) ? null : tok}) a=bitwise_or {PyParserHelpers.CmpopExprPair(NotEq, (GeneratedExpr)a) }
+    | (tok='!=' { CheckBarryAsFlufl(tok) ? null : tok}) a=bitwise_or {PyParserHelpers.CmpopExprPair(NotEq, (GeneratedExpr)a) }
 lte_bitwise_or[GeneratedCmpopExprPair]: '<=' a=bitwise_or { PyParserHelpers.CmpopExprPair(LtE, (GeneratedExpr)a) }
 lt_bitwise_or[GeneratedCmpopExprPair]: '<' a=bitwise_or { PyParserHelpers.CmpopExprPair(Lt, (GeneratedExpr)a) }
 gte_bitwise_or[GeneratedCmpopExprPair]: '>=' a=bitwise_or { PyParserHelpers.CmpopExprPair(GtE, (GeneratedExpr)a) }

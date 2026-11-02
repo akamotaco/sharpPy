@@ -889,6 +889,16 @@ namespace SharpPy
             return Located(error, message, filename, line, offset, endLine, endOffset, text);
         }
 
+        // _PyPegen_raise_tokenizer_init_error
+        internal static PythonException TokenizerInit(string message, string filename)
+        {
+            var error = new PySyntaxError(message);
+            var details = new PyTuple(new PyString(filename), new PyInt(0), new PyInt(-1), PyNone.Instance);
+            error.ReadDetails(details);
+            error.Args = new PyObject[] { new PyString(message), details };
+            return new PythonException(error);
+        }
+
         // SyntaxError(msg, (filename, lineno, offset, text, end_lineno, end_offset))
         internal static PythonException Located(PySyntaxError error, string message, string filename, int line, int offset,
             int endLine, int endOffset, PyObject text)

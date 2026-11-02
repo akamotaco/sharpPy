@@ -21,6 +21,16 @@ namespace SharpPy
             InstallObject();
             InstallNumbers();
             InstallText();
+            PyGenericAlias.Install();
+            PySlotWrappers.Install();
+            Slot(PyType.GenericAliasType, "__repr__", (self, args) => PyGenericAlias.Repr(self));
+            Slot(PyType.GenericAliasType, "__getitem__", (self, args) => PyGenericAlias.GetItemSlot(self, args[0]));
+            MethodO(PyType.GenericAliasType, "__mro_entries__", (self, args) => PyGenericAlias.MroEntries(self));
+            Method(PyType.GenericAliasType, "__reduce__", (self, args) => PyGenericAlias.Reduce(self));
+            foreach (var sequence in new[] { PyType.ListType, PyType.TupleType, PyType.RangeType, PyType.MemoryViewType })
+                sequence.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
+            foreach (var mapping in new[] { PyType.DictType, PyType.MappingProxyType })
+                mapping.CollectionFlags = PyType.TPFLAGS_MAPPING;
             PyByteArray.InstallNew();
             InstallFrameAttributes(PyType.CoroutineType, "cr", self => ((SharpPy.Core.PyCoroutine)self).Frame, self => ((SharpPy.Core.PyCoroutine)self).IsFinished);
             InstallFrameAttributes(PyType.AsyncGeneratorType, "ag", self => ((SharpPy.Core.PyAsyncGenerator)self).Frame, self => false);

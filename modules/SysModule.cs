@@ -122,6 +122,7 @@ namespace SharpPy.Modules
             module.ModuleDict["setrecursionlimit"] = new PySysFunction("setrecursionlimit");
             module.ModuleDict["intern"] = new PySysFunction("intern");
             module.ModuleDict["flags"] = new PySysFlags();
+            module.ModuleDict["warnoptions"] = new PyList();
 
             // CPython 3.12: Frame and exception introspection
             module.ModuleDict["_getframe"] = new PySysFunction("_getframe");

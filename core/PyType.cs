@@ -319,6 +319,9 @@ namespace SharpPy
         /// </summary>
         public Dictionary<string, PyObject> TypeDict { get; protected set; }
 
+        // The wrappers of add_operators for what this type does through CLR virtuals: see PySlotWrappers.
+        internal Dictionary<string, PyObject> SlotDict { get; } = new Dictionary<string, PyObject>();
+
         #endregion
 
         #region Built-in Type Constants
@@ -406,7 +409,7 @@ namespace SharpPy
         public static readonly PyType NoneType = new PyType("NoneType", new[] { ObjectType });
         public static readonly PyType EllipsisType = new PyType("ellipsis", new[] { ObjectType }); // CPython Objects/sliceobject.c
         public static readonly PyType NullType = new PyType("NullType", new[] { ObjectType }); // CPython 내부 NULL
-        public static readonly PyType GenericAliasType = new PyType("GenericAlias", new[] { ObjectType });
+        public static readonly PyType GenericAliasType = new PyType("GenericAlias", new[] { ObjectType }, "types");
         public static readonly PyType MappingProxyType = new PyType("mappingproxy", new[] { ObjectType }); // CPython Objects/descrobject.c
 
         // 예외 타입 계층 (PyException.cs와 연동)
@@ -583,6 +586,47 @@ namespace SharpPy
         {
             MRO = mro;
             InvalidateTypeCache();
+        }
+
+        // Py_TPFLAGS_SEQUENCE and Py_TPFLAGS_MAPPING, which MATCH_SEQUENCE and MATCH_MAPPING read
+        internal const int TPFLAGS_SEQUENCE = 1 << 5;
+        internal const int TPFLAGS_MAPPING = 1 << 6;
+        internal const int COLLECTION_FLAGS = TPFLAGS_SEQUENCE | TPFLAGS_MAPPING;
+        private int _collectionFlags = -1;
+
+        // inherit_patma_flags: a type without its own takes those of the first in its MRO that has any.
+        internal int CollectionFlags
+        {
+            get
+            {
+                if (_collectionFlags >= 0)
+                    return _collectionFlags;
+                int flags = 0;
+                if (MRO != null)
+                {
+                    foreach (var level in MRO)
+                    {
+                        if (!ReferenceEquals(level, this) && level.CollectionFlags != 0)
+                        {
+                            flags = level.CollectionFlags;
+                            break;
+                        }
+                    }
+                }
+                _collectionFlags = flags;
+                return flags;
+            }
+            set => _collectionFlags = value;
+        }
+
+        // set_collection_flag_recursive
+        internal void SetCollectionFlagRecursive(int flag)
+        {
+            if (GetType() == typeof(PyType) || CollectionFlags == flag)
+                return;
+            CollectionFlags = flag;
+            foreach (var subclass in LiveSubclasses())
+                subclass.SetCollectionFlagRecursive(flag);
         }
 
         // tp_subclasses: weak, a class that is gone leaves no entry.
@@ -2082,6 +2126,7 @@ namespace SharpPy
             else if (t.TypeDict != null)
             {
                 foreach (var k in t.TypeDict.Keys) names.Add(k);
+                foreach (var k in t.SlotDict.Keys) names.Add(k);
                 // object contributes the standard protocol surface that CPython keeps as
                 // tp_dict slot wrappers. SharpPy implements these as CLR virtuals/operator
                 // slots rather than getattr descriptors (see InitializeObjectTypeDescriptors),
@@ -2272,6 +2317,8 @@ namespace SharpPy
                     // For built-in types: return mappingproxy of TypeDict
                     // Add required special attributes
                     var typeDict = new Dictionary<string, PyObject>(type.TypeDict);
+                    foreach (var slot in type.SlotDict)
+                        typeDict.TryAdd(slot.Key, slot.Value);
 
                     // Add __name__
                     typeDict["__name__"] = StringCache.GetOrCreate(type.Name);

@@ -45,7 +45,7 @@ namespace SharpPy.Generated
         // Parser: where the tokens come from, the rule it starts with and its flags
         protected readonly Tokenizer _tok;
         private readonly CompileMode _startRule;
-        private readonly int _flags;
+        private int _flags;
         private bool _parsingStarted;
 
         // Left-recursion handling (Warth et al. algorithm)
@@ -231,20 +231,10 @@ namespace SharpPy.Generated
         /// </summary>
         protected GeneratedTokenInfo ExpectForcedToken(PyToken.Type type, string expected)
         {
-            if (_pendingSyntaxError != null)
-            {
-                return null;
-            }
-
             var token = CurrentToken;
-            if (token == null || token.Type != type || token.Value != expected)
-            {
-                // CPython: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(t, "expected '%s'", expected)
+            if (token.Type != type)
                 RaiseSyntaxErrorKnownLocation(token, "expected '%s'", expected);
-                _pendingErrorPosition = _position;
-                return null;
-            }
-            _lastToken = token;  // Track last consumed token
+            _lastToken = token;
             _position++;
             return token;
         }
@@ -669,6 +659,7 @@ namespace SharpPy.Generated
 
         private const int CURRENT_POS = -5;
         private const int PyCF_DONT_IMPLY_DEDENT = 0x200;
+        private const int CO_FUTURE_BARRY_AS_BDFL = 0x400000;
         private const int PyCF_ALLOW_INCOMPLETE_INPUT = 0x4000;
 
         private GeneratedTokenInfo LastFilledToken => _tokens[_tokens.Count - 1];

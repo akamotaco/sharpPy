@@ -946,7 +946,7 @@ namespace SharpPy
         }
 
         // object_repr: the default, whatever the object's own type declares.
-        private static PyString ObjectRepr(PyObject self)
+        internal static PyString ObjectRepr(PyObject self)
         {
             var type = self.GetPyType();
             string modulePrefix = type is PyClass cls && cls.ClassDict.TryGetValue("__module__", out var module) &&

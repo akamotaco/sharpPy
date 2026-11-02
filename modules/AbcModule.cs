@@ -51,6 +51,19 @@ namespace SharpPy.Modules
             if (!ComputeAbstractMethods(cls))
                 throw PyRuntimeError.Create("Failed to compute abstract methods");
 
+            // __abc_tpflags__ & COLLECTION_FLAGS become the flags of the class.
+            if (cls is PyClass abc && abc.ClassDict.TryGetValue("__abc_tpflags__", out var flags))
+            {
+                if (flags is PyInt value)
+                {
+                    int bits = value.ToInt() & PyType.COLLECTION_FLAGS;
+                    if (bits == PyType.COLLECTION_FLAGS)
+                        throw PyTypeError.Create("__abc_tpflags__ cannot be both Py_TPFLAGS_SEQUENCE and Py_TPFLAGS_MAPPING");
+                    abc.CollectionFlags |= bits;
+                }
+                abc.ClassDict.Remove("__abc_tpflags__");
+            }
+
             // Create and attach _abc_impl data structure
             var abcData = new AbcData();
             try
@@ -91,6 +104,10 @@ namespace SharpPy.Modules
                 abcData.Registry = new PySet();
 
             abcData.Registry.Add(subclass);
+
+            // A class registered with a collection ABC matches as that collection.
+            if (subclass is PyType registered && cls is PyType abcType && (abcType.CollectionFlags & PyType.COLLECTION_FLAGS) != 0)
+                registered.SetCollectionFlagRecursive(abcType.CollectionFlags & PyType.COLLECTION_FLAGS);
 
             // CPython ABCMeta.register() makes the virtual subclass visible to every
             // ancestor ABC too (verified: MutableSet.register(X) => isinstance(x, Set /

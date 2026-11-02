@@ -993,6 +993,7 @@ namespace SharpPy.Modules
 
             type.TypeDict["__hash__"] = PyNone.Instance;
 
+            type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
             module.ModuleDict["array"] = type;
             module.ModuleDict["ArrayType"] = type;
             module.ModuleDict["typecodes"] = new PyString("bBuhHiIlLqQfd");

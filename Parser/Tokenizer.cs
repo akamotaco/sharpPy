@@ -348,6 +348,172 @@ namespace SharpPy.Generated
 
         public string Buffer => _str;
 
+        // get_normal_name
+        private static string GetNormalName(string s)
+        {
+            string name = (s.Length > 12 ? s.Substring(0, 12) : s).Replace('_', '-').ToLowerInvariant();
+            if (name == "utf-8" || name.StartsWith("utf-8-"))
+                return "utf-8";
+            if (name is "latin-1" or "iso-8859-1" or "iso-latin-1" || name.StartsWith("latin-1-") ||
+                name.StartsWith("iso-8859-1-") || name.StartsWith("iso-latin-1-"))
+                return "iso-8859-1";
+            return s;
+        }
+
+        // get_coding_spec
+        private static string GetCodingSpec(byte[] s, int from, int size)
+        {
+            int i;
+            for (i = 0; i < size - 6; i++)
+            {
+                byte b = s[from + i];
+                if (b == '#')
+                    break;
+                if (b != ' ' && b != '\t' && b != 0x0C)
+                    return null;
+            }
+            for (; i < size - 6; i++)
+            {
+                int t = from + i;
+                if (s[t] != 'c' || s[t + 1] != 'o' || s[t + 2] != 'd' || s[t + 3] != 'i' || s[t + 4] != 'n' || s[t + 5] != 'g')
+                    continue;
+                t += 6;
+                byte At(int index) => index < s.Length ? s[index] : (byte)0;
+                if (At(t) != ':' && At(t) != '=')
+                    continue;
+                do
+                {
+                    t++;
+                } while (At(t) == ' ' || At(t) == '\t');
+                int begin = t;
+                while (char.IsAsciiLetterOrDigit((char)At(t)) || At(t) == '-' || At(t) == '_' || At(t) == '.')
+                    t++;
+                if (begin < t)
+                    return GetNormalName(Encoding.ASCII.GetString(s, begin, t - begin));
+            }
+            return null;
+        }
+
+        // check_coding_spec: false when the search stops at this line
+        private static bool CheckCodingSpec(byte[] s, int from, int size, ref string encoding, ref string enc, string filename)
+        {
+            string cs = GetCodingSpec(s, from, size);
+            if (cs == null)
+            {
+                for (int i = 0; i < size; i++)
+                {
+                    byte b = s[from + i];
+                    if (b == '#' || b == '\n' || b == '\r')
+                        break;
+                    if (b != ' ' && b != '\t' && b != 0x0C)
+                        return false;
+                }
+                return true;
+            }
+            if (encoding == null)
+            {
+                if (cs != "utf-8")
+                    enc = cs;
+                encoding = cs;
+            }
+            else if (encoding != cs)
+                throw PySyntaxError.TokenizerInit($"encoding problem: {cs} with BOM", filename);
+            return false;
+        }
+
+        // translate_into_utf8
+        private static string Decode(byte[] bytes, int offset, string enc, string filename)
+        {
+            var data = new byte[bytes.Length - offset];
+            Array.Copy(bytes, offset, data, 0, data.Length);
+            try
+            {
+                return ((PyString)new PyBytes(data).GetAttribute("decode").Call(new PyObject[] { new PyString(enc) }, null)).Value;
+            }
+            catch (PythonException error) when (error.PyException.GetTypeName() == "LookupError")
+            {
+                throw PySyntaxError.TokenizerInit($"unknown encoding: {enc}", filename);
+            }
+        }
+
+        // What is not UTF-8 stays in the text as U+DC80..U+DCFF, for the place that decodes it to say so.
+        private static string DecodeUtf8(byte[] s, int from)
+        {
+            var strict = new UTF8Encoding(false, true);
+            try
+            {
+                return strict.GetString(s, from, s.Length - from);
+            }
+            catch (ArgumentException)
+            {
+            }
+            var result = new StringBuilder(s.Length);
+            int index = from;
+            while (index < s.Length)
+            {
+                int b = s[index];
+                int length = b < 0x80 ? 1 : b >= 0xC2 && b < 0xE0 ? 2 : b >= 0xE0 && b < 0xF0 ? 3 : b >= 0xF0 && b < 0xF5 ? 4 : 0;
+                string decoded = null;
+                if (length != 0 && index + length <= s.Length)
+                {
+                    try
+                    {
+                        decoded = strict.GetString(s, index, length);
+                    }
+                    catch (ArgumentException)
+                    {
+                    }
+                }
+                if (decoded != null)
+                {
+                    result.Append(decoded);
+                    index += length;
+                }
+                else
+                {
+                    result.Append((char)(b < 0x80 ? b : 0xDC00 + b));
+                    index++;
+                }
+            }
+            return result.ToString();
+        }
+
+        /// <summary>decode_str: the text of a source given as bytes, by its BOM and its coding cookie.</summary>
+        public static string DecodeStr(byte[] input, bool single, string filename)
+        {
+            string encoding = null, enc = null;
+            int start = 0;
+            if (input.Length >= 3 && input[0] == 0xEF && input[1] == 0xBB && input[2] == 0xBF)
+            {
+                encoding = "utf-8";
+                start = 3;
+            }
+            int first = -1, second = -1;
+            for (int i = start; i < input.Length; i++)
+            {
+                if (input[i] != '\n' && input[i] != '\r')
+                    continue;
+                if (input[i] == '\r' && i + 1 < input.Length && input[i + 1] == '\n')
+                    i++;
+                if (first < 0)
+                    first = i;
+                else
+                {
+                    second = i;
+                    break;
+                }
+            }
+            if (single && first < 0 && input.Length > start)
+                first = input.Length;
+            if (first >= 0)
+            {
+                bool more = CheckCodingSpec(input, start, first - start, ref encoding, ref enc, filename);
+                if (enc == null && more && second >= 0)
+                    CheckCodingSpec(input, first + 1, second - first, ref encoding, ref enc, filename);
+            }
+            return enc != null ? Decode(input, start, enc, filename) : DecodeUtf8(input, start);
+        }
+
         /// <summary>The tokens of the whole source, for --tokens.</summary>
         public List<GeneratedTokenInfo> Tokenize()
         {
@@ -1049,7 +1215,7 @@ namespace SharpPy.Generated
 
             // Set start of current token
             Start = Cur - 1;
-            _startingColOffset = _colOffset - 1;
+            _startingColOffset = c == EOF ? _colOffset - 1 : _colOffset - ByteWidth(c);
 
             // Skip comment
             if (c == '#')

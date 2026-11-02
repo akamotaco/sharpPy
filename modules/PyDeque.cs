@@ -142,6 +142,7 @@ namespace SharpPy.Modules
                 return items.GetIterator();
             }, 0, 0);
 
+            type.CollectionFlags = PyType.TPFLAGS_SEQUENCE;
             DequeType = type;
         }
     }
