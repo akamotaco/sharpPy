@@ -690,12 +690,11 @@ namespace SharpPy.Generated
             {
                 if (lineno < 1 || !System.IO.File.Exists(filename))
                     return null;
-                int current = 0;
-                foreach (var line in System.IO.File.ReadLines(filename))
-                    if (++current == lineno)
-                        return line + "\n";
+                var lines = Tokenizer.DecodeFile(System.IO.File.ReadAllBytes(filename), filename).Split('\n');
+                if (lineno <= lines.Length)
+                    return lines[lineno - 1].TrimEnd('\r') + "\n";
             }
-            catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException)
+            catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or PythonException)
             {
             }
             return null;

@@ -576,12 +576,17 @@ namespace SharpPy
         internal static void Shutdown()
         {
             // wait_for_thread_shutdown: threading joins what is not a daemon.
-            try
+            if (PyImportSystem.TryGetModule("threading", out var threading))
             {
-                if (PyImportSystem.TryGetModule("threading", out var threading))
+                try
+                {
                     threading.GetAttribute("_shutdown").Call(Array.Empty<PyObject>(), null);
+                }
+                catch (PythonException error)
+                {
+                    PyUnraisable.Report(error, threading);
+                }
             }
-            catch { /* a teardown step that fails must not stop the next one */ }
             try { Modules.AtexitModule.RunCallbacks(); }
             catch { /* a teardown step that fails must not stop the next one */ }
             PyGil.BeginFinalizing();

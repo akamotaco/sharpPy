@@ -186,5 +186,7 @@ namespace SharpPy
 
         /// <summary>_PyRuntimeState_SetFinalizing: this thread keeps the GIL to the end.</summary>
         internal static void BeginFinalizing() => _finalizing = true;
+
+        internal static bool Finalizing => _finalizing;
     }
 }

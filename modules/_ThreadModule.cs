@@ -109,6 +109,8 @@ namespace SharpPy.Modules
         // thread_PyThread_start_new_thread
         private static PyObject StartNewThread(PyObject[] args)
         {
+            if (PyGil.Finalizing)
+                throw PyRuntimeError.Create("can't create new thread at interpreter shutdown");
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"start_new_thread expected at {(args.Length < 2 ? "least 2" : "most 3")} arguments, got {args.Length}");
             var function = args[0];
