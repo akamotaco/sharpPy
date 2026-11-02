@@ -80,6 +80,16 @@ namespace SharpPy
         public override PyObject GetAttribute(string name) =>
             PyMethodDescriptor.DescriptorAttribute(name, _ownerType, _name) ?? base.GetAttribute(name);
 
+        // classmethoddescr_call: the class is the first argument.
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length < 1)
+                throw PyTypeError.Create($"descriptor '{_name}' of '{_ownerType.Name}' object needs an argument");
+            return _callable.Call(args, kwargs);
+        }
+
+        public override bool IsCallable() => true;
+
         public override string GetTypeName() => "classmethod_descriptor";
         public override PyType GetPyType() => PyType.ClassMethodDescriptorType;
     }

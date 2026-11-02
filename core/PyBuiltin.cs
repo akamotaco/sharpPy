@@ -1135,7 +1135,7 @@ namespace SharpPy
             return args[0].AsFloat();
         }
 
-        private static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
+        internal static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: Objects/complexobject.c:complex_new
             // complex() → 0+0j

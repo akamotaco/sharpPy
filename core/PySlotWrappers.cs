@@ -39,7 +39,7 @@ namespace SharpPy
         {
             "__repr__", "__str__", "__hash__", "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
             "__iter__", "__next__", "__len__", "__contains__", "__getitem__", "__setitem__", "__delitem__", "__call__",
-            "__bool__", "__neg__", "__pos__", "__invert__",
+            "__bool__", "__neg__", "__pos__", "__invert__", "__abs__",
             "__add__", "__sub__", "__mul__", "__mod__", "__divmod__", "__pow__", "__lshift__", "__rshift__",
             "__and__", "__xor__", "__or__", "__floordiv__", "__truediv__",
         };
@@ -108,6 +108,7 @@ namespace SharpPy
                     return PyNone.Instance;
                 case "__call__": return value.Call(args, kwargs);
                 case "__bool__": return PyBool.FromBool(value.IsTrue());
+                case "__abs__": return PyImportSystem.Import("builtins").GetAttribute("abs").Call(new[] { value }, null);
                 case "__neg__": return value.Negative();
                 case "__pos__": return value.Positive();
                 case "__invert__": return value.BitwiseNot();

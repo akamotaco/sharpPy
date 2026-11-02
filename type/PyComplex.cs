@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace SharpPy
@@ -21,6 +22,20 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.ComplexType;
         public override string GetTypeName() => "complex";
+
+        // complex_subtype_from_c_complex: complex_new builds the value, the subclass gets it.
+        internal static void InstallNew()
+        {
+            var type = PyType.ComplexType;
+            type.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
+            {
+                var rest = args[1..];
+                var value = (PyComplex)PyBuiltinFunction.CallComplex(rest, kwargs);
+                return args[0] is PyClass cls && !ReferenceEquals(cls, type)
+                    ? new PyComplexSubclass(cls, value.Real, value.Imag)
+                    : value;
+            }, type);
+        }
 
         static PyComplex()
         {
@@ -726,4 +741,27 @@ namespace SharpPy
 
         #endregion
     }
+
+    /// <summary>A Python class deriving from complex: the value of complex, its own type and __dict__.</summary>
+    public sealed class PyComplexSubclass : PyComplex, IDictBackedInstance
+    {
+        private readonly PyClass _class;
+
+        public PyComplexSubclass(PyClass cls, double real, double imag) : base(real, imag) => _class = cls;
+
+        public Dictionary<string, PyObject> InstanceDict { get; } = new();
+
+        public override PyType GetPyType() => _class;
+
+        public override string GetTypeName() => _class.Name;
+
+        public override PyObject GetAttribute(string name) =>
+            SubclassInstanceSupport.GetAttribute(this, _class, InstanceDict, name, n => base.GetAttribute(n));
+
+        public override void SetAttribute(string name, PyObject value) =>
+            SubclassInstanceSupport.SetAttribute(this, _class, InstanceDict, name, value);
+
+        public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
+    }
+
 }

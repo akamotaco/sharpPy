@@ -13,7 +13,7 @@
 
 | 검증 | 값 | 재현 |
 |---|---|---|
-| CPython 언어 테스트 | 2567 / 2890 통과 | `python tools/run_cpython_tests.py` |
+| CPython 언어 테스트 | 2586 / 2890 통과 | `python tools/run_cpython_tests.py` |
 | AST (Lib/*.py) | 5550 / 5550 문장, 위치 포함 5550 | `python tools/compare_ast.py --dotnet <dotnet> [--attributes] <files>` |
 | AST (프로브) | 6397 / 6397 문장 | `python tools/compare_ast.py --dotnet <dotnet> --attributes` |
 | 바이트코드 (Lib/*.py) | 코드 객체 8039개 전부 `co_code`, `co_linetable`(열 번호 포함), `co_exceptiontable`, `co_stacksize` 바이트 일치 | `python tools/compare_bytecode.py --dotnet <dotnet> --level raw <files>` |
@@ -67,7 +67,7 @@
 `Objects/typeobject.c`, `Objects/descrobject.c`, `Objects/funcobject.c`와 대조한다.
 
 - 3-0. `add_operators`: `PySlotWrappers`와 생성 표 `core/SlotTable.g.cs`가 슬롯 래퍼를 준다. `PyType.SlotDict`에 따로 두었고 디스패치는 읽지 않는다(`vars`, `dir`, 속성 조회만). 슬롯이 `TypeDict`로 들어가면 특수 메서드 조회가 같은 CLR 가상 메서드로 되돌아오기 때문이다. `tools/type_surface_probe.py`로 비교하면 빠진 항목이 273개 남았다(`co_*`, `f_*`, `tb_*`, `start` 같은 getset과 `__sizeof__`, `__reduce__` 등).
-- 3-1. C# 클래스로 된 내장 타입의 상속: `StringIO`, `BytesIO`, `bytearray`, `classmethod`, `staticmethod`는 `tp_new`가 하위 타입을 할당한다. `complex` 등 남은 타입은 같은 방식으로 옮긴다. test_descr 82/148, 남은 항목은 개별 동작 차이다. test_extcall이 여기에 걸린다.
+- 3-1. C# 클래스로 된 내장 타입의 상속: `StringIO`, `BytesIO`, `bytearray`, `classmethod`, `staticmethod`는 `tp_new`가 하위 타입을 할당한다. `complex` 등 남은 타입은 같은 방식으로 옮긴다. test_descr 85/148, 남은 항목은 개별 동작 차이다. test_extcall이 여기에 걸린다.
 - 3-2. `object.__init__` 인자 규칙 9건, `__init_subclass__`의 키워드 전달. `object_init`, `excess_args`.
 - 3-4. 함수 속성: `__defaults__` 등 setter (P0-71). test_funcattrs 15/33.
 - 3-5. 비교와 동등성: slot wrapper와 바인드 메서드 비교 (P0-56, P0-67, P0-69).

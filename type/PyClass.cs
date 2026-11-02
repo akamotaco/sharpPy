@@ -1563,9 +1563,9 @@ namespace SharpPy
                         var boundMethod = new PyMethod(this, func);
                         return boundMethod.Call(new PyObject[] { key }, null);
                     }
-                    else if (getItemMethod.IsCallable())
+                    else
                     {
-                        return getItemMethod.Call(new PyObject[] { this, key }, null);
+                        return CallSpecial(getItemMethod, key);
                     }
                     break;
                 }
@@ -1637,9 +1637,9 @@ namespace SharpPy
                         var boundMethod = new PyMethod(this, func);
                         boundMethod.Call(new PyObject[] { key, value }, null);
                     }
-                    else if (setitemMethod.IsCallable())
+                    else
                     {
-                        setitemMethod.Call(new PyObject[] { this, key, value }, null);
+                        CallSpecial(setitemMethod, key, value);
                     }
                     return;  // User __setitem__ found and called, we're done
                 }
@@ -1672,9 +1672,9 @@ namespace SharpPy
                         var boundMethod = new PyMethod(this, func);
                         boundMethod.Call(new PyObject[] { key }, null);
                     }
-                    else if (delitemMethod.IsCallable())
+                    else
                     {
-                        delitemMethod.Call(new PyObject[] { this, key }, null);
+                        CallSpecial(delitemMethod, key);
                     }
                     return;
                 }
@@ -1872,26 +1872,39 @@ namespace SharpPy
             return result ?? base.DivMod(other);
         }
 
+        // lookup_maybe_method: what the type holds binds as a descriptor, whatever it is.
+        private PyObject CallSpecial(PyObject method, params PyObject[] args)
+        {
+            if (method is PyBuiltinFunction)
+            {
+                var withSelf = new PyObject[args.Length + 1];
+                withSelf[0] = this;
+                Array.Copy(args, 0, withSelf, 1, args.Length);
+                return method.Call(withSelf, null);
+            }
+            return BindSpecialMethod(method).Call(args, null);
+        }
+
         // CPython 3.12: nb_positive/nb_negative/nb_invert slots for user classes
         // (Objects/typeobject.c slot_nb_* -> __pos__/__neg__/__invert__).
         public override PyObject Positive()
         {
             var m = LookupSpecialMethodUncached("__pos__");
-            if (m != null) return m.Call(new PyObject[] { this }, null);
+            if (m != null) return CallSpecial(m);
             return base.Positive();
         }
 
         public override PyObject Negative()
         {
             var m = LookupSpecialMethodUncached("__neg__");
-            if (m != null) return m.Call(new PyObject[] { this }, null);
+            if (m != null) return CallSpecial(m);
             return base.Negative();
         }
 
         public override PyObject BitwiseNot()
         {
             var m = LookupSpecialMethodUncached("__invert__");
-            if (m != null) return m.Call(new PyObject[] { this }, null);
+            if (m != null) return CallSpecial(m);
             return base.BitwiseNot();
         }
 
@@ -1899,7 +1912,7 @@ namespace SharpPy
         public PyObject AbsoluteOrNotImplemented()
         {
             var m = LookupSpecialMethodUncached("__abs__");
-            if (m != null) return m.Call(new PyObject[] { this }, null);
+            if (m != null) return CallSpecial(m);
             return PyNotImplemented.Instance;
         }
 
@@ -2122,7 +2135,8 @@ namespace SharpPy
                     #endif
 
                     // Check if it's a data descriptor (has __set__ or __delete__)
-                    if (IsDataDescriptor(foundValue))
+                    // _PyObject_GenericGetAttrWithDict: a __set__ without __get__ leaves the instance dict first.
+                    if (IsDataDescriptor(foundValue) && IsDescriptor(foundValue))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"   → Calling __get__ for data descriptor");
@@ -2222,7 +2236,7 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"   🔍 calling custom __getattribute__");
                 #endif
-                return customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
+                return CallSpecial(customGetAttr, new PyString(name));
             }
 
             // Use GetAttributeGeneric for standard attribute lookup
