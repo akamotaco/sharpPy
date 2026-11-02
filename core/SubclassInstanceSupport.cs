@@ -37,6 +37,36 @@ namespace SharpPy
         /// declares __repr__ replaces the slot. CPython also insists the declared function returned
         /// a str, and says so when it did not.
         /// </summary>
+        // PyNumber_Long: nb_int, then nb_index, and the result is an int.
+        internal static PyInt Int(PyObject self)
+        {
+            var method = self.LookupSpecialMethodUncached("__int__");
+            if (method != null)
+            {
+                var result = self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (result is PyInt or PyBool)
+                    return result is PyInt exact ? exact : new PyInt(((PyBool)result).Value ? 1 : 0);
+                throw PyTypeError.Create($"__int__ returned non-int (type {result.GetTypeName()})");
+            }
+            return PyClassInstance.TryGetIndex(self) ?? throw PyTypeError.Create(
+                $"int() argument must be a string, a bytes-like object or a real number, not '{self.GetTypeName()}'");
+        }
+
+        // PyNumber_Float: nb_float, then nb_index. PyInt.AsFloat owns the overflow rule.
+        internal static PyFloat Float(PyObject self)
+        {
+            var method = self.LookupSpecialMethodUncached("__float__");
+            if (method != null)
+            {
+                var result = self.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
+                if (result is PyFloat asFloat)
+                    return asFloat;
+                throw PyTypeError.Create($"{self.GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
+            }
+            return PyClassInstance.TryGetIndex(self)?.AsFloat() ?? throw PyTypeError.Create(
+                $"float() argument must be a string or a real number, not '{self.GetTypeName()}'");
+        }
+
         internal static PyString Repr(PyObject self, Func<PyString> inherited)
         {
             var declared = self.CallUserSpecialOrNull("__repr__", Array.Empty<PyObject>());

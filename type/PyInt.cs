@@ -1215,42 +1215,45 @@ namespace SharpPy
         /// </summary>
         public PyObject PowerMod(PyObject expObj, PyObject modObj)
         {
-            // CPython 3.12: Objects/longobject.c:4409-4420 - Type checking
             if (expObj is not PyInt expInt || modObj is not PyInt modInt)
                 throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
+            return Modular(Value, expInt.Value, modInt.Value);
+        }
 
-            long baseVal = (long)Value;
-            long exp = (long)expInt.Value;
-            long mod = (long)modInt.Value;
-
-            // CPython: Objects/longobject.c:4445-4447 - Zero modulus check
-            if (mod == 0)
+        // long_pow with a modulus.
+        private static PyInt Modular(BigInteger value, BigInteger exponent, BigInteger modulus)
+        {
+            if (modulus.IsZero)
                 throw PyValueError.Create("pow() 3rd argument cannot be 0");
-
-            // CPython: Objects/longobject.c:4509-4519 - Negative exponent requires modular inverse
-            if (exp < 0)
+            bool negative = modulus.Sign < 0;
+            modulus = BigInteger.Abs(modulus);
+            if (modulus.IsOne)
+                return new PyInt(BigInteger.Zero);
+            value = BigInteger.Remainder(value, modulus);
+            if (value.Sign < 0)
+                value += modulus;
+            if (exponent.Sign < 0)
             {
-                // Compute modular inverse using extended Euclidean algorithm
-                // CPython implements this in Objects/longobject.c:l_invmod
-                long inverse = ModularInverse(baseVal, mod);
-                if (inverse == -1)
-                    throw PyValueError.Create($"base is not invertible for the given modulus");
-
-                baseVal = inverse;
-                exp = -exp;
+                value = Inverse(value, modulus);
+                exponent = -exponent;
             }
+            var result = BigInteger.ModPow(value, exponent, modulus);
+            return new PyInt(negative && !result.IsZero ? result - modulus : result);
+        }
 
-            // CPython: Objects/longobject.c:4550-4600 - Binary exponentiation algorithm
-            // Use efficient modular exponentiation: (base^exp) % mod
-            long result = ModularPow(baseVal, exp, mod);
-
-            // CPython: Python uses positive modulo (result always has same sign as modulus)
-            if (result < 0 && mod > 0)
-                result += mod;
-            else if (result > 0 && mod < 0)
-                result += mod;
-
-            return new PyInt((int)result);
+        // long_invmod
+        private static BigInteger Inverse(BigInteger value, BigInteger modulus)
+        {
+            BigInteger low = value, high = modulus, inverse = BigInteger.One, other = BigInteger.Zero;
+            while (!low.IsZero)
+            {
+                var quotient = BigInteger.DivRem(high, low, out var remainder);
+                (high, low) = (low, remainder);
+                (other, inverse) = (inverse, other - quotient * inverse);
+            }
+            if (!high.IsOne)
+                throw PyValueError.Create("base is not invertible for the given modulus");
+            return other.Sign < 0 ? other + modulus : other;
         }
 
         /// <summary>

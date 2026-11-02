@@ -1717,19 +1717,8 @@ namespace SharpPy
                 throw PyTypeError.Create("pow() missing required argument 'exp' (pos 2)");
             RejectUnknownKeywords(kwargs, "pow", "base", "exp", "mod");
 
-            if (mod != null)
-            {
-                // CPython: Python/bltinmodule.c:2656-2668 - Three-argument modular exponentiation
-                // Only integers are supported for 3-argument pow()
-                if (base_ is PyInt baseInt)
-                {
-                    return baseInt.PowerMod(exp, mod);
-                }
-                else
-                {
-                    throw PyTypeError.Create("pow() 3rd argument not allowed unless all arguments are integers");
-                }
-            }
+            if (mod != null && mod is not PyNone)
+                return PyAbstract.Power(base_, exp, mod);
             else
             {
                 // CPython: Python/bltinmodule.c:2653 - Two-argument power
@@ -2778,8 +2767,26 @@ namespace SharpPy
     /// CPython 3.12 compatible super() implementation
     /// Based on CPython's superobject (Objects/typeobject.c)
     /// </summary>
-    public class PySuper : PyObject
+    public class PySuper : PyObject, IDescriptor
     {
+        // super_descr_get: an unbound super in a class binds to the instance it is reached from.
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance is PyNone || Object != null)
+                return this;
+            if (!ReferenceEquals(GetPyType(), PyType.SuperType))
+                return GetPyType().Call(new PyObject[] { Type, instance }, null);
+            return new PySuper(Type, instance);
+        }
+
+        public void Set(PyObject instance, PyObject value) =>
+            throw PyAttributeError.Create("'super' object has no attribute '__set__'");
+
+        public void Delete(PyObject instance) =>
+            throw PyAttributeError.Create("'super' object has no attribute '__delete__'");
+
+        public bool IsDataDescriptor() => false;
+
         // CPython 3.12: superobject struct
         public PyType Type { get; }           // __thisclass__: the class invoking super()
         public PyObject Object { get; }       // __self__: the instance (or None)
@@ -2987,7 +2994,8 @@ namespace SharpPy
                     }
             }
 
-            throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
+            // super_getattro's skip: the super object's own attributes.
+            return base.GetAttribute(name);
         }
 
         /// <summary>

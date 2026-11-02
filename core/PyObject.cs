@@ -615,7 +615,15 @@ namespace SharpPy
             {
                 if (name == "__get__")
                     return new PyBuiltinFunction("__get__", args =>
-                        args[0] is PyNone ? this : descriptor.Get(args[0], args[0].GetPyType()));
+                    {
+                        if (args.Length is < 1 or > 2)
+                            throw PyTypeError.Create($"expected at least 1 argument, got {args.Length}");
+                        var target = args[0] is PyNone ? null : args[0];
+                        var type = args.Length > 1 && args[1] is PyType given ? given : null;
+                        if (target == null && type == null)
+                            throw PyTypeError.Create("__get__(None, None) is invalid");
+                        return descriptor.Get(target, type ?? target.GetPyType());
+                    });
                 if (name == "__set__")
                     return new PyBuiltinFunction("__set__", args =>
                     {
@@ -760,6 +768,19 @@ namespace SharpPy
         /// CPython v3.12.15, Objects/typeobject.c: lookup_maybe_method.
         /// Descriptor exceptions must propagate, rather than mean "method missing".
         /// </summary>
+        // lookup_maybe_method: what the type holds binds as a descriptor, whatever it is.
+        internal PyObject CallSpecial(PyObject method, params PyObject[] args)
+        {
+            if (method is PyBuiltinFunction)
+            {
+                var withSelf = new PyObject[args.Length + 1];
+                withSelf[0] = this;
+                Array.Copy(args, 0, withSelf, 1, args.Length);
+                return method.Call(withSelf, null);
+            }
+            return BindSpecialMethod(method).Call(args, null);
+        }
+
         internal PyObject BindSpecialMethod(PyObject method)
         {
             if (method is IDescriptor descriptor)

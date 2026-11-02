@@ -386,6 +386,19 @@ namespace SharpPy
         /// </summary>
         public PyInt GetIntValue() => _intValue;
 
+        // slot_nb_int and slot_nb_float: a declared method wins, the value otherwise.
+        public override PyInt AsInt()
+        {
+            if (SubclassInstanceSupport.FirstClassDictEntry(_class, "__int__") == null) return _intValue;
+            return SubclassInstanceSupport.Int(this);
+        }
+
+        public override PyFloat AsFloat()
+        {
+            if (SubclassInstanceSupport.FirstClassDictEntry(_class, "__float__") == null) return _intValue.AsFloat();
+            return SubclassInstanceSupport.Float(this);
+        }
+
         #endregion
     }
 }

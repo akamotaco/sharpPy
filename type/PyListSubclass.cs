@@ -67,6 +67,10 @@ namespace SharpPy
 
         public override bool IsTrue() => SubclassInstanceSupport.IsTrue(this, base.IsTrue);
 
+        public override PyInt AsInt() => SubclassInstanceSupport.Int(this);
+
+        public override PyFloat AsFloat() => SubclassInstanceSupport.Float(this);
+
         public override PyObject GetAttribute(string name) =>
             SubclassInstanceSupport.GetAttribute(this, InstanceType, InstanceDict, name,
                 n => base.GetAttribute(n));

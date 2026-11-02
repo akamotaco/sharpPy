@@ -11,8 +11,9 @@ namespace SharpPy
         // The methods of str work on the text: a subclass's own __len__ or __getitem__ is not its slot.
         internal static Func<PyObject, PyObject[], PyDict, PyObject> ReadingStoredText(
             PyType ownerType, string name, Func<PyObject, PyObject[], PyDict, PyObject> implementation) =>
-            // unicode__format__ with an empty spec is str(self), so it keeps the subclass.
-            !ReferenceEquals(ownerType, PyType.StrType) || name == "__format__" ? implementation
+            // unicode__format__ with an empty spec is str(self), and the right operand of
+            // __rmod__ is formatted: both keep the subclass.
+            !ReferenceEquals(ownerType, PyType.StrType) || name is "__format__" or "__rmod__" ? implementation
                 : (self, args, kwargs) => implementation(self is PyStrSubclass text ? text.GetStrValue() : self, args, kwargs);
 
         public string Name { get; }

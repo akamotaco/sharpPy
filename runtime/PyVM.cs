@@ -3693,100 +3693,7 @@ namespace SharpPy
                 case ByteCodeOp.BINARY_SUBSCR:
                     var subscriptKey = frame.ValueStack.Pop();
                     var subscriptObj = frame.ValueStack.Pop();
-
-                    try
-                    {
-                        // CPython 3.12: PEP 585 - If subscripting a type, use __class_getitem__ instead of __getitem__
-                        // See Objects/typeobject.c:type_subscript
-                        PyObject subscriptResult;
-                        // type_subscript comes after the metatype's own mp_subscript: Color["RED"].
-                        var metaGetItem = subscriptObj is PyType subscripted
-                            ? (subscripted.GetPyType() as PyClass)?.LookupInMRO("__getitem__") : null;
-                        if (metaGetItem != null)
-                        {
-                            subscriptResult = metaGetItem.Call(new[] { subscriptObj, subscriptKey }, null);
-                        }
-                        else if (subscriptObj is PyType typeObj)
-                        {
-                            // Subscripting a type (e.g., dict[int], list[str]) - use __class_getitem__
-                            var classGetitemAttr = typeObj.LookupSpecial("__class_getitem__");
-
-                            if (classGetitemAttr != null && classGetitemAttr is PyBuiltinClassMethod classMethod)
-                            {
-                                // Call __class_getitem__(cls, arg)
-                                subscriptResult = classMethod.Call(new[] { typeObj, subscriptKey }, null);
-                            }
-                            else if (classGetitemAttr != null && classGetitemAttr is IDescriptor descriptor)
-                            {
-                                // Descriptor protocol: Get bound method
-                                var boundMethod = descriptor.Get(null, typeObj);
-                                subscriptResult = boundMethod.Call(new[] { subscriptKey }, null);
-                            }
-                            else if (classGetitemAttr != null)
-                            {
-                                // Fallback: direct call
-                                subscriptResult = classGetitemAttr.Call(new[] { typeObj, subscriptKey }, null);
-                            }
-                            else
-                            {
-                                // No __class_getitem__, fallback to regular __getitem__
-                                subscriptResult = subscriptObj.GetItem(subscriptKey);
-                            }
-                        }
-                        else
-                        {
-                            // Regular instance subscripting - use __getitem__
-                            var objType = subscriptObj.GetPyType();
-                            var getitemAttr = objType.LookupSpecial("__getitem__");
-
-                            if (getitemAttr != null && getitemAttr is PyMethodDescriptor getitemDescriptor)
-                            {
-                                // Found descriptor (user-defined or built-in)
-                                // Call __getitem__(self, key)
-                                subscriptResult = getitemDescriptor.CallWithReceiver(subscriptObj, new[] { subscriptKey }, null);
-                            }
-                            else if (getitemAttr != null && getitemAttr is PyFunction getitemFunc)
-                            {
-                                // Found unbound function (rare case)
-                                subscriptResult = getitemFunc.Call(new[] { subscriptObj, subscriptKey }, null);
-                            }
-                            else
-                            {
-                                // No __getitem__ found, use built-in GetItem
-                                subscriptResult = subscriptObj.GetItem(subscriptKey);
-                            }
-                        }
-
-                        frame.ValueStack.Push(subscriptResult);
-                    }
-                    // CPython 3.12: Python exceptions (KeyError, IndexError, TypeError) should propagate
-                    catch (Exception ex) when (ex is PythonException)
-                    {
-                        // Re-throw Python exceptions (PythonException is the C# wrapper)
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 BINARY_SUBSCR: Re-throwing Python exception: {ex.GetType().Name} - {ex.Message}");
-                        #endif
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        // Convert C# exceptions to appropriate Python exceptions (CPython 호환)
-                        if (ex.Message.Contains("key") || ex.Message.Contains("Key"))
-                        {
-                            // Key not found → KeyError (CPython 방식)
-                            throw PyKeyError.Create(ex.Message.Replace("subscript error: ", ""));
-                        }
-                        else if (ex.Message.Contains("index") || ex.Message.Contains("range"))
-                        {
-                            // Index out of range → IndexError (CPython 방식)
-                            throw PyIndexError.Create(ex.Message.Replace("subscript error: ", ""));
-                        }
-                        else
-                        {
-                            // Other subscript errors → TypeError
-                            throw PyTypeError.Create($"subscript error: {ex.Message}");
-                        }
-                    }
+                    frame.ValueStack.Push(PyAbstract.GetItem(subscriptObj, subscriptKey));
                     break;
 
                 // CPython 3.12: Python/bytecodes.c STORE_SUBSCR
@@ -3810,40 +3717,7 @@ namespace SharpPy
                     var subscrStoreKey = frame.ValueStack.Pop();      // key (top of stack)
                     var subscrStoreObj = frame.ValueStack.Pop();      // object
                     var subscrStoreValue = frame.ValueStack.Pop();    // value (bottom)
-
-                    try
-                    {
-                        // CPython 3.12: Lookup __setitem__ in type's MRO
-                        var objType = subscrStoreObj.GetPyType();
-                        var setitemAttr = objType.LookupSpecial("__setitem__");
-
-                        if (setitemAttr != null && setitemAttr is PyMethodDescriptor setitemDescriptor)
-                        {
-                            // Found descriptor (user-defined or built-in)
-                            // Call __setitem__(self, key, value)
-                            setitemDescriptor.CallWithReceiver(subscrStoreObj, new[] { subscrStoreKey, subscrStoreValue }, null);
-                        }
-                        else if (setitemAttr != null && setitemAttr is PyFunction setitemFunc)
-                        {
-                            // Found unbound function (rare case)
-                            setitemFunc.Call(new[] { subscrStoreObj, subscrStoreKey, subscrStoreValue }, null);
-                        }
-                        else
-                        {
-                            // No __setitem__ found, use built-in SetItem
-                            // This handles types without explicit __setitem__ descriptor
-                            subscrStoreObj.SetItem(subscrStoreKey, subscrStoreValue);
-                        }
-                    }
-                    // CPython 3.12: Python exceptions should propagate
-                    catch (Exception ex) when (ex is PythonException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        throw PyTypeError.Create($"subscript assignment error: {ex.Message}");
-                    }
+                    PyAbstract.SetItem(subscrStoreObj, subscrStoreKey, subscrStoreValue);
                     break;
 
                 // CPython 3.12: Python/bytecodes.c:584-589 (DELETE_SUBSCR)
@@ -3852,70 +3726,7 @@ namespace SharpPy
                 case ByteCodeOp.DELETE_SUBSCR:
                     var delSubSub = frame.ValueStack.Pop();        // sub (top of stack)
                     var delSubContainer = frame.ValueStack.Pop();  // container
-
-                    try
-                    {
-                        // CPython 3.12: PyObject_DelItem(container, sub)
-                        // For PyClassInstance (including dict subclasses), use DelItem directly
-                        // This allows the override in PyClassInstance to handle user-defined __delitem__
-                        // and fall back to _dictStorage for dict subclasses
-                        if (delSubContainer is PyClassInstance classInstance)
-                        {
-                            classInstance.DelItem(delSubSub);
-                            break;
-                        }
-
-                        // For built-in types, lookup __delitem__ via MRO
-                        var containerType = delSubContainer.GetPyType();
-                        var delitemAttr = containerType.LookupSpecial("__delitem__");
-
-
-                        if (delitemAttr != null && delitemAttr is PyWrapperDescriptor delitemWrapper)
-                        {
-                            // Found wrapper descriptor (builtin __delitem__)
-                            // Call __delitem__(self, key)
-                            delitemWrapper.Call(new[] { delSubContainer, delSubSub }, null);
-                        }
-                        else if (delitemAttr != null && delitemAttr is PyMethodDescriptor delitemDescriptor)
-                        {
-                            // Found descriptor (user-defined or built-in)
-                            // Call __delitem__(self, key)
-                            delitemDescriptor.CallWithReceiver(delSubContainer, new[] { delSubSub }, null);
-                        }
-                        else if (delitemAttr != null && delitemAttr is PyFunction delitemFunc)
-                        {
-                            // Found unbound function (rare case)
-                            delitemFunc.Call(new[] { delSubContainer, delSubSub }, null);
-                        }
-                        else
-                        {
-                            // No __delitem__ found, try DelItem method
-                            // Most types don't support deletion
-                            if (delSubContainer is PyDict delDict)
-                            {
-                                // dict supports deletion via pop
-                                delDict.Pop(delSubSub, null);
-                            }
-                            else if (delSubContainer is PyList delList && delSubSub is PyInt delIndex)
-                            {
-                                // list supports deletion
-                                delList.Pop((int)delIndex.Value);
-                            }
-                            else
-                            {
-                                throw PyTypeError.Create($"'{containerType.Name}' object does not support item deletion");
-                            }
-                        }
-                    }
-                    // CPython 3.12: Python exceptions should propagate
-                    catch (Exception ex) when (ex is PythonException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        throw PyTypeError.Create($"subscript deletion error: {ex.Message}");
-                    }
+                    PyAbstract.DelItem(delSubContainer, delSubSub);
                     break;
 
                 // Duplicate BINARY_SUBSCR case removed
@@ -6116,7 +5927,7 @@ namespace SharpPy
 
                     // PySlice 객체 생성하여 실제 슬라이싱 수행
                     var slice = new PySlice(sliceStart, sliceStop);
-                    var sliceResult = sliceContainer.GetItem(slice);
+                    var sliceResult = PyAbstract.GetItem(sliceContainer, slice);
                     frame.ValueStack.Push(sliceResult);
                     break;
 
@@ -6130,7 +5941,7 @@ namespace SharpPy
 
                     // PySlice 객체 생성하여 실제 슬라이스 할당 수행
                     var storeSlice = new PySlice(sliceStoreStart, sliceStoreStop);
-                    sliceStoreContainer.SetItem(storeSlice, sliceValue);
+                    PyAbstract.SetItem(sliceStoreContainer, storeSlice, sliceValue);
                     break;
 
                 case ByteCodeOp.CALL_INTRINSIC_1:

@@ -191,7 +191,7 @@ namespace SharpPy
         {
             "async_generator" or "builtin_function_or_method" or "code" or "coroutine" or "frozenset"
                 or "function" or "generator" or "memoryview" or "method" or "module" or "set" or "type"
-                or "GenericAlias" or "ReferenceType" => PyTypeFlags.ManagedWeakRef,
+                or "GenericAlias" => PyTypeFlags.ManagedWeakRef,
             _ => PyTypeFlags.None,
         };
 
@@ -227,6 +227,26 @@ namespace SharpPy
             "slice" => PyTypeFlags.HaveGC,
             "memoryview" => PyTypeFlags.Sequence,
             "range" => PyTypeFlags.Sequence,
+            // tp_flags without BASETYPE, listed from __flags__ on the reference interpreter.
+            "CallableProxyType" or "Context" or "ContextVar" or "EncodingMap" or "IsoCalendarDate"
+                or "NotImplementedType" or "PickleBuffer" or "ProxyType" or "PyCapsule" or "Token"
+                or "TypeAliasType" or "UnionType" or "UnraisableHookArgs" or "anext_awaitable"
+                or "async_generator" or "async_generator_asend" or "async_generator_athrow"
+                or "async_generator_wrapped_value" or "asyncgen_hooks" or "builtin_function_or_method"
+                or "bytearray_iterator" or "bytes_iterator" or "callable_iterator" or "cell"
+                or "classmethod_descriptor" or "code" or "coroutine" or "coroutine_wrapper"
+                or "dict_itemiterator" or "dict_items" or "dict_keyiterator" or "dict_keys"
+                or "dict_reverseitemiterator" or "dict_reversekeyiterator" or "dict_reversevalueiterator"
+                or "dict_valueiterator" or "dict_values" or "ellipsis" or "fieldnameiterator"
+                or "float_info" or "formatteriterator" or "frame" or "function" or "generator"
+                or "generic_alias_iterator" or "getset_descriptor" or "getwindowsversion" or "hash_info"
+                or "instancemethod" or "int_info" or "list_iterator" or "list_reverseiterator"
+                or "longrange_iterator" or "managedbuffer" or "mappingproxy" or "member_descriptor"
+                or "memory_iterator" or "method" or "method-wrapper" or "method_descriptor" or "moduledef"
+                or "odict_items" or "odict_iterator" or "odict_keys" or "odict_values" or "range_iterator"
+                or "set_iterator" or "stderrprinter" or "str_ascii_iterator" or "str_iterator"
+                or "thread_info" or "timezone" or "traceback" or "tuple_iterator" or "version_info"
+                or "wrapper_descriptor" => PyTypeFlags.None,
             _ => PyTypeFlags.BaseType,
         };
 
@@ -569,26 +589,45 @@ namespace SharpPy
 
         /// <summary>type_set_bases (Objects/typeobject.c): new bases, then a new MRO, here and in
         /// every subclass, as mro_hierarchy does.</summary>
+        // type_set_bases: a failing mro() takes the whole hierarchy back.
         internal void SetBases(PyType[] bases)
         {
-            foreach (var oldBase in BaseTypes) oldBase.RemoveSubclass(this);
+            var oldBases = BaseTypes;
+            var undo = new List<(PyType, List<PyType>)>();
+            foreach (var oldBase in oldBases) oldBase.RemoveSubclass(this);
             BaseTypes = bases;
             foreach (var newBase in bases) newBase.AddSubclass(this);
-            Relinearize();
+            try
+            {
+                Relinearize(undo);
+            }
+            catch
+            {
+                foreach (var newBase in bases) newBase.RemoveSubclass(this);
+                BaseTypes = oldBases;
+                foreach (var oldBase in oldBases) oldBase.AddSubclass(this);
+                foreach (var (type, mro) in undo) type.SetMro(mro);
+                _cachedBasesTuple = null;
+                throw;
+            }
         }
 
-        private void Relinearize()
+        private void Relinearize(List<(PyType, List<PyType>)> undo)
         {
-            MRO = CalculateC3MRO();
+            undo.Add((this, MRO));
+            SetMro(ComputeMro());
             _cachedBasesTuple = null;
-            InvalidateTypeCache();
-            foreach (var subclass in LiveSubclasses()) subclass.Relinearize();
+            foreach (var subclass in LiveSubclasses()) subclass.Relinearize(undo);
         }
+
+        /// <summary>mro_invoke</summary>
+        protected virtual List<PyType> ComputeMro() => CalculateC3MRO();
 
         /// <summary>mro_internal when the metaclass overrides mro(): what it answered is the MRO.</summary>
         internal void SetMro(List<PyType> mro)
         {
             MRO = mro;
+            _cachedMroTuple = null;
             InvalidateTypeCache();
         }
 
@@ -2271,6 +2310,7 @@ namespace SharpPy
                     for (int i = 0; i < newBases.Length; i++)
                         newBases[i] = basesTuple.Items[i] as PyType ?? throw PyTypeError.Create(
                             $"{heap.Name}.__bases__ must be tuple of classes, not '{basesTuple.Items[i].GetTypeName()}'");
+                    PyTypeMetaclass.CheckBases(heap, newBases);
                     heap.SetBases(newBases);
                     heap.InvalidateTypeCache();
                 }

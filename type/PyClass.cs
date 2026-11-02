@@ -146,6 +146,8 @@ namespace SharpPy
             return hook;
         }
 
+        protected override List<PyType> ComputeMro() => PyTypeMetaclass.MroInvoke(this) ?? base.ComputeMro();
+
         // CPython 3.12: __slots__ semantics - an instance has a __dict__ only when
         // some class in the MRO omits __slots__ (or lists '__dict__' explicitly).
         private bool? _instancesHaveDictCache;
@@ -1872,19 +1874,6 @@ namespace SharpPy
             return result ?? base.DivMod(other);
         }
 
-        // lookup_maybe_method: what the type holds binds as a descriptor, whatever it is.
-        private PyObject CallSpecial(PyObject method, params PyObject[] args)
-        {
-            if (method is PyBuiltinFunction)
-            {
-                var withSelf = new PyObject[args.Length + 1];
-                withSelf[0] = this;
-                Array.Copy(args, 0, withSelf, 1, args.Length);
-                return method.Call(withSelf, null);
-            }
-            return BindSpecialMethod(method).Call(args, null);
-        }
-
         // CPython 3.12: nb_positive/nb_negative/nb_invert slots for user classes
         // (Objects/typeobject.c slot_nb_* -> __pos__/__neg__/__invert__).
         public override PyObject Positive()
@@ -2465,52 +2454,13 @@ namespace SharpPy
         // consulted **before** nb_index, and its result must be an int. SharpPy implements
         // native nb_int/nb_float as CLR virtuals on the builtin types, so a user class's
         // numeric coercion belongs in this override.
-        public override PyInt AsInt()
-        {
-            var asIntMethod = LookupSpecialMethodUncached("__int__");
-            if (asIntMethod != null)
-            {
-                var result = BindSpecialMethod(asIntMethod).Call(Array.Empty<PyObject>(), null);
-                // CPython accepts anything PyLong_Check covers, which includes bool and
-                // int subclasses (it only warns for strict subclasses).
-                if (result is PyInt or PyBool)
-                    return result is PyInt exact ? exact : new PyInt(((PyBool)result).Value ? 1 : 0);
-                throw PyTypeError.Create($"__int__ returned non-int (type {result.GetTypeName()})");
-            }
-
-            var viaIndex = TryGetIndex(this);
-            if (viaIndex != null)
-                return viaIndex;
-
-            throw PyTypeError.Create(
-                $"int() argument must be a string, a bytes-like object or a real number, not '{GetTypeName()}'");
-        }
+        public override PyInt AsInt() => SubclassInstanceSupport.Int(this);
 
         // CPython Objects/abstract.c PyNumber_Float: nb_float, then nb_index. __int__ is
         // deliberately not consulted - measured float(Both()) == 30.0 while int(Both())
         // == 70 for the same object, and PyFloat.FromNumber keeps the arbitrary-precision
         // overflow rule (int too large to convert to float).
-        public override PyFloat AsFloat()
-        {
-            var asFloatMethod = LookupSpecialMethodUncached("__float__");
-            if (asFloatMethod != null)
-            {
-                var result = BindSpecialMethod(asFloatMethod).Call(Array.Empty<PyObject>(), null);
-                if (result is PyFloat asFloat)
-                    return asFloat;
-                throw PyTypeError.Create(
-                    $"{GetTypeName()}.__float__ returned non-float (type {result.GetTypeName()})");
-            }
-
-            var viaIndex = TryGetIndex(this);
-            if (viaIndex != null)
-                // Go through PyInt.AsFloat, which owns the arbitrary-precision overflow
-                // rule; a plain (double) cast would return infinity instead of raising.
-                return viaIndex.AsFloat();
-
-            throw PyTypeError.Create(
-                $"float() argument must be a string or a real number, not '{GetTypeName()}'");
-        }
+        public override PyFloat AsFloat() => SubclassInstanceSupport.Float(this);
 
         public override PyString ToRepr()
         {

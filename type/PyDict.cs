@@ -65,18 +65,8 @@ namespace SharpPy
                     var key = args[0];
                     var defaultValue = args.Length == 2 ? args[1] : PyNone.Instance;
 
-                    // For C# PyDict, use direct method
-                    if (self is PyDict dict)
-                    {
-                        return dict.Get(key, defaultValue);
-                    }
-
-                    // For Python dict subclasses
-                    var contains = self.Contains(key);
-                    if (contains == PyBool.True)
-                        return self.GetItem(key);
-
-                    return defaultValue;
+                    // dict_get reads the table: a subclass's __getitem__ is not involved.
+                    return PyNativeStorage.ForDict(self).Get(key, defaultValue);
                 },
                 minArgs: 1, maxArgs: 2
             );

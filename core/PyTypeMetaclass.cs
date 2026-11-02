@@ -350,22 +350,8 @@ namespace SharpPy
             AddInstanceDescriptors(created, baseTypes, slotNames);
 
             // mro_internal: a metaclass may answer another order.
-            var mroMethod = metatype.LookupInMRO("mro");
-            if (!ReferenceEquals(mroMethod, Instance.LookupInMRO("mro")))
-            {
-                var order = new List<PyType>();
-                var iterator = created.BindSpecialMethod(mroMethod).Call(new PyObject[0], null).GetIterator();
-                try
-                {
-                    while (true)
-                    {
-                        var next = iterator.Next();
-                        order.Add(next as PyType ?? throw PyTypeError.Create($"mro() returned a non-class ('{next.GetTypeName()}')"));
-                    }
-                }
-                catch (PythonException stop) when (stop.PyException is PyStopIteration) { }
+            if (MroInvoke(created) is { } order)
                 created.SetMro(order);
-            }
 
             // type_new_set_names, on a copy because __set_name__ may change the class.
             foreach (var entry in new Dictionary<string, PyObject>(created.ClassDict))
@@ -426,6 +412,66 @@ namespace SharpPy
             foreach (var ancestor in type.MRO)
                 if (!(ancestor is PyClass _) || ancestor is PyTypeMetaclass) return SolidBase(ancestor);
             return PyType.ObjectType;
+        }
+
+        /// <summary>mro_invoke and mro_check: what a metaclass's mro() answers, null without one.</summary>
+        internal static List<PyType> MroInvoke(PyClass type)
+        {
+            var method = type.Metaclass?.LookupInMRO("mro");
+            if (method == null || ReferenceEquals(method, Instance.LookupInMRO("mro")))
+                return null;
+            var order = new List<PyType>();
+            var iterator = type.BindSpecialMethod(method).Call(new PyObject[0], null).GetIterator();
+            try
+            {
+                while (true)
+                {
+                    var next = iterator.Next();
+                    order.Add(next as PyType ?? throw PyTypeError.Create($"mro() returned a non-class ('{next.GetTypeName()}')"));
+                }
+            }
+            catch (PythonException stop) when (stop.PyException is PyStopIteration) { }
+            if (order.Count == 0)
+                throw PyTypeError.Create("type MRO must not be empty");
+            var solid = SolidBase(type);
+            foreach (var entry in order)
+            {
+                var other = SolidBase(entry);
+                if (!ReferenceEquals(solid, other) && !solid.IsSubclassOf(other))
+                    throw PyTypeError.Create($"mro() returned base with unsuitable layout ('{entry.Name}')");
+            }
+            return order;
+        }
+
+        // type_is_subtype_base_chain: a reentrant mro() sees the new bases before the new MRO.
+        private static bool BaseChainReaches(PyType start, PyType target)
+        {
+            var seen = new HashSet<PyType>();
+            var pending = new Stack<PyType>();
+            pending.Push(start);
+            while (pending.Count > 0)
+            {
+                var type = pending.Pop();
+                if (ReferenceEquals(type, target)) return true;
+                if (!seen.Add(type)) continue;
+                foreach (var next in type.BaseTypes) pending.Push(next);
+            }
+            return false;
+        }
+
+        /// <summary>type_set_bases, up to the point where the bases change.</summary>
+        internal static void CheckBases(PyClass type, PyType[] bases)
+        {
+            foreach (var entry in bases)
+                if (ReferenceEquals(entry, type) || entry.IsSubclassOf(type) || BaseChainReaches(entry, type))
+                    throw PyTypeError.Create("a __bases__ item causes an inheritance cycle");
+            foreach (var entry in bases)
+                if (!entry.HasFeature(PyTypeFlags.BaseType))
+                    throw PyTypeError.Create($"type '{entry.Name}' is not an acceptable base type");
+            var newBase = BestBase(bases);
+            var oldBase = BestBase(type.BaseTypes.ToArray());
+            if (!ReferenceEquals(newBase, oldBase))
+                throw PyTypeError.Create($"__bases__ assignment: '{newBase.Name}' object layout differs from '{oldBase.Name}'");
         }
 
         /// <summary>compatible_for_assignment: the two classes lay their instances out alike.</summary>
@@ -528,12 +574,28 @@ namespace SharpPy
                 foreach (var ancestor in type.MRO)
                     if (ReferenceEquals(ancestor, PyType.IntType) || ReferenceEquals(ancestor, PyType.TupleType) || ReferenceEquals(ancestor, PyType.BytesType))
                         throw PyTypeError.Create($"nonempty __slots__ not supported for subtype of '{ancestor.Name}'");
+            // type_new_visit_slots: the __dict__ and __weakref__ a base already has cannot be added again.
+            bool mayAddDict = !bases.Any(type => type is PyClass cls && cls.InstancesHaveDict());
+            bool mayAddWeak = !bases.Any(type => type.HasFeature(PyTypeFlags.ManagedWeakRef) ||
+                type.MRO.Any(ancestor => ancestor is PyClass cls && cls.ClassDict.ContainsKey("__weakref__")));
             foreach (var item in names)
             {
                 if (item is not PyString text)
                     throw PyTypeError.Create($"__slots__ items must be strings, not '{item.GetTypeName()}'");
                 if (text.IsIdentifier(new PyObject[0]) is not PyBool { Value: true })
                     throw PyTypeError.Create("__slots__ must be identifiers");
+                if (text.Value == "__dict__")
+                {
+                    if (!mayAddDict)
+                        throw PyTypeError.Create("__dict__ slot disallowed: we already got one");
+                    mayAddDict = false;
+                }
+                else if (text.Value == "__weakref__")
+                {
+                    if (!mayAddWeak)
+                        throw PyTypeError.Create("__weakref__ slot disallowed: we already got one");
+                    mayAddWeak = false;
+                }
                 if (dict.ContainsKey(text.Value) && text.Value is not ("__qualname__" or "__classcell__") && !text.Value.StartsWith("__"))
                     throw PyValueError.Create($"'{text.Value}' in __slots__ conflicts with class variable");
                 result.Add(text.Value);

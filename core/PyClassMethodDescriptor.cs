@@ -77,8 +77,27 @@ namespace SharpPy
         // classmethod는 non-data descriptor (no __set__)
         public bool IsDataDescriptor() => false;
 
-        public override PyObject GetAttribute(string name) =>
-            PyMethodDescriptor.DescriptorAttribute(name, _ownerType, _name) ?? base.GetAttribute(name);
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "__get__")
+                return new PyBuiltinFunction("__get__", args =>
+                    ClassMethodGet(args[0] is PyNone ? null : args[0],
+                                   args.Length > 1 && args[1] is not PyNone ? args[1] : null));
+            return PyMethodDescriptor.DescriptorAttribute(name, _ownerType, _name) ?? base.GetAttribute(name);
+        }
+
+        // classmethod_get (Objects/descrobject.c)
+        private PyObject ClassMethodGet(PyObject target, PyObject type)
+        {
+            type ??= target?.GetPyType();
+            if (type == null)
+                throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.Name}' needs either an object or a type");
+            if (type is not PyType given)
+                throw PyTypeError.Create($"descriptor '{_name}' for type '{_ownerType.Name}' needs a type, not a '{type.GetTypeName()}' as arg 2");
+            if (!ReferenceEquals(given, _ownerType) && !given.IsSubclassOf(_ownerType))
+                throw PyTypeError.Create($"descriptor '{_name}' requires a subtype of '{_ownerType.Name}' but received '{given.Name}'");
+            return new PyCMethod(_callable, given);
+        }
 
         // classmethoddescr_call: the class is the first argument.
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
