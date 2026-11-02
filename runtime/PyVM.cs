@@ -1666,7 +1666,7 @@ namespace SharpPy
             PyObject[] finalArgs;
             PyObject actualCallable;
 
-            if (nextElement == null || nextElement.Equals(PyNone.Instance))
+            if (nextElement == null || PyNull.IsNull(nextElement))
             {
                 // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
                 actualCallable = callableFunc;
@@ -2472,7 +2472,7 @@ namespace SharpPy
                     // CPython 3.12: Push NULL first if flag is set
                     if (pushNull)
                     {
-                        frame.ValueStack.Push(PyNone.Instance); // Use PyNone.Instance as NULL marker
+                        frame.ValueStack.Push(PyNull.Instance); // Use PyNone.Instance as NULL marker
                         #if DEBUG_LOG
                         Console.WriteLine($"   Pushed NULL before loading {globalName}");
                         #endif
@@ -2658,7 +2658,7 @@ namespace SharpPy
                 // Python 3.12 새로운 호출 시스템
                 case ByteCodeOp.PUSH_NULL:
                     // NULL을 스택에 푸시 - Python 3.12에서 함수 호출 전에 사용
-                    frame.ValueStack.Push(PyNone.Instance); // NULL 대신 None 사용
+                    frame.ValueStack.Push(PyNull.Instance);
                     break;
 
                 case ByteCodeOp.CALL:
@@ -3000,7 +3000,7 @@ namespace SharpPy
                             if (hasCustomGetAttribute)
                             {
                                 // CPython: Custom tp_getattro → push [NULL, attr]
-                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                frame.ValueStack.Push(PyNull.Instance); // NULL marker
                                 frame.ValueStack.Push(attr);
                                 #if DEBUG_LOG
                                 Console.WriteLine($"   → Custom GetAttribute: pushed [NULL, attr]");
@@ -3010,7 +3010,7 @@ namespace SharpPy
                             {
                                 // It's already a bound method: push [NULL, bound_method]
                                 // The method already has self bound, so we don't add it again
-                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                frame.ValueStack.Push(PyNull.Instance); // NULL marker
                                 frame.ValueStack.Push(attr); // bound method
                                 #if DEBUG_LOG
                                 Console.WriteLine($"   → Bound method: pushed [NULL, bound_method]");
@@ -3046,7 +3046,7 @@ namespace SharpPy
                                 {
                                     // Class/type access, staticmethod, or instance attribute: push [NULL, function]
                                     // CPython 3.12: No method binding - return function as-is
-                                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                    frame.ValueStack.Push(PyNull.Instance); // NULL marker
                                     frame.ValueStack.Push(attr); // unbound function
                                     #if DEBUG_LOG
                                     Console.WriteLine($"   → Type/class/staticmethod/instance-attr access: pushed [NULL, function]");
@@ -3066,7 +3066,7 @@ namespace SharpPy
                             else
                             {
                                 // It's a regular attribute or callable descriptor: push [NULL, attr]
-                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                frame.ValueStack.Push(PyNull.Instance); // NULL marker
                                 frame.ValueStack.Push(attr);
                                 #if DEBUG_LOG
                                 Console.WriteLine($"   → Regular attribute: pushed [NULL, attr]");
@@ -3126,7 +3126,9 @@ namespace SharpPy
                     try
                     {
                         // Create super proxy by calling super() with class and self
-                        var superArgs = new PyObject[] { classObj, selfObj };
+                        // A name that shadows super is called as the source spelled it.
+                        bool builtinSuper = superFunc is PyBuiltinFunction { Name: "super" } || ReferenceEquals(superFunc, PyType.SuperType);
+                        var superArgs = builtinSuper || (superOparg & 2) != 0 ? new PyObject[] { classObj, selfObj } : Array.Empty<PyObject>();
                         PyObject superProxy = superFunc.Call(superArgs, null);
 
                         #if DEBUG_LOG
@@ -3220,7 +3222,7 @@ namespace SharpPy
                         if (superMethodFlag == 1)
                         {
                             // Method call: push [NULL, bound_method] for CALL optimization
-                            frame.ValueStack.Push(PyNone.Instance);  // NULL marker
+                            frame.ValueStack.Push(PyNull.Instance);  // NULL marker
                             frame.ValueStack.Push(finalAttr);
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (method call): pushed [NULL, {finalAttr.GetType().Name}]");
@@ -4205,31 +4207,17 @@ namespace SharpPy
                     Console.WriteLine($"🔧 BEFORE_WITH: Processing context manager: {contextManager}");
                     #endif
 
-                    // 1. Load __exit__ method and push to stack (for later cleanup)
-                    var exitMethod = contextManager.GetAttribute("__exit__");
-                    if (!exitMethod.IsCallable())
-                    {
-                        throw PyAttributeError.Create("__exit__");
-                    }
+                    // bytecodes.c BEFORE_WITH: both are looked up on the type, __enter__ first.
+                    var enterMethod = WithMethod(contextManager, "__enter__") ?? throw PyTypeError.Create(
+                        $"'{contextManager.GetTypeName()}' object does not support the context manager protocol");
+                    var exitMethod = WithMethod(contextManager, "__exit__") ?? throw PyTypeError.Create(
+                        $"'{contextManager.GetTypeName()}' object does not support the context manager protocol (missed __exit__ method)");
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 BEFORE_WITH: Found __exit__ method: {exitMethod}");
                     #endif
 
-                    // 2. Call __enter__ method and get result
-                    var enterMethod = contextManager.GetAttribute("__enter__");
-                    PyObject enterResult;
-                    if (enterMethod.IsCallable())
-                    {
-                        enterResult = enterMethod.Call(new PyObject[0], null);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 BEFORE_WITH: __enter__ returned: {enterResult}");
-                        #endif
-                    }
-                    else
-                    {
-                        throw PyAttributeError.Create("__enter__");
-                    }
+                    var enterResult = enterMethod.Call(new PyObject[0], null);
 
                     // CPython 3.12 stack layout: [..., __exit__, __enter_result__]
                     // This matches the expected layout for normal completion and exception handling
@@ -7942,6 +7930,24 @@ namespace SharpPy
         /// <summary>
         /// Check if an object can be treated as an exception-like object
         /// </summary>
+        // _PyObject_LookupSpecial. A native class answers by name: its methods are in no type dict.
+        private static PyObject WithMethod(PyObject manager, string name)
+        {
+            var method = manager.LookupSpecialMethodUncached(name);
+            if (method != null)
+                return manager.BindSpecialMethod(method);
+            if (manager.GetPyType() is PyClass)
+                return null;
+            try
+            {
+                return manager.GetAttribute(name);
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return null;
+            }
+        }
+
         private static bool IsExceptionClass(PyObject value) =>
             value is PyBuiltinType || value is PyType type && DerivesFromBaseException(type);
 

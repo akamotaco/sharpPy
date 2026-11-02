@@ -2028,6 +2028,14 @@ namespace SharpPy
         /// This is equivalent to CPython's PyObject_GenericGetAttr C function
         /// Used by object.__getattribute__ to avoid infinite recursion
         /// </summary>
+        private bool IsShadowedInClass(string name)
+        {
+            foreach (var type in InstanceType.MRO)
+                if (type is PyClass cls && cls.ClassDict.ContainsKey(name))
+                    return true;
+            return false;
+        }
+
         internal PyObject GetAttributeGeneric(string name)
         {
             #if DEBUG_LOG
@@ -2035,7 +2043,8 @@ namespace SharpPy
             #endif
 
             // 특별한 속성들 먼저 처리
-            if (name == "__class__")
+            // object.__class__ is a getset on object: a class of the MRO may shadow it.
+            if (name == "__class__" && !IsShadowedInClass(name))
             {
                 return InstanceType;
             }
@@ -2150,6 +2159,10 @@ namespace SharpPy
                 return classAttribute;
             }
 
+            // A slot of a builtin base, which lives in the type's slot table.
+            var slot = PySlotWrappers.TryBind(this, name);
+            if (slot != null) return slot;
+
             // PyObject_GenericGetAttr ends here; __getattr__ belongs to the slot, GetAttribute.
             throw PyAttributeError.CreateFor(this, name, $"'{InstanceType.Name}' object has no attribute '{name}'");
         }
@@ -2256,7 +2269,9 @@ namespace SharpPy
             // attributes outside the slot names (Objects/object.c generic setattr).
             if (!InstanceType.InstancesHaveDict() && !InstanceType.IsSlottedAttributeName(name))
             {
-                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+                throw PyAttributeError.Create(InstanceType.LookupInMRO(name) != null
+                    ? $"'{GetTypeName()}' object attribute '{name}' is read-only"
+                    : $"'{GetTypeName()}' object has no attribute '{name}'");
             }
 
             SetInstanceAttribute(name, value);
@@ -2339,7 +2354,9 @@ namespace SharpPy
             // 3. 인스턴스 __dict__에서 삭제
             if (!RemoveInstanceAttribute(name))
             {
-                throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+                throw PyAttributeError.Create(!InstanceType.InstancesHaveDict() && InstanceType.LookupInMRO(name) != null
+                    ? $"'{GetTypeName()}' object attribute '{name}' is read-only"
+                    : $"'{GetTypeName()}' object has no attribute '{name}'");
             }
 
             #if DEBUG_LOG

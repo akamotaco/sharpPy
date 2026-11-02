@@ -267,7 +267,13 @@ namespace SharpPy.Modules
         {
             type.ConstructedByNewSlot = true;
             type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
-                implementation.Call(args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
+            {
+                var created = implementation.Call(args, kwargs);
+                // A Python subclass gets the same object under its class.
+                if (!ReferenceEquals(cls, type))
+                    created.SetCustomType((PyType)cls);
+                return created;
+            }, 0, int.MaxValue, acceptsKwargs: true);
             return type;
         }
 

@@ -15,6 +15,8 @@ public partial class PyFunction : PyObject, IDescriptor
     private string _qualName;
     public string QualName => _qualName ?? PyFrame.BindErrorName(CodeObject?.DisplayQualName ?? Name);
     internal void SetQualName(string value) => _qualName = value;
+    private PyString _qualNameObject;
+    private PyString _nameObject;
     internal string AssignedQualName => _qualName;
     // func_annotations (Objects/funcobject.c): reading creates the dict, so it is never an AttributeError.
     private PyObject _annotations;
@@ -76,13 +78,14 @@ public partial class PyFunction : PyObject, IDescriptor
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return new PyString(func.Name);
+                    return func._nameObject ??= new PyString(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             },
             setter: (self, value) => {
                 if (value is not PyString text)
                     throw PyTypeError.Create("__name__ must be set to a string object");
                 ((PyFunction)self).Name = text.Value;
+                ((PyFunction)self)._nameObject = text;
             },
             deleter: self => throw PyTypeError.Create("__name__ must be set to a string object")
         );
@@ -95,7 +98,7 @@ public partial class PyFunction : PyObject, IDescriptor
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return new PyString(func.QualName);
+                    return func._qualNameObject ??= new PyString(func.QualName);
                 throw PyTypeError.Create("descriptor '__qualname__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             },
             setter: (self, value) => {
@@ -104,6 +107,7 @@ public partial class PyFunction : PyObject, IDescriptor
                 if (!(value is PyString text))
                     throw PyTypeError.Create("__qualname__ must be set to a string object");
                 func.SetQualName(text.Value);
+                func._qualNameObject = text;
             },
             deleter: self => {
                 if (!(self is PyFunction))

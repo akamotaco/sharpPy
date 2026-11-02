@@ -182,7 +182,7 @@ namespace SharpPy
                         var si = PyObject.TryGetIndex(args[1]);
                         if (si == null)
                             throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        start = (long)si.Value;
+                        start = (long)System.Numerics.BigInteger.Clamp(si.Value, long.MinValue, long.MaxValue);
                         if (start < 0) { start += n; if (start < 0) start = 0; }
                         else if (start > n) start = n;
                     }
@@ -190,7 +190,7 @@ namespace SharpPy
                         var ti = PyObject.TryGetIndex(args[2]);
                         if (ti == null)
                             throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        stop = (long)ti.Value;
+                        stop = (long)System.Numerics.BigInteger.Clamp(ti.Value, long.MinValue, long.MaxValue);
                         if (stop < 0) { stop += n; if (stop < 0) stop = 0; }
                         else if (stop > n) stop = n;
                     }
@@ -262,6 +262,11 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length > 1)
                         throw PyTypeError.Create($"list.__init__() takes at most 1 argument ({args.Length} given)");
+                    // list___init__: keywords are refused unless a subclass has its own __new__.
+                    if (kwargs != null && kwargs.Length() != 0 &&
+                        (self.GetPyType() is not PyClass heap || ReferenceEquals(heap.LookupInMRO("__new__"), PyType.ObjectType.TypeDict["__new__"]) ||
+                         ReferenceEquals(heap.LookupInMRO("__new__"), listType.TypeDict.GetValueOrDefault("__new__"))))
+                        throw PyTypeError.Create("list() takes no keyword arguments");
 
                     // CPython 3.12: Get actual list storage (works for subclasses)
                     var list = GetListStorage(self);
@@ -843,7 +848,7 @@ namespace SharpPy
         // caller-provided negative adjustment/clamping.
         public int Index(PyObject item, long start, long stop)
         {
-            for (long i = start; i < stop; i++)
+            for (long i = start; i < stop && i < _items.Count; i++)
             {
                 if (AreEqual(_items[(int)i], item))
                     return (int)i;
@@ -1201,44 +1206,36 @@ namespace SharpPy
             if (other is not PyList otherList)
                 return PyNotImplemented.Instance;
 
-            // CPython: Objects/listobject.c:2721-2728 - Shortcut: if lengths differ and op is EQ/NE
-            if (op == CompareOp.EQ || op == CompareOp.NE)
+            // list_richcompare: both lists are read again after every comparison, which may run
+            // code that changes them.
+            if (_items.Count != otherList._items.Count && (op == CompareOp.EQ || op == CompareOp.NE))
+                return PyBool.FromBool(op == CompareOp.NE);
+
+            int i;
+            for (i = 0; i < _items.Count && i < otherList._items.Count; i++)
             {
-                if (_items.Count != otherList._items.Count)
-                    return PyBool.FromBool(op == CompareOp.NE);
-
-                // CPython: Objects/listobject.c:2730-2747 - Search for first index where items differ
-                for (int i = 0; i < _items.Count; i++)
-                {
-                    if (!CompareBool(_items[i], otherList._items[i], CompareOp.EQ))
-                        return PyBool.FromBool(op == CompareOp.NE);
-                }
-
-                return PyBool.FromBool(op == CompareOp.EQ);
+                var mine = _items[i];
+                var theirs = otherList._items[i];
+                if (ReferenceEquals(mine, theirs))
+                    continue;
+                if (!CompareBool(mine, theirs, CompareOp.EQ))
+                    break;
             }
 
-            // CPython: Objects/listobject.c:2730-2770 - Search for first index where items differ
-            int minLen = Math.Min(_items.Count, otherList._items.Count);
-            for (int i = 0; i < minLen; i++)
-            {
-                // First check if items are equal
-                if (!CompareBool(_items[i], otherList._items[i], CompareOp.EQ))
+            if (i >= _items.Count || i >= otherList._items.Count)
+                return op switch
                 {
-                    // Items differ - compare using the actual operator
-                    return Compare(_items[i], otherList._items[i], op);
-                }
-                // Items are equal, continue to next pair
-            }
+                    CompareOp.LT => PyBool.FromBool(_items.Count < otherList._items.Count),
+                    CompareOp.LE => PyBool.FromBool(_items.Count <= otherList._items.Count),
+                    CompareOp.GT => PyBool.FromBool(_items.Count > otherList._items.Count),
+                    CompareOp.GE => PyBool.FromBool(_items.Count >= otherList._items.Count),
+                    CompareOp.EQ => PyBool.FromBool(_items.Count == otherList._items.Count),
+                    _ => PyBool.FromBool(_items.Count != otherList._items.Count),
+                };
 
-            // CPython: Objects/listobject.c:2749-2752 - No more items to compare, compare sizes
-            return op switch
-            {
-                CompareOp.LT => PyBool.FromBool(_items.Count < otherList._items.Count),
-                CompareOp.LE => PyBool.FromBool(_items.Count <= otherList._items.Count),
-                CompareOp.GT => PyBool.FromBool(_items.Count > otherList._items.Count),
-                CompareOp.GE => PyBool.FromBool(_items.Count >= otherList._items.Count),
-                _ => PyNotImplemented.Instance
-            };
+            if (op == CompareOp.EQ) return PyBool.False;
+            if (op == CompareOp.NE) return PyBool.True;
+            return Compare(_items[i], otherList._items[i], op);
         }
     }
 }

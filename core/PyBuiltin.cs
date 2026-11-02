@@ -1122,104 +1122,88 @@ namespace SharpPy
         private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null) =>
             PyFloat.FloatNew(PyType.FloatType, args, kwargs);
 
+        // try_complex_special_method
+        private static PyComplex ComplexSpecial(PyObject value)
+        {
+            var method = value.LookupSpecialMethodUncached("__complex__");
+            if (method == null)
+                return null;
+            var result = value.CallSpecial(method);
+            if (result is not PyComplex complex)
+                throw PyTypeError.Create("__complex__ should return a complex object");
+            if (result is PyComplexSubclass)
+                PyWarnings.Deprecated($"__complex__ returned non-complex (type {result.GetPyType().Name}).  " +
+                    "The ability to return an instance of a strict subclass of complex is deprecated, and may be removed in a future version of Python.");
+            return complex;
+        }
+
+        private static bool IsNumberLike(PyObject value) =>
+            value is PyComplex or PyFloat or PyFloatSubclass or PyInt or PyBool or PyIntSubclass ||
+            value.LookupSpecialMethodUncached("__float__") != null || value.LookupSpecialMethodUncached("__index__") != null;
+
+        // complex_new_impl
         internal static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: Objects/complexobject.c:complex_new
-            // complex() → 0+0j
-            // complex(real) → real+0j
-            // complex(real, imag) → real+imag*j
-            // complex("1+2j") → parse string
+            int total = args.Length + (kwargs?.Length() ?? 0);
+            if (total > 2)
+                throw PyTypeError.Create($"complex() takes at most 2 arguments ({total} given)");
+            PyObject r = args.Length > 0 ? args[0] : null;
+            PyObject i = args.Length > 1 ? args[1] : null;
+            if (kwargs != null)
+                foreach (var entry in kwargs.GetInternalDict())
+                {
+                    if (entry.Key is PyString { Value: "real" } && r == null) r = entry.Value;
+                    else if (entry.Key is PyString { Value: "imag" } && i == null) i = entry.Value;
+                    else if (entry.Key is PyString { Value: "real" or "imag" } duplicate)
+                        throw PyTypeError.Create($"argument for complex() given by name ('{duplicate.Value}') and position ({(duplicate.Value == "real" ? 1 : 2)})");
+                    else
+                        throw PyTypeError.Create($"{entry.Key.ToRepr().Value} is an invalid keyword argument for complex()");
+                }
+            r ??= new PyInt(0);
 
-            if (args.Length == 0)
-                return new PyComplex(0, 0);
-
-            if (args.Length > 2)
-                throw PyTypeError.Create($"complex() takes at most 2 arguments ({args.Length} given)");
-
-            var firstArg = args[0];
-
-            // complex("1+2j") - string parsing
-            if (firstArg is PyString pyStr)
+            if (r.GetType() == typeof(PyComplex) && i == null)
+                return r;
+            if (r is PyString text)
             {
-                if (args.Length > 1)
+                if (i != null)
                     throw PyTypeError.Create("complex() can't take second arg if first is a string");
-
-                return PyComplex.FromString(pyStr.Value);
+                return PyComplex.FromObject(text);
             }
+            if (i is PyString)
+                throw PyTypeError.Create("complex() second arg can't be a string");
 
-            // Get real part - try __complex__ protocol first
-            // CPython 3.12: Objects/complexobject.c:102-127 (try_complex_special_method)
-            double real = 0;
-            double imag = 0;
-            bool gotFromComplex = false;
+            r = ComplexSpecial(r) ?? r;
+            if (!IsNumberLike(r))
+                throw PyTypeError.Create($"complex() first argument must be a string or a number, not '{r.GetPyType().Name}'");
+            if (i != null && !IsNumberLike(i))
+                throw PyTypeError.Create($"complex() second argument must be a number, not '{i.GetPyType().Name}'");
 
-            if (firstArg is PyInt pyInt)
-                real = (double)pyInt.Value;
-            else if (firstArg is PyFloat pyFloat)
-                real = pyFloat.Value;
-            else if (firstArg is PyComplex pyComplex)
+            double realReal, realImag = 0.0, imagReal, imagImag = 0.0;
+            if (r is PyComplex first)
             {
-                if (args.Length > 1)
-                    throw PyTypeError.Create("complex() second arg can't be used when first arg is complex");
-                return pyComplex;  // Return as-is
+                realReal = first.Real;
+                realImag = first.Imag;
             }
-            else if (firstArg is PyBool pyBool)
-                real = pyBool.Value ? 1 : 0;
             else
             {
-                // Try __complex__ protocol
-                try
-                {
-                    var complexMethod = firstArg.GetAttribute("__complex__");
-                    if (complexMethod != null)
-                    {
-                        PyObject result;
-                        if (complexMethod is PyMethod boundMethod)
-                            result = boundMethod.Call(new PyObject[0], null);
-                        else if (complexMethod is PyFunction func)
-                            result = func.Call(new PyObject[] { firstArg }, null);
-                        else if (complexMethod is PyBuiltinFunction builtinFunc)
-                            result = builtinFunc.Call(new PyObject[0]);
-                        else
-                            result = complexMethod.Call(new PyObject[0], null);
-
-                        if (result is PyComplex complexResult)
-                        {
-                            if (args.Length > 1)
-                                throw PyTypeError.Create("complex() second arg can't be used when first arg is complex (from __complex__)");
-                            return complexResult;
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"__complex__ returned non-complex (type {result.GetTypeName()})");
-                        }
-                    }
-                }
-                catch
-                {
-                    // No __complex__ method, fall through to error
-                }
-
-                throw PyTypeError.Create($"complex() argument must be a string or a number, not '{firstArg.GetTypeName()}'");
+                realReal = PyFloat.NumberFloat(r).Value;
             }
-
-            // Get imaginary part if provided
-            if (args.Length == 2)
+            if (i == null)
+                imagReal = realImag;
+            else if (i is PyComplex second)
             {
-                var secondArg = args[1];
-                if (secondArg is PyInt pyInt2)
-                    imag = (double)pyInt2.Value;
-                else if (secondArg is PyFloat pyFloat2)
-                    imag = pyFloat2.Value;
-                else if (secondArg is PyBool pyBool2)
-                    imag = pyBool2.Value ? 1 : 0;
-                else if (secondArg is PyComplex)
-                    throw PyTypeError.Create("complex() second arg can't be complex");
-                else
-                    throw PyTypeError.Create($"complex() second argument must be a number, not '{secondArg.GetTypeName()}'");
+                imagReal = second.Real;
+                imagImag = second.Imag;
             }
-
-            return new PyComplex(real, imag);
+            else
+            {
+                imagReal = PyFloat.NumberFloat(i).Value;
+            }
+            if (i is PyComplex)
+                realReal -= imagImag;
+            if (r is PyComplex && i != null)
+                imagReal += realImag;
+            return new PyComplex(realReal, imagReal);
         }
 
         private static PyObject CallEval(PyObject[] args, PyDict kwargs = null)
@@ -1575,6 +1559,9 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyTuple();
 
+            // tuple_new_impl: an exact tuple is its own answer.
+            if (args[0].GetType() == typeof(PyTuple) && ReferenceEquals(args[0].GetPyType(), PyType.TupleType))
+                return args[0];
             return args[0].AsTuple();
         }
 
@@ -1732,13 +1719,12 @@ namespace SharpPy
             if (result == PyNotImplemented.Instance)
             {
                 // CPython binary_op1: try the reflected __rdivmod__ before failing.
-                if (b is PyClassInstance rightClass)
+                var reflected = b.LookupSpecialMethodUncached("__rdivmod__");
+                if (reflected != null)
                 {
-                    var reflected = rightClass.LookupSpecialMethodUncached("__rdivmod__");
-                    if (reflected != null)
-                    {
-                        return reflected.Call(new PyObject[] { a }, null);
-                    }
+                    result = b.CallSpecial(reflected, a);
+                    if (result != PyNotImplemented.Instance)
+                        return result;
                 }
                 throw PyTypeError.Create($"unsupported operand type(s) for divmod(): '{a.GetTypeName()}' and '{b.GetTypeName()}'");
             }
@@ -2055,7 +2041,7 @@ namespace SharpPy
             var created = metaclass.Call(new[] { name, bases, ns }, classKeywords);
             if (created is PyType && cell is PyCell classCell && !ReferenceEquals(classCell.Value, created))
             {
-                if (classCell.Value == null)
+                if (!classCell.HasValue)
                     throw PyRuntimeError.Create(
                         $"__class__ not set defining {name.ToRepr().Value} as {created.ToRepr().Value}. Was __classcell__ propagated to type.__new__?");
                 throw PyTypeError.Create(
@@ -2311,7 +2297,7 @@ namespace SharpPy
         /// super() builtin function implementation
         /// Returns a proxy object that delegates method calls to parent or sibling class
         /// </summary>
-        private static PyObject CallSuper(PyObject[] args, PyDict kwargs = null)
+        internal static PyObject CallSuper(PyObject[] args, PyDict kwargs = null)
         {
             // CPython super has no keyword parameters (super_vectorcall / _PyArg_NoKwnames).
             if (kwargs != null && kwargs.Length() > 0)
@@ -2840,7 +2826,8 @@ namespace SharpPy
         /// CPython 3.12: super_getattro() -> do_super_lookup()
         /// </summary>
         // CPython PySuper_Type: name "super", base object.
-        public override PyType GetPyType() => PyType.SuperType;
+        public override PyType GetPyType() => _customType ?? PyType.SuperType;
+
         public override string GetTypeName() => "super";
 
         // CPython super_repr:
@@ -2853,8 +2840,7 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
-            // CPython super_getattro: __class__ is special-cased to the super class,
-            // never the class of su->obj.
+            // CPython super_getattro: __class__ is special-cased to type(self), a subclass included.
             if (name == "__class__")
             {
                 return GetPyType();

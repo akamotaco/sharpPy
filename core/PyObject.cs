@@ -508,6 +508,10 @@ namespace SharpPy
                 return PyGetAttribute(name);
             }
 
+            // A Python subclass of a builtin with no storage of its own for attributes.
+            if (_customType is PyClass heap && this is not IDictBackedInstance)
+                return SubclassInstanceSupport.GetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, PyGetAttribute);
+
             // Instance-level access: handle special cases
             switch (name)
             {
@@ -597,8 +601,13 @@ namespace SharpPy
             if (name == "__class__")
                 throw PyTypeError.Create(value is PyType ? "__class__ assignment only supported for mutable types or ModuleType subclasses" : $"__class__ must be set to a class, not '{value.GetTypeName()}' object");
 
-            PySetAttribute(name, value);
+            if (_customType is PyClass heap && this is not IDictBackedInstance)
+                SubclassInstanceSupport.SetAttribute(this, heap, HeapAttributes.GetOrCreateValue(this), name, value);
+            else
+                PySetAttribute(name, value);
         }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PyObject, Dictionary<string, PyObject>> HeapAttributes = new();
 
         public virtual void DelAttribute(string name)
         {

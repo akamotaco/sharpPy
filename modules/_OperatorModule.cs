@@ -93,42 +93,42 @@ namespace SharpPy.Modules
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"lt() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].RichCompare(args[1], PyObject.CompareOp.LT);
+            return PyObject.Compare(args[0], args[1], PyObject.CompareOp.LT);
         }
 
         private static PyObject Le(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"le() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].RichCompare(args[1], PyObject.CompareOp.LE);
+            return PyObject.Compare(args[0], args[1], PyObject.CompareOp.LE);
         }
 
         private static PyObject Eq(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"eq() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].RichCompare(args[1], PyObject.CompareOp.EQ);
+            return PyObject.Compare(args[0], args[1], PyObject.CompareOp.EQ);
         }
 
         private static PyObject Ne(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"ne() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].RichCompare(args[1], PyObject.CompareOp.NE);
+            return PyObject.Compare(args[0], args[1], PyObject.CompareOp.NE);
         }
 
         private static PyObject Ge(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"ge() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].RichCompare(args[1], PyObject.CompareOp.GE);
+            return PyObject.Compare(args[0], args[1], PyObject.CompareOp.GE);
         }
 
         private static PyObject Gt(PyObject[] args)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"gt() takes exactly 2 arguments ({args.Length} given)");
-            return args[0].RichCompare(args[1], PyObject.CompareOp.GT);
+            return PyObject.Compare(args[0], args[1], PyObject.CompareOp.GT);
         }
 
         #endregion
@@ -139,14 +139,14 @@ namespace SharpPy.Modules
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"not_() takes exactly 1 argument ({args.Length} given)");
-            return PyBool.FromBool(!args[0].PyBoolValue());
+            return PyBool.FromBool(!args[0].IsTrue());
         }
 
         private static PyObject Truth(PyObject[] args)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"truth() takes exactly 1 argument ({args.Length} given)");
-            return PyBool.FromBool(args[0].PyBoolValue());
+            return PyBool.FromBool(args[0].IsTrue());
         }
 
         private static PyObject Is(PyObject[] args)

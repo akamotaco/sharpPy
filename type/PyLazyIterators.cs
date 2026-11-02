@@ -42,7 +42,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "map";
-        public override PyType GetPyType() => PyType.MapType;
+        public override PyType GetPyType() => _customType ?? PyType.MapType;
         public override PyString ToRepr() => new PyString($"<map object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
         public override PyString AsString() => ToRepr();
     }
@@ -111,7 +111,7 @@ namespace SharpPy
         private static string Earlier(int count) => count == 1 ? "argument 1" : $"arguments 1-{count}";
 
         public override string GetTypeName() => "zip";
-        public override PyType GetPyType() => PyType.ZipType;
+        public override PyType GetPyType() => _customType ?? PyType.ZipType;
         public override PyString ToRepr() => new PyString($"<zip object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
         public override PyString AsString() => ToRepr();
     }
@@ -148,7 +148,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "filter";
-        public override PyType GetPyType() => PyType.FilterType;
+        public override PyType GetPyType() => _customType ?? PyType.FilterType;
         public override PyString ToRepr() => new PyString($"<filter object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this):x}>");
         public override PyString AsString() => ToRepr();
     }

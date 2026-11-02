@@ -1174,7 +1174,7 @@ namespace SharpPy
         internal static readonly double QuietNaN = BitConverter.Int64BitsToDouble(0x7FF8000000000000);
 
         // _PyUnicode_TransformDecimalAndSpaceToASCII
-        private static string TransformDecimalAndSpace(string text)
+        internal static string TransformDecimalAndSpace(string text)
         {
             bool ascii = true;
             foreach (char c in text)
@@ -1199,10 +1199,10 @@ namespace SharpPy
             return output.ToString();
         }
 
-        private static bool IsCSpace(char c) => c == ' ' || (c >= 9 && c <= 13);
+        internal static bool IsCSpace(char c) => c == ' ' || (c >= 9 && c <= 13);
 
         // _Py_string_to_number_with_underscores
-        private static string WithoutUnderscores(string text)
+        internal static string WithoutUnderscores(string text)
         {
             if (text.IndexOf('_') < 0) return text;
             var output = new System.Text.StringBuilder(text.Length);
@@ -1223,44 +1223,54 @@ namespace SharpPy
             return previous == '_' ? null : output.ToString();
         }
 
-        // _Py_parse_inf_or_nan and the grammar of _PyOS_ascii_strtod, consuming all of the text.
-        private static bool TryParseDouble(string text, out double value)
+        private static bool MatchesAt(string text, int position, string word) =>
+            string.Compare(text, position, word, 0, word.Length, StringComparison.OrdinalIgnoreCase) == 0;
+
+        /// <summary>PyOS_string_to_double with an end pointer: the longest double at position.</summary>
+        internal static bool ScanDouble(string text, ref int position, out double value)
         {
             value = 0.0;
-            int position = 0;
+            int cursor = position;
             bool negative = false;
-            if (position < text.Length && (text[position] == '+' || text[position] == '-'))
-                negative = text[position++] == '-';
-            string body = text.Substring(position).ToLowerInvariant();
-            if (body is "inf" or "infinity")
+            if (cursor < text.Length && (text[cursor] == '+' || text[cursor] == '-'))
+                negative = text[cursor++] == '-';
+            if (MatchesAt(text, cursor, "inf"))
             {
+                position = cursor + (MatchesAt(text, cursor, "infinity") ? 8 : 3);
                 value = negative ? double.NegativeInfinity : double.PositiveInfinity;
                 return true;
             }
-            if (body == "nan")
+            if (MatchesAt(text, cursor, "nan"))
             {
+                position = cursor + 3;
                 value = negative ? -QuietNaN : QuietNaN;
                 return true;
             }
-            int digits = 0;
-            while (position < text.Length && char.IsAsciiDigit(text[position])) { position++; digits++; }
-            if (position < text.Length && text[position] == '.')
+            int start = position, digits = 0;
+            while (cursor < text.Length && char.IsAsciiDigit(text[cursor])) { cursor++; digits++; }
+            if (cursor < text.Length && text[cursor] == '.')
             {
-                position++;
-                while (position < text.Length && char.IsAsciiDigit(text[position])) { position++; digits++; }
+                cursor++;
+                while (cursor < text.Length && char.IsAsciiDigit(text[cursor])) { cursor++; digits++; }
             }
             if (digits == 0) return false;
-            if (position < text.Length && (text[position] == 'e' || text[position] == 'E'))
+            if (cursor < text.Length && (text[cursor] == 'e' || text[cursor] == 'E'))
             {
-                int exponent = position + 1;
+                int exponent = cursor + 1;
                 if (exponent < text.Length && (text[exponent] == '+' || text[exponent] == '-')) exponent++;
-                int start = exponent;
+                int first = exponent;
                 while (exponent < text.Length && char.IsAsciiDigit(text[exponent])) exponent++;
-                if (exponent == start) return false;
-                position = exponent;
+                if (exponent != first) cursor = exponent;
             }
-            return position == text.Length && double.TryParse(text, System.Globalization.NumberStyles.Float,
+            position = cursor;
+            return double.TryParse(text.AsSpan(start, cursor - start), System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out value);
+        }
+
+        private static bool TryParseDouble(string text, out double value)
+        {
+            int position = 0;
+            return ScanDouble(text, ref position, out value) && position == text.Length;
         }
 
         // float_from_string_inner with the underscore pass in front.

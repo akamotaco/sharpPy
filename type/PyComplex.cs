@@ -103,153 +103,54 @@ namespace SharpPy
         /// </summary>
         internal static string FormatComplex(double real, double imag, string spec)
         {
-            if (spec.Length == 0)
-                return new PyComplex(real, imag).ToStr().Value;
+            if (string.IsNullOrEmpty(spec))
+                return new PyComplex(real, imag).ToRepr().Value;
+            var format = FormatSpec.Parse("complex", spec, '\0', '>');
+            if (!(format.Type is '\0' or 'e' or 'E' or 'f' or 'F' or 'g' or 'G' or 'n'))
+                throw FormatSpec.Unknown(format.Type, "complex");
+            return FormatComplexInternal(real, imag, format);
+        }
 
-            int i = 0;
-            char fill = ' ';
-            char align = '\0';
-            if (spec.Length >= 2 && (spec[1] == '<' || spec[1] == '>' || spec[1] == '^' || spec[1] == '='))
+        // format_complex_internal
+        private static string FormatComplexInternal(double real, double imag, FormatSpec format)
+        {
+            if (format.Precision > int.MaxValue) throw PyValueError.Create("precision too big");
+            if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+            if (format.Fill == "0")
+                throw PyValueError.Create("Zero padding is not allowed in complex format specifier");
+            if (format.Align == '=')
+                throw PyValueError.Create("'=' alignment flag is not allowed in complex format specifier");
+
+            var part = format.Copy();
+            part.Fill = " ";
+            part.Align = '<';
+            part.Width = -1;
+            bool skipReal = false, parens = false;
+            if (format.Type == '\0')
             {
-                fill = spec[0];
-                align = spec[1];
-                i = 2;
+                // Like str(self), or %g with a precision.
+                part.Type = format.Precision < 0 ? 'r' : 'g';
+                if (real == 0.0 && !double.IsNegative(real)) skipReal = true;
+                else parens = true;
             }
-            else if (spec.Length >= 1 && (spec[0] == '<' || spec[0] == '>' || spec[0] == '^'))
+            else if (format.Type == 'n')
             {
-                align = spec[0];
-                i = 1;
+                part.Type = 'g';
             }
 
-            char sign = '-';
-            if (i < spec.Length && (spec[i] == '+' || spec[i] == '-' || spec[i] == ' '))
-            {
-                sign = spec[i];
-                i++;
-            }
-            bool alt = false;
-            if (i < spec.Length && spec[i] == '#')
-            {
-                alt = true;
-                i++;
-            }
-            bool zero = false;
-            if (i < spec.Length && spec[i] == '0')
-            {
-                zero = true;
-                i++;
-            }
-            int width = 0;
-            while (i < spec.Length && char.IsAsciiDigit(spec[i]))
-            {
-                width = width * 10 + (spec[i] - '0');
-                i++;
-            }
-            bool comma = false;
-            if (i < spec.Length && spec[i] == ',')
-            {
-                comma = true;
-                i++;
-            }
-            int precision = -1;
-            if (i < spec.Length && spec[i] == '.')
-            {
-                i++;
-                precision = 0;
-                while (i < spec.Length && char.IsAsciiDigit(spec[i]))
-                {
-                    precision = precision * 10 + (spec[i] - '0');
-                    i++;
-                }
-            }
-            // CPython complex_format switch: '\0', r/R and eEfFgG are accepted;
-            // everything else reports "Unknown format code ... for object of type 'complex'".
-            char typeChar = '\0';
-            if (i < spec.Length)
-            {
-                typeChar = spec[i];
-                i++;
-            }
-            // CPython 3.12 complex_format accepts no explicit type char only
-            // (r/R are rejected with "Unknown format code").
-            bool reprStyle = typeChar == '\0';
-            if (!reprStyle && "eEfFgG".IndexOf(typeChar) < 0)
-                throw PyValueError.Create($"Unknown format code '{typeChar}' for object of type 'complex'");
-            if (i != spec.Length)
-                throw PyValueError.Create("Invalid format specifier");
-            if (alt && !reprStyle)
-                throw PyValueError.Create("Alternate form (#) not allowed in float format specifier");
+            string realText = skipReal ? "" : PyFloatFormatter.Render(real, part);
+            if (!skipReal) part.Sign = '+';
+            string body = realText + PyFloatFormatter.Render(imag, part) + "j";
+            if (parens) body = "(" + body + ")";
 
-            char imagSign = imag < 0 || double.IsNegative(imag) ? '-' : '+';
-            string combined;
-
-            if (reprStyle)
-            {
-                // Repr-style parts (shortest round-trip), optional alternate trailing dot.
-                string FmtPart(double v)
-                {
-                    // Use float shortest repr, then drop the trailing ".0" that
-                    // CPython's complex repr omits for integral parts.
-                    string s = PyFloat.FormatFloat(v, "");
-                    if (s.EndsWith(".0"))
-                        s = s.Substring(0, s.Length - 2);
-                    if (alt && s.Length > 0 && s.IndexOf('.') < 0 && s.IndexOf('e') < 0
-                        && s.IndexOf('E') < 0 && s.IndexOf('n') < 0 && s.IndexOf('i') < 0)
-                    {
-                        s += ".";
-                    }
-                    return s;
-                }
-                string realStr = FmtPart(real);
-                if ((sign == '+' || sign == ' ') && real >= 0 && !double.IsNegative(real))
-                    realStr = (sign == '+' ? "+" : " ") + realStr;
-                string body = realStr + imagSign + FmtPart(Math.Abs(imag)) + "j";
-                // Parenthesize unless the real part is exactly positive zero.
-                bool parenthesize = !(real == 0.0 && !double.IsNegative(real));
-                combined = parenthesize ? "(" + body + ")" : body;
-            }
-            else
-            {
-                var partSpecBuilder = new StringBuilder();
-                if (comma) partSpecBuilder.Append(',');
-                if (precision >= 0) partSpecBuilder.Append('.').Append(precision);
-                partSpecBuilder.Append(typeChar);
-                string partSpec = partSpecBuilder.ToString();
-
-                string realSpecBuild = (sign == '+' ? "+" : "") + partSpec;
-                string realStr = PyFloat.FormatFloat(real, realSpecBuild);
-                string imagStr = PyFloat.FormatFloat(Math.Abs(imag), partSpec);
-                combined = realStr + imagSign + imagStr + "j";
-            }
-            if (zero && align == '\0')
-            {
-                fill = '0';
-                align = '=';
-            }
-            if (width > 0)
-            {
-                if (align == '\0')
-                    align = '<';
-                if (combined.Length < width)
-                {
-                    int pad = width - combined.Length;
-                    if (align == '<')
-                        combined = combined + new string(fill, pad);
-                    else if (align == '>')
-                        combined = new string(fill, pad) + combined;
-                    else if (align == '^')
-                    {
-                        int left = pad / 2;
-                        int right = pad - left;
-                        combined = new string(fill, left) + combined + new string(fill, right);
-                    }
-                    else // '='
-                    {
-                        combined = new string(fill, pad) + combined;
-                    }
-                }
-            }
-            return combined;
+            int length = new PyString(body).Length();
+            long padding = System.Math.Max(0, format.Width - length);
+            int left = format.Align == '>' ? (int)padding : format.Align == '^' ? (int)(padding / 2) : 0;
+            var output = new StringBuilder();
+            for (int n = 0; n < left; n++) output.Append(format.Fill);
+            output.Append(body);
+            for (int n = 0; n < padding - left; n++) output.Append(format.Fill);
+            return output.ToString();
         }
 
         #endregion
@@ -640,79 +541,63 @@ namespace SharpPy
         /// 문자열에서 복소수 파싱
         /// CPython 3.12: Objects/complexobject.c:complex_subtype_from_string
         /// </summary>
-        public static PyComplex FromString(string value)
+        public static PyComplex FromString(string text) => FromObject(new PyString(text));
+
+        /// <summary>complex_from_string_inner, after the same text passes as float().</summary>
+        internal static PyComplex FromObject(PyObject value)
         {
-            if (string.IsNullOrWhiteSpace(value))
-                throw PyValueError.Create("complex() arg is an empty string");
-
-            // Remove all spaces
-            value = value.Trim().Replace(" ", "");
-
-            // Special cases: pure imaginary
-            if (value == "j" || value == "+j")
-                return new PyComplex(0, 1);
-            if (value == "-j")
-                return new PyComplex(0, -1);
-
-            // Check if it ends with 'j' (imaginary component)
-            bool hasImaginary = value.EndsWith("j");
-            if (hasImaginary)
-                value = value.Substring(0, value.Length - 1);  // Remove 'j'
-
-            // Try parsing as real number only
-            if (!hasImaginary)
+            var failure = PyValueError.Create("complex() arg is a malformed string");
+            string text = PyFloat.WithoutUnderscores(PyFloat.TransformDecimalAndSpace(((PyString)value).Value));
+            if (text == null) throw failure;
+            int s = 0;
+            bool bracket = false;
+            double x = 0.0, y = 0.0;
+            void Space(ref int at) { while (at < text.Length && PyFloat.IsCSpace(text[at])) at++; }
+            char At(int at) => at < text.Length ? text[at] : '\0';
+            Space(ref s);
+            if (At(s) == '(')
             {
-                if (double.TryParse(value, out double real))
-                    return new PyComplex(real, 0);
-
-                throw PyValueError.Create($"complex() arg is a malformed string");
+                bracket = true;
+                s++;
+                Space(ref s);
             }
-
-            // Has imaginary component - check for real+imaginary format
-            // Find the last + or - that's not at the beginning
-            int opIndex = -1;
-            for (int i = value.Length - 1; i > 0; i--)
+            if (PyFloat.ScanDouble(text, ref s, out double z))
             {
-                if (value[i] == '+' || value[i] == '-')
+                if (At(s) == '+' || At(s) == '-')
                 {
-                    opIndex = i;
-                    break;
+                    x = z;
+                    if (!PyFloat.ScanDouble(text, ref s, out y))
+                        y = text[s++] == '+' ? 1.0 : -1.0;
+                    if (At(s) != 'j' && At(s) != 'J') throw failure;
+                    s++;
                 }
-            }
-
-            if (opIndex > 0)
-            {
-                // Format: "real+imagj" or "real-imagj"
-                string realPart = value.Substring(0, opIndex);
-                string imagPart = value.Substring(opIndex);
-
-                if (!double.TryParse(realPart, out double real))
-                    throw PyValueError.Create($"complex() arg is a malformed string");
-
-                // Handle cases like "+2j" or "-2j" where imagPart is "+2" or "-2"
-                if (imagPart == "+" || imagPart == "")
-                    return new PyComplex(real, 1);
-                if (imagPart == "-")
-                    return new PyComplex(real, -1);
-
-                if (!double.TryParse(imagPart, out double imag))
-                    throw PyValueError.Create($"complex() arg is a malformed string");
-
-                return new PyComplex(real, imag);
+                else if (At(s) == 'j' || At(s) == 'J')
+                {
+                    s++;
+                    y = z;
+                }
+                else
+                {
+                    x = z;
+                }
             }
             else
             {
-                // Format: "imagj" (pure imaginary)
-                if (string.IsNullOrEmpty(value) || value == "+")
-                    return new PyComplex(0, 1);
-                if (value == "-")
-                    return new PyComplex(0, -1);
-
-                if (!double.TryParse(value, out double imag))
-                    throw PyValueError.Create($"complex() arg is a malformed string");
-
-                return new PyComplex(0, imag);
+                y = 1.0;
+                if (At(s) == '+' || At(s) == '-')
+                    y = text[s++] == '+' ? 1.0 : -1.0;
+                if (At(s) != 'j' && At(s) != 'J') throw failure;
+                s++;
             }
+            Space(ref s);
+            if (bracket)
+            {
+                if (At(s) != ')') throw failure;
+                s++;
+                Space(ref s);
+            }
+            if (s != text.Length) throw failure;
+            return new PyComplex(x, y);
         }
 
         /// <summary>

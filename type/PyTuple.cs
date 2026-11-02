@@ -109,7 +109,7 @@ namespace SharpPy
                         var si = PyObject.TryGetIndex(args[1]);
                         if (si == null)
                             throw PyTypeError.Create("slice indices must be integers or have an __index__ method");
-                        start = (long)si.Value;
+                        start = (long)System.Numerics.BigInteger.Clamp(si.Value, long.MinValue, long.MaxValue);
                     }
 
                     long? stop = null;

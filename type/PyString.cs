@@ -380,9 +380,11 @@ namespace SharpPy
                     var old = args[0] is PyString oldStr ? oldStr.Value : throw PyTypeError.Create("replace() old must be str");
                     var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyTypeError.Create("replace() new must be str");
 
-                    return args.Length == 3
-                        ? str.Replace(old, newStr, (int)((PyInt)args[2]).Value)
-                        : str.Replace(old, newStr);
+                    if (args.Length != 3)
+                        return str.Replace(old, newStr);
+                    var limit = TryGetIndex(args[2]) ?? throw PyTypeError.Create(
+                        $"'{args[2].GetTypeName()}' object cannot be interpreted as an integer");
+                    return str.Replace(old, newStr, (long)BigInteger.Clamp(limit.Value, long.MinValue, long.MaxValue));
                 },
                 minArgs: 2, maxArgs: 3
             );
@@ -2716,6 +2718,9 @@ namespace SharpPy
                         else if (signPlus) sign = "+";
                         else if (signSpace) sign = " ";
                         body = ival.ToString(CultureInfo.InvariantCulture);
+                        // _PyUnicode_FormatLong: the precision is a minimum of digits.
+                        if (hasPrecision && body.Length < precision)
+                            body = new string('0', precision - body.Length) + body;
                         break;
                     }
                     case 'o':
@@ -2734,6 +2739,8 @@ namespace SharpPy
                         else if (signSpace) sign = " ";
                         string digits = conv == 'o' ? ToBase(ival, 8, false)
                             : ToBase(ival, 16, conv == 'X');
+                        if (hasPrecision && digits.Length < precision)
+                            digits = new string('0', precision - digits.Length) + digits;
                         string prefix = alt && !ival.IsZero
                             ? (conv == 'o' ? "0o" : conv == 'X' ? "0X" : "0x")
                             : "";
@@ -2977,20 +2984,46 @@ namespace SharpPy
             return new PyString(Value.TrimEnd(chars.ToCharArray()));
         }
 
-        public PyString Replace(string old, string newStr, int count = -1)
+        // replace (Objects/unicodeobject.c): the text is walked once, what was put in is not searched.
+        public PyString Replace(string old, string newStr, long count = -1)
         {
-            if (count == -1)
-                return new PyString(Value.Replace(old, newStr));
-            
-            // 제한된 횟수만 바꾸기
-            var result = Value;
-            for (int i = 0; i < count; i++)
+            if (count < 0) count = long.MaxValue;
+            if (count == 0) return this;
+            var output = new StringBuilder(Value.Length);
+            int position = 0;
+            if (old.Length == 0)
             {
-                var index = result.IndexOf(old);
-                if (index == -1) break;
-                result = result.Substring(0, index) + newStr + result.Substring(index + old.Length);
+                // Before every character, and after the last one.
+                long inserted = 0;
+                while (true)
+                {
+                    if (inserted < count)
+                    {
+                        output.Append(newStr);
+                        inserted++;
+                    }
+                    if (position >= Value.Length) break;
+                    int width = PairWidth(Value, position);
+                    output.Append(Value, position, width);
+                    position += width;
+                    if (inserted >= count)
+                    {
+                        output.Append(Value, position, Value.Length - position);
+                        break;
+                    }
+                }
+                return new PyString(output.ToString());
             }
-            return new PyString(result);
+            for (long done = 0; done < count; done++)
+            {
+                int index = Value.IndexOf(old, position, StringComparison.Ordinal);
+                if (index < 0) break;
+                output.Append(Value, position, index - position).Append(newStr);
+                position = index + old.Length;
+            }
+            if (position == 0) return this;
+            output.Append(Value, position, Value.Length - position);
+            return new PyString(output.ToString());
         }
 
         public PyInt Find(string sub, int start = 0, int? end = null)
@@ -3586,38 +3619,7 @@ namespace SharpPy
         {
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
-            
-            var old = args[0] switch
-            {
-                PyString str => str.Value,
-                _ => throw PyTypeError.Create("replace() old must be str")
-            };
-            
-            var newStr = args[1] switch
-            {
-                PyString str => str.Value,
-                _ => throw PyTypeError.Create("replace() new must be str")
-            };
-            
-            if (args.Length == 3)
-            {
-                var count = args[2] switch
-                {
-                    PyInt i => i.Value,
-                    _ => throw PyTypeError.Create("replace() count must be int")
-                };
-                
-                var result = Value;
-                for (int i = 0; i < count && result.Contains(old); i++)
-                {
-                    var index = result.IndexOf(old);
-                    if (index == -1) break;
-                    result = result.Substring(0, index) + newStr + result.Substring(index + old.Length);
-                }
-                return new PyString(result);
-            }
-            
-            return new PyString(Value.Replace(old, newStr));
+            return Replace(args[0].ToStr().Value, args[1].ToStr().Value, args.Length == 3 ? args[2].ToInt() : -1);
         }
 
         // unicode_split_impl and unicode_rsplit_impl: argument clinic, then split's empty check.
@@ -3828,74 +3830,25 @@ namespace SharpPy
             if (string.IsNullOrEmpty(formatSpec))
                 return value;
 
-            // Parse format spec
-            string fill = " ";
-            char align = '<';  // Default alignment for strings is left
-            int width = 0;
-            int precision = -1;  // -1 means no limit
-            char type = 's';    // default type for strings
-
-            int i = 0;
-            int len = formatSpec.Length;
-
-            // Check for fill + align. The fill is any single *character*, astral included
-            // (format('a', chr(0x1F600) + '>5')), so the align probe has to start after a pair.
-            int firstWidth = PairWidth(formatSpec, 0);
-            if (firstWidth < formatSpec.Length && "<>^".Contains(formatSpec[firstWidth]))
-            {
-                fill = formatSpec.Substring(0, firstWidth);
-                align = formatSpec[firstWidth];
-                i = firstWidth + 1;
-            }
-            else if (len >= 1 && "<>^".Contains(formatSpec[0]))
-            {
-                align = formatSpec[0];
-                i = 1;
-            }
-
+            var format = FormatSpec.Parse("str", formatSpec, 's', '<');
+            if (format.Type != 's')
+                throw FormatSpec.Unknown(format.Type, "str");
             // format_string_internal: what a string has no use for is refused by name.
-            if (firstWidth < formatSpec.Length && formatSpec[firstWidth] == '=' || formatSpec[0] == '=')
-                throw PyValueError.Create("'=' alignment not allowed in string format specifier");
-            int probe = i;
-            if (probe < len && (formatSpec[probe] == '+' || formatSpec[probe] == '-'))
-                throw PyValueError.Create("Sign not allowed in string format specifier");
-            if (probe < len && formatSpec[probe] == ' ')
+            if (format.Sign == ' ')
                 throw PyValueError.Create("Space not allowed in string format specifier");
-            if (probe < len && formatSpec[probe] == '#')
+            if (format.Sign != '\0')
+                throw PyValueError.Create("Sign not allowed in string format specifier");
+            if (format.NoNegativeZero)
+                throw PyValueError.Create("Negative zero coercion (z) not allowed in string format specifier");
+            if (format.Alternate)
                 throw PyValueError.Create("Alternate form (#) not allowed in string format specifier");
-            while (probe < len && char.IsDigit(formatSpec[probe])) probe++;
-            if (probe < len && (formatSpec[probe] == ',' || formatSpec[probe] == '_'))
-                throw PyValueError.Create($"Cannot specify '{formatSpec[probe]}' with 's'.");
-
-            // Width
-            while (i < len && char.IsDigit(formatSpec[i]))
-            {
-                width = width * 10 + (formatSpec[i] - '0');
-                i++;
-            }
-
-            // Precision
-            if (i < len && formatSpec[i] == '.')
-            {
-                i++;
-                precision = 0;
-                while (i < len && char.IsDigit(formatSpec[i]))
-                {
-                    precision = precision * 10 + (formatSpec[i] - '0');
-                    i++;
-                }
-            }
-
-            // Type
-            if (i < len)
-            {
-                type = formatSpec[i];
-                i++;
-            }
-
-            // Only 's' or empty type is valid for strings
-            if (type != 's' && type != '\0')
-                throw PyValueError.Create($"Unknown format code '{type}' for object of type 'str'");
+            if (format.Align == '=')
+                throw PyValueError.Create("'=' alignment not allowed in string format specifier");
+            if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+            string fill = format.Fill;
+            char align = format.Align;
+            int width = (int)format.Width;
+            long precision = format.Precision;
 
             // Apply precision (truncation) and width, both in characters (Objects/stringlib/
             // format.h reads a character at a time).
@@ -3903,8 +3856,8 @@ namespace SharpPy
             int resultChars = CodePointCount(result);
             if (precision >= 0 && resultChars > precision)
             {
-                result = SubstringCodePoints(result, 0, precision);
-                resultChars = precision;
+                result = SubstringCodePoints(result, 0, (int)precision);
+                resultChars = (int)precision;
             }
 
             if (width > resultChars)

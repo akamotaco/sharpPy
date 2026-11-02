@@ -11,58 +11,22 @@ internal static class PyFloatFormatter
     internal static string Format(double value, string spec)
     {
         spec ??= "";
-        string fill = " ";
-        char align = '>', sign = '-', group = '\0', type = '\0';
-        bool explicitFill = false, explicitAlign = false, alternate = false, zero = false;
-        int i = 0;
-        if (spec.Length != 0)
-        {
-            int first = char.IsSurrogatePair(spec, 0) ? 2 : 1;
-            if (spec.Length > first && "<>=^".Contains(spec[first]))
-            {
-                fill = spec.Substring(0, first); align = spec[first]; i = first + 1;
-                explicitFill = explicitAlign = true;
-            }
-            else if ("<>=^".Contains(spec[0])) { align = spec[i++]; explicitAlign = true; }
-        }
-        if (i < spec.Length && "+- ".Contains(spec[i])) sign = spec[i++];
-        if (i < spec.Length && spec[i] == 'z') { zero = true; i++; }
-        if (i < spec.Length && spec[i] == '#') { alternate = true; i++; }
-        if (!explicitFill && i < spec.Length && spec[i] == '0')
-        {
-            fill = "0"; if (!explicitAlign) align = '='; i++;
-        }
-        long widthValue = ReadNumber(spec, ref i);
-        if (i < spec.Length && spec[i] == ',') group = spec[i++];
-        if (i < spec.Length && spec[i] == '_')
-        {
-            if (group == ',') throw PyValueError.Create("Cannot specify both ',' and '_'.");
-            group = spec[i++];
-        }
-        if (i < spec.Length && spec[i] == ',' && group == '_')
-            throw PyValueError.Create("Cannot specify both ',' and '_'.");
-        long precisionValue = -1;
-        if (i < spec.Length && spec[i] == '.')
-        {
-            i++; int start = i; precisionValue = ReadNumber(spec, ref i);
-            if (start == i) throw PyValueError.Create("Format specifier missing precision");
-        }
-        int presentation = -1;
-        if (i < spec.Length)
-        {
-            int size = char.IsSurrogatePair(spec, i) ? 2 : 1;
-            if (spec.Length - i != size)
-                throw PyValueError.Create($"Invalid format specifier '{spec}' for object of type 'float'");
-            presentation = size == 2 ? char.ConvertToUtf32(spec, i) : spec[i];
-            type = presentation <= char.MaxValue ? (char)presentation : '\uffff';
-        }
-        if (group != '\0' && presentation > 0 && !"deEfFgG%".Contains(type) && !(group == '_' && "boxX".Contains(type)))
-            throw PyValueError.Create($"Cannot specify '{group}' with '{PresentationName(presentation)}'.");
-        if (presentation > 0 && !"eEfFgGn%".Contains(type))
-            throw PyValueError.Create($"Unknown format code '{PresentationName(presentation)}' for object of type 'float'");
-        if (precisionValue > int.MaxValue) throw PyValueError.Create("precision too big");
-        if (widthValue > int.MaxValue) throw PyMemoryError.Create();
-        int width = (int)widthValue, precision = (int)precisionValue;
+        var format = FormatSpec.Parse("float", spec, '\0', '>');
+        if (!(format.Type is '\0' or 'e' or 'E' or 'f' or 'F' or 'g' or 'G' or 'n' or '%'))
+            throw FormatSpec.Unknown(format.Type, "float");
+        return Render(value, format);
+    }
+
+    /// <summary>format_float_internal, the number and its padding.</summary>
+    internal static string Render(double value, FormatSpec format)
+    {
+        if (format.Precision > int.MaxValue) throw PyValueError.Create("precision too big");
+        if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+        string fill = format.Fill;
+        char align = format.Align, sign = format.Sign == '\0' ? '-' : format.Sign, group = format.Thousands;
+        char type = format.TypeChar;
+        bool alternate = format.Alternate, zero = format.NoNegativeZero;
+        int width = (int)System.Math.Max(0, format.Width), precision = (int)format.Precision;
         if (type == '%') value *= 100;
         bool negative = !double.IsNaN(value) && BitConverter.DoubleToInt64Bits(value) < 0;
         bool special = !double.IsFinite(value);
@@ -124,24 +88,6 @@ internal static class PyFloatFormatter
             });
     }
 
-    private static string PresentationName(int codepoint) => codepoint > 32 && codepoint < 128
-        ? ((char)codepoint).ToString() : "\\x" + codepoint.ToString("x", Invariant);
-
-    private static long ReadNumber(string spec, ref int index)
-    {
-        long value = 0;
-        while (index < spec.Length)
-        {
-            int size = char.IsSurrogatePair(spec, index) ? 2 : 1;
-            int digit = CharUnicodeInfo.GetDecimalDigitValue(spec, index);
-            if (digit < 0) break;
-            if (value > (long.MaxValue - digit) / 10)
-                throw PyValueError.Create("Too many decimal digits in format string");
-            value = value * 10 + digit; index += size;
-        }
-        return value;
-    }
-
     /// <summary>PyOS_double_to_string for a finite, non-negative value, the sign left to the caller.</summary>
     internal static string DoubleToString(double magnitude, char type, int precision, bool alternate)
     {
@@ -175,9 +121,9 @@ internal static class PyFloatFormatter
 
     private static string General(double value, int precision, char type, bool alternate)
     {
-        bool shortest = type == '\0' && precision < 0;
+        bool shortest = (type == '\0' || type == 'r') && precision < 0;
         int significant = precision < 0 ? 6 : Math.Max(1, precision);
-        if (type != '\0' && !alternate)
+        if (type != '\0' && type != 'r' && !alternate)
             return NormalizeExponent(value.ToString((type == 'G' ? "G" : "g") + significant, Invariant));
         string converted = shortest ? value.ToString("R", Invariant)
             : value.ToString("E" + (significant - 1), Invariant);
@@ -192,7 +138,7 @@ internal static class PyFloatFormatter
         digits = digits.Substring(first);
         if (!alternate || shortest) digits = digits.TrimEnd('0');
         if (digits.Length == 0) { digits = "0"; exponent = 0; }
-        int upper = shortest ? 16 : type == '\0' ? significant - 1 : significant;
+        int upper = shortest ? 16 : type == '\0' || type == 'r' ? significant - 1 : significant;
         if (exponent < -4 || exponent >= upper)
         {
             string mantissa = digits.Length == 1 ? digits : digits.Insert(1, ".");

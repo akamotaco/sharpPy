@@ -500,7 +500,8 @@ namespace SharpPy
                         (data[byteorder == "big" ? 0 : data.Length - 1] & 0x80) != 0)
                         magnitude -= System.Numerics.BigInteger.One << (8 * data.Length);
 
-                    return new PyInt(magnitude);
+                    // int_from_bytes: a subclass is built from the value.
+                    return ReferenceEquals(self, intType) ? new PyInt(magnitude) : self.Call(new PyObject[] { new PyInt(magnitude) }, null);
                 },
                 minArgs: 1, maxArgs: 2, acceptsKwargs: true
             );
@@ -1694,6 +1695,10 @@ namespace SharpPy
                 return FromString(System.Text.Encoding.Latin1.GetString(binary.BufferSpan), baseValue, false, value);
             if (value is PyByteArray buffer)
                 return FromString(System.Text.Encoding.Latin1.GetString(buffer.BufferSpan), baseValue, false, value);
+            // PyNumber_Long ends with any object exporting a buffer.
+            if (radix == null && value.LookupUserSpecial("__int__") == null && value.LookupUserSpecial("__index__") == null &&
+                value.LookupUserSpecial("__trunc__") == null && value.SupportsBuffer() && BytesMethods.Buffer(value) is { } exported)
+                return FromString(System.Text.Encoding.Latin1.GetString(exported), baseValue, false, value);
             if (radix != null) throw PyTypeError.Create("int() can't convert non-string with explicit base");
             // int(float) truncates toward zero into an arbitrary-precision integer.
             // Must not go through AsInt()/ToInt() (which clamp to Int32 and raise
@@ -1901,57 +1906,15 @@ namespace SharpPy
         public static string FormatInt(BigInteger value, string spec)
         {
             if (string.IsNullOrEmpty(spec)) return DecimalString(value);
-            string fill = " ";
-            char align = '>', sign = '\0', grouping = '\0', type = 'd';
-            bool explicitFill = false, explicitAlign = false, alternate = false, negativeZero = false;
-            int i = 0, width = 0, precision = -1;
-            int firstLength = char.IsSurrogatePair(spec, 0) ? 2 : 1;
-            if (spec.Length > firstLength && "<>=^".Contains(spec[firstLength]))
-            {
-                fill = spec.Substring(0, firstLength); align = spec[firstLength];
-                i = firstLength + 1; explicitFill = explicitAlign = true;
-            }
-            else if ("<>=^".Contains(spec[0])) { align = spec[i++]; explicitAlign = true; }
-            if (i < spec.Length && "+- ".Contains(spec[i])) sign = spec[i++];
-            if (i < spec.Length && spec[i] == 'z') { negativeZero = true; i++; }
-            if (i < spec.Length && spec[i] == '#') { alternate = true; i++; }
-            if (!explicitFill && i < spec.Length && spec[i] == '0')
-            {
-                fill = "0"; if (!explicitAlign) align = '='; i++;
-            }
-            int ReadNumber()
-            {
-                int result = 0;
-                while (i < spec.Length && char.IsDigit(spec[i]))
-                {
-                    int digit = (int)char.GetNumericValue(spec[i++]);
-                    if (result > (int.MaxValue - digit) / 10)
-                        throw PyValueError.Create("Too many decimal digits in format string");
-                    result = result * 10 + digit;
-                }
-                return result;
-            }
-            width = ReadNumber();
-            if (i < spec.Length && spec[i] == ',') grouping = spec[i++];
-            if (i < spec.Length && spec[i] == '_')
-            {
-                if (grouping == ',') throw PyValueError.Create("Cannot specify both ',' and '_'.");
-                grouping = spec[i++];
-            }
-            if (i < spec.Length && spec[i] == ',' && grouping == '_')
-                throw PyValueError.Create("Cannot specify both ',' and '_'.");
-            if (i < spec.Length && spec[i] == '.')
-            {
-                i++; int start = i; precision = ReadNumber();
-                if (start == i) throw PyValueError.Create("Format specifier missing precision");
-            }
-            if (spec.Length - i > 1)
-                throw PyValueError.Create($"Invalid format specifier '{spec}' for object of type 'int'");
-            if (i < spec.Length) type = spec[i];
+            var format = FormatSpec.Parse("int", spec, 'd', '>');
+            if (format.Width > int.MaxValue) throw PyMemoryError.Create();
+            string fill = format.Fill;
+            char align = format.Align, sign = format.Sign, grouping = format.Thousands, type = format.TypeChar;
+            bool alternate = format.Alternate, negativeZero = format.NoNegativeZero;
+            int width = (int)System.Math.Max(0, format.Width);
+            long precision = format.Precision;
             bool floating = "eEfFgG%".Contains(type);
             bool binary = "boxX".Contains(type);
-            if (grouping != '\0' && type != 'd' && !floating && !(binary && grouping == '_'))
-                throw PyValueError.Create($"Cannot specify '{grouping}' with '{type}'.");
             if (floating)
             {
                 double number = (double)value;
@@ -1959,7 +1922,7 @@ namespace SharpPy
                 return PyFloat.FormatFloat(number, spec);
             }
             if (!"bcdonxX".Contains(type))
-                throw PyValueError.Create($"Unknown format code '{type}' for object of type 'int'");
+                throw FormatSpec.Unknown(format.Type, "int");
             if (precision >= 0) throw PyValueError.Create("Precision not allowed in integer format specifier");
             if (negativeZero) throw PyValueError.Create("Negative zero coercion (z) not allowed in integer format specifier");
 

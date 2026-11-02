@@ -294,10 +294,10 @@ namespace SharpPy
 
         #region Unary Operations
 
-        public PyObject Negative() => Value ? SmallIntCache.MinusOne : SmallIntCache.Zero;
-        public PyObject Positive() => Value ? SmallIntCache.One : SmallIntCache.Zero;
+        public override PyObject Negative() => Value ? SmallIntCache.MinusOne : SmallIntCache.Zero;
+        public override PyObject Positive() => Value ? SmallIntCache.One : SmallIntCache.Zero;
         public PyObject Absolute() => Value ? SmallIntCache.One : SmallIntCache.Zero;
-        public PyObject Invert() => SmallIntCache.GetOrCreate(Value ? -2 : -1); // ~True = -2, ~False = -1
+        public override PyObject BitwiseNot() => SmallIntCache.GetOrCreate(Value ? -2 : -1); // ~True = -2, ~False = -1
 
         #endregion
 

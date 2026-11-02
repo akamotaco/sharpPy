@@ -462,7 +462,7 @@ public class PyModule : PyObject
         {
             // CPython 3.12: Python/import.c - PyDict_DelItemString
             var key = new PyString(name);
-            SysModules.InternalDict.Remove(key);
+            if (SysModules.ContainsKey(key)) SysModules.DelItem(key);
         }
 
         public static bool ContainsModule(string name)

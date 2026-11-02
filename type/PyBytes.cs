@@ -739,6 +739,7 @@ namespace SharpPy
                     {
                         int cv;
                         if (arg is PyBytes one && one.Value.Length == 1) cv = one.Value[0];
+                        else if (arg is PyByteArray array && array.Length() == 1) cv = BytesMethods.Buffer(array)[0];
                         else if (TryGetIntArg(arg, out var ci))
                         {
                             if (ci < 0 || ci > 255)
@@ -760,7 +761,7 @@ namespace SharpPy
                     {
                         if (!TryGetIntArg(arg, out var di))
                         {
-                            throw PyTypeError.Create($"%{conv} format: a real number is required, not '{arg.GetTypeName()}'");
+                            throw PyTypeError.Create($"%d format: a real number is required, not {arg.GetTypeName()}");
                         }
                         text = di.ToString(System.Globalization.CultureInfo.InvariantCulture);
                         isNumeric = true;
@@ -772,7 +773,7 @@ namespace SharpPy
                     {
                         if (!TryGetIntArg(arg, out var bi))
                         {
-                            throw PyTypeError.Create($"%{conv} format: a real number is required, not '{arg.GetTypeName()}'");
+                            throw PyTypeError.Create($"%{conv} format: an integer is required, not {arg.GetTypeName()}");
                         }
                         bool neg = bi < 0;
                         var digits = conv == 'o'
@@ -792,7 +793,7 @@ namespace SharpPy
                     {
                         if (!TryGetRealArg(arg, out double dv))
                         {
-                            throw PyTypeError.Create($"%{conv} format: a real number is required, not '{arg.GetTypeName()}'");
+                            throw PyTypeError.Create($"%{conv} format: a real number is required, not {arg.GetTypeName()}");
                         }
                         var culture = System.Globalization.CultureInfo.InvariantCulture;
                         if (conv == 'f' || conv == 'F')

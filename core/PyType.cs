@@ -3163,7 +3163,9 @@ namespace SharpPy
                     // for a tuple subtype. All three refusals were missing: keywords were dropped, a
                     // second positional was read as the size argument Python 2 used to have, and a
                     // foreign class happily produced a tuple.
-                    if (kwargs != null && kwargs.Length() != 0)
+                    // tuple_new: only a subclass with an __init__ of its own may take keywords.
+                    if (kwargs != null && kwargs.Length() != 0 &&
+                        (ReferenceEquals(cls, TupleType) || TypeInitIsObjectInit(cls as PyType)))
                         throw PyTypeError.Create("tuple() takes no keyword arguments");
                     if (args.Length > 1)
                         throw PyTypeError.Create(

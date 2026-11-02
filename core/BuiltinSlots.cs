@@ -25,6 +25,15 @@ namespace SharpPy
             PySlotWrappers.Install();
             PyTextWrapper.Install();
             PyComplex.InstallNew();
+            // bool_new
+            PyType.BoolType.TypeDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args, kwargs) =>
+            {
+                if (kwargs != null && kwargs.Length() != 0)
+                    throw PyTypeError.Create("bool() takes no keyword arguments");
+                if (args.Length > 2)
+                    throw PyTypeError.Create($"bool expected at most 1 argument, got {args.Length - 1}");
+                return PyBool.FromBool(args.Length > 1 && args[1].IsTrue());
+            }, PyType.BoolType);
             PyExceptionSlots.InstallReduce();
             // float___getformat___impl
             PyType.FloatType.TypeDict["__getformat__"] = new PyClassMethodDescriptor("__getformat__", PyType.FloatType,
