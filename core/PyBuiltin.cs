@@ -176,6 +176,9 @@ namespace SharpPy
         public override string GetTypeName() => "builtin_function_or_method";
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
 
+        // m_module: the module that holds this function
+        internal string OwnerModule = "builtins";
+
         // CPython builtin_function_repr for an unbound (module-level) builtin:
         // <built-in function NAME>. repr()/str() route through ToRepr/ToStr, not the
         // C# ToString(), so these must be overridden explicitly.
@@ -1811,9 +1814,12 @@ namespace SharpPy
                 // len.__class__ raised AttributeError.
                 "__qualname__" => new PyString(Name),
                 "__call__" => this,
-                "__module__" => new PyString("builtins"),
+                "__module__" => new PyString(OwnerModule),
                 "__text_signature__" => PyNone.Instance,
-                "__self__" => PyImportSystem.Import("builtins"),
+                "__self__" => PyImportSystem.Import(OwnerModule),
+                // meth_reduce: a module's function pickles by name
+                "__reduce__" => new PyBuiltinFunction("__reduce__", (args, kwargs) => new PyString(Name)),
+                "__reduce_ex__" => new PyBuiltinFunction("__reduce_ex__", (args, kwargs) => new PyString(Name)),
                 _ => base.GetAttribute(name)
             };
         }

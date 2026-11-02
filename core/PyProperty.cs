@@ -142,7 +142,7 @@ public interface IDescriptor
                 });
 
             // A Python subclass of property: the same object, under its class.
-            propType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", propType, (cls, args, kwargs) =>
+            propType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", propType, (cls, args, kwargs) =>
             {
                 var created = (PyObject)PyType.PropertyType.Call(args, kwargs);
                 created.SetCustomType((PyType)cls);

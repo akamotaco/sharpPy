@@ -266,7 +266,7 @@ namespace SharpPy.Modules
         private static PyType BuiltinCallableType(PyType type, PyBuiltinFunction implementation)
         {
             type.ConstructedByNewSlot = true;
-            type.TypeDict["__new__"] = new PyMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
                 implementation.Call(args, kwargs), 0, int.MaxValue, acceptsKwargs: true);
             return type;
         }

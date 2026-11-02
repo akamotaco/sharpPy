@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace SharpPy
@@ -15,6 +16,15 @@ namespace SharpPy
     {
         private readonly PyObject _func;
         private readonly PyObject[] _iterators;
+
+        // map_reduce
+        internal override PyObject Reduce()
+        {
+            var args = new PyObject[_iterators.Length + 1];
+            args[0] = _func;
+            Array.Copy(_iterators, 0, args, 1, _iterators.Length);
+            return new PyTuple(new PyObject[] { PyType.MapType, new PyTuple(args) });
+        }
 
         public PyMapIterator(PyObject func, PyObject[] iterators)
         {
@@ -45,6 +55,11 @@ namespace SharpPy
     {
         private readonly PyObject[] _iterators;
         private readonly bool _strict;
+
+        // zip_reduce
+        internal override PyObject Reduce() => _strict
+            ? new PyTuple(new PyObject[] { PyType.ZipType, new PyTuple(_iterators), PyBool.True })
+            : new PyTuple(new PyObject[] { PyType.ZipType, new PyTuple(_iterators) });
         public PyZipIterator(PyObject[] iterators, bool strict)
         {
             _iterators = iterators;
@@ -107,6 +122,10 @@ namespace SharpPy
         private readonly PyObject _func;
         private readonly PyObject _iterator;
 
+        // filter_reduce
+        internal override PyObject Reduce() => new PyTuple(new PyObject[]
+            { PyType.FilterType, new PyTuple(new[] { _func, _iterator }) });
+
         public PyFilterIterator(PyObject func, PyObject iterator)
         {
             _func = func;
@@ -144,6 +163,11 @@ namespace SharpPy
         private readonly PyObject _sentinel;
         private bool _done;
 
+        // calliter_reduce
+        internal override PyObject Reduce() => _done
+            ? ReduceExhausted(new PyTuple(new PyObject[0]))
+            : new PyTuple(new PyObject[] { Builtin("iter"), new PyTuple(new[] { _callable, _sentinel }) });
+
         public PyCallableIterator(PyObject callable, PyObject sentinel)
         {
             _callable = callable;
@@ -178,6 +202,44 @@ namespace SharpPy
         private readonly PyObject _seq;
         private long _index;
         private readonly string _typeName;
+
+        internal override PyObject RemainingHint() => new PyInt(_index + 1);
+
+        // reversed_reduce and listreviter_reduce. reversed(range) is a range_iterator going down.
+        internal override PyObject Reduce()
+        {
+            if (_typeName.StartsWith("dict_"))
+            {
+                var left = new List<PyObject>();
+                for (long i = _index; i >= 0; i--)
+                    left.Add(_seq.GetItem(new PyInt(i)));
+                return ReduceExhausted(new PyList(left.ToArray()));
+            }
+            if (_seq is PyRange range && _typeName == "range_iterator")
+                return ((PyIterator)PyType.RangeType.Call(new PyObject[]
+                {
+                    _index >= 0 ? _seq.GetItem(new PyInt(_index)) : new PyInt(0),
+                    range.GetItem(new PyInt(0)).Subtract(range.GetAttribute("step")),
+                    new PyInt(0).Subtract(range.GetAttribute("step")),
+                }, null).GetIterator()).Reduce();
+            if (_index < 0)
+                return new PyTuple(new PyObject[]
+                {
+                    Builtin("reversed"),
+                    new PyTuple(new PyObject[] { _seq is PyList ? new PyList() : new PyTuple(new PyObject[0]) }),
+                });
+            return new PyTuple(new PyObject[] { Builtin("reversed"), new PyTuple(new[] { _seq }), new PyInt(_index) });
+        }
+
+        internal override void SetState(PyObject state)
+        {
+            if (_index >= 0)
+            {
+                long length = _seq.Length();
+                var value = IndexValue(state);
+                _index = value < -1 ? -1 : value > length - 1 ? length - 1 : (long)value;
+            }
+        }
 
         // CPython: reversed(list) -> list_reverseiterator, reversed(range) ->
         // range_iterator, reversed(dict) -> dict_keyiterator, others -> reversed.

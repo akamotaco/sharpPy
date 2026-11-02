@@ -36,6 +36,7 @@ public partial class PyFunction : PyObject, IDescriptor
     // Python에서 func.__dict__ is func.__dict__는 True여야 함
     private PyDict? _dictCache = null;
     private PyDict? _globalsCache = null;
+    private PyObject? _module;
 
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
@@ -145,10 +146,16 @@ public partial class PyFunction : PyObject, IDescriptor
             "__module__",
             funcType,
             getter: self => {
-                if (self is PyFunction func)
-                    return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : new PyString("__main__");
-                throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-            }
+                if (self is not PyFunction func)
+                    throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                // PyFunction_NewWithQualName: func_module is globals['__name__'], and it can be set.
+                if (func._module != null)
+                    return func._module;
+                if (func.GlobalsDict != null && func.GlobalsDict.TryGetValue("__name__", out var name))
+                    return name;
+                return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : PyNone.Instance;
+            },
+            setter: (self, value) => ((PyFunction)self)._module = value
         );
 
         // __doc__ getset descriptor

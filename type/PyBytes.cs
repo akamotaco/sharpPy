@@ -44,7 +44,7 @@ namespace SharpPy
         internal static string DecodeUtf8Python(byte[] data, string errors)
         {
             if (errors != "strict" && errors != "replace" && errors != "ignore"
-                && errors != "surrogateescape" && errors != "backslashreplace")
+                && errors != "surrogateescape" && errors != "backslashreplace" && errors != "surrogatepass")
             {
                 throw PyLookupError.Create($"unknown error handler name '{errors}'");
             }
@@ -59,6 +59,15 @@ namespace SharpPy
                 {
                     sb.Append((char)b0);
                     i++;
+                    continue;
+                }
+
+                // PyCodec_SurrogatePassErrors: the three bytes of a surrogate are that surrogate.
+                if (errors == "surrogatepass" && b0 == 0xED && i + 2 < n && data[i + 1] >= 0xA0 && data[i + 1] <= 0xBF &&
+                    (data[i + 2] & 0xC0) == 0x80)
+                {
+                    sb.Append((char)(0xD000 | (data[i + 1] & 0x3F) << 6 | (data[i + 2] & 0x3F)));
+                    i += 3;
                     continue;
                 }
 
@@ -134,7 +143,7 @@ namespace SharpPy
         private static void HandleDecodeError(byte[] data, int start, int end, string errors,
             System.Text.StringBuilder sb, string reason, bool range = false)
         {
-            if (errors == "strict")
+            if (errors == "strict" || errors == "surrogatepass")
             {
                 throw PyUnicodeDecodeError.Failure("utf-8", data, start, range && end > start ? end + 1 : start + 1, reason);
             }
@@ -1887,7 +1896,7 @@ namespace SharpPy
             {
                 items[i] = new PyInt(Value[i]);
             }
-            return new PyListIterator(new PyList(items), "bytes_iterator");
+            return new PyListIterator(new PyList(items), "bytes_iterator", this);
         }
         
         public override PyString ToRepr()

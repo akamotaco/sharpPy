@@ -12,7 +12,7 @@ namespace SharpPy.Modules
         {
             var type = new PyType("deque", new[] { PyType.ObjectType }, "collections") { ConstructedByNewSlot = true };
 
-            type.TypeDict["__new__"] = new PyMethodDescriptor("__new__", type,
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type,
                 (cls, args, kwargs) => new PyDeque((PyType)cls), 0, int.MaxValue, acceptsKwargs: true);
 
             type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>

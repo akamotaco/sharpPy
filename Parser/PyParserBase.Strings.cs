@@ -110,188 +110,16 @@ namespace SharpPy.Generated
             return RaiseDecodeError($"(unicode error) 'unicodeescape' codec {where}: {reason}");
         }
 
-        // _PyUnicode_DecodeUnicodeEscapeInternal2
-        private string DecodeUnicodeEscape(string s, out int firstInvalidEscape)
-        {
-            firstInvalidEscape = -1;
-            var result = new StringBuilder(s.Length);
-            int position = 0;
-            int end = s.Length;
-            while (position < end)
-            {
-                char c = s[position++];
-                if (c != '\\')
-                {
-                    result.Append(c);
-                    continue;
-                }
+        private string DecodeUnicodeEscape(string s, out int firstInvalidEscape) =>
+            EscapeDecoders.DecodeUnicodeEscape(s, out firstInvalidEscape, (start, end, reason) => UnicodeEscapeError(s, start, end, reason));
 
-                int start = position - 1;
-                if (position >= end)
-                    throw UnicodeEscapeError(s, start, position, "\\ at end of string");
-                c = s[position++];
-                string message;
-                switch (c)
-                {
-                    case '\n': continue;
-                    case '\\': result.Append('\\'); continue;
-                    case '\'': result.Append('\''); continue;
-                    case '"': result.Append('"'); continue;
-                    case 'b': result.Append('\b'); continue;
-                    case 'f': result.Append('\f'); continue;
-                    case 't': result.Append('\t'); continue;
-                    case 'n': result.Append('\n'); continue;
-                    case 'r': result.Append('\r'); continue;
-                    case 'v': result.Append('\v'); continue;
-                    case 'a': result.Append('\a'); continue;
-
-                    case >= '0' and <= '7':
-                        int value = c - '0';
-                        if (position < end && s[position] >= '0' && s[position] <= '7')
-                        {
-                            value = (value << 3) + s[position++] - '0';
-                            if (position < end && s[position] >= '0' && s[position] <= '7')
-                                value = (value << 3) + s[position++] - '0';
-                        }
-                        if (value > 255 && firstInvalidEscape == -1)
-                            firstInvalidEscape = position - 3;
-                        result.Append((char)value);
-                        continue;
-
-                    case 'x':
-                    case 'u':
-                    case 'U':
-                        int count = c == 'x' ? 2 : c == 'u' ? 4 : 8;
-                        message = c == 'x' ? "truncated \\xXX escape" : c == 'u' ? "truncated \\uXXXX escape" : "truncated \\UXXXXXXXX escape";
-                        long ch = 0;
-                        for (; count > 0; position++, count--)
-                        {
-                            if (position >= end)
-                                throw UnicodeEscapeError(s, start, position, message);
-                            int digit = HexDigit(s[position]);
-                            if (digit < 0)
-                                throw UnicodeEscapeError(s, start, position, message);
-                            ch = ch << 4 | (long)digit;
-                        }
-                        if (ch > 0x10FFFF)
-                            throw UnicodeEscapeError(s, start, position, "illegal Unicode character");
-                        AppendCodePoint(result, (int)ch);
-                        continue;
-
-                    case 'N':
-                        message = "malformed \\N character escape";
-                        if (position >= end)
-                            throw UnicodeEscapeError(s, start, position, message);
-                        if (s[position] == '{')
-                        {
-                            int nameStart = ++position;
-                            while (position < end && s[position] != '}')
-                                position++;
-                            if (position >= end)
-                                throw UnicodeEscapeError(s, start, position, message);
-                            int length = position - nameStart;
-                            if (length != 0)
-                            {
-                                position++;
-                                int named = UnicodeNames.Lookup(s.Substring(nameStart, length));
-                                if (named < 0)
-                                    throw UnicodeEscapeError(s, start, position, "unknown Unicode character name");
-                                AppendCodePoint(result, named);
-                                continue;
-                            }
-                        }
-                        throw UnicodeEscapeError(s, start, position, message);
-
-                    default:
-                        if (firstInvalidEscape == -1)
-                            firstInvalidEscape = position - 1;
-                        result.Append('\\').Append(c);
-                        continue;
-                }
-            }
-            return result.ToString();
-        }
-
-        private static void AppendCodePoint(StringBuilder result, int ch)
-        {
-            if (ch >= 0x10000)
-                result.Append(char.ConvertFromUtf32(ch));
-            else
-                result.Append((char)ch);
-        }
-
-        private static int HexDigit(char c) =>
-            c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
-
-        // _PyBytes_DecodeEscape2 and decode_bytes_with_escapes
+        // decode_bytes_with_escapes
         private byte[] DecodeBytesWithEscapes(string s, GeneratedTokenInfo t)
         {
-            var result = new List<byte>(s.Length);
-            int firstInvalidEscape = -1;
-            int position = 0;
-            int end = s.Length;
-            while (position < end)
-            {
-                if (s[position] != '\\')
-                {
-                    result.Add((byte)s[position++]);
-                    continue;
-                }
-                position++;
-                if (position == end)
-                    throw RaiseDecodeError("(value error) Trailing \\ in string");
-                char c = s[position++];
-                switch (c)
-                {
-                    case '\n': break;
-                    case '\\': result.Add((byte)'\\'); break;
-                    case '\'': result.Add((byte)'\''); break;
-                    case '"': result.Add((byte)'"'); break;
-                    case 'b': result.Add(8); break;
-                    case 'f': result.Add(12); break;
-                    case 't': result.Add(9); break;
-                    case 'n': result.Add(10); break;
-                    case 'r': result.Add(13); break;
-                    case 'v': result.Add(11); break;
-                    case 'a': result.Add(7); break;
-                    case >= '0' and <= '7':
-                        int value = c - '0';
-                        if (position < end && s[position] >= '0' && s[position] <= '7')
-                        {
-                            value = (value << 3) + s[position++] - '0';
-                            if (position < end && s[position] >= '0' && s[position] <= '7')
-                                value = (value << 3) + s[position++] - '0';
-                        }
-                        if (value > 255 && firstInvalidEscape == -1)
-                            firstInvalidEscape = position - 3;
-                        result.Add((byte)value);
-                        break;
-                    case 'x':
-                        if (position + 1 < end)
-                        {
-                            int digit1 = HexDigit(s[position]);
-                            int digit2 = HexDigit(s[position + 1]);
-                            if (digit1 >= 0 && digit2 >= 0)
-                            {
-                                result.Add((byte)(digit1 << 4 | digit2));
-                                position += 2;
-                                break;
-                            }
-                        }
-                        if (position < end && HexDigit(s[position]) >= 0)
-                            position++;
-                        throw RaiseDecodeError($"(value error) invalid \\x escape at position {position - 2}");
-                    default:
-                        if (firstInvalidEscape == -1)
-                            firstInvalidEscape = position - 1;
-                        result.Add((byte)'\\');
-                        position--;
-                        break;
-                }
-            }
+            var result = EscapeDecoders.DecodeBytesEscape(s, out int firstInvalidEscape, message => RaiseDecodeError($"(value error) {message}"));
             if (firstInvalidEscape >= 0)
                 WarnInvalidEscapeSequence(s, firstInvalidEscape, t);
-            return result.ToArray();
+            return result;
         }
 
         // PyUnicode_DecodeUTF8 of a part that was no UTF-8 (the source came as bytes)
@@ -602,6 +430,193 @@ namespace SharpPy.Generated
             if (bytesFound && otherFound)
                 RaiseSyntaxError("cannot mix bytes and nonbytes literals");
             return PyParserHelpers.ConcatenateStrings(strings, lineno, colOffset, endLineno, endColOffset);
+        }
+    }
+
+    // _PyUnicode_DecodeUnicodeEscapeInternal2 and _PyBytes_DecodeEscape2: the parser reports their
+    // errors one way and _codecs another.
+    internal static class EscapeDecoders
+    {
+        // _PyUnicode_DecodeUnicodeEscapeInternal2
+        internal static string DecodeUnicodeEscape(string s, out int firstInvalidEscape, Func<int, int, string, Exception> fail)
+        {
+            firstInvalidEscape = -1;
+            var result = new StringBuilder(s.Length);
+            int position = 0;
+            int end = s.Length;
+            while (position < end)
+            {
+                char c = s[position++];
+                if (c != '\\')
+                {
+                    result.Append(c);
+                    continue;
+                }
+
+                int start = position - 1;
+                if (position >= end)
+                    throw fail(start, position, "\\ at end of string");
+                c = s[position++];
+                string message;
+                switch (c)
+                {
+                    case '\n': continue;
+                    case '\\': result.Append('\\'); continue;
+                    case '\'': result.Append('\''); continue;
+                    case '"': result.Append('"'); continue;
+                    case 'b': result.Append('\b'); continue;
+                    case 'f': result.Append('\f'); continue;
+                    case 't': result.Append('\t'); continue;
+                    case 'n': result.Append('\n'); continue;
+                    case 'r': result.Append('\r'); continue;
+                    case 'v': result.Append('\v'); continue;
+                    case 'a': result.Append('\a'); continue;
+
+                    case >= '0' and <= '7':
+                        int value = c - '0';
+                        if (position < end && s[position] >= '0' && s[position] <= '7')
+                        {
+                            value = (value << 3) + s[position++] - '0';
+                            if (position < end && s[position] >= '0' && s[position] <= '7')
+                                value = (value << 3) + s[position++] - '0';
+                        }
+                        if (value > 255 && firstInvalidEscape == -1)
+                            firstInvalidEscape = position - 3;
+                        result.Append((char)value);
+                        continue;
+
+                    case 'x':
+                    case 'u':
+                    case 'U':
+                        int count = c == 'x' ? 2 : c == 'u' ? 4 : 8;
+                        message = c == 'x' ? "truncated \\xXX escape" : c == 'u' ? "truncated \\uXXXX escape" : "truncated \\UXXXXXXXX escape";
+                        long ch = 0;
+                        for (; count > 0; position++, count--)
+                        {
+                            if (position >= end)
+                                throw fail(start, position, message);
+                            int digit = HexDigit(s[position]);
+                            if (digit < 0)
+                                throw fail(start, position, message);
+                            ch = ch << 4 | (long)digit;
+                        }
+                        if (ch > 0x10FFFF)
+                            throw fail(start, position, "illegal Unicode character");
+                        AppendCodePoint(result, (int)ch);
+                        continue;
+
+                    case 'N':
+                        message = "malformed \\N character escape";
+                        if (position >= end)
+                            throw fail(start, position, message);
+                        if (s[position] == '{')
+                        {
+                            int nameStart = ++position;
+                            while (position < end && s[position] != '}')
+                                position++;
+                            if (position >= end)
+                                throw fail(start, position, message);
+                            int length = position - nameStart;
+                            if (length != 0)
+                            {
+                                position++;
+                                int named = UnicodeNames.Lookup(s.Substring(nameStart, length));
+                                if (named < 0)
+                                    throw fail(start, position, "unknown Unicode character name");
+                                AppendCodePoint(result, named);
+                                continue;
+                            }
+                        }
+                        throw fail(start, position, message);
+
+                    default:
+                        if (firstInvalidEscape == -1)
+                            firstInvalidEscape = position - 1;
+                        result.Append('\\').Append(c);
+                        continue;
+                }
+            }
+            return result.ToString();
+        }
+
+        private static void AppendCodePoint(StringBuilder result, int ch)
+        {
+            if (ch >= 0x10000)
+                result.Append(char.ConvertFromUtf32(ch));
+            else
+                result.Append((char)ch);
+        }
+
+        private static int HexDigit(char c) =>
+            c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+
+        // _PyBytes_DecodeEscape2
+        internal static byte[] DecodeBytesEscape(string s, out int firstInvalidEscape, Func<string, Exception> fail)
+        {
+            var result = new List<byte>(s.Length);
+            firstInvalidEscape = -1;
+            int position = 0;
+            int end = s.Length;
+            while (position < end)
+            {
+                if (s[position] != '\\')
+                {
+                    result.Add((byte)s[position++]);
+                    continue;
+                }
+                position++;
+                if (position == end)
+                    throw fail("Trailing \\ in string");
+                char c = s[position++];
+                switch (c)
+                {
+                    case '\n': break;
+                    case '\\': result.Add((byte)'\\'); break;
+                    case '\'': result.Add((byte)'\''); break;
+                    case '"': result.Add((byte)'"'); break;
+                    case 'b': result.Add(8); break;
+                    case 'f': result.Add(12); break;
+                    case 't': result.Add(9); break;
+                    case 'n': result.Add(10); break;
+                    case 'r': result.Add(13); break;
+                    case 'v': result.Add(11); break;
+                    case 'a': result.Add(7); break;
+                    case >= '0' and <= '7':
+                        int value = c - '0';
+                        if (position < end && s[position] >= '0' && s[position] <= '7')
+                        {
+                            value = (value << 3) + s[position++] - '0';
+                            if (position < end && s[position] >= '0' && s[position] <= '7')
+                                value = (value << 3) + s[position++] - '0';
+                        }
+                        if (value > 255 && firstInvalidEscape == -1)
+                            firstInvalidEscape = position - 3;
+                        result.Add((byte)value);
+                        break;
+                    case 'x':
+                        if (position + 1 < end)
+                        {
+                            int digit1 = HexDigit(s[position]);
+                            int digit2 = HexDigit(s[position + 1]);
+                            if (digit1 >= 0 && digit2 >= 0)
+                            {
+                                result.Add((byte)(digit1 << 4 | digit2));
+                                position += 2;
+                                break;
+                            }
+                        }
+                        if (position < end && HexDigit(s[position]) >= 0)
+                            position++;
+                        throw fail($"invalid \\x escape at position {position - 2}");
+                    default:
+                        if (firstInvalidEscape == -1)
+                            firstInvalidEscape = position - 1;
+                        result.Add((byte)'\\');
+                        position--;
+                        break;
+                }
+            }
+            return result.ToArray();
         }
     }
 }

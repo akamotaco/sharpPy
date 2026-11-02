@@ -158,9 +158,16 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.BuiltinFunctionOrMethodType;
         public override string GetTypeName() => "builtin_function_or_method";
-        // __new__ is a static builtin surface, not a <method ... of ... objects>
-        // descriptor, so it must not inherit PyMethodDescriptor's repr.
-        public override PyString ToRepr() => new PyString($"<built-in function {Name}>");
+        // tp_new_methoddef: a builtin method of the type, which copyreg compares with the type.
+        public override PyObject GetAttribute(string name) => name switch
+        {
+            "__self__" => OwnerType,
+            "__name__" => new PyString(Name),
+            "__qualname__" => new PyString($"{OwnerType.Name}.{Name}"),
+            _ => base.GetAttribute(name),
+        };
+
+        public override PyString ToRepr() => new PyString($"<built-in method {Name} of type object at 0x{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(OwnerType):x}>");
         public override string ToString() => ToRepr().Value;
     }
 

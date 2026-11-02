@@ -11,6 +11,90 @@ namespace SharpPy
         /// <summary>__length_hint__: what is left, or NotImplemented.</summary>
         internal virtual PyObject RemainingHint() => PyNotImplemented.Instance;
 
+        // __reduce__ and __setstate__ of the concrete kind: Objects/listobject.c listiter_reduce_general,
+        // tupleobject.c, rangeobject.c, unicodeobject.c, bytesobject.c, dictobject.c, setobject.c,
+        // iterobject.c, enumobject.c, bltinmodule.c.
+        internal virtual PyObject Reduce() =>
+            throw PyTypeError.Create($"cannot pickle '{GetTypeName()}' object");
+
+        internal virtual void SetState(PyObject state) =>
+            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '__setstate__'");
+
+        protected static PyObject Builtin(string name) => PyImportSystem.Import("builtins").GetAttribute(name);
+
+        // (iter, (sequence,), index)
+        protected static PyObject ReduceIter(PyObject sequence, long index) => new PyTuple(new PyObject[]
+            { Builtin("iter"), new PyTuple(new[] { sequence }), new PyInt(index) });
+
+        // (iter, (empty,)): what an exhausted iterator pickles as
+        protected static PyObject ReduceExhausted(PyObject empty) => new PyTuple(new PyObject[]
+            { Builtin("iter"), new PyTuple(new[] { empty }) });
+
+        protected static System.Numerics.BigInteger IndexValue(PyObject state) =>
+            (PyObject.TryGetIndex(state) ?? throw PyTypeError.Create("an integer is required")).Value;
+
+        // PyLong_AsSsize_t and the silent clipping of every __setstate__
+        protected static long ClippedIndex(PyObject state, long length)
+        {
+            var value = IndexValue(state);
+            if (value < 0)
+                return 0;
+            return value > length ? length : (long)value;
+        }
+
+        // type_ready of the iterator types that are made on demand
+        internal static void InstallMethods(PyType type, bool lengthHint, bool reduce, bool setState)
+        {
+            type.TypeDict["__iter__"] = new PyWrapperDescriptor("__iter__", type, (self, args, kwargs) => self);
+            type.TypeDict["__next__"] = new PyWrapperDescriptor("__next__", type, (self, args, kwargs) => self.Next());
+            if (lengthHint)
+                type.TypeDict["__length_hint__"] = new PyMethodDescriptor("__length_hint__", type,
+                    (self, args, kwargs) => ((PyIterator)self).RemainingHint());
+            if (reduce)
+                type.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", type,
+                    (self, args, kwargs) => ((PyIterator)self).Reduce());
+            if (setState)
+                type.TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", type, (self, args, kwargs) =>
+                {
+                    ((PyIterator)self).SetState(args[0]);
+                    return PyNone.Instance;
+                });
+        }
+
+        internal static void InstallByName(PyType type)
+        {
+            switch (type.Name)
+            {
+                case "list_iterator":
+                case "list_reverseiterator":
+                case "tuple_iterator":
+                case "str_ascii_iterator":
+                case "str_iterator":
+                case "bytes_iterator":
+                case "bytearray_iterator":
+                case "range_iterator":
+                case "longrange_iterator":
+                case "iterator":
+                    InstallMethods(type, true, true, true);
+                    break;
+                case "dict_keyiterator":
+                case "dict_valueiterator":
+                case "dict_itemiterator":
+                case "dict_reversekeyiterator":
+                case "dict_reversevalueiterator":
+                case "dict_reverseitemiterator":
+                case "set_iterator":
+                    InstallMethods(type, true, true, false);
+                    break;
+                case "enumerate":
+                    InstallMethods(type, false, true, false);
+                    break;
+                default:
+                    InstallMethods(type, false, false, false);
+                    break;
+            }
+        }
+
         static PyIterator()
         {
             InitializeIteratorDescriptors();
@@ -77,7 +161,16 @@ namespace SharpPy
                         return iterator;
                     },
                     minArgs: 0, maxArgs: 0);
+                owner.TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", owner,
+                    (self, args, kwargs) => ((PyIterator)self).Reduce());
             }
+            PyType.ReversedType.TypeDict["__length_hint__"] = new PyMethodDescriptor("__length_hint__", PyType.ReversedType,
+                (self, args, kwargs) => ((PyIterator)self).RemainingHint());
+            PyType.ReversedType.TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", PyType.ReversedType, (self, args, kwargs) =>
+            {
+                ((PyIterator)self).SetState(args[0]);
+                return PyNone.Instance;
+            });
         }
 
         // CPython names each iterator family its own type (list_iterator, ...);
@@ -175,10 +268,36 @@ namespace SharpPy
 
         // Reused for bytes_iterator / reversed-key iteration, so the reported type
         // name is parameterised (default list_iterator).
-        internal override PyObject RemainingHint() => new PyInt(Math.Max(0, _list.RawCount() - _index));
+        internal override PyObject RemainingHint() => new PyInt(_exhausted ? 0 : Math.Max(0, _list.RawCount() - _index));
 
-        public PyListIterator(PyList list, string typeName = "list_iterator")
+        private bool _exhausted;
+        private readonly PyObject _origin;
+
+        // listiter_reduce_general: the sequence it walks, or an empty one when done
+        internal override PyObject Reduce()
         {
+            // dictreviter_reduce: a list of what is left
+            if (_typeName.StartsWith("dict_"))
+            {
+                var left = new List<PyObject>();
+                for (int i = _index; !_exhausted && i < _list.RawCount(); i++)
+                    left.Add(_list.GetItem(i));
+                return ReduceExhausted(new PyList(left.ToArray()));
+            }
+            if (_exhausted)
+                return ReduceExhausted(_origin != null ? new PyTuple(new PyObject[0]) : new PyList());
+            return ReduceIter(_origin ?? _list, _index);
+        }
+
+        internal override void SetState(PyObject state)
+        {
+            if (!_exhausted)
+                _index = (int)ClippedIndex(state, _list.RawCount());
+        }
+
+        public PyListIterator(PyList list, string typeName = "list_iterator", PyObject origin = null)
+        {
+            _origin = origin;
             _list = list ?? throw new ArgumentNullException(nameof(list));
             _index = 0;
             _listLength = _list.Length();
@@ -187,8 +306,9 @@ namespace SharpPy
 
         public override PyObject Next()
         {
-            if (_index >= _list.RawCount())
+            if (_exhausted || _index >= _list.RawCount())
             {
+                _exhausted = true;
                 throw PyStopIteration.Create();
             }
 
@@ -227,6 +347,15 @@ namespace SharpPy
     public class PyTupleIterator : PyIterator
     {
         internal override PyObject RemainingHint() => new PyInt(Math.Max(0, _tuple.Items.Length - _index));
+
+        internal override PyObject Reduce() =>
+            _index < _tuple.Items.Length ? ReduceIter(_tuple, _index) : ReduceExhausted(new PyTuple(new PyObject[0]));
+
+        internal override void SetState(PyObject state)
+        {
+            if (_index < _tuple.Items.Length)
+                _index = (int)ClippedIndex(state, _tuple.Items.Length);
+        }
 
         private readonly PyTuple _tuple;
         private int _index;
@@ -271,6 +400,30 @@ namespace SharpPy
         private int _index;
         private readonly string _name;
 
+        // Positions are characters to Python and code units here.
+        private long Characters(int to)
+        {
+            long count = 0;
+            for (int i = 0; i < to; i += PyString.PairWidth(_string, i))
+                count++;
+            return count;
+        }
+
+        internal override PyObject RemainingHint() => new PyInt(Characters(_string.Length) - Characters(_index));
+
+        internal override PyObject Reduce() =>
+            _index < _string.Length ? ReduceIter(new PyString(_string), Characters(_index)) : ReduceExhausted(new PyString(""));
+
+        internal override void SetState(PyObject state)
+        {
+            if (_index >= _string.Length)
+                return;
+            long target = ClippedIndex(state, Characters(_string.Length));
+            _index = 0;
+            for (long i = 0; i < target; i++)
+                _index += PyString.PairWidth(_string, _index);
+        }
+
         public PyStringIterator(PyString pyString)
         {
             _string = pyString?.Value ?? throw new ArgumentNullException(nameof(pyString));
@@ -304,6 +457,22 @@ namespace SharpPy
     public class PyRangeIterator : PyIterator
     {
         internal override PyObject RemainingHint() => new PyInt((System.Numerics.BigInteger)_remaining);
+
+        // rangeiter_reduce
+        internal override PyObject Reduce()
+        {
+            var stop = (System.Numerics.BigInteger)_current + (System.Numerics.BigInteger)_remaining * _step;
+            var range = PyType.RangeType.Call(new PyObject[] { new PyInt(_current), new PyInt(stop), new PyInt(_step) }, null);
+            return new PyTuple(new PyObject[] { Builtin("iter"), new PyTuple(new[] { range }), PyNone.Instance });
+        }
+
+        // rangeiter_setstate
+        internal override void SetState(PyObject state)
+        {
+            ulong index = (ulong)ClippedIndex(state, _remaining > long.MaxValue ? long.MaxValue : (long)_remaining);
+            _current = unchecked(_current + (long)index * _step);
+            _remaining -= index;
+        }
 
         private long _current;
         private readonly long _step;
@@ -340,25 +509,54 @@ namespace SharpPy
     public class PySetIterator : PyIterator
     {
         private readonly IEnumerator<PyObject> _enumerator;
+        private readonly Queue<PyObject> _read = new Queue<PyObject>();
+        private readonly PyObject _set;
+        private readonly int _size;
+        private int _left;
 
         public PySetIterator(PySet set)
         {
             if (set == null) throw new ArgumentNullException(nameof(set));
             _enumerator = set.Items.GetEnumerator();
+            _set = set;
+            _size = _left = set.Length();
         }
 
         public PySetIterator(PyFrozenSet frozenSet)
         {
             if (frozenSet == null) throw new ArgumentNullException(nameof(frozenSet));
             _enumerator = frozenSet.Items.GetEnumerator();
+            _set = frozenSet;
+            _size = _left = frozenSet.Length();
         }
 
+        // setiter_iternext
         public override PyObject Next()
         {
+            if (_left == 0 && _read.Count == 0)
+                throw PyStopIteration.Create();
+            if (_set.Length() != _size)
+            {
+                _left = 0;
+                _read.Clear();
+                throw PyRuntimeError.Create("Set changed size during iteration");
+            }
+            _left--;
+            if (_read.Count != 0)
+                return _read.Dequeue();
             if (!_enumerator.MoveNext())
                 throw PyStopIteration.Create();
-            
             return _enumerator.Current;
+        }
+
+        internal override PyObject RemainingHint() => new PyInt(_left);
+
+        // setiter_reduce: a list of what is left
+        internal override PyObject Reduce()
+        {
+            while (_read.Count < _left && _enumerator.MoveNext())
+                _read.Enqueue(_enumerator.Current);
+            return ReduceExhausted(new PyList(_read.ToArray()));
         }
 
         protected override string IteratorName => "set_iterator";
@@ -415,6 +613,21 @@ namespace SharpPy
             return ProjectEntry(entry.Key, entry.Value);
         }
 
+        internal override PyObject RemainingHint() => new PyInt(_finished ? 0 : _remaining);
+
+        // dictiter_reduce: a list of what is left
+        internal override PyObject Reduce()
+        {
+            var left = new List<PyObject>();
+            if (!_finished && !_sizeFailed)
+            {
+                int position = _position;
+                while (_dictionary.InternalDict.NextEntry(ref position, out var entry))
+                    left.Add(ProjectEntry(entry.Key, entry.Value));
+            }
+            return ReduceExhausted(new PyList(left.ToArray()));
+        }
+
         protected abstract PyObject Project(PyObject key, PyDict dictionary);
         protected virtual PyObject ProjectEntry(PyObject key, PyObject value) => Project(key, _dictionary);
 
@@ -463,6 +676,34 @@ namespace SharpPy
     {
         private PyObject _sequence;
         private long _index;
+
+        // iter_len
+        internal override PyObject RemainingHint()
+        {
+            if (_sequence == null)
+                return new PyInt(0);
+            long size;
+            try
+            {
+                size = _sequence.Length();
+            }
+            catch (PythonException error) when (error.PyException is PyTypeError)
+            {
+                return PyNotImplemented.Instance;
+            }
+            return new PyInt(Math.Max(0, size - _index));
+        }
+
+        // iter_reduce
+        internal override PyObject Reduce() =>
+            _sequence != null ? ReduceIter(_sequence, _index) : ReduceExhausted(new PyTuple(new PyObject[0]));
+
+        // iter_setstate
+        internal override void SetState(PyObject state)
+        {
+            if (_sequence != null)
+                _index = ClippedIndex(state, long.MaxValue);
+        }
 
         public PyGenericIterator(PyObject sequence)
         {
@@ -517,6 +758,10 @@ namespace SharpPy
     {
         private readonly PyObject _iterator;
         private System.Numerics.BigInteger _index;
+
+        // enum_reduce
+        internal override PyObject Reduce() => new PyTuple(new PyObject[]
+            { Builtin("enumerate"), new PyTuple(new PyObject[] { _iterator, new PyInt(_index) }) });
 
         public PyEnumerateIterator(PyObject iterable, System.Numerics.BigInteger start = default)
         {

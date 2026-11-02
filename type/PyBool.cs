@@ -254,7 +254,7 @@ namespace SharpPy
 
         #region Bitwise Operations
 
-        public PyObject BitwiseAnd(PyObject other)
+        public override PyObject BitwiseAnd(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:3562-3590 - long_and
             int boolAsInt = Value ? 1 : 0;
@@ -262,11 +262,11 @@ namespace SharpPy
             {
                 PyBool otherBool => PyBool.FromBool(Value && otherBool.Value),
                 PyInt otherInt => new PyInt(boolAsInt & otherInt.Value),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for &: 'bool' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance,
             };
         }
 
-        public PyObject BitwiseOr(PyObject other)
+        public override PyObject BitwiseOr(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:3592-3620 - long_or
             int boolAsInt = Value ? 1 : 0;
@@ -274,11 +274,11 @@ namespace SharpPy
             {
                 PyBool otherBool => PyBool.FromBool(Value || otherBool.Value),
                 PyInt otherInt => new PyInt(boolAsInt | otherInt.Value),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for |: 'bool' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance,
             };
         }
 
-        public PyObject BitwiseXor(PyObject other)
+        public override PyObject BitwiseXor(PyObject other)
         {
             // CPython 3.12: Objects/longobject.c:3622-3650 - long_xor
             int boolAsInt = Value ? 1 : 0;
@@ -286,7 +286,7 @@ namespace SharpPy
             {
                 PyBool otherBool => PyBool.FromBool(Value ^ otherBool.Value),
                 PyInt otherInt => new PyInt(boolAsInt ^ otherInt.Value),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for ^: 'bool' and '{other.GetTypeName()}'")
+                _ => PyNotImplemented.Instance,
             };
         }
 

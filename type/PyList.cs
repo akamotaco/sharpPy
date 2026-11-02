@@ -59,7 +59,7 @@ namespace SharpPy
             // it is what makes PyType.TypeNewIsObjectNew answer "no" for a list subclass: CPython's
             // tp_new is list_new, never object_new, so the constructor guard must not treat the
             // arguments as excess.
-            listType.TypeDict["__new__"] = new PyMethodDescriptor(
+            listType.TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__", listType,
                 (self, args, kwargs) => {
                     var cls = self;

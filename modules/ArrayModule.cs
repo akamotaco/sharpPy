@@ -784,7 +784,7 @@ namespace SharpPy.Modules
                 ConstructedByNewSlot = true
             };
 
-            type.TypeDict["__new__"] = new PyMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
             {
                 if (args.Length < 1)
                     throw PyTypeError.Create("array() takes at least 1 argument (0 given)");

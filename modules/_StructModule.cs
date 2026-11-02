@@ -427,7 +427,7 @@ namespace SharpPy.Modules
             StructType = new PyType("Struct", new[] { PyType.ObjectType }, "_struct");
             StructType.ConstructedByNewSlot = true;
 
-            StructType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", StructType, (cls, args, kwargs) =>
+            StructType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", StructType, (cls, args, kwargs) =>
             {
                 if (args.Length != 1) throw PyTypeError.Create("Struct() takes exactly one argument");
                 string fmt = GetFormat(args[0]);

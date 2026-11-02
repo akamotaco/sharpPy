@@ -23,6 +23,20 @@ namespace SharpPy
             InstallText();
             PyGenericAlias.Install();
             PySlotWrappers.Install();
+            // ellipsis_reduce, notimplemented_reduce
+            Method(PyType.EllipsisType, "__reduce__", (self, args) => new PyString("Ellipsis"));
+            Method(PyNotImplemented.Instance.GetPyType(), "__reduce__", (self, args) => new PyString("NotImplemented"));
+            // range_reduce, slice_reduce
+            Method(PyType.RangeType, "__reduce__", (self, args) => new PyTuple(new PyObject[]
+            {
+                PyType.RangeType,
+                new PyTuple(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
+            }));
+            Method(PyType.SliceType, "__reduce__", (self, args) => new PyTuple(new PyObject[]
+            {
+                PyType.SliceType,
+                new PyTuple(new[] { self.GetAttribute("start"), self.GetAttribute("stop"), self.GetAttribute("step") }),
+            }));
             Slot(PyType.GenericAliasType, "__repr__", (self, args) => PyGenericAlias.Repr(self));
             Slot(PyType.GenericAliasType, "__getitem__", (self, args) => PyGenericAlias.GetItemSlot(self, args[0]));
             MethodO(PyType.GenericAliasType, "__mro_entries__", (self, args) => PyGenericAlias.MroEntries(self));
@@ -44,7 +58,7 @@ namespace SharpPy
             InstallViews();
             InstallIterators();
             PyType.ModuleType.ConstructedByNewSlot = true;
-            PyType.ModuleType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", PyType.ModuleType, (cls, args, kwargs) =>
+            PyType.ModuleType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyType.ModuleType, (cls, args, kwargs) =>
             {
                 if (args.Length < 1 || args[0] is not PyString name)
                     throw PyTypeError.Create("module() argument 'name' must be str");
@@ -311,7 +325,7 @@ namespace SharpPy
                 {
                     var items = new List<PyObject>(PySet.IterableItems(self));
                     items.Reverse();
-                    return new PyListIterator(new PyList(items), name.Replace("dict_", "dict_reverse") + "iterator");
+                    return new PyListIterator(new PyList(items), name.Replace("dict_", "dict_reverse").TrimEnd('s') + "iterator");
                 });
             }
         }

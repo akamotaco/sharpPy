@@ -78,6 +78,8 @@ namespace SharpPy
         /// _PyCodec_Lookup: normalise, cache, builtin entries, then the registered search functions
         /// IN REGISTRATION ORDER, then "unknown encoding" naming the caller's spelling.
         /// </summary>
+        private static bool _encodingsImported;
+
         internal static PyObject Lookup(string original)
         {
             string key = Normalize(original);
@@ -90,7 +92,14 @@ namespace SharpPy
                 return entry;
             }
 
-            foreach (var searchFunction in SearchPath)
+            // _PyCodecRegistry_Init imports encodings, whose search_function reads Lib/encodings.
+            if (!_encodingsImported)
+            {
+                _encodingsImported = true;
+                PyImportSystem.Import("encodings");
+            }
+
+            foreach (var searchFunction in SearchPath.ToArray())
             {
                 // The callbacks receive the NORMALISED name. That is why registering a function
                 // that tests name == "zzz-test" never fires: the key is "zzz_test".

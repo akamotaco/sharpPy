@@ -78,7 +78,29 @@ namespace SharpPy
                 return result;
             }
 
-            public override PyString ToRepr() => new PyString("<longrange_iterator object>");
+            protected override string IteratorName => "longrange_iterator";
+
+            internal override PyObject RemainingHint() => new PyInt(_remaining);
+
+            // longrangeiter_reduce
+            internal override PyObject Reduce()
+            {
+                var stop = _current + _remaining * _step;
+                var range = PyType.RangeType.Call(new PyObject[] { new PyInt(_current), new PyInt(stop), new PyInt(_step) }, null);
+                return new PyTuple(new PyObject[] { Builtin("iter"), new PyTuple(new[] { range }), PyNone.Instance });
+            }
+
+            // longrangeiter_setstate
+            internal override void SetState(PyObject state)
+            {
+                var index = IndexValue(state);
+                if (index < 0)
+                    index = 0;
+                else if (index > _remaining)
+                    index = _remaining;
+                _current += index * _step;
+                _remaining -= index;
+            }
         }
     }
 }

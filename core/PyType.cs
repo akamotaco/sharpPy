@@ -390,6 +390,8 @@ namespace SharpPy
         private static readonly System.Collections.Generic.Dictionary<string, PyType> _iteratorTypeCache = new();
         public static PyType GetIteratorType(string name)
         {
+            if (name == "reversed")
+                return ReversedType;
             lock (_iteratorTypeCache)
             {
                 if (!_iteratorTypeCache.TryGetValue(name, out var t))
@@ -399,6 +401,7 @@ namespace SharpPy
                     // the distinct Name is what type(it).__name__ reports.
                     t = new PyType(name, new[] { IteratorType });
                     _iteratorTypeCache[name] = t;
+                    PyIterator.InstallByName(t);
                 }
                 return t;
             }
@@ -2549,7 +2552,7 @@ namespace SharpPy
             // descriptor also matters for the constructor guard: PyType.TypeNewIsObjectNew compares
             // the MRO answer against object.__new__, and while set's tp_new existed only as C code
             // SharpPy saw object.__new__ and refused every argument with "C() takes no arguments".
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__",
                 setType,
                 (self, args, kwargs) => {
@@ -2922,7 +2925,7 @@ namespace SharpPy
             // this is the only place the value is built, and the keyword test's condition is false
             // for a subclass: the subclass inherits object_init, not frozenset's absent one. The
             // observable result is that frozenset(x=1) is an error while C(x=1) quietly builds C().
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__",
                 frozensetType,
                 (self, args, kwargs) => {
@@ -3096,7 +3099,7 @@ namespace SharpPy
             // tuple.__new__(cls, iterable=()) - CPython Objects/tupleobject.c:tuple_new
             // This is called when creating tuple subclasses
             // Note: PyMethodDescriptor passes the class as 'self' when called on a type
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__",
                 tupleType,
                 (self, args, kwargs) => {
@@ -3194,7 +3197,7 @@ namespace SharpPy
             // dict.__new__(cls, /) - Objects/dictobject.c dict_new builds an empty dict while
             // dict_init consumes the mapping argument. Same reason as list.__new__: the class's
             // tp_new is dict_new, not object_new.
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__",
                 dictType,
                 (self, args, kwargs) => {
@@ -4197,7 +4200,7 @@ namespace SharpPy
             // X(1).args == (1,). Keywords are not arguments and are not refused (:59-:62). Registering
             // the slot is also what makes super().__new__(cls, "n") work in a subclass - with no slot
             // the lookup fell through to object.__new__, which refused the extra value.
-            TypeDict["__new__"] = new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyNewMethodDescriptor(
                 "__new__", this,
                 (cls, args, kwargs) =>
                 {

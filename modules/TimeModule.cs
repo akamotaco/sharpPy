@@ -414,7 +414,7 @@ namespace SharpPy
             }));
 
             // struct_time 타입을 모듈에 추가 (튜플의 서브타입처럼 동작)
-            PyStructTime.StructTimeType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", PyStructTime.StructTimeType,
+            PyStructTime.StructTimeType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", PyStructTime.StructTimeType,
                 (cls, args, kwargs) => ParseStructTime(args[0]), 1, 1);
             SetAttribute("struct_time", PyStructTime.StructTimeType);
         }

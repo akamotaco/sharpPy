@@ -31,7 +31,7 @@ namespace SharpPy.Modules
             // RLock type
             var rlockType = new PyType("RLock", new[] { PyType.ObjectType }, "_thread");
             rlockType.ConstructedByNewSlot = true;
-            rlockType.TypeDict["__new__"] = new PyMethodDescriptor("__new__", rlockType,
+            rlockType.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", rlockType,
                 (cls, args, kwargs) => new PyRLock(rlockType), 0, int.MaxValue);
             rlockType.TypeDict["acquire"] = new PyMethodDescriptor("acquire", rlockType, RLockAcquire, 0, 2);
             rlockType.TypeDict["release"] = new PyMethodDescriptor("release", rlockType, RLockRelease, 0, 0);

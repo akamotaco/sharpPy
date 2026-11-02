@@ -349,25 +349,22 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"countOf() takes exactly 2 arguments ({args.Length} given)");
 
-            // Simple implementation for sequences
+            // _PySequence_IterSearch, PY_ITERSEARCH_COUNT
             int count = 0;
-            if (args[0] is PyList list)
+            var iterator = args[0].GetIterator();
+            while (true)
             {
-                foreach (var item in list.Items)
+                PyObject item;
+                try
                 {
-                    var result = item.RichCompare(args[1], PyObject.CompareOp.EQ);
-                    if (result is PyBool pyBool && pyBool.Value)
-                        count++;
+                    item = iterator.Next();
                 }
-            }
-            else if (args[0] is PyTuple tuple)
-            {
-                foreach (var item in tuple.Items)
+                catch (PythonException error) when (error.PyException is PyStopIteration)
                 {
-                    var result = item.RichCompare(args[1], PyObject.CompareOp.EQ);
-                    if (result is PyBool pyBool && pyBool.Value)
-                        count++;
+                    break;
                 }
+                if (PyObject.CompareBool(item, args[1], PyObject.CompareOp.EQ))
+                    count++;
             }
 
             return new PyInt(count);
@@ -394,27 +391,24 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"indexOf() takes exactly 2 arguments ({args.Length} given)");
 
-            // Simple implementation for sequences
-            if (args[0] is PyList list)
+            // _PySequence_IterSearch, PY_ITERSEARCH_INDEX
+            int index = 0;
+            var iterator = args[0].GetIterator();
+            while (true)
             {
-                for (int i = 0; i < list.Items.Length; i++)
+                PyObject item;
+                try
                 {
-                    var result = list.Items[i].RichCompare(args[1], PyObject.CompareOp.EQ);
-                    if (result is PyBool pyBool && pyBool.Value)
-                        return new PyInt(i);
+                    item = iterator.Next();
                 }
-            }
-            else if (args[0] is PyTuple tuple)
-            {
-                for (int i = 0; i < tuple.Items.Length; i++)
+                catch (PythonException error) when (error.PyException is PyStopIteration)
                 {
-                    var result = tuple.Items[i].RichCompare(args[1], PyObject.CompareOp.EQ);
-                    if (result is PyBool pyBool && pyBool.Value)
-                        return new PyInt(i);
+                    throw PyValueError.Create("sequence.index(x): x not in sequence");
                 }
+                if (PyObject.CompareBool(item, args[1], PyObject.CompareOp.EQ))
+                    return new PyInt(index);
+                index++;
             }
-
-            throw PyValueError.Create($"{args[1].ToRepr().Value} is not in sequence");
         }
 
         private static PyObject SetItem(PyObject[] args)

@@ -176,11 +176,14 @@ namespace SharpPy
                 // but is not about text ('base64') is reported as such, a name nothing implements is
                 // the unknown encoding. Measured: str(b'ab', 'base64') ->
                 // LookupError: 'base64' is not a text encoding; use codecs.decode() ...
-                PyCodecRegistry.RefuseNonTextEncoding(encodingName, "codecs.decode()");
-                throw PyLookupError.Create($"unknown encoding: {encodingName}");
+                var viaRegistry = PyCodecRegistry.DecodeText(new PyBytes(data), encodingName, errorName ?? "strict");
+                return viaRegistry is PyString text ? text.Value
+                    : throw PyTypeError.Create($"'{encodingName}' decoder returned '{viaRegistry.GetTypeName()}' instead of 'str'; use codecs.decode() to decode to arbitrary types");
             }
 
             string normalized = NormalizeCodecName(encodingName);
+            if (normalized == "utf-8")
+                return PyBytes.DecodeUtf8Python(data, errorName ?? "strict");
 
             // CPython's utf-16/utf-32 consume the byte-order mark instead of putting it in the
             // result; .NET's GetString left it as a leading U+FEFF in every round trip. A
@@ -218,7 +221,7 @@ namespace SharpPy
 
             bool strict = errorName == null || errorName == "strict";
             if (!strict && errorName != "ignore" && errorName != "replace" &&
-                errorName != "surrogateescape" && errorName != "backslashreplace")
+                errorName != "surrogateescape" && errorName != "backslashreplace" && errorName != "surrogatepass")
                 throw PyLookupError.Create($"'{errorName}' is not a known error handler");
 
             // .NET's GetString replaces invalid input silently, so strict mode needs an encoding that

@@ -425,50 +425,289 @@ namespace SharpPy.Modules
         }
 
         // Charmap encoding - stub implementations
-        private static PyObject PyCharmapEncode(PyObject[] args, PyDict kwargs = null)
+        private static string ErrorsOf(PyObject[] args, int index) =>
+            args.Length > index && args[index] is PyString text ? text.Value : "strict";
+
+        private static string TextOf(PyObject obj, string name) =>
+            obj is PyString text ? text.Value
+                : obj is PyStrSubclass derived ? derived.GetStrValue().Value
+                : throw PyTypeError.Create($"{name}() argument 1 must be str, not {obj.GetTypeName()}");
+
+        private static int CodePointLength(string text)
         {
-            throw PyNotImplementedError.Create("charmap_encode not yet implemented");
+            int count = 0;
+            for (int i = 0; i < text.Length; i++)
+                if (!char.IsLowSurrogate(text[i]) || i == 0 || !char.IsHighSurrogate(text[i - 1]))
+                    count++;
+            return count;
         }
 
+        private static PyObject Result(PyObject value, int consumed) => new PyTuple(new[] { value, new PyInt(consumed) });
+
+        // PyUnicode_DecodeCharmap: a str maps by index, U+FFFE is undefined; anything else by lookup
         private static PyObject PyCharmapDecode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("charmap_decode not yet implemented");
+            var data = ByteArrayOf(args[0]);
+            string errors = ErrorsOf(args, 1);
+            PyObject mapping = args.Length > 2 ? args[2] : PyNone.Instance;
+            var result = new StringBuilder(data.Length);
+            for (int i = 0; i < data.Length; i++)
+            {
+                int ch = -1;
+                if (mapping is PyNone)
+                    ch = data[i];
+                else if (mapping is PyString table)
+                {
+                    if (i >= 0 && data[i] < table.Value.Length && table.Value[data[i]] != '￾')
+                        ch = table.Value[data[i]];
+                }
+                else
+                {
+                    PyObject item = null;
+                    try
+                    {
+                        item = mapping.GetItem(new PyInt(data[i]));
+                    }
+                    catch (PythonException error) when (error.PyException is SharpPy.PyLookupError)
+                    {
+                    }
+                    if (item is PyString text)
+                    {
+                        result.Append(text.Value);
+                        continue;
+                    }
+                    if (item is PyInt number)
+                        ch = number.ToInt();
+                }
+                if (ch >= 0)
+                {
+                    result.Append(PyString.CodePointText(ch));
+                    continue;
+                }
+                switch (errors)
+                {
+                    case "ignore":
+                        break;
+                    case "replace":
+                        result.Append('�');
+                        break;
+                    case "backslashreplace":
+                        result.Append($"\\x{data[i]:x2}");
+                        break;
+                    case "surrogateescape":
+                        result.Append((char)(0xDC00 + data[i]));
+                        break;
+                    default:
+                        throw PyUnicodeDecodeError.Failure("charmap", data, i, i + 1, "character maps to <undefined>");
+                }
+            }
+            return Result(new PyString(result.ToString()), data.Length);
         }
 
+        // PyUnicode_EncodeCharmap
+        private static PyObject PyCharmapEncode(PyObject[] args, PyDict kwargs = null)
+        {
+            string text = TextOf(args[0], "charmap_encode");
+            string errors = ErrorsOf(args, 1);
+            PyObject mapping = args.Length > 2 ? args[2] : PyNone.Instance;
+            var result = new List<byte>(text.Length);
+            int position = 0;
+
+            bool Write(int cp)
+            {
+                if (mapping is PyNone)
+                {
+                    if (cp < 256)
+                        result.Add((byte)cp);
+                    return cp < 256;
+                }
+                PyObject item;
+                try
+                {
+                    item = mapping.GetItem(new PyInt(cp));
+                }
+                catch (PythonException error) when (error.PyException is SharpPy.PyLookupError)
+                {
+                    return false;
+                }
+                if (item is PyInt number)
+                    result.Add((byte)number.ToInt());
+                else if (item is PyBytes bytes)
+                    result.AddRange(bytes.Value);
+                else
+                    return false;
+                return true;
+            }
+
+            for (int i = 0; i < text.Length; position++)
+            {
+                int cp = PyString.CodePointAt(text, i, out int width);
+                if (!Write(cp))
+                {
+                    switch (errors)
+                    {
+                        case "ignore":
+                            break;
+                        case "replace":
+                            Write('?');
+                            break;
+                        case "xmlcharrefreplace":
+                            result.AddRange(Encoding.ASCII.GetBytes($"&#{cp};"));
+                            break;
+                        case "backslashreplace":
+                            result.AddRange(Encoding.ASCII.GetBytes(cp > 0xFFFF ? $"\\U{cp:x8}" : cp > 0xFF ? $"\\u{cp:x4}" : $"\\x{cp:x2}"));
+                            break;
+                        default:
+                            throw PyUnicodeEncodeError.Failure("charmap", text, position, position + 1, "character maps to <undefined>");
+                    }
+                }
+                i += width;
+            }
+            return Result(new PyBytes(result.ToArray()), position);
+        }
+
+        // PyUnicode_BuildEncodingMap: the reverse table, a dict here
         private static PyObject PyCharmapBuild(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("charmap_build not yet implemented");
+            string table = TextOf(args[0], "charmap_build");
+            var map = new PyDict();
+            int index = 0;
+            for (int i = 0; i < table.Length; index++)
+            {
+                int cp = PyString.CodePointAt(table, i, out int width);
+                if (cp != 0xFFFE)
+                    map.SetItem(new PyInt(cp), new PyInt(index));
+                i += width;
+            }
+            return map;
         }
 
-        // Escape encoding - stub implementations
+        // PyBytes_Repr without the quotes around it
         private static PyObject PyEscapeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("escape_encode not yet implemented");
+            var data = ByteArrayOf(args[0]);
+            var text = new StringBuilder(data.Length);
+            foreach (byte b in data)
+            {
+                text.Append(b switch
+                {
+                    (byte)'\\' => "\\\\",
+                    (byte)'\'' => "\\'",
+                    (byte)'\t' => "\\t",
+                    (byte)'\n' => "\\n",
+                    (byte)'\r' => "\\r",
+                    < 32 or >= 127 => $"\\x{b:x2}",
+                    _ => ((char)b).ToString(),
+                });
+            }
+            return Result(new PyBytes(Encoding.ASCII.GetBytes(text.ToString())), data.Length);
         }
 
         private static PyObject PyEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("escape_decode not yet implemented");
+            var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
+            var decoded = SharpPy.Generated.EscapeDecoders.DecodeBytesEscape(Encoding.Latin1.GetString(data), out _, message => PyValueError.Create(message));
+            return Result(new PyBytes(decoded), data.Length);
         }
 
+        // PyUnicode_AsUnicodeEscapeString
         private static PyObject PyUnicodeEscapeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("unicode_escape_encode not yet implemented");
+            string text = TextOf(args[0], "unicode_escape_encode");
+            var result = new StringBuilder(text.Length);
+            int count = 0;
+            for (int i = 0; i < text.Length; count++)
+            {
+                int cp = PyString.CodePointAt(text, i, out int width);
+                i += width;
+                if (cp == '\\')
+                    result.Append("\\\\");
+                else if (cp >= 32 && cp < 127)
+                    result.Append((char)cp);
+                else if (cp == '\t')
+                    result.Append("\\t");
+                else if (cp == '\n')
+                    result.Append("\\n");
+                else if (cp == '\r')
+                    result.Append("\\r");
+                else if (cp < 256)
+                    result.Append($"\\x{cp:x2}");
+                else if (cp < 0x10000)
+                    result.Append($"\\u{cp:x4}");
+                else
+                    result.Append($"\\U{cp:x8}");
+            }
+            return Result(new PyBytes(Encoding.ASCII.GetBytes(result.ToString())), count);
         }
+
+        private static Exception EscapeFailure(string codec, byte[] data, int start, int end, string reason) =>
+            PyUnicodeDecodeError.Failure(codec, data, start, end, reason);
 
         private static PyObject PyUnicodeEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("unicode_escape_decode not yet implemented");
+            var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
+            string decoded = SharpPy.Generated.EscapeDecoders.DecodeUnicodeEscape(Encoding.Latin1.GetString(data), out _,
+                (start, end, reason) => EscapeFailure("unicodeescape", data, start, end, reason));
+            return Result(new PyString(decoded), data.Length);
         }
 
+        // PyUnicode_AsRawUnicodeEscapeString
         private static PyObject PyRawUnicodeEscapeEncode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("raw_unicode_escape_encode not yet implemented");
+            string text = TextOf(args[0], "raw_unicode_escape_encode");
+            var result = new List<byte>(text.Length);
+            int count = 0;
+            for (int i = 0; i < text.Length; count++)
+            {
+                int cp = PyString.CodePointAt(text, i, out int width);
+                i += width;
+                if (cp < 256)
+                    result.Add((byte)cp);
+                else
+                    result.AddRange(Encoding.ASCII.GetBytes(cp < 0x10000 ? $"\\u{cp:x4}" : $"\\U{cp:x8}"));
+            }
+            return Result(new PyBytes(result.ToArray()), count);
         }
 
+        // _PyUnicode_DecodeRawUnicodeEscapeStateful: \\u and \\U are escapes when the backslash is itself
+        // not escaped, and everything else is Latin-1.
         private static PyObject PyRawUnicodeEscapeDecode(PyObject[] args, PyDict kwargs = null)
         {
-            throw PyNotImplementedError.Create("raw_unicode_escape_decode not yet implemented");
+            var data = args[0] is PyString text ? Encoding.UTF8.GetBytes(text.Value) : ByteArrayOf(args[0]);
+            var result = new StringBuilder(data.Length);
+            int position = 0;
+            while (position < data.Length)
+            {
+                byte c = data[position];
+                if (c != (byte)'\\' || position + 1 >= data.Length || (data[position + 1] != (byte)'u' && data[position + 1] != (byte)'U'))
+                {
+                    result.Append((char)c);
+                    position++;
+                    // a backslash takes what follows with it
+                    if (c == (byte)'\\' && position < data.Length)
+                        result.Append((char)data[position++]);
+                    continue;
+                }
+                int start = position;
+                int count = data[position + 1] == (byte)'u' ? 4 : 8;
+                string message = count == 4 ? "truncated \\uXXXX escape" : "truncated \\UXXXXXXXX escape";
+                position += 2;
+                long ch = 0;
+                for (int i = 0; i < count; i++, position++)
+                {
+                    int digit = position < data.Length ? Convert.ToInt32(HexValue((char)data[position])) : -1;
+                    if (digit < 0)
+                        throw PyUnicodeDecodeError.Failure("rawunicodeescape", data, start, position, message);
+                    ch = ch << 4 | (long)digit;
+                }
+                if (ch > 0x10FFFF)
+                    throw PyUnicodeDecodeError.Failure("rawunicodeescape", data, start, position, "\\Uxxxxxxxx out of range");
+                result.Append(PyString.CodePointText((int)ch));
+            }
+            return Result(new PyString(result.ToString()), data.Length);
         }
+
+        private static int HexValue(char c) =>
+            c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
     }
 }

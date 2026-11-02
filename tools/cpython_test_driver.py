@@ -15,6 +15,14 @@ KNOWN_TOO_SLOW = ()
 output = open(target, "w", encoding="utf-8")
 
 
+def frames(err):
+    """With SHARPPY_TEST_TRACE, where the failure happened: the last frames of its traceback."""
+    if not os.environ.get("SHARPPY_TEST_TRACE"):
+        return ""
+    import traceback
+    return " <<" + " ; ".join(f"{os.path.basename(f.filename)}:{f.lineno}:{f.name}" for f in traceback.extract_tb(err[2])[-6:]) + ">>"
+
+
 def emit(state, test, detail=""):
     text = str(detail).replace("\n", " | ")[-300:]
     output.write(f"{state}\t{test}\t{text}\n")
@@ -85,10 +93,10 @@ class Result(unittest.TestResult):
         emit("PASS", test.id())
 
     def addError(self, test, err):
-        emit("FAIL", test.id(), f"{err[0].__name__}: {err[1]}")
+        emit("FAIL", test.id(), f"{err[0].__name__}: {err[1]}{frames(err)}")
 
     def addFailure(self, test, err):
-        emit("FAIL", test.id(), f"{err[0].__name__}: {err[1]}")
+        emit("FAIL", test.id(), f"{err[0].__name__}: {err[1]}{frames(err)}")
 
     def addSkip(self, test, reason):
         emit("SKIP", test.id(), reason)
@@ -101,7 +109,7 @@ class Result(unittest.TestResult):
 
     def addSubTest(self, test, subtest, err):
         if err is not None:
-            emit("FAIL", test.id(), f"subtest {subtest}: {err[0].__name__}: {err[1]}")
+            emit("FAIL", test.id(), f"subtest {subtest}: {err[0].__name__}: {err[1]}{frames(err)}")
 
 
 suite.run(Result())

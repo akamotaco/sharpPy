@@ -297,6 +297,12 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetIterator()
         {
+            // range_iter: a length or an end that overflows long goes through longrange_iterator.
+            ulong length = LengthUnsigned();
+            if (length > long.MaxValue || (length != 0 && (NativeStep > 0
+                    ? NativeStop > long.MaxValue - (NativeStep - 1)
+                    : NativeStop < long.MinValue + (-1 - NativeStep))))
+                return new PyBigRange(NativeStart, NativeStop, NativeStep).GetIterator();
             return new PyRangeIterator(this);
         }
 
