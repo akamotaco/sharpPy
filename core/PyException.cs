@@ -2087,6 +2087,14 @@ namespace SharpPy
         }
     }
 
+    public class PyEncodingWarning : PyWarning
+    {
+        public PyEncodingWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }
+        public PyEncodingWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "EncodingWarning";
+        public override PyType GetPyType() => PyType.EncodingWarningType;
+    }
+
     public class PyResourceWarning : PyWarning
     {
         public PyResourceWarning(PyObject[] args, PyDict kwargs = null) : base(args, kwargs) { }

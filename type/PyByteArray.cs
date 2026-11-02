@@ -15,6 +15,9 @@ namespace SharpPy
         private List<byte> _bytes;
         private int _exports = 0;  // Track buffer exports for resize safety
 
+        internal void HoldExport() => _exports++;
+        internal void ReleaseExport() => _exports--;
+
         public byte[] ToByteArrayCopy() => _bytes.ToArray();
 
         /// <summary>Overwrites bytes in place, as a writer through the buffer protocol does.</summary>

@@ -479,6 +479,12 @@ namespace SharpPy
         {
             if (this is PyBool boolean) return boolean.Value;
             if (this == PyNone.Instance) return false;
+            // NotImplemented_bool
+            if (ReferenceEquals(this, PyNotImplemented.Instance))
+            {
+                PyWarnings.Deprecated("NotImplemented should not be used in a boolean context");
+                return true;
+            }
             var method = LookupSpecialMethodUncached("__bool__");
             if (method != null)
             {
@@ -1165,14 +1171,16 @@ namespace SharpPy
 
         public virtual bool IsCallable()
         {
+            // PyCallable_Check: tp_call, which an instance attribute does not fill.
+            if (GetPyType() is PyClass type)
+                return type.LookupInMRO("__call__") != null;
             try
             {
                 GetAttribute("__call__");
                 return true;
             }
-            catch (PythonException pe)
+            catch (PythonException error) when (error.PyException is PyAttributeError)
             {
-                PyAttributeError pae = (PyAttributeError)pe.PyException;
                 return false;
             }
         }
@@ -1332,6 +1340,24 @@ namespace SharpPy
         }
 
         // CPython PyObject_LengthHint: TypeError from len/call is a fallback,
+        // PyObject_Size: __len__ must give a non-negative index-sized int.
+        internal long SequenceLength()
+        {
+            if (this is PyRange range)
+                return range.PythonLength();
+            var method = LookupUserSpecial("__len__");
+            if (method == null)
+                return Length();
+            var result = CallSpecial(method);
+            var length = TryGetIndex(result) ??
+                throw PyTypeError.Create($"'{result.GetTypeName()}' object cannot be interpreted as an integer");
+            if (length.Value.Sign < 0)
+                throw PyValueError.Create("__len__() should return >= 0");
+            if (length.Value > long.MaxValue)
+                throw PyOverflowError.Create($"cannot fit '{result.GetTypeName()}' into an index-sized integer");
+            return (long)length.Value;
+        }
+
         // while invalid hint return values and other exceptions propagate.
         internal long LengthHint(long defaultValue)
         {

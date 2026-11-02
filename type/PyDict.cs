@@ -1357,6 +1357,8 @@ namespace SharpPy
         private readonly PyDict _dict;
         internal PyDictVariables(PyDict dict) => _dict = dict;
 
+        internal PyDict Dict => _dict;
+
         private IEnumerable<KeyValuePair<string, PyObject>> Entries()
         {
             foreach (var entry in new List<KeyValuePair<PyObject, PyObject>>(_dict.GetInternalDict()))
@@ -1404,6 +1406,10 @@ namespace SharpPy
         internal IDictionary<string, PyObject> Variables => _globalScopeVariables;
 
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IDictionary<string, PyObject>, PyGlobalsDict> Views = new();
+        /// <summary>The dict Python sees for a scope: the one exec was given, if it was.</summary>
+        internal static PyDict DictOf(IDictionary<string, PyObject> variables) =>
+            variables is PyDictVariables given ? given.Dict : For(variables);
+
         internal static PyGlobalsDict For(IDictionary<string, PyObject> variables) => variables is PyNamespace owned ? owned.Mapping : Views.GetValue(variables, source => new PyGlobalsDict(source, false));
         internal static void Store(IDictionary<string, PyObject> variables, string name, PyObject value)
         {

@@ -177,7 +177,8 @@ namespace SharpPy
                 {
                     if (self is not PyClass cls) throw PyTypeError.Create($"cannot set '__type_params__' attribute of immutable type '{self}'");
                     cls.ClassDict["__type_params__"] = value;
-                });
+                },
+                deleter: self => throw PyTypeError.Create($"cannot delete '__type_params__' attribute of immutable type '{((PyType)self).Name}'"));
 
             // type_init: everything is done by then, it only refuses a wrong call.
             typeClass.ClassDict["__init__"] = new PyWrapperDescriptor("__init__", typeClass, (self, args, kwargs) =>
@@ -339,10 +340,24 @@ namespace SharpPy
             for (int i = 0; i < bases.Items.Length; i++) baseTypes[i] = (PyType)bases.Items[i];
             BestBase(baseTypes);
 
+            // dict_merge: the storage, unless the class has its own __iter__, as OrderedDict does.
             var dict = new Dictionary<string, PyObject>();
-            foreach (var entry in ns.InternalDict)
-                if (entry.Key is PyString key)
-                    dict[key.Value] = entry.Value;
+            if (args[3].LookupUserSpecial("__iter__") == null)
+            {
+                foreach (var entry in ns.InternalDict)
+                    if (entry.Key is PyString key)
+                        dict[key.Value] = entry.Value;
+            }
+            else
+            {
+                foreach (var key in PySet.IterableItems(args[3].GetAttribute("keys").Call(Array.Empty<PyObject>(), null)))
+                    if (key is PyString text)
+                        dict[text.Value] = PyAbstract.GetItem(args[3], key);
+            }
+            // type_new_set_names and type_new_set_doc: both must encode.
+            new PyString(name.Value).GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
+            if (dict.TryGetValue("__doc__", out var classDoc) && classDoc.GetType() == typeof(PyString))
+                classDoc.GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
             CheckSlots(dict, baseTypes);
 
             // type_new_set_attrs
@@ -588,7 +603,8 @@ namespace SharpPy
         {
             var parent = created.TpBase.Layout;
             var own = created.Layout;
-            if (parent.DictOffset == 0 && own.DictOffset != 0)
+            // type_add_getset: PyDict_SetDefault, what the class defined stays.
+            if (parent.DictOffset == 0 && own.DictOffset != 0 && !created.ClassDict.ContainsKey("__dict__"))
                 created.ClassDict["__dict__"] = new PyGetSetDescriptor("__dict__", created,
                     self => self is PyType type ? ((IDescriptor)PyType.TypeType.TypeDict["__dict__"]).Get(type, Instance) : self.GetAttribute("__dict__"),
                     (self, value) =>

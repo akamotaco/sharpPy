@@ -406,6 +406,16 @@ namespace SharpPy
         public PyScope CurrentScope => _normalScopes.LastOrDefault();
         public PyScope GlobalScope => _normalScopes.FirstOrDefault();
         public PyBuiltinsModule BuiltinModule => _builtinModule;
+
+        // LOAD_NAME's locals and globals, for a frame whose builtins are its own.
+        internal PyObject LookupLocalOrGlobal(string name)
+        {
+            for (int i = _normalScopes.Count - 1; i >= 0; i--)
+                if (_normalScopes[i].Variables.TryGetValue(name, out var value))
+                    return value;
+            return null;
+        }
+
         public int ScopeCount => _normalScopes.Count;
 
         public PyScopeChain()

@@ -54,7 +54,10 @@ namespace SharpPy
     public class PyZipIterator : PyIterator
     {
         private readonly PyObject[] _iterators;
-        private readonly bool _strict;
+        private bool _strict;
+
+        // zip_setstate
+        internal override void SetState(PyObject state) => _strict = state.IsTrue();
 
         // zip_reduce
         internal override PyObject Reduce() => _strict

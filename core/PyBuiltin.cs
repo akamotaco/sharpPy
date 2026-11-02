@@ -417,13 +417,32 @@ namespace SharpPy
             if (args.Length > 1)
                 throw PyTypeError.Create($"input() takes at most 1 argument ({args.Length} given)");
 
-            // prompt가 주어지면 출력 (줄바꿈 없이)
+            // builtin_input: through sys.stdin and sys.stdout, whatever they are now.
+            var sys = PyImportSystem.Import("sys");
+            var input = sys.ModuleDict.TryGetValue("stdin", out var fin) ? fin : PyNone.Instance;
+            var output = sys.ModuleDict.TryGetValue("stdout", out var fout) ? fout : PyNone.Instance;
+            if (input is PyNone)
+                throw PyRuntimeError.Create("input(): lost sys.stdin");
+            if (output is PyNone)
+                throw PyRuntimeError.Create("input(): lost sys.stdout");
             if (args.Length == 1)
             {
-                var prompt = args[0].ToStr().Value;
-                Console.Write(prompt);
+                output.GetAttribute("write").Call(new PyObject[] { new PyString(args[0].ToStr().Value) }, null);
+                // builtin_input_impl: a failing flush is cleared.
+                try { output.GetAttribute("flush").Call(new PyObject[0], null); }
+                catch (PythonException) { }
+            }
+            if (input is not Modules.PyFile)
+            {
+                var answer = input.GetAttribute("readline").Call(new PyObject[0], null);
+                if (answer is not PyString text)
+                    throw PyTypeError.Create("object.readline() returned non-string");
+                if (text.Value.Length == 0)
+                    throw PyEOFError.Create("EOF when reading a line");
+                return new PyString(text.Value.EndsWith("\n") ? text.Value.Substring(0, text.Value.Length - 1) : text.Value);
             }
 
+            // prompt가 주어지면 출력 (줄바꿈 없이)
             // stdin에서 한 줄 읽기
             try
             {
@@ -748,6 +767,13 @@ namespace SharpPy
             var start = args.Length > 1
                 ? args[1]
                 : PyObject.KwValue(kwargs, "start") ?? new PyInt(0);
+            // builtin_sum_impl
+            if (start is PyString or PyStrSubclass)
+                throw PyTypeError.Create("sum() can't sum strings [use ''.join(seq) instead]");
+            if (start.GetPyType().IsSubclassOf(PyType.BytesType) || ReferenceEquals(start.GetPyType(), PyType.BytesType))
+                throw PyTypeError.Create("sum() can't sum bytes [use b''.join(seq) instead]");
+            if (start.GetPyType().IsSubclassOf(PyType.BytearrayType) || ReferenceEquals(start.GetPyType(), PyType.BytearrayType))
+                throw PyTypeError.Create("sum() can't sum bytearray [use b''.join(seq) instead]");
             var result = start;
             var iterator = iterable.GetIterator();
             double compensation = 0;
@@ -829,6 +855,9 @@ namespace SharpPy
                 }
             }
 
+            if (hasDefault && args.Length > 1)
+                throw PyTypeError.Create($"Cannot specify a default for {fname}() with multiple positional arguments");
+
             PyObject KeyOf(PyObject x)
             {
                 return keyFn == null ? x : keyFn.Call(new PyObject[] { x }, null);
@@ -895,7 +924,7 @@ namespace SharpPy
                 while (true)
                 {
                     var item = iterator.Next();
-                    if (item.PyBoolValue())
+                    if (item.IsTrue())
                         return PyBool.True;
                 }
             }
@@ -920,7 +949,7 @@ namespace SharpPy
                 while (true)
                 {
                     var item = iterator.Next();
-                    if (!item.PyBoolValue())
+                    if (!item.IsTrue())
                         return PyBool.False;
                 }
             }
@@ -1205,6 +1234,28 @@ namespace SharpPy
             return new PyComplex(realReal, imagReal);
         }
 
+        // PyDict_Check
+        private static bool IsDict(PyObject value) =>
+            value is PyDict || value.GetPyType().IsSubclassOf(PyType.DictType);
+
+        // PyMapping_Check
+        private static bool IsMapping(PyObject value) =>
+            value is PyDict || value.LookupSpecialMethodUncached("__getitem__") != null;
+
+        // What eval and exec share. Names resolve in a dict's storage. A dict subclass given as
+        // globals, or any other mapping as locals, also takes LOAD_NAME and STORE_NAME through
+        // its own __getitem__ and __setitem__, as PyObject_GetItem does.
+        private static (PyDict Globals, PyObject Namespace) GlobalsAndNamespace(PyObject globals, PyObject locals)
+        {
+            if (globals == null)
+                return (null, locals != null && locals.GetType() != typeof(PyDict) ? locals : null);
+            bool plain = globals is PyDict;
+            var storage = plain ? (PyDict)globals : PyNativeStorage.ForDict(globals);
+            if (locals != null)
+                return (storage, locals is PyDict ? null : locals);
+            return (storage, plain ? null : globals);
+        }
+
         private static PyObject CallEval(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: Python/bltinmodule.c:builtin_eval_impl
@@ -1217,14 +1268,15 @@ namespace SharpPy
                 throw PyTypeError.Create($"eval expected at most 3 arguments, got {args.Length}");
 
             var source = args[0];
-            PyDict globals = args.Length > 1 && args[1] != PyNone.Instance ? args[1] as PyDict : null;
-            PyDict locals = args.Length > 2 && args[2] != PyNone.Instance ? args[2] as PyDict : null;
-
-            // Validate arguments
-            if (args.Length > 1 && args[1] != PyNone.Instance && !(args[1] is PyDict))
-                throw PyTypeError.Create("globals must be a dict");
-            if (args.Length > 2 && args[2] != PyNone.Instance && !(args[2] is PyDict))
+            var globalsArgument = args.Length > 1 && args[1] != PyNone.Instance ? args[1] : null;
+            var localsArgument = args.Length > 2 && args[2] != PyNone.Instance ? args[2] : null;
+            if (localsArgument != null && !IsMapping(localsArgument))
                 throw PyTypeError.Create("locals must be a mapping");
+            if (globalsArgument != null && !IsDict(globalsArgument))
+                throw PyTypeError.Create(IsMapping(globalsArgument)
+                    ? "globals must be a real dict; try eval(expr, {}, mapping)" : "globals must be a dict");
+            var (globals, localsMapping) = GlobalsAndNamespace(globalsArgument, localsArgument);
+            PyDict locals = localsMapping == null ? localsArgument as PyDict : null;
 
             // CPython 3.12: If globals is not provided, use current frame's globals/locals
             if (globals == null)
@@ -1237,7 +1289,7 @@ namespace SharpPy
                     globals = PyGlobalsDict.For(currentFrame.Globals);
 
                     // Convert frame's local scope to PyDict
-                    if (locals == null)
+                    if (locals == null && localsMapping == null)
                     {
                         bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
                         locals = optimized ? currentFrame.GetOptimizedLocals()
@@ -1295,6 +1347,8 @@ namespace SharpPy
 
             // 4. Execute with provided globals/locals
             var vm = PyVM.Instance;
+            if (localsMapping != null)
+                return vm.ExecuteWithNamespace(codeObject, PyVM.ScopeOver(globals), localsMapping);
             return vm.ExecuteExpression(codeObject, globals, locals);
         }
 
@@ -1303,15 +1357,30 @@ namespace SharpPy
             // CPython 3.12: Python/bltinmodule.c:builtin_compile_impl
             // compile(source, filename, mode, flags=0, dont_inherit=False, optimize=-1)
 
-            if (args.Length < 3)
-                throw PyTypeError.Create($"compile expected at least 3 arguments, got {args.Length}");
-
             if (args.Length > 6)
-                throw PyTypeError.Create($"compile expected at most 6 arguments, got {args.Length}");
+                throw PyTypeError.Create($"compile() takes at most 7 arguments ({args.Length} given)");
+            // The clinic parser: the first three by position or by name.
+            string[] required = { "source", "filename", "mode" };
+            for (int i = 0; i < Math.Min(3, args.Length); i++)
+                if (KwValue(kwargs, required[i]) != null)
+                    throw PyTypeError.Create($"argument for compile() given by name ('{required[i]}') and position ({i + 1})");
+            if (args.Length < 3)
+            {
+                var filled = new PyObject[3];
+                Array.Copy(args, filled, args.Length);
+                for (int i = args.Length; i < 3; i++)
+                    filled[i] = KwValue(kwargs, required[i]) ??
+                        throw PyTypeError.Create($"compile() missing required argument '{required[i]}' (pos {i + 1})");
+                args = filled;
+            }
 
             var source = args[0];
             var filenameArg = args[1];
             var modeArg = args[2];
+            // builtin_compile_impl: PyCF_MASK, PyCF_MASK_OBSOLETE and PyCF_COMPILE_MASK.
+            var flagsArgument = args.Length > 3 ? args[3] : KwValue(kwargs, "flags");
+            if (flagsArgument != null && (flagsArgument.ToInt() & ~(0x1FE0000 | 0x10 | 0x400 | 0x200 | 0x1000 | 0x2000 | 0x4000)) != 0)
+                throw PyValueError.Create("compile(): unrecognised flags");
             // int flags = args.Length > 3 ? ... : 0;  // Future: compilation flags
             // bool dont_inherit = args.Length > 4 ? ... : false;
             // int optimize = args.Length > 5 ? ... : -1;
@@ -1437,15 +1506,24 @@ namespace SharpPy
                 throw PyTypeError.Create($"exec expected at most 3 arguments, got {args.Length}");
 
             var source = args[0];
-            PyDict globals = args.Length > 1 && args[1] != PyNone.Instance ? args[1] as PyDict : null;
-            PyDict locals = args.Length > 2 && args[2] != PyNone.Instance ? args[2] as PyDict : null;
-
-            // Validate arguments
-            if (args.Length > 1 && args[1] != PyNone.Instance && !(args[1] is PyDict))
-                throw PyTypeError.Create("exec() globals must be a dict, not '" + args[1].GetTypeName() + "'");
-            PyObject localsMapping = args.Length > 2 && args[2] is not PyDict && args[2] != PyNone.Instance ? args[2] : null;
-            if (localsMapping != null && localsMapping.LookupSpecialMethodUncached("__getitem__") == null)
-                throw PyTypeError.Create("exec() locals must be a mapping");
+            var globalsArgument = args.Length > 1 && args[1] != PyNone.Instance ? args[1] : null;
+            var localsArgument = args.Length > 2 && args[2] != PyNone.Instance ? args[2] : null;
+            PyObject closure = null;
+            if (kwargs != null)
+                foreach (var key in kwargs.Keys().Items)
+                {
+                    if (key is not PyString { Value: "closure" })
+                        throw PyTypeError.Create($"exec() got an unexpected keyword argument '{key.AsString().Value}'");
+                    closure = kwargs.GetItem(key);
+                }
+            if (closure is PyNone)
+                closure = null;
+            if (globalsArgument != null && !IsDict(globalsArgument))
+                throw PyTypeError.Create($"exec() globals must be a dict, not {globalsArgument.GetTypeName()}");
+            if (localsArgument != null && !IsMapping(localsArgument))
+                throw PyTypeError.Create($"locals must be a mapping or None, not {localsArgument.GetTypeName()}");
+            var (globals, localsMapping) = GlobalsAndNamespace(globalsArgument, localsArgument);
+            PyDict locals = localsMapping == null ? localsArgument as PyDict : null;
 
             // CPython 3.12: If globals is not provided, use current frame's globals/locals
             if (globals == null)
@@ -1458,7 +1536,7 @@ namespace SharpPy
                     globals = PyGlobalsDict.For(currentFrame.Globals);
 
                     // Convert frame's local scope to PyDict
-                    if (locals == null)
+                    if (locals == null && localsMapping == null)
                     {
                         bool optimized = (currentFrame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0;
                         locals = optimized ? currentFrame.GetOptimizedLocals()
@@ -1494,12 +1572,19 @@ namespace SharpPy
             if (source is PyCodeObject pyCode)
             {
                 codeObject = pyCode;
-                if (pyCode.FreeVars.Count != 0)
+                if (pyCode.FreeVars.Count == 0)
+                {
+                    if (closure != null)
+                        throw PyTypeError.Create("cannot use a closure with this code object");
+                }
+                else if (closure is not PyTuple { } cells || cells.Items.Length != pyCode.FreeVars.Count)
                     throw PyTypeError.Create($"code object requires a closure of exactly length {pyCode.FreeVars.Count}");
             }
             // If source is a string, compile it first
             else
             {
+                if (closure != null)
+                    throw PyTypeError.Create("closure can only be used when source is a code object");
                 string filename = "<string>";
                 string sourceCode = SourceAsString(source, "exec", "string, bytes or code", true, filename);
 
@@ -1517,6 +1602,15 @@ namespace SharpPy
             // CPython pattern: PyEval_EvalCode(source, globals, locals)
             // Create a scope chain from the provided globals/locals
             var scopeChain = PyVM.ScopeOver(globals);
+            if (closure != null)
+            {
+                var given = ((PyTuple)closure).Items;
+                var cellArray = new PyCell[given.Length];
+                for (int i = 0; i < given.Length; i++)
+                    cellArray[i] = given[i] as PyCell ?? throw PyTypeError.Create($"arg 5 (closure) expected cell, found {given[i].GetTypeName()}");
+                PyVM.Instance.ExecuteWithClosure(codeObject, scopeChain, cellArray);
+                return PyNone.Instance;
+            }
             if (localsMapping != null)
             {
                 PyVM.Instance.ExecuteWithNamespace(codeObject, scopeChain, localsMapping);
@@ -1814,14 +1908,19 @@ namespace SharpPy
             {
                 // _dir_locals: the sorted names of the caller's locals
                 var names = new List<PyObject>();
+                // PyMapping_Keys: a mapping as locals is asked for its keys.
                 var locals = PyVM.CurrentFrame.GetAttribute("f_locals");
-                foreach (var name in PySet.IterableItems(locals)) names.Add(name);
+                var keys = locals is PyDict ? locals : locals.GetAttribute("keys").Call(new PyObject[0], null);
+                foreach (var name in PySet.IterableItems(keys)) names.Add(name);
                 var listing = new PyList(names);
                 listing.GetAttribute("sort").Call(new PyObject[0], null);
                 return listing;
             }
 
             var obj = args[0];
+            // module_dir
+            if (obj is PyModule && obj.GetAttribute("__dict__") is not PyDict)
+                throw PyTypeError.Create("<module>.__dict__ is not a dictionary");
             var attributes = new HashSet<string>(); // Use HashSet to avoid duplicates
 
             // Step 1: Try to call __dir__() method if available
@@ -1849,6 +1948,21 @@ namespace SharpPy
             catch
             {
                 // __dir__() not available or failed, continue with default behavior
+            }
+
+            // object___dir___impl: with no __class__ there are only the instance's names.
+            if (obj is PyClassInstance)
+            {
+                try
+                {
+                    obj.GetAttribute("__class__");
+                }
+                catch (PythonException error) when (error.PyException is PyAttributeError)
+                {
+                    var own = new PyList(new List<PyObject>(PySet.IterableItems(obj.GetAttribute("__dict__"))));
+                    own.GetAttribute("sort").Call(new PyObject[0], null);
+                    return own;
+                }
             }
 
             // Step 2: No usable __dir__() - compute the default name set the same way
@@ -2080,6 +2194,20 @@ namespace SharpPy
             // CPython 3.12: __import__(name, globals=None, locals=None, fromlist=(), level=0)
             // Signature has 5 parameters: name (required), globals, locals, fromlist, level
 
+            // PyArg_ParseTupleAndKeywords "U|OOOi:__import__"
+            if (args.Length > 5)
+                throw PyTypeError.Create($"__import__() takes at most 5 arguments ({args.Length} given)");
+            if (args.Length >= 1 && kwargs != null && kwargs.Contains(new PyString("name")).Value)
+                throw PyTypeError.Create("argument for __import__() given by name ('name') and position (1)");
+            var nameArgument = args.Length >= 1 ? args[0] : KwValue(kwargs, "name");
+            if (nameArgument == null)
+                throw PyTypeError.Create("__import__() missing required argument 'name' (pos 1)");
+            if (nameArgument is not PyString and not PyStrSubclass)
+                throw PyTypeError.Create($"__import__() argument 1 must be str, not {nameArgument.GetTypeName()}");
+            var levelArgument = args.Length >= 5 ? args[4] : KwValue(kwargs, "level");
+            if (nameArgument.Length() == 0 && (levelArgument == null || !levelArgument.IsTrue()))
+                throw PyValueError.Create("Empty module name");
+
             // Extract parameters from positional args and kwargs
             string name = null;
             Dictionary<string, PyObject> globals = null;
@@ -2159,6 +2287,19 @@ namespace SharpPy
                 throw PyTypeError.Create("__import__() missing required argument: 'name' (pos 1)");
 
             // CPython 3.12: Python/bltinmodule.c:276-277
+            // _calc___package__: neither says where a relative import starts.
+            if (level > 0 && globals != null)
+            {
+                globals.TryGetValue("__package__", out var package);
+                globals.TryGetValue("__spec__", out var spec);
+                if ((package == null || package is PyNone) && (spec == null || spec is PyNone))
+                    PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[]
+                    {
+                        new PyString("can't resolve package from __spec__ or __package__, falling back on __name__ and __path__"),
+                        PyType.ImportWarningType,
+                    }, null);
+            }
+
             // return PyImport_ImportModuleLevelObject(name, globals, locals, fromlist, level);
             return PyImportSystem.Import(name, level, fromlist, globals);
         }
@@ -2306,7 +2447,7 @@ namespace SharpPy
                 buffering = (int)index.Value;
             }
             string encoding = Text(3), errors = Text(4), newline = Text(5);
-            bool closefd = values[6] == null || values[6].PyBoolValue();
+            bool closefd = values[6] == null || values[6].IsTrue();
             // _io_FileIO___init___impl: the opener makes the descriptor from the name and the flags.
             if (values[7] != null && values[7] is not PyNone)
                 return OpenWithOpener(values[0], values[7], mode, encoding, errors, newline, buffering, closefd);
@@ -2466,7 +2607,7 @@ namespace SharpPy
             }
 
             // Fallback: Use PyGlobalsDict which synchronizes with globalScope.Variables
-            return PyGlobalsDict.For(globalScope.Variables);
+            return PyGlobalsDict.DictOf(globalScope.Variables);
         }
 
         /// <summary>

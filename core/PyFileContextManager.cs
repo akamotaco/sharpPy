@@ -53,12 +53,16 @@ public class PyFileContextManager : PyContextManager
     }
 
     private PyObject? _name;
+    private readonly string _encodingName;
+    private readonly string _errorsName;
 
     private PyFileContextManager(string filename, Stream? existing, string mode, string? encoding,
         string? errors, string? newline, int buffering, bool closefd)
     {
         this.filename = filename;
         this.mode = mode;
+        _encodingName = encoding ?? "utf-8";
+        _errorsName = errors ?? "strict";
         this.newline = newline;
         char operation = '\0';
         bool update = false, text = false;
@@ -448,6 +452,8 @@ public class PyFileContextManager : PyContextManager
     {
         if (name == "closed") return PyBool.FromBool(closed);
         if (name == "name") return _name ?? new PyString(filename);
+        if (!binary && name == "encoding") return new PyString(_encodingName);
+        if (!binary && name == "errors") return new PyString(_errorsName);
         if (name == "mode") return new PyString(mode);
         if (name == "readable") return new PyBoundMethodDescriptor(this, ReadableMethod);
         if (name == "writable") return new PyBoundMethodDescriptor(this, WritableMethod);

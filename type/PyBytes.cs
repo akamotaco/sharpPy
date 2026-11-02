@@ -1267,7 +1267,8 @@ namespace SharpPy
             return Value.AsSpan().SequenceEqual(other.Value);
         }
 
-        public override int ToHash() => GetHashCode();
+        // _Py_HashBytes of the same bytes as a one-byte str: hash('spam') == hash(b'spam').
+        public override int ToHash() => System.Text.Encoding.Latin1.GetString(Value).GetHashCode();
 
         public override int GetHashCode()
         {

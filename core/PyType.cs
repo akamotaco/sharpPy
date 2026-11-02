@@ -530,6 +530,7 @@ namespace SharpPy
         public static readonly PyType ImportWarningType = new PyType("ImportWarning", new[] { WarningType });
         public static readonly PyType UnicodeWarningType = new PyType("UnicodeWarning", new[] { WarningType });
         public static readonly PyType BytesWarningType = new PyType("BytesWarning", new[] { WarningType });
+        public static readonly PyType EncodingWarningType = new PyType("EncodingWarning", new[] { WarningType });
         public static readonly PyType ResourceWarningType = new PyType("ResourceWarning", new[] { WarningType });
 
         // Typing system types (PEP 484, 585, 612, 646, 695)
@@ -1119,6 +1120,7 @@ namespace SharpPy
                 case "UnicodeWarning": return new PyUnicodeWarning(args, kwargs);
                 case "BytesWarning": return new PyBytesWarning(args, kwargs);
                 case "ResourceWarning": return new PyResourceWarning(args, kwargs);
+                case "EncodingWarning": return new PyEncodingWarning(args, kwargs);
                 case "StopAsyncIteration": return new PyStopAsyncIteration(args, kwargs);
                 case "EOFError": return new PyEOFError(args, kwargs);
                 case "ValueError":
@@ -2294,6 +2296,11 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     if (type is PyClass pyClass)
                     {
+                        // type_set_name
+                        if (value is PyString { } newName && newName.Value.Contains('\0'))
+                            throw PyValueError.Create("type name must not contain null characters");
+                        if (value is PyString)
+                            value.GetAttribute("encode").Call(Array.Empty<PyObject>(), null);
                         if (value is not PyString)
                             throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__name__, not '{value.GetTypeName()}'");
                         pyClass.SetName((PyString)value);

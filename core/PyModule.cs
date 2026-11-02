@@ -191,6 +191,8 @@ public class PyModule : PyObject
     {
         // CPython 3.12: Objects/moduleobject.c:783 - _Py_module_getattro_impl
         // Special handling for __dict__ - return same object every time
+        if (name == "__dict__" && LookupUserSpecial(name) is { } shadow && shadow is not PyGetSetDescriptor)
+            return PyClassInstance.CallDescriptorGet(shadow, this, GetPyType());
         if (name == "__dict__")
         {
             if (_cachedDict == null)

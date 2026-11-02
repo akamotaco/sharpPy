@@ -45,6 +45,18 @@ namespace SharpPy
                         throw PyValueError.Create("__getformat__() argument 1 must be 'double' or 'float'");
                     return new PyString(System.BitConverter.IsLittleEndian ? "IEEE, little-endian" : "IEEE, big-endian");
                 }));
+            // none_new, ellipsis_new and notimplemented_new
+            foreach (var singleton in new PyObject[] { PyNone.Instance, PyEllipsis.Instance, PyNotImplemented.Instance })
+            {
+                var type = singleton.GetPyType();
+                type.ConstructedByNewSlot = true;
+                type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+                {
+                    if (args.Length != 0 || (kwargs != null && kwargs.Length() != 0))
+                        throw PyTypeError.Create($"{type.Name} takes no arguments");
+                    return singleton;
+                }, 0, int.MaxValue, acceptsKwargs: true);
+            }
             PyCell.InstallNew();
             PyUnicodeError.InstallNew();
             PyType.MappingProxyType.ConstructedByNewSlot = true;

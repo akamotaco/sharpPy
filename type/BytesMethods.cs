@@ -559,6 +559,9 @@ namespace SharpPy
         private static PyObject Join(PyObject self, PyObject iterable)
         {
             PyObject[] items;
+            // bytearray_join: the buffer of self stays exported while the iterable runs.
+            var array = self as PyByteArray;
+            array?.HoldExport();
             try
             {
                 items = iterable is PyList list ? list.Items : iterable is PyTuple tuple ? tuple.Items : Items(iterable);
@@ -566,6 +569,10 @@ namespace SharpPy
             catch (PythonException error) when (error.PyException is PyTypeError && iterable.LookupSpecialMethodUncached("__iter__") == null)
             {
                 throw PyTypeError.Create("can only join an iterable");
+            }
+            finally
+            {
+                array?.ReleaseExport();
             }
             if (items.Length == 1 && ReferenceEquals(items[0].GetPyType(), PyType.BytesType) && self is PyBytes)
                 return items[0];

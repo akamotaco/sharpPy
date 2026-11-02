@@ -49,6 +49,47 @@ namespace SharpPy
         // CPython 3.12: f_globals - Reference to module's __dict__ for import resolution
         public IDictionary<string, PyObject> Globals { get; private set; }
 
+        private bool _builtinsResolved;
+        private PyObject _ownBuiltins;
+
+        // _PyEval_BuiltinsFromGlobals, once per frame: null is the builtins module itself.
+        private void ResolveBuiltins()
+        {
+            _builtinsResolved = true;
+            if (!Globals.TryGetValue("__builtins__", out var found) || ReferenceEquals(found, PyBuiltinsModule.Instance))
+                return;
+            if (found is PyGlobalsDict live && ReferenceEquals(live.Variables, PyBuiltinsModule.Instance.ModuleDict))
+                return;
+            _ownBuiltins = found;
+        }
+
+        internal bool HasOwnBuiltins
+        {
+            get
+            {
+                if (!_builtinsResolved)
+                    ResolveBuiltins();
+                return _ownBuiltins != null;
+            }
+        }
+
+        // BUILTINS(): a dict, or any mapping through __getitem__.
+        internal PyObject Builtin(string name)
+        {
+            if (!HasOwnBuiltins)
+                return ScopeChain.BuiltinModule.GetBuiltin(name);
+            if (_ownBuiltins is PyModule module)
+                return module.ModuleDict.TryGetValue(name, out var found) ? found : null;
+            try
+            {
+                return PyAbstract.GetItem(_ownBuiltins, new PyString(name));
+            }
+            catch (PythonException error) when (error.PyException is PyKeyError)
+            {
+                return null;
+            }
+        }
+
         // Helper property to access local scope from ScopeChain
         public PyScope? LocalScope => ScopeChain?.CurrentScope;
 
@@ -748,7 +789,7 @@ namespace SharpPy
                 "f_locals" => BuildLocalsDict(),
 
                 // f_globals: global namespace dictionary
-                "f_globals" => PyGlobalsDict.For(Globals),
+                "f_globals" => PyGlobalsDict.DictOf(Globals),
 
                 // f_builtins: built-in namespace dictionary (CPython returns the
                 // builtins module dict, which is iterable; the module object is not)
@@ -1090,6 +1131,9 @@ namespace SharpPy
         }
 
         /// <summary>exec with a mapping for locals: names go to the mapping, as in a class body.</summary>
+        internal PyObject ExecuteWithClosure(PyCodeObject code, PyScopeChain scopeChain, PyCell[] closure) =>
+            ExecuteFrame(new PyFrame(code, new PyObject[0], scopeChain, closure));
+
         internal PyObject ExecuteWithNamespace(PyCodeObject code, PyScopeChain scopeChain, PyObject ns)
         {
             var frame = new PyFrame(code, new PyObject[0], scopeChain);
@@ -2458,9 +2502,14 @@ namespace SharpPy
                             // LOAD_NAME checks the actual class mapping, then globals
                             // and builtins. A copied scope may retain a deleted seed.
                             if (!frame.Globals.TryGetValue(name, out value))
-                                value = frame.ScopeChain.BuiltinModule.GetBuiltin(name);
+                                value = frame.Builtin(name);
                             if (value == null)
                                 throw CreateNameErrorWithSuggestion(name, frame);
+                        }
+                        else if (frame.HasOwnBuiltins)
+                        {
+                            value = frame.ScopeChain.LookupLocalOrGlobal(name) ?? frame.Builtin(name)
+                                ?? throw CreateNameErrorWithSuggestion(name, frame);
                         }
                         else
                             value = frame.ScopeChain.LookupVariable(name, verbose: true);
@@ -2670,7 +2719,7 @@ namespace SharpPy
                         #endif
                     }
                     var globalValue = frame.ScopeChain.GlobalScope?.GetVariable(globalName) ??
-                                    frame.ScopeChain.BuiltinModule.GetBuiltin(globalName);
+                                    frame.Builtin(globalName);
                     if (globalValue == null)
                     {
                         if (isEnumRelated)
@@ -2702,7 +2751,7 @@ namespace SharpPy
                     #endif
 
                     // LOAD_GLOBAL_BUILTIN은 최적화된 버전으로 builtin을 직접 조회
-                    var builtinValue = frame.ScopeChain.BuiltinModule.GetBuiltin(globalBuiltinName);
+                    var builtinValue = frame.Builtin(globalBuiltinName);
                     if (builtinValue == null)
                     {
                         // builtin에 없으면 global에서 찾기
@@ -5131,6 +5180,20 @@ namespace SharpPy
                     var level = frame.ValueStack.Pop();    // TOS1
                     var moduleName = frame.Code.Names[argument];
 
+                    // import_name: __import__ comes from the frame's builtins, and a replaced one is called.
+                    var importer = frame.Builtin("__import__") ?? throw PyImportError.Create("__import__ not found");
+                    if (importer is not PyBuiltinFunction { Name: "__import__" })
+                    {
+                        frame.ValueStack.Push(importer.Call(new PyObject[]
+                        {
+                            new PyString(moduleName), PyGlobalsDict.DictOf(frame.Globals),
+                            frame.ClassLocalsDict ?? ((frame.Code.Flags & PyCodeObject.CO_OPTIMIZED) != 0
+                                ? frame.GetAttribute("f_locals") : PyGlobalsDict.DictOf(frame.Globals)),
+                            fromlist, level,
+                        }, null));
+                        break;
+                    }
+
                     // Extract level as integer (0 for absolute, 1+ for relative)
                     int importLevel = 0;
                     if (level is PyInt pyIntLevel)
@@ -5834,7 +5897,7 @@ namespace SharpPy
                 // CPython 3.12 슬라이싱 연산 지원
                 case ByteCodeOp.LOAD_BUILD_CLASS:
                     // bytecodes.c: looked up in the builtins alone, a global of that name does not count.
-                    frame.ValueStack.Push(frame.ScopeChain.BuiltinModule.GetBuiltin("__build_class__")
+                    frame.ValueStack.Push(frame.Builtin("__build_class__")
                         ?? throw PyNameError.Create("__build_class__ not found"));
                     break;
 

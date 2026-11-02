@@ -20,7 +20,9 @@ namespace SharpPy
         internal virtual void SetState(PyObject state) =>
             throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '__setstate__'");
 
-        protected static PyObject Builtin(string name) => PyImportSystem.Import("builtins").GetAttribute(name);
+        // _PyEval_GetBuiltin: the running frame's builtins, and AttributeError if it has none.
+        protected static PyObject Builtin(string name) =>
+            PyVM.CurrentFrame?.Builtin(name) ?? throw PyAttributeError.Create(name);
 
         // (iter, (sequence,), index)
         protected static PyObject ReduceIter(PyObject sequence, long index) => new PyTuple(new PyObject[]
@@ -166,6 +168,11 @@ namespace SharpPy
             }
             PyType.ReversedType.TypeDict["__length_hint__"] = new PyMethodDescriptor("__length_hint__", PyType.ReversedType,
                 (self, args, kwargs) => ((PyIterator)self).RemainingHint());
+            PyType.ZipType.TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", PyType.ZipType, (self, args, kwargs) =>
+            {
+                ((PyIterator)self).SetState(args[0]);
+                return PyNone.Instance;
+            });
             PyType.ReversedType.TypeDict["__setstate__"] = new PyMethodDescriptor("__setstate__", PyType.ReversedType, (self, args, kwargs) =>
             {
                 ((PyIterator)self).SetState(args[0]);

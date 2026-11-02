@@ -2043,6 +2043,15 @@ namespace SharpPy
         /// This is equivalent to CPython's PyObject_GenericGetAttr C function
         /// Used by object.__getattribute__ to avoid infinite recursion
         /// </summary>
+        // type_new adds a __dict__ getset to each class; anything else in that place is the class's own.
+        private bool DictIsReplaced()
+        {
+            foreach (var type in InstanceType.MRO)
+                if (type is PyClass cls && cls.ClassDict.TryGetValue("__dict__", out var found))
+                    return found is not PyGetSetDescriptor;
+            return false;
+        }
+
         private bool IsShadowedInClass(string name)
         {
             foreach (var type in InstanceType.MRO)
@@ -2063,7 +2072,7 @@ namespace SharpPy
             {
                 return InstanceType;
             }
-            if (name == "__dict__")
+            if (name == "__dict__" && !DictIsReplaced())
             {
                 // CPython 3.12: Return cached wrapper for identity consistency
                 // obj.__dict__ is obj.__dict__ must be True

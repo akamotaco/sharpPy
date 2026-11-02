@@ -149,6 +149,7 @@ namespace SharpPy.Modules
             module.ModuleDict["UnicodeWarning"] = PyType.UnicodeWarningType;
             module.ModuleDict["BytesWarning"] = PyType.BytesWarningType;
             module.ModuleDict["ResourceWarning"] = PyType.ResourceWarningType;
+            module.ModuleDict["EncodingWarning"] = PyType.EncodingWarningType;
 
             // Built-in functions (commonly used in standard library)
             module.ModuleDict["abs"] = new PyBuiltinFunction("abs", Abs);
@@ -252,7 +253,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"len() takes exactly one argument ({args.Length} given)");
 
-            return new PyInt(args[0] is PyRange range ? range.PythonLength() : args[0].Length());
+            return new PyInt(args[0].SequenceLength());
         }
 
         /// <summary>
@@ -713,10 +714,15 @@ namespace SharpPy.Modules
             if (args.Length == 0)
                 return PyBuiltinFunction.CallLocals(new PyObject[0]);
 
-            var dictAttr = args[0].LookupAttribute("__dict__");
-            if (dictAttr == null || dictAttr is PyNone)
+            // builtin_vars: an attribute like any other, a property included.
+            try
+            {
+                return args[0].GetAttribute("__dict__");
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
                 throw PyTypeError.Create("vars() argument must have __dict__ attribute");
-            return dictAttr;
+            }
         }
 
         // CPython 3.12: Python/bltinmodule.c:689 - builtin_format
