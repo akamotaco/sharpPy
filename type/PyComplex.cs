@@ -661,6 +661,9 @@ namespace SharpPy
         public override void SetAttribute(string name, PyObject value) =>
             SubclassInstanceSupport.SetAttribute(this, _class, InstanceDict, name, value);
 
+        public override PyObject RichCompare(PyObject other, CompareOp op) =>
+            TryCompareSpecial(other, op, PyType.ComplexType) ?? base.RichCompare(other, op);
+
         public override PyString ToRepr() => SubclassInstanceSupport.Repr(this, () => base.ToRepr());
     }
 

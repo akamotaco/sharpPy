@@ -78,7 +78,8 @@ namespace SharpPy.Core
             {
                 var type = new PyType(name, new[] { PyType.ObjectType });
                 foreach (var method in new[] { "__await__", "__iter__", "__next__", "send", "throw", "close" })
-                    type.TypeDict[method] = new PyMethodDescriptor(method, type, (self, args, kwargs) => {
+                {
+                    Func<PyObject, PyObject[], PyDict, PyObject> run = (self, args, kwargs) => {
                         if (self is not Awaitable request || request.GetPyType() != type)
                             throw PyTypeError.Create($"descriptor '{method}' requires a '{name}' object but received a '{self.GetTypeName()}'");
                         if (method == "send")
@@ -94,7 +95,12 @@ namespace SharpPy.Core
                         PyCoroutine.CheckCloseArguments(name + "." + method, args, kwargs);
                         if (method == "close") { request._closed = true; return PyNone.Instance; }
                         return method == "__next__" ? request.Next() : request;
-                    });
+                    };
+                    // am_await, tp_iter and tp_iternext are slots.
+                    type.TypeDict[method] = method.StartsWith("__")
+                        ? new PyWrapperDescriptor(method, type, run)
+                        : new PyMethodDescriptor(method, type, run);
+                }
                 return type;
             }
             public override PyType GetPyType() => IsThrow ? ThrowType : SendType;

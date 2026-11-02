@@ -191,7 +191,13 @@ namespace SharpPy
 
             // type_getattro behind tp_getattro.
             typeClass.ClassDict["__getattribute__"] = new PyWrapperDescriptor("__getattribute__", typeClass, (self, args, kwargs) =>
-                self is PyClass cls ? cls.TypeGetAttribute(((PyString)args[0]).Value) : self.GetAttribute(((PyString)args[0]).Value));
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                if (args[0] is not PyString name)
+                    throw PyTypeError.Create($"attribute name must be string, not '{args[0].GetTypeName()}'");
+                return self is PyClass cls ? cls.TypeGetAttribute(name.Value) : self.GetAttribute(name.Value);
+            });
 
             // type_call behind tp_call.
             typeClass.ClassDict["__call__"] = new PyWrapperDescriptor("__call__", typeClass, (self, args, kwargs) =>
@@ -480,7 +486,9 @@ namespace SharpPy
             return size == a.Layout.BasicSize && size == b.Layout.BasicSize;
         }
 
-        private static bool HasPreheader(PyType type) => type.Layout.DictOffset == -1 || type.Layout.WeakOffset == -32;
+        // Py_TPFLAGS_PREHEADER: the two bits, MANAGED_DICT and MANAGED_WEAKREF.
+        private static int Preheader(PyType type) =>
+            (type.Layout.DictOffset == -1 ? 1 : 0) | (type.Layout.WeakOffset == -32 ? 2 : 0);
 
         // tp_free: PyObject_GC_Del for whatever is collected, PyObject_Free otherwise.
         private static bool FreedByGc(PyType type) => type is PyClass && type is not PyTypeMetaclass || type.Layout.Gc;
@@ -496,7 +504,7 @@ namespace SharpPy
             while (CompatibleWithTpBase(oldBase)) oldBase = oldBase.TpBase;
             bool differs = !ReferenceEquals(newBase, oldBase) &&
                 (!ReferenceEquals(newBase.TpBase, oldBase.TpBase) || !SameSlotsAdded(newBase, oldBase));
-            if (differs || HasPreheader(oldTo) != HasPreheader(newTo))
+            if (differs || Preheader(oldTo) != Preheader(newTo))
                 throw PyTypeError.Create($"{attribute} assignment: '{newTo.Name}' object layout differs from '{oldTo.Name}'");
         }
 
@@ -1242,6 +1250,7 @@ namespace SharpPy
     public class PyDocDescriptor : PyObject, IDescriptor
     {
         public override string ToString() => "<attribute '__doc__' of 'type' objects>";
+        public override PyString ToRepr() => new PyString(ToString());
         public override PyType GetPyType() => PyType.GetSetDescriptorType;
         public override string GetTypeName() => "getset_descriptor";
 
@@ -1264,24 +1273,17 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
+        // check_set_special_type_attr
         public void Set(PyObject instance, PyObject value)
         {
-            if (instance is PyClass pyClass)
-            {
-                // CPython: PyDict_SetItem(dict, &_Py_ID(__doc__), value)
-                pyClass.ClassDict["__doc__"] = value;
-                pyClass.InvalidateTypeCache();
-            }
-            else
-            {
-                throw PyAttributeError.Create("attribute '__doc__' of 'type' objects is not writable");
-            }
+            if (instance is not PyClass pyClass)
+                throw PyTypeError.Create($"cannot set '__doc__' attribute of immutable type '{(instance as PyType)?.Name ?? instance.GetTypeName()}'");
+            pyClass.ClassDict["__doc__"] = value;
+            pyClass.InvalidateTypeCache();
         }
 
-        public void Delete(PyObject instance)
-        {
-            throw PyAttributeError.Create("can't delete attribute '__doc__'");
-        }
+        public void Delete(PyObject instance) =>
+            throw PyTypeError.Create($"cannot delete '__doc__' attribute of immutable type '{(instance as PyType)?.Name ?? instance.GetTypeName()}'");
 
         public bool IsDataDescriptor() => true;
     }

@@ -89,6 +89,15 @@ namespace SharpPy
             return ExactLength.IsOne || Step == other.Step;
         }
 
+        // range_length: PyLong_AsSsize_t of the length.
+        internal System.Numerics.BigInteger ClampedLength()
+        {
+            var length = ExactLength;
+            if (length > long.MaxValue)
+                throw PyOverflowError.Create("Python int too large to convert to C ssize_t");
+            return length;
+        }
+
         // range_hash: hash((len, start, step)), None for what does not distinguish the sequence.
         internal override long GetPythonHash()
         {

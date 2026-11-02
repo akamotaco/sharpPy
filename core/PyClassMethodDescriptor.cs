@@ -20,6 +20,14 @@ namespace SharpPy
         {
             _name = name;
             _ownerType = ownerType;
+            // METH_CLASS: the first argument is the class, so no descr_check of an instance.
+            if (callable is PyMethodDescriptor method)
+                callable = new PyBuiltinFunction(name, (args, kwargs) =>
+                {
+                    var rest = new PyObject[args.Length - 1];
+                    System.Array.Copy(args, 1, rest, 0, rest.Length);
+                    return method._implementation(args[0], rest, kwargs);
+                });
             _callable = callable;
             if (callable is PyBuiltinFunction function)
                 function.OwnerClass = ownerType.Name;

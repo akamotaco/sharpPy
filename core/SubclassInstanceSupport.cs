@@ -65,7 +65,24 @@ namespace SharpPy
                     return result is PyInt exact ? exact : new PyInt(((PyBool)result).Value ? 1 : 0);
                 throw PyTypeError.Create($"__int__ returned non-int (type {result.GetTypeName()})");
             }
-            return PyClassInstance.TryGetIndex(self) ?? throw PyTypeError.Create(
+            var index = PyClassInstance.TryGetIndex(self);
+            if (index != null) return index;
+            // PyNumber_Long: __trunc__, deprecated and still honoured in 3.12.
+            var truncate = self.LookupSpecialMethodUncached("__trunc__");
+            if (truncate != null)
+            {
+                PyWarnings.Deprecated("The delegation of int() to __trunc__ is deprecated.");
+                var whole = self.BindSpecialMethod(truncate).Call(Array.Empty<PyObject>(), null);
+                switch (whole)
+                {
+                    case PyInt exact: return exact;
+                    case PyBool truth: return new PyInt(truth.Value ? 1 : 0);
+                    case PyIntSubclass subclass: return subclass.GetIntValue();
+                }
+                return PyClassInstance.TryGetIndex(whole) ??
+                    throw PyTypeError.Create($"__trunc__ returned non-Integral (type {whole.GetTypeName()})");
+            }
+            throw PyTypeError.Create(
                 $"int() argument must be a string, a bytes-like object or a real number, not '{self.GetTypeName()}'");
         }
 

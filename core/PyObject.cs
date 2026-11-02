@@ -231,6 +231,12 @@ namespace SharpPy
             if (method == null) return null;
             var result = obj.BindSpecialMethod(method).Call(Array.Empty<PyObject>(), null);
             if (result is PyInt intResult) return intResult;
+            // _PyNumber_Index: a strict subclass of int still answers, with a warning.
+            if (result is PyBool or PyIntSubclass)
+            {
+                PyWarnings.Deprecated($"__index__ returned non-int (type {result.GetTypeName()}).  The ability to return an instance of a strict subclass of int is deprecated, and may be removed in a future version of Python.");
+                return result is PyBool truth ? new PyInt(truth.Value ? 1 : 0) : ((PyIntSubclass)result).GetIntValue();
+            }
             throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
         }
 
@@ -623,7 +629,7 @@ namespace SharpPy
             if (this is IDescriptor descriptor && !(GetPyType() is PyClass))
             {
                 if (name == "__get__")
-                    return new PyBuiltinFunction("__get__", args =>
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__get__", (self, args) =>
                     {
                         if (args.Length is < 1 or > 2)
                             throw PyTypeError.Create($"expected at least 1 argument, got {args.Length}");
@@ -632,13 +638,19 @@ namespace SharpPy
                         if (target == null && type == null)
                             throw PyTypeError.Create("__get__(None, None) is invalid");
                         return descriptor.Get(target, type ?? target.GetPyType());
-                    });
+                    }));
                 if (name == "__set__")
-                    return new PyBuiltinFunction("__set__", args =>
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__set__", (self, args) =>
                     {
                         descriptor.Set(args[0], args[1]);
                         return PyNone.Instance;
-                    });
+                    }));
+                if (name == "__delete__" && descriptor.IsDataDescriptor())
+                    return new PyBoundBuiltinMethod(this, new PyBuiltinMethod("__delete__", (self, args) =>
+                    {
+                        descriptor.Delete(args[0]);
+                        return PyNone.Instance;
+                    }));
             }
 
             // A heap subclass of a value type keeps its instance dict beside the value; __dict__ is the live view.
@@ -904,7 +916,7 @@ namespace SharpPy
             // pass null as the instance to get an unbound method.
             // For getset/member descriptors, pass the type itself to call the getter.
             PyObject instanceForDescriptor;
-            if ((this is PyType || this is PyClass) && descriptor is PyMethodDescriptor)
+            if ((this is PyType || this is PyClass) && descriptor is PyMethodDescriptor or PyWrapperDescriptor)
             {
                 instanceForDescriptor = null; // Unbound method for type-level access
             }

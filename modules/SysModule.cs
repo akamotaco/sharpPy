@@ -101,6 +101,8 @@ namespace SharpPy.Modules
             foreach (var prefix in new[] { "prefix", "exec_prefix", "base_prefix", "base_exec_prefix" })
                 module.ModuleDict[prefix] = new PyString("");
             module.ModuleDict["stderr"] = new PyFile("stderr");
+            foreach (var stream in new[] { "stdin", "stdout", "stderr" })
+                module.ModuleDict[$"__{stream}__"] = module.ModuleDict[stream];
 
             // sys.argv is a copy of what the host put in PyConfig.argv
             // (Python/sysmodule.c:3612 COPY_LIST("argv", config->argv)). Program.Main fills it for the
@@ -371,8 +373,13 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"getsizeof() takes exactly one argument ({args.Length} given)");
 
-            // 간단한 크기 추정
+            // _PySys_GetSizeOf: a class's own __sizeof__ answers.
             var obj = args[0];
+            var declared = obj.LookupUserSpecial("__sizeof__");
+            if (declared != null)
+                return new PyInt(((PyInt)obj.CallSpecial(declared)).Value + 16);
+
+            // 간단한 크기 추정
             int size = obj switch
             {
                 PyInt => 32,

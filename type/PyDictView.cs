@@ -58,7 +58,20 @@ namespace SharpPy
             DictViewKind.Values => new PyDictValueIterator(_dictionary),
             _ => new PyDictItemIterator(_dictionary)
         };
-        public override PyString ToRepr() => new PyString($"{GetTypeName()}({AsList().ToRepr().Value})");
+        // dictview_repr: Py_ReprEnter, then the list of what it shows.
+        public override PyString ToRepr()
+        {
+            if (!PyReprGuard.Enter(this))
+                return new PyString("...");
+            try
+            {
+                return new PyString($"{GetTypeName()}({AsList().ToRepr().Value})");
+            }
+            finally
+            {
+                PyReprGuard.Leave(this);
+            }
+        }
         public override PyString AsString() => ToRepr();
 
         public override PyBool Contains(PyObject item)

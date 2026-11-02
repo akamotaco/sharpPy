@@ -138,7 +138,7 @@ public partial class PyFunction : PyObject, IDescriptor
         });
 
         // __module__ getset descriptor
-        funcType.TypeDict["__module__"] = new PyGetSetDescriptor(
+        funcType.TypeDict["__module__"] = new PyMemberDescriptor(
             "__module__",
             funcType,
             getter: self => {
@@ -155,7 +155,7 @@ public partial class PyFunction : PyObject, IDescriptor
         );
 
         // func_doc: a member, set from the code's first constant
-        funcType.TypeDict["__doc__"] = new PyGetSetDescriptor(
+        funcType.TypeDict["__doc__"] = new PyMemberDescriptor(
             "__doc__",
             funcType,
             getter: self => {
@@ -200,7 +200,7 @@ public partial class PyFunction : PyObject, IDescriptor
         );
 
         // __closure__ getset descriptor
-        funcType.TypeDict["__closure__"] = new PyGetSetDescriptor(
+        funcType.TypeDict["__closure__"] = new PyMemberDescriptor(
             "__closure__",
             funcType,
             getter: self => {
@@ -222,7 +222,7 @@ public partial class PyFunction : PyObject, IDescriptor
 
         // __globals__ getset descriptor - CPython 3.12
         // CPython 3.12: func.__globals__ is func.__globals__ must be True
-        funcType.TypeDict["__globals__"] = new PyGetSetDescriptor(
+        funcType.TypeDict["__globals__"] = new PyMemberDescriptor(
             "__globals__",
             funcType,
             getter: self => {
@@ -243,7 +243,7 @@ public partial class PyFunction : PyObject, IDescriptor
         );
 
         // func_builtins
-        funcType.TypeDict["__builtins__"] = new PyGetSetDescriptor(
+        funcType.TypeDict["__builtins__"] = new PyMemberDescriptor(
             "__builtins__",
             funcType,
             getter: self => {
@@ -660,7 +660,7 @@ public partial class PyFunction : PyObject, IDescriptor
         }
 
         // PyObject_GenericGetAttr: a getset of the type comes before the instance's dict.
-        if (PyType.FunctionType.TypeDict.TryGetValue(name, out var slot) && slot is PyGetSetDescriptor getset)
+        if (PyType.FunctionType.TypeDict.TryGetValue(name, out var slot) && slot is IDescriptor { } getset && getset.IsDataDescriptor())
             return getset.Get(this, PyType.FunctionType);
         if (_assignedDict != null)
         {
@@ -676,7 +676,7 @@ public partial class PyFunction : PyObject, IDescriptor
     // PyObject_GenericSetAttr: a data descriptor takes the assignment and may refuse it.
     public override void SetAttribute(string name, PyObject value)
     {
-        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor getset)
+        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor { } getset && getset.IsDataDescriptor())
             getset.Set(this, value);
         else if (_assignedDict != null)
             _assignedDict.SetItem(new PyString(name), value);
@@ -687,7 +687,7 @@ public partial class PyFunction : PyObject, IDescriptor
     public override void DelAttribute(string name)
     {
         // descr_delete on a getset is the same slot as descr_set with NULL (Objects/descrobject.c)
-        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is PyGetSetDescriptor getset)
+        if (SharpPy.PyClass.GetTypeAttribute(GetPyType(), name) is IDescriptor { } getset && getset.IsDataDescriptor())
         {
             getset.Delete(this);
             return;

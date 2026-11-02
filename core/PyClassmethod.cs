@@ -8,7 +8,7 @@ namespace SharpPy
     /// </summary>
     public abstract class PyCallableWrapper : PyObject, IDescriptor, IDictBackedInstance
     {
-        private static readonly string[] WrappedAttributes = { "__module__", "__name__", "__qualname__", "__doc__" };
+        private static readonly string[] WrappedAttributes = { "__module__", "__name__", "__qualname__", "__doc__", "__annotations__" };
 
         private readonly PyType _type;
 

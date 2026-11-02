@@ -683,8 +683,7 @@ namespace SharpPy
             var revDesc = seq.GetPyType()?.LookupSpecial("__reversed__");
             if (revDesc != null)
             {
-                var boundRev = revDesc is IDescriptor rd ? rd.Get(seq, seq.GetPyType()) : revDesc;
-                return boundRev.Call(new PyObject[0], null);
+                return seq.CallSpecial(revDesc);
             }
 
             if (!HasGetItem(seq))
@@ -2750,9 +2749,32 @@ namespace SharpPy
         public bool IsDataDescriptor() => false;
 
         // CPython 3.12: superobject struct
-        public PyType Type { get; }           // __thisclass__: the class invoking super()
-        public PyObject Object { get; }       // __self__: the instance (or None)
-        public PyType ObjectType { get; }     // obj_type: type of Object (or Object itself if it's a type)
+        public PyType Type { get; private set; }           // __thisclass__: the class invoking super()
+        public PyObject Object { get; private set; }       // __self__: the instance (or None)
+        public PyType ObjectType { get; private set; }     // obj_type: type of Object (or Object itself if it's a type)
+
+        // super_init on an object PyType_GenericNew made.
+        internal static void Install()
+        {
+            var type = PyType.SuperType;
+            type.TypeDict["__new__"] = new PyNewMethodDescriptor("__new__", type, (cls, args, kwargs) =>
+            {
+                if (ReferenceEquals(cls, type))
+                    return PyBuiltinFunction.CallSuper(args, kwargs);
+                var created = new PySuper(null, null);
+                created.SetCustomType((PyType)cls);
+                return created;
+            }, 0, int.MaxValue, acceptsKwargs: true);
+            type.TypeDict["__init__"] = new PyWrapperDescriptor("__init__", type, (self, args, kwargs) =>
+            {
+                var target = (PySuper)self;
+                var made = (PySuper)PyBuiltinFunction.CallSuper(args, kwargs);
+                target.Type = made.Type;
+                target.Object = made.Object;
+                target.ObjectType = made.ObjectType;
+                return PyNone.Instance;
+            });
+        }
 
         public PySuper(PyType type, PyObject obj)
         {

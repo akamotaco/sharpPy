@@ -57,6 +57,10 @@ namespace SharpPy
                 return this;
             }
 
+            // method_get: descr_check.
+            if (Name != "__new__" && !AppliesTo(OwnerType, instance))
+                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.Name}' objects doesn't apply to a '{instance.GetTypeName()}' object");
+
             // 인스턴스에서 접근 시 bound method 반환
             return new PyBoundMethodDescriptor(instance, this);
         }
@@ -120,10 +124,23 @@ namespace SharpPy
             }
 
             var self = args[0];
+            if (Name != "__new__" && !AppliesTo(OwnerType, self))
+                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.Name}' objects doesn't apply to a '{self.GetTypeName()}' object");
             var actualArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, actualArgs, 0, args.Length - 1);
 
             return _implementation(self, actualArgs, kwargs);
+        }
+
+        // descr_check: PyObject_TypeCheck(obj, descr->d_type), the real type and no __class__.
+        internal static bool AppliesTo(PyType owner, PyObject self)
+        {
+            if (owner == null || ReferenceEquals(owner, PyType.ObjectType))
+                return true;
+            if (self is PyType && (ReferenceEquals(owner, PyType.TypeType) || owner is PyTypeMetaclass))
+                return true;
+            var kind = self.GetPyType();
+            return ReferenceEquals(kind, owner) || kind.MRO.Contains(owner);
         }
 
         /// <summary>
@@ -392,6 +409,7 @@ namespace SharpPy
                 return this;
             }
 
+            Check(instance);
             return _getter(instance);
         }
 
@@ -402,6 +420,7 @@ namespace SharpPy
                 throw PyAttributeError.Create("readonly attribute");
             }
 
+            Check(instance);
             _setter(instance, value);
         }
 
@@ -415,8 +434,16 @@ namespace SharpPy
         {
             if (_readonly || _setter == null)
                 throw PyAttributeError.Create("readonly attribute");
+            Check(instance);
             if (_deleter != null) _deleter(instance);
             else _setter(instance, PyNone.Instance);
+        }
+
+        // descr_check and descr_setcheck
+        private void Check(PyObject instance)
+        {
+            if (!PyMethodDescriptor.AppliesTo(OwnerType, instance))
+                throw PyTypeError.Create($"descriptor '{Name}' for '{OwnerType.Name}' objects doesn't apply to a '{instance.GetTypeName()}' object");
         }
 
         // A member has tp_descr_set whether or not it can be written.
@@ -509,6 +536,8 @@ namespace SharpPy
             }
 
             var self = args[0];
+            if (Name != "__new__" && !PyMethodDescriptor.AppliesTo(OwnerType, self))
+                throw PyTypeError.Create($"descriptor '{Name}' requires a '{OwnerType.Name}' object but received a '{self.GetTypeName()}'");
             var actualArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, actualArgs, 0, args.Length - 1);
 
@@ -553,11 +582,26 @@ namespace SharpPy
                 case "__name__":
                 case "__qualname__":
                 case "__objclass__":
+                case "__doc__":
                     return WrapperDescriptor.GetAttribute(name);
                 default:
                     return base.GetAttribute(name);
             }
         }
+
+        // wrapper_richcompare: the same slot of the same object, == and != only.
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if ((op != CompareOp.EQ && op != CompareOp.NE) || other is not PyBoundWrapperDescriptor wrapper)
+                return PyNotImplemented.Instance;
+            bool same = ReferenceEquals(WrapperDescriptor, wrapper.WrapperDescriptor) && ReferenceEquals(Instance, wrapper.Instance);
+            return PyBool.FromBool(same == (op == CompareOp.EQ));
+        }
+
+        // wrapper_hash: not based on the hash of __self__, which may have none.
+        public override int ToHash() => HashCode.Combine(
+            System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Instance),
+            System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(WrapperDescriptor));
 
         // CPython method-wrapper repr: <method-wrapper 'NAME' of TYPE object at 0xID>
         public override PyString ToRepr()

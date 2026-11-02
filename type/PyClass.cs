@@ -699,6 +699,45 @@ namespace SharpPy
 
         public override void SetAttribute(string name, PyObject value)
         {
+            // slot_tp_setattro on the metatype.
+            var hook = MetaclassHook("__setattr__");
+            if (hook != null)
+            {
+                CallSpecial(hook, new PyString(name), value);
+                return;
+            }
+            TypeSetAttribute(name, value);
+        }
+
+        // A Python class in the metaclass's MRO may replace type's slot; type and object cannot.
+        private PyObject MetaclassHook(string name)
+        {
+            if (GetPyType() is not PyClass metaclass || metaclass is PyTypeMetaclass)
+                return null;
+            foreach (var level in metaclass.MRO)
+            {
+                if (level is not PyClass python || level is PyTypeMetaclass)
+                    return null;
+                if (python.ClassDict.TryGetValue(name, out var found))
+                    return found;
+            }
+            return null;
+        }
+
+        public override void DelAttribute(string name)
+        {
+            var hook = MetaclassHook("__delattr__");
+            if (hook != null)
+                CallSpecial(hook, new PyString(name));
+            else
+                PyDelAttribute(name);
+        }
+
+        internal void TypeDeleteAttribute(string name) => PyDelAttribute(name);
+
+        /// <summary>type_setattro</summary>
+        internal void TypeSetAttribute(string name, PyObject value)
+        {
             if (this is PyTypeMetaclass)
                 throw PyTypeError.Create($"cannot set '{name}' attribute of immutable type 'type'");
 #if DEBUG
@@ -721,10 +760,6 @@ namespace SharpPy
                 }
             }
 #endif
-            // Note: Metaclass __setattr__ support is disabled due to super() compatibility issues.
-            // This is a known limitation - metaclass __setattr__ won't be called.
-            // TODO: Fix super() for metaclass contexts to enable this feature.
-
             // CPython type_setattro -> _PyObject_GenericSetAttrWithDict: a data descriptor on the
             // metatype wins over the class dict (Objects/typeobject.c type_setattro).
             var metaDesc = MetatypeAttribute(name);
@@ -912,6 +947,8 @@ namespace SharpPy
                 {
                     return descriptor;
                 }
+                if (pyType.SlotDict.TryGetValue(name, out var slotWrapper))
+                    return slotWrapper;
 
                 // SECOND: Fall back to hardcoded switch for legacy/special attributes
                 // object 타입의 기본 속성들
@@ -920,33 +957,6 @@ namespace SharpPy
                     return name switch
                     {
                         "__class__" => PyType.TypeType,
-                        "__str__" => new PyBuiltinMethod("__str__", (self, args) => {
-                            if (args.Length != 0)
-                                throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
-                            return self.ToStr();
-                        }, 1),
-                        "__repr__" => new PyBuiltinMethod("__repr__", (self, args) => {
-                            if (args.Length != 0)
-                                throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
-                            return ObjectRepr(self);
-                        }, 1),
-                        "__init__" => new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1),
-                        "__hash__" => new PyBuiltinMethod("__hash__", (self, args) => {
-                            if (args.Length != 0)
-                                throw PyTypeError.Create($"__hash__() takes no arguments ({args.Length} given)");
-                            return new PyInt(self.GetHashCode());
-                        }, 1),
-                        "__eq__" => new PyBuiltinMethod("__eq__", (self, args) => {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"__eq__() takes exactly 1 argument ({args.Length} given)");
-                            return ReferenceEquals(self, args[0]) ? PyBool.True : PyNotImplemented.Instance;
-                        }, 2),
-                        "__ne__" => new PyBuiltinMethod("__ne__", (self, args) => {
-                            if (args.Length != 1)
-                                throw PyTypeError.Create($"__ne__() takes exactly 1 argument ({args.Length} given)");
-                            var result = self.RichCompare(args[0], PyObject.CompareOp.EQ);
-                            return result == PyNotImplemented.Instance ? result : PyBool.FromBool(!result.IsTrue());
-                        }, 2),
                         _ => null
                     };
                 }
@@ -2448,11 +2458,8 @@ namespace SharpPy
                 {
                     if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__repr__"))
                     {
-                        if (customClass.ClassDict["__repr__"] is PyFunction func)
-                        {
-                            hasRepr = true;
-                            reprResult = new PyMethod(this, func).Call(new PyObject[0], null);
-                        }
+                        hasRepr = true;
+                        reprResult = CallSpecial(customClass.ClassDict["__repr__"]);
                         break;
                     }
                     // Stop before reaching object type to avoid default __repr__

@@ -66,7 +66,7 @@ namespace SharpPy
                     return value;
                 throw PyKeyError.Create(key);
             }
-            throw PyTypeError.Create($"mappingproxy key must be str, not '{key.GetTypeName()}'");
+            throw PyKeyError.Create(key);
         }
 
         public override void SetItem(PyObject key, PyObject value)
@@ -105,67 +105,19 @@ namespace SharpPy
             return new PyString("{" + string.Join(", ", items) + "}");
         }
 
-        public override PyString ToRepr() => AsString();
+        // mappingproxy_repr
+        public override PyString ToRepr() => new PyString($"mappingproxy({AsString().Value})");
 
         #endregion
 
         #region Built-in methods (CPython mappingproxy methods)
 
-        public override PyObject GetAttribute(string name)
+        // mappingproxy_keys and the rest: PyObject_CallMethod on the mapping.
+        public override PyObject GetAttribute(string name) => name switch
         {
-            return name switch
-            {
-                "keys" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("keys", (self, args) =>
-                {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
-                    var mappingProxy = self as PyMappingProxy;
-                    // Performance: Eliminated LINQ - manual conversion instead of Select + ToList
-                    var keysList = new List<PyObject>(mappingProxy._mapping.Keys.Count);
-                    foreach (var key in mappingProxy._mapping.Keys)
-                    {
-                        keysList.Add(new PyString(key));
-                    }
-                    return new PyList(keysList);
-                })),
-                "values" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("values", (self, args) =>
-                {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
-                    var mappingProxy = self as PyMappingProxy;
-                    // Performance: Eliminated LINQ - direct List construction instead of ToList
-                    return new PyList(new List<PyObject>(mappingProxy._mapping.Values));
-                })),
-                "items" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("items", (self, args) =>
-                {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
-                    var mappingProxy = self as PyMappingProxy;
-                    // Performance: Eliminated LINQ - manual loop instead of Select + ToList
-                    var items = new List<PyObject>(mappingProxy._mapping.Count);
-                    foreach (var kv in mappingProxy._mapping)
-                    {
-                        items.Add(new PyTuple(new PyObject[] { new PyString(kv.Key), kv.Value }));
-                    }
-                    return new PyList(items);
-                })),
-                "get" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("get", (self, args) =>
-                {
-                    if (args.Length < 1 || args.Length > 2)
-                        throw PyTypeError.Create($"get() takes 1 or 2 arguments ({args.Length} given)");
-
-                    var mappingProxy = self as PyMappingProxy;
-                    if (args[0] is PyString keyStr)
-                    {
-                        if (mappingProxy._mapping.TryGetValue(keyStr.Value, out var value))
-                            return value;
-                        return args.Length == 2 ? args[1] : PyNone.Instance;
-                    }
-                    throw PyTypeError.Create($"mappingproxy key must be str, not '{args[0].GetTypeName()}'");
-                })),
-                _ => base.GetAttribute(name)
-            };
-        }
+            "keys" or "values" or "items" or "get" => Snapshot().GetAttribute(name),
+            _ => base.GetAttribute(name),
+        };
 
         #endregion
     }

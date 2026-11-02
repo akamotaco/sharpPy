@@ -26,7 +26,14 @@ namespace SharpPy
         {
             foreach (var name in names.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (!Implemented.Contains(name) || type.TypeDict.ContainsKey(name))
+                // add_operators: a slot in a builtin's dict is a slot wrapper, however it was registered.
+                if (type.TypeDict.TryGetValue(name, out var present))
+                {
+                    if (present.GetType() == typeof(PyMethodDescriptor) && !Coexists(type, name))
+                        type.TypeDict[name] = new PyWrapperDescriptor(name, type, ((PyMethodDescriptor)present)._implementation);
+                    continue;
+                }
+                if (!Implemented.Contains(name))
                     continue;
                 string slot = name;
                 var owner = type;
@@ -34,6 +41,12 @@ namespace SharpPy
                     (self, args, kwargs) => Run(owner, self, slot, args, kwargs));
             }
         }
+
+        // METH_COEXIST: these stay methods, beside the slot.
+        private static bool Coexists(PyType type, string name) =>
+            (ReferenceEquals(type, PyType.ListType) && name == "__getitem__") ||
+            (ReferenceEquals(type, PyType.DictType) && name is "__getitem__" or "__contains__") ||
+            ((ReferenceEquals(type, PyType.SetType) || ReferenceEquals(type, PyType.FrozenSetType)) && name == "__contains__");
 
         private static readonly HashSet<string> Implemented = new HashSet<string>
         {
@@ -54,6 +67,9 @@ namespace SharpPy
             _ => PyObject.CompareOp.GE,
         };
 
+        private const int CRecursionLimit = 3000;
+        [ThreadStatic] private static int _strDepth;
+
         // object_richcompare, object_repr, object_str, _Py_HashPointer
         private static PyObject RunObject(PyObject self, string name, PyObject[] args)
         {
@@ -72,7 +88,12 @@ namespace SharpPy
                 case "__hash__":
                     return new PyInt(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(self));
                 case "__str__":
-                    return self.ToRepr();
+                    // object_str: repr(self), which __repr__ = object.__str__ brings back here.
+                    if (_strDepth >= CRecursionLimit)
+                        throw new PythonException(new PyRecursionError("maximum recursion depth exceeded while calling a Python object"));
+                    _strDepth++;
+                    try { return self.ToRepr(); }
+                    finally { _strDepth--; }
                 default:
                     return PyClass.ObjectRepr(self);
             }
@@ -102,7 +123,7 @@ namespace SharpPy
                 case "__str__": return value.AsString();
                 case "__iter__": return value.GetIterator();
                 case "__next__": return value.Next();
-                case "__len__": return new PyInt(value.Length());
+                case "__len__": return value is PyRange range ? new PyInt(range.ClampedLength()) : new PyInt(value.Length());
                 case "__contains__": return value.Contains(args[0]);
                 case "__getitem__": return value.GetItem(args[0]);
                 case "__setitem__":

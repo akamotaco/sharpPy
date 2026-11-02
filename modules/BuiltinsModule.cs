@@ -203,6 +203,7 @@ namespace SharpPy.Modules
             module.ModuleDict["all"] = new PyBuiltinFunction("all");
             module.ModuleDict["delattr"] = new PyBuiltinFunction("delattr");
             module.ModuleDict["super"] = BuiltinCallableType(PyType.SuperType, "super");
+            PySuper.Install();
             module.ModuleDict["round"] = new PyBuiltinFunction("round");
             module.ModuleDict["pow"] = new PyBuiltinFunction("pow");
             module.ModuleDict["divmod"] = new PyBuiltinFunction("divmod");
@@ -301,20 +302,10 @@ namespace SharpPy.Modules
             var icheckClass = cls.GetPyType();
             if (icheckClass != null && !ReferenceEquals(icheckClass, PyType.TypeType))
             {
-                PyObject icheck = null;
-                try
-                {
-                    icheck = icheckClass.GetAttribute("__instancecheck__");
-                }
-                catch (Exception)
-                {
-                    icheck = null;
-                }
-                if (icheck != null && icheck != PyNone.Instance)
-                {
-                    // Exceptions raised inside a user __instancecheck__ propagate (CPython).
-                    return icheck.Call(new PyObject[] { cls, inst }, null).IsTrue();
-                }
+                // _PyObject_LookupSpecial: on the type, bound to cls. Errors in a hook propagate.
+                var icheck = icheckClass.LookupSpecial("__instancecheck__");
+                if (icheck != null)
+                    return cls.CallSpecial(icheck, inst).IsTrue();
             }
 
             // CPython 3.12: Objects/abstract.c:2604-2607
@@ -553,21 +544,13 @@ namespace SharpPy.Modules
             PyObject issubclassHook = null;
             if (smetaclass != null && !ReferenceEquals(smetaclass, PyType.TypeType))
             {
-                try
-                {
-                    issubclassHook = smetaclass.GetAttribute("__subclasscheck__");
-                }
-                catch (Exception)
-                {
-                    issubclassHook = null;
-                }
+                issubclassHook = smetaclass.LookupSpecial("__subclasscheck__");
             }
-            if (issubclassHook != null && issubclassHook != PyNone.Instance)
+            if (issubclassHook != null)
             {
                 // A custom __subclasscheck__ decides everything (incl. non-class arg 1).
                 // CPython coerces the result with PyObject_IsTrue; errors propagate.
-                var hookResult = issubclassHook.Call(new PyObject[] { classInfo, subclass }, null);
-                return PyBool.FromBool(hookResult.IsTrue());
+                return PyBool.FromBool(classInfo.CallSpecial(issubclassHook, subclass).IsTrue());
             }
 
             // recursive_issubclass default path (abstract.c:2675-2690): validate arg 1

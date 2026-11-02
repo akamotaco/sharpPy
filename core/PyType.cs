@@ -324,9 +324,9 @@ namespace SharpPy
             _typeVersionTag = _nextVersionTag++;
             ComparisonCacheEpoch++;
 
-            // TODO: Invalidate subclasses recursively
-            // CPython iterates through type_list and invalidates all subclasses
-            // For now, we'll just invalidate this type
+            // type_modified: what a subclass cached from here is stale too.
+            foreach (var subclass in LiveSubclasses())
+                subclass.InvalidateTypeCache();
         }
 
         #endregion
@@ -1738,8 +1738,29 @@ namespace SharpPy
             return 200 + table * 16;
         }
 
-        internal static bool TypeNewIsObjectNew(PyType type) =>
-            type is PyClass cls && ReferenceEquals(cls.LookupInMRO("__new__"), ObjectNewDescriptor());
+        // tp_new is object_new unless a level below object has another __new__: update_one_slot
+        // leaves the inherited slot when a class's __new__ is a builtin's tp_new_wrapper.
+        internal static bool TypeNewIsObjectNew(PyType type)
+        {
+            if (type is not PyClass cls)
+                return false;
+            var objectNew = ObjectNewDescriptor();
+            foreach (var level in cls.MRO)
+            {
+                if (ReferenceEquals(level, ObjectType))
+                    break;
+                if (level is PyClass python)
+                {
+                    if (python.ClassDict.TryGetValue("__new__", out var found) && !ReferenceEquals(found, objectNew))
+                        return false;
+                }
+                else if (level.TypeDict.ContainsKey("__new__"))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         internal static bool TypeInitIsObjectInit(PyType type) =>
             ReferenceEquals(type is PyClass cls ? cls.LookupInMRO("__init__") : type.LookupSpecial("__init__"), ObjectInitDescriptor());
@@ -1785,18 +1806,38 @@ namespace SharpPy
             var type = self.GetPyType();
             var arguments = new List<PyObject> { type };
             PyObject factory = copyreg.GetAttribute("__newobj__");
-            var newArgsEx = AttributeOrNull(self, "__getnewargs_ex__");
-            var newArgs = AttributeOrNull(self, "__getnewargs__");
+            // _PyObject_GetNewArguments: looked up on the type, and checked.
+            var newArgsEx = type.LookupSpecial("__getnewargs_ex__");
+            var newArgs = type.LookupSpecial("__getnewargs__");
             if (newArgsEx != null)
             {
-                var pair = (PyTuple)newArgsEx.Call(Array.Empty<PyObject>(), null);
-                factory = copyreg.GetAttribute("__newobj_ex__");
-                arguments.Add(pair.Items[0]);
-                arguments.Add(pair.Items[1]);
+                var answer = self.CallSpecial(newArgsEx);
+                if (answer is not PyTuple pair)
+                    throw PyTypeError.Create($"__getnewargs_ex__ should return a tuple, not '{answer.GetTypeName()}'");
+                if (pair.Items.Length != 2)
+                    throw PyValueError.Create($"__getnewargs_ex__ should return a tuple of length 2, not {pair.Items.Length}");
+                if (pair.Items[0] is not PyTuple)
+                    throw PyTypeError.Create($"first item of the tuple returned by __getnewargs_ex__ must be a tuple, not '{pair.Items[0].GetTypeName()}'");
+                if (pair.Items[1] is not PyDict)
+                    throw PyTypeError.Create($"second item of the tuple returned by __getnewargs_ex__ must be a dict, not '{pair.Items[1].GetTypeName()}'");
+                // reduce_newobj: keywords are what needs __newobj_ex__.
+                if (pair.Items[1].Length() == 0)
+                {
+                    arguments.AddRange(((PyTuple)pair.Items[0]).Items);
+                }
+                else
+                {
+                    factory = copyreg.GetAttribute("__newobj_ex__");
+                    arguments.Add(pair.Items[0]);
+                    arguments.Add(pair.Items[1]);
+                }
             }
             else if (newArgs != null)
             {
-                arguments.AddRange(((PyTuple)newArgs.Call(Array.Empty<PyObject>(), null)).Items);
+                var answer = self.CallSpecial(newArgs);
+                if (answer is not PyTuple values)
+                    throw PyTypeError.Create($"__getnewargs__ should return a tuple, not '{answer.GetTypeName()}'");
+                arguments.AddRange(values.Items);
             }
 
             var state = self.GetAttribute("__getstate__").Call(Array.Empty<PyObject>(), null);
@@ -1833,6 +1874,13 @@ namespace SharpPy
                 TypeDict["__repr__"] = new PyWrapperDescriptor("__repr__", this, (self, args, kwargs) => repr(self));
         }
 
+        // hackcheck: object's slot may not jump over type_setattro.
+        private static void Hackcheck(PyObject self, string what)
+        {
+            if (self is PyType)
+                throw PyTypeError.Create($"can't apply this {what} to {self.GetPyType().Name} object");
+        }
+
         private void InitializeObjectTypeDescriptors()
         {
             var objectType = this;
@@ -1840,10 +1888,19 @@ namespace SharpPy
             TypeDict["__getstate__"] = new PyMethodDescriptor("__getstate__", objectType,
                 (self, args, kwargs) => ObjectGetState(self), 0, 0);
             TypeDict["__reduce__"] = new PyMethodDescriptor("__reduce__", objectType,
-                (self, args, kwargs) => CommonReduce(self, 0), 0, 0);
+                (self, args, kwargs) =>
+                {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"object.__reduce__() takes no arguments ({args.Length} given)");
+                    return CommonReduce(self, 0);
+                }, 0, 0);
             TypeDict["__reduce_ex__"] = new PyMethodDescriptor("__reduce_ex__", objectType,
                 (self, args, kwargs) =>
                 {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"object.__reduce_ex__() takes exactly one argument ({args.Length} given)");
+                    if (args[0] is not PyInt)
+                        throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
                     // object___reduce_ex___impl: a class that overrides __reduce__ decides.
                     foreach (var level in self.GetPyType().MRO)
                     {
@@ -1990,6 +2047,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 2)
                         throw PyTypeError.Create("__setattr__() missing required positional arguments");
+                    Hackcheck(self, "__setattr__");
 
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
@@ -2025,6 +2083,7 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1)
                         throw PyTypeError.Create("__delattr__() missing 1 required positional argument: 'name'");
+                    Hackcheck(self, "__delattr__");
 
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
@@ -2481,21 +2540,31 @@ namespace SharpPy
                     if (args[0] is not PyString nameStr)
                         throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
 
-                    // CPython 3.12: Objects/typeobject.c:4815-4894 (type_setattro)
-                    // Set attribute directly on the type's dict
-                    if (self is PyClass cls)
-                    {
-                        cls.ClassDict[nameStr.Value] = args[1];
-                        cls.InvalidateTypeCache();
-                    }
-                    else if (self is PyType type)
-                    {
-                        type.TypeDict[nameStr.Value] = args[1];
-                    }
+                    if (self is not PyClass cls)
+                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).Name}'");
+                    cls.TypeSetAttribute(nameStr.Value, args[1]);
                     return PyNone.Instance;
                 },
                 minArgs: 2,
                 maxArgs: 2
+            );
+
+            // type_setattro with NULL
+            TypeDict["__delattr__"] = new PyMethodDescriptor(
+                "__delattr__",
+                typeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"expected 1 argument, got {args.Length}");
+                    if (args[0] is not PyString nameStr)
+                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+                    if (self is not PyClass cls)
+                        throw PyTypeError.Create($"cannot set '{nameStr.Value}' attribute of immutable type '{((PyType)self).Name}'");
+                    cls.TypeDeleteAttribute(nameStr.Value);
+                    return PyNone.Instance;
+                },
+                minArgs: 1,
+                maxArgs: 1
             );
 
             // type.__repr__ - CPython type_repr (from PyTypeMetaclass)
