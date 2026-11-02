@@ -1,11 +1,9 @@
 """Constants/functions for interpreting results of os.stat() and os.lstat().
 
-CPython 3.12: Lib/stat.py
 Suggested usage: from stat import *
 """
 
 # Indices for stat struct members in the tuple returned by os.stat()
-# CPython 3.12: Lib/stat.py:6-17
 
 ST_MODE  = 0
 ST_INO   = 1
@@ -19,7 +17,6 @@ ST_MTIME = 8
 ST_CTIME = 9
 
 # Extract bits from the mode
-# CPython 3.12: Lib/stat.py:19-31
 
 def S_IMODE(mode):
     """Return the portion of the file's mode that can be set by
@@ -34,7 +31,7 @@ def S_IFMT(mode):
     return mode & 0o170000
 
 # Constants used as S_IFMT() for various file types
-# CPython 3.12: Lib/stat.py:33-46
+# (not all are implemented on all systems)
 
 S_IFDIR  = 0o040000  # directory
 S_IFCHR  = 0o020000  # character device
@@ -49,7 +46,6 @@ S_IFPORT = 0
 S_IFWHT = 0
 
 # Functions to test for each file type
-# CPython 3.12: Lib/stat.py:48-88
 
 def S_ISDIR(mode):
     """Return True if mode is from a directory."""
@@ -92,7 +88,6 @@ def S_ISWHT(mode):
     return False
 
 # Names for permission bits
-# CPython 3.12: Lib/stat.py:90-110
 
 S_ISUID = 0o4000  # set UID bit
 S_ISGID = 0o2000  # set GID bit
@@ -115,7 +110,6 @@ S_IWOTH = 0o0002  # write by others
 S_IXOTH = 0o0001  # execute by others
 
 # Names for file flags
-# CPython 3.12: Lib/stat.py:112-125
 
 UF_NODUMP    = 0x00000001  # do not dump file
 UF_IMMUTABLE = 0x00000002  # file may not be changed
@@ -130,8 +124,6 @@ SF_APPEND    = 0x00040000  # file may only be appended to
 SF_NOUNLINK  = 0x00100000  # file may not be renamed or deleted
 SF_SNAPSHOT  = 0x00200000  # file is a snapshot file
 
-# filemode() function
-# CPython 3.12: Lib/stat.py:128-166
 
 _filemode_table = (
     ((S_IFLNK,         "l"),
@@ -173,8 +165,9 @@ def filemode(mode):
             perm.append("-")
     return "".join(perm)
 
-# Windows FILE_ATTRIBUTE constants
-# CPython 3.12: Lib/stat.py:169-188
+
+# Windows FILE_ATTRIBUTE constants for interpreting os.stat()'s
+# "st_file_attributes" member
 
 FILE_ATTRIBUTE_ARCHIVE = 32
 FILE_ATTRIBUTE_COMPRESSED = 2048
@@ -193,3 +186,10 @@ FILE_ATTRIBUTE_SPARSE_FILE = 512
 FILE_ATTRIBUTE_SYSTEM = 4
 FILE_ATTRIBUTE_TEMPORARY = 256
 FILE_ATTRIBUTE_VIRTUAL = 65536
+
+
+# If available, use C implementation
+try:
+    from _stat import *
+except ImportError:
+    pass

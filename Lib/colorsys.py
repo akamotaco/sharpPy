@@ -21,7 +21,8 @@ HSV: Hue, Saturation, Value
 # http://en.wikipedia.org/wiki/HLS_color_space
 # http://en.wikipedia.org/wiki/HSV_color_space
 
-__all__ = ["rgb_to_yiq","yiq_to_rgb","rgb_to_hls","hls_to_rgb","rgb_to_hsv","hsv_to_rgb"]
+__all__ = ["rgb_to_yiq","yiq_to_rgb","rgb_to_hls","hls_to_rgb",
+           "rgb_to_hsv","hsv_to_rgb"]
 
 # Some floating-point constants
 
