@@ -48,7 +48,19 @@ namespace SharpPy.Core
                     return;
                 }
 
-                string code = IOHelper.ReadAllText(pythonFile);
+                string code;
+                try
+                {
+                    code = Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(pythonFile), pythonFile);
+                }
+                catch (PythonException error)
+                {
+                    // The interpreter reports what it runs; this never got that far.
+                    var failure = error.PyException;
+                    PyImportSystem.Import("sys").GetAttribute("excepthook").Call(
+                        new PyObject[] { failure.GetPyType(), failure, PyNone.Instance }, null);
+                    throw;
+                }
                 var interpreter = new IntegratedPythonInterpreter();
 
                 if (compileOnly)

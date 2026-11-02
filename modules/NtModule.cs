@@ -64,6 +64,7 @@ namespace SharpPy.Modules
             // No child process is ever started here.
             module.ModuleDict["waitpid"] = new PyBuiltinFunction("waitpid", args =>
                 throw new PythonException(PyOSError.FromArguments(new PyObject[] { new PyInt(10), new PyString("No child processes") }, null)));
+            module.ModuleDict["system"] = new PyBuiltinFunction("system", ShellCommand);
             module.ModuleDict["pipe"] = new PyBuiltinFunction("pipe", Pipe);
             module.ModuleDict["open"] = new PyBuiltinFunction("open", Open);
             module.ModuleDict["close"] = new PyBuiltinFunction("close", Close);
@@ -675,6 +676,36 @@ namespace SharpPy.Modules
             if (args.Length != 0)
                 throw PyTypeError.Create($"getpid() takes no arguments ({args.Length} given)");
             return new PyInt(System.Diagnostics.Process.GetCurrentProcess().Id);
+        }
+
+        // os_system_impl: the command as the shell gets it. Where no shell can start, -1 as system() says.
+        private static PyObject ShellCommand(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"system() takes exactly one argument ({args.Length} given)");
+            string command = PathOf(args[0]);
+            var start = new System.Diagnostics.ProcessStartInfo { UseShellExecute = false };
+            if (OperatingSystem.IsWindows())
+            {
+                start.FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe";
+                start.Arguments = "/c " + command;
+            }
+            else
+            {
+                start.FileName = "/bin/sh";
+                start.ArgumentList.Add("-c");
+                start.ArgumentList.Add(command);
+            }
+            try
+            {
+                using var process = System.Diagnostics.Process.Start(start);
+                PyGil.AllowThreads(() => process.WaitForExit());
+                return new PyInt(OperatingSystem.IsWindows() ? process.ExitCode : process.ExitCode << 8);
+            }
+            catch (Exception error) when (error is System.ComponentModel.Win32Exception or PlatformNotSupportedException)
+            {
+                return new PyInt(-1);
+            }
         }
 
         private static PyObject Putenv(PyObject[] args)

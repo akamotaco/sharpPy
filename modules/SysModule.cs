@@ -179,6 +179,8 @@ namespace SharpPy.Modules
             module.ModuleDict["displayhook"] = new PySysFunction("displayhook");
             module.ModuleDict["excepthook"] = new PySysFunction("excepthook");
             module.ModuleDict["__excepthook__"] = module.ModuleDict["excepthook"];
+            module.ModuleDict["breakpointhook"] = new PyBuiltinFunction("breakpointhook", PySysFunction.BreakpointHook);
+            module.ModuleDict["__breakpointhook__"] = module.ModuleDict["breakpointhook"];
             module.ModuleDict["__displayhook__"] = new PySysFunction("displayhook"); // Original hook
 
             var unraisableHook = new PyBuiltinFunction("unraisablehook", PyUnraisable.DefaultHook);
@@ -476,6 +478,38 @@ namespace SharpPy.Modules
         private static readonly Dictionary<string, PyString> InternTable = new();
 
         // sys.excepthook(type, value, traceback) prints the report on sys.stderr.
+        // sys_breakpointhook: $PYTHONBREAKPOINT names the hook, and what cannot be imported is ignored with a warning.
+        internal static PyObject BreakpointHook(PyObject[] args, PyDict kwargs)
+        {
+            string setting = Environment.GetEnvironmentVariable("PYTHONBREAKPOINT");
+            if (string.IsNullOrEmpty(setting))
+                setting = "pdb.set_trace";
+            else if (setting == "0")
+                return PyNone.Instance;
+            int dot = setting.LastIndexOf('.');
+            string modulePath = dot < 0 ? "builtins" : setting.Substring(0, dot);
+            string attribute = dot < 0 ? setting : setting.Substring(dot + 1);
+            PyObject function = null;
+            if (dot != 0)
+            {
+                try
+                {
+                    function = ImportForHook(modulePath).GetAttribute(attribute);
+                }
+                catch (PythonException error) when (error.PyException is PyImportError or PyAttributeError)
+                {
+                }
+            }
+            if (function != null)
+                return function.Call(args, kwargs);
+            PyImportSystem.Import("warnings").GetAttribute("warn").Call(new PyObject[]
+                { new PyString($"Ignoring unimportable $PYTHONBREAKPOINT: \"{setting}\""), PyType.RuntimeWarningType }, null);
+            return PyNone.Instance;
+        }
+
+        private static PyObject ImportForHook(string path) =>
+            PyImportSystem.Import("importlib").GetAttribute("import_module").Call(new PyObject[] { new PyString(path) }, null);
+
         private PyObject CallExceptHook(PyObject[] args)
         {
             if (args.Length != 3)

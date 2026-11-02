@@ -100,7 +100,9 @@ namespace SharpPy
                 future.BarryAsBdfl = true;
             var folded = new AstOptimizer(optimize, future.Annotations).Optimize(mod);
             var st = PySymtable.Build(folded, filename, future.Annotations, System.IO.File.Exists(filename) ? sourceLines : null);
-            return new Compiler(filename, st, future, optimize, sourceLines).CompilerMod(folded);
+            var compiler = new Compiler(filename, st, future, optimize, sourceLines);
+            compiler._allowTopLevelAwait = (inheritedFlags & PythonAst.PyCF_ALLOW_TOP_LEVEL_AWAIT) != 0;
+            return compiler.CompilerMod(folded);
         }
 
         // LOC(x) and LOCATION()

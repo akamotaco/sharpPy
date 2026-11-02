@@ -78,7 +78,7 @@ namespace SharpPy.Modules
                 }
                 else if (m.HasSourceFile)
                 {
-                    var source = IOHelper.ReadAllText(m.FileName);
+                    var source = Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(m.FileName), m.FileName);
                     m.ExecuteForReload(source);
                 }
                 return m;

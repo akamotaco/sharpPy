@@ -21,6 +21,27 @@ namespace SharpPy
         private static readonly string[] Trailing = { "", "G", "GG", "GS", "N", "NJ", "NH", "D", "L", "LG", "LM", "LB", "LS", "LT", "LP", "LH", "M", "B", "BS", "S", "SS", "NG", "J", "C", "K", "T", "P", "H" };
 
         private static Dictionary<string, int> _table;
+        private static Dictionary<int, string> _names;
+
+        /// <summary>_getucname: the name of a code point, or null.</summary>
+        internal static string Name(int code)
+        {
+            if (code >= SBase && code < SBase + 11172)
+            {
+                int index = code - SBase;
+                return HangulPrefix + Leading[index / 588] + Vowels[index % 588 / 28] + Trailing[index % 28];
+            }
+            if (IsUnifiedIdeograph(code))
+                return $"{IdeographPrefix}{code:X4}";
+            if (_names == null)
+            {
+                var names = new Dictionary<int, string>();
+                foreach (var entry in Table())
+                    names.TryAdd(entry.Value, entry.Key);
+                _names = names;
+            }
+            return _names.TryGetValue(code, out var name) ? name : null;
+        }
 
         /// <summary>The code point of a name, or -1.</summary>
         internal static int Lookup(string name)

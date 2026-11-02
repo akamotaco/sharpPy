@@ -427,7 +427,7 @@ namespace SharpPy.Generated
         }
 
         // translate_into_utf8
-        private static string Decode(byte[] bytes, int offset, string enc, string filename)
+        private static string Decode(byte[] bytes, int offset, string enc, string filename, bool file)
         {
             var data = new byte[bytes.Length - offset];
             Array.Copy(bytes, offset, data, 0, data.Length);
@@ -435,9 +435,12 @@ namespace SharpPy.Generated
             {
                 return ((PyString)new PyBytes(data).GetAttribute("decode").Call(new PyObject[] { new PyString(enc) }, null)).Value;
             }
-            catch (PythonException error) when (error.PyException.GetTypeName() == "LookupError")
+            catch (PythonException error) when (error.PyException is PyLookupError or PyUnicodeError)
             {
-                throw PySyntaxError.TokenizerInit($"unknown encoding: {enc}", filename);
+                // fp_setreadl opens the file with the codec, and all it can say is this.
+                if (file && error.PyException is PyLookupError)
+                    throw PySyntaxError.Create($"encoding problem: {enc}");
+                throw PySyntaxError.TokenizerInit(error.PyException.ToStr().Value, filename);
             }
         }
 
@@ -484,7 +487,31 @@ namespace SharpPy.Generated
         }
 
         /// <summary>decode_str: the text of a source given as bytes, by its BOM and its coding cookie.</summary>
-        public static string DecodeStr(byte[] input, bool single, string filename)
+        public static string DecodeStr(byte[] input, bool single, string filename) =>
+            DecodeSource(input, single, filename, false);
+
+        /// <summary>
+        /// Source read from a file, by the same rules (PEP 263). Where exec(bytes) leaves bad UTF-8
+        /// for the parser to find, a file stops at it: decoding_fgets and ensure_utf8.
+        /// </summary>
+        public static string DecodeFile(byte[] input, string filename) => DecodeSource(input, false, filename, true);
+
+        private static void EnsureUtf8(byte[] s, int from, string filename)
+        {
+            var text = DecodeUtf8(s, from);
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] < 0xDC80 || text[i] > 0xDCFF || (i > 0 && char.IsHighSurrogate(text[i - 1])))
+                    continue;
+                int line = 1;
+                for (int j = 0; j < i; j++)
+                    if (text[j] == '\n') line++;
+                throw PySyntaxError.Create($"Non-UTF-8 code starting with '\\x{text[i] - 0xDC00:x2}' in file {filename} on line {line}, " +
+                    "but no encoding declared; see https://peps.python.org/pep-0263/ for details");
+            }
+        }
+
+        private static string DecodeSource(byte[] input, bool single, string filename, bool strict)
         {
             string encoding = null, enc = null;
             int start = 0;
@@ -516,7 +543,11 @@ namespace SharpPy.Generated
                 if (enc == null && more && second >= 0)
                     CheckCodingSpec(input, first + 1, second - first, ref encoding, ref enc, filename);
             }
-            return enc != null ? Decode(input, start, enc, filename) : DecodeUtf8(input, start);
+            if (enc != null)
+                return Decode(input, start, enc, filename, strict);
+            if (strict)
+                EnsureUtf8(input, start, filename);
+            return DecodeUtf8(input, start);
         }
 
         /// <summary>The tokens of the whole source, for --tokens.</summary>

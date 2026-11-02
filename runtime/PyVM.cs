@@ -1831,7 +1831,7 @@ namespace SharpPy
         {
             if (mapping.GetType() == typeof(PyDict))
                 return ((PyDict)mapping).InternalDict.TryGetValue(key, out var value) ? value : null;
-            try { return mapping.GetItem(key); }
+            try { return PyAbstract.GetItem(mapping, key); }
             catch (PythonException ex) when (ex.PyException is PyKeyError) { return null; }
         }
 

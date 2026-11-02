@@ -526,6 +526,7 @@ public class PyModule : PyObject
             ["errno"] = () => SharpPy.Modules.ErrnoModule.CreateErrnoModule(),
             ["marshal"] = () => SharpPy.Modules.MarshalModule.CreateMarshalModule(),
             ["_queue"] = () => SharpPy.Modules._QueueModule.CreateQueueModule(),
+            ["unicodedata"] = () => SharpPy.Modules.UnicodedataModule.CreateModule(),
             ["_signal"] = () => SharpPy.Modules._SignalModule.CreateSignalModule(),
             ["sharppy"] = () => SharpPy.Modules.SharpPyModule.CreateSharpPyModule(),
             ["_weakref"] = () => SharpPy.Modules.WeakrefModule.CreateWeakrefModule(),
@@ -851,7 +852,7 @@ public class PyModule : PyObject
         {
             try
             {
-                var sourceCode = IOHelper.ReadAllText(filePath);
+                var sourceCode = Generated.Tokenizer.DecodeFile(IOHelper.ReadAllBytes(filePath), filePath);
                 var module = new PyModule(moduleName, filePath);
                 module.HasSourceFile = true;
 

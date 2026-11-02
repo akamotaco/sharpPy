@@ -131,7 +131,7 @@ namespace SharpPy
             // ===== 기존 함수들 =====
 
             // time.time() - Unix timestamp (seconds since epoch)
-            SetAttribute("time", new PyFunction("time", args =>
+            SetAttribute("time", new PyBuiltinFunction("time", args =>
             {
                 var now = DateTime.UtcNow;
                 var elapsed = now - UnixEpoch;
@@ -139,7 +139,7 @@ namespace SharpPy
             }));
 
             // time.sleep(seconds) - Suspend execution
-            SetAttribute("sleep", new PyFunction("sleep", args =>
+            SetAttribute("sleep", new PyBuiltinFunction("sleep", args =>
             {
                 if (args.Length != 1)
                     throw PyTypeError.Create("sleep() takes exactly one argument");
@@ -165,7 +165,7 @@ namespace SharpPy
             }));
 
             // time.perf_counter() - Performance counter
-            SetAttribute("perf_counter", new PyFunction("perf_counter", args =>
+            SetAttribute("perf_counter", new PyBuiltinFunction("perf_counter", args =>
             {
                 var ticks = Stopwatch.GetTimestamp();
                 var seconds = (double)ticks / Stopwatch.Frequency;
@@ -173,7 +173,7 @@ namespace SharpPy
             }));
 
             // time.monotonic() - Monotonic clock
-            SetAttribute("monotonic", new PyFunction("monotonic", args =>
+            SetAttribute("monotonic", new PyBuiltinFunction("monotonic", args =>
             {
                 var elapsed = Environment.TickCount64 / 1000.0;
                 return new PyFloat(elapsed);
@@ -182,7 +182,7 @@ namespace SharpPy
             // ===== 새로운 함수들 =====
 
             // time.time_ns() - Current time in nanoseconds
-            SetAttribute("time_ns", new PyFunction("time_ns", args =>
+            SetAttribute("time_ns", new PyBuiltinFunction("time_ns", args =>
             {
                 var now = DateTime.UtcNow;
                 var elapsed = now - UnixEpoch;
@@ -192,14 +192,14 @@ namespace SharpPy
             }));
 
             // time.monotonic_ns() - Monotonic clock in nanoseconds
-            SetAttribute("monotonic_ns", new PyFunction("monotonic_ns", args =>
+            SetAttribute("monotonic_ns", new PyBuiltinFunction("monotonic_ns", args =>
             {
                 long nanoseconds = Environment.TickCount64 * 1_000_000; // ms to ns
                 return new PyInt(nanoseconds);
             }));
 
             // time.perf_counter_ns() - Performance counter in nanoseconds
-            SetAttribute("perf_counter_ns", new PyFunction("perf_counter_ns", args =>
+            SetAttribute("perf_counter_ns", new PyBuiltinFunction("perf_counter_ns", args =>
             {
                 var ticks = Stopwatch.GetTimestamp();
                 // Convert to nanoseconds
@@ -208,7 +208,7 @@ namespace SharpPy
             }));
 
             // time.process_time() - Process CPU time
-            SetAttribute("process_time", new PyFunction("process_time", args =>
+            SetAttribute("process_time", new PyBuiltinFunction("process_time", args =>
             {
                 var process = Process.GetCurrentProcess();
                 var cpuTime = process.TotalProcessorTime;
@@ -216,7 +216,7 @@ namespace SharpPy
             }));
 
             // time.process_time_ns() - Process CPU time in nanoseconds
-            SetAttribute("process_time_ns", new PyFunction("process_time_ns", args =>
+            SetAttribute("process_time_ns", new PyBuiltinFunction("process_time_ns", args =>
             {
                 var process = Process.GetCurrentProcess();
                 var cpuTime = process.TotalProcessorTime;
@@ -225,7 +225,7 @@ namespace SharpPy
             }));
 
             // time.thread_time() - Thread CPU time
-            SetAttribute("thread_time", new PyFunction("thread_time", args =>
+            SetAttribute("thread_time", new PyBuiltinFunction("thread_time", args =>
             {
                 // C#에서는 정확한 스레드 CPU 시간을 얻기 어려우므로 process_time과 동일하게 처리
                 // 실제 구현에서는 플랫폼별 API 호출이 필요
@@ -235,7 +235,7 @@ namespace SharpPy
             }));
 
             // time.thread_time_ns() - Thread CPU time in nanoseconds
-            SetAttribute("thread_time_ns", new PyFunction("thread_time_ns", args =>
+            SetAttribute("thread_time_ns", new PyBuiltinFunction("thread_time_ns", args =>
             {
                 var process = Process.GetCurrentProcess();
                 var cpuTime = process.TotalProcessorTime;
@@ -244,7 +244,7 @@ namespace SharpPy
             }));
 
             // time.gmtime([seconds]) - Convert seconds to UTC struct_time
-            SetAttribute("gmtime", new PyFunction("gmtime", args =>
+            SetAttribute("gmtime", new PyBuiltinFunction("gmtime", args =>
             {
                 DateTime dt;
 
@@ -267,7 +267,7 @@ namespace SharpPy
             }));
 
             // time.localtime([seconds]) - Convert seconds to local struct_time
-            SetAttribute("localtime", new PyFunction("localtime", args =>
+            SetAttribute("localtime", new PyBuiltinFunction("localtime", args =>
             {
                 DateTime dt;
 
@@ -290,7 +290,7 @@ namespace SharpPy
             }));
 
             // time.mktime(tuple) - Convert struct_time to seconds
-            SetAttribute("mktime", new PyFunction("mktime", args =>
+            SetAttribute("mktime", new PyBuiltinFunction("mktime", args =>
             {
                 if (args.Length != 1)
                     throw PyTypeError.Create("mktime() takes exactly one argument");
@@ -307,7 +307,7 @@ namespace SharpPy
             }));
 
             // time.asctime([tuple]) - Convert struct_time to string
-            SetAttribute("asctime", new PyFunction("asctime", args =>
+            SetAttribute("asctime", new PyBuiltinFunction("asctime", args =>
             {
                 PyStructTime structTime;
 
@@ -328,7 +328,7 @@ namespace SharpPy
             }));
 
             // time.ctime([seconds]) - Convert seconds to string
-            SetAttribute("ctime", new PyFunction("ctime", args =>
+            SetAttribute("ctime", new PyBuiltinFunction("ctime", args =>
             {
                 DateTime dt;
 
@@ -351,7 +351,7 @@ namespace SharpPy
             }));
 
             // time.strftime(format, tuple) - Format struct_time to string
-            SetAttribute("strftime", new PyFunction("strftime", args =>
+            SetAttribute("strftime", new PyBuiltinFunction("strftime", args =>
             {
                 if (args.Length < 1 || args.Length > 2)
                     throw PyTypeError.Create($"strftime() takes 1 or 2 arguments ({args.Length} given)");
@@ -375,7 +375,7 @@ namespace SharpPy
             }));
 
             // time.strptime(string, format) - Parse string to struct_time
-            SetAttribute("strptime", new PyFunction("strptime", args =>
+            SetAttribute("strptime", new PyBuiltinFunction("strptime", args =>
             {
                 if (args.Length != 2)
                     throw PyTypeError.Create($"strptime() takes exactly 2 arguments ({args.Length} given)");
@@ -401,7 +401,7 @@ namespace SharpPy
             }));
 
             // time.get_clock_info(name) - Get clock information
-            SetAttribute("get_clock_info", new PyFunction("get_clock_info", args =>
+            SetAttribute("get_clock_info", new PyBuiltinFunction("get_clock_info", args =>
             {
                 if (args.Length != 1)
                     throw PyTypeError.Create($"get_clock_info() takes exactly 1 argument ({args.Length} given)");

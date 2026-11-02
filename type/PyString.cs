@@ -184,6 +184,8 @@ namespace SharpPy
             string normalized = NormalizeCodecName(encodingName);
             if (normalized == "utf-8")
                 return PyBytes.DecodeUtf8Python(data, errorName ?? "strict");
+            if (normalized == "ascii")
+                return PyBytes.DecodeAsciiPython(data, errorName ?? "strict");
 
             // CPython's utf-16/utf-32 consume the byte-order mark instead of putting it in the
             // result; .NET's GetString left it as a leading U+FEFF in every round trip. A

@@ -1340,6 +1340,8 @@ namespace SharpPy
             }
 
             // 4. Execute with provided globals/locals
+            if (FrameOfGenerator(codeObject, globals) is { } suspended)
+                return suspended;
             var vm = PyVM.Instance;
             if (localsMapping != null)
                 return vm.ExecuteWithNamespace(codeObject, PyVM.ScopeOver(globals), localsMapping);
@@ -2822,17 +2824,19 @@ namespace SharpPy
         /// <summary>
         /// breakpoint(*args, **kws) - Drop into the debugger.
         /// CPython 3.12: Python/bltinmodule.c - builtin_breakpoint
-        /// Note: This is a simplified implementation that just prints a message.
-        /// Full debugger integration requires sys.breakpointhook.
         /// </summary>
+        // PyEval_EvalCode: code that compiled to a coroutine answers with one, as a call of it would.
+        private static PyObject FrameOfGenerator(PyCodeObject code, PyObject globals) =>
+            (code.Flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | 0x200)) == 0 ? null :
+            PyType.FunctionType.Call(new PyObject[] { code, globals }, null).Call(Array.Empty<PyObject>(), null);
+
         private static PyObject CallBreakpoint(PyObject[] args, PyDict kwargs = null)
         {
-            // CPython 3.12: calls sys.breakpointhook(*args, **kws)
-            // Default hook calls pdb.set_trace()
-            // Simplified: just print a message
-            Console.WriteLine("*** Breakpoint ***");
-            Console.WriteLine("(breakpoint() is simplified - full debugger not implemented)");
-            return PyNone.Instance;
+            // builtin_breakpoint
+            var sys = PyImportSystem.Import("sys");
+            if (!sys.ModuleDict.TryGetValue("breakpointhook", out var hook))
+                throw PyRuntimeError.Create("lost sys.breakpointhook");
+            return hook.Call(args, kwargs);
         }
 
         #endregion

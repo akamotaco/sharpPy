@@ -475,7 +475,7 @@ namespace SharpPy
                 }
                 catch (PythonException ex)
                 {
-                    ReportIgnored(Describe(coroutine), ex);
+                    PyUnraisable.Report(ex, coroutine);
                 }
                 finally
                 {
@@ -492,7 +492,7 @@ namespace SharpPy
                 }
                 catch (PythonException ex)
                 {
-                    ReportIgnored(Describe(generator), ex);
+                    PyUnraisable.Report(ex, generator);
                 }
                 catch (Exception ex)
                 {
@@ -528,7 +528,7 @@ namespace SharpPy
             }
             catch (PythonException ex)
             {
-                ReportIgnored(Describe(hook), ex);
+                PyUnraisable.Report(ex, hook);
             }
             catch (Exception ex)
             {

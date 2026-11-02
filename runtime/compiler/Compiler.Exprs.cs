@@ -961,6 +961,8 @@ namespace SharpPy
                         if (_u.ScopeKind != ScopeType.AsyncFunction && _u.ScopeKind != ScopeType.Comprehension)
                             throw Error(loc, "'await' outside async function");
                     }
+                    else
+                        _u.Ste.Coroutine = true;
                     VisitExpr(a.Value);
                     ADDOP_I(loc, ByteCodeOp.GET_AWAITABLE, 0);
                     ADDOP_LOAD_CONST(loc, PyNone.Instance);

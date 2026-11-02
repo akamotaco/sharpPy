@@ -13,6 +13,8 @@ import functools
 import gc
 import io
 import sys
+import textwrap
+import collections.abc
 import types
 import unittest
 import warnings
@@ -419,14 +421,96 @@ hashlib_helper = _helper_module("hashlib_helper")
 bytecode_helper = _helper_module("bytecode_helper")
 
 
-def _take_from_support(*names):
+def _take_from(file, *names):
     """Pure Python helpers come from the real file, so nothing of Lib/test is copied."""
-    path = os.path.join(os.path.dirname(os.path.dirname(unittest.__file__)), "test", "support", "__init__.py")
+    path = os.path.join(os.path.dirname(os.path.dirname(unittest.__file__)), "test", "support", file)
     with open(path, encoding="utf-8") as stream:
         tree = ast.parse(stream.read())
     for node in tree.body:
         if getattr(node, "name", None) in names:
+            # The stub of requires_subprocess skips tests; these run the interpreter themselves.
+            node.decorator_list = [d for d in node.decorator_list if "requires_subprocess" not in ast.dump(d)]
             exec(compile(ast.Module([node], []), path, "exec"), globals())
 
 
-_take_from_support("busy_retry", "sleeping_retry", "catch_unraisable_exception", "catch_threading_exception")
+def _take_from_support(*names):
+    _take_from("__init__.py", *names)
+
+
+_take_from_support("busy_retry", "sleeping_retry", "catch_unraisable_exception", "catch_threading_exception",
+                   "run_code", "adjust_int_max_str_digits", "maybe_get_event_loop_policy")
+
+
+def rmtree(path):
+    import shutil
+    shutil.rmtree(path, ignore_errors=True)
+
+
+_take_from("os_helper.py", "EnvironmentVarGuard", "temp_dir", "change_cwd", "temp_cwd")
+os_helper.__dict__.update(EnvironmentVarGuard=EnvironmentVarGuard, temp_dir=temp_dir, change_cwd=change_cwd,
+                          temp_cwd=temp_cwd, rmtree=rmtree)
+
+
+def _interpreter():
+    if sys.executable.endswith(".dll"):
+        return [os.path.expanduser("~/AppData/Local/SharpPy/dotnet/dotnet.exe"), sys.executable]
+    return [sys.executable]
+
+
+_RUN_C = """import sys
+sys.argv[0] = '-c'
+del sys.path[0]
+with open({!r}, encoding='utf-8') as _stream:
+    _code = compile(_stream.read(), '<string>', 'exec')
+del _stream
+exec(_code)
+"""
+
+
+def run_python_until_end(*args, **env_vars):
+    """The real one, with os.system for subprocess, on both interpreters: -c goes through a
+    file, because cmd.exe cannot carry a program in a quoted argument."""
+    import tempfile
+    env_vars.pop("__isolated", None)
+    env_vars.pop("__cleanenv", None)
+    cwd = env_vars.pop("__cwd", None)
+    argv = [os.fsdecode(arg) for arg in args]
+    with tempfile.TemporaryDirectory() as folder:
+        if "-c" in argv:
+            at = argv.index("-c")
+            source = os.path.join(folder, "source")
+            with open(source, "w", encoding="utf-8") as stream:
+                stream.write(argv[at + 1])
+            runner = os.path.join(folder, "run_c.py")
+            with open(runner, "w", encoding="utf-8") as stream:
+                stream.write(_RUN_C.format(source))
+            argv[at:at + 2] = [runner]
+        out, err = os.path.join(folder, "out"), os.path.join(folder, "err")
+        line = " ".join(f'"{arg}"' for arg in _interpreter() + argv)
+        saved = {name: os.environ.get(name) for name in env_vars}
+        here = os.getcwd()
+        try:
+            os.environ.update(env_vars)
+            if cwd is not None:
+                os.chdir(cwd)
+            code = os.system(f'"{line} > "{out}" 2> "{err}""')
+        finally:
+            os.chdir(here)
+            for name, value in saved.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+        with open(out, "rb") as stream:
+            stdout = stream.read()
+        with open(err, "rb") as stream:
+            stderr = stream.read()
+    return _PythonRunResult(code, stdout, stderr), _interpreter() + argv
+
+
+
+_take_from("script_helper.py", "_PythonRunResult", "_assert_python", "assert_python_ok", "assert_python_failure",
+           "make_script", "make_pkg")
+script_helper.__dict__.update(run_python_until_end=run_python_until_end, assert_python_ok=assert_python_ok,
+                              assert_python_failure=assert_python_failure, make_script=make_script,
+                              make_pkg=make_pkg)

@@ -127,18 +127,12 @@ namespace SharpPy.Core
                         break;
 
                     default:
-                        // Python 파일이나 기타 명령어
-                        if (arg.EndsWith(".py"))
-                        {
-                            line.PythonFile = arg;
-                        }
+                        // main_run_python: the first argument that is no option is the script,
+                        // whatever it is called. -W and -X take a value, joined or not.
+                        if (arg is "-W" or "-X")
+                            i++;
                         else if (!arg.StartsWith("-"))
-                        {
-                            // 특별한 명령어들 (demo, test-iteration 등). Program.cs에서 이 경로는
-                            // currently disabled, so it must not consume the argv slice either.
-                            if (!line.Options.ContainsKey("command"))
-                                line.Options["command"] = arg;
-                        }
+                            line.PythonFile = arg;
                         break;
                 }
             }

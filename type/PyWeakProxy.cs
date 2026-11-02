@@ -135,6 +135,9 @@ namespace SharpPy
                 type.TypeDict[slot] = new PyWrapperDescriptor(slot, type, (self, args, kwargs) =>
                 {
                     var target = Unwrap(self);
+                    // proxy_length: PyObject_Size, so what has no length says TypeError.
+                    if (slot == "__len__")
+                        return new PyInt(target.Length());
                     var unwrapped = new PyObject[args.Length];
                     for (int i = 0; i < args.Length; i++) unwrapped[i] = Unwrap(args[i]);
                     return target.GetAttribute(slot).Call(unwrapped, kwargs);
