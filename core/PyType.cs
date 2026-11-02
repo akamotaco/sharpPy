@@ -1234,9 +1234,9 @@ namespace SharpPy
                 // PyException, so BaseExceptionGroup('m', [KeyboardInterrupt()]) reported a group
                 // with no members instead of refusing or keeping the member.
                 case "BaseExceptionGroup":
-                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: true);
+                    return PyBaseExceptionGroup.NewGroup(args, PyType.BaseExceptionGroupType);
                 case "ExceptionGroup":
-                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: false);
+                    return PyBaseExceptionGroup.NewGroup(args, PyType.ExceptionGroupType);
                 case "mappingproxy":
                     // CPython 3.12: mappingproxy(dict) - create read-only dict proxy
                     if (args.Length != 1)

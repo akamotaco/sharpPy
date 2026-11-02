@@ -178,8 +178,18 @@ namespace SharpPy
         {
             if (_done)
                 throw PyStopIteration.Create();
-            var value = _callable.Call(new PyObject[0], null);
-            if (CompareBool(value, _sentinel, CompareOp.EQ))
+            PyObject value;
+            try
+            {
+                value = _callable.Call(new PyObject[0], null);
+            }
+            catch (PythonException error) when (error.PyException is PyStopIteration)
+            {
+                _done = true;
+                throw;
+            }
+            // calliter_iternext: the call may have exhausted this iterator from inside.
+            if (_done || CompareBool(_sentinel, value, CompareOp.EQ))
             {
                 _done = true;
                 throw PyStopIteration.Create();

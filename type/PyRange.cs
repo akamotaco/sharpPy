@@ -84,16 +84,22 @@ namespace SharpPy
             return HashCode.Combine(Start, Stop, Step);
         }
 
-        protected override PyObject PyEquals(PyObject other)
+        // range_equals: as sequences. Length, then the first item, then the step if there is a second.
+        private bool SameSequence(PyRange other)
         {
-            return other switch
-            {
-                PyRange otherRange => PyBool.FromBool(
-                    Start == otherRange.Start && 
-                    Stop == otherRange.Stop && 
-                    Step == otherRange.Step),
-                _ => PyBool.False
-            };
+            if (ReferenceEquals(this, other)) return true;
+            if (Length() != other.Length()) return false;
+            if (Length() == 0) return true;
+            if (Start != other.Start) return false;
+            return Length() == 1 || Step == other.Step;
+        }
+
+        // range_richcompare: == and != only.
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (other is not PyRange range || (op != CompareOp.EQ && op != CompareOp.NE))
+                return PyNotImplemented.Instance;
+            return PyBool.FromBool(SameSequence(range) == (op == CompareOp.EQ));
         }
 
         #endregion
@@ -360,55 +366,10 @@ namespace SharpPy
 
         #region Comparison Operations
 
-        protected override PyObject PyLess(PyObject other)
-        {
-            return other switch
-            {
-                PyRange otherRange => PyBool.FromBool(CompareRanges(otherRange) < 0),
-                _ => throw PyTypeError.Create($"'<' not supported between instances of 'range' and '{other.GetTypeName()}'")
-            };
-        }
 
-        protected override PyObject PyLessEqual(PyObject other)
-        {
-            return other switch
-            {
-                PyRange otherRange => PyBool.FromBool(CompareRanges(otherRange) <= 0),
-                _ => throw PyTypeError.Create($"'<=' not supported between instances of 'range' and '{other.GetTypeName()}'")
-            };
-        }
 
-        protected override PyObject PyGreater(PyObject other)
-        {
-            return other switch
-            {
-                PyRange otherRange => PyBool.FromBool(CompareRanges(otherRange) > 0),
-                _ => throw PyTypeError.Create($"'>' not supported between instances of 'range' and '{other.GetTypeName()}'")
-            };
-        }
 
-        protected override PyObject PyGreaterEqual(PyObject other)
-        {
-            return other switch
-            {
-                PyRange otherRange => PyBool.FromBool(CompareRanges(otherRange) >= 0),
-                _ => throw PyTypeError.Create($"'>=' not supported between instances of 'range' and '{other.GetTypeName()}'")
-            };
-        }
 
-        private int CompareRanges(PyRange other)
-        {
-            // 길이 우선 비교
-            var lenCompare = Length().CompareTo(other.Length());
-            if (lenCompare != 0) return lenCompare;
-            
-            // 같은 길이면 시작값 비교
-            var startCompare = Start.CompareTo(other.Start);
-            if (startCompare != 0) return startCompare;
-            
-            // 시작값도 같으면 step 비교
-            return Step.CompareTo(other.Step);
-        }
 
         #endregion
 

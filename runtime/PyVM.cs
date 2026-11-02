@@ -442,17 +442,10 @@ namespace SharpPy
                             throw PyTypeError.Create($"{CallName(code)}() got an unexpected keyword argument '{kwName}'");
                     }
                 }
-                var quotedNames = new List<string>();
-                foreach (var missingName in missingPositional)
-                    quotedNames.Add("'" + missingName + "'");
-                string namesText;
-                if (quotedNames.Count == 1)
-                    namesText = quotedNames[0];
-                else
-                    namesText = string.Join(", ", quotedNames.GetRange(0, quotedNames.Count - 1)) + " and " + quotedNames[quotedNames.Count - 1];
-                throw PyTypeError.Create($"{CallName(code)}() missing {missingPositional.Count} required positional argument{(missingPositional.Count == 1 ? "" : "s")}: {namesText}");
+                throw PyTypeError.Create($"{CallName(code)}() missing {missingPositional.Count} required positional {PyVM.MissingText(missingPositional)}");
             }
 
+            var missingKeywordOnly = new List<string>();
             // Phase 1.5: Bind keyword-only arguments (CPython 3.12)
             // These come AFTER regular parameters but BEFORE *args/**kwargs
             for (int kwOnlyIndex = 0; kwOnlyIndex < code.KwonlyArgCount; kwOnlyIndex++)
@@ -506,11 +499,13 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Missing required keyword-only argument
-                        throw PyTypeError.Create($"{CallName(code)}() missing 1 required keyword-only argument: '{paramName}'");
+                        missingKeywordOnly.Add(paramName);
                     }
                 }
             }
+
+            if (missingKeywordOnly.Count > 0)
+                throw PyTypeError.Create($"{CallName(code)}() missing {missingKeywordOnly.Count} required keyword-only {PyVM.MissingText(missingKeywordOnly)}");
 
             // Phase 2: Handle *args (if function has varargs) - CPython 3.12 compatible
             if (hasVarArgs)
@@ -5790,6 +5785,18 @@ namespace SharpPy
 
         // A class has slot_nb_* when __op__ or __rop__ was written in Python somewhere in its MRO.
         // update_one_slot, Objects/typeobject.c.
+        // format_missing: "argument: 'a'", "arguments: 'a' and 'b'", "arguments: 'a', 'b', and 'c'"
+        internal static string MissingText(List<string> names)
+        {
+            var quoted = names.ConvertAll(name => "'" + name + "'");
+            return quoted.Count switch
+            {
+                1 => "argument: " + quoted[0],
+                2 => $"arguments: {quoted[0]} and {quoted[1]}",
+                _ => "arguments: " + string.Join(", ", quoted.GetRange(0, quoted.Count - 1)) + ", and " + quoted[^1],
+            };
+        }
+
         // positional_only_passed_as_keyword
         internal static void RefusePositionalOnly(PyCodeObject code, IDictionary<string, PyObject> keywords)
         {
@@ -6828,17 +6835,13 @@ namespace SharpPy
         /// </summary>
         private static void CheckExceptStarTypeValid(PyObject matchType)
         {
-            if (matchType is PyTuple tuple)
-            {
-                foreach (PyObject item in tuple.Items)
-                    if (!(item is PyType))
-                        throw PyTypeError.Create(
-                            "catching classes that do not inherit from BaseException is not allowed");
-                return;
-            }
-            if (matchType is PyType) return;
-            throw PyTypeError.Create(
-                "catching classes that do not inherit from BaseException is not allowed");
+            var classes = matchType is PyTuple tuple ? tuple.Items : new[] { matchType };
+            foreach (var item in classes)
+                if (item is not PyType type || !DerivesFromBaseException(type))
+                    throw PyTypeError.Create("catching classes that do not inherit from BaseException is not allowed");
+            foreach (var item in classes)
+                if (((PyType)item).IsSubclassOf(PyType.BaseExceptionGroupType) || ReferenceEquals(item, PyType.BaseExceptionGroupType))
+                    throw PyTypeError.Create("catching ExceptionGroup with except* is not allowed. Use except instead.");
         }
 
         /// <summary>

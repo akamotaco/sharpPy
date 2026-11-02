@@ -676,13 +676,8 @@ namespace SharpPy
 
         public override PyObject Divide(PyObject other)
         {
-            var otherValue = other switch
-            {
-                PyFloat otherFloat => otherFloat.Value,
-                PyInt otherInt => (double)otherInt.Value,
-                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for /: 'float' and '{other.GetTypeName()}'")
-            };
+            if (!TryConvertOperand(other, out double otherValue))
+                return PyNotImplemented.Instance;
 
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("float division by zero");
@@ -740,13 +735,8 @@ namespace SharpPy
 
         public override PyObject FloorDivide(PyObject other)
         {
-            var otherValue = other switch
-            {
-                PyFloat otherFloat => otherFloat.Value,
-                PyInt otherInt => (double)otherInt.Value,
-                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for //: 'float' and '{other.GetTypeName()}'")
-            };
+            if (!TryConvertOperand(other, out double otherValue))
+                return PyNotImplemented.Instance;
 
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("float floor division by zero");
@@ -758,13 +748,8 @@ namespace SharpPy
 
         public override PyObject Modulo(PyObject other)
         {
-            var otherValue = other switch
-            {
-                PyFloat otherFloat => otherFloat.Value,
-                PyInt otherInt => (double)otherInt.Value,
-                PyBool otherBool => otherBool.Value ? 1.0 : 0.0,
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for %: 'float' and '{other.GetTypeName()}'")
-            };
+            if (!TryConvertOperand(other, out double otherValue))
+                return PyNotImplemented.Instance;
 
             if (otherValue == 0.0)
                 throw PyZeroDivisionError.Create("float modulo");

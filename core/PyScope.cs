@@ -148,10 +148,10 @@ namespace SharpPy
                 // Exception groups (PEP 654): the second copy of the constructor. The one that
                 // stays lives with the class, transliterating BaseExceptionGroup_new.
                 case "ExceptionGroup":
-                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: false);
+                    return PyBaseExceptionGroup.NewGroup(args, PyType.ExceptionGroupType);
 
                 case "BaseExceptionGroup":
-                    return PyBaseExceptionGroup.NewGroup(args, requestedBase: true);
+                    return PyBaseExceptionGroup.NewGroup(args, PyType.BaseExceptionGroupType);
 
                 default:
                     return base.Call(args, kwargs);

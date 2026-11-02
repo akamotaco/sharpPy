@@ -91,8 +91,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create(
                     $"function takes exactly 1 argument ({args.Length} given)");
-            return NewGroup(new PyObject[] { new PyString(Message), args[0] },
-                            requestedBase: false);
+            return NewGroup(new PyObject[] { new PyString(Message), args[0] }, PyType.BaseExceptionGroupType);
         }
 
         private PyObject SplitImpl(PyObject self, PyObject[] args)
@@ -133,7 +132,23 @@ namespace SharpPy
 
             foreach (var field in new[] { "__traceback__", "__context__", "__cause__", "__suppress_context__" })
                 derived.SetAttribute(field, original.GetAttribute(field));
+            // Each part gets its own list of notes, and only a sequence is copied.
+            var notes = NotesOf(original);
+            if (notes != null && (notes is PyList or PyTuple || notes.LookupSpecialMethodUncached("__getitem__") != null) && notes is not PyDict)
+                derived.SetAttribute("__notes__", new PyList(PySet.IterableItems(notes)));
             return derived;
+        }
+
+        private static PyObject NotesOf(PyObject exception)
+        {
+            try
+            {
+                return exception.GetAttribute("__notes__");
+            }
+            catch (PythonException error) when (error.PyException is PyAttributeError)
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -141,8 +156,11 @@ namespace SharpPy
         /// -> the exception in the rest part (only when the caller wants a rest part). Otherwise
         /// this is a group, so recurse into the members and rebuild both halves through subset().
         /// </summary>
-        private static SplitResult SplitRecursive(PyObject exc, Matcher matcher, bool constructRest)
+        private static SplitResult SplitRecursive(PyObject exc, Matcher matcher, bool constructRest, int depth = 0)
         {
+            // Py_EnterRecursiveCall, C_RECURSION_LIMIT
+            if (depth >= 3000)
+                throw new PythonException(new PyRecursionError("maximum recursion depth exceeded in exceptiongroup_split_recursive"));
             var result = new SplitResult();
 
             if (matcher.Matches(exc))
@@ -163,7 +181,7 @@ namespace SharpPy
 
             for (int i = 0; i < group.Exc.Length; i++)
             {
-                SplitResult inner = SplitRecursive(group.Exc[i], matcher, constructRest);
+                SplitResult inner = SplitRecursive(group.Exc[i], matcher, constructRest, depth + 1);
                 if (inner.Match != null) matchList.Add(inner.Match);
                 if (inner.Rest != null) restList.Add(inner.Rest);
             }
@@ -202,13 +220,14 @@ namespace SharpPy
 
         /// <summary>
         /// is_same_exception_metadata: two exceptions are the same reraise of one original when
-        /// traceback, cause and context are the very same objects. __notes__ has no storage in
-        /// this interpreter yet, so that one field of the comparison is not observable here.
+        /// notes, traceback, cause and context are the very same objects.
         /// </summary>
         internal static bool SameMetadata(PyObject a, PyObject b)
         {
-            if (!(a is PyBaseException x) || !(b is PyBaseException y)) return false;
-            return ReferenceEquals(x.__traceback__, y.__traceback__) &&
+            if (!(PyExceptionSlots.ToTransport(a) is PyBaseException x) ||
+                !(PyExceptionSlots.ToTransport(b) is PyBaseException y)) return false;
+            return ReferenceEquals(NotesOf(a), NotesOf(b)) &&
+                   ReferenceEquals(x.__traceback__, y.__traceback__) &&
                    ReferenceEquals(x.__cause__, y.__cause__) &&
                    ReferenceEquals(x.__context__, y.__context__);
         }
@@ -223,8 +242,7 @@ namespace SharpPy
         /// repr therefore shows ExceptionGroup('', (ValueError('plain'),)) with round brackets.
         /// </summary>
         internal static PyObject Create(string message, PyObject sequence)
-            => NewGroup(new PyObject[] { new PyString(message), sequence },
-                        requestedBase: false);
+            => NewGroup(new PyObject[] { new PyString(message), sequence }, PyType.BaseExceptionGroupType);
 
         /// <summary>BaseExceptionGroup_members and methods, for what a subclass inherits.</summary>
         internal static void InstallOn(PyType type)
@@ -238,18 +256,16 @@ namespace SharpPy
         /// <summary>BaseExceptionGroup_new for a Python subclass: the struct behind the instance.</summary>
         internal static void FillStruct(PyExceptionInstance instance, PyObject[] args)
         {
-            var layout = (PyBaseExceptionGroup)NewGroup(args, !instance.InstanceType.IsSubclassOf(PyType.ExceptionGroupType));
+            var layout = (PyBaseExceptionGroup)NewGroup(args, instance.InstanceType);
             layout.Owner = instance;
             instance.Layout = layout;
         }
 
         /// <summary>
-        /// BaseExceptionGroup_new. requestedBase distinguishes "BaseExceptionGroup(...)" from
-        /// "ExceptionGroup(...)"; without it, a group whose members are all Exception subclasses
-        /// is reported as an ExceptionGroup, which is why ExceptionGroup and
-        /// BaseExceptionGroup('m', [ValueError()]) are the same class.
+        /// BaseExceptionGroup_new: the class asked for decides what may nest, and
+        /// BaseExceptionGroup itself becomes ExceptionGroup when every member is an Exception.
         /// </summary>
-        internal static PyObject NewGroup(PyObject[] callArgs, bool requestedBase)
+        internal static PyObject NewGroup(PyObject[] callArgs, PyType cls)
         {
             if (callArgs.Length != 2)
                 throw PyTypeError.Create(
@@ -269,23 +285,28 @@ namespace SharpPy
                 if (!(PyExceptionSlots.ToTransport(items[i]) is PyBaseException))
                     throw PyValueError.Create(
                         $"Item {i} of second argument (exceptions) is not an exception");
-                // Exception, not BaseException-only. KeyboardInterrupt/SystemExit are the
-                // BaseException-only family; this interpreter does not define those names yet,
-                // which docs/known_gaps.md tracks separately.
-                if (!(PyExceptionSlots.ToTransport(items[i]) is PyException)) nestedBaseExceptions = true;
+                if (!items[i].GetPyType().IsSubclassOf(PyType.ExceptionType))
+                    nestedBaseExceptions = true;
             }
 
             // args is stored as given, so repr() and .args show the sequence object the caller
             // passed, exactly as CPython's BaseException_init does.
-            if (requestedBase)
+            bool isException = cls.IsSubclassOf(PyType.ExceptionType);
+            if (ReferenceEquals(cls, PyType.ExceptionGroupType))
             {
                 if (nestedBaseExceptions)
-                    return new PyBaseExceptionGroup(callArgs, items);
-                return new PyExceptionGroup(callArgs, items);
+                    throw PyTypeError.Create("Cannot nest BaseExceptions in an ExceptionGroup");
             }
-            if (nestedBaseExceptions)
-                throw PyTypeError.Create("Cannot nest BaseExceptions in an ExceptionGroup");
-            return new PyExceptionGroup(callArgs, items);
+            else if (ReferenceEquals(cls, PyType.BaseExceptionGroupType))
+            {
+                // All nested exceptions are Exception subclasses: an ExceptionGroup.
+                isException = !nestedBaseExceptions;
+            }
+            else if (nestedBaseExceptions && isException)
+            {
+                throw PyTypeError.Create($"Cannot nest BaseExceptions in '{cls.Name}'");
+            }
+            return isException ? new PyExceptionGroup(callArgs, items) : new PyBaseExceptionGroup(callArgs, items);
         }
 
         /// <summary>

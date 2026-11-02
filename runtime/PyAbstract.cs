@@ -110,7 +110,11 @@ namespace SharpPy
                 return metaGetItem.Call(new[] { type, key }, null);
             switch (type.LookupSpecial("__class_getitem__"))
             {
-                case null: return type.GetItem(key);
+                case null:
+                    // PyObject_GetItem: type[int], and no other class without __class_getitem__.
+                    if (ReferenceEquals(type, PyType.TypeType) || type is PyTypeMetaclass)
+                        return type.GetItem(key);
+                    throw PyTypeError.Create($"type '{type.Name}' is not subscriptable");
                 case PyBuiltinClassMethod classMethod: return classMethod.Call(new[] { type, key }, null);
                 case IDescriptor descriptor: return descriptor.Get(null, type).Call(new[] { key }, null);
                 case var method: return method.Call(new[] { type, key }, null);

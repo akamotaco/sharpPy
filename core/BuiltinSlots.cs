@@ -193,7 +193,9 @@ namespace SharpPy
             Slot(complex, "__rpow__", (self, args) => Reflected(self, args[0], (a, b) => a.Power(b)));
             Slot(complex, "__neg__", (self, args) => self.Negative());
             Slot(complex, "__pos__", (self, args) => self.Positive());
-            Method(complex, "__complex__", (self, args) => self);
+            // complex___complex___impl: an exact complex, a subclass gives up its type.
+            Method(complex, "__complex__", (self, args) => self.GetType() == typeof(PyComplex)
+                ? self : new PyComplex(((PyComplex)self).Real, ((PyComplex)self).Imag));
         }
 
         private static PyObject StoredText(PyObject self) =>

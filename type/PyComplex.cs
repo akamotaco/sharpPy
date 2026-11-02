@@ -228,16 +228,39 @@ namespace SharpPy
 
         #region Hash and Equality
 
-        public override int ToHash()
+        // complex_hash: _PyHASH_IMAG is 1000003.
+        internal override long GetPythonHash()
         {
-            // Python complex hash algorithm
-            if (Imag == 0.0)
+            long combined = unchecked(new PyFloat(Real).PythonHash() + 1000003L * new PyFloat(Imag).PythonHash());
+            return combined == -1 ? -2 : combined;
+        }
+
+        public override int ToHash() => unchecked((int)GetPythonHash());
+
+        // complex_richcompare
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            if (op != CompareOp.EQ && op != CompareOp.NE)
+                return PyNotImplemented.Instance;
+            bool equal;
+            switch (other)
             {
-                // 실수부만 있는 경우 float hash와 동일
-                return new PyFloat(Real).ToHash();
+                case PyInt or PyBool or PyIntSubclass:
+                    if (Imag == 0.0)
+                        return Compare(new PyFloat(Real), other, op);
+                    equal = false;
+                    break;
+                case PyFloat or PyFloatSubclass:
+                    ToComplex(other, out double r, out _);
+                    equal = Real == r && Imag == 0.0;
+                    break;
+                case PyComplex complex:
+                    equal = Real == complex.Real && Imag == complex.Imag;
+                    break;
+                default:
+                    return PyNotImplemented.Instance;
             }
-            
-            return HashCode.Combine(Real, Imag);
+            return PyBool.FromBool(equal == (op == CompareOp.EQ));
         }
 
         protected override PyObject PyEquals(PyObject other)
@@ -263,170 +286,152 @@ namespace SharpPy
 
         #region Arithmetic Operations
 
-        public override PyObject Add(PyObject other)
+        // to_complex: an int or a float, as the C structure; NotImplemented for anything else.
+        private static bool ToComplex(PyObject value, out double real, out double imag)
         {
-            // CPython 3.12: Objects/complexobject.c:305-328 - complex_add
-            return other switch
+            real = imag = 0.0;
+            switch (value)
             {
-                PyComplex otherComplex => new PyComplex(
-                    Real + otherComplex.Real,
-                    Imag + otherComplex.Imag),
-                PyFloat otherFloat => new PyComplex(
-                    Real + otherFloat.Value, Imag),
-                PyInt otherInt => new PyComplex(
-                    Real + (double)otherInt.Value, Imag),
-                PyBool otherBool => new PyComplex(
-                    Real + (otherBool.Value ? 1.0 : 0.0), Imag),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for +: 'complex' and '{other.GetTypeName()}'")
-            };
+                case PyComplex complex:
+                    real = complex.Real;
+                    imag = complex.Imag;
+                    return true;
+                case PyFloat exact:
+                    real = exact.Value;
+                    return true;
+                case PyFloatSubclass subclass:
+                    real = subclass.Value;
+                    return true;
+                case PyInt or PyBool or PyIntSubclass:
+                    real = value.AsFloat().Value;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
-        public override PyObject Subtract(PyObject other)
-        {
-            // CPython 3.12: Objects/complexobject.c:330-353 - complex_sub
-            return other switch
-            {
-                PyComplex otherComplex => new PyComplex(
-                    Real - otherComplex.Real,
-                    Imag - otherComplex.Imag),
-                PyFloat otherFloat => new PyComplex(
-                    Real - otherFloat.Value, Imag),
-                PyInt otherInt => new PyComplex(
-                    Real - (double)otherInt.Value, Imag),
-                PyBool otherBool => new PyComplex(
-                    Real - (otherBool.Value ? 1.0 : 0.0), Imag),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for -: 'complex' and '{other.GetTypeName()}'")
-            };
-        }
+        public override PyObject Add(PyObject other) =>
+            ToComplex(other, out double r, out double i) ? new PyComplex(Real + r, Imag + i) : PyNotImplemented.Instance;
 
-        public override PyObject Multiply(PyObject other)
+        public override PyObject Subtract(PyObject other) =>
+            ToComplex(other, out double r, out double i) ? new PyComplex(Real - r, Imag - i) : PyNotImplemented.Instance;
+
+        public override PyObject Multiply(PyObject other) =>
+            ToComplex(other, out double r, out double i)
+                ? new PyComplex(Real * r - Imag * i, Real * i + Imag * r) : PyNotImplemented.Instance;
+
+        // _Py_c_quot, false for EDOM
+        private static bool Quotient(double ar, double ai, double br, double bi, out double real, out double imag)
         {
-            // CPython 3.12: Objects/complexobject.c:279-303 - complex_mul
-            return other switch
+            double absReal = Math.Abs(br), absImag = Math.Abs(bi);
+            if (absReal >= absImag)
             {
-                PyComplex otherComplex => new PyComplex(
-                    Real * otherComplex.Real - Imag * otherComplex.Imag,
-                    Real * otherComplex.Imag + Imag * otherComplex.Real),
-                PyFloat otherFloat => new PyComplex(
-                    Real * otherFloat.Value, Imag * otherFloat.Value),
-                PyInt otherInt => new PyComplex(
-                    Real * (double)otherInt.Value, Imag * (double)otherInt.Value),
-                PyBool otherBool => otherBool.Value ? this : new PyComplex(0, 0),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for *: 'complex' and '{other.GetTypeName()}'")
-            };
+                if (absReal == 0.0)
+                {
+                    real = imag = 0.0;
+                    return false;
+                }
+                double ratio = bi / br;
+                double denominator = br + bi * ratio;
+                real = (ar + ai * ratio) / denominator;
+                imag = (ai - ar * ratio) / denominator;
+            }
+            else if (absImag >= absReal)
+            {
+                double ratio = br / bi;
+                double denominator = br * ratio + bi;
+                real = (ar * ratio + ai) / denominator;
+                imag = (ai * ratio - ar) / denominator;
+            }
+            else
+            {
+                real = imag = PyFloat.QuietNaN;
+            }
+            return true;
         }
 
         public override PyObject Divide(PyObject other)
         {
-            // CPython 3.12: Objects/complexobject.c:206-241 - complex_div
-            return other switch
-            {
-                PyComplex otherComplex => DivideComplex(otherComplex),
-                PyFloat otherFloat => CheckZeroDivision(otherFloat.Value) ?
-                    new PyComplex(Real / otherFloat.Value, Imag / otherFloat.Value) :
-                    throw PyZeroDivisionError.Create("complex division by zero"),
-                PyInt otherInt => CheckZeroDivision((double)otherInt.Value) ?
-                    new PyComplex(Real / (double)otherInt.Value, Imag / (double)otherInt.Value) :
-                    throw PyZeroDivisionError.Create("complex division by zero"),
-                PyBool otherBool => otherBool.Value ?
-                    this : throw PyZeroDivisionError.Create("complex division by zero"),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for /: 'complex' and '{other.GetTypeName()}'")
-            };
-        }
-
-        private PyComplex DivideComplex(PyComplex other)
-        {
-            var denominator = other.Real * other.Real + other.Imag * other.Imag;
-
-            if (denominator == 0.0)
+            if (!ToComplex(other, out double r, out double i))
+                return PyNotImplemented.Instance;
+            if (!Quotient(Real, Imag, r, i, out double real, out double imag))
                 throw PyZeroDivisionError.Create("complex division by zero");
-
-            var realPart = (Real * other.Real + Imag * other.Imag) / denominator;
-            var imagPart = (Imag * other.Real - Real * other.Imag) / denominator;
-
-            return new PyComplex(realPart, imagPart);
+            return new PyComplex(real, imag);
         }
 
-        private bool CheckZeroDivision(double value) => value != 0.0;
+        private static (double, double) Product(double ar, double ai, double br, double bi) =>
+            (ar * br - ai * bi, ar * bi + ai * br);
 
+        // c_powu
+        private (double, double) IntegralPower(long n)
+        {
+            double rr = 1.0, ri = 0.0, pr = Real, pi = Imag;
+            long mask = 1;
+            while (mask > 0 && n >= mask)
+            {
+                if ((n & mask) != 0)
+                    (rr, ri) = Product(rr, ri, pr, pi);
+                mask <<= 1;
+                (pr, pi) = Product(pr, pi, pr, pi);
+            }
+            return (rr, ri);
+        }
+
+        // complex_pow with z None
         public override PyObject Power(PyObject other)
         {
-            // CPython 3.12: Objects/complexobject.c:243-277 - complex_pow
-            return other switch
+            if (!ToComplex(other, out double br, out double bi))
+                return PyNotImplemented.Instance;
+            bool domain = false;
+            double real, imag;
+            if (bi == 0.0 && br == Math.Floor(br) && Math.Abs(br) <= 100.0)
             {
-                PyComplex otherComplex => PowerComplex(otherComplex),
-                PyFloat otherFloat => PowerComplex(new PyComplex(otherFloat.Value)),
-                PyInt otherInt => PowerComplex(new PyComplex((double)otherInt.Value)),
-                PyBool otherBool => PowerComplex(new PyComplex(otherBool.Value ? 1.0 : 0.0)),
-                _ => throw PyTypeError.Create($"unsupported operand type(s) for **: 'complex' and '{other.GetTypeName()}'")
-            };
-        }
-
-        private PyComplex PowerIntegral(int n)
-        {
-            if (n == 0)
-                return new PyComplex(1.0, 0.0);
-            bool negative = n < 0;
-            long e = negative ? -(long)n : n;
-            double xr = 1.0, xi = 0.0;
-            double br = Real, bi = Imag;
-            while (e > 0)
-            {
-                if ((e & 1L) != 0)
+                // c_powi
+                long n = (long)br;
+                if (n > 0)
                 {
-                    (xr, xi) = ComplexMul(xr, xi, br, bi);
+                    (real, imag) = IntegralPower(n);
                 }
-                e >>= 1;
-                if (e > 0)
+                else
                 {
-                    (br, bi) = ComplexMul(br, bi, br, bi);
+                    var (dr, di) = IntegralPower(-n);
+                    domain = !Quotient(1.0, 0.0, dr, di, out real, out imag);
                 }
             }
-            if (negative)
+            else if (br == 0.0 && bi == 0.0)
             {
-                double d = xr * xr + xi * xi;
-                if (d == 0.0)
-                    throw PyZeroDivisionError.Create("0.0 to a negative or complex power");
-                xr /= d;
-                xi = -xi / d;
+                real = 1.0;
+                imag = 0.0;
             }
-            return new PyComplex(xr, xi);
-        }
-
-        private static (double, double) ComplexMul(double ar, double ai, double br, double bi)
-            => (ar * br - ai * bi, ar * bi + ai * br);
-
-        private PyComplex PowerComplex(PyComplex exponent)
-        {
-            // CPython 3.12: Objects/complexobject.c complex_pow uses c_powi (exact
-            // repeated multiplication) for small integral exponents.
-            if (exponent.Imag == 0.0 && exponent.Real == Math.Floor(exponent.Real)
-                && Math.Abs(exponent.Real) <= 100.0)
+            else if (Real == 0.0 && Imag == 0.0)
             {
-                return PowerIntegral((int)exponent.Real);
+                domain = bi != 0.0 || br < 0.0;
+                real = imag = 0.0;
             }
-
-            // z^w = exp(w * log(z))
-            if (Real == 0.0 && Imag == 0.0)
+            else
             {
-                if (exponent.Real == 0.0 && exponent.Imag == 0.0)
-                    return new PyComplex(1.0, 0.0); // 0^0 = 1 in Python
-                if (exponent.Real > 0.0)
-                    return new PyComplex(0.0, 0.0);
+                // _Py_c_pow
+                double magnitude = Abs(Real, Imag);
+                double length = Math.Pow(magnitude, br);
+                double angle = Math.Atan2(Imag, Real);
+                double phase = angle * br;
+                if (bi != 0.0)
+                {
+                    length *= Math.Exp(-angle * bi);
+                    phase += bi * Math.Log(magnitude);
+                }
+                real = length * Math.Cos(phase);
+                imag = length * Math.Sin(phase);
+            }
+            if (domain)
                 throw PyZeroDivisionError.Create("0.0 to a negative or complex power");
-            }
-
-            var magnitude = Math.Sqrt(Real * Real + Imag * Imag);
-            var phase = Math.Atan2(Imag, Real);
-            
-            var logMagnitude = Math.Log(magnitude);
-            var newMagnitude = Math.Exp(exponent.Real * logMagnitude - exponent.Imag * phase);
-            var newPhase = exponent.Imag * logMagnitude + exponent.Real * phase;
-            
-            return new PyComplex(
-                newMagnitude * Math.Cos(newPhase),
-                newMagnitude * Math.Sin(newPhase));
+            if (double.IsInfinity(real) || double.IsInfinity(imag))
+                throw PyOverflowError.Create("complex exponentiation");
+            return new PyComplex(real, imag);
         }
+
+        // hypot
+        private static double Abs(double real, double imag) => System.Numerics.Complex.Abs(new System.Numerics.Complex(real, imag));
 
         public PyObject Negate()
         {
@@ -438,9 +443,17 @@ namespace SharpPy
             return new PyComplex(Real, Imag);
         }
 
+        // complex_abs, _Py_c_abs
         public PyObject Absolute()
         {
-            return new PyFloat(Math.Sqrt(Real * Real + Imag * Imag));
+            if (double.IsInfinity(Real) || double.IsInfinity(Imag))
+                return new PyFloat(double.PositiveInfinity);
+            if (double.IsNaN(Real) || double.IsNaN(Imag))
+                return new PyFloat(PyFloat.QuietNaN);
+            double result = Abs(Real, Imag);
+            if (double.IsInfinity(result))
+                throw PyOverflowError.Create("absolute value too large");
+            return new PyFloat(result);
         }
 
         #endregion
